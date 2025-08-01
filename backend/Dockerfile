@@ -21,4 +21,4 @@ RUN npm run db:generate
 EXPOSE $PORT
 
 # Start with tsx (runs TypeScript directly, no build needed)
-CMD ["sh", "-c", "npm run db:migrate:deploy && npx tsx src/app.ts"]
+CMD ["sh", "-c", "echo 'Starting backend...' && npm run db:migrate:deploy && echo 'Migrations complete, starting app...' && npx tsx src/app.ts"]
