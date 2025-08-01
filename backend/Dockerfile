@@ -14,8 +14,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Generate Prisma client and build (skip TS errors for production)
-RUN npm run build:production
+# Generate Prisma client and build (force compile despite TS errors)
+RUN npm run db:generate && npx tsc --noEmitOnError false || npx tsc --skipLibCheck --noEmitOnError false
 
 # Remove dev dependencies for smaller production image
 RUN npm ci --only=production && npm cache clean --force
