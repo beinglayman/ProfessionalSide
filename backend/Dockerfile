@@ -1,4 +1,4 @@
-# Use Node.js 18 Alpine
+# Use Node.js 18 Alpine - Updated for tsx runtime
 FROM node:18-alpine
 
 # Set working directory
