@@ -20,5 +20,9 @@ RUN npm run build
 # Expose port (Railway uses PORT env var)
 EXPOSE 4173
 
-# Start the application - Railway will add host/port automatically
-CMD ["npm", "run", "preview"]
+# Copy and make start script executable
+COPY start.sh ./
+RUN chmod +x start.sh
+
+# Start the application with custom script
+CMD ["./start.sh"]
