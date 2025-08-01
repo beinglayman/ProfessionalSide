@@ -20,5 +20,5 @@ RUN npm run build
 # Expose port (Railway uses PORT env var)
 EXPOSE 4173
 
-# Start the application with fallback port
-CMD ["sh", "-c", "PORT=${PORT:-4173} npm run preview -- --host 0.0.0.0 --port $PORT"]
+# Start the application with explicit port
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
