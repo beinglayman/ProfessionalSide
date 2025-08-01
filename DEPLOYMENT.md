@@ -20,8 +20,8 @@
 2. **Set Environment Variables** (in Railway dashboard):
    ```
    NODE_ENV=production
-   JWT_SECRET=your-super-secure-jwt-secret-here
-   JWT_REFRESH_SECRET=your-super-secure-refresh-secret-here
+   JWT_SECRET=8f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a29
+   JWT_REFRESH_SECRET=9g8f7e6d5c4b3a2919g8f7e6d5c4b3a2919g8f7e6d5c4b
    JWT_EXPIRES_IN=15m
    JWT_REFRESH_EXPIRES_IN=7d
    API_PORT=3002
@@ -29,7 +29,7 @@
    RATE_LIMIT_MAX_REQUESTS=100
    MAX_FILE_SIZE=10485760
    LOG_LEVEL=info
-   SESSION_SECRET=your-session-secret-here
+   SESSION_SECRET=h9i8j7k6l5m4n3o2p1q0r9s8t7u6v5w4x3y2z1a0b9c8d7
    ```
 
 3. **Configure Root Directory**:
