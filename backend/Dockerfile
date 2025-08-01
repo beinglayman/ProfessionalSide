@@ -1,5 +1,5 @@
-# Use Node.js 18 Alpine - Updated for tsx runtime
-FROM node:18-alpine
+# Use regular Node.js 18 (not Alpine) for better Prisma compatibility
+FROM node:18
 
 # Set working directory
 WORKDIR /app
