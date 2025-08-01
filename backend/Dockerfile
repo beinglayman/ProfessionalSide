@@ -6,15 +6,22 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY prisma ./prisma
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev deps for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Expose port
+# Generate Prisma client and build
+RUN npm run build
+
+# Remove dev dependencies for smaller production image
+RUN npm ci --only=production && npm cache clean --force
+
+# Expose port (Railway uses PORT env var)
 EXPOSE $PORT
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["npm", "run", "start:production"]
