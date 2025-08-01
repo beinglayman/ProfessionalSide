@@ -20,5 +20,5 @@ RUN npm run db:generate
 # Expose port (Railway uses PORT env var)
 EXPOSE $PORT
 
-# Start with tsx (runs TypeScript directly, no build needed)
-CMD ["sh", "-c", "echo 'Starting backend...' && npm run db:migrate:deploy && echo 'Migrations complete, starting app...' && npx tsx src/app.ts"]
+# Start with tsx (runs TypeScript directly, no build needed)  
+CMD ["sh", "-c", "npm run db:migrate:deploy && NODE_ENV=production npx tsx src/app.ts"]
