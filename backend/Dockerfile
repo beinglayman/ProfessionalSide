@@ -14,14 +14,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Generate Prisma client and build (force compile despite TS errors)
-RUN npm run db:generate && npx tsc --noEmitOnError false || npx tsc --skipLibCheck --noEmitOnError false
-
-# Remove dev dependencies for smaller production image
-RUN npm ci --only=production && npm cache clean --force
+# Generate Prisma client only
+RUN npm run db:generate
 
 # Expose port (Railway uses PORT env var)
 EXPOSE $PORT
 
-# Start the application
-CMD ["npm", "run", "start:production"]
+# Start with tsx (runs TypeScript directly, no build needed)
+CMD ["sh", "-c", "npm run db:migrate:deploy && npx tsx src/app.ts"]
