@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs_18", "npm"]
+
+[phases.build]
+cmds = [
+  "npm ci",
+  "npm run db:generate", 
+  "npm run build"
+]
+
+[phases.start]
+cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Profile Data</title>
+</head>
+<body>
+    <h1>Profile Data Debug</h1>
+    <button onclick="checkProfileData()">Get Profile Data</button>
+    <div id="output"></div>
+
+    <script>
+        async function checkProfileData() {
+            const token = localStorage.getItem('inchronicle_access_token');
+            console.log('Token:', token);
+            
+            if (!token) {
+                document.getElementById('output').innerHTML = '<p>No access token found</p>';
+                return;
+            }
+            
+            try {
+                // Check raw backend response
+                const response = await fetch('http://localhost:3001/api/v1/users/profile/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const rawData = await response.json();
+                console.log('Raw backend response:', rawData);
+                
+                // Check what profile API service returns
+                const profileModule = await import('./src/services/profile-api.service.js');
+                const profile = await profileModule.profileApiService.getProfile();
+                console.log('Profile API service response:', profile);
+                
+                // Check what onboarding service returns
+                const onboardingModule = await import('./src/services/onboarding-clean.service.js');
+                const onboardingData = await onboardingModule.onboardingCleanService.getOnboardingData();
+                console.log('Onboarding service response:', onboardingData);
+                
+                document.getElementById('output').innerHTML = `
+                    <h2>Raw Backend Data:</h2>
+                    <pre>${JSON.stringify(rawData, null, 2)}</pre>
+                    
+                    <h2>Profile API Service Data:</h2>
+                    <pre>${JSON.stringify(profile, null, 2)}</pre>
+                    
+                    <h2>Onboarding Service Data:</h2>
+                    <pre>${JSON.stringify(onboardingData, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('output').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

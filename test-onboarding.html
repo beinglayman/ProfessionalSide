@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Onboarding Data Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 10px; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Onboarding Data Test</h1>
+    
+    <div class="section">
+        <h3>1. Test Data Saving</h3>
+        <button onclick="testSaveData()">Save Test Data</button>
+        <div id="save-result" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>2. Test Data Loading</h3>
+        <button onclick="testLoadData()">Load Data</button>
+        <div id="load-result" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>3. Check LocalStorage</h3>
+        <button onclick="checkLocalStorage()">Check LocalStorage</button>
+        <div id="storage-result" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>4. Clear All Data</h3>
+        <button onclick="clearAllData()">Clear All Data</button>
+        <div id="clear-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001/api/v1';
+        
+        const testData = {
+            fullName: 'Test User',
+            currentTitle: 'Test Engineer', 
+            currentCompany: 'Test Corp',
+            industry: 'Technology',
+            yearsOfExperience: 5,
+            location: 'Test City',
+            profileImageUrl: '',
+            professionalSummary: 'This is a test summary',
+            specializations: ['Frontend Development'],
+            careerHighlights: 'Test achievements',
+            skills: [],
+            topSkills: ['JavaScript'],
+            workExperiences: [],
+            education: [],
+            certifications: [],
+            careerGoals: ['Test goal'],
+            professionalInterests: ['Test interest']
+        };
+
+        async function testSaveData() {
+            const resultDiv = document.getElementById('save-result');
+            resultDiv.innerHTML = 'Saving...';
+            
+            try {
+                // First try localStorage
+                console.log('=== TESTING LOCALSTORAGE SAVE ===');
+                localStorage.setItem('mock_onboarding_demo_user', JSON.stringify(testData));
+                console.log('✅ LocalStorage save successful');
+                
+                // Check if we have auth token for API test
+                const token = localStorage.getItem('inchronicle_access_token');
+                if (!token) {
+                    resultDiv.innerHTML = '✅ LocalStorage saved successfully<br>⚠️ No auth token - API test skipped';
+                    resultDiv.className = 'result success';
+                    return;
+                }
+                
+                // Try API save
+                console.log('=== TESTING API SAVE ===');
+                const response = await fetch(`${API_BASE_URL}/users/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        name: testData.fullName,
+                        title: testData.currentTitle,
+                        company: testData.currentCompany,
+                        location: testData.location,
+                        onboardingData: testData
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ API save successful');
+                    resultDiv.innerHTML = '✅ Both LocalStorage and API saves successful!';
+                    resultDiv.className = 'result success';
+                } else {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
+            } catch (error) {
+                console.error('❌ Save failed:', error);
+                resultDiv.innerHTML = `❌ Save failed: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testLoadData() {
+            const resultDiv = document.getElementById('load-result');
+            resultDiv.innerHTML = 'Loading...';
+            
+            try {
+                // Try API first
+                const token = localStorage.getItem('inchronicle_access_token');
+                if (token) {
+                    console.log('=== TESTING API LOAD ===');
+                    const response = await fetch(`${API_BASE_URL}/users/profile/me`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('✅ API load successful:', data);
+                        resultDiv.innerHTML = `✅ API data loaded:<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                        resultDiv.className = 'result success';
+                        return;
+                    }
+                }
+                
+                // Fallback to localStorage
+                console.log('=== TESTING LOCALSTORAGE LOAD ===');
+                const data = localStorage.getItem('mock_onboarding_demo_user');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    console.log('✅ LocalStorage load successful:', parsed);
+                    resultDiv.innerHTML = `✅ LocalStorage data loaded:<br><pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+                    resultDiv.className = 'result success';
+                } else {
+                    throw new Error('No data found');
+                }
+                
+            } catch (error) {
+                console.error('❌ Load failed:', error);
+                resultDiv.innerHTML = `❌ Load failed: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function checkLocalStorage() {
+            const resultDiv = document.getElementById('storage-result');
+            
+            const keys = [
+                'mock_onboarding_demo_user',
+                'onboarding_data', 
+                'inchronicle_access_token'
+            ];
+            
+            let html = '<strong>LocalStorage Contents:</strong><br>';
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    html += `✅ ${key}: ${value.length} characters<br>`;
+                } else {
+                    html += `❌ ${key}: not found<br>`;
+                }
+            });
+            
+            resultDiv.innerHTML = html;
+            resultDiv.className = 'result';
+        }
+
+        function clearAllData() {
+            const resultDiv = document.getElementById('clear-result');
+            
+            try {
+                localStorage.removeItem('mock_onboarding_demo_user');
+                localStorage.removeItem('onboarding_data');
+                console.log('✅ LocalStorage cleared');
+                
+                resultDiv.innerHTML = '✅ All test data cleared';
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Clear failed: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        // Auto-check localStorage on load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

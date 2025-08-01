@@ -1,0 +1,934 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE USER MODELS
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  title     String?
+  bio       String?
+  location  String?
+  company   String?
+  industry  String?
+  yearsOfExperience Int? 
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profile relationships
+  profile            UserProfile?
+  skills             UserSkill[]
+  workspaceMemberships WorkspaceMember[]
+  sentWorkspaceInvites WorkspaceInvitation[] @relation("WorkspaceInviter")
+  workspaceFiles     WorkspaceFile[] @relation("WorkspaceFiles")
+  workspaceCategories WorkspaceCategory[] @relation("WorkspaceCategories")
+  
+  // Journal relationships
+  journalEntries     JournalEntry[]
+  entryCollaborations JournalCollaborator[]
+  entryReviews       JournalReviewer[]
+  entryLikes         JournalLike[]
+  entryComments      JournalComment[]
+  entryAppreciates   JournalAppreciate[]
+  entryRechronicles  JournalRechronicle[]
+
+  // Network relationships
+  sentConnections    NetworkConnection[] @relation("ConnectionSender")
+  receivedConnections NetworkConnection[] @relation("ConnectionReceiver")
+  networkPolicies    NetworkPolicy[]
+
+  // Goals and achievements
+  goals              Goal[]
+  achievements       Achievement[]
+  achievementAttestations AchievementAttestation[]
+
+  // Analytics
+  entryViews         JournalEntryAnalytics[]
+
+  // Notifications
+  sentNotifications     Notification[] @relation("NotificationSender")
+  receivedNotifications Notification[] @relation("NotificationRecipient")
+  notificationPreferences NotificationPreferences?
+
+  // Professional data relationships
+  workExperiences       WorkExperience[]
+  education             Education[]
+  certifications        Certification[]
+  languages             UserLanguage[]
+  
+  // Onboarding data
+  onboardingData        OnboardingData?
+
+  // Audit logs
+  auditLogs             AuditLog[] @relation("UserAuditLogs")
+  adminAuditLogs        AuditLog[] @relation("AdminAuditLogs")
+  securityEvents        SecurityEvent[] @relation("UserSecurityEvents")
+  resolvedSecurityEvents SecurityEvent[] @relation("ResolvedSecurityEvents")
+
+  @@map("users")
+}
+
+model UserProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  joinedDate       DateTime  @default(now())
+  lastActiveAt     DateTime  @default(now())
+  profileCompleteness Int    @default(0)
+  
+  // Privacy settings
+  profileVisibility String   @default("network") // public, network
+  showEmail        Boolean   @default(false)
+  showLocation     Boolean   @default(true)
+  showCompany      Boolean   @default(true)
+  showConnections  Boolean   @default(true)
+  allowSearchEngineIndexing Boolean @default(false)
+  
+  // Professional info - moved to dedicated tables
+  // experience, education, certifications moved to separate models
+  
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_profiles")
+}
+
+// ============================================================================
+// SKILL MODELS
+// ============================================================================
+
+model Skill {
+  id          String      @id
+  name        String      @unique
+  category    String?     // Technical, Soft, Industry, etc.
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  userSkills    UserSkill[]
+  workTypeSkills WorkTypeSkill[]
+  
+  @@map("Skill")
+}
+
+// ============================================================================
+// REFERENCE DATA MODELS
+// ============================================================================
+
+model FocusArea {
+  id          String        @id
+  label       String
+  description String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  workCategories WorkCategory[]
+  
+  @@map("FocusArea")
+}
+
+model WorkCategory {
+  id           String      @id
+  label        String
+  focusAreaId  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  focusArea    FocusArea   @relation(fields: [focusAreaId], references: [id], onDelete: Cascade)
+  workTypes    WorkType[]
+  
+  @@map("WorkCategory")
+}
+
+model WorkType {
+  id              String    @id
+  label           String
+  workCategoryId  String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  workCategory    WorkCategory    @relation(fields: [workCategoryId], references: [id], onDelete: Cascade)
+  workTypeSkills  WorkTypeSkill[]
+  
+  @@map("WorkType")
+}
+
+model WorkTypeSkill {
+  id         String    @id @default(cuid())
+  workTypeId String
+  skillId    String
+  createdAt  DateTime  @default(now())
+  
+  workType   WorkType  @relation(fields: [workTypeId], references: [id], onDelete: Cascade)
+  skill      Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  @@unique([workTypeId, skillId])
+  @@map("WorkTypeSkill")
+}
+
+model UserSkill {
+  id            String    @id @default(cuid())
+  userId        String
+  skillId       String
+  level         String    // beginner, intermediate, advanced, expert
+  endorsements  Int       @default(0)
+  projects      Int       @default(0)
+  startDate     DateTime?
+  yearsOfExp    Int       @default(0)
+  isVisible     Boolean   @default(true)
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill         Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, skillId])
+  @@map("user_skills")
+}
+
+// ============================================================================
+// ORGANIZATION & WORKSPACE MODELS
+// ============================================================================
+
+model Organization {
+  id          String      @id @default(cuid())
+  name        String
+  domain      String?     @unique
+  logo        String?
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  workspaces  Workspace[]
+  
+  @@map("organizations")
+}
+
+model Workspace {
+  id             String    @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  organization   Organization?    @relation(fields: [organizationId], references: [id])
+  members        WorkspaceMember[]
+  invitations    WorkspaceInvitation[]
+  journalEntries JournalEntry[]
+  goals          Goal[]
+  files          WorkspaceFile[]
+  categories     WorkspaceCategory[]
+  
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        String    @default("member") // owner, admin, editor, viewer
+  permissions Json?     // Custom permissions object
+  joinedAt    DateTime  @default(now())
+  isActive    Boolean   @default(true)
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, workspaceId])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvitation {
+  id          String    @id @default(cuid())
+  email       String
+  name        String
+  workspaceId String
+  inviterId   String
+  role        String    @default("editor") // admin, editor, viewer
+  permissions Json?     // Custom permissions object
+  message     String?   // Personal message from inviter
+  token       String    @unique
+  status      String    @default("pending") // pending, accepted, declined, expired
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviter     User      @relation("WorkspaceInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  
+  @@map("workspace_invitations")
+}
+
+model WorkspaceFile {
+  id            String    @id @default(cuid())
+  name          String    // Display name
+  originalName  String    // Original filename
+  size          Int       // File size in bytes
+  mimeType      String    // MIME type
+  url           String    // Storage URL/path
+  category      String?   // Design, Code, Document, etc.
+  description   String?   // Optional description
+  workspaceId   String
+  uploadedById  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy    User      @relation("WorkspaceFiles", fields: [uploadedById], references: [id], onDelete: Cascade)
+  
+  @@map("workspace_files")
+}
+
+model WorkspaceCategory {
+  id          String    @id @default(cuid())
+  name        String    // Category name (e.g., "Marketing Assets")
+  description String?   // Optional description
+  color       String    @default("blue") // Color theme for UI
+  workspaceId String
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("WorkspaceCategories", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  @@unique([workspaceId, name]) // Prevent duplicate category names within workspace
+  @@map("workspace_categories")
+}
+
+// ============================================================================
+// JOURNAL ENTRY MODELS
+// ============================================================================
+
+model JournalEntry {
+  id              String    @id @default(cuid())
+  title           String
+  description     String
+  fullContent     String    // Full content for workspace view
+  abstractContent String?   // Sanitized content for network view
+  
+  // Metadata
+  authorId        String
+  workspaceId     String
+  visibility      String    @default("workspace") // private, workspace, network
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  
+  // Content organization
+  category        String?
+  tags            String[]  @default([])
+  skills          String[]  @default([])
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastModified    DateTime  @default(now())
+  
+  // Relationships
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  collaborators   JournalCollaborator[]
+  reviewers       JournalReviewer[]
+  artifacts       JournalArtifact[]
+  outcomes        JournalOutcome[]
+  goalLinks       GoalJournalLink[]
+  
+  // Social interactions
+  likes           JournalLike[]
+  comments        JournalComment[]
+  appreciates     JournalAppreciate[]
+  rechronicles    JournalRechronicle[]
+  
+  // Analytics
+  analytics       JournalEntryAnalytics[]
+  
+  @@map("journal_entries")
+}
+
+model JournalCollaborator {
+  id       String @id @default(cuid())
+  entryId  String
+  userId   String
+  role     String @default("collaborator")
+  addedAt  DateTime @default(now())
+  
+  entry    JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([entryId, userId])
+  @@map("journal_collaborators")
+}
+
+model JournalReviewer {
+  id         String @id @default(cuid())
+  entryId    String
+  userId     String
+  department String?
+  addedAt    DateTime @default(now())
+  
+  entry      JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([entryId, userId])
+  @@map("journal_reviewers")
+}
+
+model JournalArtifact {
+  id       String @id @default(cuid())
+  entryId  String
+  name     String
+  type     String // code, document, design, video, link
+  url      String
+  size     String?
+  metadata String? // JSON string for additional metadata
+  uploadedAt DateTime @default(now())
+  
+  entry    JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  
+  @@map("journal_artifacts")
+}
+
+model JournalOutcome {
+  id          String @id @default(cuid())
+  entryId     String
+  category    String // performance, technical, user-experience, business
+  title       String
+  description String
+  highlight   String?
+  metrics     String? // JSON string for metrics data
+  
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  
+  @@map("journal_outcomes")
+}
+
+// ============================================================================
+// SOCIAL INTERACTION MODELS
+// ============================================================================
+
+model JournalLike {
+  id      String @id @default(cuid())
+  entryId String
+  userId  String
+  likedAt DateTime @default(now())
+  
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([entryId, userId])
+  @@map("journal_likes")
+}
+
+model JournalComment {
+  id        String   @id @default(cuid())
+  entryId   String
+  userId    String
+  content   String
+  parentId  String?  // For threaded comments
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  entry     JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    JournalComment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   JournalComment[] @relation("CommentReplies")
+  
+  @@map("journal_comments")
+}
+
+model JournalAppreciate {
+  id           String @id @default(cuid())
+  entryId      String
+  userId       String
+  appreciatedAt DateTime @default(now())
+  
+  entry        JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([entryId, userId])
+  @@map("journal_appreciates")
+}
+
+model JournalRechronicle {
+  id            String @id @default(cuid())
+  entryId       String
+  userId        String
+  comment       String?
+  rechronicledAt DateTime @default(now())
+  
+  entry         JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([entryId, userId])
+  @@map("journal_rechronicles")
+}
+
+// ============================================================================
+// NETWORK CONNECTION MODELS
+// ============================================================================
+
+model NetworkConnection {
+  id                    String   @id @default(cuid())
+  senderId              String
+  receiverId            String
+  status                String   @default("pending") // pending, accepted, rejected, blocked
+  tier                  String   @default("extended") // core, extended, none
+  context               String?  // workspace-collaborator, followed-professional, industry-contact
+  autoAdded             Boolean  @default(false)
+  sharedWorkspaces      String[] @default([])
+  lastInteractionAt     DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  sender                User     @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver              User     @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@unique([senderId, receiverId])
+  @@map("network_connections")
+}
+
+model NetworkPolicy {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  autoAddPolicy     String   @default("auto-extended") // auto-core, auto-extended, manual, disabled
+  coreRequirements  String[] @default(["direct-collaboration"])
+  notifyOnConnection Boolean  @default(true)
+  notifyOnPromotion Boolean  @default(true)
+  allowAutoAdd      Boolean  @default(true)
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("network_policies")
+}
+
+// ============================================================================
+// GOALS & ACHIEVEMENTS MODELS
+// ============================================================================
+
+model Goal {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  targetDate      DateTime?
+  completed       Boolean   @default(false)
+  completedDate   DateTime?
+  progress        Int       @default(0) // 0-100
+  category        String?
+  priority        String    @default("medium") // low, medium, high
+  visibility      String    @default("private") // private, workspace, network
+  
+  // Relationships
+  userId          String
+  workspaceId     String?
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       Workspace? @relation(fields: [workspaceId], references: [id])
+  
+  milestones      GoalMilestone[]
+  journalLinks    GoalJournalLink[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("goals")
+}
+
+model GoalMilestone {
+  id              String    @id @default(cuid())
+  goalId          String
+  title           String
+  targetDate      DateTime?
+  completed       Boolean   @default(false)
+  completedDate   DateTime?
+  completedViaJournalEntry String? // journal entry ID that marked this complete
+  order           Int       @default(0)
+  
+  goal            Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  
+  @@map("goal_milestones")
+}
+
+model GoalJournalLink {
+  id                    String @id @default(cuid())
+  goalId                String
+  journalEntryId        String
+  contributionType      String // milestone, progress, blocker, update
+  progressContribution  Int    @default(0) // percentage points contributed to goal
+  linkedAt              DateTime @default(now())
+  linkedBy              String
+  
+  goal                  Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  journalEntry          JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  
+  @@unique([goalId, journalEntryId])
+  @@map("goal_journal_links")
+}
+
+model Achievement {
+  id              String    @id @default(cuid())
+  title           String
+  description     String
+  impact          String?
+  skills          String[]  @default([])
+  status          String    @default("completed") // completed, in-progress
+  backgroundColor String?
+  
+  // Relationships
+  userId          String
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attestations    AchievementAttestation[]
+  
+  // Metadata
+  achievedAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("achievements")
+}
+
+model AchievementAttestation {
+  id            String @id @default(cuid())
+  achievementId String
+  attesterId    String
+  comment       String?
+  attestedAt    DateTime @default(now())
+  
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  attester      User        @relation(fields: [attesterId], references: [id], onDelete: Cascade)
+  
+  @@unique([achievementId, attesterId])
+  @@map("achievement_attestations")
+}
+
+// ============================================================================
+// ANALYTICS MODELS
+// ============================================================================
+
+model JournalEntryAnalytics {
+  id              String    @id @default(cuid())
+  entryId         String
+  userId          String?   // Viewer (null for anonymous)
+  viewedAt        DateTime  @default(now())
+  readTime        Int?      // Time spent reading in seconds
+  engagementType  String?   // view, like, comment, share
+  referrer        String?   // How they found the entry
+  
+  entry           JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  viewer          User?        @relation(fields: [userId], references: [id])
+  
+  @@map("journal_entry_analytics")
+}
+
+// ============================================================================
+// NOTIFICATION MODELS
+// ============================================================================
+
+model Notification {
+  id                  String    @id @default(cuid())
+  type               NotificationType
+  title              String
+  message            String?
+  data               Json?     // JSON data for additional context
+  isRead             Boolean   @default(false)
+  recipientId        String
+  senderId           String?
+  relatedEntityType  EntityType?
+  relatedEntityId    String?
+  createdAt          DateTime  @default(now())
+  readAt             DateTime?
+  
+  recipient          User      @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender             User?     @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
+  
+  @@map("notifications")
+}
+
+model NotificationPreferences {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  emailNotifications Boolean             @default(true)
+  pushNotifications  Boolean             @default(true)
+  likes              Boolean             @default(true)
+  comments           Boolean             @default(true)
+  mentions           Boolean             @default(true)
+  workspaceInvites   Boolean             @default(true)
+  achievements       Boolean             @default(true)
+  systemUpdates      Boolean             @default(true)
+  digestFrequency    DigestFrequency     @default(DAILY)
+  quietHoursStart    String?
+  quietHoursEnd      String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notification_preferences")
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  MENTION
+  WORKSPACE_INVITE
+  WORKSPACE_INVITE_ACCEPTED
+  WORKSPACE_INVITE_DECLINED
+  CONNECTION_REQUEST
+  CONNECTION_ACCEPTED
+  CONNECTION_DECLINED
+  ACHIEVEMENT
+  SYSTEM
+}
+
+enum DigestFrequency {
+  NONE
+  DAILY
+  WEEKLY
+}
+
+enum EntityType {
+  JOURNAL_ENTRY
+  WORKSPACE
+  USER
+  COMMENT
+}
+
+// ============================================================================
+// PROFESSIONAL DATA MODELS
+// ============================================================================
+
+model WorkExperience {
+  id              String    @id @default(cuid())
+  userId          String
+  company         String
+  title           String
+  location        String?
+  startDate       String    // YYYY-MM format to match frontend
+  endDate         String?   // YYYY-MM format
+  isCurrentRole   Boolean   @default(false)
+  description     String
+  achievements    String[]  // Array of achievement strings
+  skills          String[]  // Array of skill names
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("work_experiences")
+}
+
+model Education {
+  id                    String    @id @default(cuid())
+  userId                String
+  institution           String
+  degree                String
+  fieldOfStudy          String?
+  location              String?
+  startYear             String    // Year string to match frontend
+  endYear               String?   // Year string
+  isCurrentlyStudying   Boolean   @default(false)
+  grade                 String?
+  description           String?
+  activities            String[]  // Array of activities/societies
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("education")
+}
+
+model Certification {
+  id                    String    @id @default(cuid())
+  userId                String
+  name                  String
+  issuingOrganization   String
+  issueDate             String    // YYYY-MM format
+  expirationDate        String?   // YYYY-MM format
+  credentialId          String?
+  credentialUrl         String?
+  neverExpires          Boolean   @default(false)
+  description           String?
+  skills                String[]  // Array of related skill names
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("certifications")
+}
+
+model UserLanguage {
+  id            String    @id @default(cuid())
+  userId        String
+  language      String
+  proficiency   String    // Native, Fluent, Advanced, Intermediate, Basic
+  createdAt     DateTime  @default(now())
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, language])
+  @@map("user_languages")
+}
+
+// ============================================================================
+// ONBOARDING DATA MODEL
+// ============================================================================
+
+model OnboardingData {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  
+  // Step 1: Basic Info
+  fullName             String?
+  currentTitle         String?
+  currentCompany       String?
+  location             String?
+  industry             String?
+  yearsOfExperience    Int?
+  profileImageUrl      String?
+  
+  // Step 2: Professional Summary
+  professionalSummary  String?
+  specializations      String[]  @default([])
+  careerHighlights     String?
+  
+  // Step 3: Skills
+  skills               Json?     // Array of skill objects
+  topSkills            String[]  @default([])
+  
+  // Step 4: Work Experience
+  workExperiences      Json?     // Array of work experience objects
+  
+  // Step 5: Education
+  education            Json?     // Array of education objects
+  
+  // Step 6: Certifications
+  certifications       Json?     // Array of certification objects
+  
+  // Step 7: Goals & Interests
+  careerGoals          String[]  @default([])
+  professionalInterests String[] @default([])
+  
+  // Metadata
+  currentStep          Int       @default(0)
+  isCompleted          Boolean   @default(false)
+  completedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  // Relationships
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("onboarding_data")
+}
+
+// ============================================================================
+// SESSION MODELS
+// ============================================================================
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  
+  @@map("user_sessions")
+}
+
+// ============================================================================
+// AUDIT LOG MODELS
+// ============================================================================
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entityType   String   // user, journal_entry, workspace, etc.
+  entityId     String?
+  userId       String?  // User who performed the action
+  adminId      String?  // Admin who performed the action (if admin action)
+  ipAddress    String?
+  userAgent    String?
+  details      Json?    // Additional context data
+  oldValues    Json?    // Previous values (for updates)
+  newValues    Json?    // New values (for creates/updates)
+  status       String   @default("success") // success, failed, error
+  errorMessage String?
+  sessionId    String?
+  requestId    String?
+  createdAt    DateTime @default(now())
+  
+  // Relationships
+  user         User?    @relation("UserAuditLogs", fields: [userId], references: [id])
+  admin        User?    @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  
+  @@index([userId])
+  @@index([adminId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SecurityEvent {
+  id              String   @id @default(cuid())
+  type            String   // login_failed, suspicious_activity, data_breach, etc.
+  severity        String   @default("medium") // low, medium, high, critical
+  description     String
+  userId          String?
+  ipAddress       String?
+  userAgent       String?
+  location        String?  // Geolocation data
+  metadata        Json?    // Additional event data
+  resolved        Boolean  @default(false)
+  resolvedBy      String?
+  resolvedAt      DateTime?
+  resolution      String?
+  createdAt       DateTime @default(now())
+  
+  // Relationships
+  user            User?    @relation("UserSecurityEvents", fields: [userId], references: [id])
+  resolver        User?    @relation("ResolvedSecurityEvents", fields: [resolvedBy], references: [id])
+  
+  @@index([type])
+  @@index([severity])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+model SystemLog {
+  id           String   @id @default(cuid())
+  level        String   // DEBUG, INFO, WARN, ERROR, FATAL
+  message      String
+  module       String?  // auth, email, export, etc.
+  function     String?  // Function or method name
+  metadata     Json?    // Additional context
+  stackTrace   String?  // Error stack trace
+  requestId    String?
+  userId       String?
+  sessionId    String?
+  createdAt    DateTime @default(now())
+  
+  @@index([level])
+  @@index([module])
+  @@index([createdAt])
+  @@map("system_logs")
+}

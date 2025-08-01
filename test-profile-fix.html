@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Profile Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        button { margin: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+        pre { font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Test Profile Fix</h1>
+    
+    <div>
+        <button onclick="injectTestData()">Inject Test Data</button>
+        <button onclick="clearData()">Clear Data</button>
+        <button onclick="checkData()">Check Data</button>
+        <button onclick="openProfile()">Open Profile</button>
+        <button onclick="triggerRefresh()">Trigger Profile Refresh</button>
+    </div>
+    
+    <div id="result" class="result"></div>
+
+    <script>
+        function injectTestData() {
+            const testData = {
+                fullName: 'FIXED TEST USER',
+                currentTitle: 'FIXED TEST ENGINEER', 
+                currentCompany: 'FIXED TEST CORP',
+                industry: 'Technology',
+                yearsOfExperience: 10,
+                location: 'FIXED TEST CITY',
+                profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
+                professionalSummary: 'This is a FIXED test user created to verify the profile view fallback works correctly.',
+                specializations: ['Frontend Development', 'Testing', 'Debugging'],
+                careerHighlights: 'Successfully debugged profile view data issues.',
+                skills: [
+                    { name: 'React.js', proficiency: 'expert', category: 'Frontend' },
+                    { name: 'Debugging', proficiency: 'expert', category: 'Technical Skills' }
+                ],
+                topSkills: ['React.js', 'Debugging', 'Problem Solving'],
+                workExperiences: [{
+                    id: '1',
+                    title: 'FIXED TEST ENGINEER',
+                    company: 'FIXED TEST CORP',
+                    location: 'FIXED TEST CITY',
+                    startDate: '2020-01',
+                    endDate: '',
+                    isCurrentRole: true,
+                    description: 'Working on fixing profile view issues.',
+                    achievements: ['Fixed localStorage fallback', 'Improved debugging'],
+                    skills: ['React.js', 'Debugging']
+                }],
+                education: [],
+                certifications: [],
+                careerGoals: ['Complete the profile fix'],
+                professionalInterests: ['Frontend Development', 'User Experience']
+            };
+
+            // Save to all possible localStorage keys
+            localStorage.setItem('mock_onboarding_demo_user', JSON.stringify(testData));
+            localStorage.setItem('onboarding_data', JSON.stringify(testData));
+            
+            const userId = localStorage.getItem('user_id') || 'demo_user';
+            localStorage.setItem(`mock_onboarding_${userId}`, JSON.stringify(testData));
+            
+            localStorage.setItem('onboarding_complete', 'true');
+            localStorage.setItem('onboarding_current_step', '7');
+
+            // Dispatch events
+            window.dispatchEvent(new CustomEvent('onboardingDataChanged', {
+                detail: { source: 'fix-test', data: testData }
+            }));
+            
+            window.dispatchEvent(new CustomEvent('profileUpdated', {
+                detail: { source: 'fix-test' }
+            }));
+
+            document.getElementById('result').innerHTML = '✅ Test data injected and events dispatched!';
+        }
+
+        function clearData() {
+            const keys = [
+                'mock_onboarding_demo_user',
+                'onboarding_data',
+                'onboarding_complete',
+                'onboarding_current_step'
+            ];
+            
+            const userId = localStorage.getItem('user_id') || 'demo_user';
+            keys.push(`mock_onboarding_${userId}`);
+            
+            keys.forEach(key => localStorage.removeItem(key));
+            
+            // Dispatch update event
+            window.dispatchEvent(new CustomEvent('profileUpdated', {
+                detail: { source: 'data-cleared' }
+            }));
+
+            document.getElementById('result').innerHTML = '✅ All data cleared and refresh triggered!';
+        }
+
+        function checkData() {
+            const keys = [
+                'mock_onboarding_demo_user',
+                'onboarding_data',
+                'onboarding_complete'
+            ];
+            
+            let html = '<strong>Current Data:</strong><br>';
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    if (key.includes('onboarding') && !key.includes('complete')) {
+                        try {
+                            const parsed = JSON.parse(value);
+                            html += `✅ ${key}: ${parsed.fullName} | ${parsed.currentTitle}<br>`;
+                        } catch (e) {
+                            html += `✅ ${key}: ${value.length} chars<br>`;
+                        }
+                    } else {
+                        html += `✅ ${key}: ${value}<br>`;
+                    }
+                } else {
+                    html += `❌ ${key}: not found<br>`;
+                }
+            });
+            
+            document.getElementById('result').innerHTML = html;
+        }
+
+        function openProfile() {
+            window.open('http://localhost:5173/profile', '_blank');
+        }
+
+        function triggerRefresh() {
+            // Trigger profile refresh events
+            window.dispatchEvent(new CustomEvent('profileUpdated', {
+                detail: { source: 'manual-refresh' }
+            }));
+            
+            document.getElementById('result').innerHTML = '✅ Profile refresh event triggered!';
+        }
+
+        // Auto-check data on load
+        window.onload = function() {
+            checkData();
+        };
+    </script>
+</body>
+</html>

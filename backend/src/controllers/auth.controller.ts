@@ -1,0 +1,353 @@
+import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+import {
+  hashPassword,
+  comparePassword,
+  generateTokenPair,
+  verifyToken
+} from '../utils/auth.utils';
+import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
+import {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+  changePasswordSchema,
+  RegisterInput,
+  LoginInput,
+  RefreshTokenInput,
+  ChangePasswordInput
+} from '../types/auth.types';
+
+/**
+ * Register a new user
+ */
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  // Validate input
+  const validatedData: RegisterInput = registerSchema.parse(req.body);
+  
+  // Check if user already exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email: validatedData.email }
+  });
+  
+  if (existingUser) {
+    return sendError(res, 'User with this email already exists', 409);
+  }
+  
+  // Hash password
+  const hashedPassword = await hashPassword(validatedData.password);
+  
+  // Create user
+  const user = await prisma.user.create({
+    data: {
+      name: validatedData.name,
+      email: validatedData.email,
+      password: hashedPassword,
+      title: validatedData.title,
+      company: validatedData.company,
+      location: validatedData.location,
+      profile: {
+        create: {
+          profileCompleteness: 40 // Base completeness for required fields
+        }
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      title: true,
+      company: true,
+      location: true,
+      avatar: true,
+      createdAt: true,
+      profile: {
+        select: {
+          profileCompleteness: true,
+          joinedDate: true
+        }
+      }
+    }
+  });
+  
+  // Generate tokens
+  const tokens = generateTokenPair(user.id, user.email);
+  
+  // Store refresh token
+  await prisma.userSession.create({
+    data: {
+      userId: user.id,
+      refreshToken: tokens.refreshToken,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    }
+  });
+  
+  sendSuccess(res, {
+    user,
+    ...tokens
+  }, 'User registered successfully', 201);
+});
+
+/**
+ * Login user
+ */
+export const login = asyncHandler(async (req: Request, res: Response) => {
+  // Validate input
+  const validatedData: LoginInput = loginSchema.parse(req.body);
+  
+  // Find user
+  const user = await prisma.user.findUnique({
+    where: { email: validatedData.email },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      password: true,
+      title: true,
+      company: true,
+      location: true,
+      avatar: true,
+      isActive: true,
+      profile: {
+        select: {
+          profileCompleteness: true,
+          lastActiveAt: true
+        }
+      }
+    }
+  });
+  
+  if (!user) {
+    return sendError(res, 'Invalid email or password', 401);
+  }
+  
+  if (!user.isActive) {
+    return sendError(res, 'Account is deactivated', 401);
+  }
+  
+  // Verify password
+  const isPasswordValid = await comparePassword(validatedData.password, user.password);
+  if (!isPasswordValid) {
+    return sendError(res, 'Invalid email or password', 401);
+  }
+  
+  // Update last active
+  await prisma.userProfile.update({
+    where: { userId: user.id },
+    data: { lastActiveAt: new Date() }
+  });
+  
+  // Generate tokens
+  const tokens = generateTokenPair(user.id, user.email);
+  
+  // Store refresh token
+  await prisma.userSession.create({
+    data: {
+      userId: user.id,
+      refreshToken: tokens.refreshToken,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    }
+  });
+  
+  // Remove password from response
+  const { password, ...userWithoutPassword } = user;
+  
+  sendSuccess(res, {
+    user: userWithoutPassword,
+    ...tokens
+  }, 'Login successful');
+});
+
+/**
+ * Refresh access token
+ */
+export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
+  // Validate input
+  const validatedData: RefreshTokenInput = refreshTokenSchema.parse(req.body);
+  
+  // Verify refresh token
+  const decoded = verifyToken(validatedData.refreshToken);
+  
+  if (decoded.type !== 'refresh') {
+    return sendError(res, 'Invalid token type', 401);
+  }
+  
+  // Check if refresh token exists in database
+  const session = await prisma.userSession.findUnique({
+    where: { refreshToken: validatedData.refreshToken },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isActive: true
+        }
+      }
+    }
+  });
+  
+  if (!session || session.expiresAt < new Date()) {
+    return sendError(res, 'Invalid or expired refresh token', 401);
+  }
+  
+  if (!session.user.isActive) {
+    return sendError(res, 'Account is deactivated', 401);
+  }
+  
+  // Generate new tokens
+  const tokens = generateTokenPair(session.user.id, session.user.email);
+  
+  // Update session with new refresh token
+  await prisma.userSession.update({
+    where: { id: session.id },
+    data: {
+      refreshToken: tokens.refreshToken,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    }
+  });
+  
+  sendSuccess(res, tokens, 'Token refreshed successfully');
+});
+
+/**
+ * Get current user profile
+ */
+export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return sendError(res, 'User not authenticated', 401);
+  }
+  
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      title: true,
+      company: true,
+      location: true,
+      avatar: true,
+      bio: true,
+      createdAt: true,
+      profile: {
+        select: {
+          profileCompleteness: true,
+          joinedDate: true,
+          lastActiveAt: true,
+          showEmail: true,
+          showLocation: true,
+          showCompany: true
+        }
+      },
+      workspaceMemberships: {
+        where: { isActive: true },
+        include: {
+          workspace: {
+            select: {
+              id: true,
+              name: true,
+              description: true
+            }
+          }
+        }
+      },
+      skills: {
+        include: {
+          skill: {
+            select: {
+              id: true,
+              name: true,
+              category: true
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  if (!user) {
+    return sendError(res, 'User not found', 404);
+  }
+  
+  sendSuccess(res, user);
+});
+
+/**
+ * Logout user
+ */
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const refreshToken = req.body.refreshToken;
+  
+  if (refreshToken) {
+    // Remove specific session
+    await prisma.userSession.deleteMany({
+      where: {
+        userId,
+        refreshToken
+      }
+    });
+  } else if (userId) {
+    // Remove all sessions for user
+    await prisma.userSession.deleteMany({
+      where: { userId }
+    });
+  }
+  
+  sendSuccess(res, null, 'Logout successful');
+});
+
+/**
+ * Change password
+ */
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return sendError(res, 'User not authenticated', 401);
+  }
+  
+  // Validate input
+  const validatedData: ChangePasswordInput = changePasswordSchema.parse(req.body);
+  
+  // Get current user
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password: true }
+  });
+  
+  if (!user) {
+    return sendError(res, 'User not found', 404);
+  }
+  
+  // Verify current password
+  const isCurrentPasswordValid = await comparePassword(
+    validatedData.currentPassword, 
+    user.password
+  );
+  
+  if (!isCurrentPasswordValid) {
+    return sendError(res, 'Current password is incorrect', 400);
+  }
+  
+  // Hash new password
+  const hashedNewPassword = await hashPassword(validatedData.newPassword);
+  
+  // Update password
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedNewPassword }
+  });
+  
+  // Invalidate all sessions (force re-login)
+  await prisma.userSession.deleteMany({
+    where: { userId }
+  });
+  
+  sendSuccess(res, null, 'Password changed successfully');
+});

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Onboarding Data</title>
+</head>
+<body>
+    <h1>Check Onboarding Data</h1>
+    <button onclick="checkOnboardingData()">Check Onboarding Data</button>
+    <button onclick="triggerSync()">Trigger Profile Sync</button>
+    <div id="result"></div>
+
+    <script>
+        async function checkOnboardingData() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Check localStorage onboarding data
+                const localOnboardingData = localStorage.getItem('mock_onboarding_demo_user');
+                const onboardingData = localOnboardingData ? JSON.parse(localOnboardingData) : null;
+                
+                resultDiv.innerHTML = `
+                    <h3>📋 Onboarding Data Status</h3>
+                    <p><strong>Has onboarding data:</strong> ${onboardingData ? 'Yes' : 'No'}</p>
+                    ${onboardingData ? `
+                        <p><strong>Full Name:</strong> ${onboardingData.fullName || 'Not set'}</p>
+                        <p><strong>Profile Image URL:</strong> ${onboardingData.profileImageUrl || 'Not set'}</p>
+                        <img src="${onboardingData.profileImageUrl}" alt="Profile" style="width: 100px; height: 100px; border-radius: 50%;" onerror="this.style.display='none'">
+                    ` : ''}
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        async function triggerSync() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Get onboarding data
+                const localOnboardingData = localStorage.getItem('mock_onboarding_demo_user');
+                const onboardingData = localOnboardingData ? JSON.parse(localOnboardingData) : null;
+                
+                if (!onboardingData || !onboardingData.profileImageUrl) {
+                    resultDiv.innerHTML += '<p>❌ No onboarding data or profile image found to sync</p>';
+                    return;
+                }
+                
+                // Get auth token
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    resultDiv.innerHTML += '<p>❌ No auth token found</p>';
+                    return;
+                }
+                
+                // Update profile
+                const response = await fetch('http://localhost:3001/api/v1/users/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        avatar: onboardingData.profileImageUrl,
+                        name: onboardingData.fullName,
+                        title: onboardingData.currentTitle,
+                        company: onboardingData.currentCompany,
+                        location: onboardingData.location
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML += `
+                        <h3>✅ Profile Sync Successful</h3>
+                        <p>Avatar synced: ${data.data.avatar}</p>
+                        <p><strong>Now go to the workspace page and refresh/reload to see the updated avatar!</strong></p>
+                    `;
+                    
+                    // Try to trigger React Query cache invalidation if available
+                    if (window.location.origin.includes('localhost:517')) {
+                        resultDiv.innerHTML += '<p>💡 Also try refreshing the main app page to clear React Query cache</p>';
+                    }
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML += `❌ Sync failed: ${errorText}`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML += `❌ Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
