@@ -10,10 +10,10 @@ export default defineConfig({
     host: true,
   },
   preview: {
-    host: true,
+    host: '0.0.0.0',
     port: 4173,
-    strictPort: true,
-    allowedHosts: ['localhost', '.railway.app', '.up.railway.app'],
+    strictPort: false,
+    allowedHosts: 'all',
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
