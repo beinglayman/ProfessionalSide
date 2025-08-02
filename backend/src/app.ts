@@ -138,6 +138,36 @@ app.get('/api/v1/test', (req, res) => {
   res.json({ message: 'API working', timestamp: new Date().toISOString() });
 });
 
+// Manual seeding endpoint for Railway
+app.post('/api/v1/admin/seed-reference', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execAsync = util.promisify(exec);
+    
+    console.log('🌱 Starting manual reference data seeding...');
+    const { stdout, stderr } = await execAsync('npm run db:seed-reference');
+    
+    if (stderr) {
+      console.error('Seeding stderr:', stderr);
+    }
+    
+    console.log('Seeding stdout:', stdout);
+    res.json({ 
+      success: true, 
+      message: 'Reference data seeding completed',
+      output: stdout
+    });
+  } catch (error) {
+    console.error('❌ Manual seeding failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Seeding failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
