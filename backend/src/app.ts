@@ -133,6 +133,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test API route
+app.get('/api/v1/test', (req, res) => {
+  res.json({ message: 'API working', timestamp: new Date().toISOString() });
+});
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
