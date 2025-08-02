@@ -9,6 +9,11 @@ export default defineConfig({
     strictPort: true, // Don't try other ports if 5173 is busy
     host: true,
   },
+  preview: {
+    host: true,
+    port: 4173,
+    strictPort: true,
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
