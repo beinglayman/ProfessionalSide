@@ -13,7 +13,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
     strictPort: false,
-    allowedHosts: 'all',
+    allowedHosts: ['localhost', '.railway.app', '.up.railway.app', 'healthcheck.railway.app'],
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
