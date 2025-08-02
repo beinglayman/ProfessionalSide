@@ -82,12 +82,29 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded files with CORS headers
 app.use('/uploads', (req, res, next) => {
-  // Add CORS headers for image requests
-  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
+  // Add CORS headers for image requests - more permissive for Railway
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173',
+    'https://hearty-prosperity-production-6047.up.railway.app',
+    'https://*.up.railway.app'
+  ].filter(Boolean);
+  
+  const origin = req.get('Origin');
+  const isAllowed = allowedOrigins.some(allowed => 
+    allowed === origin || 
+    (allowed.includes('*') && origin?.includes('.up.railway.app'))
+  );
+  
+  if (isAllowed || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cache-Control', 'public, max-age=31536000'); // 1 year cache for avatars
   
   // Handle preflight OPTIONS requests
   if (req.method === 'OPTIONS') {
@@ -96,7 +113,7 @@ app.use('/uploads', (req, res, next) => {
   }
   
   next();
-}, express.static(path.join(__dirname, '../uploads')));
+}, express.static(process.env.UPLOAD_VOLUME_PATH || path.join(__dirname, '../uploads')));
 
 // Add optimized connection handling middleware
 app.use((req, res, next) => {

@@ -16,13 +16,17 @@ import {
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+// Note: Using Railway Volumes for persistent storage
 
 const userService = new UserService();
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = 'uploads/avatars';
+    // Use Railway volume path if available, fallback to local
+    const baseUploadPath = process.env.UPLOAD_VOLUME_PATH || 'uploads';
+    const uploadDir = path.join(baseUploadPath, 'avatars');
+    
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -53,7 +57,8 @@ const upload = multer({
   }
 });
 
-export const uploadAvatar = upload.single('avatar');
+// Export upload middleware for Railway Volumes
+export const uploadAvatarMiddleware = upload.single('avatar');
 
 /**
  * Get current user's full profile
@@ -266,7 +271,11 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
 
   try {
     // Generate full avatar URL including protocol and host
-    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    // Use HTTPS for Railway production environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    const protocol = isProduction ? 'https' : req.protocol;
+    const host = req.get('host');
+    const baseUrl = process.env.API_BASE_URL || `${protocol}://${host}`;
     const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
     
     // Update user's avatar in database
