@@ -20,6 +20,7 @@ import WorkspaceDetailPage from './pages/workspaces/[workspaceId]';
 import NetworkPage from './pages/network';
 import SettingsPage from './pages/settings';
 import ServiceStatusPageStandalone from './pages/services/status-standalone';
+import { RailwayStatus } from './pages/RailwayStatus';
 
 export type NetworkType = 'organization' | 'global';
 
@@ -48,11 +49,12 @@ const AppRoutes: React.FC = () => {
   const [networkType, setNetworkType] = useState<NetworkType>('organization');
   const location = useLocation();
 
-  // Special handling for services page - no header, no auth context
-  if (location.pathname === '/services') {
+  // Special handling for services pages - no header, no auth context
+  if (location.pathname === '/services' || location.pathname === '/railway') {
     return (
       <Routes>
         <Route path="/services" element={<ServiceStatusPageStandalone />} />
+        <Route path="/railway" element={<RailwayStatus />} />
       </Routes>
     );
   }
