@@ -133,9 +133,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Routes
+// API Routes with debug logging
+console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
+console.log('Auth routes mounted');
 app.use('/api/v1/users', userRoutes);
+console.log('User routes mounted');
 app.use('/api/v1/journal', journalRoutes);
 app.use('/api/v1/network', networkRoutes);
 app.use('/api/v1/goals', goalRoutes);
