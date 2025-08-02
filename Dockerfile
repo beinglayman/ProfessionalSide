@@ -17,6 +17,9 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Change ownership to node user
+RUN chown -R node:node /app
+
 # Expose port (Railway uses PORT env var)
 EXPOSE 4173
 
