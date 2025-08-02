@@ -20,9 +20,8 @@ RUN npm run build
 # Expose port (Railway uses PORT env var)
 EXPOSE 4173
 
-# Copy and make start script executable
-COPY start.sh ./
-RUN chmod +x start.sh
+# Set working user for Railway
+USER node
 
-# Start the application with custom script
-CMD ["./start.sh"]
+# Start the application directly
+CMD ["npm", "run", "preview"]
