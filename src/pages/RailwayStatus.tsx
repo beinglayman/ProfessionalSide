@@ -85,6 +85,17 @@ export function RailwayStatus() {
       };
     }
 
+    if (service.name === 'Frontend') {
+      // If we can access this page, frontend is healthy
+      return {
+        ...service,
+        status: 'healthy',
+        responseTime: 0,
+        error: undefined,
+        lastChecked: new Date().toISOString()
+      };
+    }
+
     try {
       const startTime = Date.now();
       const response = await fetch(service.url, {
