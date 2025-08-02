@@ -138,6 +138,27 @@ app.get('/api/v1/test', (req, res) => {
   res.json({ message: 'API working', timestamp: new Date().toISOString() });
 });
 
+// Database health check
+app.get('/api/v1/health/database', async (req, res) => {
+  try {
+    // Simple database connectivity test
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'healthy',
+      message: 'Database connection successful',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Manual seeding endpoint for Railway
 app.post('/api/v1/admin/seed-reference', async (req, res) => {
   try {
