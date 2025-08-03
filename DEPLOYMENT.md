@@ -25,6 +25,7 @@
    JWT_EXPIRES_IN=15m
    JWT_REFRESH_EXPIRES_IN=7d
    API_PORT=3002
+   API_BASE_URL=https://professionalside-production.up.railway.app
    RATE_LIMIT_WINDOW_MS=900000
    RATE_LIMIT_MAX_REQUESTS=100
    MAX_FILE_SIZE=10485760
@@ -35,6 +36,15 @@
 3. **Configure Root Directory**:
    - Set Root Directory to `/backend`
    - Railway will auto-detect package.json and build
+
+4. **Add Persistent Volume for Avatars**:
+   - Go to **Settings** → **Volumes**
+   - Click **"Add Volume"**
+   - Configure:
+     - **Mount Path**: `/app/uploads`
+     - **Size**: 1GB (or as needed)
+     - **Name**: `avatar-storage`
+   - Add environment variable: `UPLOAD_VOLUME_PATH=/app/uploads`
 
 ### Your backend will be available at:
 `https://your-project-name.up.railway.app`
@@ -94,6 +104,17 @@ The database will auto-migrate on first deployment. If you need to seed data:
 - Sleep after 30min inactivity (hobby tier)
 - Upgrade to $5/month for always-on services
 
+## ✅ Persistent File Storage with Railway Volumes
+
+**Railway Volumes provide persistent storage** - uploaded avatars will survive deployments when properly configured:
+
+- ✅ Native Railway solution (no external services needed)
+- ✅ Automatic backups and scaling
+- ✅ Fast local file access
+- ✅ Survives deployments and restarts
+
+**Setup**: Follow Step 4 above to add the volume to your backend service.
+
 ## Troubleshooting
 
 ### Common Issues:
@@ -101,6 +122,11 @@ The database will auto-migrate on first deployment. If you need to seed data:
 2. **Database connection**: Verify DATABASE_URL is set
 3. **CORS errors**: Update FRONTEND_URL environment variable
 4. **404 errors**: Check Root Directory settings
+5. **Avatar images not loading**: 
+   - Check API_BASE_URL is set correctly
+   - Verify CORS_ORIGINS includes frontend URL
+   - Ensure Railway Volume is properly mounted at `/app/uploads`
+   - Check UPLOAD_VOLUME_PATH environment variable is set
 
 ### Logs Access:
 - Railway dashboard → Your Service → View Logs

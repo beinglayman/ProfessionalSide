@@ -38,8 +38,8 @@ export function RailwayStatus() {
       lastChecked: new Date().toISOString()
     },
     {
-      name: 'PostgreSQL',
-      url: 'postgres.railway.internal:5432',
+      name: 'PostgreSQL Database',
+      url: 'https://professionalside-production.up.railway.app/api/v1/health/database',
       status: 'unknown',
       lastChecked: new Date().toISOString()
     }
@@ -76,14 +76,6 @@ export function RailwayStatus() {
   const [isChecking, setIsChecking] = useState(false);
 
   const checkServiceHealth = async (service: ServiceStatus): Promise<ServiceStatus> => {
-    if (service.name === 'PostgreSQL') {
-      // Can't directly check PostgreSQL from frontend
-      return {
-        ...service,
-        status: 'unknown',
-        lastChecked: new Date().toISOString()
-      };
-    }
 
     if (service.name === 'Frontend') {
       // If we can access this page, frontend is healthy
@@ -370,6 +362,11 @@ export function RailwayStatus() {
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   <span className="font-mono">NODE_ENV</span>
                   <span className="text-gray-500">= production</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <span className="font-mono">API_BASE_URL</span>
+                  <span className="text-gray-500">= https://professionalside-production.up.railway.app</span>
                 </div>
               </div>
             </div>

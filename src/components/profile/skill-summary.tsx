@@ -13,6 +13,8 @@ interface Skill {
 
 interface SkillSummaryProps {
   selectedSkills: Skill[];
+  hasJournalEntries?: boolean;
+  hasOnboardingSkills?: boolean;
 }
 
 // Export profile function
@@ -79,10 +81,20 @@ function generateSkillSummary(skills: Skill[]): string {
   return summary;
 }
 
-export function SkillSummary({ selectedSkills }: SkillSummaryProps) {
+export function SkillSummary({ selectedSkills, hasJournalEntries = false, hasOnboardingSkills = false }: SkillSummaryProps) {
   const summary = selectedSkills.length === 0 
-    ? "A versatile Senior Frontend Developer with expertise in modern web technologies and a passion for creating exceptional user experiences. Select specific skills above to see a tailored professional summary highlighting relevant experience and capabilities."
+    ? "Welcome to your professional profile! Your personalized summary will appear here as you document your skills and experiences. Start by creating journal entries about your work and projects to build a comprehensive view of your expertise."
     : generateSkillSummary(selectedSkills);
+
+  const getTipMessage = () => {
+    if (selectedSkills.length > 0) {
+      return "💡 Tip: Adjust your skill selection above to refine your professional summary";
+    }
+    if (hasJournalEntries) {
+      return "💡 Tip: Select skills from the filter panel to generate a customized professional summary";
+    }
+    return "💡 Tip: Create your first journal entry to start building your professional story and skills profile";
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -110,11 +122,9 @@ export function SkillSummary({ selectedSkills }: SkillSummaryProps) {
             : "bg-gradient-to-r from-primary-50 to-white"
         }`}>
           <p className="text-gray-700 leading-relaxed">{summary}</p>
-          {selectedSkills.length === 0 && (
-            <div className="mt-3 text-sm text-blue-600 font-medium">
-              💡 Tip: Select skills from the filter panel to generate a customized professional summary
-            </div>
-          )}
+          <div className="mt-3 text-sm text-blue-600 font-medium">
+            {getTipMessage()}
+          </div>
         </div>
       </div>
     </div>

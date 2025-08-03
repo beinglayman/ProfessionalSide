@@ -5,6 +5,7 @@ import { LogOut, Settings, User } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { profileApiService } from '../../services/profile-api.service';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 
 export function UserNav() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -95,9 +96,10 @@ export function UserNav() {
         <DropdownMenu.Trigger asChild>
           <Button variant="ghost" className="relative h-8 rounded-full">
             <img
-              src={profileImageUrl || user.avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=32&h=32&fit=crop'}
+              src={getAvatarUrl(profileImageUrl || user.avatar)}
               alt={fullName || (user.name && user.name !== 'user' ? user.name : 'User Profile')}
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 rounded-full object-cover"
+              onError={handleAvatarError}
             />
           </Button>
         </DropdownMenu.Trigger>

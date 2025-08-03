@@ -13,6 +13,7 @@ import { cn } from '../../lib/utils';
 import { useProfile } from '../../hooks/useProfile';
 import { useJournalEntries } from '../../hooks/useJournal';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 
 // Component interfaces for skills (dynamic from profile data)
 interface Skill {
@@ -496,12 +497,10 @@ export function ProfileViewPage() {
                       <div className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg bg-gray-200 animate-pulse" />
                     ) : (
                       <img
-                        src={profile?.avatar || '/default-avatar.png'}
+                        src={getAvatarUrl(profile?.avatar)}
                         alt={profile?.name || 'Profile'}
-                        className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg hover:ring-primary-500 transition-all duration-200 cursor-pointer"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/default-avatar.png';
-                        }}
+                        className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg hover:ring-primary-500 transition-all duration-200 cursor-pointer object-cover"
+                        onError={handleAvatarError}
                       />
                     )}
                     <div className="absolute inset-0 h-28 w-28 rounded-full bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
@@ -749,12 +748,14 @@ export function ProfileViewPage() {
         </div>
       </div>
 
-      {/* Skill Summary */}
-      {combinedSkills.length > 0 && (
-        <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SkillSummary selectedSkills={selectedSkillsData} />
-        </div>
-      )}
+      {/* Skill Summary - Always show for onboarded users */}
+      <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <SkillSummary 
+          selectedSkills={selectedSkillsData} 
+          hasJournalEntries={(journalEntriesData?.entries?.length || 0) > 0}
+          hasOnboardingSkills={combinedSkills.length > 0}
+        />
+      </div>
 
       {/* Main Content */}
       <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
