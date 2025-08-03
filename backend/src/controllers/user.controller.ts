@@ -271,11 +271,19 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
 
   try {
     // Generate full avatar URL including protocol and host
-    // Use HTTPS for Railway production environment
+    // Force HTTPS for Railway production environment
     const isProduction = process.env.NODE_ENV === 'production';
     const protocol = isProduction ? 'https' : req.protocol;
     const host = req.get('host');
-    const baseUrl = process.env.API_BASE_URL || `${protocol}://${host}`;
+    
+    // If API_BASE_URL is set and contains a full URL, use it; otherwise construct one
+    let baseUrl;
+    if (process.env.API_BASE_URL && process.env.API_BASE_URL.startsWith('http')) {
+      baseUrl = process.env.API_BASE_URL;
+    } else {
+      baseUrl = `${protocol}://${host}`;
+    }
+    
     const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
     
     // Update user's avatar in database
