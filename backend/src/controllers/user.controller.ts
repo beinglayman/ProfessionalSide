@@ -273,14 +273,18 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
     // Generate full avatar URL including protocol and host
     // Force HTTPS for Railway production environment
     const isProduction = process.env.NODE_ENV === 'production';
-    const protocol = isProduction ? 'https' : req.protocol;
     const host = req.get('host');
     
-    // If API_BASE_URL is set and contains a full URL, use it; otherwise construct one
+    // Always use HTTPS for Railway production domains
     let baseUrl;
     if (process.env.API_BASE_URL && process.env.API_BASE_URL.startsWith('http')) {
       baseUrl = process.env.API_BASE_URL;
+    } else if (host && host.includes('railway.app')) {
+      // Force HTTPS for Railway domains
+      baseUrl = `https://${host}`;
     } else {
+      // Use detected protocol for local development
+      const protocol = isProduction ? 'https' : req.protocol;
       baseUrl = `${protocol}://${host}`;
     }
     
