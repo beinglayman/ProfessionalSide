@@ -9,6 +9,7 @@ import { CreateJournalEntryRequest } from '../../services/journal.service';
 import { useFocusAreas, useWorkCategories, useWorkTypes, useSkillsForWorkTypes } from '../../hooks/useReference';
 import { useWorkspaces, useWorkspaceMembers } from '../../hooks/useWorkspace';
 import { useAuth } from '../../contexts/AuthContext';
+import { TagInput } from '../ui/tag-input';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -124,7 +125,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
     }));
   }, [formData.workTypes]);
 
-  const getTotalSteps = () => 8;
+  const getTotalSteps = () => 9;
 
   const validateCurrentStep = () => {
     switch (step) {
@@ -171,6 +172,10 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         return { valid: true, message: '' };
       
       case 8:
+        // Tags step - optional
+        return { valid: true, message: '' };
+      
+      case 9:
         return { valid: true, message: '' };
       
       default:
@@ -242,7 +247,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         workspaceId: formData.workspaceId, // "Q1 Product Updates"
         visibility: formData.isPublished ? 'network' : 'workspace', // Published vs Workspace Only
         category: formData.workCategory || 'General',
-        tags: workTypeNames, // Use work type names as tags
+        tags: [...new Set([...workTypeNames, ...formData.tags])], // Combine work type names with manual tags
         skills: skillNames, // React.js, TypeScript, Performance Optimization
         collaborators: formData.collaborators.map((userId: string) => ({
           userId: userId,
@@ -1457,6 +1462,43 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-lg font-semibold mb-2">Step 8 of {getTotalSteps()}</h2>
+              <p className="text-sm text-gray-600">Tags & Labels</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <Label.Root className="text-sm font-medium text-gray-700 mb-3 block">
+                  Add Tags (Optional)
+                </Label.Root>
+                <p className="text-sm text-gray-500 mb-4">
+                  Add tags to help categorize and make your entry more discoverable. Start typing to see suggestions.
+                </p>
+                <TagInput
+                  value={formData.tags}
+                  onChange={(tags) => setFormData({...formData, tags})}
+                  placeholder="Add tags..."
+                  maxTags={10}
+                />
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-900 mb-2">Tips for effective tagging:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Use specific keywords related to your work</li>
+                  <li>• Include technologies, methodologies, or frameworks used</li>
+                  <li>• Add industry-specific terms</li>
+                  <li>• Keep tags concise and relevant</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 9:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold mb-2">Step 9 of {getTotalSteps()}</h2>
               <p className="text-sm text-gray-600">Publishing Options</p>
             </div>
             

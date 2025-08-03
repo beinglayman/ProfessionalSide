@@ -9,179 +9,9 @@ import { SkillSummary } from '../../components/profile/skill-summary';
 import { MapPin, Building2, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Clock, UserX, ArrowLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { profileApiService, ProfileData } from '../../services/profile-api.service';
+import { JournalService } from '../../services/journal.service';
 
-// Sample public profile data - in reality this would come from API based on user ID
-const publicProfile = {
-  id: 'user-123',
-  name: 'Sarah Chen',
-  title: 'Senior Frontend Developer',
-  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
-  location: 'San Francisco, CA',
-  company: 'TechCorp Inc.',
-  joined: new Date('2022-03-15'),
-  bio: 'Passionate frontend developer with expertise in React and modern web technologies. Focused on creating exceptional user experiences and mentoring junior developers.',
-  
-  // Public skills (limited to what user has made visible)
-  skills: [
-    {
-      name: 'React.js',
-      level: 'expert' as const,
-      endorsements: 42,
-      projects: 15,
-      startDate: new Date('2020-01-15'),
-    },
-    {
-      name: 'TypeScript',
-      level: 'advanced' as const,
-      endorsements: 38,
-      projects: 12,
-      startDate: new Date('2020-06-01'),
-    },
-    {
-      name: 'UI/UX Design',
-      level: 'intermediate' as const,
-      endorsements: 25,
-      projects: 8,
-      startDate: new Date('2021-03-15'),
-    },
-    {
-      name: 'Node.js',
-      level: 'intermediate' as const,
-      endorsements: 20,
-      projects: 6,
-      startDate: new Date('2021-09-01'),
-    },
-  ],
 
-  // Public achievements (only those marked as visible to network/public)
-  achievements: [
-    {
-      id: '1',
-      title: 'E-commerce Platform Performance Optimization',
-      date: new Date('2025-02-15'),
-      skills: ['React.js', 'TypeScript'],
-      impact: 'Improved site loading speed by 65% and reduced bounce rate by 28%',
-      status: 'completed' as const,
-      backgroundColor: '#5D259F',
-    },
-    {
-      id: '2',
-      title: 'Design System Component Library Development',
-      date: new Date('2025-01-15'),
-      skills: ['React.js', 'UI/UX Design'],
-      impact: 'Created 35+ reusable components that reduced development time by 40%',
-      status: 'completed' as const,
-      backgroundColor: '#5D259F',
-    },
-  ],
-
-  // Connection/relationship status with current viewer
-  relationshipStatus: 'none' as 'none' | 'connected' | 'pending_connection',
-  connectionType: null as 'core' | 'extended' | null,
-  
-  // Stats visible to public
-  stats: {
-    achievements: 8,
-    journalEntries: 24,
-    connections: 87,
-    followers: 156,
-  },
-};
-
-// Sample public journal entries (only network/public visibility)
-const publicJournalEntries = [
-  {
-    id: 'j-001',
-    title: 'Built Custom React Hook Library',
-    workspaceId: 'ws-001',
-    workspaceName: 'Frontend Innovation',
-    organizationName: 'TechCorp Solutions',
-    description: 'Created a reusable React hooks library that standardized functionality across multiple projects, improving development efficiency and code quality.',
-    fullContent: 'Created a reusable React hooks library that standardized functionality across multiple projects, improving development efficiency and code quality.',
-    abstractContent: 'Created a reusable React hooks library that standardized functionality across multiple projects, improving development efficiency and code quality.',
-    createdAt: new Date('2025-02-15'),
-    lastModified: new Date('2025-02-15'),
-    author: {
-      name: 'Sarah Chen',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-      position: 'Senior Frontend Developer'
-    },
-    collaborators: [],
-    reviewers: [],
-    artifacts: [],
-    skills: ['React.js', 'TypeScript', 'Custom Hook Patterns'],
-    outcomes: [
-      {
-        category: 'performance' as const,
-        title: 'Reduced code duplication',
-        description: 'Eliminated 60% of duplicate code across React projects through reusable hooks.',
-        metrics: {
-          before: '40%',
-          after: '90%',
-          improvement: '+50%',
-          trend: 'up' as const
-        }
-      },
-    ],
-    visibility: 'network' as const,
-    isPublished: true,
-    publishedAt: new Date('2025-02-15'),
-    likes: 24,
-    comments: 8,
-    hasLiked: false,
-    tags: ['react', 'typescript', 'hooks'],
-    category: 'Engineering',
-    appreciates: 15,
-    hasAppreciated: false,
-    discussCount: 8,
-    discussions: [],
-    rechronicles: 3,
-    hasReChronicled: false,
-  },
-  {
-    id: 'j-002',
-    title: 'Implemented Responsive Design System',
-    workspaceId: 'ws-002',
-    workspaceName: 'Design System',
-    organizationName: 'TechCorp Solutions',
-    description: 'Developed a scalable design system that standardized UI components across multiple products, improving consistency and development velocity.',
-    fullContent: 'Developed a scalable design system that standardized UI components across multiple products, improving consistency and development velocity.',
-    abstractContent: 'Developed a scalable design system that standardized UI components across multiple products, improving consistency and development velocity.',
-    createdAt: new Date('2025-01-25'),
-    lastModified: new Date('2025-01-25'),
-    author: {
-      name: 'Sarah Chen',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-      position: 'Senior Frontend Developer'
-    },
-    collaborators: [],
-    reviewers: [],
-    artifacts: [],
-    skills: ['UI/UX Design', 'React.js', 'Responsive Design'],
-    outcomes: [
-      {
-        category: 'user-experience' as const,
-        title: 'Improved accessibility',
-        description: 'Achieved 100% WCAG AA compliance across all components.',
-        highlight: 'WCAG AA compliant'
-      }
-    ],
-    visibility: 'network' as const,
-    isPublished: true,
-    publishedAt: new Date('2025-01-25'),
-    likes: 18,
-    comments: 5,
-    hasLiked: false,
-    tags: ['design-system', 'ui', 'accessibility'],
-    category: 'Design',
-    appreciates: 12,
-    hasAppreciated: false,
-    discussCount: 5,
-    discussions: [],
-    rechronicles: 2,
-    hasReChronicled: false,
-  }
-];
 
 export function PublicProfilePage() {
   const { userId } = useParams<{ userId: string }>();
@@ -193,6 +23,14 @@ export function PublicProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  
+  // Achievements and journal entries state
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [journalEntries, setJournalEntries] = useState<any[]>([]);
+  const [isLoadingAchievements, setIsLoadingAchievements] = useState(false);
+  const [isLoadingJournalEntries, setIsLoadingJournalEntries] = useState(false);
+  const [achievementsError, setAchievementsError] = useState<string | null>(null);
+  const [journalEntriesError, setJournalEntriesError] = useState<string | null>(null);
   
   // Connection states
   const [connectionStatus, setConnectionStatus] = useState<'none' | 'connected' | 'pending_connection'>('none');
@@ -261,6 +99,83 @@ export function PublicProfilePage() {
 
     fetchProfileData();
   }, [userId]);
+
+  // Fetch public journal entries for this user
+  const fetchPublicJournalEntries = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoadingJournalEntries(true);
+      setJournalEntriesError(null);
+      
+      // Fetch journal entries with network visibility (public to network)
+      const response = await JournalService.getJournalEntries({
+        authorId: userId,
+        visibility: 'network'
+      });
+      
+      if (response.success && response.data) {
+        setJournalEntries(response.data);
+      } else {
+        setJournalEntries([]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch journal entries:', error);
+      setJournalEntriesError(error instanceof Error ? error.message : 'Failed to load published work');
+      setJournalEntries([]);
+    } finally {
+      setIsLoadingJournalEntries(false);
+    }
+  };
+
+  // Fetch public achievements for this user
+  const fetchPublicAchievements = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoadingAchievements(true);
+      setAchievementsError(null);
+      
+      // For now, achievements might be embedded in journal entries or come from a separate endpoint
+      // TODO: Replace with actual achievements API when available
+      // Using journal entries as a proxy for achievements for now
+      const response = await JournalService.getJournalEntries({
+        authorId: userId,
+        visibility: 'network',
+        category: 'achievement' // If achievements are stored as a category
+      });
+      
+      if (response.success && response.data) {
+        // Transform journal entries to achievement-like objects
+        const achievementData = response.data.map(entry => ({
+          id: entry.id,
+          title: entry.title,
+          date: entry.createdAt,
+          skills: entry.skills || [],
+          impact: entry.description,
+          status: 'completed' as const,
+          backgroundColor: '#5D259F',
+        }));
+        setAchievements(achievementData);
+      } else {
+        setAchievements([]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch achievements:', error);
+      setAchievementsError(error instanceof Error ? error.message : 'Failed to load achievements');
+      setAchievements([]);
+    } finally {
+      setIsLoadingAchievements(false);
+    }
+  };
+
+  // Fetch achievements and journal entries when profile loads
+  useEffect(() => {
+    if (profileData && userId) {
+      fetchPublicJournalEntries();
+      fetchPublicAchievements();
+    }
+  }, [profileData, userId]);
 
   const toggleSkill = (skillName: string) => {
     setSelectedSkills(prev => {
@@ -352,19 +267,18 @@ export function PublicProfilePage() {
   );
 
   const filteredJournalEntries = useMemo(() => {
-    if (selectedSkills.size === 0) return publicJournalEntries;
-    return publicJournalEntries.filter(entry =>
-      entry.skills.some(skill => selectedSkills.has(skill))
+    if (selectedSkills.size === 0) return journalEntries;
+    return journalEntries.filter(entry =>
+      entry.skills?.some((skill: string) => selectedSkills.has(skill))
     );
-  }, [selectedSkills]);
+  }, [selectedSkills, journalEntries]);
 
   const filteredAchievements = useMemo(() => {
-    // For now using mock achievements, but this would be filtered based on real achievements from profileData
-    if (selectedSkills.size === 0) return publicProfile.achievements;
-    return publicProfile.achievements.filter(achievement =>
-      achievement.skills.some(skill => selectedSkills.has(skill))
+    if (selectedSkills.size === 0) return achievements;
+    return achievements.filter(achievement =>
+      achievement.skills?.some((skill: string) => selectedSkills.has(skill))
     );
-  }, [selectedSkills]);
+  }, [selectedSkills, achievements]);
 
   // Connection handlers
   const handleSendConnectionRequest = () => {
@@ -642,30 +556,60 @@ export function PublicProfilePage() {
 
                 <div className="p-4">
                   <Tabs.Content value="achievements" className="space-y-4">
-                    {filteredAchievements.map((achievement) => (
-                      <AchievementCard key={achievement.id} achievement={achievement} />
-                    ))}
-                    {filteredAchievements.length === 0 && (
+                    {isLoadingAchievements ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                        <p className="text-gray-500">Loading achievements...</p>
+                      </div>
+                    ) : achievementsError ? (
+                      <div className="text-center py-8 text-red-500">
+                        <p>Error loading achievements: {achievementsError}</p>
+                      </div>
+                    ) : filteredAchievements.length > 0 ? (
+                      filteredAchievements.map((achievement) => (
+                        <AchievementCard key={achievement.id} achievement={achievement} />
+                      ))
+                    ) : (
                       <div className="text-center py-8 text-gray-500">
                         <p>
                           {selectedSkills.size === 0
                             ? 'No public achievements available'
                             : 'No achievements found for the selected skills'}
                         </p>
+                        <p className="text-sm mt-2">
+                          {selectedSkills.size === 0 
+                            ? 'This user hasn\'t shared any achievements publicly yet.'
+                            : 'Try adjusting your skill filters to see more content.'}
+                        </p>
                       </div>
                     )}
                   </Tabs.Content>
 
                   <Tabs.Content value="journal" className="space-y-4">
-                    {filteredJournalEntries.map((entry) => (
-                      <JournalEntry key={entry.id} entry={entry} viewMode="network" />
-                    ))}
-                    {filteredJournalEntries.length === 0 && (
+                    {isLoadingJournalEntries ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                        <p className="text-gray-500">Loading published work...</p>
+                      </div>
+                    ) : journalEntriesError ? (
+                      <div className="text-center py-8 text-red-500">
+                        <p>Error loading published work: {journalEntriesError}</p>
+                      </div>
+                    ) : filteredJournalEntries.length > 0 ? (
+                      filteredJournalEntries.map((entry) => (
+                        <JournalEntry key={entry.id} entry={entry} viewMode="network" />
+                      ))
+                    ) : (
                       <div className="text-center py-8 text-gray-500">
                         <p>
                           {selectedSkills.size === 0
                             ? 'No published work available'
                             : 'No published work found for the selected skills'}
+                        </p>
+                        <p className="text-sm mt-2">
+                          {selectedSkills.size === 0 
+                            ? 'This user hasn\'t published any work to their network yet.'
+                            : 'Try adjusting your skill filters to see more content.'}
                         </p>
                       </div>
                     )}

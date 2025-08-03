@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { UserNav } from './user-nav';
 import { cn } from '../../lib/utils';
-import { Bell, Heart, MessageSquare, Users, FileText, UserPlus, Upload, CheckCircle2 } from 'lucide-react';
+import { Bell, Heart, MessageSquare, Users, FileText, UserPlus, Upload, CheckCircle2, Search } from 'lucide-react';
 import type { NetworkType } from '../../App';
 import { NotificationsDropdown } from '../notifications/notifications-dropdown';
+import { SearchModal } from '../search/search-modal';
 
 interface HeaderProps {
   networkType: NetworkType;
@@ -14,7 +15,18 @@ interface HeaderProps {
 
 export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const location = useLocation();
+  
+  // Global keyboard shortcut listener
+  React.useEffect(() => {
+    const handleOpenSearch = () => {
+      setIsSearchOpen(true);
+    };
+
+    window.addEventListener('openSearch', handleOpenSearch);
+    return () => window.removeEventListener('openSearch', handleOpenSearch);
+  }, []);
   
   // Helper function to check if a link is active
   const isActiveLink = (path: string) => {
@@ -175,10 +187,19 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
               </div>
             </button>
 
+            {/* Search */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              aria-label="Search"
+              title="Search (⌘K)"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+
             {/* Notifications */}
             <NotificationsDropdown />
 
-            
             <UserNav />
           </div>
         </div>
@@ -250,6 +271,12 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
             </nav>
           </div>
         )}
+
+        {/* Search Modal */}
+        <SearchModal 
+          isOpen={isSearchOpen} 
+          onClose={() => setIsSearchOpen(false)} 
+        />
       </div>
     </header>
   );
