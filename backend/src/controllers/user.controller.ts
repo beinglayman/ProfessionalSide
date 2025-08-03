@@ -283,8 +283,11 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
       // Force HTTPS for Railway domains
       baseUrl = `https://${host}`;
     } else {
-      // Use detected protocol for local development
-      const protocol = isProduction ? 'https' : req.protocol;
+      // Use detected protocol for local development, but force HTTP for localhost
+      let protocol = isProduction ? 'https' : req.protocol;
+      if (host && host.includes('localhost')) {
+        protocol = 'http';
+      }
       baseUrl = `${protocol}://${host}`;
     }
     

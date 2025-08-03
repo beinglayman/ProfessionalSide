@@ -1,64 +1,113 @@
-export interface SearchResult {
+// Base search result interface
+export interface BaseSearchResult {
   id: string;
-  type: 'journal_entry' | 'user' | 'workspace' | 'file';
+  type: 'people' | 'workspaces' | 'content' | 'skills';
   title: string;
+  subtitle: string;
   description?: string;
-  snippet?: string;
-  url: string;
-  metadata: {
-    author?: {
-      id: string;
-      name: string;
-      avatar?: string;
-    };
-    workspace?: {
-      id: string;
-      name: string;
-    };
-    category?: string;
-    tags?: string[];
-    createdAt: string;
-    updatedAt: string;
-  };
   relevanceScore: number;
+  matchType: 'exact' | 'partial' | 'semantic' | 'fuzzy';
 }
 
-export interface SearchFilters {
-  type?: 'journal_entry' | 'user' | 'workspace' | 'file';
-  category?: string;
-  workspace?: string;
-  author?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  tags?: string[];
+export interface PeopleSearchResult extends BaseSearchResult {
+  type: 'people';
+  avatar?: string;
+  position: string;
+  company: string;
+  location?: string;
+  connectionStatus: 'core' | 'extended' | 'following' | 'none';
+  mutualConnections: number;
+  skills: string[];
+  bio?: string;
+  isVerified?: boolean;
 }
 
+export interface WorkspaceSearchResult extends BaseSearchResult {
+  type: 'workspaces';
+  organizationName: string;
+  memberCount: number;
+  isPrivate: boolean;
+  canJoin: boolean;
+  canRequestJoin: boolean;
+  industry?: string;
+  tags: string[];
+  recentActivity?: Date;
+}
+
+export interface ContentSearchResult extends BaseSearchResult {
+  type: 'content';
+  contentType: 'journal_entry' | 'achievement' | 'artifact';
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  workspaceName?: string;
+  workspaceId?: string;
+  snippet: string;
+  publishedAt: Date;
+  likes: number;
+  comments: number;
+  skills: string[];
+  isAccessible: boolean; // Based on user's workspace membership
+}
+
+export interface SkillSearchResult extends BaseSearchResult {
+  type: 'skills';
+  category: string;
+  endorsements: number;
+  relatedSkills: string[];
+  trendingScore?: number;
+  industryDemand?: 'high' | 'medium' | 'low';
+  usersWithSkill: number;
+  networkUsersWithSkill: number;
+}
+
+export type SearchResult = PeopleSearchResult | WorkspaceSearchResult | ContentSearchResult | SkillSearchResult;
+
+// Search request parameters
 export interface SearchParams {
   query: string;
-  filters?: SearchFilters;
-  page?: number;
+  types?: ('people' | 'workspaces' | 'content' | 'skills')[];
+  filters?: {
+    connectionType?: ('core' | 'extended' | 'following' | 'none')[];
+    location?: string;
+    company?: string;
+    skills?: string[];
+    workspaceId?: string;
+    dateRange?: {
+      from: Date;
+      to: Date;
+    };
+    contentTypes?: ('journal_entry' | 'achievement' | 'artifact')[];
+  };
+  sortBy?: 'relevance' | 'recent' | 'popular' | 'network_proximity';
   limit?: number;
-  sortBy?: 'relevance' | 'date' | 'title';
-  sortOrder?: 'asc' | 'desc';
+  offset?: number;
 }
 
+// Search response
 export interface SearchResponse {
   results: SearchResult[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  total: number;
   facets: {
-    types: { type: string; count: number }[];
-    categories: { category: string; count: number }[];
-    workspaces: { workspace: string; count: number }[];
-    authors: { author: string; count: number }[];
-    tags: { tag: string; count: number }[];
+    types: Record<string, number>;
+    connections: Record<string, number>;
+    skills: Record<string, number>;
+    companies: Record<string, number>;
+    locations: Record<string, number>;
   };
-  suggestions: string[];
-  searchTime: number;
+  suggestions?: string[];
+  queryTime: number;
+}
+
+// Search suggestions
+export interface SearchSuggestion {
+  id: string;
+  text: string;
+  type: 'person' | 'workspace' | 'skill' | 'company' | 'location';
+  count?: number;
+  highlighted?: string; // Text with highlighted matching parts
 }
 
 export interface RecentSearch {

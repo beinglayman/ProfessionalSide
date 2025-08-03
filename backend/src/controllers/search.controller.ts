@@ -3,7 +3,6 @@ import { SearchService } from '../services/search.service';
 import { sendSuccess, sendError, sendPaginated, asyncHandler } from '../utils/response.utils';
 import { 
   SearchParams, 
-  SearchFilters, 
   SearchSuggestionsInput,
   SaveSearchInput,
   SearchInteractionInput
@@ -15,40 +14,87 @@ const searchService = new SearchService();
  * Global search across all content
  */
 export const globalSearch = asyncHandler(async (req: Request, res: Response) => {
+  console.log('🔍 Search request received:', {
+    query: req.query,
+    user: req.user?.id,
+    headers: req.headers.authorization ? 'Bearer token present' : 'No auth header'
+  });
+
   const userId = req.user?.id;
   
   if (!userId) {
+    console.log('❌ User not authenticated');
     return sendError(res, 'User not authenticated', 401);
   }
 
-  const { q, type, category, workspace, author, dateFrom, dateTo, tags, page = 1, limit = 20, sortBy = 'relevance', sortOrder = 'desc' } = req.query;
+  const { 
+    q, 
+    types, 
+    connectionType, 
+    location, 
+    company, 
+    skills, 
+    workspaceId, 
+    dateFrom, 
+    dateTo, 
+    contentTypes, 
+    limit = 20, 
+    offset = 0, 
+    sortBy = 'relevance' 
+  } = req.query;
 
   if (!q || typeof q !== 'string' || q.length < 2) {
+    console.log('❌ Invalid query:', { q, type: typeof q, length: q?.length });
     return sendError(res, 'Query must be at least 2 characters long', 400);
   }
 
-  const filters: SearchFilters = {};
-  if (type) filters.type = type as any;
-  if (category) filters.category = category as string;
-  if (workspace) filters.workspace = workspace as string;
-  if (author) filters.author = author as string;
-  if (dateFrom) filters.dateFrom = dateFrom as string;
-  if (dateTo) filters.dateTo = dateTo as string;
-  if (tags) filters.tags = Array.isArray(tags) ? tags as string[] : [tags as string];
+  // Parse types array
+  const typesArray = types 
+    ? (Array.isArray(types) ? types : [types]) as ('people' | 'workspaces' | 'content' | 'skills')[]
+    : undefined;
+
+  // Parse skills array
+  const skillsArray = skills 
+    ? (Array.isArray(skills) ? skills : [skills]) as string[]
+    : undefined;
+
+  // Parse content types array
+  const contentTypesArray = contentTypes 
+    ? (Array.isArray(contentTypes) ? contentTypes : [contentTypes]) as ('journal_entry' | 'achievement' | 'artifact')[]
+    : undefined;
+
+  // Parse connection types array
+  const connectionTypeArray = connectionType 
+    ? (Array.isArray(connectionType) ? connectionType : [connectionType]) as ('core' | 'extended' | 'following' | 'none')[]
+    : undefined;
 
   const params: SearchParams = {
     query: q,
-    filters,
-    page: parseInt(page as string),
+    types: typesArray,
+    filters: {
+      connectionType: connectionTypeArray,
+      location: location as string,
+      company: company as string,
+      skills: skillsArray,
+      workspaceId: workspaceId as string,
+      dateRange: (dateFrom || dateTo) ? {
+        from: dateFrom ? new Date(dateFrom as string) : undefined,
+        to: dateTo ? new Date(dateTo as string) : undefined
+      } : undefined,
+      contentTypes: contentTypesArray
+    },
     limit: parseInt(limit as string),
-    sortBy: sortBy as any,
-    sortOrder: sortOrder as any
+    offset: parseInt(offset as string),
+    sortBy: sortBy as any
   };
 
   try {
+    console.log('🔍 Calling search service with params:', params);
     const result = await searchService.globalSearch(userId, params);
+    console.log('✅ Search completed, found', result.results.length, 'results');
     sendSuccess(res, result);
   } catch (error: any) {
+    console.error('❌ Search error:', error);
     if (error.message.includes('Access denied')) {
       return sendError(res, error.message, 403);
     }

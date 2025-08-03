@@ -12,21 +12,35 @@ import {
 const router = Router();
 
 /**
+ * @route   GET /api/search/test
+ * @desc    Test search endpoint without authentication
+ * @access  Public
+ */
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Search API is working',
+    query: req.query
+  });
+});
+
+/**
  * @route   GET /api/search
- * @desc    Global search across all content
+ * @desc    Network-centric global search across all content types
  * @access  Private
  * @query   q (required) - Search query
- * @query   type - Filter by content type (journal_entry, user, workspace, file)
- * @query   category - Filter by category
- * @query   workspace - Filter by workspace ID
- * @query   author - Filter by author ID
+ * @query   types - Filter by content types (people, workspaces, content, skills) - can be multiple
+ * @query   connectionType - Filter by connection type (core, extended, following, none) - can be multiple
+ * @query   location - Filter by location
+ * @query   company - Filter by company
+ * @query   skills - Filter by skills - can be multiple
+ * @query   workspaceId - Filter by workspace ID
  * @query   dateFrom - Filter by date range start
  * @query   dateTo - Filter by date range end
- * @query   tags - Filter by tags (can be multiple)
- * @query   page - Page number (default: 1)
+ * @query   contentTypes - Filter by content types (journal_entry, achievement, artifact) - can be multiple
  * @query   limit - Items per page (default: 20)
- * @query   sortBy - Sort field (relevance, date, title)
- * @query   sortOrder - Sort order (asc, desc)
+ * @query   offset - Items to skip (default: 0)
+ * @query   sortBy - Sort field (relevance, recent, popular, network_proximity)
  */
 router.get('/', authenticate, globalSearch);
 
