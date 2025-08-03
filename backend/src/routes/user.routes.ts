@@ -10,7 +10,7 @@ import {
   searchUsers,
   getAllSkills,
   endorseUserSkill,
-  uploadAvatar as uploadAvatarMiddleware,
+  uploadAvatarMiddleware,
   handleAvatarUpload,
   requestDataExport,
   checkExportStatus,
