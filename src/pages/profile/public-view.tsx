@@ -6,15 +6,26 @@ import { AchievementCard } from '../../components/profile/achievement-card';
 import { JournalEntry } from '../../components/profile/journal-entry';
 import { SkillCard } from '../../components/profile/skill-card';
 import { SkillSummary } from '../../components/profile/skill-summary';
-import { MapPin, Building2, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Clock, UserX, ArrowLeft } from 'lucide-react';
+import { MapPin, Building2, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Clock, UserX, ArrowLeft, Mail } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { profileApiService, ProfileData } from '../../services/profile-api.service';
 import { JournalService } from '../../services/journal.service';
+import { useAuth } from '../../contexts/AuthContext';
 
 
+
+interface PrivacySettings {
+  profileVisibility: 'public' | 'network';
+  showEmail: boolean;
+  showLocation: boolean;
+  showCompany: boolean;
+  showConnections: boolean;
+  allowSearchEngineIndexing: boolean;
+}
 
 export function PublicProfilePage() {
   const { userId } = useParams<{ userId: string }>();
+  const { user: currentUser } = useAuth();
   const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
   const [activeTab, setActiveTab] = useState('achievements');
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -23,6 +34,10 @@ export function PublicProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  
+  // Privacy settings state
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings | null>(null);
+  const [isLoadingPrivacy, setIsLoadingPrivacy] = useState(true);
   
   // Achievements and journal entries state
   const [achievements, setAchievements] = useState<any[]>([]);
@@ -36,6 +51,74 @@ export function PublicProfilePage() {
   const [connectionStatus, setConnectionStatus] = useState<'none' | 'connected' | 'pending_connection'>('none');
   const [connectionType, setConnectionType] = useState<'core' | 'extended' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Helper function to check if current user is in the profile owner's network
+  const isInNetwork = () => {
+    // TODO: This should be determined from actual network/connection data
+    // For now, assume authenticated users are in network for demo purposes
+    return currentUser && currentUser.id !== userId;
+  };
+
+  // Helper function to check if profile should be visible
+  const isProfileVisible = () => {
+    if (!privacySettings) return true; // Default to visible while loading
+    
+    // Profile owner can always see their own profile
+    if (currentUser?.id === userId) return true;
+    
+    // Check profile visibility setting
+    if (privacySettings.profileVisibility === 'public') return true;
+    if (privacySettings.profileVisibility === 'network') return isInNetwork();
+    
+    return false;
+  };
+
+  // Function to fetch privacy settings for the profile owner
+  const fetchPrivacySettings = async (profileUserId: string) => {
+    try {
+      setIsLoadingPrivacy(true);
+      
+      // Fetch privacy settings from the backend - this should be a public endpoint
+      // that returns filtered settings based on the viewer's relationship to the profile owner
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1'}/users/${profileUserId}/privacy-settings`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser && {
+            'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
+          })
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setPrivacySettings(result.data || result);
+        console.log('🔒 Privacy settings loaded:', result.data || result);
+      } else {
+        // Default privacy settings if fetch fails
+        setPrivacySettings({
+          profileVisibility: 'network',
+          showEmail: false,
+          showLocation: false,
+          showCompany: false,
+          showConnections: false,
+          allowSearchEngineIndexing: false,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch privacy settings:', error);
+      // Default to restrictive settings on error
+      setPrivacySettings({
+        profileVisibility: 'network',
+        showEmail: false,
+        showLocation: false,
+        showCompany: false,
+        showConnections: false,
+        allowSearchEngineIndexing: false,
+      });
+    } finally {
+      setIsLoadingPrivacy(false);
+    }
+  };
 
   // Calculate total years of experience
   const calculateYearsOfExperience = () => {
@@ -61,20 +144,25 @@ export function PublicProfilePage() {
     return Math.round(totalMonths / 12);
   };
 
-  // Fetch profile data on component mount
+  // Fetch profile data and privacy settings on component mount
   useEffect(() => {
-    const fetchProfileData = async () => {
+    const fetchData = async () => {
       if (!userId) {
         setProfileError('User ID is required');
         setIsLoadingProfile(false);
+        setIsLoadingPrivacy(false);
         return;
       }
 
       try {
         setIsLoadingProfile(true);
         setProfileError(null);
-        console.log('🔍 Fetching public profile for userId:', userId);
+        console.log('🔍 Fetching public profile and privacy settings for userId:', userId);
         
+        // Fetch privacy settings first to determine visibility
+        await fetchPrivacySettings(userId);
+        
+        // Fetch profile data
         const data = await profileApiService.getPublicProfile(userId);
         console.log('✅ Public profile data received:', data);
         
@@ -97,7 +185,7 @@ export function PublicProfilePage() {
       }
     };
 
-    fetchProfileData();
+    fetchData();
   }, [userId]);
 
   // Fetch public journal entries for this user
@@ -359,12 +447,42 @@ export function PublicProfilePage() {
   };
 
   // Loading state
-  if (isLoadingProfile) {
+  if (isLoadingProfile || isLoadingPrivacy) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Privacy check - profile not visible to current user
+  if (!isProfileVisible()) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto">
+          <div className="mb-4">
+            <div className="mx-auto h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
+              <Clock className="h-8 w-8 text-gray-400" />
+            </div>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Not Available</h2>
+          <p className="text-gray-600 mb-4">
+            This profile is only visible to the user's network connections. 
+            {!currentUser && " Please log in to view network profiles."}
+          </p>
+          <div className="space-x-3">
+            <Button asChild>
+              <Link to="/network">Back to Network</Link>
+            </Button>
+            {!currentUser && (
+              <Button variant="outline" asChild>
+                <Link to="/login">Log In</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -421,16 +539,22 @@ export function PublicProfilePage() {
                   </h1>
                   <p className="text-lg text-gray-600">{profileData.title}</p>
                   <div className="mt-1 flex items-center space-x-3 text-sm text-gray-500">
-                    {profileData.location && (
+                    {profileData.location && privacySettings?.showLocation && (
                       <div className="flex items-center">
                         <MapPin className="mr-1 h-3.5 w-3.5" />
                         {profileData.location}
                       </div>
                     )}
-                    {profileData.company && (
+                    {profileData.company && privacySettings?.showCompany && (
                       <div className="flex items-center">
                         <Building2 className="mr-1 h-3.5 w-3.5" />
                         {profileData.company}
+                      </div>
+                    )}
+                    {profileData.email && privacySettings?.showEmail && (
+                      <div className="flex items-center">
+                        <Mail className="mr-1 h-3.5 w-3.5" />
+                        {profileData.email}
                       </div>
                     )}
                   </div>
@@ -464,6 +588,18 @@ export function PublicProfilePage() {
                   {profileData.bio || 'No bio available'}
                 </p>
               </div>
+              
+              {/* Privacy notice */}
+              {privacySettings && (currentUser?.id !== userId) && (
+                <div className="mt-2 text-xs text-gray-500">
+                  {privacySettings.profileVisibility === 'network' && (
+                    <p>🔒 This profile is visible to network connections only</p>
+                  )}
+                  {(!privacySettings.showLocation || !privacySettings.showCompany || !privacySettings.showEmail) && (
+                    <p>ℹ️ Some contact information is hidden based on privacy preferences</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -341,10 +341,10 @@ export function ProfileViewPage() {
   const renderConnectionButton = () => {
     if (isOwnProfile) {
       return (
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild className="sm:px-4 px-2">
           <Link to="/onboarding">
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Profile
+            <Edit className="sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Edit Profile</span>
           </Link>
         </Button>
       );
