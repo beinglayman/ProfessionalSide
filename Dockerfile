@@ -1,5 +1,5 @@
-# Use Node.js 18 Alpine for smaller image size
-FROM node:18-alpine
+# Use Node.js 18 (standard glibc) for better compatibility with native modules
+FROM node:18-slim
 
 # Set working directory
 WORKDIR /app
@@ -9,13 +9,14 @@ COPY package*.json ./
 COPY .npmrc ./
 
 # Install all dependencies (including dev deps for build)
-RUN npm ci
+RUN npm ci --include=optional
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+# If rollup binary issues occur, install platform-specific binary first
+RUN npm run build || (npm install @rollup/rollup-linux-x64-gnu --save-dev && npm run build)
 
 # Change ownership to node user
 RUN chown -R node:node /app
