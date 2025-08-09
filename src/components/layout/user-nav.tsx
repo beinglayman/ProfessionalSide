@@ -109,9 +109,16 @@ export function UserNav() {
             align="end"
             sideOffset={5}
           >
-            <div className="border-b border-gray-200 p-2">
-              <p className="font-medium">{fullName || (user.name && user.name !== 'user' ? user.name : 'User Profile')}</p>
-              <p className="text-sm text-gray-500">{user.company || user.email}</p>
+            <div className="border-b border-gray-200 p-2 min-w-0">
+              <p className="font-medium text-gray-900 truncate">
+                {fullName || (user.name && user.name !== 'user' ? user.name : 'User Profile')}
+              </p>
+              {user.email && (
+                <p className="text-sm text-gray-500 truncate font-mono">{user.email}</p>
+              )}
+              {user.company && (
+                <p className="text-xs text-gray-400 truncate mt-0.5">{user.company}</p>
+              )}
             </div>
             <DropdownMenu.Item asChild>
               <Link
