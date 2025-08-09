@@ -238,7 +238,11 @@ export function NetworkNotifications({
       {/* Show more link if there are more notifications */}
       {notifications.length >= maxNotifications && (
         <div className="text-center pt-4">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.href = '/notifications'}
+          >
             <ExternalLink className="h-4 w-4 mr-2" />
             View all notifications
           </Button>

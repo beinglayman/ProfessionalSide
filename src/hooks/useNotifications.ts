@@ -63,12 +63,18 @@ export function useNotifications(params: {
         if (params.page) queryParams.append('page', params.page.toString());
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.type) queryParams.append('type', params.type);
-        if (params.isRead !== undefined) queryParams.append('isRead', params.isRead.toString());
+        if (params.isRead !== undefined && params.isRead !== null) {
+          queryParams.append('isRead', params.isRead.toString());
+        }
 
-        const response = await api.get(`/notifications?${queryParams}`);
+        const endpoint = `/notifications?${queryParams}`;
+        console.log('🔔 Fetching notifications from:', `${api.defaults.baseURL}${endpoint}`);
+        const response = await api.get(endpoint);
+        console.log('🔔 Successfully connected to backend, received notifications:', response.data.data);
         return response.data.data;
       } catch (error) {
-        console.log('🔔 Backend unavailable, returning empty notifications');
+        console.log('🔔 Backend connection failed:', error);
+        console.log('🔔 Returning empty notifications - no mock data fallback');
         return { notifications: [], total: 0, page: 1, totalPages: 0 };
       }
     },

@@ -19,6 +19,7 @@ import WorkspaceDiscoveryPage from './pages/workspaces/discovery';
 import WorkspaceDetailPage from './pages/workspaces/[workspaceId]';
 import NetworkPage from './pages/network';
 import SettingsPage from './pages/settings';
+import NotificationsPage from './pages/notifications';
 import ServiceStatusPageStandalone from './pages/services/status-standalone';
 import { RailwayStatus } from './pages/RailwayStatus';
 
@@ -156,6 +157,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/notifications" 
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
             </ProtectedRoute>
           } 
         />
