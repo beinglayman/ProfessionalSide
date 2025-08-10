@@ -145,6 +145,9 @@ type FeedItem = ActivityEntry | TierMarker;
 // Current user's skills (this would come from user profile in real app)
 const currentUserSkills = ['React.js', 'TypeScript', 'UX Design', 'Node.js', 'Machine Learning'];
 
+// Default feed age limit in days (should come from user settings)
+const DEFAULT_FEED_AGE_LIMIT_DAYS = 7;
+
 // Enhanced function to calculate skill matching and relevance
 const calculateSkillMatch = (activitySkills: string[], userSkills: string[]) => {
   const matchingSkills = activitySkills.filter(skill => userSkills.includes(skill));
@@ -550,122 +553,179 @@ export function ActivityFeedPage() {
     return filtered;
   }, [activities, viewMode, searchQuery, selectedCategory, selectedSkills, selectedWorkspace]);
 
-  // Intelligent prioritization for two-tier network system
+  // Sophisticated feed prioritization with workspace and network logic
   const prioritizedActivities = useMemo(() => {
-    if (viewMode !== 'network') {
-      // Workspace view: use original sorting
-      const sorted = [...filteredActivities];
-      if (sortBy === 'recent') {
-        sorted.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      } else {
-        sorted.sort((a, b) => b.likes - a.likes);
-      }
-      return sorted;
-    }
+    // First, filter out entries older than 7 days (configurable)
+    const now = new Date();
+    const ageLimit = now.getTime() - (DEFAULT_FEED_AGE_LIMIT_DAYS * 24 * 60 * 60 * 1000);
+    const recentActivities = filteredActivities.filter(activity => 
+      activity.createdAt.getTime() >= ageLimit
+    );
 
-    // Network view: implement intelligent prioritization
-    const getNetworkTier = (activity: ActivityEntry): number => {
-      const connectionType = activity.author.connectionType;
+    if (viewMode === 'workspace') {
+      // WORKSPACE VIEW SORTING LOGIC
+      // 1. Core connections in common workspaces (sorted by recency)
+      // 2. Extended connections in common workspaces (sorted by recency) 
+      // 3. Other users in common workspaces (sorted by recency)
       
-      // Tier 1: Core Network (highest priority)
-      if (connectionType === 'core_connection') return 1;
-      
-      // Tier 2: Extended Network
-      if (connectionType === 'extended_connection') return 2;
-      
-      // Tier 3: Following
-      if (connectionType === 'following') return 3;
-      
-      // Tier 4: Skill-based discoveries and appreciated content
-      if (connectionType === 'none') {
-        // Prioritize appreciated content within discovery tier
-        if (activity.appreciatedBy && activity.appreciatedBy.length > 0) return 4.1;
-        // Regular skill-based content
-        return 4.2;
-      }
-      
-      return 5; // Fallback
-    };
+      const coreWorkspaceEntries: ActivityEntry[] = [];
+      const extendedWorkspaceEntries: ActivityEntry[] = [];
+      const otherWorkspaceEntries: ActivityEntry[] = [];
 
-    const getEngagementScore = (activity: ActivityEntry): number => {
-      return (activity.likes || 0) * 1.0 + (activity.comments || 0) * 2.0;
-    };
-
-    const sorted = [...filteredActivities].sort((a, b) => {
-      const tierA = getNetworkTier(a);
-      const tierB = getNetworkTier(b);
-      
-      // Primary sort: by network tier
-      if (tierA !== tierB) {
-        return tierA - tierB;
-      }
-      
-      // Secondary sort within same tier
-      if (sortBy === 'recent') {
-        return b.createdAt.getTime() - a.createdAt.getTime();
-      } else {
-        // For popularity, consider engagement score
-        const engagementA = getEngagementScore(a);
-        const engagementB = getEngagementScore(b);
-        if (engagementA !== engagementB) {
-          return engagementB - engagementA;
+      recentActivities.forEach(activity => {
+        // Only include entries from common workspaces (workspace source indicates shared workspace)
+        if (activity.source === 'workspace') {
+          if (activity.author.connectionType === 'core_connection') {
+            coreWorkspaceEntries.push(activity);
+          } else if (activity.author.connectionType === 'extended_connection') {
+            extendedWorkspaceEntries.push(activity);
+          } else {
+            otherWorkspaceEntries.push(activity);
+          }
         }
-        // Fallback to recency
-        return b.createdAt.getTime() - a.createdAt.getTime();
-      }
-    });
+      });
 
-    return sorted;
+      // Sort each group by recency
+      const sortByRecency = (a: ActivityEntry, b: ActivityEntry) => 
+        b.createdAt.getTime() - a.createdAt.getTime();
+
+      coreWorkspaceEntries.sort(sortByRecency);
+      extendedWorkspaceEntries.sort(sortByRecency);
+      otherWorkspaceEntries.sort(sortByRecency);
+
+      return [...coreWorkspaceEntries, ...extendedWorkspaceEntries, ...otherWorkspaceEntries];
+    } else {
+      // NETWORK VIEW SORTING LOGIC
+      // 1. Core network entries (NOT from shared workspaces, sorted by recency)
+      // 2. Extended network entries (NOT from shared workspaces, sorted by recency)
+      // 3. Discovery entries (sorted by skill match relevance, then recency)
+
+      const coreNetworkEntries: ActivityEntry[] = [];
+      const extendedNetworkEntries: ActivityEntry[] = [];
+      const discoveryEntries: ActivityEntry[] = [];
+
+      recentActivities.forEach(activity => {
+        if (activity.author.connectionType === 'core_connection' && activity.source === 'network') {
+          // Core network entries not from shared workspaces
+          coreNetworkEntries.push(activity);
+        } else if (activity.author.connectionType === 'extended_connection' && activity.source === 'network') {
+          // Extended network entries not from shared workspaces
+          extendedNetworkEntries.push(activity);
+        } else if (activity.author.connectionType === 'none' || activity.author.connectionType === 'following') {
+          // Discovery entries
+          discoveryEntries.push(activity);
+        }
+      });
+
+      // Sort core and extended by recency
+      const sortByRecency = (a: ActivityEntry, b: ActivityEntry) => 
+        b.createdAt.getTime() - a.createdAt.getTime();
+
+      coreNetworkEntries.sort(sortByRecency);
+      extendedNetworkEntries.sort(sortByRecency);
+
+      // Sort discovery entries by skill match relevance, then recency
+      discoveryEntries.sort((a, b) => {
+        const skillMatchA = calculateSkillMatch(a.skills, currentUserSkills);
+        const skillMatchB = calculateSkillMatch(b.skills, currentUserSkills);
+
+        // Primary sort: number of matching skills (descending)
+        if (skillMatchA.matchingSkills.length !== skillMatchB.matchingSkills.length) {
+          return skillMatchB.matchingSkills.length - skillMatchA.matchingSkills.length;
+        }
+
+        // Secondary sort: relevance score (descending)
+        if (skillMatchA.relevanceScore !== skillMatchB.relevanceScore) {
+          return skillMatchB.relevanceScore - skillMatchA.relevanceScore;
+        }
+
+        // Tertiary sort: recency (newer first)
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
+
+      return [...coreNetworkEntries, ...extendedNetworkEntries, ...discoveryEntries];
+    }
   }, [filteredActivities, sortBy, viewMode]);
 
-  // Get displayed activities with tier transition markers
+  // Get displayed activities with enhanced tier transition markers
   const displayedActivities = useMemo(() => {
     const activities = prioritizedActivities.slice(0, displayedCount);
     
-    // Add tier transition markers for network view
-    if (viewMode === 'network' && activities.length > 0) {
-      const activitiesWithMarkers: FeedItem[] = [];
-      let currentTier = '';
-      
-      activities.forEach((activity, index) => {
-        const tierMap = {
-          'core_connection': 'core',
-          'extended_connection': 'extended', 
-          'following': 'following',
-          'none': 'discovery'
-        };
-        
-        const activityTier = tierMap[activity.author.connectionType || 'none'] || 'discovery';
-        
-        // Add tier marker if tier changes
-        if (activityTier !== currentTier && index > 0) {
-          const tierLabels = {
-            'core': { label: 'Core Network', icon: Layers, color: 'bg-blue-50 border-blue-200' },
-            'extended': { label: 'Extended Network', icon: Network, color: 'bg-purple-50 border-purple-200' },
-            'following': { label: 'Following', icon: Eye, color: 'bg-indigo-50 border-indigo-200' },
-            'discovery': { label: 'Professional Discovery', icon: Sparkles, color: 'bg-amber-50 border-amber-200' }
+    if (activities.length === 0) return [];
+
+    const activitiesWithMarkers: FeedItem[] = [];
+    let lastTierType = '';
+
+    activities.forEach((activity, index) => {
+      let currentTierType = '';
+      let tierInfo = null;
+
+      if (viewMode === 'workspace') {
+        // Workspace view tier markers
+        if (activity.author.connectionType === 'core_connection' && activity.source === 'workspace') {
+          currentTierType = 'core-workspace';
+          tierInfo = { 
+            label: 'Core Connections in Shared Workspaces', 
+            icon: Layers, 
+            color: 'bg-blue-50 border-blue-200' 
           };
-          
-          const tierInfo = tierLabels[activityTier as keyof typeof tierLabels];
-          if (tierInfo) {
-            activitiesWithMarkers.push({
-              isTierMarker: true,
-              tier: activityTier,
-              tierLabel: tierInfo.label,
-              tierIcon: tierInfo.icon,
-              tierColor: tierInfo.color
-            });
-          }
+        } else if (activity.author.connectionType === 'extended_connection' && activity.source === 'workspace') {
+          currentTierType = 'extended-workspace';
+          tierInfo = { 
+            label: 'Extended Connections in Shared Workspaces', 
+            icon: Network, 
+            color: 'bg-purple-50 border-purple-200' 
+          };
+        } else if (activity.source === 'workspace') {
+          currentTierType = 'others-workspace';
+          tierInfo = { 
+            label: 'Other Users in Shared Workspaces', 
+            icon: Building2, 
+            color: 'bg-gray-50 border-gray-200' 
+          };
         }
-        
-        currentTier = activityTier;
-        activitiesWithMarkers.push(activity);
-      });
-      
-      return activitiesWithMarkers;
-    }
+      } else {
+        // Network view tier markers
+        if (activity.author.connectionType === 'core_connection' && activity.source === 'network') {
+          currentTierType = 'core-network';
+          tierInfo = { 
+            label: 'Core Network', 
+            icon: Layers, 
+            color: 'bg-blue-50 border-blue-200' 
+          };
+        } else if (activity.author.connectionType === 'extended_connection' && activity.source === 'network') {
+          currentTierType = 'extended-network';
+          tierInfo = { 
+            label: 'Extended Network', 
+            icon: Network, 
+            color: 'bg-purple-50 border-purple-200' 
+          };
+        } else if (activity.author.connectionType === 'none' || activity.author.connectionType === 'following') {
+          currentTierType = 'discovery';
+          tierInfo = { 
+            label: 'Professional Discovery', 
+            icon: Sparkles, 
+            color: 'bg-amber-50 border-amber-200' 
+          };
+        }
+      }
+
+      // Add tier marker when tier changes
+      if (currentTierType !== lastTierType && tierInfo) {
+        activitiesWithMarkers.push({
+          isTierMarker: true,
+          tier: currentTierType,
+          tierLabel: tierInfo.label,
+          tierIcon: tierInfo.icon,
+          tierColor: tierInfo.color
+        });
+        lastTierType = currentTierType;
+      }
+
+      activitiesWithMarkers.push(activity);
+    });
     
-    return activities;
+    return activitiesWithMarkers;
   }, [prioritizedActivities, displayedCount, viewMode]);
 
   // Load more activities

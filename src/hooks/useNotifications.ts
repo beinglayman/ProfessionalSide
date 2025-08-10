@@ -109,15 +109,15 @@ export function useNotificationPreferences() {
     queryKey: ['notification-preferences'],
     queryFn: async (): Promise<NotificationPreferences> => {
       try {
-        const response = await api.get('/notifications/preferences');
-        return response.data;
+        const response = await api.get('/email/preferences');
+        return response.data.data;
       } catch (error) {
         console.log('🔔 Backend unavailable, returning default preferences');
         return {
           id: 'default',
           userId: 'demo',
-          emailNotifications: false,
-          pushNotifications: false,
+          emailNotifications: true,
+          pushNotifications: true,
           likes: true,
           comments: true,
           mentions: true,
@@ -125,7 +125,7 @@ export function useNotificationPreferences() {
           connectionRequests: true,
           achievements: true,
           systemUpdates: true,
-          digestFrequency: 'WEEKLY' as const,
+          digestFrequency: 'DAILY' as const,
           quietHoursStart: undefined,
           quietHoursEnd: undefined,
         };
@@ -190,8 +190,8 @@ export function useUpdateNotificationPreferences() {
 
   return useMutation({
     mutationFn: async (preferences: Partial<NotificationPreferences>) => {
-      const response = await api.put('/notifications/preferences', preferences);
-      return response.data;
+      const response = await api.put('/email/preferences', preferences);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });

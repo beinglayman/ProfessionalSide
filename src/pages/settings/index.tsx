@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit } from 'lucide-react';
+import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit, Clock, Settings } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import NetworkSettings from '../../components/settings/network-settings';
@@ -9,6 +9,108 @@ import ProfileVisibility from '../../components/settings/profile-visibility';
 import { useNavigate, Link } from 'react-router-dom';
 
 type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy';
+
+// Additional Settings Component
+function AdditionalSettings() {
+  const [feedAgeLimit, setFeedAgeLimit] = useState(7);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const handleFeedAgeLimitChange = (value: number) => {
+    setFeedAgeLimit(value);
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    // TODO: Save to backend
+    console.log('Saving feed age limit:', feedAgeLimit);
+    setHasChanges(false);
+  };
+
+  const handleReset = () => {
+    setFeedAgeLimit(7);
+    setHasChanges(false);
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="mb-6">
+        <div className="flex items-center space-x-3 mb-3">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Settings className="h-5 w-5 text-green-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Additional Settings</h3>
+            <p className="text-sm text-gray-500">Configure additional preferences for your experience</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Feed Age Limit Setting */}
+      <div className="space-y-4">
+        <div className="flex items-start justify-between py-4">
+          <div className="flex items-start space-x-3 flex-1">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Clock className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-medium text-gray-900 mb-1">Feed Age Limit</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Show journal entries from the last N days in your activity feed. Older entries will be filtered out.
+              </p>
+              <div className="flex items-center space-x-4">
+                <label htmlFor="feed-age-limit" className="text-sm font-medium text-gray-700">
+                  Days:
+                </label>
+                <select
+                  id="feed-age-limit"
+                  value={feedAgeLimit}
+                  onChange={(e) => handleFeedAgeLimitChange(parseInt(e.target.value))}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={1}>1 day</option>
+                  <option value={3}>3 days</option>
+                  <option value={7}>7 days</option>
+                  <option value={14}>14 days</option>
+                  <option value={30}>30 days</option>
+                  <option value={90}>90 days</option>
+                </select>
+                <span className="text-sm text-gray-500">
+                  ({feedAgeLimit === 1 ? '1 day' : `${feedAgeLimit} days`})
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Save/Reset Actions */}
+      {hasChanges && (
+        <div className="border-t pt-4 mt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">You have unsaved changes</p>
+              <p className="text-sm text-gray-600">Your additional settings have been modified</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleReset}
+              >
+                Reset
+              </Button>
+              <Button
+                onClick={handleSave}
+                className="bg-primary-600 hover:bg-primary-700"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const settingsTabs = [
   {
@@ -86,6 +188,9 @@ export function SettingsPage() {
             
             {/* Profile Visibility Settings */}
             <ProfileVisibility />
+            
+            {/* Additional Settings */}
+            <AdditionalSettings />
           </div>
         );
       

@@ -1,0 +1,15 @@
+In the feed page, if the workspace toggle is selected, I'd want you to first show the journal entries that    │
+│   are posted by user's core connections in their common workspaces (sorted by recency), followed by journal     │
+│   entries (sorted by recency) posted by user's extended connections in their common workspace, followed by      │
+│   journal entries posted by any other users posted in their common workspaces.\                                 │
+│                                                                                                                 │
+│   For network toggle, I'd want you to show first the journal entries from user's core network first (sorted by  │
+│   recency) - these should not include the entries from core network connection that are posted in their         │
+│   common workspaces (already covered in workspace toggle)  2) Once exhausted, journal entries from extended     │
+│   network connections should be shown (sorted by recency) - these should not include the entries from extended  │
+│   network connection that are posted in their common workspaces (already covered in workspace toggle) 3) Once   │
+│   exhausted entries from other users should be shown as per discovery algorithm [journal entries from most      │
+│   number of common skills first, n-1 skills common next, .. untill 1 common skill]\                             │
+│                                                                                                                 │
+│   Additionally none of the journal entries shown should be older than 7 days (this number of days should be     │
+│   configurable in settings > profile > Additional settings )
