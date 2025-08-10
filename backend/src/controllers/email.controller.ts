@@ -128,9 +128,29 @@ export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response)
   }
 
   try {
+    // Check if welcome email was already sent
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { welcomeEmailSent: true, email: true, name: true }
+    });
+
+    if (!user) {
+      return sendError(res, 'User not found', 404);
+    }
+
+    if (user.welcomeEmailSent) {
+      return sendError(res, 'Welcome email already sent to this user', 409);
+    }
+
     const success = await emailService.sendWelcomeEmail(userId);
 
     if (success) {
+      // Mark welcome email as sent
+      await prisma.user.update({
+        where: { id: userId },
+        data: { welcomeEmailSent: true }
+      });
+      
       sendSuccess(res, null, 'Welcome email sent successfully');
     } else {
       sendError(res, 'Failed to send welcome email', 500);

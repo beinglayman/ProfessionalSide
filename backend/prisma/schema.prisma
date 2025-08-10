@@ -27,6 +27,7 @@ model User {
   industry  String?
   yearsOfExperience Int? 
   isActive  Boolean  @default(true)
+  welcomeEmailSent  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

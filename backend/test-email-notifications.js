@@ -93,6 +93,7 @@ async function getUserId() {
   try {
     const result = await makeRequest('GET', '/auth/me');
     console.log('🆔 Current user:', result.data?.name || 'Unknown');
+    console.log('📧 Welcome email sent:', result.data?.welcomeEmailSent ? 'Yes' : 'No');
     return result.data?.id;
   } catch (error) {
     console.error('Failed to get current user');

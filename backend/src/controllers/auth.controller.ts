@@ -88,7 +88,13 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   });
   
   // Send welcome email asynchronously (don't block registration)
-  emailService.sendWelcomeEmail(user.id).catch(error => {
+  emailService.sendWelcomeEmail(user.id).then(() => {
+    // Mark welcome email as sent
+    return prisma.user.update({
+      where: { id: user.id },
+      data: { welcomeEmailSent: true }
+    });
+  }).catch(error => {
     console.error(`Failed to send welcome email to user ${user.id}:`, error);
   });
   
@@ -241,6 +247,7 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response) =
       location: true,
       avatar: true,
       bio: true,
+      welcomeEmailSent: true,
       createdAt: true,
       profile: {
         select: {
