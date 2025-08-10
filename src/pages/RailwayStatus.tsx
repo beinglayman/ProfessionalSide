@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, ExternalLink, RefreshCw, Mail, Send, Loader } from 'lucide-react';
 
 interface ServiceStatus {
   name: string;
@@ -70,10 +70,34 @@ export function RailwayStatus() {
       requiredFor: ['Data Storage', 'User Management', 'Application State'],
       envVars: ['DATABASE_URL'],
       status: 'configured'
+    },
+    {
+      service: 'Email Service',
+      requiredFor: ['Welcome Emails', 'Notifications', 'User Communication'],
+      envVars: [
+        'EMAIL_ENABLED',
+        'SMTP_HOST',
+        'SMTP_PORT',
+        'SMTP_USER',
+        'SMTP_PASS',
+        'FROM_NAME',
+        'FROM_EMAIL',
+        'SUPPORT_EMAIL'
+      ],
+      status: 'partial' // Will need to be configured
     }
   ]);
 
   const [isChecking, setIsChecking] = useState(false);
+
+  // Email testing state
+  const [emailTest, setEmailTest] = useState({
+    recipientEmail: '',
+    subject: 'InChronicle Email Test from Railway',
+    message: 'This is a test email to verify that email notifications are working correctly on Railway.',
+    isLoading: false,
+    result: null as { success: boolean; message: string; timestamp: string } | null
+  });
 
   const checkServiceHealth = async (service: ServiceStatus): Promise<ServiceStatus> => {
 
@@ -123,6 +147,74 @@ export function RailwayStatus() {
     );
     setServices(updatedServices);
     setIsChecking(false);
+  };
+
+  // Email testing function
+  const testEmailService = async () => {
+    if (!emailTest.recipientEmail) {
+      setEmailTest(prev => ({
+        ...prev,
+        result: {
+          success: false,
+          message: 'Please enter a recipient email address',
+          timestamp: new Date().toISOString()
+        }
+      }));
+      return;
+    }
+
+    setEmailTest(prev => ({ ...prev, isLoading: true, result: null }));
+
+    try {
+      const backendUrl = 'https://professionalside-production.up.railway.app';
+      // First check if email service is configured
+      const configResponse = await fetch(`${backendUrl}/api/v1/email/test-config-public`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!configResponse.ok) {
+        throw new Error(`Email service not available: ${configResponse.status} ${configResponse.statusText}`);
+      }
+
+      // Now try to send the test email without auth (for Railway testing)
+      const response = await fetch(`${backendUrl}/api/v1/email/test-public`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          to: emailTest.recipientEmail,
+          subject: emailTest.subject,
+          message: emailTest.message
+        })
+      });
+
+      const result = await response.json();
+
+      setEmailTest(prev => ({
+        ...prev,
+        isLoading: false,
+        result: {
+          success: response.ok,
+          message: result.message || (response.ok ? 'Email sent successfully!' : `Error: ${result.error || 'Failed to send email'}`),
+          timestamp: new Date().toISOString()
+        }
+      }));
+
+    } catch (error) {
+      setEmailTest(prev => ({
+        ...prev,
+        isLoading: false,
+        result: {
+          success: false,
+          message: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date().toISOString()
+        }
+      }));
+    }
   };
 
   useEffect(() => {
@@ -314,6 +406,129 @@ export function RailwayStatus() {
           </div>
         </div>
 
+        {/* Email Service Testing */}
+        <div className="mt-6 bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Mail className="w-5 h-5 text-blue-600" />
+            Email Service Testing
+          </h2>
+          
+          <div className="mb-4">
+            <p className="text-gray-600 text-sm mb-4">
+              Test your email service configuration by sending a test email to any address.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Email Testing Form */}
+            <div>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="recipient-email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Recipient Email Address *
+                  </label>
+                  <input
+                    id="recipient-email"
+                    type="email"
+                    value={emailTest.recipientEmail}
+                    onChange={(e) => setEmailTest(prev => ({ ...prev, recipientEmail: e.target.value }))}
+                    placeholder="your-email@example.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={emailTest.isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="email-subject" className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject
+                  </label>
+                  <input
+                    id="email-subject"
+                    type="text"
+                    value={emailTest.subject}
+                    onChange={(e) => setEmailTest(prev => ({ ...prev, subject: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={emailTest.isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="email-message" className="block text-sm font-medium text-gray-700 mb-1">
+                    Message
+                  </label>
+                  <textarea
+                    id="email-message"
+                    rows={4}
+                    value={emailTest.message}
+                    onChange={(e) => setEmailTest(prev => ({ ...prev, message: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    disabled={emailTest.isLoading}
+                  />
+                </div>
+
+                <button
+                  onClick={testEmailService}
+                  disabled={emailTest.isLoading || !emailTest.recipientEmail}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {emailTest.isLoading ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  {emailTest.isLoading ? 'Sending Test Email...' : 'Send Test Email'}
+                </button>
+              </div>
+            </div>
+
+            {/* Test Results */}
+            <div>
+              <h3 className="text-lg font-medium mb-3">Test Results</h3>
+              
+              {emailTest.result ? (
+                <div className={`p-4 rounded-lg border ${
+                  emailTest.result.success 
+                    ? 'bg-green-50 border-green-200 text-green-800' 
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    {emailTest.result.success ? (
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium mb-1">
+                        {emailTest.result.success ? 'Email Sent Successfully!' : 'Email Failed to Send'}
+                      </p>
+                      <p className="text-sm">{emailTest.result.message}</p>
+                      <p className="text-xs mt-2 opacity-75">
+                        {new Date(emailTest.result.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 border border-gray-200 rounded-lg text-gray-500 text-center">
+                  <Mail className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No test results yet</p>
+                  <p className="text-sm">Send a test email to see results here</p>
+                </div>
+              )}
+
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-900 mb-2">Email Service Requirements:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• EMAIL_ENABLED=true in Railway environment</li>
+                  <li>• SMTP configuration (Gmail, SendGrid, etc.)</li>
+                  <li>• Valid SMTP credentials</li>
+                  <li>• FROM_EMAIL and FROM_NAME configured</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Environment Variables Checklist */}
         <div className="mt-6 bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Environment Variables Checklist</h2>
@@ -367,6 +582,47 @@ export function RailwayStatus() {
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   <span className="font-mono">API_BASE_URL</span>
                   <span className="text-gray-500">= https://professionalside-production.up.railway.app</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-2">Email Service (Optional)</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">EMAIL_ENABLED</span>
+                  <span className="text-gray-500">= true (to enable emails)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">SMTP_HOST</span>
+                  <span className="text-gray-500">= smtp.gmail.com</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">SMTP_PORT</span>
+                  <span className="text-gray-500">= 587</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">SMTP_USER</span>
+                  <span className="text-gray-500">Your email address</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">SMTP_PASS</span>
+                  <span className="text-gray-500">App password (not regular password)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">FROM_EMAIL</span>
+                  <span className="text-gray-500">Your email address</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <span className="font-mono">FROM_NAME</span>
+                  <span className="text-gray-500">= InChronicle</span>
                 </div>
               </div>
             </div>

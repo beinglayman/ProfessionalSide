@@ -88,6 +88,49 @@ export const sendTestEmail = asyncHandler(async (req: Request, res: Response) =>
 });
 
 /**
+ * Send test email (public endpoint for Railway status page)
+ */
+export const sendTestEmailPublic = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const validatedData = testEmailSchema.parse(req.body);
+
+    const success = await emailService.sendEmail({
+      to: validatedData.to,
+      subject: validatedData.subject,
+      htmlContent: `
+        <html>
+          <body style="font-family: Arial, sans-serif;">
+            <h2>🚀 Railway Email Test</h2>
+            <p>${validatedData.message}</p>
+            <p><strong>Test Status:</strong> Email service is working correctly!</p>
+            <p><strong>Test Time:</strong> ${new Date().toISOString()}</p>
+            <hr>
+            <p><small>Sent from InChronicle Backend via Railway</small></p>
+          </body>
+        </html>
+      `,
+      textContent: `🚀 Railway Email Test\n\n${validatedData.message}\n\nTest Status: Email service is working correctly!\nTest Time: ${new Date().toISOString()}\n\nSent from InChronicle Backend via Railway`,
+      category: 'test'
+    });
+
+    if (success) {
+      sendSuccess(res, {
+        emailSent: true,
+        recipient: validatedData.to,
+        timestamp: new Date().toISOString()
+      }, 'Test email sent successfully from Railway');
+    } else {
+      sendError(res, 'Failed to send test email', 500);
+    }
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return sendError(res, 'Invalid email data', 400, error.errors);
+    }
+    throw error;
+  }
+});
+
+/**
  * Send notification email manually
  */
 export const sendNotificationEmail = asyncHandler(async (req: Request, res: Response) => {

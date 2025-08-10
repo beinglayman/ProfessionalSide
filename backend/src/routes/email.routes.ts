@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import {
   testEmailConfig,
   sendTestEmail,
+  sendTestEmailPublic,
   sendNotificationEmail,
   sendWelcomeEmail,
   triggerDailyDigest,
@@ -23,12 +24,27 @@ const router = Router();
 router.get('/test-config', authenticate, testEmailConfig);
 
 /**
+ * @route   GET /api/v1/email/test-config-public
+ * @desc    Test email configuration (public access for Railway status page)
+ * @access  Public
+ */
+router.get('/test-config-public', testEmailConfig);
+
+/**
  * @route   POST /api/v1/email/test
  * @desc    Send test email
  * @access  Private (Admin)
  * @body    { to: string, subject: string, message: string }
  */
 router.post('/test', authenticate, sendTestEmail);
+
+/**
+ * @route   POST /api/v1/email/test-public
+ * @desc    Send test email (public access for Railway status page)
+ * @access  Public
+ * @body    { to: string, subject: string, message: string }
+ */
+router.post('/test-public', sendTestEmailPublic);
 
 /**
  * @route   POST /api/v1/email/notification
