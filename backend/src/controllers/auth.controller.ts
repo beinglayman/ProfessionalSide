@@ -8,6 +8,7 @@ import {
   generateTokenPair,
   verifyToken
 } from '../utils/auth.utils';
+import { EmailService } from '../services/email.service';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import {
   registerSchema,
@@ -19,6 +20,8 @@ import {
   RefreshTokenInput,
   ChangePasswordInput
 } from '../types/auth.types';
+
+const emailService = new EmailService();
 
 /**
  * Register a new user
@@ -82,6 +85,11 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       refreshToken: tokens.refreshToken,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
     }
+  });
+  
+  // Send welcome email asynchronously (don't block registration)
+  emailService.sendWelcomeEmail(user.id).catch(error => {
+    console.error(`Failed to send welcome email to user ${user.id}:`, error);
   });
   
   sendSuccess(res, {
