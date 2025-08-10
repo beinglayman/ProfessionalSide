@@ -3,9 +3,12 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
+import { NotificationQueueService } from '../services/notification-queue.service';
+import { EmailNotificationEvent } from '../types/email.types';
 
 const router = Router();
 const prisma = new PrismaClient();
+const notificationQueue = new NotificationQueueService();
 
 // Helper function to check if current time is within quiet hours
 function isInQuietHours(quietHoursStart?: string, quietHoursEnd?: string): boolean {
@@ -231,6 +234,68 @@ router.post('/', async (req, res) => {
       }
     });
 
+    // Queue email notification if user has email notifications enabled
+    if (preferences?.emailNotifications && !inQuietHours) {
+      const emailEvent: EmailNotificationEvent = {
+        type: validatedData.type.toLowerCase() as any,
+        recipientId: validatedData.recipientId,
+        senderId,
+        title: validatedData.title,
+        data: validatedData.data || {},
+        metadata: {
+          entityType: validatedData.relatedEntityType,
+          entityId: validatedData.relatedEntityId,
+          notificationId: notification.id
+        }
+      };
+
+      try {
+        await notificationQueue.queueNotification(emailEvent);
+        console.log(`📧 Queued email notification for ${validatedData.type} to user ${validatedData.recipientId}`);
+      } catch (error) {
+        console.error('Failed to queue email notification:', error);
+        // Don't fail the request if email queueing fails
+      }
+    } else if (inQuietHours) {
+      // Queue email for after quiet hours
+      const quietEndTime = preferences?.quietHoursEnd;
+      let delayMs = 0;
+      
+      if (quietEndTime) {
+        const [endHour, endMin] = quietEndTime.split(':').map(Number);
+        const now = new Date();
+        const quietEnd = new Date();
+        quietEnd.setHours(endHour, endMin, 0, 0);
+        
+        // If quiet end is tomorrow
+        if (quietEnd <= now) {
+          quietEnd.setDate(quietEnd.getDate() + 1);
+        }
+        
+        delayMs = quietEnd.getTime() - now.getTime();
+      }
+
+      const emailEvent: EmailNotificationEvent = {
+        type: validatedData.type.toLowerCase() as any,
+        recipientId: validatedData.recipientId,
+        senderId,
+        title: validatedData.title,
+        data: validatedData.data || {},
+        metadata: {
+          entityType: validatedData.relatedEntityType,
+          entityId: validatedData.relatedEntityId,
+          notificationId: notification.id
+        }
+      };
+
+      try {
+        await notificationQueue.queueNotification(emailEvent, delayMs);
+        console.log(`📧 Queued delayed email notification for ${validatedData.type} (delay: ${delayMs}ms)`);
+      } catch (error) {
+        console.error('Failed to queue delayed email notification:', error);
+      }
+    }
+
     sendSuccess(res, notification, 'Notification created successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -417,6 +482,49 @@ export async function createNotificationForEvent(
         data
       }
     });
+
+    // Queue email notification if enabled
+    if (preferences?.emailNotifications) {
+      const inQuietHours = isInQuietHours(preferences.quietHoursStart, preferences.quietHoursEnd);
+      
+      const emailEvent: EmailNotificationEvent = {
+        type: type.toLowerCase() as any,
+        recipientId,
+        senderId,
+        title,
+        data: data || {},
+        metadata: {
+          entityType: relatedEntityType,
+          entityId: relatedEntityId,
+          notificationId: notification.id
+        }
+      };
+
+      let delayMs = 0;
+      if (inQuietHours) {
+        // Calculate delay until quiet hours end
+        const quietEndTime = preferences.quietHoursEnd;
+        if (quietEndTime) {
+          const [endHour, endMin] = quietEndTime.split(':').map(Number);
+          const now = new Date();
+          const quietEnd = new Date();
+          quietEnd.setHours(endHour, endMin, 0, 0);
+          
+          if (quietEnd <= now) {
+            quietEnd.setDate(quietEnd.getDate() + 1);
+          }
+          
+          delayMs = quietEnd.getTime() - now.getTime();
+        }
+      }
+
+      try {
+        await notificationQueue.queueNotification(emailEvent, delayMs);
+        console.log(`📧 Queued email notification for ${type} (${delayMs > 0 ? 'delayed' : 'immediate'})`);
+      } catch (error) {
+        console.error('Failed to queue email notification:', error);
+      }
+    }
 
     return notification;
   } catch (error) {
