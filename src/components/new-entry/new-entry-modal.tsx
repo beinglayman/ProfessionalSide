@@ -94,7 +94,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const { data: workspaceMembers = [], isLoading: loadingWorkspaceMembers, error: workspaceMembersError } = useWorkspaceMembers(formData.workspaceId || '');
   
   // Filter out current user from workspace members for collaborators/reviewers
-  const availableMembers = workspaceMembers.filter(member => member.userId !== currentUser?.id);
+  // Ensure workspaceMembers is always an array before calling filter
+  const safeWorkspaceMembers = Array.isArray(workspaceMembers) ? workspaceMembers : [];
+  const availableMembers = safeWorkspaceMembers.filter(member => member.userId !== currentUser?.id);
 
 
   // Reset dependent fields when focus area changes

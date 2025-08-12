@@ -133,8 +133,19 @@ export function useWorkspaceMembers(workspaceId: string) {
         console.log('🔍 API: Fetching workspace members for:', workspaceId);
         const response = await api.get(`/workspaces/${workspaceId}/members`);
         console.log('✅ API: Workspace members response:', response.data);
-        console.log('📊 API: Members data:', response.data.data);
-        return response.data.data;
+        
+        // The API returns { success: true, data: [members] }
+        // So we should access response.data.data, not response.data.data.data
+        const membersData = response.data.data;
+        console.log('📊 API: Members data:', membersData);
+        
+        // Ensure we always return an array
+        if (Array.isArray(membersData)) {
+          return membersData;
+        }
+        
+        console.warn('⚠️ API: Members data is not an array:', typeof membersData, membersData);
+        return [];
       } catch (error) {
         console.error('❌ API: Failed to fetch workspace members:', error);
         console.log('🔄 API: Returning empty array as fallback');
