@@ -899,7 +899,57 @@ const workTypeToSkills = {
   'design-sprints': ['design-thinking'],
   'concept-validation': ['user-research'],
   'prototype-testing': ['prototyping', 'user-research'],
-  'user-feedback-analysis': ['user-research', 'analytics']
+  'user-feedback-analysis': ['user-research', 'analytics'],
+  
+  // Design Testing work types
+  'a-b-testing': ['figma', 'user-research', 'marketing-analytics'],
+  'usability-studies': ['user-research', 'figma'],
+  'design-validation': ['figma', 'user-research', 'sketch'],
+  'concept-testing': ['user-research', 'figma'],
+  'preference-testing': ['user-research', 'figma'],
+  'benchmark-testing': ['user-research', 'competitive-analysis'],
+  'first-click-testing': ['user-research', 'figma'],
+  'eye-tracking': ['user-research'],
+  
+  // Visual Design work types
+  'ui-mockups': ['figma', 'sketch', 'photoshop'],
+  'style-guide-creation': ['figma', 'sketch', 'illustrator'],
+  'iconography': ['illustrator', 'figma', 'sketch'],
+  'illustration': ['illustrator', 'photoshop'],
+  'typography': ['figma', 'sketch', 'photoshop'],
+  'color-systems': ['figma', 'sketch'],
+  'branding-elements': ['illustrator', 'photoshop', 'figma'],
+  'data-visualization': ['figma', 'sketch'],
+  
+  // Interaction Design work types
+  'wireframing': ['figma', 'sketch', 'adobe-xd'],
+  'prototyping': ['figma', 'sketch', 'principle', 'framer'],
+  'interaction-design': ['figma', 'sketch', 'adobe-xd'],
+  'accessibility-design': ['figma', 'html5', 'css3'],
+  'gesture-design': ['figma', 'sketch'],
+  'animation-design': ['after-effects', 'principle', 'framer'],
+  'responsive-design-planning': ['figma', 'css3'],
+  'form-design': ['figma', 'sketch'],
+  
+  // Design Systems work types
+  'component-design': ['figma', 'sketch'],
+  'pattern-library': ['figma', 'sketch'],
+  'design-tokens': ['figma'],
+  'system-documentation': ['figma'],
+  'design-system-governance': ['figma', 'leadership'],
+  'component-variants': ['figma', 'sketch'],
+  'system-adoption': ['figma', 'communication'],
+  'system-versioning': ['figma'],
+  
+  // Design Collaboration work types
+  'design-reviews': ['figma', 'communication'],
+  'handoff-to-ui-design': ['figma', 'sketch'],
+  'developer-collaboration': ['figma', 'communication'],
+  'stakeholder-presentations': ['figma', 'communication'],
+  'design-workshops': ['figma', 'leadership'],
+  'cross-functional-alignment': ['communication', 'leadership'],
+  'design-documentation': ['figma'],
+  'design-advocacy': ['communication', 'leadership']
 };
 
 async function seedReferenceData() {
