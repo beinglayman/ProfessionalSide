@@ -10,7 +10,6 @@ import { useFocusAreas, useWorkCategories, useWorkTypes, useSkillsForWorkTypes }
 import { useWorkspaces, useWorkspaceMembers } from '../../hooks/useWorkspace';
 import { useAuth } from '../../contexts/AuthContext';
 import { TagInput } from '../ui/tag-input';
-import { ApiDebugComponent } from '../debug/api-debug';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -1240,16 +1239,6 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               <Label.Root className="text-sm font-medium text-gray-700 mb-3 block">
                 Select Skills Used *
               </Label.Root>
-              
-              {/* Debug info - Remove in production */}
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                <div><strong>Work Types:</strong> {JSON.stringify(formData.workTypes)}</div>
-                <div><strong>Loading Skills:</strong> {loadingSkills ? 'YES' : 'NO'}</div>
-                <div><strong>Skills Error:</strong> {skillsError ? skillsError.message : 'None'}</div>
-                <div><strong>Available Skills Count:</strong> {finalAvailableSkills.length}</div>
-                <div><strong>Available Skills:</strong> {finalAvailableSkills.map(s => s.name).join(', ')}</div>
-              </div>
-              
               {!formData.workTypes || formData.workTypes.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   Please select work types in step 3 first to see relevant skills.
@@ -1845,9 +1834,6 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
 
   return (
     <>
-      {/* Debug Component - Remove in production */}
-      <ApiDebugComponent />
-      
       {/* Overlay */}
       {open && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => onOpenChange(false)} />
