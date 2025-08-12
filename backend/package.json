@@ -17,6 +17,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-reference": "tsx prisma/seed-reference-data.ts",
     "db:add-design-skills": "node scripts/add-design-skills.js",
+    "db:add-missing-categories": "node scripts/add-missing-work-categories.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {
