@@ -53,12 +53,13 @@ export function TagInput({
 
   const addTag = (tag: string) => {
     const trimmedTag = tag.trim();
+    const safeValue = Array.isArray(value) ? value : [];
     if (
       trimmedTag &&
-      !value.includes(trimmedTag) &&
-      value.length < maxTags
+      !safeValue.includes(trimmedTag) &&
+      safeValue.length < maxTags
     ) {
-      onChange([...value, trimmedTag]);
+      onChange([...safeValue, trimmedTag]);
       setInputValue('');
       setIsOpen(false);
       clearSuggestions();
@@ -66,7 +67,8 @@ export function TagInput({
   };
 
   const removeTag = (tagToRemove: string) => {
-    onChange(value.filter(tag => tag !== tagToRemove));
+    const safeValue = Array.isArray(value) ? value : [];
+    onChange(safeValue.filter(tag => tag !== tagToRemove));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -75,7 +77,7 @@ export function TagInput({
       if (inputValue.trim()) {
         addTag(inputValue);
       }
-    } else if (e.key === 'Backspace' && !inputValue && value.length > 0) {
+    } else if (e.key === 'Backspace' && !inputValue && Array.isArray(value) && value.length > 0) {
       removeTag(value[value.length - 1]);
     } else if (e.key === 'Escape') {
       setIsOpen(false);
@@ -84,8 +86,10 @@ export function TagInput({
   };
 
   // Filter suggestions to exclude already added tags
-  const filteredSuggestions = suggestions.filter(
-    suggestion => !value.includes(suggestion)
+  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+  const safeValue = Array.isArray(value) ? value : [];
+  const filteredSuggestions = safeSuggestions.filter(
+    suggestion => !safeValue.includes(suggestion)
   );
 
   return (
@@ -97,7 +101,7 @@ export function TagInput({
         "flex flex-wrap gap-1 items-center"
       )}>
         {/* Existing tags */}
-        {value.map((tag) => (
+        {(Array.isArray(value) ? value : []).map((tag) => (
           <span
             key={tag}
             className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800"
@@ -116,7 +120,7 @@ export function TagInput({
         ))}
 
         {/* Input field */}
-        {!disabled && value.length < maxTags && (
+        {!disabled && (Array.isArray(value) ? value.length : 0) < maxTags && (
           <input
             ref={inputRef}
             type="text"
@@ -128,13 +132,13 @@ export function TagInput({
                 setIsOpen(true);
               }
             }}
-            placeholder={value.length === 0 ? placeholder : ""}
+            placeholder={(Array.isArray(value) ? value.length : 0) === 0 ? placeholder : ""}
             className="flex-1 min-w-[100px] border-none outline-none bg-transparent placeholder-gray-400"
             disabled={disabled}
           />
         )}
 
-        {value.length >= maxTags && (
+        {(Array.isArray(value) ? value.length : 0) >= maxTags && (
           <span className="text-xs text-gray-500">
             Max {maxTags} tags
           </span>

@@ -192,7 +192,10 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 
     try {
       const response = await api.get(`/search/suggestions?q=${encodeURIComponent(query)}`);
-      setSuggestions(response.data);
+      // Ensure suggestions is always an array
+      const suggestionsData = Array.isArray(response.data) ? response.data : 
+                             Array.isArray(response.data.data) ? response.data.data : [];
+      setSuggestions(suggestionsData);
     } catch (err) {
       console.error('Failed to get suggestions:', err);
       setSuggestions([]);
@@ -394,7 +397,10 @@ export function useSearchSuggestions(query: string) {
       if (!query || query.length < 2) return [];
       
       const response = await api.get(`/search/suggestions?q=${encodeURIComponent(query)}`);
-      return response.data;
+      // Ensure suggestions is always an array
+      const suggestionsData = Array.isArray(response.data) ? response.data : 
+                             Array.isArray(response.data.data) ? response.data.data : [];
+      return suggestionsData;
     },
     enabled: !!query && query.length >= 2,
     staleTime: 5 * 60 * 1000, // 5 minutes
