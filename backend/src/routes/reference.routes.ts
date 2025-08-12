@@ -427,7 +427,6 @@ router.post('/add-missing-categories', async (req, res) => {
             data: {
               id: category.id,
               label: category.label,
-              description: category.description,
               focusAreaId: focusAreaId
             }
           });
