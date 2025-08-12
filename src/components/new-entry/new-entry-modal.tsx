@@ -97,6 +97,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   // Ensure workspaceMembers is always an array before calling filter
   const safeWorkspaceMembers = Array.isArray(workspaceMembers) ? workspaceMembers : [];
   const availableMembers = safeWorkspaceMembers.filter(member => member.userId !== currentUser?.id);
+  
+  // Safe computed values for artifact filtering
+  const safeArtifacts = Array.isArray(formData.artifacts) ? formData.artifacts : [];
+  const fileArtifactsCount = safeArtifacts.filter(a => a.type !== 'link').length;
+  const customLinksCount = safeArtifacts.filter(a => a.metadata === 'custom').length;
 
 
   // Reset dependent fields when focus area changes
@@ -335,39 +340,51 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   };
 
   const toggleSkill = (skillId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      skillsApplied: prev.skillsApplied.includes(skillId)
-        ? prev.skillsApplied.filter(id => id !== skillId)
-        : [...prev.skillsApplied, skillId]
-    }));
+    setFormData(prev => {
+      const safeSkillsApplied = Array.isArray(prev.skillsApplied) ? prev.skillsApplied : [];
+      return {
+        ...prev,
+        skillsApplied: safeSkillsApplied.includes(skillId)
+          ? safeSkillsApplied.filter(id => id !== skillId)
+          : [...safeSkillsApplied, skillId]
+      };
+    });
   };
 
   const toggleWorkType = (workTypeId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      workTypes: prev.workTypes.includes(workTypeId)
-        ? prev.workTypes.filter(id => id !== workTypeId)
-        : [...prev.workTypes, workTypeId]
-    }));
+    setFormData(prev => {
+      const safeWorkTypes = Array.isArray(prev.workTypes) ? prev.workTypes : [];
+      return {
+        ...prev,
+        workTypes: safeWorkTypes.includes(workTypeId)
+          ? safeWorkTypes.filter(id => id !== workTypeId)
+          : [...safeWorkTypes, workTypeId]
+      };
+    });
   };
 
   const toggleCollaborator = (userId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      collaborators: prev.collaborators.includes(userId)
-        ? prev.collaborators.filter(id => id !== userId)
-        : [...prev.collaborators, userId]
-    }));
+    setFormData(prev => {
+      const safeCollaborators = Array.isArray(prev.collaborators) ? prev.collaborators : [];
+      return {
+        ...prev,
+        collaborators: safeCollaborators.includes(userId)
+          ? safeCollaborators.filter(id => id !== userId)
+          : [...safeCollaborators, userId]
+      };
+    });
   };
 
   const toggleReviewer = (userId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      reviewers: prev.reviewers.includes(userId)
-        ? prev.reviewers.filter(id => id !== userId)
-        : [...prev.reviewers, userId]
-    }));
+    setFormData(prev => {
+      const safeReviewers = Array.isArray(prev.reviewers) ? prev.reviewers : [];
+      return {
+        ...prev,
+        reviewers: safeReviewers.includes(userId)
+          ? safeReviewers.filter(id => id !== userId)
+          : [...safeReviewers, userId]
+      };
+    });
   };
 
   const addArtifact = (artifact: { name: string; type: 'document' | 'code' | 'design' | 'data' | 'presentation' | 'link'; url: string; size?: string; metadata?: string; }) => {
@@ -375,17 +392,23 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       id: `temp-${Date.now()}`,
       ...artifact
     };
-    setFormData(prev => ({
-      ...prev,
-      artifacts: [...prev.artifacts, newArtifact]
-    }));
+    setFormData(prev => {
+      const safeArtifacts = Array.isArray(prev.artifacts) ? prev.artifacts : [];
+      return {
+        ...prev,
+        artifacts: [...safeArtifacts, newArtifact]
+      };
+    });
   };
 
   const removeArtifact = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      artifacts: prev.artifacts.filter(artifact => artifact.id !== id)
-    }));
+    setFormData(prev => {
+      const safeArtifacts = Array.isArray(prev.artifacts) ? prev.artifacts : [];
+      return {
+        ...prev,
+        artifacts: safeArtifacts.filter(artifact => artifact.id !== id)
+      };
+    });
   };
 
   const getArtifactIcon = (type: string, metadata?: string) => {
@@ -1053,9 +1076,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                       Add documents, images, or other files
                     </p>
                   </div>
-                  {formData.artifacts.filter(a => a.type !== 'link').length > 0 && (
+                  {fileArtifactsCount > 0 && (
                     <span className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
-                      {formData.artifacts.filter(a => a.type !== 'link').length} file{formData.artifacts.filter(a => a.type !== 'link').length !== 1 ? 's' : ''}
+                      {fileArtifactsCount} file{fileArtifactsCount !== 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
@@ -1110,9 +1133,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                       Add any other relevant links or resources
                     </p>
                   </div>
-                  {formData.artifacts.filter(a => a.metadata === 'custom').length > 0 && (
+                  {customLinksCount > 0 && (
                     <span className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium">
-                      {formData.artifacts.filter(a => a.metadata === 'custom').length} custom link{formData.artifacts.filter(a => a.metadata === 'custom').length !== 1 ? 's' : ''}
+                      {customLinksCount} custom link{customLinksCount !== 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
