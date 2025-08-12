@@ -206,40 +206,6 @@ class ProductionOnboardingService {
     }
   }
 
-  // Get onboarding progress
-  async getOnboardingProgress(): Promise<OnboardingProgress> {
-    try {
-      console.log('📡 Fetching onboarding progress from API...');
-      const response = await api.get('/onboarding/progress');
-      
-      if (response.data.success && response.data.data) {
-        console.log('✅ Onboarding progress retrieved:', response.data.data);
-        return response.data.data;
-      }
-      
-      // Default progress structure
-      const defaultProgress: OnboardingProgress = {
-        currentStep: 0,
-        completedSteps: [],
-        isComplete: false,
-        completionPercentage: 0
-      };
-      
-      console.log('⚠️ No progress data found, returning default:', defaultProgress);
-      return defaultProgress;
-    } catch (error) {
-      console.error('❌ Failed to fetch onboarding progress:', error);
-      
-      // Return default progress on error
-      return {
-        currentStep: 0,
-        completedSteps: [],
-        isComplete: false,
-        completionPercentage: 0
-      };
-    }
-  }
-
   // Check onboarding status
   async getOnboardingStatus(): Promise<OnboardingStatus> {
     try {
