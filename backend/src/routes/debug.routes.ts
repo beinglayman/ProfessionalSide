@@ -90,7 +90,7 @@ router.get('/direct-openai-test', async (req, res) => {
     const openai = new OpenAI({
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       baseURL: baseURL,
-      defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview' },
+      defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION || '2024-10-21' },
       defaultHeaders: {
         'api-key': process.env.AZURE_OPENAI_API_KEY,
       },
