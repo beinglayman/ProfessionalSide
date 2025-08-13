@@ -10,6 +10,7 @@ import { useFocusAreas, useWorkCategories, useWorkTypes, useSkillsForWorkTypes }
 import { useWorkspaces, useWorkspaceMembers } from '../../hooks/useWorkspace';
 import { useAuth } from '../../contexts/AuthContext';
 import { TagInput } from '../ui/tag-input';
+import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -26,8 +27,14 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const [validationError, setValidationError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
+  const [generatedEntries, setGeneratedEntries] = useState<{
+    workspaceEntry: string;
+    networkEntry: string;
+  } | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   
   const createJournalMutation = useCreateJournalEntry();
+  const generateAIMutation = useGenerateAIEntries();
   const { user: currentUser } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -232,6 +239,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
     }
 
     setIsSubmitting(true);
+    setIsGeneratingAI(true);
     
     try {
       // Get skill names from IDs
@@ -245,17 +253,48 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         const workType = finalWorkTypes.find(wt => wt.id === workTypeId);
         return workType ? workType.label : workTypeId;
       });
+
+      // Get focus area and work category names
+      const focusAreaName = finalFocusAreas.find(fa => fa.id === formData.primaryFocusArea)?.label || formData.primaryFocusArea;
+      const workCategoryName = finalWorkCategories.find(wc => wc.id === formData.workCategory)?.label || formData.workCategory;
       
-      // Create the journal entry in the format shown in screenshot
-      const journalData: CreateJournalEntryRequest = {
-        title: formData.title.trim(), // "E-commerce Platform Performance Optimization"
-        description: formData.description.trim(), // "Led performance optimization efforts..."
-        fullContent: formData.result?.trim() || formData.description.trim(),
-        workspaceId: formData.workspaceId, // "Q1 Product Updates"
-        visibility: formData.isPublished ? 'network' : 'workspace', // Published vs Workspace Only
+      // Prepare data for AI generation
+      const aiEntryData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        result: formData.result?.trim() || '',
+        primaryFocusArea: focusAreaName,
+        workCategory: workCategoryName,
+        workTypes: workTypeNames,
+        skillsApplied: skillNames,
+        artifacts: formData.artifacts,
+        collaborators: formData.collaborators,
+        reviewers: formData.reviewers,
+        tags: [...new Set([...workTypeNames, ...formData.tags])],
+        workspaceId: formData.workspaceId,
+        projects: formData.projects,
+        departments: formData.departments
+      };
+
+      console.log('🤖 Generating AI entries with data:', aiEntryData);
+      
+      // Generate AI entries
+      const generatedAIEntries = await generateAIMutation.mutateAsync(aiEntryData);
+      setGeneratedEntries(generatedAIEntries);
+      setIsGeneratingAI(false);
+
+      console.log('🤖 AI entries generated:', generatedAIEntries);
+
+      // Create workspace entry (always created)
+      const workspaceJournalData: CreateJournalEntryRequest = {
+        title: formData.title.trim(),
+        description: generatedAIEntries.workspaceEntry, // AI-generated workspace content
+        fullContent: generatedAIEntries.workspaceEntry,
+        workspaceId: formData.workspaceId,
+        visibility: 'workspace',
         category: formData.workCategory || 'General',
-        tags: [...new Set([...workTypeNames, ...formData.tags])], // Combine work type names with manual tags
-        skills: skillNames, // React.js, TypeScript, Performance Optimization
+        tags: [...new Set([...workTypeNames, ...formData.tags])],
+        skills: skillNames,
         collaborators: formData.collaborators.map((userId: string) => ({
           userId: userId,
           role: 'collaborator'
@@ -274,11 +313,23 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         }] : []
       };
 
-      console.log('Journal data being sent:', journalData);
+      console.log('📝 Creating workspace entry:', workspaceJournalData);
+      const workspaceResponse = await createJournalMutation.mutateAsync(workspaceJournalData);
+
+      // Create network entry if publishing is enabled
+      if (formData.isPublished) {
+        const networkJournalData: CreateJournalEntryRequest = {
+          ...workspaceJournalData,
+          description: generatedAIEntries.networkEntry, // AI-generated network content
+          fullContent: generatedAIEntries.networkEntry,
+          visibility: 'network'
+        };
+
+        console.log('🌐 Creating network entry:', networkJournalData);
+        await createJournalMutation.mutateAsync(networkJournalData);
+      }
       
-      const response = await createJournalMutation.mutateAsync(journalData);
-      
-      if (response.success) {
+      if (workspaceResponse.success) {
         setSubmitSuccess(true);
         setTimeout(() => {
           setSubmitSuccess(false);
@@ -306,19 +357,28 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             tags: [],
             artifacts: [],
           });
+          setGeneratedEntries(null);
           setStep(1);
         }, 1500);
       } else {
-        throw new Error(response.error || 'Failed to create entry');
+        throw new Error(workspaceResponse.error || 'Failed to create entry');
       }
     } catch (error: any) {
-      console.error('Failed to create journal entry:', error);
+      console.error('❌ Failed to create AI-generated journal entry:', error);
+      setIsGeneratingAI(false);
       
       let errorMessage = 'Unknown error';
       
       if (error?.response?.data) {
         const errorData = error.response.data;
         errorMessage = errorData.error || 'Unknown error';
+        
+        // Handle AI service specific errors
+        if (errorMessage.includes('AI service is not properly configured')) {
+          errorMessage = 'AI service is not configured. Please check with your administrator.';
+        } else if (errorMessage.includes('Failed to generate entries')) {
+          errorMessage = 'AI generation failed. Please try again or check your input.';
+        }
         
         // If it's a validation error with details, show the specific validation issues
         if (errorData.details && Array.isArray(errorData.details)) {
@@ -333,7 +393,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         errorMessage = error.message;
       }
       
-      setValidationError(`Failed to create journal entry: ${errorMessage}`);
+      setValidationError(`Failed to create AI-generated journal entry: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -1967,7 +2027,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 disabled={isSubmitting}
                 className="bg-primary-500 hover:bg-primary-600 text-white"
               >
-                {isSubmitting ? 'Creating...' : 'Create Entry'}
+                {isGeneratingAI ? '🤖 Generating AI Content...' : 
+                 isSubmitting ? 'Creating Entries...' : 
+                 `Create ${formData.isPublished ? 'AI-Generated Workspace & Network' : 'AI-Generated Workspace'} Entry`}
               </Button>
             )}
           </div>
