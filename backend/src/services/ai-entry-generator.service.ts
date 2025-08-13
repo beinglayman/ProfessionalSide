@@ -77,7 +77,14 @@ export class AIEntryGeneratorService {
       };
     } catch (error) {
       console.error('❌ Error generating AI entries:', error);
-      throw new Error('Failed to generate AI entries');
+      console.error('❌ Original error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        status: error.status,
+        type: error.type
+      });
+      throw error; // Preserve original error instead of generic message
     }
   }
 
