@@ -125,7 +125,7 @@ Write a comprehensive workspace journal entry that captures the professional nat
             content: workspacePrompt
           }
         ],
-        max_tokens: 500,
+        max_completion_tokens: 500,
         temperature: 0.7,
       });
 
@@ -178,7 +178,7 @@ Write a network-appropriate journal entry that showcases professional developmen
             content: networkPrompt
           }
         ],
-        max_tokens: 400,
+        max_completion_tokens: 400,
         temperature: 0.7,
       });
 
@@ -201,7 +201,7 @@ Write a network-appropriate journal entry that showcases professional developmen
             content: 'Hello, this is a test message.'
           }
         ],
-        max_tokens: 10,
+        max_completion_tokens: 10,
       });
 
       const success = !!response.choices[0]?.message?.content;

@@ -105,7 +105,7 @@ router.get('/direct-openai-test', async (req, res) => {
           content: 'Hello! This is a test. Please respond with "Connection successful!"'
         }
       ],
-      max_tokens: 10,
+      max_completion_tokens: 10,
     });
 
     const responseContent = response.choices[0]?.message?.content;
