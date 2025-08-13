@@ -135,4 +135,58 @@ router.get('/direct-openai-test', async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/debug/test-ai-generation
+ * @desc Test AI generation without authentication
+ * @access Public
+ */
+router.post('/test-ai-generation', async (req, res) => {
+  try {
+    console.log('🧪 Testing AI generation without auth...');
+    
+    const testData = {
+      title: 'Test Entry',
+      description: 'This is a test description for debugging AI generation.',
+      result: 'Test results and outcomes.',
+      primaryFocusArea: 'Technology',
+      workCategory: 'Development',
+      workTypes: ['Frontend Development'],
+      skillsApplied: ['JavaScript', 'React'],
+      artifacts: [],
+      collaborators: [],
+      reviewers: [],
+      tags: ['test'],
+      workspaceId: 'test-workspace',
+      projects: ['test-project'],
+      departments: ['engineering']
+    };
+
+    console.log('🤖 Test data:', testData);
+
+    const aiService = new AIEntryGeneratorService();
+    console.log('✅ AI service initialized');
+
+    const generatedEntries = await aiService.generateEntries(testData);
+    console.log('✅ AI entries generated successfully');
+
+    res.json({
+      success: true,
+      data: generatedEntries
+    });
+
+  } catch (error) {
+    console.error('❌ AI generation test failed:', error);
+    
+    res.json({
+      success: false,
+      error: {
+        message: error.message,
+        status: error.status,
+        type: error.type,
+        stack: error.stack
+      }
+    });
+  }
+});
+
 export default router;
