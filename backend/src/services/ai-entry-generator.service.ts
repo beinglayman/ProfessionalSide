@@ -133,7 +133,6 @@ Write a comprehensive workspace journal entry that captures the professional nat
           }
         ],
         max_completion_tokens: 500,
-        temperature: 0.7,
       });
 
       console.log('✅ Workspace entry generated successfully');
@@ -186,7 +185,6 @@ Write a network-appropriate journal entry that showcases professional developmen
           }
         ],
         max_completion_tokens: 400,
-        temperature: 0.7,
       });
 
       console.log('✅ Network entry generated successfully');
