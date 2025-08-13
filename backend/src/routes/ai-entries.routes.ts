@@ -47,6 +47,11 @@ router.post('/generate',
       
       console.log('🤖 Generating AI entries for user:', req.user?.id);
       console.log('📝 Entry data:', entryData.title);
+      console.log('🔍 User context:', {
+        userId: req.user?.id,
+        userEmail: req.user?.email,
+        userName: req.user?.name
+      });
       
       // Generate both workspace and network entries
       const generatedEntries = await aiService.generateEntries(entryData);
@@ -58,6 +63,13 @@ router.post('/generate',
       
     } catch (error) {
       console.error('❌ AI entry generation error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        status: error.status,
+        type: error.type
+      });
       
       // Handle specific Azure OpenAI errors
       if (error.message.includes('Azure OpenAI credentials not configured')) {
@@ -76,7 +88,8 @@ router.post('/generate',
       
       res.status(500).json({
         success: false,
-        error: 'Internal server error while generating AI entries'
+        error: 'Internal server error while generating AI entries',
+        details: error.message
       });
     }
   }
