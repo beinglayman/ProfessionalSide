@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticate } from '../middleware/auth.middleware';
 import { AIEntryGeneratorService } from '../services/ai-entry-generator.service';
 
 const router = express.Router();
@@ -11,11 +11,11 @@ const router = express.Router();
  * @access Private
  */
 router.post('/generate', 
-  authenticateToken,
+  authenticate,
   [
     body('title').notEmpty().withMessage('Title is required'),
     body('description').notEmpty().withMessage('Description is required'),
-    body('result').notEmpty().withMessage('Result is required'),
+    body('result').optional(),
     body('primaryFocusArea').notEmpty().withMessage('Primary focus area is required'),
     body('workCategory').notEmpty().withMessage('Work category is required'),
     body('workTypes').isArray().withMessage('Work types must be an array'),
@@ -88,7 +88,7 @@ router.post('/generate',
  * @access Private (admin only)
  */
 router.post('/test-connection', 
-  authenticateToken,
+  authenticate,
   async (req, res) => {
     try {
       // Only allow admin users to test connection (optional security measure)
@@ -131,7 +131,7 @@ router.post('/test-connection',
  * @access Private
  */
 router.get('/config-status',
-  authenticateToken,
+  authenticate,
   async (req, res) => {
     try {
       const isConfigured = !!(
