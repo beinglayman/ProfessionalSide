@@ -40,6 +40,7 @@ import organizationRoutes from './routes/organization.routes';
 import servicesRoutes from './routes/services.routes';
 import onboardingRoutes from './routes/onboarding.routes';
 import aiEntriesRoutes from './routes/ai-entries.routes';
+import debugRoutes from './routes/debug.routes';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -229,6 +230,7 @@ app.use('/api/v1/organizations', organizationRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/v1/onboarding', onboardingRoutes);
 app.use('/api/v1/ai-entries', aiEntriesRoutes);
+app.use('/api/debug', debugRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
