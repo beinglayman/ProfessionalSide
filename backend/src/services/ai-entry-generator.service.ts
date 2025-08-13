@@ -47,13 +47,20 @@ export class AIEntryGeneratorService {
     }
 
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/$/, '');
+    
+    // Try both endpoint formats for Global Standard deployments
     const baseURL = `${endpoint}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`;
     console.log('🔗 Azure OpenAI Base URL:', baseURL);
+    console.log('🔗 Environment details:', {
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION
+    });
 
     this.openai = new OpenAI({
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       baseURL: baseURL,
-      defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION || '2024-10-21' },
+      defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION || '2024-07-18' },
       defaultHeaders: {
         'api-key': process.env.AZURE_OPENAI_API_KEY,
       },

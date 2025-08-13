@@ -195,4 +195,54 @@ router.post('/test-ai-generation', async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/debug/validate-journal-payload
+ * @desc Test journal entry payload validation without creating entry
+ * @access Public
+ */
+router.post('/validate-journal-payload', async (req, res) => {
+  try {
+    console.log('🧪 Testing journal payload validation...');
+    console.log('📥 Received payload:', JSON.stringify(req.body, null, 2));
+    
+    // Import validation schema
+    const { createJournalEntrySchema } = require('../types/journal.types');
+    
+    try {
+      const validatedData = createJournalEntrySchema.parse(req.body);
+      console.log('✅ Validation passed');
+      console.log('✅ Validated data:', JSON.stringify(validatedData, null, 2));
+      
+      res.json({
+        success: true,
+        message: 'Payload validation passed',
+        data: {
+          originalPayload: req.body,
+          validatedData: validatedData
+        }
+      });
+    } catch (validationError) {
+      console.error('❌ Validation failed:', validationError);
+      
+      res.json({
+        success: false,
+        error: 'Validation failed',
+        details: {
+          message: validationError.message,
+          issues: validationError.issues || validationError.errors,
+          originalPayload: req.body
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Debug validation endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Debug endpoint failed',
+      details: error.message
+    });
+  }
+});
+
 export default router;
