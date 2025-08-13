@@ -300,16 +300,15 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           role: 'collaborator'
         })),
         reviewers: formData.reviewers.map((userId: string) => ({
-          userId: userId,
-          department: undefined
+          userId: userId
+          // Remove department field if undefined to avoid validation issues
         })),
         artifacts: formData.artifacts,
         outcomes: formData.result ? [{
           category: 'performance' as const,
           title: 'Results & Outcomes',
-          description: formData.result.trim(),
-          highlight: undefined,
-          metrics: undefined
+          description: formData.result.trim()
+          // Remove highlight and metrics if undefined to avoid validation issues
         }] : []
       };
 
