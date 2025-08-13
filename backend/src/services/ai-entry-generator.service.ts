@@ -46,7 +46,8 @@ export class AIEntryGeneratorService {
       throw new Error(error);
     }
 
-    const baseURL = `${process.env.AZURE_OPENAI_ENDPOINT}openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`;
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/$/, '');
+    const baseURL = `${endpoint}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`;
     console.log('🔗 Azure OpenAI Base URL:', baseURL);
 
     this.openai = new OpenAI({

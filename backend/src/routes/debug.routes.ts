@@ -83,7 +83,8 @@ router.get('/direct-openai-test', async (req, res) => {
       });
     }
 
-    const baseURL = `${process.env.AZURE_OPENAI_ENDPOINT.replace(/\/$/, '')}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`;
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/$/, '');
+    const baseURL = `${endpoint}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`;
     console.log('🔗 Constructed Base URL:', baseURL);
 
     const openai = new OpenAI({
