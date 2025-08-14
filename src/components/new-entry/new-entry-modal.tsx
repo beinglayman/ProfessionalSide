@@ -64,7 +64,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
     departments: [] as string[],
     
     // Step 7: Publishing (matching screenshot)
-    isPublished: false, // Published vs Workspace Only
+    isPublished: true, // Published vs Workspace Only (default selected)
     
     // Other fields
     collaborators: [] as string[],
@@ -139,7 +139,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
     }));
   }, [formData.workTypes]);
 
-  const getTotalSteps = () => 9;
+  const getTotalSteps = () => 7;
 
   const validateCurrentStep = () => {
     switch (step) {
@@ -165,6 +165,8 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         return { valid: true, message: '' };
       
       case 4:
+        if (!formData.workspaceId) 
+          return { valid: false, message: 'Please select a workspace.' };
         if (!formData.title?.trim()) 
           return { valid: false, message: 'Please provide a title for your work.' };
         if (!formData.description?.trim()) 
@@ -177,19 +179,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         return { valid: true, message: '' };
       
       case 6:
-        if (!formData.workspaceId) 
-          return { valid: false, message: 'Please select a workspace.' };
-        return { valid: true, message: '' };
-      
-      case 7:
         // Collaborators and Reviewers step - optional
         return { valid: true, message: '' };
       
-      case 8:
-        // Tags step - optional
-        return { valid: true, message: '' };
-      
-      case 9:
+      case 7:
+        // AI Preview step
         return { valid: true, message: '' };
       
       default:
@@ -215,31 +209,12 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   };
 
   const handleSubmit = async () => {
-    const validationResult = validateCurrentStep();
-    
-    if (!validationResult.valid) {
-      setValidationError(validationResult.message);
-      return;
-    }
-
-    // Additional validation for required fields
-    if (!formData.title.trim()) {
-      setValidationError('Title is required');
-      return;
-    }
-    
-    if (!formData.description.trim()) {
-      setValidationError('Description is required');
-      return;
-    }
-    
-    if (!formData.workspaceId) {
-      setValidationError('Please select a workspace');
+    if (!generatedEntries) {
+      setValidationError('Please generate AI content first');
       return;
     }
 
     setIsSubmitting(true);
-    setIsGeneratingAI(true);
     
     try {
       // Get skill names from IDs
@@ -254,42 +229,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         return workType ? workType.label : workTypeId;
       });
 
-      // Get focus area and work category names
-      const focusAreaName = finalFocusAreas.find(fa => fa.id === formData.primaryFocusArea)?.label || formData.primaryFocusArea;
-      const workCategoryName = finalWorkCategories.find(wc => wc.id === formData.workCategory)?.label || formData.workCategory;
-      
-      // Prepare data for AI generation
-      const aiEntryData = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        result: formData.result?.trim() || '',
-        primaryFocusArea: focusAreaName,
-        workCategory: workCategoryName,
-        workTypes: workTypeNames,
-        skillsApplied: skillNames,
-        artifacts: formData.artifacts,
-        collaborators: formData.collaborators,
-        reviewers: formData.reviewers,
-        tags: [...new Set([...workTypeNames, ...formData.tags])],
-        workspaceId: formData.workspaceId,
-        projects: formData.projects,
-        departments: formData.departments
-      };
-
-      console.log('🤖 Generating AI entries with data:', aiEntryData);
-      
-      // Generate AI entries
-      const generatedAIEntries = await generateAIMutation.mutateAsync(aiEntryData);
-      setGeneratedEntries(generatedAIEntries);
-      setIsGeneratingAI(false);
-
-      console.log('🤖 AI entries generated:', generatedAIEntries);
-
       // Create workspace entry (always created)
       const workspaceJournalData: CreateJournalEntryRequest = {
         title: formData.title.trim(),
         description: formData.description.trim().substring(0, 490) + (formData.description.length > 490 ? '...' : ''), // Use original description (truncated if needed)
-        fullContent: generatedAIEntries.workspaceEntry,
+        fullContent: generatedEntries.workspaceEntry,
         workspaceId: formData.workspaceId,
         visibility: 'workspace',
         category: formData.workCategory || 'General',
@@ -320,7 +264,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         const networkJournalData: CreateJournalEntryRequest = {
           ...workspaceJournalData,
           description: formData.description.trim().substring(0, 490) + (formData.description.length > 490 ? '...' : ''), // Use original description (truncated if needed)
-          fullContent: generatedAIEntries.networkEntry,
+          fullContent: generatedEntries.networkEntry,
           visibility: 'network'
         };
 
@@ -348,7 +292,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             workspaceId: '',
             projects: [],
             departments: [],
-            isPublished: false,
+            isPublished: true,
             collaborators: [],
             reviewers: [],
             fullContent: '',
@@ -945,11 +889,40 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           <div className="space-y-8">
             <div className="text-center">
               <h2 className="text-lg font-semibold mb-2">Step 4 of {getTotalSteps()}</h2>
-              <p className="text-sm text-gray-600">Work Details & Supporting Materials</p>
+              <p className="text-sm text-gray-600">Workspace & Work Details</p>
             </div>
             
-            {/* Work Information Section */}
+            {/* Workspace Selection Section */}
             <div className="space-y-6">
+              <div>
+                <Label.Root className="text-sm font-medium text-gray-700">
+                  Workspace *
+                </Label.Root>
+                {loadingWorkspaces ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                    <span className="ml-2 text-sm text-gray-600">Loading workspaces...</span>
+                  </div>
+                ) : workspacesError ? (
+                  <div className="text-center py-8 text-red-500">
+                    Error loading workspaces: {workspacesError.message}
+                  </div>
+                ) : (
+                  <select
+                    value={formData.workspaceId}
+                    onChange={(e) => setFormData({...formData, workspaceId: e.target.value, collaborators: [], reviewers: []})}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  >
+                    <option value="">Select a workspace...</option>
+                    {workspaces.map(workspace => (
+                      <option key={workspace.id} value={workspace.id}>
+                        {workspace.name} {workspace.organization ? `(${workspace.organization.name})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              
               <div>
                 <Label.Root className="text-sm font-medium text-gray-700">
                   Title *
@@ -1367,45 +1340,6 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-lg font-semibold mb-2">Step 6 of {getTotalSteps()}</h2>
-              <p className="text-sm text-gray-600">Workspace Selection</p>
-            </div>
-            
-            <div>
-              <Label.Root className="text-sm font-medium text-gray-700">
-                Workspace *
-              </Label.Root>
-              {loadingWorkspaces ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-                  <span className="ml-2 text-sm text-gray-600">Loading workspaces...</span>
-                </div>
-              ) : workspacesError ? (
-                <div className="text-center py-8 text-red-500">
-                  Error loading workspaces: {workspacesError.message}
-                </div>
-              ) : (
-                <select
-                  value={formData.workspaceId}
-                  onChange={(e) => setFormData({...formData, workspaceId: e.target.value, collaborators: [], reviewers: []})}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                >
-                  <option value="">Select a workspace...</option>
-                  {workspaces.map(workspace => (
-                    <option key={workspace.id} value={workspace.id}>
-                      {workspace.name} {workspace.organization ? `(${workspace.organization.name})` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </div>
-        );
-        
-      case 7:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-2">Step 7 of {getTotalSteps()}</h2>
               <p className="text-sm text-gray-600">Team Collaboration</p>
             </div>
             
@@ -1541,73 +1475,151 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           </div>
         );
 
-      case 8:
+      case 7:
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-lg font-semibold mb-2">Step 8 of {getTotalSteps()}</h2>
-              <p className="text-sm text-gray-600">Tags & Labels</p>
+              <h2 className="text-lg font-semibold mb-2">Step 7 of {getTotalSteps()}</h2>
+              <p className="text-sm text-gray-600">AI Preview & Publishing</p>
             </div>
             
-            <div className="space-y-4">
-              <div>
-                <Label.Root className="text-sm font-medium text-gray-700 mb-3 block">
-                  Add Tags (Optional)
-                </Label.Root>
-                <p className="text-sm text-gray-500 mb-4">
-                  Add tags to help categorize and make your entry more discoverable. Start typing to see suggestions.
-                </p>
-                <TagInput
-                  value={formData.tags}
-                  onChange={(tags) => setFormData({...formData, tags})}
-                  placeholder="Add tags..."
-                  maxTags={10}
-                />
-              </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">Tips for effective tagging:</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Use specific keywords related to your work</li>
-                  <li>• Include technologies, methodologies, or frameworks used</li>
-                  <li>• Add industry-specific terms</li>
-                  <li>• Keep tags concise and relevant</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        );
-        
-      case 9:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-2">Step 9 of {getTotalSteps()}</h2>
-              <p className="text-sm text-gray-600">Publishing Options</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="publishToNetwork"
-                    checked={formData.isPublished}
-                    onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <Label.Root htmlFor="publishToNetwork" className="text-sm font-medium text-gray-700">
-                    Publish to Network
-                  </Label.Root>
+            {!generatedEntries ? (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-medium text-blue-900 mb-2">🤖 Generate AI Journal Entries</h3>
+                    <p className="text-sm text-blue-700 mb-4">
+                      Our AI will create professional journal entries based on your input. You'll get:
+                    </p>
+                    <ul className="text-sm text-blue-700 text-left space-y-1 mb-4">
+                      <li>• <strong>Workspace Entry:</strong> Detailed version with specific metrics and insights</li>
+                      <li>• <strong>Network Entry:</strong> Professional summary suitable for public sharing</li>
+                    </ul>
+                    <Button
+                      onClick={async () => {
+                        setIsGeneratingAI(true);
+                        try {
+                          // Generate AI content
+                          const skillNames = formData.skillsApplied.map((skillId: string) => {
+                            const skill = finalAvailableSkills.find(s => s.id === skillId);
+                            return skill ? skill.name : skillId;
+                          });
+                          
+                          const workTypeNames = formData.workTypes.map((workTypeId: string) => {
+                            const workType = finalWorkTypes.find(wt => wt.id === workTypeId);
+                            return workType ? workType.label : workTypeId;
+                          });
+
+                          const focusAreaName = finalFocusAreas.find(fa => fa.id === formData.primaryFocusArea)?.label || formData.primaryFocusArea;
+                          const workCategoryName = finalWorkCategories.find(wc => wc.id === formData.workCategory)?.label || formData.workCategory;
+                          
+                          const aiEntryData = {
+                            title: formData.title.trim(),
+                            description: formData.description.trim(),
+                            result: formData.result?.trim() || '',
+                            primaryFocusArea: focusAreaName,
+                            workCategory: workCategoryName,
+                            workTypes: workTypeNames,
+                            skillsApplied: skillNames,
+                            artifacts: formData.artifacts,
+                            collaborators: formData.collaborators,
+                            reviewers: formData.reviewers,
+                            tags: [...new Set([...workTypeNames, ...formData.tags])],
+                            workspaceId: formData.workspaceId,
+                            projects: formData.projects,
+                            departments: formData.departments
+                          };
+
+                          const generated = await generateAIMutation.mutateAsync(aiEntryData);
+                          setGeneratedEntries(generated);
+                        } catch (error) {
+                          console.error('AI generation failed:', error);
+                        } finally {
+                          setIsGeneratingAI(false);
+                        }
+                      }}
+                      disabled={isGeneratingAI}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {isGeneratingAI ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating AI Content...
+                        </>
+                      ) : (
+                        '🤖 Generate AI Content'
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1 ml-7">
-                  {formData.isPublished 
-                    ? "This entry will be visible to your professional network (shows as 'published')"
-                    : "This entry will only be visible to your workspace members (workspace only)"
-                  }
-                </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Publishing Options */}
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="publishToNetwork"
+                      checked={formData.isPublished}
+                      onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <Label.Root htmlFor="publishToNetwork" className="text-sm font-medium text-gray-700">
+                      Publish to Network
+                    </Label.Root>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 ml-7">
+                    {formData.isPublished 
+                      ? "Both workspace and network entries will be created"
+                      : "Only the workspace entry will be created"
+                    }
+                  </p>
+                </div>
+
+                {/* AI Generated Content Preview */}
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Lock className="w-4 h-4 text-blue-600" />
+                      <h3 className="font-medium text-gray-900">Workspace Entry</h3>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Private</span>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-40 overflow-y-auto">
+                      {generatedEntries.workspaceEntry}
+                    </div>
+                  </div>
+
+                  {formData.isPublished && (
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Globe className="w-4 h-4 text-green-600" />
+                        <h3 className="font-medium text-gray-900">Network Entry</h3>
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Public</span>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-40 overflow-y-auto">
+                        {generatedEntries.networkEntry}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setGeneratedEntries(null)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    🔄 Regenerate AI Content
+                  </Button>
+                  <div className="bg-amber-50 p-4 rounded-lg flex-2">
+                    <p className="text-sm text-amber-800">
+                      <strong>💡 Tip:</strong> You can go back to previous steps to make changes, or regenerate the AI content with the same inputs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
         
@@ -2020,15 +2032,14 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               </Button>
             )}
             
-            {!showPreview && step === getTotalSteps() && (
+            {!showPreview && step === getTotalSteps() && generatedEntries && (
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="bg-primary-500 hover:bg-primary-600 text-white"
               >
-                {isGeneratingAI ? '🤖 Generating AI Content...' : 
-                 isSubmitting ? 'Creating Entries...' : 
-                 `Create ${formData.isPublished ? 'AI-Generated Workspace & Network' : 'AI-Generated Workspace'} Entry`}
+                {isSubmitting ? 'Creating Entries...' : 
+                 `Create ${formData.isPublished ? 'Workspace & Network' : 'Workspace'} Entry`}
               </Button>
             )}
           </div>
