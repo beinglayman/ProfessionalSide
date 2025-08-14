@@ -31,18 +31,42 @@ const journalService = new JournalService();
  * Create a new journal entry
  */
 export const createJournalEntry = asyncHandler(async (req: Request, res: Response) => {
+  console.log('🔍 createJournalEntry called with:', {
+    userId: req.user?.id,
+    bodyKeys: Object.keys(req.body),
+    payloadSize: JSON.stringify(req.body).length
+  });
+  
   const userId = req.user?.id;
   
   if (!userId) {
+    console.log('❌ User not authenticated');
     return sendError(res, 'User not authenticated', 401);
   }
 
-  const validatedData: CreateJournalEntryInput = createJournalEntrySchema.parse(req.body);
-
   try {
+    console.log('🔍 Validating payload with Zod schema...');
+    const validatedData: CreateJournalEntryInput = createJournalEntrySchema.parse(req.body);
+    console.log('✅ Payload validation passed');
+
+    console.log('🔍 Calling journal service...');
     const entry = await journalService.createJournalEntry(userId, validatedData);
+    console.log('✅ Journal entry created successfully');
     sendSuccess(res, entry, 'Journal entry created successfully', 201);
   } catch (error: any) {
+    console.error('❌ Error in createJournalEntry:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      issues: error.issues || error.errors,
+      stack: error.stack?.split('\n').slice(0, 3)
+    });
+    
+    if (error.name === 'ZodError') {
+      console.log('❌ Zod validation failed:', error.issues);
+      return sendError(res, 'Validation failed: ' + error.issues.map(i => i.message).join(', '), 400);
+    }
+    
     if (error.message.includes('Access denied')) {
       return sendError(res, error.message, 403);
     }
