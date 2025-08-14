@@ -1555,53 +1555,208 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Publishing Options */}
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="publishToNetwork"
-                      checked={formData.isPublished}
-                      onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <Label.Root htmlFor="publishToNetwork" className="text-sm font-medium text-gray-700">
-                      Publish to Network
-                    </Label.Root>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 ml-7">
-                    {formData.isPublished 
-                      ? "Both workspace and network entries will be created"
-                      : "Only the workspace entry will be created"
-                    }
-                  </p>
-                </div>
-
                 {/* AI Generated Content Preview */}
-                <div className="space-y-4">
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Lock className="w-4 h-4 text-blue-600" />
-                      <h3 className="font-medium text-gray-900">Workspace Entry</h3>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Private</span>
+                <div className="space-y-6">
+                  {/* Workspace Entry Preview */}
+                  <div className="relative rounded-lg border border-gray-200 bg-white shadow-sm">
+                    {/* Header with visibility tags */}
+                    <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                      <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                        <Briefcase className="h-3 w-3" />
+                        {workspaces.find(w => w.id === formData.workspaceId)?.name || 'Workspace'}
+                      </span>
+                      <div className="flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                        <Shield className="h-3 w-3" />
+                        Workspace Only
+                      </div>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-40 overflow-y-auto">
-                      {generatedEntries.workspaceEntry}
+
+                    {/* User Profile Section */}
+                    <div className="p-4 pb-0">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="relative">
+                          {currentUser?.avatar ? (
+                            <img
+                              src={currentUser.avatar}
+                              alt={currentUser.name || 'User'}
+                              className="h-12 w-12 rounded-full border-2 border-gray-200"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-full border-2 border-gray-200 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                              <span className="text-white font-semibold text-lg">
+                                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 pr-24">
+                          <div className="text-base font-semibold text-gray-900 truncate">
+                            {currentUser?.name || 'Your Name'}
+                          </div>
+                          <p className="text-sm text-gray-600 truncate">
+                            {currentUser?.title || 'Your Title'}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5" />
+                              {workspaces.find(w => w.id === formData.workspaceId)?.organization?.name || 'Your Organization'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="px-6 pb-4">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-24">
+                          {formData.title}
+                        </h3>
+                      </div>
+                      <div className="mb-4">
+                        <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                          {generatedEntries.workspaceEntry}
+                        </div>
+                      </div>
+
+                      {/* Skills and Tags */}
+                      {(formData.skillsApplied.length > 0 || formData.tags.length > 0) && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {formData.skillsApplied.slice(0, 5).map(skillId => {
+                            const skill = finalAvailableSkills.find(s => s.id === skillId);
+                            return skill ? (
+                              <span key={skillId} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {skill.name}
+                              </span>
+                            ) : null;
+                          })}
+                          {formData.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {formData.isPublished && (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Globe className="w-4 h-4 text-green-600" />
-                        <h3 className="font-medium text-gray-900">Network Entry</h3>
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Public</span>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-40 overflow-y-auto">
-                        {generatedEntries.networkEntry}
+                  {/* Network Entry Preview */}
+                  <div className={cn(
+                    "relative rounded-lg border bg-white shadow-sm transition-all",
+                    formData.isPublished ? "border-gray-200" : "border-gray-100 opacity-50 pointer-events-none"
+                  )}>
+                    {/* Header with toggle */}
+                    <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                      <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                        <Briefcase className="h-3 w-3" />
+                        {workspaces.find(w => w.id === formData.workspaceId)?.name || 'Workspace'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.isPublished}
+                            onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                        </label>
+                        <div className={cn(
+                          "flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors",
+                          formData.isPublished ? "text-green-600 bg-green-50" : "text-gray-400 bg-gray-50"
+                        )}>
+                          <Globe className="h-3 w-3" />
+                          {formData.isPublished ? "Published" : "Not Published"}
+                        </div>
                       </div>
                     </div>
-                  )}
+
+                    {!formData.isPublished && (
+                      <div className="absolute inset-0 bg-gray-50 bg-opacity-50 rounded-lg flex items-center justify-center z-20">
+                        <div className="text-center p-4">
+                          <Globe className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 font-medium">Network Publishing Disabled</p>
+                          <p className="text-xs text-gray-400">Toggle above to enable network publication</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* User Profile Section */}
+                    <div className="p-4 pb-0">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="relative">
+                          {currentUser?.avatar ? (
+                            <img
+                              src={currentUser.avatar}
+                              alt={currentUser.name || 'User'}
+                              className="h-12 w-12 rounded-full border-2 border-gray-200"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-full border-2 border-gray-200 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                              <span className="text-white font-semibold text-lg">
+                                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 pr-24">
+                          <div className="text-base font-semibold text-gray-900 truncate">
+                            {currentUser?.name || 'Your Name'}
+                          </div>
+                          <p className="text-sm text-gray-600 truncate">
+                            {currentUser?.title || 'Your Title'}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5" />
+                              Enterprise Client
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="px-6 pb-4">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-24">
+                          {formData.title}
+                        </h3>
+                      </div>
+                      <div className="mb-4">
+                        <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                          {generatedEntries.networkEntry}
+                        </div>
+                      </div>
+
+                      {/* Skills and Tags (limited for network view) */}
+                      {(formData.skillsApplied.length > 0 || formData.tags.length > 0) && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {formData.skillsApplied.slice(0, 3).map(skillId => {
+                            const skill = finalAvailableSkills.find(s => s.id === skillId);
+                            return skill ? (
+                              <span key={skillId} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {skill.name}
+                              </span>
+                            ) : null;
+                          })}
+                          {formData.tags.slice(0, 2).map(tag => (
+                            <span key={tag} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
