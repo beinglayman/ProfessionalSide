@@ -142,6 +142,12 @@ OUTPUT FORMAT: Return a valid JSON object with this exact structure:
   ]
 }
 
+CATEGORY GUIDELINES:
+- "performance": Speed improvements, efficiency gains, performance optimization, response times
+- "business": Cost savings, revenue increases, business growth, ROI, profit improvements  
+- "user-experience": UI/UX improvements, user satisfaction, usability enhancements, accessibility
+- "technical": Code quality, architecture, infrastructure, technical debt, system reliability
+
 WORK DATA:
 Primary Focus Area: ${entryData.primaryFocusArea}
 Work Category: ${entryData.workCategory}
@@ -237,6 +243,12 @@ OUTPUT FORMAT: Return a valid JSON object with this exact structure:
     }
   ]
 }
+
+CATEGORY GUIDELINES:
+- "performance": Speed improvements, efficiency gains, performance optimization, response times
+- "business": Cost savings, revenue increases, business growth, ROI, profit improvements  
+- "user-experience": UI/UX improvements, user satisfaction, usability enhancements, accessibility
+- "technical": Code quality, architecture, infrastructure, technical debt, system reliability
 
 WORK DATA:
 Primary Focus Area: ${entryData.primaryFocusArea}
