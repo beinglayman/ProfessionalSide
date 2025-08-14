@@ -288,7 +288,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       // Create workspace entry (always created)
       const workspaceJournalData: CreateJournalEntryRequest = {
         title: formData.title.trim(),
-        description: generatedAIEntries.workspaceEntry, // AI-generated workspace content
+        description: formData.description.trim().substring(0, 490) + (formData.description.length > 490 ? '...' : ''), // Use original description (truncated if needed)
         fullContent: generatedAIEntries.workspaceEntry,
         workspaceId: formData.workspaceId,
         visibility: 'workspace',
@@ -319,7 +319,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       if (formData.isPublished) {
         const networkJournalData: CreateJournalEntryRequest = {
           ...workspaceJournalData,
-          description: generatedAIEntries.networkEntry, // AI-generated network content
+          description: formData.description.trim().substring(0, 490) + (formData.description.length > 490 ? '...' : ''), // Use original description (truncated if needed)
           fullContent: generatedAIEntries.networkEntry,
           visibility: 'network'
         };
