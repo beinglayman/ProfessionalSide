@@ -1749,34 +1749,46 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                     </div>
                   </div>
 
+                  {/* Network Entry Toggle - Outside the disabled area */}
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wide">Network Entry Preview</h4>
+                    <div className="flex items-center gap-2">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isPublished}
+                          onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                      </label>
+                      <div className={cn(
+                        "flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors",
+                        formData.isPublished ? "text-green-600 bg-green-50" : "text-gray-400 bg-gray-50"
+                      )}>
+                        <Globe className="h-3 w-3" />
+                        {formData.isPublished ? "Published" : "Not Published"}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Network Entry Preview */}
                   <div className={cn(
                     "relative rounded-lg border bg-white shadow-sm transition-all",
-                    formData.isPublished ? "border-gray-200" : "border-gray-100 opacity-50 pointer-events-none"
+                    formData.isPublished ? "border-gray-200" : "border-gray-100 opacity-50"
                   )}>
-                    {/* Header with toggle */}
+                    {/* Header with workspace tag only */}
                     <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
                       <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
                         <Briefcase className="h-3 w-3" />
                         {workspaces.find(w => w.id === formData.workspaceId)?.name || 'Workspace'}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.isPublished}
-                            onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                        </label>
-                        <div className={cn(
-                          "flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors",
-                          formData.isPublished ? "text-green-600 bg-green-50" : "text-gray-400 bg-gray-50"
-                        )}>
-                          <Globe className="h-3 w-3" />
-                          {formData.isPublished ? "Published" : "Not Published"}
-                        </div>
+                      <div className={cn(
+                        "flex items-center gap-1 text-xs px-2 py-1 rounded-full",
+                        formData.isPublished ? "text-green-600 bg-green-50" : "text-gray-400 bg-gray-50"
+                      )}>
+                        <Globe className="h-3 w-3" />
+                        {formData.isPublished ? "Published" : "Not Published"}
                       </div>
                     </div>
 
@@ -1785,7 +1797,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                         <div className="text-center p-4">
                           <Globe className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500 font-medium">Network Publishing Disabled</p>
-                          <p className="text-xs text-gray-400">Toggle above to enable network publication</p>
+                          <p className="text-xs text-gray-400">Enable the toggle above to publish to network</p>
                         </div>
                       </div>
                     )}

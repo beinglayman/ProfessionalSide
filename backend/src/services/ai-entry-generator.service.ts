@@ -174,10 +174,12 @@ Create a comprehensive workspace journal entry in JSON format:`;
         return JSON.parse(content) as GeneratedEntryContent;
       } catch (parseError) {
         console.error('❌ Failed to parse workspace entry JSON:', parseError);
-        // Fallback to structured format
+        console.error('❌ Raw content that failed to parse:', content.substring(0, 200) + '...');
+        
+        // Fallback to structured format using original inputs instead of raw AI content
         return {
           title: entryData.title || 'Professional Work Entry',
-          description: content,
+          description: entryData.description || 'Detailed workspace entry showcasing professional work and achievements.',
           outcomes: entryData.result ? [{
             category: 'performance' as const,
             title: 'Results & Outcomes',
@@ -260,10 +262,20 @@ Create a comprehensive network journal entry in JSON format that sanitizes all s
         return JSON.parse(content) as GeneratedEntryContent;
       } catch (parseError) {
         console.error('❌ Failed to parse network entry JSON:', parseError);
-        // Fallback to structured format with sanitized content
+        console.error('❌ Raw content that failed to parse:', content.substring(0, 200) + '...');
+        
+        // Fallback to structured format with sanitized content from original inputs
+        const sanitizedTitle = entryData.title ? 
+          entryData.title.replace(/\b\d+(\.\d+)?%?\b/g, 'significant').replace(/client|company|corp\b/gi, 'enterprise client') : 
+          'Professional Development Entry';
+          
+        const sanitizedDescription = entryData.description ? 
+          entryData.description.replace(/\b\d+(\.\d+)?%?\b/g, 'notable improvement').replace(/client|company|corp\b/gi, 'stakeholder') :
+          'Professional development work showcasing skills and achievements in a network-appropriate format.';
+        
         return {
-          title: entryData.title ? entryData.title.replace(/\b\d+(\.\d+)?%?\b/g, 'significant').replace(/client|company|corp\b/gi, 'enterprise client') : 'Professional Development Entry',
-          description: content,
+          title: sanitizedTitle,
+          description: sanitizedDescription,
           outcomes: entryData.result ? [{
             category: 'performance' as const,
             title: 'Professional Achievement',
