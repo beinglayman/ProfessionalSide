@@ -18,9 +18,19 @@ interface EntryData {
   departments: string[];
 }
 
+interface GeneratedEntryContent {
+  title: string;
+  description: string;
+  outcomes: Array<{
+    category: 'performance' | 'technical' | 'user-experience' | 'business';
+    title: string;
+    description: string;
+  }>;
+}
+
 interface GeneratedEntry {
-  workspaceEntry: string;
-  networkEntry: string;
+  workspaceEntry: GeneratedEntryContent;
+  networkEntry: GeneratedEntryContent;
 }
 
 /**

@@ -17,9 +17,19 @@ interface EntryData {
   departments: string[];
 }
 
+interface GeneratedEntryContent {
+  title: string;
+  description: string;
+  outcomes: Array<{
+    category: 'performance' | 'technical' | 'user-experience' | 'business';
+    title: string;
+    description: string;
+  }>;
+}
+
 interface GeneratedEntry {
-  workspaceEntry: string;
-  networkEntry: string;
+  workspaceEntry: GeneratedEntryContent;
+  networkEntry: GeneratedEntryContent;
 }
 
 export class AIEntryGeneratorService {
@@ -96,35 +106,49 @@ export class AIEntryGeneratorService {
     }
   }
 
-  private async generateWorkspaceEntry(entryData: EntryData): Promise<string> {
+  private async generateWorkspaceEntry(entryData: EntryData): Promise<GeneratedEntryContent> {
     console.log('🏢 Generating workspace entry...');
     
     const workspacePrompt = `
-You are a professional journal entry writer. Create a polished, detailed workspace journal entry based on the following work data.
+You are a professional journal entry writer. Create a detailed workspace journal entry based on the following work data.
 
-REQUIREMENTS:
-- Write in a professional, accomplishment-focused tone
-- Include specific details, metrics, and technical information
-- Mention artifacts, tools, and collaborative aspects
-- Focus on skills developed and professional growth
-- Include project impact and outcomes
+WORKSPACE ENTRY RULES:
+- Include specific details, metrics, and technical information (exact numbers, percentages, client names allowed)
+- Mention specific tools, technologies, and methodologies used
+- Include organizational intellectual property and confidential details as appropriate
+- Reference specific client identifiers and project codenames
+- Focus on detailed technical achievements and business impact
 - Use present tense for ongoing work, past tense for completed work
-- Structure with clear paragraphs
-- Length: 150-300 words
+
+OUTPUT FORMAT: Return a valid JSON object with this exact structure:
+{
+  "title": "Professional title for the journal entry",
+  "description": "Detailed description of the work (200-300 words)",
+  "outcomes": [
+    {
+      "category": "performance|technical|user-experience|business",
+      "title": "Outcome title",
+      "description": "Detailed outcome description"
+    }
+  ]
+}
 
 WORK DATA:
-Title: ${entryData.title}
-Description: ${entryData.description}
-Results/Outcomes: ${entryData.result || 'N/A'}
-Focus Area: ${entryData.primaryFocusArea}
+Primary Focus Area: ${entryData.primaryFocusArea}
 Work Category: ${entryData.workCategory}
 Work Types: ${entryData.workTypes.join(', ')}
 Skills Applied: ${entryData.skillsApplied.join(', ')}
+User Title Input: ${entryData.title}
+User Description Input: ${entryData.description}
+User Results Input: ${entryData.result || 'Not specified'}
 Artifacts: ${entryData.artifacts.map(a => a.name || 'Unnamed artifact').join(', ') || 'None'}
 Collaborators: ${entryData.collaborators.length} team members
+Reviewers: ${entryData.reviewers.length} reviewers
+Projects: ${entryData.projects.join(', ') || 'None'}
+Departments: ${entryData.departments.join(', ') || 'None'}
 Tags: ${entryData.tags.join(', ') || 'None'}
 
-Write a comprehensive workspace journal entry that captures the professional nature of this work:`;
+Create a comprehensive workspace journal entry in JSON format:`;
 
     try {
       console.log('📝 Making API call to Azure OpenAI...');
@@ -133,50 +157,84 @@ Write a comprehensive workspace journal entry that captures the professional nat
         messages: [
           {
             role: 'system',
-            content: 'You are a professional technical writer who creates polished journal entries for workplace documentation. Focus on achievements, skills, and professional growth.'
+            content: 'You are a professional technical writer who creates detailed workplace journal entries. Always return valid JSON with the requested structure. Include specific metrics, client details, and technical information for workspace entries.'
           },
           {
             role: 'user',
             content: workspacePrompt
           }
         ],
-        max_completion_tokens: 500,
+        max_completion_tokens: 800,
       });
 
+      const content = response.choices[0]?.message?.content || '';
       console.log('✅ Workspace entry generated successfully');
-      return response.choices[0]?.message?.content || 'Failed to generate workspace entry content';
+      
+      try {
+        return JSON.parse(content) as GeneratedEntryContent;
+      } catch (parseError) {
+        console.error('❌ Failed to parse workspace entry JSON:', parseError);
+        // Fallback to structured format
+        return {
+          title: entryData.title || 'Professional Work Entry',
+          description: content,
+          outcomes: entryData.result ? [{
+            category: 'performance' as const,
+            title: 'Results & Outcomes',
+            description: entryData.result
+          }] : []
+        };
+      }
     } catch (error) {
       console.error('❌ Azure OpenAI API error (workspace):', error);
       throw error;
     }
   }
 
-  private async generateNetworkEntry(entryData: EntryData): Promise<string> {
+  private async generateNetworkEntry(entryData: EntryData): Promise<GeneratedEntryContent> {
     console.log('🌐 Generating network entry...');
     
     const networkPrompt = `
 You are a professional journal entry writer. Create a polished, public-friendly journal entry based on the following work data.
 
-REQUIREMENTS:
-- Remove all sensitive information (client names, specific metrics, confidential data)
+NETWORK ENTRY RULES:
+- NO specific numerical data or metrics (use general terms like "significantly improved", "enhanced performance")
+- NO client identifiers or specific company names (use "enterprise client", "key stakeholder")  
+- NO confidential documents or organizational intellectual property details
+- KEEP intact: Skills developed, Work domains, Professional achievements, Generalized project impacts
 - Focus on skills, professional growth, and general achievements
-- Generalize project impacts without specific details
 - Maintain professional tone but make it network-appropriate
 - Emphasize learning and skill development
-- Use general terms for outcomes (e.g., "improved efficiency" instead of "reduced costs by 25%")
-- Length: 100-200 words
+
+OUTPUT FORMAT: Return a valid JSON object with this exact structure:
+{
+  "title": "Professional title for the journal entry (network-appropriate)",
+  "description": "Network-friendly description of the work (150-250 words, no sensitive details)",
+  "outcomes": [
+    {
+      "category": "performance|technical|user-experience|business",
+      "title": "Outcome title (no specific metrics)",
+      "description": "General outcome description (no confidential info)"
+    }
+  ]
+}
 
 WORK DATA:
-Title: ${entryData.title}
-Description: ${entryData.description} 
-Results/Outcomes: ${entryData.result || 'N/A'}
-Focus Area: ${entryData.primaryFocusArea}
+Primary Focus Area: ${entryData.primaryFocusArea}
 Work Category: ${entryData.workCategory}
 Work Types: ${entryData.workTypes.join(', ')}
 Skills Applied: ${entryData.skillsApplied.join(', ')}
+User Title Input: ${entryData.title}
+User Description Input: ${entryData.description}
+User Results Input: ${entryData.result || 'Not specified'}
+Artifacts: ${entryData.artifacts.map(a => a.name || 'Unnamed artifact').join(', ') || 'None'}
+Collaborators: ${entryData.collaborators.length} team members
+Reviewers: ${entryData.reviewers.length} reviewers
+Projects: ${entryData.projects.join(', ') || 'None'}
+Departments: ${entryData.departments.join(', ') || 'None'}
 Tags: ${entryData.tags.join(', ') || 'None'}
 
-Write a network-appropriate journal entry that showcases professional development without revealing sensitive information:`;
+Create a comprehensive network journal entry in JSON format that sanitizes all sensitive information:`;
 
     try {
       console.log('📝 Making API call to Azure OpenAI...');
@@ -185,18 +243,34 @@ Write a network-appropriate journal entry that showcases professional developmen
         messages: [
           {
             role: 'system',
-            content: 'You are a professional writer who creates public-friendly journal entries for professional networks. Focus on skills, growth, and general achievements while protecting confidential information.'
+            content: 'You are a professional writer who creates public-friendly journal entries for professional networks. Focus on skills, growth, and general achievements while protecting confidential information. Always return valid JSON with the requested structure.'
           },
           {
             role: 'user',
             content: networkPrompt
           }
         ],
-        max_completion_tokens: 400,
+        max_completion_tokens: 600,
       });
 
+      const content = response.choices[0]?.message?.content || '';
       console.log('✅ Network entry generated successfully');
-      return response.choices[0]?.message?.content || 'Failed to generate network entry content';
+      
+      try {
+        return JSON.parse(content) as GeneratedEntryContent;
+      } catch (parseError) {
+        console.error('❌ Failed to parse network entry JSON:', parseError);
+        // Fallback to structured format with sanitized content
+        return {
+          title: entryData.title ? entryData.title.replace(/\b\d+(\.\d+)?%?\b/g, 'significant').replace(/client|company|corp\b/gi, 'enterprise client') : 'Professional Development Entry',
+          description: content,
+          outcomes: entryData.result ? [{
+            category: 'performance' as const,
+            title: 'Professional Achievement',
+            description: entryData.result.replace(/\b\d+(\.\d+)?%?\b/g, 'notable improvement').replace(/client|company|corp\b/gi, 'stakeholder')
+          }] : []
+        };
+      }
     } catch (error) {
       console.error('❌ Azure OpenAI API error (network):', error);
       throw error;

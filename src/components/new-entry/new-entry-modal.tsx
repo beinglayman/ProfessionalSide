@@ -28,10 +28,27 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const [showPreview, setShowPreview] = useState(false);
   const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
   const [generatedEntries, setGeneratedEntries] = useState<{
-    workspaceEntry: string;
-    networkEntry: string;
+    workspaceEntry: {
+      title: string;
+      description: string;
+      outcomes: Array<{
+        category: 'performance' | 'technical' | 'user-experience' | 'business';
+        title: string;
+        description: string;
+      }>;
+    };
+    networkEntry: {
+      title: string;
+      description: string;
+      outcomes: Array<{
+        category: 'performance' | 'technical' | 'user-experience' | 'business';
+        title: string;
+        description: string;
+      }>;
+    };
   } | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [lastGenerationInputs, setLastGenerationInputs] = useState<string | null>(null);
   
   const createJournalMutation = useCreateJournalEntry();
   const generateAIMutation = useGenerateAIEntries();
@@ -141,6 +158,35 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
 
   const getTotalSteps = () => 7;
 
+  // Function to create a hash of form inputs (steps 1-6) for change detection
+  const getFormInputsHash = () => {
+    const inputs = {
+      primaryFocusArea: formData.primaryFocusArea,
+      primaryFocusAreaOthers: formData.primaryFocusAreaOthers,
+      workCategory: formData.workCategory,
+      workCategoryOthers: formData.workCategoryOthers,
+      workTypes: formData.workTypes.sort(), // Sort to ensure consistent ordering
+      workTypeOthers: formData.workTypeOthers,
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      result: formData.result?.trim() || '',
+      workspaceId: formData.workspaceId,
+      skillsApplied: formData.skillsApplied.sort(), // Sort to ensure consistent ordering
+      collaborators: formData.collaborators.sort(),
+      reviewers: formData.reviewers.sort(),
+      projects: formData.projects.sort(),
+      departments: formData.departments.sort(),
+      artifacts: formData.artifacts.map(a => ({ name: a.name, type: a.type, url: a.url })).sort((a, b) => a.name.localeCompare(b.name))
+    };
+    return JSON.stringify(inputs);
+  };
+
+  // Check if form has changed since last AI generation
+  const hasFormChanged = () => {
+    const currentHash = getFormInputsHash();
+    return lastGenerationInputs !== currentHash;
+  };
+
   const validateCurrentStep = () => {
     switch (step) {
       case 1:
@@ -229,11 +275,20 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         return workType ? workType.label : workTypeId;
       });
 
+      // Convert structured AI content to formatted text
+      const formatAIContent = (aiContent: typeof generatedEntries.workspaceEntry) => {
+        const formattedOutcomes = aiContent.outcomes?.map(outcome => 
+          `**${outcome.title}** (${outcome.category})\n${outcome.description}`
+        ).join('\n\n') || '';
+        
+        return `${aiContent.description}\n\n**Outcomes & Results:**\n\n${formattedOutcomes}`;
+      };
+
       // Create workspace entry (always created)
       const workspaceJournalData: CreateJournalEntryRequest = {
-        title: formData.title.trim(),
-        description: formData.description.trim().substring(0, 490) + (formData.description.length > 490 ? '...' : ''), // Use original description (truncated if needed)
-        fullContent: generatedEntries.workspaceEntry,
+        title: generatedEntries.workspaceEntry.title,
+        description: generatedEntries.workspaceEntry.description.substring(0, 490) + (generatedEntries.workspaceEntry.description.length > 490 ? '...' : ''),
+        fullContent: formatAIContent(generatedEntries.workspaceEntry),
         workspaceId: formData.workspaceId,
         visibility: 'workspace',
         category: formData.workCategory || 'General',
@@ -248,12 +303,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           // Remove department field if undefined to avoid validation issues
         })),
         artifacts: formData.artifacts,
-        outcomes: formData.result ? [{
-          category: 'performance' as const,
-          title: 'Results & Outcomes',
-          description: formData.result.trim()
-          // Remove highlight and metrics if undefined to avoid validation issues
-        }] : []
+        outcomes: generatedEntries.workspaceEntry.outcomes || []
       };
 
       console.log('📝 Creating workspace entry:', workspaceJournalData);
@@ -263,9 +313,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       if (formData.isPublished) {
         const networkJournalData: CreateJournalEntryRequest = {
           ...workspaceJournalData,
-          description: formData.description.trim().substring(0, 490) + (formData.description.length > 490 ? '...' : ''), // Use original description (truncated if needed)
-          fullContent: generatedEntries.networkEntry,
-          visibility: 'network'
+          title: generatedEntries.networkEntry.title,
+          description: generatedEntries.networkEntry.description.substring(0, 490) + (generatedEntries.networkEntry.description.length > 490 ? '...' : ''),
+          fullContent: formatAIContent(generatedEntries.networkEntry),
+          visibility: 'network',
+          outcomes: generatedEntries.networkEntry.outcomes || []
         };
 
         console.log('🌐 Creating network entry:', networkJournalData);
@@ -301,6 +353,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             artifacts: [],
           });
           setGeneratedEntries(null);
+          setLastGenerationInputs(null);
           setStep(1);
         }, 1500);
       } else {
@@ -1532,24 +1585,41 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
 
                           const generated = await generateAIMutation.mutateAsync(aiEntryData);
                           setGeneratedEntries(generated);
+                          
+                          // Save the current inputs hash to prevent regeneration without changes
+                          setLastGenerationInputs(getFormInputsHash());
                         } catch (error) {
                           console.error('AI generation failed:', error);
                         } finally {
                           setIsGeneratingAI(false);
                         }
                       }}
-                      disabled={isGeneratingAI}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={isGeneratingAI || (generatedEntries && !hasFormChanged())}
+                      className={cn(
+                        "bg-blue-600 hover:bg-blue-700 text-white",
+                        generatedEntries && !hasFormChanged() && "opacity-50 cursor-not-allowed"
+                      )}
                     >
                       {isGeneratingAI ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           Generating AI Content...
                         </>
+                      ) : generatedEntries && !hasFormChanged() ? (
+                        '✅ AI Content Generated'
+                      ) : generatedEntries ? (
+                        '🔄 Regenerate AI Content'
                       ) : (
                         '🤖 Generate AI Content'
                       )}
                     </Button>
+                    
+                    {/* Show helpful message when regeneration is disabled */}
+                    {generatedEntries && !hasFormChanged() && (
+                      <p className="text-xs text-blue-600 mt-2 text-center">
+                        💡 Make changes to your inputs above to enable regeneration
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1614,14 +1684,49 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                     <div className="px-6 pb-4">
                       <div className="mb-4">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-24">
-                          {formData.title}
+                          {generatedEntries.workspaceEntry.title}
                         </h3>
                       </div>
                       <div className="mb-4">
                         <div className="text-sm text-gray-600 whitespace-pre-wrap">
-                          {generatedEntries.workspaceEntry}
+                          {generatedEntries.workspaceEntry.description}
                         </div>
                       </div>
+
+                      {/* AI Generated Outcomes */}
+                      {generatedEntries.workspaceEntry.outcomes && generatedEntries.workspaceEntry.outcomes.length > 0 && (
+                        <div className="mb-4">
+                          <span className="text-xs font-medium text-gray-700 flex items-center gap-1 mb-3">
+                            <Star className="h-3.5 w-3.5" />
+                            Outcomes & Results
+                          </span>
+                          <div className="space-y-3">
+                            {generatedEntries.workspaceEntry.outcomes.map((outcome, index) => {
+                              const categoryColors = {
+                                'performance': 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                                'user-experience': 'bg-pink-50 text-pink-700 border-pink-200', 
+                                'business': 'bg-green-50 text-green-700 border-green-200',
+                                'technical': 'bg-blue-50 text-blue-700 border-blue-200'
+                              };
+                              
+                              return (
+                                <div key={index} className={cn(
+                                  "p-3 rounded-lg border",
+                                  categoryColors[outcome.category]
+                                )}>
+                                  <div className="flex items-start gap-2">
+                                    <Zap className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-sm font-medium mb-1">{outcome.title}</h4>
+                                      <p className="text-xs opacity-90">{outcome.description}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Skills and Tags */}
                       {(formData.skillsApplied.length > 0 || formData.tags.length > 0) && (
@@ -1728,14 +1833,49 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                     <div className="px-6 pb-4">
                       <div className="mb-4">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-24">
-                          {formData.title}
+                          {generatedEntries.networkEntry.title}
                         </h3>
                       </div>
                       <div className="mb-4">
                         <div className="text-sm text-gray-600 whitespace-pre-wrap">
-                          {generatedEntries.networkEntry}
+                          {generatedEntries.networkEntry.description}
                         </div>
                       </div>
+
+                      {/* AI Generated Outcomes - Network Version */}
+                      {generatedEntries.networkEntry.outcomes && generatedEntries.networkEntry.outcomes.length > 0 && (
+                        <div className="mb-4">
+                          <span className="text-xs font-medium text-gray-700 flex items-center gap-1 mb-3">
+                            <Star className="h-3.5 w-3.5" />
+                            Outcomes & Results
+                          </span>
+                          <div className="space-y-3">
+                            {generatedEntries.networkEntry.outcomes.map((outcome, index) => {
+                              const categoryColors = {
+                                'performance': 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                                'user-experience': 'bg-pink-50 text-pink-700 border-pink-200', 
+                                'business': 'bg-green-50 text-green-700 border-green-200',
+                                'technical': 'bg-blue-50 text-blue-700 border-blue-200'
+                              };
+                              
+                              return (
+                                <div key={index} className={cn(
+                                  "p-3 rounded-lg border",
+                                  categoryColors[outcome.category]
+                                )}>
+                                  <div className="flex items-start gap-2">
+                                    <Zap className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-sm font-medium mb-1">{outcome.title}</h4>
+                                      <p className="text-xs opacity-90">{outcome.description}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Skills and Tags (limited for network view) */}
                       {(formData.skillsApplied.length > 0 || formData.tags.length > 0) && (
