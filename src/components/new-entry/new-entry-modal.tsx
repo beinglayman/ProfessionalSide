@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Label from '@radix-ui/react-label';
-import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, Confluence} from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, Confluence, RepeatIcon, Sparkles} from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { Editor } from '../journal/editor';
@@ -1537,17 +1537,47 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             </div>
             
             {!generatedEntries ? (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-blue-900 mb-2">🤖 Generate AI Journal Entries</h3>
-                    <p className="text-sm text-blue-700 mb-4">
-                      Our AI will create professional journal entries based on your input. You'll get:
-                    </p>
-                    <ul className="text-sm text-blue-700 text-left space-y-1 mb-4">
-                      <li>• <strong>Workspace Entry:</strong> Detailed version with specific metrics and insights</li>
-                      <li>• <strong>Network Entry:</strong> Professional summary suitable for public sharing</li>
-                    </ul>
+              <div className="space-y-6">
+                {/* AI Generation Section */}
+                <div className="text-center space-y-4">
+                  <div className="space-y-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full text-sm text-gray-600">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI-Enhanced Content Generation
+                    </div>
+                    
+                    <div className="max-w-md mx-auto">
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        Transform your inputs into polished journal entries with two tailored versions
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Entry Type Explanation */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                    <div className="p-4 border border-gray-100 rounded-lg bg-gray-50/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shield className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-900">Workspace Version</span>
+                      </div>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        Comprehensive details with metrics, client information, and technical insights for internal use
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 border border-gray-100 rounded-lg bg-gray-50/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-900">Network Version</span>
+                      </div>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        Professional summary with sanitized content, perfect for public professional sharing
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Generation Button */}
+                  <div className="pt-2">
                     <Button
                       onClick={async () => {
                         setIsGeneratingAI(true);
@@ -1596,29 +1626,43 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                       }}
                       disabled={isGeneratingAI || (generatedEntries && !hasFormChanged())}
                       className={cn(
-                        "bg-blue-600 hover:bg-blue-700 text-white",
-                        generatedEntries && !hasFormChanged() && "opacity-50 cursor-not-allowed"
+                        "px-6 py-2.5 text-sm font-medium transition-all duration-200",
+                        generatedEntries && !hasFormChanged() 
+                          ? "bg-green-50 text-green-700 border border-green-200 cursor-default" 
+                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                       )}
+                      variant="outline"
                     >
                       {isGeneratingAI ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating AI Content...
-                        </>
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-gray-400"></div>
+                          <span>Generating...</span>
+                        </div>
                       ) : generatedEntries && !hasFormChanged() ? (
-                        '✅ AI Content Generated'
+                        <div className="flex items-center gap-2">
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Content Generated</span>
+                        </div>
                       ) : generatedEntries ? (
-                        '🔄 Regenerate AI Content'
+                        <div className="flex items-center gap-2">
+                          <RepeatIcon className="h-3.5 w-3.5" />
+                          <span>Regenerate Content</span>
+                        </div>
                       ) : (
-                        '🤖 Generate AI Content'
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>Generate Content</span>
+                        </div>
                       )}
                     </Button>
                     
                     {/* Show helpful message when regeneration is disabled */}
                     {generatedEntries && !hasFormChanged() && (
-                      <p className="text-xs text-blue-600 mt-2 text-center">
-                        💡 Make changes to your inputs above to enable regeneration
-                      </p>
+                      <div className="mt-3 text-center">
+                        <p className="text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-full inline-block">
+                          Make changes above to enable regeneration
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
