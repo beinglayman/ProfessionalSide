@@ -1793,27 +1793,94 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                     </div>
                   </div>
 
-                  {/* Network Entry Toggle - Outside the disabled area */}
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wide">Network Entry Preview</h4>
-                    <div className="flex items-center gap-2">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.isPublished}
-                          onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                      </label>
+                  {/* Publication Choice Section */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                    <div className="text-center mb-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Choose Your Journal Entry Scope</h4>
+                      <p className="text-xs text-gray-600">Select what entries to create from your AI-generated content</p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {/* Always Created - Workspace Entry */}
+                      <div className="flex items-center gap-3 p-3 bg-white border border-blue-100 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Shield className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="text-sm font-medium text-gray-900">Workspace Entry</span>
+                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Always Created</span>
+                          </div>
+                          <p className="text-xs text-gray-600">Internal use with full details, metrics, and confidential information</p>
+                        </div>
+                      </div>
+
+                      {/* Optional - Network Entry */}
                       <div className={cn(
-                        "flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors",
-                        formData.isPublished ? "text-green-600 bg-green-50" : "text-gray-400 bg-gray-50"
+                        "flex items-center gap-3 p-3 border rounded-lg transition-all",
+                        formData.isPublished 
+                          ? "bg-white border-green-100" 
+                          : "bg-gray-50 border-gray-200"
                       )}>
-                        <Globe className="h-3 w-3" />
-                        {formData.isPublished ? "Published" : "Not Published"}
+                        <div className="flex-shrink-0">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.isPublished}
+                              onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
+                              className="sr-only peer"
+                            />
+                            <div className={cn(
+                              "w-4 h-4 border-2 rounded flex items-center justify-center transition-all",
+                              formData.isPublished 
+                                ? "bg-green-500 border-green-500" 
+                                : "bg-white border-gray-300 hover:border-gray-400"
+                            )}>
+                              {formData.isPublished && (
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              )}
+                            </div>
+                          </label>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Globe className={cn(
+                              "w-3.5 h-3.5",
+                              formData.isPublished ? "text-green-600" : "text-gray-400"
+                            )} />
+                            <span className={cn(
+                              "text-sm font-medium",
+                              formData.isPublished ? "text-gray-900" : "text-gray-500"
+                            )}>Network Entry</span>
+                            <span className={cn(
+                              "text-xs px-2 py-0.5 rounded",
+                              formData.isPublished 
+                                ? "text-green-600 bg-green-50" 
+                                : "text-gray-500 bg-gray-100"
+                            )}>
+                              {formData.isPublished ? "Also Create" : "Optional"}
+                            </span>
+                          </div>
+                          <p className={cn(
+                            "text-xs",
+                            formData.isPublished ? "text-gray-600" : "text-gray-500"
+                          )}>
+                            Public sharing with sanitized content, no confidential details
+                          </p>
+                        </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Network Entry Preview Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wide">Network Entry Preview</h4>
+                    {!formData.isPublished && (
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Disabled - Enable above to create</span>
+                    )}
                   </div>
 
                   {/* Network Entry Preview */}
@@ -1837,11 +1904,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                     </div>
 
                     {!formData.isPublished && (
-                      <div className="absolute inset-0 bg-gray-50 bg-opacity-50 rounded-lg flex items-center justify-center z-20">
+                      <div className="absolute inset-0 bg-gray-50 bg-opacity-75 rounded-lg flex items-center justify-center z-20">
                         <div className="text-center p-4">
                           <Globe className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500 font-medium">Network Publishing Disabled</p>
-                          <p className="text-xs text-gray-400">Enable the toggle above to publish to network</p>
+                          <p className="text-sm text-gray-500 font-medium">Network Entry Creation Disabled</p>
+                          <p className="text-xs text-gray-400">Check "Network Entry" above to create a public version</p>
                         </div>
                       </div>
                     )}

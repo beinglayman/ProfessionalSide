@@ -110,25 +110,34 @@ export class AIEntryGeneratorService {
     console.log('🏢 Generating workspace entry...');
     
     const workspacePrompt = `
-You are a professional journal entry writer. Create a detailed workspace journal entry based on the following work data.
+You are an experienced professional writing a personal journal entry about your work. Write in first person with a conversational yet professional tone - the way a skilled professional would describe their work to a trusted colleague.
 
 WORKSPACE ENTRY RULES:
+- Write naturally, as if speaking to a colleague who understands your field
 - Include specific details, metrics, and technical information (exact numbers, percentages, client names allowed)
-- Mention specific tools, technologies, and methodologies used
+- Use "I" statements and personal voice (e.g., "I implemented", "We discovered", "The team and I")
+- Balance technical accuracy with human insight and reflection
 - Include organizational intellectual property and confidential details as appropriate
 - Reference specific client identifiers and project codenames
-- Focus on detailed technical achievements and business impact
+- Focus on both technical achievements and personal learning/growth
 - Use present tense for ongoing work, past tense for completed work
+- Sound competent but approachable, not overly formal or robotic
+
+TONE EXAMPLES:
+- Instead of: "Implementation of the optimization algorithm resulted in performance improvements"
+- Write: "I implemented a new optimization algorithm that really improved our performance"
+- Instead of: "Collaborative efforts with cross-functional teams"  
+- Write: "Working closely with the design and product teams"
 
 OUTPUT FORMAT: Return a valid JSON object with this exact structure:
 {
-  "title": "Professional title for the journal entry",
-  "description": "Detailed description of the work (200-300 words)",
+  "title": "Professional title for the journal entry (natural, not overly formal)",
+  "description": "Detailed description of the work in first person (200-300 words, conversational but professional)",
   "outcomes": [
     {
       "category": "performance|technical|user-experience|business",
-      "title": "Outcome title",
-      "description": "Detailed outcome description"
+      "title": "Outcome title (natural language)",
+      "description": "Detailed outcome description (personal voice, specific but conversational)"
     }
   ]
 }
@@ -157,7 +166,7 @@ Create a comprehensive workspace journal entry in JSON format:`;
         messages: [
           {
             role: 'system',
-            content: 'You are a professional technical writer who creates detailed workplace journal entries. Always return valid JSON with the requested structure. Include specific metrics, client details, and technical information for workspace entries.'
+            content: 'You are an experienced professional writing your own work journal. Write in first person with a natural, conversational tone while maintaining technical accuracy. Be human and relatable, not robotic or overly formal. Always return valid JSON with the requested structure.'
           },
           {
             role: 'user',
@@ -197,26 +206,34 @@ Create a comprehensive workspace journal entry in JSON format:`;
     console.log('🌐 Generating network entry...');
     
     const networkPrompt = `
-You are a professional journal entry writer. Create a polished, public-friendly journal entry based on the following work data.
+You are a professional sharing your work experience on a professional network. Write in first person with an engaging, authentic tone - the way you'd describe your work when networking or in a professional LinkedIn post.
 
 NETWORK ENTRY RULES:
+- Write personally and authentically, but professionally appropriate for public sharing
 - NO specific numerical data or metrics (use general terms like "significantly improved", "enhanced performance")
 - NO client identifiers or specific company names (use "enterprise client", "key stakeholder")  
 - NO confidential documents or organizational intellectual property details
 - KEEP intact: Skills developed, Work domains, Professional achievements, Generalized project impacts
-- Focus on skills, professional growth, and general achievements
-- Maintain professional tone but make it network-appropriate
-- Emphasize learning and skill development
+- Focus on personal growth, skills development, and lessons learned
+- Use "I" statements and show personality while staying professional
+- Sound approachable and human, not corporate or overly polished
+- Emphasize learning journey and professional development
+
+TONE EXAMPLES:
+- Instead of: "Successful implementation of optimization strategies resulted in enhanced system performance"
+- Write: "I worked on optimizing our system performance and learned so much about scalable architecture in the process"
+- Instead of: "Facilitated cross-functional collaboration to achieve project objectives"
+- Write: "Collaborating with different teams taught me new perspectives on problem-solving"
 
 OUTPUT FORMAT: Return a valid JSON object with this exact structure:
 {
-  "title": "Professional title for the journal entry (network-appropriate)",
-  "description": "Network-friendly description of the work (150-250 words, no sensitive details)",
+  "title": "Professional title for the journal entry (engaging, network-appropriate)",
+  "description": "Network-friendly description in first person (150-250 words, authentic but no sensitive details)",
   "outcomes": [
     {
-      "category": "performance|technical|user-experience|business",
-      "title": "Outcome title (no specific metrics)",
-      "description": "General outcome description (no confidential info)"
+      "category": "performance|technical|user-experience|business", 
+      "title": "Outcome title (natural language, no specific metrics)",
+      "description": "General outcome description (personal voice, no confidential info)"
     }
   ]
 }
@@ -245,7 +262,7 @@ Create a comprehensive network journal entry in JSON format that sanitizes all s
         messages: [
           {
             role: 'system',
-            content: 'You are a professional writer who creates public-friendly journal entries for professional networks. Focus on skills, growth, and general achievements while protecting confidential information. Always return valid JSON with the requested structure.'
+            content: 'You are a professional sharing authentic work experiences on a professional network. Write in first person with a genuine, engaging tone that shows personality while staying professional. Focus on growth, learning, and achievements. Always return valid JSON with the requested structure.'
           },
           {
             role: 'user',
