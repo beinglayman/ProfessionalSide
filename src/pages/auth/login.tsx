@@ -52,20 +52,6 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* Demo credentials banner */}
-        <div className="rounded-md bg-blue-50 p-4">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
-                Demo Credentials
-              </h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <p>Email: sarah.chen@techcorp.com</p>
-                <p>Password: password123</p>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
