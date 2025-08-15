@@ -16,7 +16,7 @@ export function HomePage() {
               </span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl mt-16 mb-16">
-              Work speaks louder here.
+              Let your work do the talking.
               <br />
               <span className="text-primary-600">Chronicle your professional journey.</span>
             </h1>

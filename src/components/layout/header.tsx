@@ -6,6 +6,7 @@ import { Bell, Heart, MessageSquare, Users, FileText, UserPlus, Upload, CheckCir
 import type { NetworkType } from '../../App';
 import { NotificationsDropdown } from '../notifications/notifications-dropdown';
 import { SearchModal } from '../search/search-modal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface HeaderProps {
   networkType: NetworkType;
@@ -17,6 +18,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
   
   // Global keyboard shortcut listener
   React.useEffect(() => {
@@ -90,122 +92,129 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
               </svg>
             </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="ml-8 hidden lg:flex space-x-1">
-              <Link
-                to="/workspaces/discovery"
-                className={cn(
-                  "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                  isActiveLink('/workspaces/discovery')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-              >
-                <span>Workspaces</span>
-                <div className={cn(
-                  "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                  isActiveLink('/workspaces/discovery')
-                    ? "scale-x-100"
-                    : "scale-x-0 group-hover:scale-x-100"
-                )}></div>
-              </Link>
-              <Link
-                to="/journal"
-                className={cn(
-                  "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                  isActiveLink('/journal')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-              >
-                <span>Journal</span>
-                <div className={cn(
-                  "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                  isActiveLink('/journal')
-                    ? "scale-x-100"
-                    : "scale-x-0 group-hover:scale-x-100"
-                )}></div>
-              </Link>
-              <Link
-                to="/network"
-                className={cn(
-                  "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                  isActiveLink('/network')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-              >
-                <span>Network</span>
-                <div className={cn(
-                  "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                  isActiveLink('/network')
-                    ? "scale-x-100"
-                    : "scale-x-0 group-hover:scale-x-100"
-                )}></div>
-              </Link>
-              <Link
-                to="/profile"
-                className={cn(
-                  "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                  isActiveLink('/profile')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-              >
-                <span>Profile</span>
-                <div className={cn(
-                  "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                  isActiveLink('/profile')
-                    ? "scale-x-100"
-                    : "scale-x-0 group-hover:scale-x-100"
-                )}></div>
-              </Link>
-            </nav>
+            {/* Desktop Navigation - Only show when authenticated */}
+            {isAuthenticated && (
+              <nav className="ml-8 hidden lg:flex space-x-1">
+                <Link
+                  to="/workspaces/discovery"
+                  className={cn(
+                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    isActiveLink('/workspaces/discovery')
+                      ? "text-primary-600"
+                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                  )}
+                >
+                  <span>Workspaces</span>
+                  <div className={cn(
+                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
+                    isActiveLink('/workspaces/discovery')
+                      ? "scale-x-100"
+                      : "scale-x-0 group-hover:scale-x-100"
+                  )}></div>
+                </Link>
+                <Link
+                  to="/journal"
+                  className={cn(
+                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    isActiveLink('/journal')
+                      ? "text-primary-600"
+                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                  )}
+                >
+                  <span>Journal</span>
+                  <div className={cn(
+                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
+                    isActiveLink('/journal')
+                      ? "scale-x-100"
+                      : "scale-x-0 group-hover:scale-x-100"
+                  )}></div>
+                </Link>
+                <Link
+                  to="/network"
+                  className={cn(
+                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    isActiveLink('/network')
+                      ? "text-primary-600"
+                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                  )}
+                >
+                  <span>Network</span>
+                  <div className={cn(
+                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
+                    isActiveLink('/network')
+                      ? "scale-x-100"
+                      : "scale-x-0 group-hover:scale-x-100"
+                  )}></div>
+                </Link>
+                <Link
+                  to="/profile"
+                  className={cn(
+                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    isActiveLink('/profile')
+                      ? "text-primary-600"
+                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                  )}
+                >
+                  <span>Profile</span>
+                  <div className={cn(
+                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
+                    isActiveLink('/profile')
+                      ? "scale-x-100"
+                      : "scale-x-0 group-hover:scale-x-100"
+                  )}></div>
+                </Link>
+              </nav>
+            )}
           </div>
 
           {/* Right section: Actions + User */}
           <div className="flex items-center space-x-3">
-            {/* Mobile Menu Button */}
-            <button
-              className="lg:hidden p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <div className="relative w-5 h-5">
-                <span className={cn(
-                  "absolute block w-5 h-0.5 bg-current transition-all duration-300",
-                  isMenuOpen ? "top-2 rotate-45" : "top-1"
-                )} />
-                <span className={cn(
-                  "absolute block w-5 h-0.5 bg-current transition-all duration-300 top-2",
-                  isMenuOpen ? "opacity-0" : "opacity-100"
-                )} />
-                <span className={cn(
-                  "absolute block w-5 h-0.5 bg-current transition-all duration-300",
-                  isMenuOpen ? "top-2 -rotate-45" : "top-3"
-                )} />
-              </div>
-            </button>
+            {/* Mobile Menu Button - Only show when authenticated */}
+            {isAuthenticated && (
+              <button
+                className="lg:hidden p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <div className="relative w-5 h-5">
+                  <span className={cn(
+                    "absolute block w-5 h-0.5 bg-current transition-all duration-300",
+                    isMenuOpen ? "top-2 rotate-45" : "top-1"
+                  )} />
+                  <span className={cn(
+                    "absolute block w-5 h-0.5 bg-current transition-all duration-300 top-2",
+                    isMenuOpen ? "opacity-0" : "opacity-100"
+                  )} />
+                  <span className={cn(
+                    "absolute block w-5 h-0.5 bg-current transition-all duration-300",
+                    isMenuOpen ? "top-2 -rotate-45" : "top-3"
+                  )} />
+                </div>
+              </button>
+            )}
 
-            {/* Search */}
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-              aria-label="Search"
-              title="Search (⌘K)"
-            >
-              <Search className="h-5 w-5" />
-            </button>
+            {/* Search - Only show when authenticated */}
+            {isAuthenticated && (
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                aria-label="Search"
+                title="Search (⌘K)"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+            )}
 
-            {/* Notifications */}
-            <NotificationsDropdown />
+            {/* Notifications - Only show when authenticated */}
+            {isAuthenticated && <NotificationsDropdown />}
 
-            <UserNav />
+            {/* User Nav - Only show when authenticated */}
+            {isAuthenticated && <UserNav />}
           </div>
         </div>
 
-        {/* Enhanced Mobile Menu */}
-        {isMenuOpen && (
+        {/* Enhanced Mobile Menu - Only show when authenticated */}
+        {isAuthenticated && isMenuOpen && (
           <div className="lg:hidden border-t border-gray-100">
             <nav className="px-4 py-4 space-y-1">
               <Link
