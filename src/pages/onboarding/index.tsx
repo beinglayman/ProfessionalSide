@@ -74,7 +74,7 @@ export function OnboardingPage() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, updateProfile } = useProfile();
+  const { profile, updateProfile, refetch } = useProfile();
   
   // Check if we're in edit mode (coming from /profile/edit)
   const isEditMode = location.pathname === '/profile/edit';
@@ -82,33 +82,24 @@ export function OnboardingPage() {
   // Load existing onboarding data when component mounts
   useEffect(() => {
     const loadOnboardingData = async () => {
-      console.log('🚀 Loading onboarding data and current step from API...');
       
       try {
         // Load onboarding data from API
         const existingData = await productionOnboardingService.getOnboardingData();
-        console.log('📊 Existing onboarding data:', existingData);
-        console.log('📊 Onboarding data careerGoals:', existingData?.careerGoals);
-        console.log('📊 Onboarding data professionalInterests:', existingData?.professionalInterests);
-        console.log('📊 Onboarding data keys:', Object.keys(existingData || {}));
         
         if (existingData) {
           setOnboardingData(existingData);
-          console.log('📊 Set onboarding data with careerGoals:', existingData.careerGoals);
-          console.log('📊 Set onboarding data with professionalInterests:', existingData.professionalInterests);
         }
         
         // Get current step from API or override for edit mode
         let targetStep: number;
         
         if (isEditMode) {
-          console.log('🔧 Edit mode detected - checking if onboarding is complete');
           
           // Check if onboarding is complete
           const progress = await productionOnboardingService.getOnboardingProgress();
           
           if (progress?.isCompleted) {
-            console.log('📍 Onboarding complete - directing to last step for editing');
             targetStep = 6; // Last step (Goals & Interests)
           } else {
             // If not complete, calculate the appropriate step
@@ -118,7 +109,6 @@ export function OnboardingPage() {
           targetStep = await productionOnboardingService.getCurrentStep();
         }
         
-        console.log('📍 Current step determined:', targetStep);
         setCurrentStep(targetStep);
         
         // Mark previous steps as completed
@@ -127,7 +117,6 @@ export function OnboardingPage() {
           completed.add(i);
         }
         setCompletedSteps(completed);
-        console.log('✅ Onboarding initialization complete - Step:', targetStep);
       } catch (error) {
         console.error('❌ Failed to load onboarding data:', error);
       } finally {
@@ -139,8 +128,6 @@ export function OnboardingPage() {
   }, []);
 
   const updateOnboardingData = async (stepData: any) => {
-    console.log('🔄 Onboarding: Updating data with step data:', stepData);
-    console.log('🔄 Onboarding: Current data before merge:', onboardingData);
     
     // Deep merge to preserve arrays and objects
     const updatedData = { ...onboardingData, ...stepData };
@@ -166,33 +153,22 @@ export function OnboardingPage() {
     }
     if (stepData.careerGoals) {
       updatedData.careerGoals = stepData.careerGoals;
-      console.log('🔄 Onboarding: Updated careerGoals in state:', updatedData.careerGoals);
     }
     if (stepData.professionalInterests) {
       updatedData.professionalInterests = stepData.professionalInterests;
-      console.log('🔄 Onboarding: Updated professionalInterests in state:', updatedData.professionalInterests);
     }
     
-    console.log('🔄 Onboarding: Complete updated data after merge:', updatedData);
-    console.log('🔄 Onboarding: Final careerGoals in merged data:', updatedData.careerGoals);
-    console.log('🔄 Onboarding: Final professionalInterests in merged data:', updatedData.professionalInterests);
     
     setOnboardingData(updatedData);
     
     // Save to database via onboarding API
     try {
-      console.log('💾 Onboarding: Saving to database via API...');
-      console.log('💾 Onboarding: Final data being saved:', {
-        step: currentStep,
-        dataKeys: Object.keys(updatedData),
-        professionalSummary: updatedData.professionalSummary ? 'EXISTS' : 'MISSING',
-        specializations: updatedData.specializations?.length || 0,
-        skills: updatedData.skills?.length || 0,
-        workExperiences: updatedData.workExperiences?.length || 0,
-        education: updatedData.education?.length || 0
-      });
       await productionOnboardingService.saveOnboardingData(updatedData);
-      console.log('✅ Onboarding: Data saved successfully to database');
+      
+      // If profileImageUrl was updated, refresh profile to sync avatar
+      if (stepData.profileImageUrl) {
+        await refetch();
+      }
     } catch (error) {
       console.error('❌ Onboarding: Failed to save onboarding data to database:', error);
       throw error;
@@ -204,24 +180,19 @@ export function OnboardingPage() {
   };
 
   const goToNextStep = async () => {
-    console.log('🎯 goToNextStep called - Current step:', currentStep);
     if (currentStep < ONBOARDING_STEPS.length - 1) {
       markStepComplete(currentStep);
       const nextStep = currentStep + 1;
-      console.log('📈 Moving to next step:', nextStep);
       setCurrentStep(nextStep);
       
       // Save current step to database
       try {
-        console.log('💾 Saving current step to database:', nextStep);
         await productionOnboardingService.saveCurrentStep(nextStep);
-        console.log('✅ Current step saved successfully:', nextStep);
       } catch (error) {
         console.error('❌ Failed to save current step to database:', error);
       }
     } else {
       // Last step completed, mark it complete and finish onboarding
-      console.log('🎉 Last step reached - completing onboarding');
       markStepComplete(currentStep);
       completeOnboarding();
     }
@@ -254,21 +225,12 @@ export function OnboardingPage() {
 
   const completeOnboarding = async () => {
     try {
-      console.log('🎉 Starting onboarding completion...');
-      console.log('🔍 Final onboardingData state before completion:', onboardingData);
-      console.log('🔍 Final careerGoals before completion:', onboardingData.careerGoals);
-      console.log('🔍 Final professionalInterests before completion:', onboardingData.professionalInterests);
       
       // Fetch the latest data from API to ensure we have the most recent state
-      console.log('📡 Fetching latest onboarding data from API before completion...');
       const latestData = await productionOnboardingService.getOnboardingData();
-      console.log('📊 Latest data from API:', latestData);
-      console.log('📊 Latest careerGoals from API:', latestData?.careerGoals);
-      console.log('📊 Latest professionalInterests from API:', latestData?.professionalInterests);
       
       // Use the latest data from API for final save (this ensures we don't overwrite with stale state)
       const finalData = latestData || onboardingData;
-      console.log('💾 Using final data for completion:', finalData);
       
       // Final save via onboarding API (with latest data)
       await productionOnboardingService.saveOnboardingData(finalData as any);
@@ -276,10 +238,17 @@ export function OnboardingPage() {
       // Mark onboarding as complete
       await productionOnboardingService.markOnboardingComplete();
       
-      console.log('✅ Onboarding completion successful');
+      // Refresh profile data to ensure avatar is updated
+      await updateProfile(finalData);
+      await refetch();
       
       // Navigate to profile page to see the results
       navigate('/profile');
+      
+      // Force page reload to ensure all data is fresh (temporary fix for avatar sync)
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } catch (error) {
       console.error('Error completing onboarding:', error);
       // Still navigate but show error
@@ -289,16 +258,16 @@ export function OnboardingPage() {
 
   const skipOnboarding = () => {
     // Allow user to skip and complete later
-    navigate('/dashboard');
+    navigate('/profile');
   };
 
   // Ensure currentStep is within bounds
   const safeCurrentStep = Math.min(Math.max(currentStep, 0), ONBOARDING_STEPS.length - 1);
   const currentStepData = ONBOARDING_STEPS[safeCurrentStep];
   
-  // Log if step was out of bounds
+  // Ensure step is within bounds
   if (currentStep !== safeCurrentStep) {
-    console.warn(`⚠️ Current step ${currentStep} was out of bounds, clamped to ${safeCurrentStep}`);
+    // Step was out of bounds, clamped to safe value
   }
   
   const CurrentStepComponent = currentStepData.component;
@@ -316,14 +285,6 @@ export function OnboardingPage() {
                 <p className="mt-2 text-sm text-gray-600">Help us personalize your InChronicle experience</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => {
-                  console.log('=== DEBUG DATA ===');
-                  console.log('Current onboardingData state:', onboardingData);
-                  console.log('Is data loaded:', isDataLoaded);
-                  console.log('Current step:', currentStep);
-                }} className="text-gray-500">
-                  Debug Data
-                </Button>
                 <Button variant="ghost" onClick={skipOnboarding} className="text-gray-500">
                   Skip for now
                 </Button>

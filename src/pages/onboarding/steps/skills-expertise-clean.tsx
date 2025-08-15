@@ -81,13 +81,6 @@ export function SkillsExpertiseStepClean({
 
   // Update form data when new data is received (for prepopulation)
   useEffect(() => {
-    console.log('🔄 Skills Expertise: Updating form data with new props:', data);
-    console.log('🔍 Skills Expertise: skills value:', data.skills);
-    console.log('🔍 Skills Expertise: skills type:', typeof data.skills);
-    console.log('🔍 Skills Expertise: skills array?:', Array.isArray(data.skills));
-    console.log('🔍 Skills Expertise: topSkills value:', data.topSkills);
-    console.log('🔍 Skills Expertise: topSkills type:', typeof data.topSkills);
-    console.log('🔍 Skills Expertise: topSkills array?:', Array.isArray(data.topSkills));
     
     const newFormData = {
       skills: Array.isArray(data.skills) ? data.skills : [],
@@ -95,7 +88,6 @@ export function SkillsExpertiseStepClean({
       ...data
     };
     
-    console.log('🔄 Skills Expertise: Setting form data to:', newFormData);
     setFormData(newFormData);
   }, [data]);
 
@@ -187,11 +179,8 @@ export function SkillsExpertiseStepClean({
   };
 
   const handleNext = async () => {
-    console.log('🚀 Continue button clicked - validating form...');
-    console.log('📊 Current form data:', formData);
     
     if (!validateForm()) {
-      console.log('❌ Form validation failed');
       setErrors(prevErrors => ({
         ...prevErrors,
         general: 'Please complete all required fields before continuing.'
@@ -199,15 +188,11 @@ export function SkillsExpertiseStepClean({
       return;
     }
 
-    console.log('✅ Form validation passed');
     setIsLoading(true);
     try {
-      console.log('💾 Saving skills data on Continue button click...');
-      console.log('📊 Skills data being saved:', formData);
       
       // Save data only when Continue button is clicked
       await onUpdate(formData);
-      console.log('✅ Skills data saved successfully, proceeding to next step');
       await onNext();
     } catch (error) {
       console.error('❌ Failed to proceed to next step:', error);

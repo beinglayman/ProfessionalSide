@@ -60,15 +60,6 @@ export function ProfessionalBasicsStepClean({
 
   // Update form data when new data is received (for prepopulation)
   useEffect(() => {
-    console.log('🔄 Professional Basics: Received data prop:', data);
-    console.log('🔍 Professional Basics: Data keys:', Object.keys(data || {}));
-    console.log('🔍 Professional Basics: fullName value:', data?.fullName);
-    console.log('🔍 Professional Basics: name value:', data?.name);
-    console.log('🔍 Professional Basics: currentTitle value:', data?.currentTitle);
-    console.log('🔍 Professional Basics: title value:', data?.title);
-    console.log('🔍 Professional Basics: currentCompany value:', data?.currentCompany);
-    console.log('🔍 Professional Basics: company value:', data?.company);
-    
     const newFormData = {
       ...data,
       // Override any null/undefined values with appropriate defaults
@@ -81,8 +72,6 @@ export function ProfessionalBasicsStepClean({
       profileImageUrl: data?.profileImageUrl || data?.avatar || ''
     };
     
-    console.log('🔄 Professional Basics: Setting form data to:', newFormData);
-    console.log('🖼️ Professional Basics: Image URL status - formData:', newFormData.profileImageUrl, 'preview:', previewImageUrl);
     setFormData(newFormData);
   }, [data]);
 
@@ -91,7 +80,6 @@ export function ProfessionalBasicsStepClean({
     return () => {
       if (previewImageUrl) {
         URL.revokeObjectURL(previewImageUrl);
-        console.log('🧹 Professional Basics: Cleaned up preview URL on unmount');
       }
     };
   }, [previewImageUrl]);
@@ -139,47 +127,31 @@ export function ProfessionalBasicsStepClean({
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🔄 Professional Basics: Image upload initiated');
     const file = e.target.files?.[0];
     if (!file) {
-      console.log('❌ Professional Basics: No file selected');
       return;
     }
 
-    console.log('🔍 Professional Basics: File selected:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      sizeInMB: (file.size / (1024 * 1024)).toFixed(2)
-    });
-
     // Validate file
     if (!file.type.startsWith('image/')) {
-      console.log('❌ Professional Basics: Invalid file type:', file.type);
       setErrors(prev => ({ ...prev, profileImage: 'Please select a valid image file' }));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      console.log('❌ Professional Basics: File too large:', file.size);
       setErrors(prev => ({ ...prev, profileImage: 'Image size must be less than 5MB' }));
       return;
     }
-
-    console.log('✅ Professional Basics: File validation passed, creating preview and starting upload');
     
     // Create immediate preview using blob URL
     const previewUrl = URL.createObjectURL(file);
     setPreviewImageUrl(previewUrl);
     setImageLoadError(false);
-    console.log('✅ Professional Basics: Preview URL created:', previewUrl);
     
     setIsImageUploading(true);
     
     try {
-      console.log('🔄 Professional Basics: Calling onboardingCleanService.uploadProfileImage');
       const imageUrl = await productionOnboardingService.uploadProfileImage(file);
-      console.log('✅ Professional Basics: Upload successful, received URL:', imageUrl);
       
       // Update form data with the uploaded URL
       setFormData(prev => ({ ...prev, profileImageUrl: imageUrl }));
@@ -189,22 +161,16 @@ export function ProfessionalBasicsStepClean({
       setPreviewImageUrl('');
       
       setErrors(prev => ({ ...prev, profileImage: '' }));
-      console.log('✅ Professional Basics: Form data updated with uploaded image URL');
     } catch (error) {
-      console.error('❌ Professional Basics: Image upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('❌ Professional Basics: Error details:', errorMessage);
       
       // Keep the preview URL so user can still see their selected image
-      console.log('🔄 Professional Basics: Keeping preview URL due to upload failure');
-      
       setErrors(prev => ({ 
         ...prev, 
         profileImage: `Failed to upload image: ${errorMessage}. Preview shown, will retry on save.` 
       }));
     } finally {
       setIsImageUploading(false);
-      console.log('🔄 Professional Basics: Upload process completed');
     }
   };
 
@@ -231,7 +197,6 @@ export function ProfessionalBasicsStepClean({
       }
     });
     
-    console.log('🧹 Professional Basics: Cleaned data for API:', cleaned);
     return cleaned;
   };
 
@@ -240,21 +205,15 @@ export function ProfessionalBasicsStepClean({
 
     setIsLoading(true);
     try {
-      console.log('💾 Saving onboarding data on Continue button click...');
-      console.log('📊 Form data being saved:', formData);
-      
       // If there's a preview image but no uploaded URL, try to upload again
       if (previewImageUrl && !formData.profileImageUrl) {
-        console.log('🔄 Professional Basics: Retry uploading image before saving...');
         try {
           // Get the file from the input (if still available)
           const fileInput = document.getElementById('image-upload') as HTMLInputElement;
           const file = fileInput?.files?.[0];
           
           if (file) {
-            console.log('🔄 Professional Basics: Retrying image upload...');
             const imageUrl = await productionOnboardingService.uploadProfileImage(file);
-            console.log('✅ Professional Basics: Retry upload successful:', imageUrl);
             
             // Update form data with the uploaded URL
             const updatedFormData = { ...formData, profileImageUrl: imageUrl };
@@ -268,12 +227,10 @@ export function ProfessionalBasicsStepClean({
             const cleanedData = cleanFormDataForAPI(updatedFormData);
             await onUpdate(cleanedData);
           } else {
-            console.log('⚠️ Professional Basics: No file available for retry, proceeding without image');
             const cleanedData = cleanFormDataForAPI(formData);
             await onUpdate(cleanedData);
           }
         } catch (retryError) {
-          console.error('❌ Professional Basics: Retry upload failed:', retryError);
           // Proceed anyway - user can upload later
           const cleanedData = cleanFormDataForAPI(formData);
           await onUpdate(cleanedData);
@@ -284,19 +241,8 @@ export function ProfessionalBasicsStepClean({
         await onUpdate(cleanedData);
       }
       
-      console.log('✅ Data saved successfully, proceeding to next step');
       await onNext();
     } catch (error) {
-      console.error('❌ Professional Basics: Failed to proceed to next step:', error);
-      console.error('❌ Professional Basics: Error type:', typeof error);
-      console.error('❌ Professional Basics: Error message:', error instanceof Error ? error.message : String(error));
-      console.error('❌ Professional Basics: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      
-      // Log current form state for debugging
-      console.error('❌ Professional Basics: Form data at time of error:', formData);
-      console.error('❌ Professional Basics: Preview image URL:', previewImageUrl);
-      console.error('❌ Professional Basics: Is image uploading:', isImageUploading);
-      
       const errorMessage = error instanceof Error 
         ? `Save failed: ${error.message}` 
         : 'Failed to save data. Please try again.';
@@ -346,14 +292,10 @@ export function ProfessionalBasicsStepClean({
                       alt="Profile"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        const currentSrc = formData.profileImageUrl || previewImageUrl;
-                        console.error('Failed to load profile image:', currentSrc);
-                        console.error('Image load error details:', e);
                         setImageLoadError(true);
                       }}
                       onLoad={() => {
                         setImageLoadError(false);
-                        console.log('✅ Image loaded successfully:', formData.profileImageUrl || previewImageUrl);
                       }}
                     />
                   ) : (
@@ -553,9 +495,6 @@ export function ProfessionalBasicsStepClean({
                       alt="Profile preview"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        const currentSrc = formData.profileImageUrl || previewImageUrl;
-                        console.error('Failed to load profile preview image:', currentSrc);
-                        console.error('Preview image load error details:', e);
                         setImageLoadError(true);
                       }}
                     />
