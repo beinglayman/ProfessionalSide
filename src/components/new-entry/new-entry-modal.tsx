@@ -1555,22 +1555,22 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
 
                   {/* Entry Type Explanation */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    <div className="p-4 border border-gray-100 rounded-lg bg-gray-50/30">
+                    <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
                       <div className="flex items-center gap-2 mb-2">
-                        <Shield className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-900">Workspace Version</span>
+                        <Shield className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-900">Workspace Version</span>
                       </div>
-                      <p className="text-xs text-gray-600 leading-relaxed">
+                      <p className="text-xs text-blue-700 leading-relaxed">
                         Comprehensive details with metrics, client information, and technical insights for internal use
                       </p>
                     </div>
                     
-                    <div className="p-4 border border-gray-100 rounded-lg bg-gray-50/30">
+                    <div className="p-4 border border-purple-200 rounded-lg bg-purple-50">
                       <div className="flex items-center gap-2 mb-2">
-                        <Globe className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-900">Network Version</span>
+                        <Globe className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm font-medium text-purple-900">Network Version</span>
                       </div>
-                      <p className="text-xs text-gray-600 leading-relaxed">
+                      <p className="text-xs text-purple-700 leading-relaxed">
                         Professional summary with sanitized content, perfect for public professional sharing
                       </p>
                     </div>
@@ -1628,14 +1628,15 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                       className={cn(
                         "px-6 py-2.5 text-sm font-medium transition-all duration-200",
                         generatedEntries && !hasFormChanged() 
-                          ? "bg-green-50 text-green-700 border border-green-200 cursor-default" 
-                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                          ? "bg-green-500 text-white cursor-default" 
+                          : isGeneratingAI
+                          ? "bg-gray-400 text-white cursor-not-allowed"
+                          : "bg-purple-600 text-white hover:bg-purple-700"
                       )}
-                      variant="outline"
                     >
                       {isGeneratingAI ? (
                         <div className="flex items-center gap-2">
-                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-gray-400"></div>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
                           <span>Generating...</span>
                         </div>
                       ) : generatedEntries && !hasFormChanged() ? (
