@@ -21,6 +21,14 @@ else
 fi
 
 echo ""
+echo "📌 Step 2.5: Fixing empty Operations categories..."
+if npm run fix:empty-operations; then
+    echo "✅ Empty Operations categories fixed"
+else
+    echo "❌ Empty Operations categories fix failed, but continuing..."
+fi
+
+echo ""
 echo "📌 Step 3: Ensuring complete depth-first coverage across ALL focus areas..."
 if npm run ensure:complete-depth; then
     echo "✅ Complete depth coverage ensured"
