@@ -45,5 +45,21 @@ else
 fi
 
 echo ""
+echo "🚀 Step 6: COMPREHENSIVE FIX - ALL unmapped work types..."
+if npm run fix:all-unmapped; then
+    echo "✅ All unmapped work types fixed"
+else
+    echo "❌ Comprehensive fix failed, but continuing..."
+fi
+
+echo ""
+echo "🔍 Step 7: Final verification of complete coverage..."
+if npm run analyze:all-unmapped; then
+    echo "✅ 100% work type coverage achieved"
+else
+    echo "⚠️  Some work types still need mapping"
+fi
+
+echo ""
 echo "🎉 Railway complete setup finished!"
 echo "✅ Ready to start application server"

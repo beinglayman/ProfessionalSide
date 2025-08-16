@@ -33,6 +33,8 @@
     "ensure:complete-depth": "node ensure_complete_depth_coverage.js",
     "fix:supply-chain-skills": "node fix_supply_chain_skill_mappings.js",
     "diagnose:supply-chain": "node diagnose_supply_chain_skills.js",
+    "analyze:all-unmapped": "node analyze_all_unmapped_work_types.js",
+    "fix:all-unmapped": "node fix_all_unmapped_work_types.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {
