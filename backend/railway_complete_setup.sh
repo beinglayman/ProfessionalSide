@@ -21,7 +21,11 @@ else
 fi
 
 echo ""
-echo "📌 Step 2.5: Fixing empty Operations categories..."
+echo "📌 Step 2.5: Identifying empty category IDs..."
+npm run get:empty-ids || echo "⚠️  Could not get empty category IDs"
+
+echo ""
+echo "📌 Step 2.6: Fixing empty Operations categories..."
 if npm run fix:empty-operations; then
     echo "✅ Empty Operations categories fixed"
 else
@@ -29,7 +33,7 @@ else
 fi
 
 echo ""
-echo "📌 Step 2.6: Adding skills to new work types..."
+echo "📌 Step 2.7: Adding skills to new work types..."
 if npm run add-skills-new-work-types; then
     echo "✅ Skills added to new work types"
 else
