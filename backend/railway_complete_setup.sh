@@ -13,7 +13,15 @@ else
 fi
 
 echo ""
-echo "📌 Step 2: Running comprehensive depth-first coverage..."
+echo "📌 Step 2: Creating missing Operations work types..."
+if npm run fix:operations-work-types; then
+    echo "✅ Operations work types created"
+else
+    echo "❌ Operations work types creation failed, but continuing..."
+fi
+
+echo ""
+echo "📌 Step 3: Running comprehensive depth-first coverage..."
 if npm run fix:complete-depth; then
     echo "✅ Depth coverage completed"
 else
