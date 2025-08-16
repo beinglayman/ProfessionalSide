@@ -31,6 +31,8 @@
     "railway:complete-setup": "bash railway_complete_setup.sh",
     "fix:operations-work-types": "node create_operations_work_types.js",
     "ensure:complete-depth": "node ensure_complete_depth_coverage.js",
+    "fix:supply-chain-skills": "node fix_supply_chain_skill_mappings.js",
+    "diagnose:supply-chain": "node diagnose_supply_chain_skills.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {

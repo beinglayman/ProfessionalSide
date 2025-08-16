@@ -29,5 +29,21 @@ else
 fi
 
 echo ""
+echo "📌 Step 4: SPECIFIC FIX - Supply Chain skill mappings..."
+if npm run fix:supply-chain-skills; then
+    echo "✅ Supply Chain skill mappings completed"
+else
+    echo "❌ Supply Chain skill mapping failed, but continuing..."
+fi
+
+echo ""
+echo "🔍 Step 5: Final verification of Supply Chain coverage..."
+if npm run diagnose:supply-chain; then
+    echo "✅ Supply Chain verification passed"
+else
+    echo "⚠️  Supply Chain verification shows missing mappings"
+fi
+
+echo ""
 echo "🎉 Railway complete setup finished!"
 echo "✅ Ready to start application server"
