@@ -3,7 +3,7 @@
   "build": {
     "builder": "NIXPACKS",
     "buildCommand": "npm install && npm run build",
-    "watchPatterns": ["src/**"]
+    "watchPatterns": ["backend/**", "*.js", "package.json", "prisma/**"]
   },
   "deploy": {
     "startCommand": "npm start",
