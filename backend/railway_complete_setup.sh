@@ -21,9 +21,9 @@ else
 fi
 
 echo ""
-echo "📌 Step 3: Running comprehensive depth-first coverage..."
-if npm run fix:complete-depth; then
-    echo "✅ Depth coverage completed"
+echo "📌 Step 3: Ensuring complete depth-first coverage across ALL focus areas..."
+if npm run ensure:complete-depth; then
+    echo "✅ Complete depth coverage ensured"
 else
     echo "❌ Depth coverage failed, but continuing..."
 fi
