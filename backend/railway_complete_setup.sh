@@ -29,6 +29,14 @@ else
 fi
 
 echo ""
+echo "📌 Step 2.6: Adding skills to new work types..."
+if npm run add-skills-new-work-types; then
+    echo "✅ Skills added to new work types"
+else
+    echo "❌ Adding skills to new work types failed, but continuing..."
+fi
+
+echo ""
 echo "📌 Step 3: Ensuring complete depth-first coverage across ALL focus areas..."
 if npm run ensure:complete-depth; then
     echo "✅ Complete depth coverage ensured"
