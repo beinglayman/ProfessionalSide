@@ -41,6 +41,7 @@
     "fix:empty-operations": "node fix_empty_operations_categories.js",
     "add-skills-new-work-types": "node add_skills_to_new_work_types.js",
     "check:all-empty-railway": "node check_all_empty_categories_railway.js",
+    "railway:empty-check": "node railway_empty_check_simple.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {

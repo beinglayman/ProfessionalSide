@@ -77,8 +77,8 @@ else
 fi
 
 echo ""
-echo "🔍 Step 8: Comprehensive check - ALL empty categories across ALL focus areas..."
-if npm run check:all-empty-railway; then
+echo "🔍 Step 8: Railway production check - empty categories across ALL focus areas..."
+if npm run railway:empty-check; then
     echo "✅ Perfect! All work categories across all focus areas have work types"
 else
     echo "⚠️  Some work categories across focus areas are empty"
