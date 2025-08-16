@@ -1,6 +1,6 @@
 {
   "name": "inchronicle-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Backend API for InChronicle professional journaling platform",
   "main": "dist/app.js",
   "scripts": {
@@ -22,6 +22,7 @@
     "db:fix-supply-chain": "node fix_supply_chain_visibility_railway.js",
     "db:ensure-depth-coverage": "node ensure_depth_coverage_railway.js",
     "deploy:railway-fixes": "node deploy_railway_fixes.js",
+    "verify:deployment": "node verify_deployment_status.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {

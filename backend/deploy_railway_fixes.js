@@ -6,7 +6,10 @@ const execAsync = util.promisify(exec);
 async function deployRailwayFixes() {
   try {
     console.log('🚀 RAILWAY PRE-DEPLOY: Starting database fixes...\n');
+    console.log('📅 Timestamp:', new Date().toISOString());
     console.log('🔗 Database URL configured:', !!process.env.DATABASE_URL);
+    console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+    console.log('');
 
     // Step 1: Fix Supply Chain visibility
     console.log('📌 Step 1: Fixing Supply Chain visibility...');
@@ -30,6 +33,18 @@ async function deployRailwayFixes() {
     } catch (error) {
       console.error('❌ Depth coverage failed:', error.message);
       // Don't fail deployment for this
+    }
+
+    // Step 3: Verify deployment status
+    console.log('📌 Step 3: Verifying deployment status...');
+    try {
+      const { stdout: stdout3, stderr: stderr3 } = await execAsync('node verify_deployment_status.js');
+      console.log(stdout3);
+      if (stderr3) console.error('Verification stderr:', stderr3);
+      console.log('✅ Verification completed\n');
+    } catch (error) {
+      console.error('❌ Verification failed:', error.message);
+      // Don't fail deployment for verification issues
     }
 
     console.log('🎉 RAILWAY PRE-DEPLOY: All database fixes completed!');
