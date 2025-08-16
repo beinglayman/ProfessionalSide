@@ -12,7 +12,7 @@ async function diagnoseSupplyChainSkills() {
     // Get Supply Chain work types with their skill mappings
     const supplyChainWorkTypes = await prisma.workType.findMany({
       where: {
-        workCategoryId: 'operations-supply-chain'
+        workCategoryId: 'operations-supply-chain-management'
       },
       include: {
         workTypeSkills: {

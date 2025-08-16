@@ -25,7 +25,7 @@ async function fixSupplyChainSkillMappings() {
     console.log('🔍 Step 1: Analyzing current Supply Chain work types...');
     const supplyChainWorkTypes = await prisma.workType.findMany({
       where: {
-        workCategoryId: 'operations-supply-chain'
+        workCategoryId: 'operations-supply-chain-management'
       },
       include: {
         workTypeSkills: {
@@ -229,7 +229,7 @@ async function fixSupplyChainSkillMappings() {
     console.log('🔍 Step 4: Final verification of Supply Chain skill mappings...');
     const finalSupplyChainWorkTypes = await prisma.workType.findMany({
       where: {
-        workCategoryId: 'operations-supply-chain'
+        workCategoryId: 'operations-supply-chain-management'
       },
       include: {
         workTypeSkills: {
