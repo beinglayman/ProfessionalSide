@@ -25,19 +25,19 @@ echo "📌 Step 2.5: Identifying empty category IDs..."
 npm run get:empty-ids || echo "⚠️  Could not get empty category IDs"
 
 echo ""
-echo "📌 Step 2.6: Fixing empty Operations categories..."
-if npm run fix:empty-operations; then
-    echo "✅ Empty Operations categories fixed"
+echo "📌 Step 2.6: Dynamic fix for ALL empty categories..."
+if npm run fix:empty-dynamic; then
+    echo "✅ All empty categories fixed dynamically"
 else
-    echo "❌ Empty Operations categories fix failed, but continuing..."
+    echo "❌ Dynamic empty categories fix failed, but continuing..."
 fi
 
 echo ""
-echo "📌 Step 2.7: Adding skills to new work types..."
-if npm run add-skills-new-work-types; then
-    echo "✅ Skills added to new work types"
+echo "📌 Step 2.7: Adding skills to ALL work types without skills..."
+if npm run add-skills-dynamic; then
+    echo "✅ Skills added to all unmapped work types"
 else
-    echo "❌ Adding skills to new work types failed, but continuing..."
+    echo "❌ Adding skills to work types failed, but continuing..."
 fi
 
 echo ""

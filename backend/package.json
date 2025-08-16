@@ -44,6 +44,8 @@
     "railway:empty-check": "node railway_empty_check_simple.js",
     "check:ops-categories": "node check_operations_categories_ids.js",
     "get:empty-ids": "node get_empty_category_ids.js",
+    "fix:empty-dynamic": "node fix_empty_categories_dynamic.js",
+    "add-skills-dynamic": "node add_skills_dynamic_work_types.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {
