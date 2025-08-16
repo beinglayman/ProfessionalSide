@@ -26,6 +26,7 @@
     "fix:supply-chain-cli": "node fix_supply_chain_railway_cli.js",
     "fix:railway-direct": "node railway_direct_fix.js",
     "fix:railway-shell": "bash run_fixes_in_railway.sh",
+    "fix:supply-chain-simple": "node create_supply_chain_simple.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {
