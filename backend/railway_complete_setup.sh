@@ -61,5 +61,13 @@ else
 fi
 
 echo ""
+echo "🔍 Step 8: Checking for empty work categories..."
+if npm run check:railway-empty-categories; then
+    echo "✅ All work categories have work types"
+else
+    echo "⚠️  Some work categories are empty"
+fi
+
+echo ""
 echo "🎉 Railway complete setup finished!"
 echo "✅ Ready to start application server"
