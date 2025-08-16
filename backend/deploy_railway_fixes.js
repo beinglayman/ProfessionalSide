@@ -1,10 +1,12 @@
 const { exec } = require('child_process');
 const util = require('util');
+require('dotenv').config();
 const execAsync = util.promisify(exec);
 
 async function deployRailwayFixes() {
   try {
     console.log('🚀 RAILWAY PRE-DEPLOY: Starting database fixes...\n');
+    console.log('🔗 Database URL configured:', !!process.env.DATABASE_URL);
 
     // Step 1: Fix Supply Chain visibility
     console.log('📌 Step 1: Fixing Supply Chain visibility...');

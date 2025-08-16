@@ -1,12 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
 
-// Use Railway database URL directly
-const RAILWAY_DATABASE_URL = "postgresql://postgres:BpLgUQOXZNuKOvBGPelRLOWdcNJvRgOT@postgres.railway.internal:5432/railway";
-
+// Use Railway environment variables
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: RAILWAY_DATABASE_URL
+      url: process.env.DATABASE_URL
     }
   }
 });
