@@ -1,8 +1,10 @@
 import express from 'express';
 import { AIEntryGeneratorService } from '../services/ai-entry-generator.service';
 import { OpenAI } from 'openai';
+import { PrismaClient } from '@prisma/client';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 /**
  * @route GET /api/debug/ai-config
@@ -241,6 +243,119 @@ router.post('/validate-journal-payload', async (req, res) => {
       success: false,
       error: 'Debug endpoint failed',
       details: error.message
+    });
+  }
+});
+
+/**
+ * @route GET /api/debug/execution-status
+ * @desc Check if depth coverage scripts have been executed
+ * @access Public
+ */
+router.get('/execution-status', async (req, res) => {
+  try {
+    console.log('🔍 Checking execution status...');
+
+    // Check Supply Chain work types
+    const supplyChainWorkTypes = await prisma.workType.findMany({
+      where: {
+        id: { startsWith: 'operations-scm-' }
+      },
+      include: {
+        workTypeSkills: { include: { skill: true } }
+      }
+    });
+
+    const supplyChainFixed = supplyChainWorkTypes.filter(wt => wt.workTypeSkills.length > 0).length;
+
+    // Check depth coverage for primary focus areas
+    const targetFocusAreas = ['Design', 'Development', 'Leadership', 'Marketing', 'Operations', 'Product Management', 'Sales', 'Strategy'];
+    let completeAreas = 0;
+
+    for (const focusAreaName of targetFocusAreas) {
+      const focusArea = await prisma.focusArea.findFirst({
+        where: { label: { contains: focusAreaName, mode: 'insensitive' } },
+        include: {
+          workCategories: {
+            include: {
+              workTypes: { include: { workTypeSkills: true } }
+            }
+          }
+        }
+      });
+
+      if (focusArea) {
+        let categoriesWithSkills = 0;
+        focusArea.workCategories.forEach(category => {
+          const hasSkills = category.workTypes.some(wt => wt.workTypeSkills.length > 0);
+          if (hasSkills) categoriesWithSkills++;
+        });
+
+        if (categoriesWithSkills === focusArea.workCategories.length) {
+          completeAreas++;
+        }
+      }
+    }
+
+    // Check recent activity
+    const recentMappings = await prisma.workTypeSkill.count({
+      where: {
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      }
+    });
+
+    // Database stats
+    const [totalSkills, totalMappings, totalWorkTypes] = await Promise.all([
+      prisma.skill.count(),
+      prisma.workTypeSkill.count(),
+      prisma.workType.count()
+    ]);
+
+    const status = {
+      timestamp: new Date().toISOString(),
+      supplyChain: {
+        workTypesWithSkills: supplyChainFixed,
+        totalWorkTypes: supplyChainWorkTypes.length,
+        isFixed: supplyChainFixed === supplyChainWorkTypes.length && supplyChainWorkTypes.length > 0,
+        details: supplyChainWorkTypes.map(wt => ({
+          id: wt.id,
+          label: wt.label,
+          skillCount: wt.workTypeSkills.length,
+          hasSkills: wt.workTypeSkills.length > 0
+        }))
+      },
+      depthCoverage: {
+        completeAreas,
+        totalAreas: 8,
+        isComplete: completeAreas >= 6
+      },
+      recentActivity: {
+        mappingsLast24h: recentMappings,
+        hasRecentActivity: recentMappings > 0
+      },
+      database: {
+        totalSkills,
+        totalMappings,
+        totalWorkTypes,
+        avgSkillsPerWorkType: totalWorkTypes > 0 ? (totalMappings / totalWorkTypes).toFixed(2) : 0
+      },
+      scriptsExecuted: {
+        supplyChainFix: supplyChainFixed === supplyChainWorkTypes.length && supplyChainWorkTypes.length > 0,
+        depthCoverage: completeAreas >= 6,
+        overallStatus: (supplyChainFixed === supplyChainWorkTypes.length && completeAreas >= 6) ? 'EXECUTED' : 'NOT_EXECUTED'
+      }
+    };
+
+    res.json({
+      success: true,
+      data: status
+    });
+
+  } catch (error) {
+    console.error('Error checking execution status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check execution status'
     });
   }
 });
