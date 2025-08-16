@@ -1,6 +1,6 @@
 {
   "name": "inchronicle-backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Backend API for InChronicle professional journaling platform",
   "main": "dist/app.js",
   "scripts": {
