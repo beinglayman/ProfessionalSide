@@ -13,7 +13,8 @@ export interface Milestone {
   id: string;
   title: string;
   description?: string;
-  completed: boolean;
+  status: 'incomplete' | 'partial' | 'completed'; // Updated to support partial completion
+  completed: boolean; // Keep for backward compatibility
   completedAt?: string;
   completedBy?: TeamMember;
   targetDate?: string;

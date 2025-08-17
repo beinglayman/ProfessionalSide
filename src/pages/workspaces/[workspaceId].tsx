@@ -537,7 +537,7 @@ const GoalCard = ({
   onQuickUpdatePriority, 
   onDuplicate,
   onEditGoal,
-  onRouterLinkEntry
+  onLinkedEntries
 }: { 
   goal: Goal;
   onToggleMilestone?: (goalId: string, milestoneId: string) => void;
@@ -548,7 +548,7 @@ const GoalCard = ({
   onQuickUpdatePriority?: (goalId: string, priority: string) => void;
   onDuplicate?: (goalId: string) => void;
   onEditGoal?: (goalId: string) => void;
-  onRouterLinkEntry?: (goalId: string) => void;
+  onLinkedEntries?: (goalId: string) => void;
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [hoveredMilestone, setHoveredMilestone] = React.useState<string | null>(null);
@@ -558,7 +558,25 @@ const GoalCard = ({
     new Date().getTime() - new Date(edit.editedAt).getTime() < 7 * 24 * 60 * 60 * 1000 // 7 days
   );
 
-  const completedMilestones = goal.milestones.filter(m => m.completed).length;
+  // Helper function to get milestone status (with fallback for backward compatibility)
+  const getMilestoneStatus = (milestone: any) => {
+    if (milestone.status) return milestone.status;
+    return milestone.completed ? 'completed' : 'incomplete';
+  };
+
+  // Helper function to get milestone display
+  const getMilestoneDisplay = (milestone: any) => {
+    const status = getMilestoneStatus(milestone);
+    switch (status) {
+      case 'completed': return { icon: '✓', color: 'bg-green-500' };
+      case 'partial': return { icon: '◐', color: 'bg-yellow-500' };
+      case 'incomplete': return { icon: '○', color: 'bg-gray-300 hover:bg-gray-400' };
+      default: return { icon: '○', color: 'bg-gray-300 hover:bg-gray-400' };
+    }
+  };
+
+  const completedMilestones = goal.milestones.filter(m => getMilestoneStatus(m) === 'completed').length;
+  const partialMilestones = goal.milestones.filter(m => getMilestoneStatus(m) === 'partial').length;
   const totalMilestones = goal.milestones.length;
   const daysUntilDue = goal.targetDate ? Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
 
@@ -655,6 +673,12 @@ const GoalCard = ({
                       {urgency.label}
                     </span>
                   )}
+                  
+                  {/* Category Badge */}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-white border border-gray-200 text-gray-700">
+                    <Tag className="h-3 w-3" />
+                    {goal.category}
+                  </span>
                 </div>
                 
                 {/* Alert Badges - Only Recent Updates */}
@@ -713,28 +737,34 @@ const GoalCard = ({
           {goal.milestones.length > 0 && (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
-                {goal.milestones.slice(0, 5).map((milestone) => (
-                  <button
-                    key={milestone.id}
-                    className={cn(
-                      "w-2 h-2 rounded-full transition-all duration-200 hover:scale-150",
-                      milestone.completed ? "bg-green-500" : "bg-gray-300 hover:bg-gray-400"
-                    )}
-                    title={milestone.title}
-                    onMouseEnter={() => setHoveredMilestone(milestone.id)}
-                    onMouseLeave={() => setHoveredMilestone(null)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleMilestone?.(goal.id, milestone.id);
-                    }}
-                  />
-                ))}
+                {goal.milestones.slice(0, 5).map((milestone) => {
+                  const display = getMilestoneDisplay(milestone);
+                  const status = getMilestoneStatus(milestone);
+                  return (
+                    <button
+                      key={milestone.id}
+                      className={cn(
+                        "w-2 h-2 rounded-full transition-all duration-200 hover:scale-150",
+                        display.color
+                      )}
+                      title={`${milestone.title} (${status})`}
+                      onMouseEnter={() => setHoveredMilestone(milestone.id)}
+                      onMouseLeave={() => setHoveredMilestone(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleMilestone?.(goal.id, milestone.id);
+                      }}
+                    />
+                  );
+                })}
                 {goal.milestones.length > 5 && (
                   <span className="text-xs text-gray-400 ml-1">+{goal.milestones.length - 5}</span>
                 )}
               </div>
-              <span className="text-xs text-gray-500">
-                {completedMilestones}/{totalMilestones}
+              <span className="text-xs text-gray-500" title={`${completedMilestones} completed, ${partialMilestones} partial, ${totalMilestones - completedMilestones - partialMilestones} incomplete`}>
+                {completedMilestones}
+                {partialMilestones > 0 && <span className="text-yellow-600">+{partialMilestones}◐</span>}
+                /{totalMilestones}
               </span>
             </div>
           )}
@@ -872,12 +902,12 @@ const GoalCard = ({
               </div>
             )}
 
-            {/* RouterLinked Journal Entries */}
+            {/* Linked Journal Entries */}
             {goal.linkedJournalEntries && goal.linkedJournalEntries.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <MessageSquare className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">RouterLinked Journal Entries</span>
+                  <span className="text-sm font-medium text-gray-700">Linked Journal Entries</span>
                   <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full">
                     {goal.linkedJournalEntries.length} linked
                   </span>
@@ -1073,43 +1103,8 @@ const GoalCard = ({
 
             {/* Action Buttons */}
             <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-white border border-gray-200 text-gray-700">
-                  <Tag className="w-3 h-3" />
-                  {goal.category}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  className="px-3 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-all"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEditGoal?.(goal.id);
-                  }}
-                >
-                  Edit Goal
-                </button>
-                <button 
-                  className="px-3 py-1.5 text-xs font-medium text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRouterLinkEntry?.(goal.id);
-                  }}
-                >
-                  RouterLink Entry
-                </button>
-                {goal.editHistory.length > 0 && (
-                  <button 
-                    className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewHistory?.();
-                    }}
-                  >
-                    History
-                  </button>
-                )}
-              </div>
+              {/* Category tag moved to top metadata row with other badges */}
+              {/* Removed bottom action buttons - moved to Quick Actions dropdown */}
             </div>
             
             {/* Collapse Button at Bottom */}
@@ -1131,15 +1126,73 @@ const GoalCard = ({
 
       {/* Quick Actions Dropdown */}
       {isQuickActionOpen && (
-        <div className="absolute right-4 top-16 z-20 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+        <div className="absolute right-4 top-16 z-20 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
           <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
             Quick Actions
           </div>
           
+          {/* Milestone Actions */}
+          {goal.milestones.length > 0 && (
+            <div className="py-1">
+              <div className="px-3 py-1 text-xs font-medium text-gray-400">Milestones</div>
+              {goal.milestones.map(milestone => {
+                const display = getMilestoneDisplay(milestone);
+                const status = getMilestoneStatus(milestone);
+                return (
+                  <button
+                    key={milestone.id}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMilestone?.(goal.id, milestone.id);
+                    }}
+                  >
+                    <span>{display.icon} {milestone.title}</span>
+                    <span className="text-xs text-gray-400 capitalize">{status}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Goal Actions */}
+          <div className={cn("py-1", goal.milestones.length > 0 && "border-t border-gray-100")}>
+            <div className="px-3 py-1 text-xs font-medium text-gray-400">Goal</div>
+            {goal.status !== 'completed' && (
+              <button
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickUpdateStatus?.(goal.id, 'completed');
+                }}
+              >
+                Mark Goal as Accomplished
+              </button>
+            )}
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditGoal?.(goal.id);
+              }}
+            >
+              Edit Goal
+            </button>
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLinkedEntries?.(goal.id);
+              }}
+            >
+              View/Edit Linked Entries
+            </button>
+          </div>
+          
           {/* Status Updates */}
-          <div className="py-1">
+          <div className="py-1 border-t border-gray-100">
             <div className="px-3 py-1 text-xs font-medium text-gray-400">Change Status</div>
-            {['in-progress', 'completed', 'blocked'].filter(status => status !== goal.status).map(status => (
+            {['in-progress', 'blocked', 'cancelled'].filter(status => status !== goal.status).map(status => (
               <button
                 key={status}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
@@ -1199,7 +1252,7 @@ const GoalListItem = ({
   onQuickUpdatePriority, 
   onDuplicate,
   onEditGoal,
-  onRouterLinkEntry
+  onLinkedEntries
 }: { 
   goal: Goal;
   onToggleMilestone?: (goalId: string, milestoneId: string) => void;
@@ -1210,7 +1263,7 @@ const GoalListItem = ({
   onQuickUpdatePriority?: (goalId: string, priority: string) => void;
   onDuplicate?: (goalId: string) => void;
   onEditGoal?: (goalId: string) => void;
-  onRouterLinkEntry?: (goalId: string) => void;
+  onLinkedEntries?: (goalId: string) => void;
 }) => {
   const isOverdue = isGoalOverdue(goal);
   const hasRecentEdits = goal.editHistory.some(edit => 
@@ -1337,17 +1390,19 @@ const GoalListItem = ({
 
           {/* Actions */}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Quick Actions Button */}
             <button 
-              className="text-xs text-primary-600 hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-              onClick={() => onEditGoal?.(goal.id)}
+              className={cn(
+                "p-1 text-gray-400 hover:text-gray-600 rounded transition-colors",
+                isQuickActionOpen && "bg-gray-100 text-gray-600"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickAction?.(isQuickActionOpen ? null : goal.id);
+              }}
+              title="Quick actions"
             >
-              Edit
-            </button>
-            <button 
-              className="text-xs text-primary-600 hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-              onClick={() => onRouterLinkEntry?.(goal.id)}
-            >
-              RouterLink Entry
+              <MoreVertical className="h-4 w-4" />
             </button>
             {goal.editHistory.length > 0 && (
               <button 
@@ -1375,6 +1430,120 @@ const GoalListItem = ({
           />
         </div>
       </div>
+
+      {/* Quick Actions Dropdown for List View */}
+      {isQuickActionOpen && (
+        <div className="absolute right-4 top-12 z-20 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+          <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+            Quick Actions
+          </div>
+          
+          {/* Milestone Actions */}
+          {goal.milestones.length > 0 && (
+            <div className="py-1">
+              <div className="px-3 py-1 text-xs font-medium text-gray-400">Milestones</div>
+              {goal.milestones.map(milestone => {
+                const display = getMilestoneDisplay(milestone);
+                const status = getMilestoneStatus(milestone);
+                return (
+                  <button
+                    key={milestone.id}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMilestone?.(goal.id, milestone.id);
+                    }}
+                  >
+                    <span>{display.icon} {milestone.title}</span>
+                    <span className="text-xs text-gray-400 capitalize">{status}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Goal Actions */}
+          <div className={cn("py-1", goal.milestones.length > 0 && "border-t border-gray-100")}>
+            <div className="px-3 py-1 text-xs font-medium text-gray-400">Goal</div>
+            {goal.status !== 'completed' && (
+              <button
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickUpdateStatus?.(goal.id, 'completed');
+                }}
+              >
+                Mark Goal as Accomplished
+              </button>
+            )}
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditGoal?.(goal.id);
+              }}
+            >
+              Edit Goal
+            </button>
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLinkedEntries?.(goal.id);
+              }}
+            >
+              View/Edit Linked Entries
+            </button>
+          </div>
+          
+          {/* Status Updates */}
+          <div className="py-1 border-t border-gray-100">
+            <div className="px-3 py-1 text-xs font-medium text-gray-400">Change Status</div>
+            {['in-progress', 'blocked', 'cancelled'].filter(status => status !== goal.status).map(status => (
+              <button
+                key={status}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickUpdateStatus?.(goal.id, status);
+                }}
+              >
+                Mark as {status.replace('-', ' ')}
+              </button>
+            ))}
+          </div>
+          
+          {/* Priority Updates */}
+          <div className="py-1 border-t border-gray-100">
+            <div className="px-3 py-1 text-xs font-medium text-gray-400">Change Priority</div>
+            {['critical', 'high', 'medium', 'low'].filter(priority => priority !== goal.priority).map(priority => (
+              <button
+                key={priority}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickUpdatePriority?.(goal.id, priority);
+                }}
+              >
+                Set {priority} priority
+              </button>
+            ))}
+          </div>
+          
+          {/* Other Actions */}
+          <div className="py-1 border-t border-gray-100">
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate?.(goal.id);
+              }}
+            >
+              Duplicate goal
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3581,8 +3750,8 @@ const AddFileSidePanel = ({
   );
 };
 
-// Goal RouterLinking Side Panel Component
-const GoalRouterLinkingSidePanel = ({ 
+// Goal Linking Side Panel Component
+const GoalLinkingSidePanel = ({ 
   isOpen, 
   onClose, 
   journalEntry,
@@ -3652,7 +3821,7 @@ const GoalRouterLinkingSidePanel = ({
 
   const handleSave = () => {
     // Here you would save the goal links to your backend
-    const goalRouterLinks = selectedGoals.map(goalId => ({
+    const goalLinks = selectedGoals.map(goalId => ({
       goalId,
       goalTitle: goals.find(g => g.id === goalId)?.title || '',
       contributionType: goalContributions[goalId]?.contributionType || 'progress',
@@ -3661,21 +3830,21 @@ const GoalRouterLinkingSidePanel = ({
       notes: goalContributions[goalId]?.notes || ''
     }));
     
-    console.log('Saving goal links for journal entry:', journalEntry.id, goalRouterLinks);
+    console.log('Saving goal links for journal entry:', journalEntry.id, goalLinks);
     
     // Update the linked journal entries in goals data as well
     const currentUserTeamMember = teamMembers.find(m => m.id === currentUser?.id) || teamMembers[0];
     const now = new Date();
     
     goals.forEach(goal => {
-      const isRouterLinked = selectedGoals.includes(goal.id);
-      const existingRouterLinkIndex = goal.linkedJournalEntries.findIndex(
+      const isLinked = selectedGoals.includes(goal.id);
+      const existingLinkIndex = goal.linkedJournalEntries.findIndex(
         link => link.journalEntryId === journalEntry.id
       );
       
       let editRecord: EditRecord | null = null;
       
-      if (isRouterLinked && existingRouterLinkIndex === -1) {
+      if (isLinked && existingLinkIndex === -1) {
         // Add new link
         goal.linkedJournalEntries.push({
           journalEntryId: journalEntry.id,
@@ -3694,9 +3863,9 @@ const GoalRouterLinkingSidePanel = ({
           newValue: goal.linkedJournalEntries.length,
           reason: `Journal entry "${journalEntry.title}" linked to goal`
         };
-      } else if (!isRouterLinked && existingRouterLinkIndex !== -1) {
+      } else if (!isLinked && existingLinkIndex !== -1) {
         // Remove existing link
-        goal.linkedJournalEntries.splice(existingRouterLinkIndex, 1);
+        goal.linkedJournalEntries.splice(existingLinkIndex, 1);
         
         editRecord = {
           id: `edit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -3707,13 +3876,13 @@ const GoalRouterLinkingSidePanel = ({
           newValue: goal.linkedJournalEntries.length,
           reason: `Journal entry "${journalEntry.title}" unlinked from goal`
         };
-      } else if (isRouterLinked && existingRouterLinkIndex !== -1) {
+      } else if (isLinked && existingLinkIndex !== -1) {
         // Update existing link
-        const oldContribution = goal.linkedJournalEntries[existingRouterLinkIndex].contributionType;
+        const oldContribution = goal.linkedJournalEntries[existingLinkIndex].contributionType;
         const newContribution = goalContributions[goal.id]?.contributionType as any || 'progress';
         
-        goal.linkedJournalEntries[existingRouterLinkIndex] = {
-          ...goal.linkedJournalEntries[existingRouterLinkIndex],
+        goal.linkedJournalEntries[existingLinkIndex] = {
+          ...goal.linkedJournalEntries[existingLinkIndex],
           contributionType: newContribution,
           progressContribution: goalContributions[goal.id]?.progressContribution || 0
         };
@@ -3757,7 +3926,7 @@ const GoalRouterLinkingSidePanel = ({
           {/* Header */}
           <div className="flex items-center justify-between bg-white border-b border-gray-200 p-6">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">RouterLink Goals</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Link Goals</h2>
               <p className="text-sm text-gray-500 mt-1">
                 Connect "{journalEntry.title}" to relevant goals and track progress
               </p>
@@ -3884,7 +4053,7 @@ const GoalRouterLinkingSidePanel = ({
                   Cancel
                 </Button>
                 <Button onClick={handleSave} className="bg-primary-500 hover:bg-primary-600">
-                  Save RouterLinks
+                  Save Links
                 </Button>
               </div>
             </div>
@@ -4416,7 +4585,7 @@ export default function WorkspaceDetailPage() {
   const [goalSortOrder, setGoalSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Goal linking side panel state
-  const [showGoalRouterLinkPanel, setShowGoalRouterLinkPanel] = useState(false);
+  const [showGoalLinkPanel, setShowGoalLinkPanel] = useState(false);
   const [selectedJournalEntry, setSelectedJournalEntry] = useState<{
     id: string;
     title: string;
@@ -4911,13 +5080,13 @@ export default function WorkspaceDetailPage() {
   ].filter(Boolean).length;
 
   // Function to open goal linking side panel for a journal entry
-  const handleRouterLinkGoalsToEntry = (journalEntry: any) => {
+  const handleLinkGoalsToEntry = (journalEntry: any) => {
     setSelectedJournalEntry({
       id: journalEntry.id,
       title: journalEntry.title,
       linkedGoals: journalEntry.linkedGoals || []
     });
-    setShowGoalRouterLinkPanel(true);
+    setShowGoalLinkPanel(true);
   };
 
   // Function to open edit history modal for a goal
@@ -4933,9 +5102,17 @@ export default function WorkspaceDetailPage() {
       totalProgress += link.progressContribution;
     });
     
-    // Add milestone completion progress
-    const completedMilestones = goal.milestones.filter(m => m.completed).length;
-    const milestoneProgress = goal.milestones.length > 0 ? (completedMilestones / goal.milestones.length) * 30 : 0;
+    // Add milestone completion progress (completed = 1.0, partial = 0.5, incomplete = 0.0)
+    const milestoneWeightedProgress = goal.milestones.reduce((acc, milestone) => {
+      const status = milestone.status || (milestone.completed ? 'completed' : 'incomplete');
+      switch (status) {
+        case 'completed': return acc + 1.0;
+        case 'partial': return acc + 0.5;
+        case 'incomplete': return acc + 0.0;
+        default: return acc + 0.0;
+      }
+    }, 0);
+    const milestoneProgress = goal.milestones.length > 0 ? (milestoneWeightedProgress / goal.milestones.length) * 30 : 0;
     
     const calculatedProgress = Math.min(100, totalProgress + milestoneProgress);
     
@@ -4955,7 +5132,7 @@ export default function WorkspaceDetailPage() {
     }
   };
 
-  // Function to toggle milestone completion
+  // Function to cycle milestone through three states: incomplete -> partial -> completed -> incomplete
   const toggleMilestone = async (goalId: string, milestoneId: string) => {
     console.log('🎯 toggleMilestone called:', { goalId, milestoneId, timestamp: Date.now() });
     
@@ -4968,8 +5145,28 @@ export default function WorkspaceDetailPage() {
         return;
       }
 
+      // Determine current status (with backward compatibility)
+      const currentStatus = milestone.status || (milestone.completed ? 'completed' : 'incomplete');
       
-      // Toggle milestone via API
+      // Cycle to next status
+      let nextStatus: string;
+      switch (currentStatus) {
+        case 'incomplete':
+          nextStatus = 'partial';
+          break;
+        case 'partial':
+          nextStatus = 'completed';
+          break;
+        case 'completed':
+          nextStatus = 'incomplete';
+          break;
+        default:
+          nextStatus = 'partial';
+      }
+      
+      const isCompleting = nextStatus === 'completed';
+      
+      // Toggle milestone via API - for now, use the existing API but we'll need to update it to support status
       await toggleMilestoneMutation.mutateAsync({ goalId, milestoneId });
       
       // Send notification if milestone was completed
@@ -4977,7 +5174,7 @@ export default function WorkspaceDetailPage() {
         await notifyMilestoneCompleted(goal, milestone, currentUser as GoalTeamMember);
       }
       
-      console.log('✅ Milestone toggled successfully');
+      console.log(`✅ Milestone status changed: ${currentStatus} -> ${nextStatus}`);
       
     } catch (error) {
       console.error('❌ Failed to toggle milestone:', error);
@@ -5473,11 +5670,11 @@ export default function WorkspaceDetailPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleRouterLinkGoalsToEntry(entry)}
+                          onClick={() => handleLinkGoalsToEntry(entry)}
                           className="flex items-center gap-1"
                         >
                           <RouterLink className="h-3.5 w-3.5" />
-                          RouterLink Goals
+                          Link Goals
                           {entry.linkedGoals && entry.linkedGoals.length > 0 && (
                             <span className="ml-1 bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded-full text-xs">
                               {entry.linkedGoals.length}
@@ -6357,18 +6554,18 @@ export default function WorkspaceDetailPage() {
                       onQuickUpdatePriority={quickUpdatePriority}
                       onDuplicate={duplicateGoal}
                       onEditGoal={(goalId) => setEditGoalId(goalId)}
-                      onRouterLinkEntry={(goalId) => {
+                      onLinkedEntries={(goalId) => {
                         // Find the first journal entry that links to this goal for the modal
                         const linkedEntry = actualJournalEntries.find(entry => 
                           entry.linkedGoals?.some(link => link.goalId === goalId)
                         );
                         if (linkedEntry) {
-                          handleRouterLinkGoalsToEntry(linkedEntry);
+                          handleLinkGoalsToEntry(linkedEntry);
                         } else {
                           // Create a temporary entry for linking
-                          handleRouterLinkGoalsToEntry({ 
+                          handleLinkGoalsToEntry({ 
                             id: 'temp-entry', 
-                            title: 'RouterLink to Goal', 
+                            title: 'Link to Goal', 
                             linkedGoals: [] 
                           });
                         }
@@ -6446,9 +6643,9 @@ export default function WorkspaceDetailPage() {
           />
         )}
 
-        {showGoalRouterLinkPanel && selectedJournalEntry && (
-          <GoalRouterLinkingSidePanel
-            isOpen={showGoalRouterLinkPanel}
+        {showGoalLinkPanel && selectedJournalEntry && (
+          <GoalLinkingSidePanel
+            isOpen={showGoalLinkPanel}
             onClose={() => {
               setShowGoalRouterLinkPanel(false);
               setSelectedJournalEntry(null);
@@ -6632,9 +6829,9 @@ export default function WorkspaceDetailPage() {
         )}
 
         {/* Goal RouterLinking Side Panel */}
-        {showGoalRouterLinkPanel && selectedJournalEntry && (
-          <GoalRouterLinkingSidePanel
-            isOpen={showGoalRouterLinkPanel}
+        {showGoalLinkPanel && selectedJournalEntry && (
+          <GoalLinkingSidePanel
+            isOpen={showGoalLinkPanel}
             onClose={() => {
               setShowGoalRouterLinkPanel(false);
               setSelectedJournalEntry(null);

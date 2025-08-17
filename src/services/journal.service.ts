@@ -33,6 +33,7 @@ export interface CreateJournalEntryRequest {
     highlight?: string;
     metrics?: string;
   }>;
+  linkedGoalId?: string; // Optional goal to link this entry to
 }
 
 export interface UpdateJournalEntryRequest {

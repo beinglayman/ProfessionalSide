@@ -8,6 +8,7 @@ import { useCreateJournalEntry } from '../../hooks/useJournal';
 import { CreateJournalEntryRequest } from '../../services/journal.service';
 import { useFocusAreas, useWorkCategories, useWorkTypes, useSkillsForWorkTypes } from '../../hooks/useReference';
 import { useWorkspaces, useWorkspaceMembers } from '../../hooks/useWorkspace';
+import { useWorkspaceGoals } from '../../hooks/useGoals';
 import { useAuth } from '../../contexts/AuthContext';
 import { TagInput } from '../ui/tag-input';
 import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
@@ -15,12 +16,14 @@ import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
 interface NewEntryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedWorkspaceId?: string; // Pre-select workspace if opened from workspace
+  preselectedGoalId?: string; // Pre-select goal if opened from "Linked Entries"
 }
 
 // Reference data is now fetched from the API
 
 
-export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange }) => {
+export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange, preselectedWorkspaceId, preselectedGoalId }) => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -99,6 +102,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       size?: string;
       metadata?: string;
     }>,
+    
+    // Goal linking
+    linkedGoalId: '', // Optional goal to link this entry to
   });
 
   // Fetch reference data from API
@@ -116,6 +122,20 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   // Fetch workspace data from API
   const { data: workspaces = [], isLoading: loadingWorkspaces, error: workspacesError } = useWorkspaces();
   const { data: workspaceMembers = [], isLoading: loadingWorkspaceMembers, error: workspaceMembersError } = useWorkspaceMembers(formData.workspaceId || '');
+  const { data: workspaceGoals = [], isLoading: loadingGoals, error: goalsError } = useWorkspaceGoals(formData.workspaceId || '');
+  
+  // Handle pre-selection when modal opens
+  useEffect(() => {
+    if (open && preselectedWorkspaceId) {
+      setFormData(prev => ({
+        ...prev,
+        workspaceId: preselectedWorkspaceId,
+        linkedGoalId: preselectedGoalId || '',
+        collaborators: [],
+        reviewers: []
+      }));
+    }
+  }, [open, preselectedWorkspaceId, preselectedGoalId]);
   
   // Filter out current user from workspace members for collaborators/reviewers
   // Ensure workspaceMembers is always an array before calling filter
@@ -303,7 +323,8 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           // Remove department field if undefined to avoid validation issues
         })),
         artifacts: formData.artifacts,
-        outcomes: generatedEntries.workspaceEntry.outcomes || []
+        outcomes: generatedEntries.workspaceEntry.outcomes || [],
+        linkedGoalId: formData.linkedGoalId || undefined
       };
 
       console.log('📝 Creating workspace entry:', workspaceJournalData);
@@ -963,7 +984,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 ) : (
                   <select
                     value={formData.workspaceId}
-                    onChange={(e) => setFormData({...formData, workspaceId: e.target.value, collaborators: [], reviewers: []})}
+                    onChange={(e) => setFormData({...formData, workspaceId: e.target.value, collaborators: [], reviewers: [], linkedGoalId: ''})}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                   >
                     <option value="">Select a workspace...</option>
@@ -975,6 +996,45 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                   </select>
                 )}
               </div>
+              
+              {/* Goal Selection Section */}
+              {formData.workspaceId && (
+                <div>
+                  <Label.Root className="text-sm font-medium text-gray-700">
+                    Link to Goal (Optional)
+                  </Label.Root>
+                  <p className="text-xs text-gray-500 mt-1 mb-2">
+                    Optionally link this entry to a workspace goal to track progress
+                  </p>
+                  {loadingGoals ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading goals...</span>
+                    </div>
+                  ) : goalsError ? (
+                    <div className="text-center py-4 text-red-500 text-sm">
+                      Error loading goals: {goalsError.message}
+                    </div>
+                  ) : workspaceGoals.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      No goals found in this workspace
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.linkedGoalId}
+                      onChange={(e) => setFormData({...formData, linkedGoalId: e.target.value})}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                    >
+                      <option value="">No goal selected</option>
+                      {workspaceGoals.map(goal => (
+                        <option key={goal.id} value={goal.id}>
+                          {goal.title} ({goal.status})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
               
               <div>
                 <Label.Root className="text-sm font-medium text-gray-700">
