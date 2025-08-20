@@ -97,9 +97,19 @@ export function useWorkspaceGoals(workspaceId: string) {
     queryKey: ['goals', 'workspace', workspaceId],
     queryFn: async (): Promise<Goal[]> => {
       console.log('🎯 Fetching goals for workspace:', workspaceId);
-      const response = await api.get(`/workspaces/${workspaceId}/goals`);
-      console.log('🎯 Goals API response:', response.data);
-      return response.data.data || [];
+      try {
+        const response = await api.get(`/workspaces/${workspaceId}/goals`);
+        console.log('🎯 Goals API response:', response.data);
+        console.log('🎯 Goals API response data array:', response.data.data);
+        const goals = response.data.data || [];
+        console.log('🎯 Returning goals array:', goals);
+        console.log('🎯 Number of goals:', goals.length);
+        return goals;
+      } catch (error) {
+        console.log('🎯 Goals API error:', error);
+        console.log('🎯 Returning empty goals array due to error');
+        return [];
+      }
     },
     enabled: !!workspaceId,
     staleTime: 30 * 1000, // 30 seconds
@@ -172,17 +182,28 @@ export function useDeleteGoal() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (goalId: string) => {
+    mutationFn: async ({ goalId, workspaceId }: { goalId: string; workspaceId: string }) => {
+      console.log('🎯 useDeleteGoal mutationFn called:', { goalId, workspaceId });
       try {
-        const response = await api.delete(`/goals/${goalId}`);
-        return response.data;
+        const response = await api.delete(`/workspaces/${workspaceId}/goals/${goalId}`);
+        console.log('🎯 Goal deleted successfully via API:', response.data);
+        return { data: response.data, simulated: false };
       } catch (error) {
         console.log('🎯 Backend unavailable, goal deletion simulated');
-        return { success: true };
+        // Simulate deletion by updating local cache for all workspace goals queries
+        queryClient.getQueryCache().findAll(['goals', 'workspace']).forEach((query) => {
+          queryClient.setQueryData(query.queryKey, (oldData: any) => {
+            if (!oldData || !Array.isArray(oldData)) return oldData;
+            return oldData.filter((goal: any) => goal.id !== goalId);
+          });
+        });
+        return { success: true, simulated: true };
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    onSuccess: (data, variables) => {
+      console.log('🎯 Delete goal onSuccess called:', { data, variables });
+      // Invalidate the specific workspace goals query
+      queryClient.invalidateQueries({ queryKey: ['goals', 'workspace', variables.workspaceId] });
     },
   });
 }

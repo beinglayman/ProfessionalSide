@@ -4,8 +4,12 @@ import { workspaceService } from '../../services/workspace.service';
 import {
   Building2,
   Calendar,
+  Check,
   Clock,
   Code,
+  Copy,
+  Edit3,
+  ExternalLink,
   FileText,
   Grid,
   List,
@@ -48,7 +52,6 @@ import {
   Star,
   ArrowUpRight,
   ThumbsUp,
-  ExternalLink,
   Target,
   Link,
   Megaphone,
@@ -61,7 +64,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { useWorkspace, useWorkspaceMembers, useWorkspaceFiles, useUploadFile, useDeleteFile, useUpdateFile, useWorkspaceCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../../hooks/useWorkspace';
 import { useToast } from '../../contexts/ToastContext';
 import { useJournalEntries } from '../../hooks/useJournal';
-import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember } from '../../hooks/useGoals';
+import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember } from '../../hooks/useGoals';
 import { useGoalNotifications } from '../../hooks/useGoalNotifications';
 import NetworkPolicySettings from '../../components/workspace/network-policy-settings';
 import WorkspaceSettingsPanel from '../../components/workspace/workspace-settings-panel';
@@ -116,7 +119,8 @@ interface TeamMember {
 
 // --- MOCK DATA ---
 
-const journalEntries = [
+// Mock journal entries removed - now using API data
+const journalEntries_REMOVED = [
   {
     id: "a-001",
     title: "Launched New E-commerce Checkout Flow",
@@ -446,30 +450,9 @@ const journalEntries = [
   }
 ];
 
-// Mock team members for static artefacts data
-const mockTeamMembers = [
-  { id: 'tm-001', name: 'John Doe', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop', position: 'Product Manager' },
-  { id: 'tm-002', name: 'Jane Smith', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop', position: 'Marketing Lead' },
-  { id: 'tm-003', name: 'Bob Johnson', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop', position: 'Developer' },
-  { id: 'tm-004', name: 'Alice Chen', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop', position: 'Designer' }
-];
+// Artifacts are now loaded from API via useWorkspaceFiles hook
 
-const artefacts = [
-  { id: 'art-001', name: 'Q2 Campaign Brief.pdf', type: 'Product Document', category: 'Product Document', uploader: mockTeamMembers[0], date: '2025-06-05T10:05:00Z', uploadedAt: new Date('2025-06-05T10:05:00Z'), size: '2.3 MB', downloads: 12, views: 45, isShared: false },
-  { id: 'art-002', name: 'Landing Page Wireframes.fig', type: 'Design', category: 'Design', uploader: mockTeamMembers[3], date: '2025-06-06T14:25:00Z', uploadedAt: new Date('2025-06-06T14:25:00Z'), size: '15.8 MB', downloads: 8, views: 32, isShared: true },
-  { id: 'art-003', name: 'Marketing Budget.xlsx', type: 'Business Document', category: 'Business Document', uploader: mockTeamMembers[1], date: '2025-06-07T09:03:00Z', uploadedAt: new Date('2025-06-07T09:03:00Z'), size: '450 KB', downloads: 15, views: 67, isShared: false },
-  { id: 'art-004', name: 'Campaign-Assets.zip', type: 'Design', category: 'Design', uploader: mockTeamMembers[3], date: '2025-06-08T11:00:00Z', uploadedAt: new Date('2025-06-08T11:00:00Z'), size: '54.2 MB', downloads: 5, views: 18, isShared: true },
-  { id: 'art-005', name: 'Component-Library.js', type: 'Code', category: 'Code', uploader: mockTeamMembers[2], date: '2025-06-09T16:00:00Z', uploadedAt: new Date('2025-06-09T16:00:00Z'), size: '1.1 MB', downloads: 3, views: 12, isShared: false },
-  { id: 'art-006', name: 'Onboarding_Flow.mp4', type: 'Process Document', category: 'Process Document', uploader: mockTeamMembers[0], date: '2025-06-10T09:30:00Z', uploadedAt: new Date('2025-06-10T09:30:00Z'), size: '128.0 MB', downloads: 7, views: 29, isShared: false },
-];
-
-const workspaceStats = {
-  totalArtefacts: 42,
-  totalJournalEntries: 156,
-  totalGoals: 12,
-  activeUsers: 4,
-  lastActivity: '2 hours ago',
-};
+// Workspace stats now calculated dynamically from API data
 
 // Goals are now loaded via API
 
@@ -537,7 +520,8 @@ const GoalCard = ({
   onQuickUpdatePriority, 
   onDuplicate,
   onEditGoal,
-  onLinkedEntries
+  onLinkedEntries,
+  onDeleteGoal
 }: { 
   goal: Goal;
   onToggleMilestone?: (goalId: string, milestoneId: string) => void;
@@ -549,6 +533,7 @@ const GoalCard = ({
   onDuplicate?: (goalId: string) => void;
   onEditGoal?: (goalId: string) => void;
   onLinkedEntries?: (goalId: string) => void;
+  onDeleteGoal?: (goalId: string) => void;
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [hoveredMilestone, setHoveredMilestone] = React.useState<string | null>(null);
@@ -695,7 +680,7 @@ const GoalCard = ({
           </div>
 
           {/* Progress Section & Actions */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Progress Bar */}
             <div className="text-right">
               <div className="text-sm font-bold text-gray-800 mb-1">
@@ -715,19 +700,137 @@ const GoalCard = ({
               </div>
             </div>
             
-            {/* Quick Actions Button */}
-            <button 
-              className={cn(
-                "opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-gray-600 rounded",
-                isQuickActionOpen && "opacity-100 bg-gray-100"
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onQuickAction?.(isQuickActionOpen ? null : goal.id);
-              }}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              {/* More Options Button */}
+              <div className="relative">
+                <button 
+                  className={cn(
+                    "opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md",
+                    isQuickActionOpen && "opacity-100 bg-gray-100"
+                  )}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onQuickAction?.(isQuickActionOpen ? null : goal.id);
+                  }}
+                  title="More options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+                
+                {/* Goal Actions Dropdown */}
+                {isQuickActionOpen && (
+                  <div 
+                    className="absolute right-0 top-full mt-1 z-50 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+                      Goal Actions
+                    </div>
+                    
+                    {/* Primary Actions */}
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onEditGoal?.(goal.id);
+                        }}
+                      >
+                        <Edit3 className="h-4 w-4 text-gray-400" />
+                        Edit Goal
+                      </button>
+                      
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onLinkedEntries?.(goal.id);
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 text-gray-400" />
+                        Linked Entries
+                      </button>
+                    </div>
+                    
+                    {/* Achievement Actions */}
+                    {goal.status !== 'completed' && (
+                      <div className="py-1 border-t border-gray-100">
+                        <div className="px-3 py-1 text-xs font-medium text-gray-400">Mark Complete</div>
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onQuickUpdateStatus?.(goal.id, 'completed');
+                          }}
+                        >
+                          <Check className="h-4 w-4 text-green-600" />
+                          Mark Goal as Achieved
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Milestone Actions */}
+                    {goal.milestones.length > 0 && (
+                      <div className="py-1 border-t border-gray-100">
+                        <div className="px-3 py-1 text-xs font-medium text-gray-400">Milestones</div>
+                        {goal.milestones.filter(milestone => getMilestoneStatus(milestone) !== 'completed').slice(0, 3).map(milestone => (
+                          <button
+                            key={milestone.id}
+                            type="button"
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onToggleMilestone?.(goal.id, milestone.id);
+                            }}
+                          >
+                            <Check className="h-4 w-4 text-blue-600" />
+                            Complete: {milestone.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Management Actions */}
+                    <div className="py-1 border-t border-gray-100">
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onDuplicate?.(goal.id);
+                        }}
+                      >
+                        <Copy className="h-4 w-4 text-gray-400" />
+                        Duplicate Goal
+                      </button>
+                      
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 text-red-600"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onDeleteGoal?.(goal.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Goal
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -736,7 +839,7 @@ const GoalCard = ({
           {/* Milestones */}
           {goal.milestones.length > 0 && (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {goal.milestones.slice(0, 5).map((milestone) => {
                   const display = getMilestoneDisplay(milestone);
                   const status = getMilestoneStatus(milestone);
@@ -744,7 +847,7 @@ const GoalCard = ({
                     <button
                       key={milestone.id}
                       className={cn(
-                        "w-2 h-2 rounded-full transition-all duration-200 hover:scale-150",
+                        "w-5 h-5 rounded-full transition-all duration-200 hover:scale-110 flex items-center justify-center text-xs font-medium text-white border-2 border-white shadow-sm",
                         display.color
                       )}
                       title={`${milestone.title} (${status})`}
@@ -754,7 +857,9 @@ const GoalCard = ({
                         e.stopPropagation();
                         onToggleMilestone?.(goal.id, milestone.id);
                       }}
-                    />
+                    >
+                      {display.icon}
+                    </button>
                   );
                 })}
                 {goal.milestones.length > 5 && (
@@ -1124,119 +1229,6 @@ const GoalCard = ({
         </div>
       )}
 
-      {/* Quick Actions Dropdown */}
-      {isQuickActionOpen && (
-        <div className="absolute right-4 top-16 z-20 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
-          <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
-            Quick Actions
-          </div>
-          
-          {/* Milestone Actions */}
-          {goal.milestones.length > 0 && (
-            <div className="py-1">
-              <div className="px-3 py-1 text-xs font-medium text-gray-400">Milestones</div>
-              {goal.milestones.map(milestone => {
-                const display = getMilestoneDisplay(milestone);
-                const status = getMilestoneStatus(milestone);
-                return (
-                  <button
-                    key={milestone.id}
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center justify-between"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleMilestone?.(goal.id, milestone.id);
-                    }}
-                  >
-                    <span>{display.icon} {milestone.title}</span>
-                    <span className="text-xs text-gray-400 capitalize">{status}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Goal Actions */}
-          <div className={cn("py-1", goal.milestones.length > 0 && "border-t border-gray-100")}>
-            <div className="px-3 py-1 text-xs font-medium text-gray-400">Goal</div>
-            {goal.status !== 'completed' && (
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onQuickUpdateStatus?.(goal.id, 'completed');
-                }}
-              >
-                Mark Goal as Accomplished
-              </button>
-            )}
-            <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditGoal?.(goal.id);
-              }}
-            >
-              Edit Goal
-            </button>
-            <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onLinkedEntries?.(goal.id);
-              }}
-            >
-              View/Edit Linked Entries
-            </button>
-          </div>
-          
-          {/* Status Updates */}
-          <div className="py-1 border-t border-gray-100">
-            <div className="px-3 py-1 text-xs font-medium text-gray-400">Change Status</div>
-            {['in-progress', 'blocked', 'cancelled'].filter(status => status !== goal.status).map(status => (
-              <button
-                key={status}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onQuickUpdateStatus?.(goal.id, status);
-                }}
-              >
-                Mark as {status.replace('-', ' ')}
-              </button>
-            ))}
-          </div>
-          
-          {/* Priority Updates */}
-          <div className="py-1 border-t border-gray-100">
-            <div className="px-3 py-1 text-xs font-medium text-gray-400">Change Priority</div>
-            {['critical', 'high', 'medium', 'low'].filter(priority => priority !== goal.priority).map(priority => (
-              <button
-                key={priority}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onQuickUpdatePriority?.(goal.id, priority);
-                }}
-              >
-                Set {priority} priority
-              </button>
-            ))}
-          </div>
-          
-          {/* Other Actions */}
-          <div className="py-1 border-t border-gray-100">
-            <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicate?.(goal.id);
-              }}
-            >
-              Duplicate goal
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -4680,6 +4672,7 @@ export default function WorkspaceDetailPage() {
   const { data: goals = [], isLoading: goalsLoading, error: goalsError } = useWorkspaceGoals(workspaceIdForAPI || '');
   const createGoalMutation = useCreateGoal();
   const updateGoalMutation = useUpdateGoal();
+  const deleteGoalMutation = useDeleteGoal();
   const toggleMilestoneMutation = useToggleMilestone();
   const linkJournalEntryMutation = useLinkJournalEntry();
   const { notifyGoalCreated, notifyGoalStatusChanged, notifyMilestoneCompleted } = useGoalNotifications();
@@ -5254,6 +5247,25 @@ export default function WorkspaceDetailPage() {
     } catch (error) {
       console.error('Failed to duplicate goal:', error);
       toast.error('Failed to duplicate goal');
+    }
+    setQuickActionGoalId(null);
+  };
+
+  const deleteGoal = async (goalId: string) => {
+    try {
+      const goal = goals.find(g => g.id === goalId);
+      if (!goal) {
+        console.error('Goal not found');
+        return;
+      }
+
+      if (confirm(`Are you sure you want to delete "${goal.title}"? This action cannot be undone.`)) {
+        await deleteGoalMutation.mutateAsync({ goalId, workspaceId });
+        toast.success('Goal deleted successfully');
+      }
+    } catch (error) {
+      console.error('Failed to delete goal:', error);
+      toast.error('Failed to delete goal');
     }
     setQuickActionGoalId(null);
   };
@@ -6553,6 +6565,7 @@ export default function WorkspaceDetailPage() {
                       onQuickUpdateStatus={quickUpdateStatus}
                       onQuickUpdatePriority={quickUpdatePriority}
                       onDuplicate={duplicateGoal}
+                      onDeleteGoal={deleteGoal}
                       onEditGoal={(goalId) => setEditGoalId(goalId)}
                       onLinkedEntries={(goalId) => {
                         // Find the first journal entry that links to this goal for the modal

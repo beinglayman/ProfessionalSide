@@ -1829,6 +1829,47 @@ router.put('/:workspaceId/unarchive', async (req, res) => {
   }
 });
 
+// Delete workspace goal
+router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
+  try {
+    const { workspaceId, goalId } = req.params;
+    const userId = req.user.id;
+    console.log('🎯 DELETE /workspaces/:workspaceId/goals/:goalId called:', { workspaceId, goalId, userId });
+
+    // Check if user has access to workspace
+    const hasAccess = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId }
+    });
+
+    if (!hasAccess) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    // Get existing goals
+    const existingGoals = goalsStorage.get(workspaceId) || [];
+    
+    // Find the goal to delete
+    const goalIndex = existingGoals.findIndex((goal: any) => goal.id === goalId);
+    
+    if (goalIndex === -1) {
+      console.log('🎯 Goal not found:', goalId);
+      return sendError(res, 'Goal not found', 404);
+    }
+
+    // Remove the goal from storage
+    existingGoals.splice(goalIndex, 1);
+    goalsStorage.set(workspaceId, existingGoals);
+    
+    console.log('🎯 Goal deleted successfully:', goalId);
+    console.log('🎯 Remaining goals for workspace:', workspaceId, 'count:', existingGoals.length);
+    
+    sendSuccess(res, null, 'Goal deleted successfully');
+  } catch (error) {
+    console.error('Error deleting workspace goal:', error);
+    sendError(res, 'Failed to delete workspace goal', 500);
+  }
+});
+
 // Create workspace goal
 router.post('/:workspaceId/goals', async (req, res) => {
   try {
