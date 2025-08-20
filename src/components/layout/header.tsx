@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { UserNav } from './user-nav';
+import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { Bell, Heart, MessageSquare, Users, FileText, UserPlus, Upload, CheckCircle2, Search } from 'lucide-react';
 import type { NetworkType } from '../../App';
@@ -210,6 +211,20 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
 
             {/* User Nav - Only show when authenticated */}
             {isAuthenticated && <UserNav />}
+            
+            {/* Sign up button - Only show when not authenticated */}
+            {!isAuthenticated && (
+              <div className="flex items-center space-x-3">
+                <Link to="/login" className="text-gray-600 hover:text-gray-900 font-medium text-sm">
+                  Sign in
+                </Link>
+                <Button size="sm" asChild>
+                  <Link to="/register">
+                    Sign up
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { Header } from './components/layout/header';
 import { HomePage } from './pages/home';
+import { PrivacyPolicyPage } from './pages/privacy';
+import { TermsOfServicePage } from './pages/terms';
 import { LoginPage } from './pages/auth/login';
 import { RegisterPage } from './pages/auth/register';
 import { OnboardingPage } from './pages/onboarding';
@@ -50,12 +52,14 @@ const AppRoutes: React.FC = () => {
   const [networkType, setNetworkType] = useState<NetworkType>('organization');
   const location = useLocation();
 
-  // Special handling for services pages - no header, no auth context
-  if (location.pathname === '/services' || location.pathname === '/railway') {
+  // Special handling for services pages and legal pages - no header
+  if (location.pathname === '/services' || location.pathname === '/railway' || location.pathname === '/privacy' || location.pathname === '/terms') {
     return (
       <Routes>
         <Route path="/services" element={<ServiceStatusPageStandalone />} />
         <Route path="/railway" element={<RailwayStatus />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
       </Routes>
     );
   }
