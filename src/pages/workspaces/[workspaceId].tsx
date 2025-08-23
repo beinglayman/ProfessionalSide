@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { workspaceService } from '../../services/workspace.service';
 import {
@@ -61,10 +61,11 @@ import {
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
+import confetti from 'canvas-confetti';
 import { useWorkspace, useWorkspaceMembers, useWorkspaceFiles, useUploadFile, useDeleteFile, useUpdateFile, useWorkspaceCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../../hooks/useWorkspace';
 import { useToast } from '../../contexts/ToastContext';
 import { useJournalEntries } from '../../hooks/useJournal';
-import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember } from '../../hooks/useGoals';
+import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember, getEffectiveProgress, shouldShowCompletionDialog } from '../../hooks/useGoals';
 import { useGoalNotifications } from '../../hooks/useGoalNotifications';
 import NetworkPolicySettings from '../../components/workspace/network-policy-settings';
 import WorkspaceSettingsPanel from '../../components/workspace/workspace-settings-panel';
@@ -73,6 +74,8 @@ import { JournalEntry } from '../../types/journal';
 import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_BASE_URL, getAuthToken } from '../../lib/api';
+import { GoalCompletionDialog } from '../../components/goals/goal-completion-dialog';
+import { GoalProgressDialog } from '../../components/goals/goal-progress-dialog';
 
 // --- TYPES ---
 
@@ -521,10 +524,11 @@ const GoalCard = ({
   onDuplicate,
   onEditGoal,
   onLinkedEntries,
-  onDeleteGoal
+  onDeleteGoal,
+  onAdjustProgress
 }: { 
   goal: Goal;
-  onToggleMilestone?: (goalId: string, milestoneId: string) => void;
+  onToggleMilestone?: (goalId: string, milestoneId: string, coords?: { x: number; y: number }) => void;
   onViewHistory?: () => void;
   onQuickAction?: (goalId: string | null) => void;
   isQuickActionOpen?: boolean;
@@ -534,6 +538,7 @@ const GoalCard = ({
   onEditGoal?: (goalId: string) => void;
   onLinkedEntries?: (goalId: string) => void;
   onDeleteGoal?: (goalId: string) => void;
+  onAdjustProgress?: (goalId: string) => void;
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [hoveredMilestone, setHoveredMilestone] = React.useState<string | null>(null);
@@ -586,11 +591,17 @@ const GoalCard = ({
   return (
     <div 
       className={cn(
-        "bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer",
-        isExpanded && "shadow-lg ring-2 ring-primary-100"
+        "relative bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer",
+        isExpanded && "shadow-lg ring-2 ring-primary-100",
+        goal.status === 'completed' && "border-green-300"
       )}
       onClick={() => setIsExpanded(!isExpanded)}
     >
+      {goal.status === 'completed' && (
+        <div className="absolute -top-2 -left-2 bg-green-600 text-white text-[10px] font-semibold px-2 py-1 rounded shadow">
+          Completed
+        </div>
+      )}
       {/* Main Card Content */}
       <div className="p-5">
         {/* Header Section */}
@@ -602,9 +613,16 @@ const GoalCard = ({
                 {getStatusIcon()}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-gray-900 leading-tight mb-1 line-clamp-2">
-                  {goal.title}
-                </h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-base font-semibold text-gray-900 leading-tight line-clamp-2">
+                    {goal.title}
+                  </h3>
+                  {goal.status === 'completed' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-600 text-white">
+                      <Check className="h-3 w-3" /> Completed
+                    </span>
+                  )}
+                </div>
                 
                 {/* Metadata Row */}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -684,18 +702,18 @@ const GoalCard = ({
             {/* Progress Bar */}
             <div className="text-right">
               <div className="text-sm font-bold text-gray-800 mb-1">
-                {goal.progressPercentage}%
+                {getEffectiveProgress(goal)}%
               </div>
               <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div 
                   className={cn(
                     "h-full transition-all duration-500 rounded-full",
-                    goal.progressPercentage >= 100 ? "bg-green-500" :
-                    goal.progressPercentage >= 75 ? "bg-blue-500" :
-                    goal.progressPercentage >= 50 ? "bg-yellow-500" :
+                    getEffectiveProgress(goal) >= 100 ? "bg-green-500" :
+                    getEffectiveProgress(goal) >= 75 ? "bg-blue-500" :
+                    getEffectiveProgress(goal) >= 50 ? "bg-yellow-500" :
                     "bg-primary-500"
                   )}
-                  style={{ width: `${goal.progressPercentage}%` }}
+                  style={{ width: `${getEffectiveProgress(goal)}%` }}
                 />
               </div>
             </div>
@@ -756,6 +774,19 @@ const GoalCard = ({
                         <ExternalLink className="h-4 w-4 text-gray-400" />
                         Linked Entries
                       </button>
+                      
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onAdjustProgress?.(goal.id);
+                        }}
+                      >
+                        <BarChart3 className="h-4 w-4 text-gray-400" />
+                        Adjust Progress
+                      </button>
                     </div>
                     
                     {/* Achievement Actions */}
@@ -789,7 +820,7 @@ const GoalCard = ({
                             onMouseDown={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              onToggleMilestone?.(goal.id, milestone.id);
+                              onToggleMilestone?.(goal.id, milestone.id, { x: e.clientX, y: e.clientY });
                             }}
                           >
                             <Check className="h-4 w-4 text-blue-600" />
@@ -855,7 +886,7 @@ const GoalCard = ({
                       onMouseLeave={() => setHoveredMilestone(null)}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleMilestone?.(goal.id, milestone.id);
+                        onToggleMilestone?.(goal.id, milestone.id, { x: e.clientX, y: e.clientY });
                       }}
                     >
                       {display.icon}
@@ -961,7 +992,7 @@ const GoalCard = ({
                       onClick={(e) => {
                         console.log('🖱️ Container clicked:', { goalId: goal.id, milestoneId: milestone.id, milestoneCompleted: milestone.completed });
                         e.stopPropagation();
-                        onToggleMilestone?.(goal.id, milestone.id);
+                        onToggleMilestone?.(goal.id, milestone.id, { x: e.clientX, y: e.clientY });
                       }}
                     >
                       <div
@@ -1206,6 +1237,30 @@ const GoalCard = ({
               </div>
             </div>
 
+            {/* Completion Notes (if any) */}
+            {goal.completionNotes && goal.completionNotes.trim() && (
+              <div className="mt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-gray-700">Completion Summary</span>
+                </div>
+                <div className="relative overflow-hidden rounded-lg border border-green-200 bg-gradient-to-br from-green-50 to-white">
+                  <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(rgba(16,185,129,0.15) 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
+                  <div className="relative p-3 sm:p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <Check className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{goal.completionNotes}</p>
+                        <div className="mt-2 text-xs text-gray-500">Marked complete • Great job finishing this goal</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex items-center justify-between pt-2 border-t border-gray-200">
               {/* Category tag moved to top metadata row with other badges */}
@@ -1247,7 +1302,7 @@ const GoalListItem = ({
   onLinkedEntries
 }: { 
   goal: Goal;
-  onToggleMilestone?: (goalId: string, milestoneId: string) => void;
+  onToggleMilestone?: (goalId: string, milestoneId: string, coords?: { x: number; y: number }) => void;
   onViewHistory?: () => void;
   onQuickAction?: (goalId: string | null) => void;
   isQuickActionOpen?: boolean;
@@ -1283,7 +1338,7 @@ const GoalListItem = ({
   };
 
   return (
-    <div className="group bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all">
+    <div className={cn("group rounded-lg p-4 hover:shadow-md transition-all border bg-white", goal.status === 'completed' ? "border-green-300" : "border-gray-200")}>
       <div className="flex items-center justify-between">
         {/* Left section: Priority, Title, and Status */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1294,13 +1349,16 @@ const GoalListItem = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium text-gray-900 truncate">{goal.title}</h3>
+              {goal.status === 'completed' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-600 text-white flex-shrink-0">Completed</span>
+              )}
               {hasRecentEdits && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex-shrink-0">
                   <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
                   Updated
                 </span>
               )}
-              {isOverdue && (
+              {isOverdue && goal.status !== 'completed' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 flex-shrink-0">
                   Overdue
                 </span>
@@ -1328,7 +1386,7 @@ const GoalListItem = ({
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
-                className="bg-primary-500 h-2 rounded-full transition-all"
+                className={cn("h-2 rounded-full transition-all", goal.status === 'completed' ? "bg-green-500" : "bg-primary-500")}
                 style={{ width: `${goal.progressPercentage}%` }}
               />
             </div>
@@ -1443,7 +1501,7 @@ const GoalListItem = ({
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center justify-between"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onToggleMilestone?.(goal.id, milestone.id);
+                      onToggleMilestone?.(goal.id, milestone.id, { x: e.clientX, y: e.clientY });
                     }}
                   >
                     <span>{display.icon} {milestone.title}</span>
@@ -4597,6 +4655,23 @@ export default function WorkspaceDetailPage() {
   // Goal templates state
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   
+  // Goal completion and progress dialogs
+  const [completionDialogGoal, setCompletionDialogGoal] = useState<Goal | null>(null);
+  const [progressDialogGoal, setProgressDialogGoal] = useState<Goal | null>(null);
+  const confettiCooldownRef = useRef<number>(0);
+  const celebrateMilestone = (coords?: { x: number; y: number }) => {
+    const now = Date.now();
+    if (now - (confettiCooldownRef.current || 0) < 600) return;
+    confettiCooldownRef.current = now;
+    const origin = coords
+      ? { x: Math.min(Math.max(coords.x / window.innerWidth, 0), 1), y: Math.min(Math.max(coords.y / window.innerHeight, 0), 1) }
+      : { x: 0.5, y: 0.3 };
+    confetti({ particleCount: 40, spread: 60, startVelocity: 35, origin, ticks: 200, scalar: 0.9 });
+    setTimeout(() => {
+      confetti({ particleCount: 30, spread: 80, startVelocity: 25, origin, ticks: 160, scalar: 0.8 });
+    }, 120);
+  };
+  
   // Scroll to top on page load
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -5126,7 +5201,50 @@ export default function WorkspaceDetailPage() {
   };
 
   // Function to cycle milestone through three states: incomplete -> partial -> completed -> incomplete
-  const toggleMilestone = async (goalId: string, milestoneId: string) => {
+  // Test function to demonstrate completion dialog functionality
+  const testCompletionDialog = () => {
+    console.log('🎯 Testing completion dialog...');
+    const testGoal = {
+      id: 'test-goal-123',
+      title: 'Test Goal - Ready for Completion',
+      description: 'This is a test goal with completed milestones',
+      status: 'in-progress' as const,
+      progressPercentage: 100,
+      progressOverride: null,
+      autoCalculateProgress: true,
+      requiresManualCompletion: true,
+      milestones: [
+        {
+          id: 'test-milestone-1',
+          title: 'First milestone',
+          completed: true,
+          status: 'completed' as any,
+          targetDate: new Date().toISOString(),
+          completedAt: new Date().toISOString()
+        },
+        {
+          id: 'test-milestone-2', 
+          title: 'Second milestone',
+          completed: true,
+          status: 'completed' as any,
+          targetDate: new Date().toISOString(),
+          completedAt: new Date().toISOString()
+        }
+      ]
+    } as Goal;
+
+    const shouldShow = shouldShowCompletionDialog(testGoal);
+    console.log('🎯 Should show completion dialog:', shouldShow);
+    
+    if (shouldShow) {
+      console.log('🎯 Triggering completion dialog for test goal');
+      setCompletionDialogGoal(testGoal);
+    } else {
+      console.log('🎯 Completion dialog will not be shown');
+    }
+  };
+
+  const toggleMilestone = async (goalId: string, milestoneId: string, coords?: { x: number; y: number }) => {
     console.log('🎯 toggleMilestone called:', { goalId, milestoneId, timestamp: Date.now() });
     
     try {
@@ -5137,37 +5255,56 @@ export default function WorkspaceDetailPage() {
         console.error('Goal or milestone not found');
         return;
       }
-
-      // Determine current status (with backward compatibility)
-      const currentStatus = milestone.status || (milestone.completed ? 'completed' : 'incomplete');
       
-      // Cycle to next status
-      let nextStatus: string;
-      switch (currentStatus) {
-        case 'incomplete':
-          nextStatus = 'partial';
-          break;
-        case 'partial':
-          nextStatus = 'completed';
-          break;
-        case 'completed':
-          nextStatus = 'incomplete';
-          break;
-        default:
-          nextStatus = 'partial';
-      }
-      
-      const isCompleting = nextStatus === 'completed';
+      // Backend toggles boolean completed; treat a click from not-completed as completion
+      const wasCompleted = !!milestone.completed;
+      const willBeCompleted = !wasCompleted;
       
       // Toggle milestone via API - for now, use the existing API but we'll need to update it to support status
       await toggleMilestoneMutation.mutateAsync({ goalId, milestoneId });
       
-      // Send notification if milestone was completed
-      if (isCompleting && currentUser) {
-        await notifyMilestoneCompleted(goal, milestone, currentUser as GoalTeamMember);
+      // Send notification and celebration if milestone was completed (first click)
+      if (willBeCompleted) {
+        celebrateMilestone(coords);
+        if (currentUser) {
+          await notifyMilestoneCompleted(goal, milestone, currentUser as GoalTeamMember);
+        }
       }
       
-      console.log(`✅ Milestone status changed: ${currentStatus} -> ${nextStatus}`);
+      // Wait for the query to update and check for completion dialog
+      setTimeout(() => {
+        console.log('🎯 Checking completion dialog after timeout...');
+        // Refetch the goal to get the latest state
+        const updatedGoal = goals.find(g => g.id === goalId);
+        if (updatedGoal) {
+          console.log('🎯 Found updated goal:', updatedGoal.title);
+          
+          // Simulate the updated progress by calculating what it should be
+          const simulatedGoal = {
+            ...updatedGoal,
+            milestones: updatedGoal.milestones.map(m => 
+              m.id === milestoneId 
+                ? { ...m, completed: willBeCompleted, status: (willBeCompleted ? 'completed' : 'incomplete') as any }
+                : m
+            )
+          };
+          
+          const effectiveProgress = getEffectiveProgress(simulatedGoal);
+          console.log('🎯 Simulated goal progress:', effectiveProgress);
+          
+          // Check if completion dialog should be shown
+          if (shouldShowCompletionDialog(simulatedGoal)) {
+            console.log('🎯 Showing completion dialog for goal:', simulatedGoal.title);
+            setCompletionDialogGoal(simulatedGoal);
+          } else {
+            console.log('🎯 Completion dialog not shown for goal:', simulatedGoal.title);
+          }
+        } else {
+          console.log('🎯 Updated goal not found!');
+        }
+      }, 1000); // Wait for query to update
+      
+      console.log(`✅ Milestone completion toggled: ${wasCompleted} -> ${willBeCompleted}`);
       
     } catch (error) {
       console.error('❌ Failed to toggle milestone:', error);
@@ -6567,6 +6704,10 @@ export default function WorkspaceDetailPage() {
                       onDuplicate={duplicateGoal}
                       onDeleteGoal={deleteGoal}
                       onEditGoal={(goalId) => setEditGoalId(goalId)}
+                      onAdjustProgress={(goalId) => {
+                        const goal = goals.find(g => g.id === goalId);
+                        if (goal) setProgressDialogGoal(goal);
+                      }}
                       onLinkedEntries={(goalId) => {
                         // Find the first journal entry that links to this goal for the modal
                         const linkedEntry = actualJournalEntries.find(entry => 
@@ -6885,6 +7026,60 @@ export default function WorkspaceDetailPage() {
           open={showNewEntryModal}
           onOpenChange={setShowNewEntryModal}
         />
+
+        {/* Goal Completion Dialog */}
+        {completionDialogGoal && (
+          <GoalCompletionDialog
+            goal={completionDialogGoal}
+            isOpen={!!completionDialogGoal}
+            onClose={() => setCompletionDialogGoal(null)}
+            onCompleted={(completedGoal, meta) => {
+              setCompletionDialogGoal(null);
+              // Update UI feedback and celebrate around the goal area
+              toast.success(`Goal "${completedGoal.title}" completed!`);
+              // Confetti burst centered horizontally near the goal list
+              confetti({ particleCount: 70, spread: 70, startVelocity: 35, origin: { x: 0.5, y: 0.25 }, ticks: 200, scalar: 0.9 });
+              setTimeout(() => confetti({ particleCount: 50, spread: 90, startVelocity: 25, origin: { x: 0.5, y: 0.25 }, ticks: 160, scalar: 0.8 }), 120);
+              // If user added notes and backend doesn't echo them immediately, optimistically update cache
+              if (meta?.notes && meta.notes.trim()) {
+                const goalIndex = goals.findIndex(g => g.id === completedGoal.id);
+                if (goalIndex !== -1) {
+                  goals[goalIndex].completionNotes = meta.notes.trim();
+                }
+              }
+            }}
+          />
+        )}
+
+        {/* Goal Progress Dialog */}
+        {progressDialogGoal && (
+          <GoalProgressDialog
+            goal={progressDialogGoal}
+            isOpen={!!progressDialogGoal}
+            onClose={() => setProgressDialogGoal(null)}
+            onUpdated={(updatedGoal) => {
+              setProgressDialogGoal(null);
+              // Check if completion dialog should be shown after progress update
+              setTimeout(() => {
+                const freshGoal = goals.find(g => g.id === updatedGoal.id);
+                if (freshGoal && shouldShowCompletionDialog(freshGoal)) {
+                  setCompletionDialogGoal(freshGoal);
+                }
+              }, 500);
+            }}
+          />
+        )}
+
+        {/* Test Button for Completion Dialog - REMOVE IN PRODUCTION */}
+        <div className="fixed bottom-4 right-4 z-50">
+          <button
+            onClick={testCompletionDialog}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium"
+            title="Test completion dialog functionality"
+          >
+            🧪 Test Completion Dialog
+          </button>
+        </div>
       </div>
     </div>
   );

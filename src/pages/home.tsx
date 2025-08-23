@@ -59,11 +59,10 @@ export function HomePage() {
                 </div>
                 <div className="relative">
                   <img
-                    src="https://images.unsplash.com/photo-1611224923853-80b023f02d71?q=80&w=2939&auto=format&fit=crop"
-                    alt="Organized workspace with documents and files"
+                    src="/screenshots/never-lose-work.png"
+                    alt="InChronicle application showing how professionals never lose their work and achievements"
                     className="rounded-xl shadow-lg w-full h-80 object-cover"
                   />
-                  <div className="absolute inset-0 bg-primary-600/10 rounded-xl"></div>
                 </div>
               </div>
             </div>
@@ -73,11 +72,10 @@ export function HomePage() {
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div className="order-2 lg:order-1 relative">
                   <img
-                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2940&auto=format&fit=crop"
-                    alt="Real-time dashboard showing project progress"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover"
+                    src="/screenshots/stay-in-sync.png"
+                    alt="InChronicle dashboard showing real-time project visibility and team synchronization"
+                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
                   />
-                  <div className="absolute inset-0 bg-green-600/10 rounded-xl"></div>
                 </div>
                 <div className="order-1 lg:order-2">
                   <div className="flex items-center gap-3 mb-6">
@@ -117,11 +115,10 @@ export function HomePage() {
                 </div>
                 <div className="relative">
                   <img
-                    src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2815&auto=format&fit=crop"
-                    alt="Analytics dashboard showing team performance metrics"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover"
+                    src="/screenshots/lead-with-insight.png"
+                    alt="InChronicle analytics and insights dashboard for data-driven team leadership"
+                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
                   />
-                  <div className="absolute inset-0 bg-orange-600/10 rounded-xl"></div>
                 </div>
               </div>
             </div>
@@ -131,11 +128,10 @@ export function HomePage() {
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div className="order-2 lg:order-1 relative">
                   <img
-                    src="https://images.unsplash.com/photo-1559136555-9303baea8ebd?q=80&w=2940&auto=format&fit=crop"
-                    alt="Professional team collaboration and networking"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover"
+                    src="/screenshots/build-relationships.png"
+                    alt="InChronicle networking interface for building meaningful professional relationships"
+                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
                   />
-                  <div className="absolute inset-0 bg-purple-600/10 rounded-xl"></div>
                 </div>
                 <div className="order-1 lg:order-2">
                   <div className="flex items-center gap-3 mb-6">
@@ -184,7 +180,7 @@ export function HomePage() {
                       <div className="p-1 bg-white/20 rounded">
                         <Shield className="h-4 w-4" />
                       </div>
-                      <span className="text-sm font-medium">Blockchain-verified achievements</span>
+                      <span className="text-sm font-medium">Peer verified achievements</span>
                     </div>
                     <div className="flex items-center gap-3 text-white/90">
                       <div className="p-1 bg-white/20 rounded">
@@ -196,63 +192,18 @@ export function HomePage() {
                       <div className="p-1 bg-white/20 rounded">
                         <Verified className="h-4 w-4" />
                       </div>
-                      <span className="text-sm font-medium">Peer-endorsed skills</span>
+                      <span className="text-sm font-medium">Skills accumulated through real-time journals over years</span>
                     </div>
                   </div>
                 </div>
                 
                 {/* Right Visual */}
-                <div className="relative h-full min-h-96 bg-primary-600/30">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/20"></div>
-                  <div className="relative h-full flex items-center justify-center p-8">
-                    
-                    {/* Profile mockup */}
-                    <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 max-w-sm w-full shadow-2xl">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-                          <span className="text-primary-600 font-bold text-lg">JD</span>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">Jane Developer</h3>
-                          <p className="text-sm text-gray-600">Senior Software Engineer</p>
-                        </div>
-                      </div>
-                      
-                      {/* Verified badges */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <span className="text-sm font-medium text-green-800">React Expert</span>
-                          </div>
-                          <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Verified</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-800">Led 5 Projects</span>
-                          </div>
-                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">Verified</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-purple-600" />
-                            <span className="text-sm font-medium text-purple-800">Team Lead</span>
-                          </div>
-                          <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">Verified</span>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 text-center">
-                          ✓ Validated by TechCorp Inc. & 12 colleagues
-                        </p>
-                      </div>
-                    </div>
-                    
-                  </div>
+                <div className="relative h-full min-h-96">
+                  <img
+                    src="/screenshots/credible-identity.png"
+                    alt="InChronicle credible professional identity with verified achievements and credentials"
+                    className="rounded-xl shadow-lg w-full h-96 object-cover"
+                  />
                 </div>
               </div>
             </div>

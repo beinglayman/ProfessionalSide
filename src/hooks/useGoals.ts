@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { SafeStorage } from '../utils/storage';
 import { api } from '../lib/api';
 
 export interface TeamMember {
@@ -19,6 +20,7 @@ export interface Milestone {
   completedBy?: TeamMember;
   targetDate?: string;
   assignedTo?: TeamMember[];
+  weight?: number; // Percentage of goal this milestone represents (0-100)
 }
 
 export interface Goal {
@@ -33,6 +35,11 @@ export interface Goal {
   workspaceId: string;
   category: string;
   progressPercentage: number;
+  progressOverride?: number; // Manual override for progress (0-100)
+  autoCalculateProgress: boolean; // Whether to auto-calculate from milestones
+  requiresManualCompletion: boolean; // Prevents auto-completion when 100%
+  completionCriteria?: string; // Description of what constitutes completion
+  completionNotes?: string; // Optional notes captured upon completion
   
   // RACI assignments
   accountable: TeamMember;
@@ -89,6 +96,11 @@ export interface UpdateGoalData {
   responsibleIds?: string[];
   consultedIds?: string[];
   informedIds?: string[];
+  progressOverride?: number;
+  autoCalculateProgress?: boolean;
+  requiresManualCompletion?: boolean;
+  completionCriteria?: string;
+  completionNotes?: string;
 }
 
 // Get goals for a workspace
@@ -101,7 +113,17 @@ export function useWorkspaceGoals(workspaceId: string) {
         const response = await api.get(`/workspaces/${workspaceId}/goals`);
         console.log('🎯 Goals API response:', response.data);
         console.log('🎯 Goals API response data array:', response.data.data);
-        const goals = response.data.data || [];
+        let goals = response.data.data || [];
+        // Apply optimistic overrides from local storage if backend is missing updates
+        try {
+          const raw = SafeStorage.getItem('goal_overrides');
+          if (raw) {
+            const overrides = JSON.parse(raw) as Record<string, Partial<Goal>>;
+            goals = goals.map((g: Goal) => overrides[g.id] ? { ...g, ...overrides[g.id] } : g);
+          }
+        } catch (e) {
+          console.warn('Failed to apply goal overrides from storage');
+        }
         console.log('🎯 Returning goals array:', goals);
         console.log('🎯 Number of goals:', goals.length);
         return goals;
@@ -167,12 +189,32 @@ export function useUpdateGoal() {
         return response.data.data;
       } catch (error) {
         console.log('🎯 Backend unavailable, goal update simulated');
-        return { id: goalId, ...data };
+        return { id: goalId, ...data, simulated: true } as any;
       }
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['goals', variables.goalId] });
-      queryClient.invalidateQueries({ queryKey: ['goals', 'workspace'] });
+      // Optimistically merge into workspace goals cache for immediate UI update
+      queryClient.getQueryCache().findAll(['goals', 'workspace']).forEach((query) => {
+        queryClient.setQueryData(query.queryKey, (oldData: any) => {
+          if (!oldData || !Array.isArray(oldData)) return oldData;
+          const updated = oldData.map((g: any) => g.id === variables.goalId ? { ...g, ...data } : g);
+          // Persist override to local storage so it survives refresh while backend is down
+          try {
+            const raw = SafeStorage.getItem('goal_overrides');
+            const overrides = raw ? JSON.parse(raw) : {};
+            overrides[variables.goalId] = { ...(overrides[variables.goalId] || {}), ...data };
+            SafeStorage.setItem('goal_overrides', JSON.stringify(overrides));
+          } catch {}
+          return updated;
+        });
+      });
+      // Only refetch from server if this wasn't simulated (i.e., backend responded)
+      if (!(data as any)?.simulated) {
+        queryClient.invalidateQueries({ queryKey: ['goals', variables.goalId] });
+        queryClient.invalidateQueries({ queryKey: ['goals', 'workspace'] });
+      } else {
+        // keep overrides for a while; optional: schedule cleanup when backend confirms
+      }
     },
   });
 }
@@ -293,3 +335,102 @@ export function useLinkJournalEntry() {
     },
   });
 }
+
+// Update goal progress manually
+export function useUpdateGoalProgress() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      goalId, 
+      progressOverride, 
+      autoCalculateProgress 
+    }: { 
+      goalId: string; 
+      progressOverride?: number;
+      autoCalculateProgress?: boolean;
+    }) => {
+      try {
+        const response = await api.put(`/goals/${goalId}/progress`, {
+          progressOverride,
+          autoCalculateProgress
+        });
+        return response.data.data;
+      } catch (error) {
+        console.log('🎯 Backend unavailable, progress update simulated');
+        return { goalId, progressOverride, autoCalculateProgress };
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['goals', variables.goalId] });
+      queryClient.invalidateQueries({ queryKey: ['goals', 'workspace'] });
+    },
+  });
+}
+
+// Progress calculation utilities
+export const calculateMilestoneBasedProgress = (milestones: Milestone[]): number => {
+  if (!milestones || milestones.length === 0) return 0;
+  
+  // Check if milestones have weights
+  const hasWeights = milestones.some(m => m.weight !== undefined && m.weight > 0);
+  
+  if (hasWeights) {
+    // Weighted calculation
+    const totalWeight = milestones.reduce((sum, m) => sum + (m.weight || 0), 0);
+    if (totalWeight === 0) return 0;
+    
+    const weightedProgress = milestones.reduce((sum, milestone) => {
+      const weight = milestone.weight || 0;
+      const multiplier = milestone.status === 'completed' ? 1 : 
+                       milestone.status === 'partial' ? 0.5 : 0;
+      return sum + (weight * multiplier);
+    }, 0);
+    
+    return Math.min(100, Math.round(weightedProgress));
+  } else {
+    // Equal weight calculation (current behavior)
+    const completedCount = milestones.filter(m => 
+      m.status === 'completed' || m.completed
+    ).length;
+    const partialCount = milestones.filter(m => 
+      m.status === 'partial'
+    ).length;
+    
+    const progress = ((completedCount + (partialCount * 0.5)) / milestones.length) * 100;
+    return Math.round(progress);
+  }
+};
+
+export const getEffectiveProgress = (goal: Goal): number => {
+  // Manual override takes precedence
+  if (goal.progressOverride !== undefined && goal.progressOverride !== null) {
+    return Math.min(100, Math.max(0, goal.progressOverride));
+  }
+  
+  // Auto-calculate from milestones
+  if (goal.autoCalculateProgress && goal.milestones) {
+    return calculateMilestoneBasedProgress(goal.milestones);
+  }
+  
+  // Use stored progress percentage
+  return goal.progressPercentage;
+};
+
+export const shouldShowCompletionDialog = (goal: Goal): boolean => {
+  const effectiveProgress = getEffectiveProgress(goal);
+  const requiresManualCompletion = goal.requiresManualCompletion !== false; // Default to true if undefined
+  
+  console.log('🎯 shouldShowCompletionDialog check:', {
+    goalTitle: goal.title,
+    effectiveProgress,
+    status: goal.status,
+    requiresManualCompletion,
+    rawRequiresManualCompletion: goal.requiresManualCompletion,
+    result: effectiveProgress >= 100 && goal.status !== 'completed' && requiresManualCompletion
+  });
+  
+  return effectiveProgress >= 100 && 
+         goal.status !== 'completed' && 
+         requiresManualCompletion;
+};

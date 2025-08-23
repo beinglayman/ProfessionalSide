@@ -58,10 +58,22 @@ router.put('/:goalId/milestones/:milestoneId/toggle', async (req, res) => {
     milestone.completedAt = milestone.completed ? new Date().toISOString() : null;
     milestone.completedBy = milestone.completed ? { id: userId, name: 'Current User', email: '' } : null;
     
-    // Update goal progress percentage based on completed milestones
-    const completedCount = targetGoal.milestones.filter(m => m.completed).length;
-    const totalCount = targetGoal.milestones.length;
-    targetGoal.progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    // Only update progress if auto-calculation is enabled and no manual override
+    if (targetGoal.autoCalculateProgress !== false && !targetGoal.progressOverride) {
+      const completedCount = targetGoal.milestones.filter(m => m.completed).length;
+      const partialCount = targetGoal.milestones.filter(m => m.status === 'partial').length;
+      const totalCount = targetGoal.milestones.length;
+      
+      if (totalCount > 0) {
+        // Support partial completion in progress calculation
+        const progress = ((completedCount + (partialCount * 0.5)) / totalCount) * 100;
+        targetGoal.progressPercentage = Math.round(progress);
+      }
+    }
+
+    // DO NOT auto-complete goals - require manual confirmation
+    // Even if progress reaches 100%, keep goal status unchanged
+    console.log('🎯 Goal progress updated but status unchanged (manual completion required)');
     
     // Update the storage
     const workspaceGoals = goalsStorage.get(targetWorkspaceId);
@@ -86,6 +98,85 @@ router.put('/:goalId/milestones/:milestoneId/toggle', async (req, res) => {
   } catch (error) {
     console.error('Error toggling milestone:', error);
     sendError(res, 'Failed to toggle milestone', 500);
+  }
+});
+
+// Update goal progress manually
+router.put('/:goalId/progress', async (req, res) => {
+  try {
+    const { goalId } = req.params;
+    const { progressOverride, autoCalculateProgress } = req.body;
+    const userId = req.user.id;
+    
+    console.log('🎯 Manual progress update called:', { goalId, progressOverride, autoCalculateProgress });
+    
+    // Find the goal across all workspaces
+    const goalsStorage = getGoalsStorage();
+    let targetGoal = null;
+    let targetWorkspaceId = null;
+    
+    for (const [workspaceId, goals] of goalsStorage.entries()) {
+      const goal = goals.find(g => g.id === goalId);
+      if (goal) {
+        targetGoal = goal;
+        targetWorkspaceId = workspaceId;
+        break;
+      }
+    }
+    
+    if (!targetGoal) {
+      console.log('❌ Goal not found:', goalId);
+      return sendError(res, 'Goal not found', 404);
+    }
+    
+    // Update progress settings
+    if (progressOverride !== undefined) {
+      targetGoal.progressOverride = Math.min(100, Math.max(0, progressOverride));
+    }
+    
+    if (autoCalculateProgress !== undefined) {
+      targetGoal.autoCalculateProgress = autoCalculateProgress;
+    }
+    
+    // If switching back to auto-calculate, remove override and recalculate
+    if (autoCalculateProgress && progressOverride === null) {
+      targetGoal.progressOverride = null;
+      
+      // Recalculate from milestones
+      const completedCount = targetGoal.milestones.filter(m => m.completed).length;
+      const partialCount = targetGoal.milestones.filter(m => m.status === 'partial').length;
+      const totalCount = targetGoal.milestones.length;
+      
+      if (totalCount > 0) {
+        const progress = ((completedCount + (partialCount * 0.5)) / totalCount) * 100;
+        targetGoal.progressPercentage = Math.round(progress);
+      }
+    }
+    
+    // Update the storage
+    const workspaceGoals = goalsStorage.get(targetWorkspaceId);
+    const goalIndex = workspaceGoals.findIndex(g => g.id === goalId);
+    workspaceGoals[goalIndex] = targetGoal;
+    goalsStorage.set(targetWorkspaceId, workspaceGoals);
+    setGoalsStorage(goalsStorage);
+    
+    console.log('✅ Goal progress updated:', { 
+      goalId, 
+      progressOverride: targetGoal.progressOverride,
+      autoCalculateProgress: targetGoal.autoCalculateProgress,
+      currentProgress: targetGoal.progressPercentage
+    });
+    
+    sendSuccess(res, { 
+      goalId, 
+      progressOverride: targetGoal.progressOverride,
+      autoCalculateProgress: targetGoal.autoCalculateProgress,
+      progressPercentage: targetGoal.progressPercentage
+    }, 'Goal progress updated successfully');
+    
+  } catch (error) {
+    console.error('Error updating goal progress:', error);
+    sendError(res, 'Failed to update goal progress', 500);
   }
 });
 

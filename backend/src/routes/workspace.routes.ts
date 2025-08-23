@@ -1931,6 +1931,9 @@ router.post('/:workspaceId/goals', async (req, res) => {
       workspaceId,
       category: goalData.category,
       progressPercentage: 0,
+      progressOverride: null, // No manual override initially
+      autoCalculateProgress: true, // Enable auto-calculation by default
+      requiresManualCompletion: true, // Prevent auto-completion
       accountable: getUserInfo(goalData.accountableId),
       responsible: goalData.responsibleIds?.map((id: string) => getUserInfo(id)) || [],
       consulted: goalData.consultedIds?.map((id: string) => getUserInfo(id)) || [],
