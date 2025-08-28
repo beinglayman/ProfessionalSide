@@ -100,7 +100,7 @@ export function OnboardingPage() {
           const progress = await productionOnboardingService.getOnboardingProgress();
           
           if (progress?.isCompleted) {
-            targetStep = 6; // Last step (Goals & Interests)
+            targetStep = 0; // First step (Professional Basics) for editing
           } else {
             // If not complete, calculate the appropriate step
             targetStep = await productionOnboardingService.getCurrentStep();

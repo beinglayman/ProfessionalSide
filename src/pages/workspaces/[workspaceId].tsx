@@ -5201,48 +5201,6 @@ export default function WorkspaceDetailPage() {
   };
 
   // Function to cycle milestone through three states: incomplete -> partial -> completed -> incomplete
-  // Test function to demonstrate completion dialog functionality
-  const testCompletionDialog = () => {
-    console.log('🎯 Testing completion dialog...');
-    const testGoal = {
-      id: 'test-goal-123',
-      title: 'Test Goal - Ready for Completion',
-      description: 'This is a test goal with completed milestones',
-      status: 'in-progress' as const,
-      progressPercentage: 100,
-      progressOverride: null,
-      autoCalculateProgress: true,
-      requiresManualCompletion: true,
-      milestones: [
-        {
-          id: 'test-milestone-1',
-          title: 'First milestone',
-          completed: true,
-          status: 'completed' as any,
-          targetDate: new Date().toISOString(),
-          completedAt: new Date().toISOString()
-        },
-        {
-          id: 'test-milestone-2', 
-          title: 'Second milestone',
-          completed: true,
-          status: 'completed' as any,
-          targetDate: new Date().toISOString(),
-          completedAt: new Date().toISOString()
-        }
-      ]
-    } as Goal;
-
-    const shouldShow = shouldShowCompletionDialog(testGoal);
-    console.log('🎯 Should show completion dialog:', shouldShow);
-    
-    if (shouldShow) {
-      console.log('🎯 Triggering completion dialog for test goal');
-      setCompletionDialogGoal(testGoal);
-    } else {
-      console.log('🎯 Completion dialog will not be shown');
-    }
-  };
 
   const toggleMilestone = async (goalId: string, milestoneId: string, coords?: { x: number; y: number }) => {
     console.log('🎯 toggleMilestone called:', { goalId, milestoneId, timestamp: Date.now() });
@@ -7036,7 +6994,7 @@ export default function WorkspaceDetailPage() {
             onCompleted={(completedGoal, meta) => {
               setCompletionDialogGoal(null);
               // Update UI feedback and celebrate around the goal area
-              toast.success(`Goal "${completedGoal.title}" completed!`);
+              toast.success(`Goal "${completedGoal.title || 'Untitled Goal'}" completed!`);
               // Confetti burst centered horizontally near the goal list
               confetti({ particleCount: 70, spread: 70, startVelocity: 35, origin: { x: 0.5, y: 0.25 }, ticks: 200, scalar: 0.9 });
               setTimeout(() => confetti({ particleCount: 50, spread: 90, startVelocity: 25, origin: { x: 0.5, y: 0.25 }, ticks: 160, scalar: 0.8 }), 120);
@@ -7070,16 +7028,6 @@ export default function WorkspaceDetailPage() {
           />
         )}
 
-        {/* Test Button for Completion Dialog - REMOVE IN PRODUCTION */}
-        <div className="fixed bottom-4 right-4 z-50">
-          <button
-            onClick={testCompletionDialog}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium"
-            title="Test completion dialog functionality"
-          >
-            🧪 Test Completion Dialog
-          </button>
-        </div>
       </div>
     </div>
   );

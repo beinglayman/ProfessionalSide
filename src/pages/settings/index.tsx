@@ -177,7 +177,7 @@ export function SettingsPage() {
                 </div>
                 <div className="flex-shrink-0 ml-6">
                   <Button asChild>
-                    <Link to="/onboarding" className="flex items-center space-x-2">
+                    <Link to="/profile/edit" className="flex items-center space-x-2">
                       <Edit className="h-4 w-4" />
                       <span>Edit Profile</span>
                     </Link>

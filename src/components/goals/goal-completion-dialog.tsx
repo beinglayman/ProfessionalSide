@@ -38,7 +38,7 @@ export const GoalCompletionDialog: React.FC<GoalCompletionDialogProps> = ({
       });
 
       success(`Goal "${goal.title}" marked as completed!`);
-      onCompleted?.(updatedGoal as Goal, { notes: completionNotes });
+      onCompleted?.({ ...goal, ...updatedGoal } as Goal, { notes: completionNotes });
       onClose();
     } catch (error) {
       console.error('Error completing goal:', error);

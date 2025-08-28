@@ -342,7 +342,7 @@ export function ProfileViewPage() {
     if (isOwnProfile) {
       return (
         <Button variant="outline" asChild className="sm:px-4 px-2">
-          <Link to="/onboarding">
+          <Link to="/profile/edit">
             <Edit className="sm:mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Edit Profile</span>
           </Link>
@@ -492,7 +492,7 @@ export function ProfileViewPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
                 <div className="relative">
-                  <Link to="/onboarding" className="block">
+                  <Link to="/profile/edit" className="block">
                     {isLoading ? (
                       <div className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg bg-gray-200 animate-pulse" />
                     ) : (
@@ -511,13 +511,13 @@ export function ProfileViewPage() {
                 </div>
                 <div>
                   <div className="flex items-center space-x-3">
-                    <Link to="/onboarding" className="hover:text-primary-600 transition-colors">
+                    <Link to="/profile/edit" className="hover:text-primary-600 transition-colors">
                       <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                         {profile.name}
                       </h1>
                     </Link>
                   </div>
-                  <Link to="/onboarding" className="hover:text-primary-600 transition-colors">
+                  <Link to="/profile/edit" className="hover:text-primary-600 transition-colors">
                     <p className="text-xl text-gray-600 font-medium">{profile.title}</p>
                   </Link>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
