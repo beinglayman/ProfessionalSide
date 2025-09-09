@@ -81,6 +81,7 @@
     "nodemailer": "^7.0.5",
     "openai": "^5.12.2",
     "pdfkit": "^0.17.1",
+    "react-icons": "^5.5.0",
     "redis": "^4.6.12",
     "socket.io": "^4.7.4",
     "uuid": "^11.1.0",

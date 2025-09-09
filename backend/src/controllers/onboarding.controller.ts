@@ -99,8 +99,9 @@ export const completeOnboarding = asyncHandler(async (req: Request, res: Respons
   }
 
   try {
-    const onboardingData = await onboardingService.completeOnboarding(userId);
-    sendSuccess(res, onboardingData, 'Onboarding completed successfully');
+    // Complete onboarding with personal workspace creation
+    const success = await onboardingService.completeOnboardingWithWorkspace(userId, {});
+    sendSuccess(res, { success }, 'Onboarding completed successfully with personal workspace created');
   } catch (error: any) {
     throw error;
   }

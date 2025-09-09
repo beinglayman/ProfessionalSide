@@ -280,4 +280,79 @@ export class OnboardingService {
       console.log('⚠️ No data to synchronize from onboarding to user record');
     }
   }
+
+  /**
+   * Create a personal workspace for the user
+   */
+  async createPersonalWorkspace(userId: string): Promise<any> {
+    console.log('🏢 Creating personal workspace for user:', userId);
+    
+    // Check if user already has a personal workspace
+    const existingPersonalWorkspace = await prisma.workspace.findFirst({
+      where: {
+        isPersonal: true,
+        members: {
+          some: {
+            userId: userId,
+            role: 'owner'
+          }
+        }
+      }
+    });
+    
+    if (existingPersonalWorkspace) {
+      console.log('✅ Personal workspace already exists:', existingPersonalWorkspace.id);
+      return existingPersonalWorkspace;
+    }
+    
+    // Get user name for workspace description
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true }
+    });
+    
+    // Create the personal workspace
+    const personalWorkspace = await prisma.workspace.create({
+      data: {
+        name: 'My Workspace',
+        description: `${user?.name || 'Your'} personal workspace for individual goals and journal entries`,
+        isPersonal: true,
+        allowTeamMembers: false,
+        members: {
+          create: {
+            userId: userId,
+            role: 'owner',
+            permissions: {}
+          }
+        }
+      },
+      include: {
+        members: true
+      }
+    });
+    
+    console.log('✅ Created personal workspace:', personalWorkspace.id);
+    return personalWorkspace;
+  }
+
+  /**
+   * Complete onboarding and create personal workspace
+   */
+  async completeOnboardingWithWorkspace(userId: string, data: CompleteOnboardingInput): Promise<boolean> {
+    console.log('🎉 Completing onboarding with workspace creation for user:', userId);
+    
+    try {
+      // Complete regular onboarding process
+      await this.completeOnboarding(userId, data);
+      
+      // Create personal workspace
+      await this.createPersonalWorkspace(userId);
+      
+      console.log('✅ Onboarding completed with personal workspace created');
+      return true;
+    } catch (error) {
+      console.error('❌ Error completing onboarding with workspace:', error);
+      throw error;
+    }
+  }
 }
