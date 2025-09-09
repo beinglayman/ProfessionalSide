@@ -38,6 +38,7 @@ model User {
   sentWorkspaceInvites WorkspaceInvitation[] @relation("WorkspaceInviter")
   workspaceFiles     WorkspaceFile[] @relation("WorkspaceFiles")
   workspaceCategories WorkspaceCategory[] @relation("WorkspaceCategories")
+  workspaceLabelsCreated WorkspaceLabel[] @relation("WorkspaceLabelsCreated")
   
   // Journal relationships
   journalEntries     JournalEntry[]
@@ -55,6 +56,8 @@ model User {
 
   // Goals and achievements
   goals              Goal[]
+  assignedGoals      Goal[] @relation("GoalAssignedTo")
+  reviewingGoals     Goal[] @relation("GoalReviewer")
   achievements       Achievement[]
   achievementAttestations AchievementAttestation[]
 
@@ -65,6 +68,11 @@ model User {
   sentNotifications     Notification[] @relation("NotificationSender")
   receivedNotifications Notification[] @relation("NotificationRecipient")
   notificationPreferences NotificationPreferences?
+  
+  // Task relationships
+  assignedTasks         GoalTask[] @relation("TaskAssignee")
+  reviewingTasks        GoalTask[] @relation("TaskReviewer")
+  completedTasks        GoalTask[] @relation("TaskCompleter")
 
   // Professional data relationships
   workExperiences       WorkExperience[]
@@ -232,6 +240,7 @@ model Workspace {
   goals          Goal[]
   files          WorkspaceFile[]
   categories     WorkspaceCategory[]
+  labels         WorkspaceLabel[]
   
   @@map("workspaces")
 }
@@ -310,6 +319,38 @@ model WorkspaceCategory {
   
   @@unique([workspaceId, name]) // Prevent duplicate category names within workspace
   @@map("workspace_categories")
+}
+
+model WorkspaceLabel {
+  id          String    @id @default(cuid())
+  name        String    // "Priority" or "Status"
+  type        String    // "priority" or "status"
+  workspaceId String
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("WorkspaceLabelsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  values      WorkspaceLabelValue[]
+  
+  @@unique([workspaceId, type]) // One Priority and one Status label per workspace
+  @@map("workspace_labels")
+}
+
+model WorkspaceLabelValue {
+  id      String    @id @default(cuid())
+  labelId String
+  name    String    // "High", "In Progress", etc.
+  color   String    // Hex color code
+  order   Int       @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  label   WorkspaceLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  
+  @@unique([labelId, name]) // Prevent duplicate values within same label
+  @@map("workspace_label_values")
 }
 
 // ============================================================================
@@ -531,8 +572,13 @@ model Goal {
   completedDate   DateTime?
   progress        Int       @default(0) // 0-100
   category        String?
-  priority        String    @default("medium") // low, medium, high
+  priority        String    @default("medium") // low, medium, high, critical
+  status          String    @default("yet-to-start") // yet-to-start, in-progress, achieved, blocked, cancelled, pending-review
   visibility      String    @default("private") // private, workspace, network
+  
+  // Assignment fields
+  assignedToId    String?
+  reviewerId      String?
   
   // Relationships
   userId          String
@@ -540,6 +586,8 @@ model Goal {
   
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace       Workspace? @relation(fields: [workspaceId], references: [id])
+  assignedTo      User?     @relation("GoalAssignedTo", fields: [assignedToId], references: [id])
+  reviewer        User?     @relation("GoalReviewer", fields: [reviewerId], references: [id])
   
   milestones      GoalMilestone[]
   journalLinks    GoalJournalLink[]
@@ -558,11 +606,40 @@ model GoalMilestone {
   completed       Boolean   @default(false)
   completedDate   DateTime?
   completedViaJournalEntry String? // journal entry ID that marked this complete
+  autoCompleteFromTasks Boolean @default(true) // Auto-complete when all tasks done
+  manuallyCompleted     Boolean @default(false) // User marked complete manually
   order           Int       @default(0)
   
   goal            Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  tasks           GoalTask[]
   
   @@map("goal_milestones")
+}
+
+model GoalTask {
+  id              String    @id @default(cuid())
+  milestoneId     String
+  title           String
+  description     String?
+  completed       Boolean   @default(false)
+  completedDate   DateTime?
+  completedBy     String?
+  assignedTo      String?   // User ID (Owner)
+  reviewerId      String?   // User ID (Reviewer)
+  priority        String    @default("medium") // low, medium, high
+  status          String    @default("Not Started") // Status from WorkspaceLabelValue
+  dueDate         DateTime?
+  order           Int       @default(0)
+  
+  milestone       GoalMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  assignee        User?     @relation("TaskAssignee", fields: [assignedTo], references: [id])
+  reviewer        User?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  completedByUser User?     @relation("TaskCompleter", fields: [completedBy], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("goal_tasks")
 }
 
 model GoalJournalLink {

@@ -24,6 +24,31 @@ const router = Router();
 const prisma = new PrismaClient();
 const emailService = new EmailService();
 
+// Helper functions for goal transformation
+const calculateGoalProgress = (milestones: any[]): number => {
+  if (!milestones || milestones.length === 0) return 0;
+  
+  const completedMilestones = milestones.filter(m => m.completed).length;
+  return Math.round((completedMilestones / milestones.length) * 100);
+};
+
+const getGoalStatus = (goal: any, milestones: any[]): 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'cancelled' => {
+  if (goal.completed) return 'completed';
+  if (!milestones || milestones.length === 0) return 'not-started';
+  
+  const hasStartedTasks = milestones.some(m => 
+    m.tasks && m.tasks.some((t: any) => t.completed || t.assignedTo)
+  );
+  
+  if (!hasStartedTasks) return 'not-started';
+  
+  const progress = calculateGoalProgress(milestones);
+  if (progress === 100) return 'completed';
+  if (progress > 0) return 'in-progress';
+  
+  return 'not-started';
+};
+
 // All workspace routes require authentication
 router.use(authenticate);
 
@@ -609,6 +634,53 @@ router.post('/', async (req, res) => {
         }
       }
     });
+
+    // Initialize default workspace labels
+    try {
+      // Create default Priority label with High, Medium, Low values
+      const priorityLabel = await prisma.workspaceLabel.create({
+        data: {
+          workspaceId: workspace.id,
+          type: 'priority',
+          name: 'Priority',
+          createdById: userId,
+          values: {
+            create: [
+              { name: 'High', color: '#EF4444', order: 0 },
+              { name: 'Medium', color: '#F59E0B', order: 1 },
+              { name: 'Low', color: '#10B981', order: 2 }
+            ]
+          }
+        }
+      });
+
+      // Create default Status label with status values
+      const statusLabel = await prisma.workspaceLabel.create({
+        data: {
+          workspaceId: workspace.id,
+          type: 'status',
+          name: 'Status',
+          createdById: userId,
+          values: {
+            create: [
+              { name: 'Not Started', color: '#6B7280', order: 0 },
+              { name: 'In Progress', color: '#3B82F6', order: 1 },
+              { name: 'Review', color: '#A855F7', order: 2 },
+              { name: 'Done', color: '#10B981', order: 3 }
+            ]
+          }
+        }
+      });
+
+      console.log('✅ Default workspace labels created:', {
+        workspaceId: workspace.id,
+        priorityLabel: priorityLabel.id,
+        statusLabel: statusLabel.id
+      });
+    } catch (labelError) {
+      console.error('❌ Failed to create default workspace labels:', labelError);
+      // Don't fail workspace creation if labels fail
+    }
 
     const workspaceWithStats = {
       ...workspace,
@@ -1669,7 +1741,6 @@ router.get('/:workspaceId/goals', async (req, res) => {
   try {
     const { workspaceId } = req.params;
     const userId = req.user.id;
-    console.log('🎯 GET /workspaces/:workspaceId/goals called:', { workspaceId, userId });
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -1680,11 +1751,177 @@ router.get('/:workspaceId/goals', async (req, res) => {
       return sendError(res, 'Access denied', 403);
     }
 
-    // Get goals from in-memory storage
-    const goals = goalsStorage.get(workspaceId) || [];
-    console.log('🎯 Returning goals for workspace:', workspaceId, 'count:', goals.length);
+    // Get goals from database with full relationships
+    const goals = await prisma.goal.findMany({
+      where: { workspaceId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            title: true
+          }
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            title: true
+          }
+        },
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            title: true
+          }
+        },
+        milestones: {
+          include: {
+            tasks: {
+              include: {
+                assignee: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    avatar: true,
+                    title: true
+                  }
+                },
+                reviewer: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    avatar: true,
+                    title: true
+                  }
+                },
+                completedByUser: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    avatar: true,
+                    title: true
+                  }
+                }
+              },
+              orderBy: { order: 'asc' }
+            }
+          },
+          orderBy: { order: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
-    sendSuccess(res, goals, 'Workspace goals retrieved successfully');
+    // Transform database goals to match frontend interface
+    const transformedGoals = goals.map(goal => ({
+      id: goal.id,
+      title: goal.title,
+      description: goal.description || '',
+      status: goal.status,
+      priority: goal.priority as 'low' | 'medium' | 'high' | 'critical',
+      targetDate: goal.targetDate?.toISOString(),
+      createdAt: goal.createdAt.toISOString(),
+      updatedAt: goal.updatedAt.toISOString(),
+      workspaceId: goal.workspaceId!,
+      category: goal.category || 'General',
+      progressPercentage: calculateGoalProgress(goal.milestones),
+      progressOverride: null,
+      autoCalculateProgress: true,
+      requiresManualCompletion: true,
+      createdBy: {
+        id: goal.user.id,
+        name: goal.user.name || goal.user.email.split('@')[0],
+        email: goal.user.email,
+        avatar: goal.user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.user.name || goal.user.email.split('@')[0])}&background=random`,
+        title: goal.user.title || 'Team Member'
+      },
+      assignedTo: goal.assignedTo ? {
+        id: goal.assignedTo.id,
+        name: goal.assignedTo.name || goal.assignedTo.email.split('@')[0],
+        email: goal.assignedTo.email,
+        avatar: goal.assignedTo.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.assignedTo.name || goal.assignedTo.email.split('@')[0])}&background=random`,
+        title: goal.assignedTo.title || 'Team Member'
+      } : null,
+      reviewer: goal.reviewer ? {
+        id: goal.reviewer.id,
+        name: goal.reviewer.name || goal.reviewer.email.split('@')[0],
+        email: goal.reviewer.email,
+        avatar: goal.reviewer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.reviewer.name || goal.reviewer.email.split('@')[0])}&background=random`,
+        title: goal.reviewer.title || 'Team Member'
+      } : null,
+      editHistory: [], // TODO: Implement edit history if needed
+      milestones: goal.milestones.map(milestone => ({
+        id: milestone.id,
+        title: milestone.title,
+        description: '',
+        status: milestone.completed ? 'completed' : (milestone.tasks?.some(t => t.completed) ? 'partial' : 'incomplete'),
+        completed: milestone.completed,
+        completedAt: milestone.completedDate?.toISOString(),
+        targetDate: milestone.targetDate?.toISOString(),
+        autoCompleteFromTasks: milestone.autoCompleteFromTasks,
+        manuallyCompleted: milestone.manuallyCompleted,
+        tasks: milestone.tasks?.map(task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          completed: task.completed,
+          completedDate: task.completedDate?.toISOString(),
+          completedBy: task.completedBy,
+          assignedTo: task.assignedTo,
+          reviewerId: task.reviewerId,
+          assignee: task.assignee ? {
+            id: task.assignee.id,
+            name: task.assignee.name || task.assignee.email.split('@')[0],
+            email: task.assignee.email,
+            avatar: task.assignee.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.assignee.name || task.assignee.email.split('@')[0])}&background=random`,
+            title: task.assignee.title || 'Team Member'
+          } : undefined,
+          reviewer: task.reviewer ? {
+            id: task.reviewer.id,
+            name: task.reviewer.name || task.reviewer.email.split('@')[0],
+            email: task.reviewer.email,
+            avatar: task.reviewer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.reviewer.name || task.reviewer.email.split('@')[0])}&background=random`,
+            title: task.reviewer.title || 'Team Member'
+          } : undefined,
+          completedByUser: task.completedByUser ? {
+            id: task.completedByUser.id,
+            name: task.completedByUser.name || task.completedByUser.email.split('@')[0],
+            email: task.completedByUser.email,
+            avatar: task.completedByUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.completedByUser.name || task.completedByUser.email.split('@')[0])}&background=random`,
+            title: task.completedByUser.title || 'Team Member'
+          } : undefined,
+          priority: task.priority as 'low' | 'medium' | 'high',
+          status: task.status,
+          dueDate: task.dueDate?.toISOString(),
+          order: task.order,
+          createdAt: task.createdAt.toISOString(),
+          updatedAt: task.updatedAt.toISOString()
+        })) || []
+      })),
+      linkedJournalEntries: [], // TODO: Implement journal linking
+      createdBy: {
+        id: goal.user.id,
+        name: goal.user.name || goal.user.email.split('@')[0],
+        email: goal.user.email,
+        avatar: goal.user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.user.name || goal.user.email.split('@')[0])}&background=random`,
+        title: goal.user.title || 'Team Member'
+      },
+      tags: [], // TODO: Implement tags
+      editHistory: []
+    }));
+
+    sendSuccess(res, transformedGoals, 'Workspace goals retrieved successfully');
   } catch (error) {
     console.error('Error fetching workspace goals:', error);
     sendError(res, 'Failed to fetch workspace goals', 500);
@@ -1834,7 +2071,6 @@ router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
   try {
     const { workspaceId, goalId } = req.params;
     const userId = req.user.id;
-    console.log('🎯 DELETE /workspaces/:workspaceId/goals/:goalId called:', { workspaceId, goalId, userId });
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -1860,8 +2096,6 @@ router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
     existingGoals.splice(goalIndex, 1);
     goalsStorage.set(workspaceId, existingGoals);
     
-    console.log('🎯 Goal deleted successfully:', goalId);
-    console.log('🎯 Remaining goals for workspace:', workspaceId, 'count:', existingGoals.length);
     
     sendSuccess(res, null, 'Goal deleted successfully');
   } catch (error) {
@@ -1876,7 +2110,6 @@ router.post('/:workspaceId/goals', async (req, res) => {
     const { workspaceId } = req.params;
     const userId = req.user.id;
     const goalData = req.body;
-    console.log('🎯 POST /workspaces/:workspaceId/goals called:', { workspaceId, userId, goalTitle: goalData.title });
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -1918,45 +2151,165 @@ router.post('/:workspaceId/goals', async (req, res) => {
       return { id: userId, name: 'Unknown User', email: '', avatar: `https://ui-avatars.com/api/?name=Unknown&background=random`, title: 'Team Member' };
     };
 
-    // Create goal with proper user information
-    const mockGoal = {
-      id: `goal-${Date.now()}`,
-      title: goalData.title,
-      description: goalData.description,
-      status: 'not-started',
-      priority: goalData.priority,
-      targetDate: goalData.targetDate,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      workspaceId,
-      category: goalData.category,
+    // Create goal in database with milestones and tasks
+    const createdGoal = await prisma.$transaction(async (tx) => {
+      // Create the goal
+      const goal = await tx.goal.create({
+        data: {
+          title: goalData.title,
+          description: goalData.description,
+          priority: goalData.priority || 'medium',
+          targetDate: goalData.targetDate ? new Date(goalData.targetDate) : null,
+          category: goalData.category || 'General',
+          userId: goalData.accountableId || userId,
+          workspaceId,
+          assignedToId: goalData.assignedToId || null,
+          reviewerId: goalData.reviewerId || null
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+              title: true
+            }
+          },
+          assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+              title: true
+            }
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+              title: true
+            }
+          }
+        }
+      });
+
+      // Create milestones if provided
+      if (goalData.milestones && goalData.milestones.length > 0) {
+        const milestones = await Promise.all(
+          goalData.milestones.map(async (milestoneData: any, index: number) => {
+            const milestone = await tx.goalMilestone.create({
+              data: {
+                goalId: goal.id,
+                title: milestoneData.title,
+                targetDate: milestoneData.targetDate ? new Date(milestoneData.targetDate) : null,
+                order: index,
+                autoCompleteFromTasks: milestoneData.autoCompleteFromTasks !== false
+              }
+            });
+
+            // Create tasks for this milestone if provided
+            if (milestoneData.tasks && milestoneData.tasks.length > 0) {
+              const tasks = await Promise.all(
+                milestoneData.tasks.map(async (taskData: any, taskIndex: number) => {
+                  return tx.goalTask.create({
+                    data: {
+                      milestoneId: milestone.id,
+                      title: taskData.title,
+                      description: taskData.description,
+                      priority: taskData.priority || 'medium',
+                      status: taskData.status || 'Not Started',
+                      assignedTo: taskData.assignedTo || null,
+                      reviewerId: taskData.reviewerId || null,
+                      dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
+                      order: taskIndex
+                    }
+                  });
+                })
+              );
+              return { ...milestone, tasks };
+            }
+
+            return milestone;
+          })
+        );
+        return { ...goal, milestones };
+      }
+
+      return goal;
+    });
+
+    // Transform created goal to match frontend interface
+    const transformedGoal = {
+      id: createdGoal.id,
+      title: createdGoal.title,
+      description: createdGoal.description || '',
+      status: 'yet-to-start' as const,
+      priority: createdGoal.priority as 'low' | 'medium' | 'high' | 'critical',
+      targetDate: createdGoal.targetDate?.toISOString(),
+      createdAt: createdGoal.createdAt.toISOString(),
+      updatedAt: createdGoal.updatedAt.toISOString(),
+      workspaceId: createdGoal.workspaceId!,
+      category: createdGoal.category || 'General',
       progressPercentage: 0,
-      progressOverride: null, // No manual override initially
-      autoCalculateProgress: true, // Enable auto-calculation by default
-      requiresManualCompletion: true, // Prevent auto-completion
-      accountable: getUserInfo(goalData.accountableId),
+      progressOverride: null,
+      autoCalculateProgress: true,
+      requiresManualCompletion: true,
+      accountable: getUserInfo(createdGoal.userId),
       responsible: goalData.responsibleIds?.map((id: string) => getUserInfo(id)) || [],
       consulted: goalData.consultedIds?.map((id: string) => getUserInfo(id)) || [],
       informed: goalData.informedIds?.map((id: string) => getUserInfo(id)) || [],
-      milestones: goalData.milestones?.map((m: any, i: number) => ({
-        ...m,
-        id: `milestone-${Date.now()}-${i}`,
-        completed: false
+      milestones: (createdGoal as any).milestones?.map((milestone: any) => ({
+        id: milestone.id,
+        title: milestone.title,
+        description: '',
+        status: 'incomplete' as const,
+        completed: false,
+        targetDate: milestone.targetDate?.toISOString(),
+        autoCompleteFromTasks: milestone.autoCompleteFromTasks,
+        manuallyCompleted: false,
+        tasks: milestone.tasks?.map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          completed: task.completed,
+          completedDate: task.completedDate?.toISOString(),
+          completedBy: task.completedBy,
+          assignedTo: task.assignedTo,
+          reviewerId: task.reviewerId,
+          priority: task.priority as 'low' | 'medium' | 'high',
+          status: task.status,
+          dueDate: task.dueDate?.toISOString(),
+          order: task.order,
+          createdAt: task.createdAt.toISOString(),
+          updatedAt: task.updatedAt.toISOString()
+        })) || []
       })) || [],
       linkedJournalEntries: [],
-      createdBy: getUserInfo(goalData.accountableId),
+      createdBy: getUserInfo(createdGoal.userId),
+      assignedTo: createdGoal.assignedTo ? {
+        id: createdGoal.assignedTo.id,
+        name: createdGoal.assignedTo.name || createdGoal.assignedTo.email.split('@')[0],
+        email: createdGoal.assignedTo.email,
+        avatar: createdGoal.assignedTo.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(createdGoal.assignedTo.name || createdGoal.assignedTo.email.split('@')[0])}&background=random`,
+        title: createdGoal.assignedTo.title || 'Team Member'
+      } : null,
+      reviewer: createdGoal.reviewer ? {
+        id: createdGoal.reviewer.id,
+        name: createdGoal.reviewer.name || createdGoal.reviewer.email.split('@')[0],
+        email: createdGoal.reviewer.email,
+        avatar: createdGoal.reviewer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(createdGoal.reviewer.name || createdGoal.reviewer.email.split('@')[0])}&background=random`,
+        title: createdGoal.reviewer.title || 'Team Member'
+      } : null,
       tags: goalData.tags || [],
       editHistory: []
     };
-
-    // Store goal in in-memory storage
-    const existingGoals = goalsStorage.get(workspaceId) || [];
-    existingGoals.push(mockGoal);
-    goalsStorage.set(workspaceId, existingGoals);
     
-    console.log('🎯 Goal created and stored:', mockGoal);
-    console.log('🎯 Total goals for workspace:', workspaceId, 'count:', existingGoals.length);
-    sendSuccess(res, mockGoal, 'Goal created successfully', 201);
+    console.log('🎯 Goal created in database:', transformedGoal.id);
+    sendSuccess(res, transformedGoal, 'Goal created successfully', 201);
   } catch (error) {
     console.error('Error creating workspace goal:', error);
     sendError(res, 'Failed to create workspace goal', 500);

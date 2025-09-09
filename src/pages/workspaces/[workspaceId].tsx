@@ -65,8 +65,11 @@ import confetti from 'canvas-confetti';
 import { useWorkspace, useWorkspaceMembers, useWorkspaceFiles, useUploadFile, useDeleteFile, useUpdateFile, useWorkspaceCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../../hooks/useWorkspace';
 import { useToast } from '../../contexts/ToastContext';
 import { useJournalEntries } from '../../hooks/useJournal';
-import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember, getEffectiveProgress, shouldShowCompletionDialog } from '../../hooks/useGoals';
+import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember, getEffectiveProgress, shouldShowCompletionDialog, useCreateTask, useUpdateTask, useDeleteTask, useCompleteMilestone, useWorkspaceLabels } from '../../hooks/useGoals';
+import { migrateStatus, isGoalOverdue } from '../../utils/statusMigration';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGoalNotifications } from '../../hooks/useGoalNotifications';
+import MilestoneGroup from '../../components/MilestoneGroup';
 import NetworkPolicySettings from '../../components/workspace/network-policy-settings';
 import WorkspaceSettingsPanel from '../../components/workspace/workspace-settings-panel';
 import { JournalCard } from '../../components/journal/journal-card';
@@ -75,6 +78,8 @@ import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_BASE_URL, getAuthToken } from '../../lib/api';
 import { GoalCompletionDialog } from '../../components/goals/goal-completion-dialog';
+import { GoalStatusWorkflow } from '../../components/GoalStatusWorkflow';
+import { UnifiedStatusBar, UnifiedStatusBarMobile } from '../../components/UnifiedStatusBar';
 import { GoalProgressDialog } from '../../components/goals/goal-progress-dialog';
 
 // --- TYPES ---
@@ -464,11 +469,12 @@ const journalEntries_REMOVED = [
 // Goal status styling
 const getGoalStatusColor = (status: Goal['status']) => {
   switch (status) {
-    case 'not-started': return 'bg-gray-100 text-gray-700 border-gray-200';
+    case 'yet-to-start': return 'bg-gray-100 text-gray-700 border-gray-200';
     case 'in-progress': return 'bg-blue-100 text-blue-700 border-blue-200';
-    case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+    case 'achieved': return 'bg-green-100 text-green-700 border-green-200';
     case 'blocked': return 'bg-red-100 text-red-700 border-red-200';
-    case 'cancelled': return 'bg-orange-100 text-orange-700 border-orange-200';
+    case 'pending-review': return 'bg-orange-100 text-orange-700 border-orange-200';
+    case 'cancelled': return 'bg-gray-100 text-gray-600 border-gray-200';
     default: return 'bg-gray-100 text-gray-700 border-gray-200';
   }
 };
@@ -495,18 +501,15 @@ const getRACIRoleColor = (role: 'R' | 'A' | 'C' | 'I') => {
   }
 };
 
-// Check if goal is overdue
-const isGoalOverdue = (goal: Goal) => {
-  return goal.targetDate && new Date(goal.targetDate) < new Date() && goal.status !== 'completed';
-};
 
 // Get goal status display text
 const getGoalStatusText = (status: Goal['status']) => {
   switch (status) {
-    case 'not-started': return 'Not Started';
+    case 'yet-to-start': return 'Yet to start';
     case 'in-progress': return 'In Progress';
-    case 'completed': return 'Completed';
+    case 'achieved': return 'Achieved';
     case 'blocked': return 'Blocked';
+    case 'pending-review': return 'Pending Review';
     case 'cancelled': return 'Cancelled';
     default: return status;
   }
@@ -525,7 +528,9 @@ const GoalCard = ({
   onEditGoal,
   onLinkedEntries,
   onDeleteGoal,
-  onAdjustProgress
+  onAdjustProgress,
+  workspaceLabels,
+  workspaceMembers
 }: { 
   goal: Goal;
   onToggleMilestone?: (goalId: string, milestoneId: string, coords?: { x: number; y: number }) => void;
@@ -539,9 +544,24 @@ const GoalCard = ({
   onLinkedEntries?: (goalId: string) => void;
   onDeleteGoal?: (goalId: string) => void;
   onAdjustProgress?: (goalId: string) => void;
+  workspaceLabels?: any[];
+  workspaceMembers?: any[];
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [hoveredMilestone, setHoveredMilestone] = React.useState<string | null>(null);
+  const [milestonesExpanded, setMilestonesExpanded] = React.useState(false);
+  const [expandedMilestones, setExpandedMilestones] = React.useState<Set<string>>(new Set());
+  
+  // Initialize milestone completion mutation
+  const completeMilestoneMutation = useCompleteMilestone();
+  
+  // Initialize task management mutations
+  const createTaskMutation = useCreateTask();
+  const updateTaskMutation = useUpdateTask();
+  const deleteTaskMutation = useDeleteTask();
+  
+  // Initialize goal update mutation for status changes
+  const updateGoalMutation = useUpdateGoal();
   
   const isOverdue = isGoalOverdue(goal);
   const hasRecentEdits = goal.editHistory.some(edit => 
@@ -682,6 +702,52 @@ const GoalCard = ({
                     <Tag className="h-3 w-3" />
                     {goal.category}
                   </span>
+                  
+                  {/* Assigned To Badge */}
+                  {goal.assignedTo ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                      {goal.assignedTo.avatar ? (
+                        <img
+                          src={goal.assignedTo.avatar}
+                          alt={goal.assignedTo.name}
+                          className="w-4 h-4 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full bg-purple-200 flex items-center justify-center text-[10px] font-semibold text-purple-700">
+                          {goal.assignedTo.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
+                        </div>
+                      )}
+                      <span>Assigned: {goal.assignedTo.name}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200">
+                      <User className="h-3 w-3" />
+                      <span>Unassigned</span>
+                    </span>
+                  )}
+                  
+                  {/* Reviewer Badge */}
+                  {goal.reviewer ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      {goal.reviewer.avatar ? (
+                        <img
+                          src={goal.reviewer.avatar}
+                          alt={goal.reviewer.name}
+                          className="w-4 h-4 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[10px] font-semibold text-blue-700">
+                          {goal.reviewer.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
+                        </div>
+                      )}
+                      <span>Reviewer: {goal.reviewer.name}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200">
+                      <User className="h-3 w-3" />
+                      <span>No reviewer</span>
+                    </span>
+                  )}
                 </div>
                 
                 {/* Alert Badges - Only Recent Updates */}
@@ -697,28 +763,8 @@ const GoalCard = ({
             </div>
           </div>
 
-          {/* Progress Section & Actions */}
+          {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Progress Bar */}
-            <div className="text-right">
-              <div className="text-sm font-bold text-gray-800 mb-1">
-                {getEffectiveProgress(goal)}%
-              </div>
-              <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className={cn(
-                    "h-full transition-all duration-500 rounded-full",
-                    getEffectiveProgress(goal) >= 100 ? "bg-green-500" :
-                    getEffectiveProgress(goal) >= 75 ? "bg-blue-500" :
-                    getEffectiveProgress(goal) >= 50 ? "bg-yellow-500" :
-                    "bg-primary-500"
-                  )}
-                  style={{ width: `${getEffectiveProgress(goal)}%` }}
-                />
-              </div>
-            </div>
-            
-            {/* Actions */}
             <div className="flex items-center gap-1">
               {/* More Options Button */}
               <div className="relative">
@@ -747,7 +793,7 @@ const GoalCard = ({
                       Goal Actions
                     </div>
                     
-                    {/* Primary Actions */}
+                    {/* Simplified Menu - Only 4 Essential Options */}
                     <div className="py-1">
                       <button
                         type="button"
@@ -768,70 +814,13 @@ const GoalCard = ({
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          onLinkedEntries?.(goal.id);
-                        }}
-                      >
-                        <ExternalLink className="h-4 w-4 text-gray-400" />
-                        Linked Entries
-                      </button>
-                      
-                      <button
-                        type="button"
-                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
                           onAdjustProgress?.(goal.id);
                         }}
                       >
                         <BarChart3 className="h-4 w-4 text-gray-400" />
                         Adjust Progress
                       </button>
-                    </div>
-                    
-                    {/* Achievement Actions */}
-                    {goal.status !== 'completed' && (
-                      <div className="py-1 border-t border-gray-100">
-                        <div className="px-3 py-1 text-xs font-medium text-gray-400">Mark Complete</div>
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onQuickUpdateStatus?.(goal.id, 'completed');
-                          }}
-                        >
-                          <Check className="h-4 w-4 text-green-600" />
-                          Mark Goal as Achieved
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Milestone Actions */}
-                    {goal.milestones.length > 0 && (
-                      <div className="py-1 border-t border-gray-100">
-                        <div className="px-3 py-1 text-xs font-medium text-gray-400">Milestones</div>
-                        {goal.milestones.filter(milestone => getMilestoneStatus(milestone) !== 'completed').slice(0, 3).map(milestone => (
-                          <button
-                            key={milestone.id}
-                            type="button"
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onToggleMilestone?.(goal.id, milestone.id, { x: e.clientX, y: e.clientY });
-                            }}
-                          >
-                            <Check className="h-4 w-4 text-blue-600" />
-                            Complete: {milestone.title}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Management Actions */}
-                    <div className="py-1 border-t border-gray-100">
+                      
                       <button
                         type="button"
                         className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
@@ -907,38 +896,35 @@ const GoalCard = ({
 
           {/* Team Avatars */}
           <div className="flex items-center gap-1">
-            <RouterLink to={`/profile/${goal.accountable.id}`} className="block">
-              <div className="w-5 h-5 rounded-full border border-purple-200 hover:border-purple-400 overflow-hidden transition-colors cursor-pointer" title={`Accountable: ${goal.accountable.name}`}>
-                <img 
-                  src={goal.accountable.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.accountable.name)}&background=random`} 
-                  alt={goal.accountable.name} 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.accountable.name)}&background=random`;
-                  }}
-                />
-              </div>
-            </RouterLink>
-            {goal.responsible.slice(0, 2).map((member) => (
-              <RouterLink key={member.id} to={`/profile/${member.id}`} className="block">
-                <div className="w-5 h-5 rounded-full border border-blue-200 hover:border-blue-400 overflow-hidden transition-colors cursor-pointer" title={`Responsible: ${member.name}`}>
+            {goal.assignedTo && (
+              <RouterLink to={`/profile/${goal.assignedTo.id}`} className="block">
+                <div className="w-5 h-5 rounded-full border border-purple-200 hover:border-purple-400 overflow-hidden transition-colors cursor-pointer" title={`Assigned to: ${goal.assignedTo.name}`}>
                   <img 
-                    src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`} 
-                    alt={member.name} 
+                    src={goal.assignedTo.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.assignedTo.name)}&background=random`} 
+                    alt={goal.assignedTo.name} 
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`;
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.assignedTo.name)}&background=random`;
                     }}
                   />
                 </div>
               </RouterLink>
-            ))}
-            {goal.responsible.length > 2 && (
-              <div className="w-5 h-5 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center">
-                <span className="text-xs text-gray-600 font-medium">+{goal.responsible.length - 2}</span>
-              </div>
             )}
-            {goal.linkedJournalEntries.length > 0 && (
+            {goal.reviewer && (
+              <RouterLink to={`/profile/${goal.reviewer.id}`} className="block">
+                <div className="w-5 h-5 rounded-full border border-blue-200 hover:border-blue-400 overflow-hidden transition-colors cursor-pointer" title={`Reviewer: ${goal.reviewer.name}`}>
+                  <img 
+                    src={goal.reviewer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.reviewer.name)}&background=random`} 
+                    alt={goal.reviewer.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.reviewer.name)}&background=random`;
+                    }}
+                  />
+                </div>
+              </RouterLink>
+            )}
+            {goal.linkedJournalEntries && goal.linkedJournalEntries.length > 0 && (
               <div className="flex items-center gap-1 ml-2">
                 <MessageSquare className="h-3 w-3 text-gray-400" />
                 <span className="text-xs text-gray-500">{goal.linkedJournalEntries.length}</span>
@@ -947,9 +933,49 @@ const GoalCard = ({
           </div>
         </div>
 
+        {/* Unified Status Bar */}
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="hidden sm:block">
+            <UnifiedStatusBar 
+              goal={goal}
+              onStatusChange={async (goalId: string, newStatus: Goal['status']) => {
+                try {
+                  await updateGoalMutation.mutateAsync({ 
+                    goalId, 
+                    data: { status: newStatus } 
+                  });
+                } catch (error) {
+                  // Error handling is managed by the mutation's onError callback
+                  // Re-throw to let the component handle UI states
+                  throw error;
+                }
+              }}
+              disabled={updateGoalMutation.isPending}
+            />
+          </div>
+          <div className="sm:hidden">
+            <UnifiedStatusBarMobile 
+              goal={goal}
+              onStatusChange={async (goalId: string, newStatus: Goal['status']) => {
+                try {
+                  await updateGoalMutation.mutateAsync({ 
+                    goalId, 
+                    data: { status: newStatus } 
+                  });
+                } catch (error) {
+                  // Error handling is managed by the mutation's onError callback
+                  // Re-throw to let the component handle UI states
+                  throw error;
+                }
+              }}
+              disabled={updateGoalMutation.isPending}
+            />
+          </div>
+        </div>
+
         {/* Expand Indicator (only show when collapsed) */}
         {!isExpanded && (
-          <div className="flex items-center justify-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-center mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <span>Click to expand</span>
               <ChevronDown className="h-3 w-3" />
@@ -969,72 +995,83 @@ const GoalCard = ({
               </p>
             </div>
 
-            {/* Detailed Milestones */}
+            {/* Milestones Accordion */}
+            {/* Monday.com-style Milestone Groups */}
             {goal.milestones.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Milestones</span>
-                  <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full">
-                    {completedMilestones}/{totalMilestones} completed
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {goal.milestones.map((milestone) => (
-                    <div
-                      key={milestone.id}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer group/milestone",
-                        milestone.completed 
-                          ? "bg-green-50 border-green-200 hover:bg-green-100" 
-                          : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                      )}
-                      onClick={(e) => {
-                        console.log('🖱️ Container clicked:', { goalId: goal.id, milestoneId: milestone.id, milestoneCompleted: milestone.completed });
-                        e.stopPropagation();
-                        onToggleMilestone?.(goal.id, milestone.id, { x: e.clientX, y: e.clientY });
-                      }}
-                    >
-                      <div
-                        className={cn(
-                          "w-5 h-5 rounded-full flex items-center justify-center transition-all group-hover/milestone:scale-110",
-                          milestone.completed 
-                            ? "bg-green-500 shadow-sm" 
-                            : "bg-gray-200 hover:bg-primary-200 border border-gray-400 group-hover/milestone:border-primary-400"
-                        )}
-                      >
-                        {milestone.completed && (
-                          <div className="w-2.5 h-2.5 bg-white rounded-full" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className={cn(
-                          "text-sm transition-all",
-                          milestone.completed 
-                            ? "text-green-800 font-medium line-through" 
-                            : "text-gray-700 group-hover/milestone:text-gray-900"
-                        )}>
-                          {milestone.title}
-                        </p>
-                        {milestone.targetDate && (
-                          <p className="text-xs text-gray-500">
-                            Due {format(new Date(milestone.targetDate), 'MMM d, yyyy')}
-                            {milestone.completed && milestone.completedDate && (
-                              <span className="ml-2 text-green-600">
-                                • Completed {format(new Date(milestone.completedDate), 'MMM d')}
-                              </span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      <div className="opacity-0 group-hover/milestone:opacity-100 transition-opacity">
-                        <div className="text-xs text-gray-400">
-                          Click to {milestone.completed ? 'mark incomplete' : 'complete'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-3">
+                {goal.milestones.map((milestone) => (
+                  <MilestoneGroup
+                    key={milestone.id}
+                    milestone={milestone}
+                    goalId={goal.id}
+                    workspaceMembers={workspaceMembers?.map(member => ({
+                      id: member.user?.id || '',
+                      name: member.user?.name || 'Unknown',
+                      email: member.user?.email || '',
+                      avatar: member.user?.avatar,
+                      position: member.user?.title
+                    })).filter(member => member.id !== '') || []}
+                    workspaceLabels={workspaceLabels}
+                    isExpanded={expandedMilestones.has(milestone.id)}
+                    onToggleExpanded={() => {
+                      const newExpanded = new Set(expandedMilestones);
+                      if (newExpanded.has(milestone.id)) {
+                        newExpanded.delete(milestone.id);
+                      } else {
+                        newExpanded.add(milestone.id);
+                      }
+                      setExpandedMilestones(newExpanded);
+                    }}
+                    onToggleCompletion={() => {
+                      completeMilestoneMutation.mutate({
+                        goalId: goal.id,
+                        milestoneId: milestone.id,
+                        completed: !milestone.completed
+                      });
+                    }}
+                    onCreateTask={(task) => {
+                      createTaskMutation.mutate({
+                        goalId: goal.id,
+                        milestoneId: milestone.id,
+                        task
+                      });
+                    }}
+                    onUpdateTask={(taskId, updates) => {
+                      // Find the current task to get its completion state
+                      const currentTask = milestone.tasks?.find(t => t.id === taskId);
+                      const previouslyCompleted = currentTask?.completed || false;
+                      
+                      updateTaskMutation.mutate({
+                        goalId: goal.id,
+                        milestoneId: milestone.id,
+                        taskId,
+                        updates,
+                        previouslyCompleted
+                      });
+                    }}
+                    onDeleteTask={(taskId) => {
+                      deleteTaskMutation.mutate({
+                        goalId: goal.id,
+                        milestoneId: milestone.id,
+                        taskId
+                      });
+                    }}
+                    updateTaskId={
+                      updateTaskMutation.isPending && 
+                      updateTaskMutation.variables?.goalId === goal.id &&
+                      updateTaskMutation.variables?.milestoneId === milestone.id
+                        ? updateTaskMutation.variables?.taskId 
+                        : undefined
+                    }
+                    deleteTaskId={
+                      deleteTaskMutation.isPending && 
+                      deleteTaskMutation.variables?.goalId === goal.id &&
+                      deleteTaskMutation.variables?.milestoneId === milestone.id
+                        ? deleteTaskMutation.variables?.taskId 
+                        : undefined
+                    }
+                  />
+                ))}
               </div>
             )}
 
@@ -1095,147 +1132,6 @@ const GoalCard = ({
               </div>
             )}
 
-            {/* RACI Matrix - Team & Responsibilities */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Team & Responsibilities</span>
-                <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full">
-                  RACI Matrix
-                </span>
-              </div>
-              
-              <div className="space-y-3">
-                {/* Accountable */}
-                <div className="bg-white rounded-lg border border-gray-200 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Accountable</span>
-                    </div>
-                    <div className="flex-1 h-px bg-gray-200"></div>
-                  </div>
-                  <div className="flex items-center gap-3 mt-2">
-                    <RouterLink to={`/profile/${goal.accountable.id}`}>
-                      <div className="w-10 h-10 rounded-full border-2 border-purple-200 hover:border-purple-400 overflow-hidden transition-colors cursor-pointer">
-                        <img src={goal.accountable.avatar} alt={goal.accountable.name} className="w-full h-full object-cover" />
-                      </div>
-                    </RouterLink>
-                    <div>
-                      <RouterLink to={`/profile/${goal.accountable.id}`} className="text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors">
-                        {goal.accountable.name}
-                      </RouterLink>
-                      <p className="text-xs text-gray-500">{goal.accountable.position}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-gray-600 bg-purple-50 px-2 py-1 rounded">
-                    Signs off on goal completion and ensures delivery
-                  </div>
-                </div>
-
-                {/* Responsible */}
-                {goal.responsible.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Responsible</span>
-                      </div>
-                      <div className="flex-1 h-px bg-gray-200"></div>
-                      <span className="text-xs text-gray-500">{goal.responsible.length} member{goal.responsible.length > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                      {goal.responsible.map((member) => (
-                        <div key={member.id} className="flex items-center gap-3">
-                          <RouterLink to={`/profile/${member.id}`}>
-                            <div className="w-8 h-8 rounded-full border-2 border-blue-200 hover:border-blue-400 overflow-hidden transition-colors cursor-pointer">
-                              <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
-                            </div>
-                          </RouterLink>
-                          <div>
-                            <RouterLink to={`/profile/${member.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">
-                              {member.name}
-                            </RouterLink>
-                            <p className="text-xs text-gray-500">{member.position}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
-                      Performs the work to achieve the goal
-                    </div>
-                  </div>
-                )}
-
-                {/* Consulted */}
-                {goal.consulted && goal.consulted.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Consulted</span>
-                      </div>
-                      <div className="flex-1 h-px bg-gray-200"></div>
-                      <span className="text-xs text-gray-500">{goal.consulted.length} member{goal.consulted.length > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                      {goal.consulted.map((member) => (
-                        <div key={member.id} className="flex items-center gap-3">
-                          <RouterLink to={`/profile/${member.id}`}>
-                            <div className="w-8 h-8 rounded-full border-2 border-green-200 hover:border-green-400 overflow-hidden transition-colors cursor-pointer">
-                              <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
-                            </div>
-                          </RouterLink>
-                          <div>
-                            <RouterLink to={`/profile/${member.id}`} className="text-sm font-medium text-gray-900 hover:text-green-600 transition-colors">
-                              {member.name}
-                            </RouterLink>
-                            <p className="text-xs text-gray-500">{member.position}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600 bg-green-50 px-2 py-1 rounded">
-                      Provides input and expertise during planning
-                    </div>
-                  </div>
-                )}
-
-                {/* Informed */}
-                {goal.informed && goal.informed.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                        <span className="text-xs font-semibold text-yellow-700 uppercase tracking-wide">Informed</span>
-                      </div>
-                      <div className="flex-1 h-px bg-gray-200"></div>
-                      <span className="text-xs text-gray-500">{goal.informed.length} member{goal.informed.length > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                      {goal.informed.map((member) => (
-                        <div key={member.id} className="flex items-center gap-3">
-                          <RouterLink to={`/profile/${member.id}`}>
-                            <div className="w-8 h-8 rounded-full border-2 border-yellow-200 hover:border-yellow-400 overflow-hidden transition-colors cursor-pointer">
-                              <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
-                            </div>
-                          </RouterLink>
-                          <div>
-                            <RouterLink to={`/profile/${member.id}`} className="text-sm font-medium text-gray-900 hover:text-yellow-600 transition-colors">
-                              {member.name}
-                            </RouterLink>
-                            <p className="text-xs text-gray-500">{member.position}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600 bg-yellow-50 px-2 py-1 rounded">
-                      Kept updated on progress and decisions
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
 
             {/* Completion Notes (if any) */}
             {goal.completionNotes && goal.completionNotes.trim() && (
@@ -1395,30 +1291,30 @@ const GoalListItem = ({
 
         {/* Right section: Avatars and actions */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          {/* RACI Avatars */}
+          {/* Team Avatars */}
           <div className="flex items-center gap-1">
-            <RouterLink to={`/profile/${goal.accountable.id}`}>
-              <img 
-                src={goal.accountable.avatar} 
-                alt={goal.accountable.name}
-                className="w-6 h-6 rounded-full border-2 border-white hover:border-purple-300 transition-colors cursor-pointer"
-                title={`Accountable: ${goal.accountable.name}`}
-              />
-            </RouterLink>
-            {goal.responsible.slice(0, 2).map((member, index) => (
-              <RouterLink key={member.id} to={`/profile/${member.id}`}>
+            {goal.assignedTo && (
+              <RouterLink to={`/profile/${goal.assignedTo.id}`}>
                 <img 
-                  src={member.avatar} 
-                  alt={member.name}
-                  className="w-6 h-6 rounded-full border-2 border-white hover:border-blue-300 -ml-1 transition-colors cursor-pointer"
-                  title={`Responsible: ${member.name}`}
+                  src={goal.assignedTo.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.assignedTo.name)}&background=random`} 
+                  alt={goal.assignedTo.name}
+                  className="w-6 h-6 rounded-full border-2 border-white hover:border-purple-300 transition-colors cursor-pointer"
+                  title={`Assigned to: ${goal.assignedTo.name}`}
                 />
               </RouterLink>
-            ))}
-            {goal.responsible.length > 2 && (
-              <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white -ml-1 flex items-center justify-center">
-                <span className="text-xs text-gray-600 font-medium">+{goal.responsible.length - 2}</span>
-              </div>
+            )}
+            {goal.reviewer && (
+              <RouterLink to={`/profile/${goal.reviewer.id}`}>
+                <img 
+                  src={goal.reviewer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.reviewer.name)}&background=random`} 
+                  alt={goal.reviewer.name}
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 border-white hover:border-blue-300 transition-colors cursor-pointer",
+                    goal.assignedTo && "-ml-1"
+                  )}
+                  title={`Reviewer: ${goal.reviewer.name}`}
+                />
+              </RouterLink>
             )}
           </div>
 
@@ -1618,24 +1514,27 @@ const GoalSidePanel = ({
     description: goal?.description || '',
     category: goal?.category || 'Product',
     priority: goal?.priority || 'medium',
-    status: goal?.status || 'not-started',
+    status: goal?.status ? migrateStatus(goal.status) : 'yet-to-start',
     targetDate: goal?.targetDate ? format(new Date(goal.targetDate), 'yyyy-MM-dd') : '',
-    responsible: goal?.responsible || [],
-    accountable: goal?.accountable || teamMembers?.[0],
-    consulted: goal?.consulted || [],
-    informed: goal?.informed || [],
+    assignedTo: goal?.assignedTo || teamMembers?.[0] || null,
+    reviewer: goal?.reviewer || null,
     milestones: goal?.milestones || [],
     tags: goal?.tags || []
   });
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [newMilestone, setNewMilestone] = useState({ title: '', targetDate: '' });
+  const [newMilestone, setNewMilestone] = useState({ 
+    title: '', 
+    targetDate: ''
+  });
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [editingMilestone, setEditingMilestone] = useState({ title: '', targetDate: '' });
   const [tagInput, setTagInput] = useState('');
   const [showTemplateSection, setShowTemplateSection] = useState(false);
 
   const categories = ['Product', 'Marketing', 'Engineering', 'Security', 'Operations', 'Design'];
   const priorities = ['low', 'medium', 'high', 'critical'];
-  const statuses = ['not-started', 'in-progress', 'completed', 'blocked', 'cancelled'];
+  const statuses: Goal['status'][] = ['yet-to-start', 'in-progress', 'blocked', 'pending-review', 'achieved', 'cancelled'];
 
   const goalTemplates = [
     {
@@ -1736,12 +1635,10 @@ const GoalSidePanel = ({
       description: '',
       category: 'Product',
       priority: 'medium',
-      status: 'not-started',
+      status: 'yet-to-start',
       targetDate: '',
-      responsible: [],
-      accountable: teamMembers.find(m => m.id === currentUser?.id) || teamMembers[0] || null,
-      consulted: [],
-      informed: [],
+      assignedTo: teamMembers.find(m => m.id === currentUser?.id) || teamMembers[0] || null,
+      reviewer: null,
       milestones: [],
       tags: []
     });
@@ -1764,12 +1661,10 @@ const GoalSidePanel = ({
       description: template.description,
       category: template.category,
       priority: template.priority,
-      status: 'not-started',
+      status: 'yet-to-start',
       targetDate: format(targetDate, 'yyyy-MM-dd'),
-      responsible: [],
-      accountable: teamMembers?.[0] || null,
-      consulted: [],
-      informed: [],
+      assignedTo: teamMembers?.[0] || null,
+      reviewer: null,
       milestones: template.milestones.map((milestone: any, index: number) => ({
         id: `milestone-${Date.now()}-${index}`,
         title: milestone.title,
@@ -1790,7 +1685,8 @@ const GoalSidePanel = ({
         title: newMilestone.title,
         targetDate: new Date(newMilestone.targetDate),
         completed: false,
-        completedDate: null
+        completedDate: null,
+        tasks: []
       };
       setFormData(prev => ({
         ...prev,
@@ -1800,11 +1696,40 @@ const GoalSidePanel = ({
     }
   };
 
+
   const removeMilestone = (id: string) => {
     setFormData(prev => ({
       ...prev,
       milestones: prev.milestones.filter(m => m.id !== id)
     }));
+  };
+
+  const startEditingMilestone = (milestone: Milestone) => {
+    setEditingMilestoneId(milestone.id);
+    setEditingMilestone({
+      title: milestone.title,
+      targetDate: format(new Date(milestone.targetDate), 'yyyy-MM-dd')
+    });
+  };
+
+  const saveEditingMilestone = () => {
+    if (!editingMilestoneId || !editingMilestone.title || !editingMilestone.targetDate) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      milestones: prev.milestones.map(m => 
+        m.id === editingMilestoneId 
+          ? { ...m, title: editingMilestone.title, targetDate: new Date(editingMilestone.targetDate) }
+          : m
+      )
+    }));
+    setEditingMilestoneId(null);
+    setEditingMilestone({ title: '', targetDate: '' });
+  };
+
+  const cancelEditingMilestone = () => {
+    setEditingMilestoneId(null);
+    setEditingMilestone({ title: '', targetDate: '' });
   };
 
   const addTag = () => {
@@ -1824,12 +1749,17 @@ const GoalSidePanel = ({
     }));
   };
 
-  const toggleTeamMember = (member: TeamMember, role: 'responsible' | 'consulted' | 'informed') => {
+  const handleAssignedToChange = (member: TeamMember | null) => {
     setFormData(prev => ({
       ...prev,
-      [role]: prev[role].some((m: TeamMember) => m.id === member.id)
-        ? prev[role].filter((m: TeamMember) => m.id !== member.id)
-        : [...prev[role], member]
+      assignedTo: member
+    }));
+  };
+
+  const handleReviewerChange = (member: TeamMember | null) => {
+    setFormData(prev => ({
+      ...prev,
+      reviewer: member
     }));
   };
 
@@ -1858,10 +1788,8 @@ const GoalSidePanel = ({
         { field: 'priority', old: goal.priority, new: formData.priority },
         { field: 'status', old: goal.status, new: formData.status },
         { field: 'targetDate', old: goal.targetDate, new: formData.targetDate ? new Date(formData.targetDate) : null },
-        { field: 'responsible', old: goal.responsible.map(m => m.id).sort(), new: formData.responsible.map(m => m.id).sort() },
-        { field: 'accountable', old: goal.accountable.id, new: formData.accountable.id },
-        { field: 'consulted', old: goal.consulted.map(m => m.id).sort(), new: formData.consulted.map(m => m.id).sort() },
-        { field: 'informed', old: goal.informed.map(m => m.id).sort(), new: formData.informed.map(m => m.id).sort() },
+        { field: 'assignedTo', old: goal.assignedTo?.id, new: formData.assignedTo?.id },
+        { field: 'reviewer', old: goal.reviewer?.id, new: formData.reviewer?.id },
         { field: 'milestones', old: goal.milestones.length, new: formData.milestones.length },
         { field: 'tags', old: goal.tags.sort(), new: formData.tags.sort() }
       ];
@@ -1892,10 +1820,8 @@ const GoalSidePanel = ({
         priority: formData.priority,
         status: formData.status,
         targetDate: formData.targetDate ? new Date(formData.targetDate) : null,
-        responsible: formData.responsible,
-        accountable: formData.accountable,
-        consulted: formData.consulted,
-        informed: formData.informed,
+        assignedTo: formData.assignedTo,
+        reviewer: formData.reviewer,
         milestones: formData.milestones,
         tags: formData.tags,
         lastUpdated: now,
@@ -1923,10 +1849,8 @@ const GoalSidePanel = ({
           newValue: 'Goal created',
           reason: 'Initial goal creation'
         }],
-        responsible: formData.responsible,
-        accountable: formData.accountable,
-        consulted: formData.consulted,
-        informed: formData.informed,
+        assignedTo: formData.assignedTo,
+        reviewer: formData.reviewer,
         progressPercentage: 0,
         linkedJournalEntries: [],
         milestones: formData.milestones,
@@ -2016,7 +1940,7 @@ const GoalSidePanel = ({
           {/* Step Navigation */}
           <div className="flex items-center justify-center p-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-4">
-              {[1, 2, 3, 4].map((step) => (
+              {[1, 2].map((step) => (
                 <button
                   key={step}
                   onClick={() => setCurrentStep(step)}
@@ -2186,9 +2110,117 @@ const GoalSidePanel = ({
             {currentStep === 2 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Timeline & Milestones</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Team Assignment & Timeline</h3>
                   
                   <div className="space-y-4">
+                    {/* Team Assignment Section */}
+                    <div className="space-y-4">
+                      {/* Assigned To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Assigned to <span className="text-red-500">*</span>
+                          <span className="text-xs text-gray-500 ml-2">(Primary person responsible for this goal)</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {teamMembers.map((member) => (
+                            <button
+                              key={member.id}
+                              onClick={() => handleAssignedToChange(member)}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
+                                formData.assignedTo?.id === member.id
+                                  ? "border-primary-300 bg-primary-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              )}
+                            >
+                              <img 
+                                src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`} 
+                                alt={member.name} 
+                                className="w-8 h-8 rounded-full"
+                              />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                                <p className="text-xs text-gray-500">{member.position}</p>
+                              </div>
+                              {formData.assignedTo?.id === member.id && (
+                                <div className="ml-auto">
+                                  <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Reviewer */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Reviewer
+                          <span className="text-xs text-gray-500 ml-2">(Optional - Person who reviews progress and completion)</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* None Option */}
+                          <button
+                            onClick={() => handleReviewerChange(null)}
+                            className={cn(
+                              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
+                              !formData.reviewer
+                                ? "border-gray-400 bg-gray-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            )}
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">No Reviewer</p>
+                              <p className="text-xs text-gray-400">Self-managed goal</p>
+                            </div>
+                            {!formData.reviewer && (
+                              <div className="ml-auto">
+                                <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                          </button>
+                          {teamMembers.filter(member => member.id !== formData.assignedTo?.id).map((member) => (
+                            <button
+                              key={member.id}
+                              onClick={() => handleReviewerChange(member)}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
+                                formData.reviewer?.id === member.id
+                                  ? "border-blue-300 bg-blue-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              )}
+                            >
+                              <img 
+                                src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`} 
+                                alt={member.name} 
+                                className="w-8 h-8 rounded-full"
+                              />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                                <p className="text-xs text-gray-500">{member.position}</p>
+                              </div>
+                              {formData.reviewer?.id === member.id && (
+                                <div className="ml-auto">
+                                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Target Date</label>
                       <input
@@ -2204,27 +2236,35 @@ const GoalSidePanel = ({
                       
                       {/* Add Milestone */}
                       <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                        <div className="space-y-3">
-                          <input
-                            type="text"
-                            placeholder="Milestone title..."
-                            value={newMilestone.title}
-                            onChange={(e) => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
-                          />
-                          <div className="flex gap-2">
+                        <div className="space-y-4">
+                          {/* Milestone Basic Info */}
+                          <div className="space-y-3">
+                            <input
+                              type="text"
+                              placeholder="Milestone title..."
+                              value={newMilestone.title}
+                              onChange={(e) => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
+                            />
                             <input
                               type="date"
                               value={newMilestone.targetDate}
                               onChange={(e) => setNewMilestone(prev => ({ ...prev, targetDate: e.target.value }))}
-                              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
                             />
+                          </div>
+
+
+                          {/* Add Milestone Button */}
+                          <div className="flex justify-end pt-2 border-t border-gray-200">
                             <Button
                               onClick={addMilestone}
                               size="sm"
                               disabled={!newMilestone.title || !newMilestone.targetDate}
+                              className="flex items-center gap-2"
                             >
                               <Plus className="h-4 w-4" />
+                              Add Milestone
                             </Button>
                           </div>
                         </div>
@@ -2233,255 +2273,77 @@ const GoalSidePanel = ({
                       {/* Milestone List */}
                       <div className="space-y-2">
                         {formData.milestones.map((milestone) => (
-                          <div key={milestone.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{milestone.title}</p>
-                              <p className="text-xs text-gray-500">
-                                Due: {format(new Date(milestone.targetDate), 'MMM d, yyyy')}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => removeMilestone(milestone.id)}
-                              className="text-red-500 hover:text-red-700 p-1"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: RACI Assignment */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">RACI Assignments</h3>
-                  
-                  <div className="space-y-6">
-                    {/* Accountable */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Accountable <span className="text-red-500">*</span>
-                        <span className="text-xs text-gray-500 ml-2">(Signs off on the goal - single person)</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {teamMembers.map((member) => (
-                          <button
-                            key={member.id}
-                            onClick={() => setFormData(prev => ({ ...prev, accountable: member }))}
-                            className={cn(
-                              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
-                              formData.accountable.id === member.id
-                                ? "border-purple-300 bg-purple-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            )}
-                          >
-                            <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full" />
-                            <div className="text-left">
-                              <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                              <p className="text-xs text-gray-500">{member.position}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Responsible */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Responsible
-                        <span className="text-xs text-gray-500 ml-2">(Does the work)</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {teamMembers.map((member) => (
-                          <button
-                            key={member.id}
-                            onClick={() => toggleTeamMember(member, 'responsible')}
-                            className={cn(
-                              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
-                              formData.responsible.some(m => m.id === member.id)
-                                ? "border-blue-300 bg-blue-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            )}
-                          >
-                            <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full" />
-                            <div className="text-left">
-                              <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                              <p className="text-xs text-gray-500">{member.position}</p>
-                            </div>
-                            {formData.responsible.some(m => m.id === member.id) && (
-                              <div className="ml-auto">
-                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Consulted */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Consulted
-                        <span className="text-xs text-gray-500 ml-2">(Provides input)</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {teamMembers.map((member) => (
-                          <button
-                            key={member.id}
-                            onClick={() => toggleTeamMember(member, 'consulted')}
-                            className={cn(
-                              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
-                              formData.consulted.some(m => m.id === member.id)
-                                ? "border-orange-300 bg-orange-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            )}
-                          >
-                            <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full" />
-                            <div className="text-left">
-                              <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                              <p className="text-xs text-gray-500">{member.position}</p>
-                            </div>
-                            {formData.consulted.some(m => m.id === member.id) && (
-                              <div className="ml-auto">
-                                <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Informed */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Informed
-                        <span className="text-xs text-gray-500 ml-2">(Gets updates)</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {teamMembers.map((member) => (
-                          <button
-                            key={member.id}
-                            onClick={() => toggleTeamMember(member, 'informed')}
-                            className={cn(
-                              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
-                              formData.informed.some(m => m.id === member.id)
-                                ? "border-gray-400 bg-gray-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            )}
-                          >
-                            <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full" />
-                            <div className="text-left">
-                              <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                              <p className="text-xs text-gray-500">{member.position}</p>
-                            </div>
-                            {formData.informed.some(m => m.id === member.id) && (
-                              <div className="ml-auto">
-                                <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Tags & Review */}
-            {currentStep === 4 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Tags & Review</h3>
-                  
-                  <div className="space-y-6">
-                    {/* Tags */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                      <div className="flex gap-2 mb-3">
-                        <input
-                          type="text"
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                          placeholder="Add a tag..."
-                          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
-                        />
-                        <Button onClick={addTag} size="sm" disabled={!tagInput.trim()}>
-                          Add
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-700"
-                          >
-                            {tag}
-                            <button
-                              onClick={() => removeTag(tag)}
-                              className="text-primary-500 hover:text-primary-700"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Edit History (for existing goals) */}
-                    {goal && goal.editHistory.length > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Edit History</label>
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="space-y-3 max-h-32 overflow-y-auto">
-                            {goal.editHistory.map((edit) => (
-                              <div key={edit.id} className="flex items-center gap-3 text-sm">
-                                <img src={edit.editedBy.avatar} alt={edit.editedBy.name} className="w-6 h-6 rounded-full" />
-                                <div className="flex-1">
-                                  <span className="text-gray-900">{edit.editedBy.name}</span>
-                                  <span className="text-gray-500"> changed </span>
-                                  <span className="font-medium">{edit.field}</span>
-                                  <span className="text-gray-500"> on </span>
-                                  <span className="text-gray-900">
-                                    {format(new Date(edit.editedAt), 'MMM d, yyyy')}
-                                  </span>
+                          <div key={milestone.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                            {editingMilestoneId === milestone.id ? (
+                              /* Editing Mode */
+                              <div className="space-y-3">
+                                <input
+                                  type="text"
+                                  value={editingMilestone.title}
+                                  onChange={(e) => setEditingMilestone(prev => ({ ...prev, title: e.target.value }))}
+                                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
+                                  placeholder="Milestone title..."
+                                />
+                                <div className="flex gap-2">
+                                  <input
+                                    type="date"
+                                    value={editingMilestone.targetDate}
+                                    onChange={(e) => setEditingMilestone(prev => ({ ...prev, targetDate: e.target.value }))}
+                                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20 transition-all"
+                                  />
+                                  <Button
+                                    onClick={saveEditingMilestone}
+                                    size="sm"
+                                    disabled={!editingMilestone.title || !editingMilestone.targetDate}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    onClick={cancelEditingMilestone}
+                                    variant="outline"
+                                    size="sm"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
                               </div>
-                            ))}
+                            ) : (
+                              /* Display Mode */
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 cursor-pointer" onClick={() => startEditingMilestone(milestone)}>
+                                  <p className="text-sm font-medium text-gray-900 hover:text-primary-600 transition-colors">{milestone.title}</p>
+                                  <p className="text-xs text-gray-500">
+                                    Due: {format(new Date(milestone.targetDate), 'MMM d, yyyy')}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => startEditingMilestone(milestone)}
+                                    className="text-gray-400 hover:text-primary-500 p-1 rounded transition-colors"
+                                    title="Edit milestone"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => removeMilestone(milestone.id)}
+                                    className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
+                                    title="Delete milestone"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Summary */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Summary</label>
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-                        <div><span className="font-medium">Title:</span> {formData.title || 'Not set'}</div>
-                        <div><span className="font-medium">Category:</span> {formData.category}</div>
-                        <div><span className="font-medium">Priority:</span> {formData.priority}</div>
-                        <div><span className="font-medium">Target Date:</span> {formData.targetDate || 'Not set'}</div>
-                        <div><span className="font-medium">Accountable:</span> {formData.accountable.name}</div>
-                        <div><span className="font-medium">Responsible:</span> {formData.responsible.length} people</div>
-                        <div><span className="font-medium">Milestones:</span> {formData.milestones.length}</div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
+
+
           </div>
           
           {/* Footer */}
@@ -2500,7 +2362,7 @@ const GoalSidePanel = ({
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              {currentStep < 4 ? (
+              {currentStep < 2 ? (
                 <Button onClick={() => setCurrentStep(prev => prev + 1)}>
                   Next
                 </Button>
@@ -4538,27 +4400,6 @@ export default function WorkspaceDetailPage() {
   // Fetch workspace members
   const { data: workspaceMembers, isLoading: membersLoading, error: membersError } = useWorkspaceMembers(workspaceIdForAPI);
   
-  // Debug workspace members data
-  console.log('🔍 Workspace members debug:');
-  console.log('  workspaceId:', workspaceIdForAPI);
-  console.log('  membersLoading:', membersLoading);
-  console.log('  membersError:', membersError);
-  console.log('  workspaceMembers length:', workspaceMembers?.length || 0);
-  console.log('  currentUser from auth:', currentUser);
-  console.log('  raw workspaceMembers:', workspaceMembers);
-  
-  if (workspaceMembers && workspaceMembers.length > 0) {
-    console.log('  First workspace member sample:', workspaceMembers[0]);
-    workspaceMembers.forEach((member, index) => {
-      console.log(`  Member ${index}:`, {
-        userId: member.user.id,
-        userName: member.user.name,
-        userTitle: member.user.title,
-        userEmail: member.user.email,
-        role: member.role
-      });
-    });
-  }
   
   // Fetch workspace files
   const { data: workspaceFilesData, isLoading: filesLoading } = useWorkspaceFiles(workspaceIdForAPI, {
@@ -4696,14 +4537,8 @@ export default function WorkspaceDetailPage() {
   // Transform workspace members to match the expected format
   const teamMembers = useMemo(() => {
     if (!workspaceMembers) {
-      console.log('🚫 No workspaceMembers data available');
       return [];
     }
-    
-    console.log('👥 Processing workspaceMembers:', workspaceMembers.length, 'members');
-    console.log('👤 Current user ID from auth:', currentUser?.id);
-    console.log('👤 Current user name from auth:', currentUser?.name);
-    console.log('👤 Current user title from auth:', currentUser?.title);
     
     const transformed = workspaceMembers.map((member, index) => {
       const isCurrentUser = member.user.id === currentUser?.id;
@@ -4728,29 +4563,31 @@ export default function WorkspaceDetailPage() {
         status: 'active',
       };
       
-      if (isCurrentUser) {
-        console.log('📋 Current user transformed to:', transformedMember);
-      }
       
       return transformedMember;
     });
     
     // Find current user in transformed data
     const currentUserInTeam = transformed.find(m => m.id === currentUser?.id);
-    console.log('👤 Current user in team members:', currentUserInTeam);
-    
-    console.log('✅ Transformed teamMembers:', transformed);
     return transformed;
   }, [workspaceMembers, currentUser?.id]);
 
   // Load goals from API
   const { data: goals = [], isLoading: goalsLoading, error: goalsError } = useWorkspaceGoals(workspaceIdForAPI || '');
+  const { data: workspaceLabels = [] } = useWorkspaceLabels(workspaceIdForAPI || '');
   const createGoalMutation = useCreateGoal();
   const updateGoalMutation = useUpdateGoal();
+  const queryClient = useQueryClient();
   const deleteGoalMutation = useDeleteGoal();
   const toggleMilestoneMutation = useToggleMilestone();
   const linkJournalEntryMutation = useLinkJournalEntry();
   const { notifyGoalCreated, notifyGoalStatusChanged, notifyMilestoneCompleted } = useGoalNotifications();
+  
+  // Task management mutations
+  const createTaskMutation = useCreateTask();
+  const updateTaskMutation = useUpdateTask();
+  const deleteTaskMutation = useDeleteTask();
+  const completeMilestoneMutation = useCompleteMilestone();
   
   // Goals are loaded via API hook - no manual initialization needed
   
@@ -5379,6 +5216,8 @@ export default function WorkspaceDetailPage() {
         priority: template.priority,
         targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
         category: template.category,
+        assignedToId: currentUser.id, // Set current user as assigned by default
+        reviewerId: null,
         accountableId: currentUser.id, // Set current user as accountable
         responsibleIds: [], // Empty array for responsible users
         consultedIds: [], // Empty array for consulted users
@@ -6205,7 +6044,7 @@ export default function WorkspaceDetailPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Completed</p>
-                      <p className="text-xl font-semibold text-gray-900">{goals.filter(g => g.status === 'completed').length}</p>
+                      <p className="text-xl font-semibold text-gray-900">{goals.filter(g => migrateStatus(g.status) === 'achieved').length}</p>
                     </div>
                   </div>
                 </div>
@@ -6219,7 +6058,7 @@ export default function WorkspaceDetailPage() {
                     <div>
                       <p className="text-xs text-gray-500">Overdue</p>
                       <p className="text-xl font-semibold text-gray-900">
-                        {goals.filter(g => g.targetDate && new Date(g.targetDate) < new Date() && g.status !== 'completed').length}
+                        {goals.filter(g => isGoalOverdue(g)).length}
                       </p>
                     </div>
                   </div>
@@ -6653,6 +6492,10 @@ export default function WorkspaceDetailPage() {
                     <GoalCard
                       key={goal.id}
                       goal={goal}
+                      workspaceMembers={teamMembers}
+                      workspaceLabels={workspaceLabels}
+                      updateGoalMutation={updateGoalMutation}
+                      queryClient={queryClient}
                       onToggleMilestone={toggleMilestone}
                       onViewHistory={() => handleViewEditHistory(goal)}
                       onQuickAction={setQuickActionGoalId}
@@ -6903,6 +6746,8 @@ export default function WorkspaceDetailPage() {
                     priority: goalData.priority,
                     targetDate: goalData.targetDate,
                     category: goalData.category,
+                    assignedToId: goalData.assignedTo?.id || null,
+                    reviewerId: goalData.reviewer?.id || null,
                     accountableId: goalData.accountable?.id || currentUser.id,
                     responsibleIds: goalData.responsible?.map(r => r.id) || [currentUser.id],
                     consultedIds: goalData.consulted?.map(c => c.id) || [],
