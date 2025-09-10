@@ -298,6 +298,36 @@ app.post('/api/v1/import-benchmarks', async (req, res) => {
   }
 });
 
+// Database migration endpoint for Railway
+app.post('/api/v1/run-migrations', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execAsync = util.promisify(exec);
+    
+    console.log('🔧 Running database migrations...');
+    const { stdout, stderr } = await execAsync('npx prisma migrate deploy');
+    
+    if (stderr) {
+      console.error('Migration stderr:', stderr);
+    }
+    
+    console.log('Migration stdout:', stdout);
+    res.json({ 
+      success: true, 
+      message: 'Database migrations completed',
+      output: stdout
+    });
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Migration failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Manual seeding endpoint for Railway
 app.post('/api/v1/admin/seed-reference', async (req, res) => {
   try {
