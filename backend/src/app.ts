@@ -215,6 +215,89 @@ app.get('/api/v1/health/database', async (req, res) => {
   }
 });
 
+// Benchmark import endpoint (simple, no auth)
+app.post('/api/v1/import-benchmarks', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    console.log('🚀 Starting benchmark import...');
+    
+    // Read JSON export data
+    const exportFile = path.join(__dirname, '../skill-benchmarks-export.json');
+    if (!fs.existsSync(exportFile)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Benchmark export file not found'
+      });
+    }
+
+    const benchmarks = JSON.parse(fs.readFileSync(exportFile, 'utf8'));
+    console.log(`📊 Loaded ${benchmarks.length} benchmarks`);
+
+    // Check current state
+    const currentCount = await prisma.skillBenchmark.count();
+    console.log(`📈 Current benchmarks: ${currentCount}`);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Import records one by one
+    for (const benchmark of benchmarks) {
+      try {
+        await prisma.skillBenchmark.create({
+          data: {
+            id: benchmark.id,
+            skillName: benchmark.skillName,
+            industry: benchmark.industry,
+            role: benchmark.role,
+            industryAverage: benchmark.industryAverage,
+            juniorLevel: benchmark.juniorLevel,
+            midLevel: benchmark.midLevel,
+            seniorLevel: benchmark.seniorLevel,
+            expertLevel: benchmark.expertLevel,
+            marketDemand: benchmark.marketDemand,
+            growthTrend: benchmark.growthTrend,
+            description: benchmark.description,
+            createdAt: benchmark.createdAt ? new Date(benchmark.createdAt) : new Date(),
+            updatedAt: benchmark.updatedAt ? new Date(benchmark.updatedAt) : new Date()
+          }
+        });
+        successCount++;
+      } catch (error) {
+        if (error.code === 'P2002') {
+          // Record already exists, count as success
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      }
+    }
+
+    const finalCount = await prisma.skillBenchmark.count();
+    
+    res.json({
+      success: true,
+      message: 'Benchmark import completed',
+      results: {
+        processed: benchmarks.length,
+        successful: successCount,
+        errors: errorCount,
+        finalCount: finalCount,
+        imported: finalCount - currentCount
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Import error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Import failed',
+      error: error.message
+    });
+  }
+});
+
 // Manual seeding endpoint for Railway
 app.post('/api/v1/admin/seed-reference', async (req, res) => {
   try {
