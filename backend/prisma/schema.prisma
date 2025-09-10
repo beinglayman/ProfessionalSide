@@ -29,6 +29,7 @@ model User {
   isActive  Boolean  @default(true)
   welcomeEmailSent  Boolean  @default(false)
   hasSeenOnboardingOverlay Boolean @default(false)
+  onboardingSkipped Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1012,4 +1013,31 @@ model SystemLog {
   @@index([module])
   @@index([createdAt])
   @@map("system_logs")
+}
+
+// ============================================================================
+// SKILLS BENCHMARKING
+// ============================================================================
+
+model SkillBenchmark {
+  id              String   @id @default(cuid())
+  skillName       String
+  industry        String   @default("general")
+  role            String   @default("general")
+  industryAverage Int      // 0-100 scale
+  juniorLevel     Int      // 0-100 scale
+  midLevel        Int      // 0-100 scale
+  seniorLevel     Int      // 0-100 scale
+  expertLevel     Int      // 0-100 scale
+  marketDemand    String   // low, medium, high, very-high
+  growthTrend     String   // declining, stable, growing, hot
+  description     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([skillName, industry], name: "skillName_industry")
+  @@index([skillName])
+  @@index([industry])
+  @@index([updatedAt])
+  @@map("skill_benchmarks")
 }

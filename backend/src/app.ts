@@ -37,10 +37,10 @@ import adminRoutes from './routes/admin.routes';
 import auditRoutes from './routes/audit.routes';
 import referenceRoutes from './routes/reference.routes';
 import organizationRoutes from './routes/organization.routes';
+import skillsBenchmarkRoutes from './routes/skills-benchmark.routes';
 import servicesRoutes from './routes/services.routes';
 import onboardingRoutes from './routes/onboarding.routes';
 import aiEntriesRoutes from './routes/ai-entries.routes';
-import skillsBenchmarkRoutes from './routes/skills-benchmark.routes';
 import migrationRoutes from './routes/migration.routes';
 import debugRoutes from './routes/debug.routes';
 

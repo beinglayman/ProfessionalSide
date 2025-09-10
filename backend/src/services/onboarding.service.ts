@@ -355,4 +355,31 @@ export class OnboardingService {
       throw error;
     }
   }
+
+  /**
+   * Skip onboarding and create personal workspace
+   */
+  async skipOnboardingWithWorkspace(userId: string): Promise<boolean> {
+    console.log('⏭️ Skipping onboarding with workspace creation for user:', userId);
+    
+    try {
+      // Mark user as having skipped onboarding
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          onboardingSkipped: true,
+          updatedAt: new Date()
+        }
+      });
+      
+      // Create personal workspace
+      await this.createPersonalWorkspace(userId);
+      
+      console.log('✅ Onboarding skipped with personal workspace created');
+      return true;
+    } catch (error) {
+      console.error('❌ Error skipping onboarding with workspace:', error);
+      throw error;
+    }
+  }
 }

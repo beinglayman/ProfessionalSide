@@ -173,6 +173,25 @@ export const syncOnboardingToProfile = asyncHandler(async (req: Request, res: Re
 });
 
 /**
+ * Skip onboarding
+ */
+export const skipOnboarding = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return sendError(res, 'User not authenticated', 401);
+  }
+
+  try {
+    // Skip onboarding with personal workspace creation
+    const success = await onboardingService.skipOnboardingWithWorkspace(userId);
+    sendSuccess(res, { success }, 'Onboarding skipped successfully with personal workspace created');
+  } catch (error: any) {
+    throw error;
+  }
+});
+
+/**
  * Update specific step data
  */
 export const updateStepData = asyncHandler(async (req: Request, res: Response) => {

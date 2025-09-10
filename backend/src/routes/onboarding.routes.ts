@@ -5,6 +5,7 @@ import {
   upsertOnboardingData,
   updateCurrentStep,
   completeOnboarding,
+  skipOnboarding,
   resetOnboarding,
   getOnboardingProgress,
   checkOnboardingStatus,
@@ -31,6 +32,9 @@ router.put('/step/:stepNumber', updateStepData);
 
 // Complete onboarding
 router.post('/complete', completeOnboarding);
+
+// Skip onboarding
+router.post('/skip', skipOnboarding);
 
 // Reset onboarding
 router.delete('/reset', resetOnboarding);
