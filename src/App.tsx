@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { OnboardingProvider } from './components/onboarding';
 import { Header } from './components/layout/header';
 import { HomePage } from './pages/home';
 import { PrivacyPolicyPage } from './pages/privacy';
@@ -197,11 +198,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ToastProvider>
-          <Router>
-            <AppRoutes />
-          </Router>
-        </ToastProvider>
+        <OnboardingProvider>
+          <ToastProvider>
+            <Router>
+              <AppRoutes />
+            </Router>
+          </ToastProvider>
+        </OnboardingProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </AuthProvider>
     </QueryClientProvider>

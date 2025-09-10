@@ -14,6 +14,10 @@ import { useProfile } from '../../hooks/useProfile';
 import { useJournalEntries } from '../../hooks/useJournal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
+import { OnboardingOverlay, ONBOARDING_STEPS } from '../../components/onboarding';
+import { useOnboardingOverlay } from '../../hooks/useOnboardingOverlay';
+import { useQuery } from '@tanstack/react-query';
+import { benchmarksService } from '../../services/benchmarks.service';
 
 // Component interfaces for skills (dynamic from profile data)
 interface Skill {
@@ -45,6 +49,14 @@ export function ProfileViewPage() {
   const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
   const [activeTab, setActiveTab] = useState('journal');
   const [bioExpanded, setBioExpanded] = useState(false);
+  
+  // Onboarding overlay state
+  const { 
+    shouldShowOverlay, 
+    hideOverlay, 
+    completeOverlay, 
+    skipOverlay 
+  } = useOnboardingOverlay();
   
   // Follow/Connection states - In real app, this would come from user context
   const [isOwnProfile] = useState(true); // Change to false to see follow/connect buttons
@@ -180,128 +192,33 @@ export function ProfileViewPage() {
     return [];
   }, [selectedSkills]);
 
-  // Generate dynamic skills growth data based on combined skills
+  // Skills growth data - currently empty until real tracking is implemented
   const dynamicSkillsGrowthData = useMemo(() => {
-    if (combinedSkills.length === 0) return [];
-
-    // Get all unique skill names from combined skills
-    const allSkillNames = combinedSkills.map((skill: Skill) => skill.name);
-    
-    // Generate growth data for each skill based on its properties
-    const generateSkillValue = (skillName: string, year: number, baseSkill: Skill) => {
-      const currentYear = new Date().getFullYear();
-      const skillStartYear = baseSkill?.startDate ? new Date(baseSkill.startDate).getFullYear() : currentYear - 2;
-      
-      // If the year is before the skill start date, return 0
-      if (year < skillStartYear) return 0;
-      
-      // Calculate years of experience with this skill
-      const yearsOfExperience = Math.max(0, year - skillStartYear);
-      
-      // Base value calculation based on skill level and experience
-      let baseValue = 20; // Starting value
-      
-      // Adjust based on skill level from profile
-      if (baseSkill?.level) {
-        switch (baseSkill.level) {
-          case 'expert': baseValue = 70; break;
-          case 'advanced': baseValue = 55; break;
-          case 'intermediate': baseValue = 40; break;
-          case 'beginner': baseValue = 25; break;
-        }
-      }
-      
-      // Add growth based on years of experience
-      const experienceBonus = Math.min(yearsOfExperience * 8, 30);
-      
-      // Add bonus based on journal usage (more journal entries = more practice)
-      const journalBonus = Math.min((baseSkill?.journalCount || 0) * 3, 15);
-      
-      // Add some randomness for realistic variation
-      const randomVariation = Math.random() * 10 - 5;
-      
-      // Calculate final value
-      const finalValue = Math.max(0, Math.min(100, baseValue + experienceBonus + journalBonus + randomVariation));
-      
-      return Math.round(finalValue);
-    };
-    
-    return [
-      {
-        label: 'Current (2025)',
-        skills: allSkillNames.map(name => {
-          const baseSkill = combinedSkills.find((s: Skill) => s.name === name)!;
-          return {
-            name,
-            value: generateSkillValue(name, 2025, baseSkill),
-            category: 'Technical' as const
-          };
-        })
-      },
-      {
-        label: '2024',
-        skills: allSkillNames.map(name => {
-          const baseSkill = combinedSkills.find((s: Skill) => s.name === name)!;
-          const currentValue = generateSkillValue(name, 2025, baseSkill);
-          const previousValue = Math.max(0, currentValue - Math.random() * 15 - 5);
-          return {
-            name,
-            value: Math.round(previousValue),
-            category: 'Technical' as const
-          };
-        })
-      },
-      {
-        label: '2023',
-        skills: allSkillNames.map(name => {
-          const baseSkill = combinedSkills.find((s: Skill) => s.name === name)!;
-          const currentValue = generateSkillValue(name, 2025, baseSkill);
-          const previousValue = Math.max(0, currentValue - Math.random() * 25 - 10);
-          return {
-            name,
-            value: Math.round(previousValue),
-            category: 'Technical' as const
-          };
-        })
-      },
-      {
-        label: '2022',
-        skills: allSkillNames.map(name => {
-          const baseSkill = combinedSkills.find((s: Skill) => s.name === name)!;
-          const currentValue = generateSkillValue(name, 2025, baseSkill);
-          const previousValue = Math.max(0, currentValue - Math.random() * 35 - 15);
-          return {
-            name,
-            value: Math.round(previousValue),
-            category: 'Technical' as const
-          };
-        })
-      }
-    ];
+    // TODO: Replace with real skill progression data from journal entries and activities
+    // For now, return empty array to show empty state
+    return [];
   }, [combinedSkills]);
 
-  // Generate dynamic benchmarks based on combined skills
+  // Fetch real benchmarks for combined skills
+  const {
+    data: realBenchmarks,
+    isLoading: benchmarksLoading,
+    error: benchmarksError
+  } = useQuery({
+    queryKey: ['benchmarks', combinedSkills.map(s => s.name)],
+    queryFn: async () => {
+      if (combinedSkills.length === 0) return {};
+      const skillNames = combinedSkills.map(skill => skill.name);
+      return await benchmarksService.getBenchmarksForSkills(skillNames);
+    },
+    enabled: combinedSkills.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 30 * 60 * 1000, // 30 minutes
+  });
+
   const dynamicSkillsBenchmarks = useMemo(() => {
-    const benchmarks: { [key: string]: number } = {};
-    
-    combinedSkills.forEach((skill: Skill) => {
-      // Set industry benchmark based on skill level and usage
-      let benchmark = 65; // Default industry average
-      
-      if (skill.level === 'expert') benchmark = 80;
-      else if (skill.level === 'advanced') benchmark = 75;
-      else if (skill.level === 'intermediate') benchmark = 70;
-      else if (skill.level === 'beginner') benchmark = 60;
-      
-      // Adjust based on journal usage (popular skills have higher benchmarks)
-      if (skill.journalCount && skill.journalCount > 5) benchmark += 5;
-      else if (skill.journalCount && skill.journalCount > 10) benchmark += 10;
-      
-      benchmarks[skill.name] = Math.min(100, benchmark);
-    });
-    
-    return benchmarks;
-  }, [combinedSkills]);
+    return realBenchmarks || {};
+  }, [realBenchmarks]);
 
   const filteredSkillsGrowthData = useMemo(() => {
     if (selectedSkills.size === 0) return dynamicSkillsGrowthData;
@@ -890,13 +807,17 @@ export function ProfileViewPage() {
                     <SkillsGrowth periods={filteredSkillsGrowthData} benchmarks={dynamicSkillsBenchmarks} />
                   ) : (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-                      <div className="w-12 h-12 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      <div className="w-12 h-12 mx-auto mb-4 bg-primary-100 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
                       </div>
-                      <p className="text-gray-600">
-                        Skills growth tracking will be available once you have skills data from your profile.
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Start Tracking Your Skills Growth</h3>
+                      <p className="text-gray-600 mb-4">
+                        Create journal entries about your work to see how your skills develop over time. We'll automatically track your progress and show industry benchmarks.
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Skills growth data will appear as you document your professional activities and achievements.
                       </p>
                     </div>
                   )}
@@ -906,6 +827,15 @@ export function ProfileViewPage() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Overlay */}
+      {shouldShowOverlay && (
+        <OnboardingOverlay
+          steps={ONBOARDING_STEPS}
+          onComplete={completeOverlay}
+          onSkip={skipOverlay}
+        />
+      )}
     </div>
   );
 }

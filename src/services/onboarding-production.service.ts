@@ -266,6 +266,23 @@ class ProductionOnboardingService {
     }
   }
 
+  // Mark onboarding as skipped
+  async markOnboardingSkipped(): Promise<void> {
+    try {
+      console.log('⏭️ Marking onboarding as skipped via API...');
+      const response = await api.post('/onboarding/skip');
+      
+      if (response.data.success) {
+        console.log('✅ Onboarding marked as skipped successfully');
+      } else {
+        throw new Error(response.data.error || 'Failed to skip onboarding');
+      }
+    } catch (error) {
+      console.error('❌ Failed to mark onboarding as skipped:', error);
+      throw error;
+    }
+  }
+
   // Reset onboarding (for admin/testing purposes)
   async resetOnboarding(): Promise<void> {
     try {

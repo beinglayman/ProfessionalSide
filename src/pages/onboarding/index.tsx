@@ -256,9 +256,21 @@ export function OnboardingPage() {
     }
   };
 
-  const skipOnboarding = () => {
-    // Allow user to skip and complete later
-    navigate('/profile');
+  const skipOnboarding = async () => {
+    try {
+      // Set localStorage flag for immediate overlay trigger
+      localStorage.setItem('initialOnboardingSkipped', 'true');
+      
+      // Call API to mark onboarding as skipped (creates personal workspace too)
+      await productionOnboardingService.markOnboardingSkipped();
+      
+      // Navigate to profile where overlay should appear
+      navigate('/profile');
+    } catch (error) {
+      console.error('Error skipping onboarding:', error);
+      // Still navigate but show error
+      navigate('/profile');
+    }
   };
 
   // Ensure currentStep is within bounds
