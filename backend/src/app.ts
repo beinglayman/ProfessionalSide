@@ -245,6 +245,123 @@ app.post('/api/v1/admin/seed-reference', async (req, res) => {
   }
 });
 
+// Benchmark migration endpoint for Railway
+app.post('/api/v1/admin/migrate-benchmarks', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    console.log('🚀 Starting benchmark migration...');
+    
+    // Read JSON export data
+    const exportFile = path.join(__dirname, '../skill-benchmarks-export.json');
+    if (!fs.existsSync(exportFile)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Benchmark export file not found'
+      });
+    }
+
+    const benchmarks = JSON.parse(fs.readFileSync(exportFile, 'utf8'));
+    console.log(`📊 Loaded ${benchmarks.length} benchmarks from export file`);
+
+    // Check current state
+    const existingCount = await prisma.skillBenchmark.count();
+    console.log(`📈 Current production benchmarks: ${existingCount}`);
+
+    // Send immediate response
+    res.status(202).json({
+      success: true,
+      message: `Started benchmark migration for ${benchmarks.length} records`,
+      currentCount: existingCount,
+      totalToMigrate: benchmarks.length
+    });
+
+    // Continue processing in background
+    const batchSize = 50;
+    let successCount = 0;
+    let errorCount = 0;
+
+    console.log(`📦 Processing ${Math.ceil(benchmarks.length / batchSize)} batches...`);
+
+    for (let i = 0; i < benchmarks.length; i += batchSize) {
+      const batch = benchmarks.slice(i, i + batchSize);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(benchmarks.length / batchSize);
+      
+      console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} records)`);
+
+      for (const benchmark of batch) {
+        try {
+          await prisma.skillBenchmark.upsert({
+            where: { id: benchmark.id },
+            update: {
+              skillName: benchmark.skillName,
+              industry: benchmark.industry,
+              role: benchmark.role,
+              industryAverage: benchmark.industryAverage,
+              juniorLevel: benchmark.juniorLevel,
+              midLevel: benchmark.midLevel,
+              seniorLevel: benchmark.seniorLevel,
+              expertLevel: benchmark.expertLevel,
+              marketDemand: benchmark.marketDemand,
+              growthTrend: benchmark.growthTrend,
+              description: benchmark.description,
+              updatedAt: new Date()
+            },
+            create: {
+              id: benchmark.id,
+              skillName: benchmark.skillName,
+              industry: benchmark.industry,
+              role: benchmark.role,
+              industryAverage: benchmark.industryAverage,
+              juniorLevel: benchmark.juniorLevel,
+              midLevel: benchmark.midLevel,
+              seniorLevel: benchmark.seniorLevel,
+              expertLevel: benchmark.expertLevel,
+              marketDemand: benchmark.marketDemand,
+              growthTrend: benchmark.growthTrend,
+              description: benchmark.description,
+              createdAt: benchmark.createdAt ? new Date(benchmark.createdAt) : new Date(),
+              updatedAt: benchmark.updatedAt ? new Date(benchmark.updatedAt) : new Date()
+            }
+          });
+          
+          successCount++;
+          process.stdout.write('✅');
+        } catch (error) {
+          errorCount++;
+          process.stdout.write('❌');
+        }
+      }
+
+      // Small delay between batches
+      if (i + batchSize < benchmarks.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Final verification
+    const finalCount = await prisma.skillBenchmark.count();
+    console.log(`\n🎉 Migration completed!`);
+    console.log(`📊 Results:`);
+    console.log(`   - Successfully migrated: ${successCount}/${benchmarks.length}`);
+    console.log(`   - Errors: ${errorCount}`);
+    console.log(`   - Final count: ${finalCount}`);
+    console.log(`   - Net increase: ${finalCount - existingCount}`);
+
+  } catch (error) {
+    console.error('💥 Benchmark migration error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Benchmark migration failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+});
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
