@@ -246,7 +246,7 @@ app.post('/api/v1/admin/seed-reference', async (req, res) => {
 });
 
 // Benchmark migration endpoint for Railway
-app.post('/api/v1/admin/migrate-benchmarks', async (req, res) => {
+app.post('/api/v1/migrate-benchmarks', async (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
