@@ -358,36 +358,34 @@ router.get('/skills-growth', auth, async (req, res) => {
       }
     });
 
-    // Mock historical data for demonstration
+    // Show only current skills data until historical tracking is implemented
     const periods = [
       {
-        label: 'Current',
+        label: format(new Date(), 'MMM yyyy'),
         skills: skills.slice(0, 8).map(skill => ({
           name: skill.skill.name,
           value: skill.proficiency,
           category: skill.skill.category
         }))
-      },
-      {
-        label: '3 Months Ago',
-        skills: skills.slice(0, 8).map(skill => ({
-          name: skill.skill.name,
-          value: Math.max(skill.proficiency - 5, 0),
-          category: skill.skill.category
-        }))
-      },
-      {
-        label: '1 Year Ago',
-        skills: skills.slice(0, 8).map(skill => ({
-          name: skill.skill.name,
-          value: Math.max(skill.proficiency - 15, 0),
-          category: skill.skill.category
-        }))
       }
     ];
 
+    // Get real benchmarks from SkillBenchmark table
+    const skillNames = skills.map(s => s.skill.name);
+    const skillBenchmarks = await prisma.skillBenchmark.findMany({
+      where: {
+        skillName: { in: skillNames },
+        industry: 'general' // Use general industry benchmarks for now
+      },
+      select: {
+        skillName: true,
+        industryAverage: true
+      }
+    });
+
     const benchmarks = skills.reduce((acc, skill) => {
-      acc[skill.skill.name] = 75; // Mock benchmark
+      const benchmark = skillBenchmarks.find(b => b.skillName === skill.skill.name);
+      acc[skill.skill.name] = benchmark?.industryAverage || 65; // Fallback to 65 if no benchmark
       return acc;
     }, {} as Record<string, number>);
 

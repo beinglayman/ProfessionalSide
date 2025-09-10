@@ -5,7 +5,8 @@ import {
   getUserSkillBenchmarks,
   testBenchmarkService,
   getTrendingSkillBenchmarks,
-  populateAllSkillBenchmarks
+  populateAllSkillBenchmarks,
+  getBulkSkillBenchmarks
 } from '../controllers/skills-benchmark.controller';
 
 const router = Router();
@@ -15,6 +16,9 @@ router.use(authenticate);
 
 // Generate benchmarks for specific skills
 router.post('/generate', generateSkillBenchmarks);
+
+// Get benchmarks for multiple skills (bulk fetch)
+router.post('/bulk', getBulkSkillBenchmarks);
 
 // Get benchmarks for user's skills
 router.get('/user', getUserSkillBenchmarks);

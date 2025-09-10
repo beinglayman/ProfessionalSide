@@ -284,3 +284,49 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
     await prisma.$disconnect();
   }
 });
+
+/**
+ * Get benchmarks for multiple skills (bulk fetch)
+ */
+export const getBulkSkillBenchmarks = asyncHandler(async (req: Request, res: Response) => {
+  const { skillNames } = req.body;
+  
+  if (!skillNames || !Array.isArray(skillNames) || skillNames.length === 0) {
+    return sendError(res, 'skillNames array is required and must not be empty', 400);
+  }
+
+  if (skillNames.length > 50) {
+    return sendError(res, 'Maximum 50 skills allowed per request', 400);
+  }
+
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Fetch benchmarks from the database
+    const benchmarks = await prisma.skillBenchmark.findMany({
+      where: {
+        skillName: { in: skillNames },
+        industry: 'general' // Use general industry benchmarks
+      },
+      select: {
+        skillName: true,
+        industryAverage: true,
+        juniorLevel: true,
+        midLevel: true,
+        seniorLevel: true,
+        expertLevel: true,
+        marketDemand: true,
+        growthTrend: true,
+        description: true
+      }
+    });
+    
+    await prisma.$disconnect();
+    
+    sendSuccess(res, benchmarks, 'Bulk skill benchmarks retrieved successfully');
+  } catch (error: any) {
+    console.error('❌ Error fetching bulk skill benchmarks:', error);
+    sendError(res, 'Failed to fetch skill benchmarks', 500);
+  }
+});
