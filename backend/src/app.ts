@@ -533,6 +533,43 @@ app.get('/api/v1/debug-profile', async (req, res) => {
   }
 });
 
+// Debug endpoint to test profile endpoint behavior
+app.get('/api/v1/debug-profile-test', async (req, res) => {
+  try {
+    // Test the profile endpoint logic directly
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.json({
+        success: false,
+        error: 'No Bearer token provided',
+        authHeader: authHeader ? 'Present but invalid format' : 'Missing',
+        expectedFormat: 'Bearer <token>'
+      });
+    }
+    
+    const token = authHeader.substring(7);
+    
+    // Try to verify the token (without importing auth utils for simplicity)
+    res.json({
+      success: true,
+      debug: {
+        hasAuthHeader: !!authHeader,
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 10) + '...',
+        timestamp: new Date().toISOString(),
+        message: 'Token received and formatted correctly'
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack?.split('\n').slice(0, 3)
+    });
+  }
+});
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
