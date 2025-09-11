@@ -475,6 +475,40 @@ app.post('/api/v1/migrate-benchmarks', async (req, res) => {
   }
 });
 
+// Database migration endpoint for production
+app.post('/api/v1/run-migrations', async (req, res) => {
+  try {
+    console.log('🚀 Running database migrations...');
+    
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    
+    // Run Prisma migrations
+    const { stdout, stderr } = await execAsync('npx prisma migrate deploy');
+    
+    console.log('✅ Migration output:', stdout);
+    if (stderr) {
+      console.log('⚠️ Migration stderr:', stderr);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Database migrations completed',
+      output: stdout,
+      errors: stderr || null
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
