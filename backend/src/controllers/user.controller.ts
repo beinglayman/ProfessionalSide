@@ -122,7 +122,7 @@ export const getUserSkills = asyncHandler(async (req: Request, res: Response) =>
   const userId = req.params.userId || req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User ID required', 400);
+    return sendError(res, 'User not authenticated', 401);
   }
 
   const skills = await userService.getUserSkills(userId);
