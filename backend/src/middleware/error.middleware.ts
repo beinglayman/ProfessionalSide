@@ -79,15 +79,14 @@ export const errorHandler = (
     return;
   }
 
-  // Other Prisma client errors
-  if (error instanceof Prisma.PrismaClientInitializationError || 
-      error instanceof Prisma.PrismaClientRustPanicError ||
-      error instanceof Prisma.PrismaClientUnknownRequestError) {
+  // Other Prisma client errors - use defensive checking
+  if (error.name && (error.name.includes('PrismaClient') || error.code)) {
     console.error('🔍 PRISMA CONNECTION ERROR:', {
+      name: error.name,
       message: error.message,
       stack: error.stack,
       timestamp: new Date().toISOString(),
-      errorCode: error.errorCode || 'unknown'
+      errorCode: error.errorCode || error.code || 'unknown'
     });
     res.status(500).json({
       success: false,
