@@ -126,10 +126,23 @@ export class UserService {
         },
         goals: {
           where: {
-            OR: [
-              { visibility: 'network' },
-              { userId: requestingUserId } // Own goals if requesting self
-            ]
+            visibility: 'network' // Simplified filter until userId column exists
+          },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            targetDate: true,
+            completed: true,
+            completedDate: true,
+            progress: true,
+            category: true,
+            priority: true,
+            status: true,
+            visibility: true,
+            createdAt: true,
+            updatedAt: true
+            // Temporarily exclude assignedToId, reviewerId, userId, workspaceId until migration
           },
           orderBy: { createdAt: 'desc' },
           take: 5
