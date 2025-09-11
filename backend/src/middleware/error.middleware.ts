@@ -46,10 +46,19 @@ export const errorHandler = (
         return;
       
       default:
+        // Temporarily include error details in production for debugging
+        console.error('🔍 UNKNOWN PRISMA ERROR:', {
+          code: error.code,
+          message: error.message,
+          meta: error.meta,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
         res.status(400).json({
           success: false,
           error: 'Database operation failed',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+          details: error.message, // Temporarily include in production
+          errorCode: error.code
         });
         return;
     }
@@ -57,10 +66,33 @@ export const errorHandler = (
 
   // Prisma validation errors
   if (error instanceof Prisma.PrismaClientValidationError) {
+    console.error('🔍 PRISMA VALIDATION ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
     res.status(400).json({
       success: false,
       error: 'Invalid data provided',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: error.message // Temporarily include in production
+    });
+    return;
+  }
+
+  // Other Prisma client errors
+  if (error instanceof Prisma.PrismaClientInitializationError || 
+      error instanceof Prisma.PrismaClientRustPanicError ||
+      error instanceof Prisma.PrismaClientUnknownRequestError) {
+    console.error('🔍 PRISMA CONNECTION ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      errorCode: error.errorCode || 'unknown'
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Database connection error',
+      details: error.message // Temporarily include in production
     });
     return;
   }
