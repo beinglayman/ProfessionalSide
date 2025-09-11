@@ -1,12 +1,16 @@
 #!/bin/bash
 
+# Prevent broken pipe errors
+set -o pipefail
+exec 2>&1
+
 echo "🚀 RAILWAY COMPLETE SETUP: Migrations + Reference Data + Depth Coverage"
 echo "📅 Timestamp: $(date)"
 echo "🔗 Database URL configured: $(test -n "$DATABASE_URL" && echo "true" || echo "false")"
 echo ""
 
 echo "📌 Step 0: Running database migrations..."
-if npx prisma migrate deploy; then
+if npx prisma migrate deploy 2>&1 | head -50; then
     echo "✅ Database migrations completed"
 else
     echo "❌ Database migrations failed, continuing anyway..."
@@ -14,7 +18,7 @@ fi
 
 echo ""
 echo "📌 Step 1: Seeding reference data (focus areas, categories, work types)..."
-if npm run db:seed-reference; then
+if npm run db:seed-reference 2>&1 | tail -10; then
     echo "✅ Reference data seeding completed"
 else
     echo "❌ Reference data seeding failed, but continuing..."
@@ -22,7 +26,7 @@ fi
 
 echo ""
 echo "📌 Step 2: Creating missing Operations work types..."
-if npm run fix:operations-work-types; then
+if npm run fix:operations-work-types 2>&1 | tail -10; then
     echo "✅ Operations work types created"
 else
     echo "❌ Operations work types creation failed, but continuing..."

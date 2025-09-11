@@ -73,16 +73,105 @@ const cronService = new CronService();
 app.use(helmet()); // Security headers
 app.use(morgan('combined')); // Logging
 
-// Configure CORS with proper settings
+// Configure CORS with proper settings for Railway
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'https://hearty-prosperity-production-6047.up.railway.app',
+  'https://professionalside-production.up.railway.app',
+  /https:\/\/.*\.up\.railway\.app$/
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return allowed === origin;
+      } else if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      console.log('✅ CORS: Allowed origin:', origin);
+      callback(null, true);
+    } else {
+      console.warn('❌ CORS: Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  optionsSuccessStatus: 200, // Support legacy browsers
+  optionsSuccessStatus: 200,
 }));
 
-// Body parsing with limits
-app.use(express.json({ limit: '10mb' }));
+// Body parsing with limits and error handling
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf, encoding) => {
+    try {
+      JSON.parse(buf.toString(encoding || 'utf8'));
+    } catch (error) {
+      console.error('🚨 JSON Parse Error:', {
+        url: req.url,
+        method: req.method,
+        contentType: req.get('content-type'),
+        body: buf.toString(encoding || 'utf8').substring(0, 200),
+        error: error.message
+      });
+      throw error;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Comprehensive 400 error logging middleware
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  const originalJson = res.json;
+  
+  // Override res.send to catch 400 errors
+  res.send = function(data: any) {
+    if (res.statusCode === 400) {
+      console.error('🔍 400 ERROR DETAILED DEBUG:', {
+        timestamp: new Date().toISOString(),
+        url: req.url,
+        method: req.method,
+        headers: {
+          authorization: req.headers.authorization ? `Bearer ${req.headers.authorization.substring(7, 20)}...` : 'MISSING',
+          contentType: req.headers['content-type'],
+          origin: req.headers.origin,
+          userAgent: req.headers['user-agent']?.substring(0, 100)
+        },
+        query: req.query,
+        params: req.params,
+        body: req.body,
+        response: typeof data === 'string' ? data : JSON.stringify(data),
+        userInfo: req.user ? { id: req.user.id, email: req.user.email } : 'NOT_AUTHENTICATED'
+      });
+    }
+    return originalSend.call(this, data);
+  };
+  
+  // Override res.json as well
+  res.json = function(data: any) {
+    if (res.statusCode === 400) {
+      console.error('🔍 400 ERROR JSON DEBUG:', {
+        timestamp: new Date().toISOString(),
+        url: req.url,
+        method: req.method,
+        response: data
+      });
+    }
+    return originalJson.call(this, data);
+  };
+  
+  next();
+});
 
 // Serve uploaded files with CORS headers
 app.use('/uploads', (req, res, next) => {
