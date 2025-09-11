@@ -509,6 +509,30 @@ app.post('/api/v1/run-migrations', async (req, res) => {
   }
 });
 
+// Debug endpoint to check user/profile data
+app.get('/api/v1/debug-profile', async (req, res) => {
+  try {
+    const userCount = await prisma.user.count();
+    const profileCount = await prisma.userProfile.count();
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, name: true },
+      take: 3
+    });
+    
+    res.json({
+      success: true,
+      counts: { users: userCount, profiles: profileCount },
+      sampleUsers: users,
+      message: `Found ${userCount} users and ${profileCount} profiles`
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
