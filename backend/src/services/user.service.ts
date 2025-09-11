@@ -131,6 +131,21 @@ export class UserService {
               { userId: requestingUserId } // Own goals if requesting self
             ]
           },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            targetDate: true,
+            completed: true,
+            completedDate: true,
+            progress: true,
+            category: true,
+            priority: true,
+            // status: true, // Temporarily commented out until migration is run
+            visibility: true,
+            createdAt: true,
+            updatedAt: true
+          },
           orderBy: { createdAt: 'desc' },
           take: 5
         }
