@@ -1,10 +1,18 @@
 #!/bin/bash
 
-echo "🚀 RAILWAY COMPLETE SETUP: Reference Data + Depth Coverage"
+echo "🚀 RAILWAY COMPLETE SETUP: Migrations + Reference Data + Depth Coverage"
 echo "📅 Timestamp: $(date)"
 echo "🔗 Database URL configured: $(test -n "$DATABASE_URL" && echo "true" || echo "false")"
 echo ""
 
+echo "📌 Step 0: Running database migrations..."
+if npx prisma migrate deploy; then
+    echo "✅ Database migrations completed"
+else
+    echo "❌ Database migrations failed, continuing anyway..."
+fi
+
+echo ""
 echo "📌 Step 1: Seeding reference data (focus areas, categories, work types)..."
 if npm run db:seed-reference; then
     echo "✅ Reference data seeding completed"
