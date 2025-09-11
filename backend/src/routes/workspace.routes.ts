@@ -113,41 +113,31 @@ router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Temporarily simplified query to exclude potentially missing tables/relationships
     const workspaces = await prisma.workspace.findMany({
       where: {
-        // Temporarily comment out members relation until migration is run
-        // members: {
-        //   some: { userId }
-        // },
+        members: {
+          some: { userId }
+        },
         isActive: true
       },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        organizationId: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        // Temporarily comment out relations until tables exist in production
-        // organization: {
-        //   select: {
-        //     id: true,
-        //     name: true,
-        //     logo: true
-        //   }
-        // },
-        // members: {
-        //   where: { userId },
-        //   select: { role: true }
-        // },
-        // _count: {
-        //   select: {
-        //     members: true,
-        //     journalEntries: true
-        //   }
-        // }
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            logo: true
+          }
+        },
+        members: {
+          where: { userId },
+          select: { role: true }
+        },
+        _count: {
+          select: {
+            members: true,
+            journalEntries: true
+          }
+        }
       },
       orderBy: { updatedAt: 'desc' }
     });
@@ -157,14 +147,14 @@ router.get('/', async (req, res) => {
       name: workspace.name,
       description: workspace.description,
       organizationId: workspace.organizationId,
-      organization: null, // Temporarily null until organization table exists
+      organization: workspace.organization,
       isActive: workspace.isActive,
       createdAt: workspace.createdAt,
       updatedAt: workspace.updatedAt,
-      userRole: 'owner', // Temporarily default until members table exists
+      userRole: workspace.members[0]?.role,
       stats: {
-        totalMembers: 1, // Temporarily default until _count works
-        totalJournalEntries: 0 // Temporarily default until _count works
+        totalMembers: workspace._count.members,
+        totalJournalEntries: workspace._count.journalEntries
       }
     }));
 
