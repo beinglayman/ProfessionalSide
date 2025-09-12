@@ -113,63 +113,52 @@ router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Check if workspace table exists first
-    try {
-      const workspaces = await prisma.workspace.findMany({
-        where: {
-          members: {
-            some: { userId }
-          },
-          isActive: true
+    const workspaces = await prisma.workspace.findMany({
+      where: {
+        members: {
+          some: { userId }
         },
-        include: {
-          organization: {
-            select: {
-              id: true,
-              name: true,
-              logo: true
-            }
-          },
-          members: {
-            where: { userId },
-            select: { role: true }
-          },
-          _count: {
-            select: {
-              members: true,
-              journalEntries: true
-            }
+        isActive: true
+      },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            logo: true
           }
         },
-        orderBy: { updatedAt: 'desc' }
-      });
-
-      const workspacesWithStats = workspaces.map(workspace => ({
-        id: workspace.id,
-        name: workspace.name,
-        description: workspace.description,
-        organizationId: workspace.organizationId,
-        organization: workspace.organization,
-        isActive: workspace.isActive,
-        createdAt: workspace.createdAt,
-        updatedAt: workspace.updatedAt,
-        userRole: workspace.members[0]?.role,
-        stats: {
-          totalMembers: workspace._count.members,
-          totalJournalEntries: workspace._count.journalEntries
+        members: {
+          where: { userId },
+          select: { role: true }
+        },
+        _count: {
+          select: {
+            members: true,
+            journalEntries: true
+          }
         }
-      }));
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
 
-      sendSuccess(res, workspacesWithStats, 'Workspaces retrieved successfully');
-    } catch (dbError: any) {
-      // Handle missing tables gracefully
-      if (dbError.code === 'P2021' || dbError.message?.includes('does not exist')) {
-        console.log('⚠️  Workspace tables not found, returning empty result');
-        sendSuccess(res, [], 'Workspaces retrieved successfully (database initializing)');
-      } else {
-        throw dbError;
+    const workspacesWithStats = workspaces.map(workspace => ({
+      id: workspace.id,
+      name: workspace.name,
+      description: workspace.description,
+      organizationId: workspace.organizationId,
+      organization: workspace.organization,
+      isActive: workspace.isActive,
+      createdAt: workspace.createdAt,
+      updatedAt: workspace.updatedAt,
+      userRole: workspace.members[0]?.role,
+      stats: {
+        totalMembers: workspace._count.members,
+        totalJournalEntries: workspace._count.journalEntries
       }
-    }
+    }));
+
+    sendSuccess(res, workspacesWithStats, 'Workspaces retrieved successfully');
   } catch (error) {
     console.error('Error fetching workspaces:', error);
     sendError(res, 'Failed to fetch workspaces', 500);
