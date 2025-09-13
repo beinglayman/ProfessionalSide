@@ -18,28 +18,43 @@ interface ServiceBinding {
 }
 
 export function RailwayStatus() {
+  // Derive production URLs dynamically
+  const frontendOrigin = (typeof window !== 'undefined' && window.location.origin)
+    ? window.location.origin
+    : 'https://frontend-production-3023.up.railway.app';
+  const apiUrl: string | undefined = (import.meta as any).env?.VITE_API_URL as string | undefined;
+  let backendBase = 'https://backend-production-76d6.up.railway.app';
+  try {
+    if (apiUrl) {
+      backendBase = new URL(apiUrl).origin;
+    }
+  } catch {
+    // keep fallback
+  }
+  const displayApiUrl = apiUrl || 'https://backend-production-76d6.up.railway.app/api/v1';
+
   const [services, setServices] = useState<ServiceStatus[]>([
     {
       name: 'Frontend',
-      url: 'https://hearty-prosperity-production-6047.up.railway.app',
+      url: frontendOrigin,
       status: 'unknown',
       lastChecked: new Date().toISOString()
     },
     {
       name: 'Backend API',
-      url: 'https://professionalside-production.up.railway.app/api/v1/test',
+      url: `${backendBase}/api/v1/test`,
       status: 'unknown',
       lastChecked: new Date().toISOString()
     },
     {
       name: 'Backend Health',
-      url: 'https://professionalside-production.up.railway.app/health',
+      url: `${backendBase}/health`,
       status: 'unknown',
       lastChecked: new Date().toISOString()
     },
     {
       name: 'PostgreSQL Database',
-      url: 'https://professionalside-production.up.railway.app/api/v1/health/database',
+      url: `${backendBase}/api/v1/health/database`,
       status: 'unknown',
       lastChecked: new Date().toISOString()
     }
@@ -166,7 +181,7 @@ export function RailwayStatus() {
     setEmailTest(prev => ({ ...prev, isLoading: true, result: null }));
 
     try {
-      const backendUrl = 'https://professionalside-production.up.railway.app';
+      const backendUrl = backendBase;
       // First check if email service is configured
       const configResponse = await fetch(`${backendUrl}/api/v1/email/test-config-public`, {
         method: 'GET',
@@ -365,7 +380,7 @@ export function RailwayStatus() {
           <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <a
-              href="https://hearty-prosperity-production-6047.up.railway.app"
+              href={frontendOrigin}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50"
@@ -375,7 +390,7 @@ export function RailwayStatus() {
             </a>
             
             <a
-              href="https://professionalside-production.up.railway.app/health"
+              href={`${backendBase}/health`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50"
@@ -385,7 +400,7 @@ export function RailwayStatus() {
             </a>
             
             <a
-              href="https://professionalside-production.up.railway.app/api/v1/test"
+              href={`${backendBase}/api/v1/test`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50"
@@ -540,7 +555,7 @@ export function RailwayStatus() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   <span className="font-mono">VITE_API_URL</span>
-                  <span className="text-gray-500">= professionalside-production.up.railway.app/api/v1</span>
+                  <span className="text-gray-500">= {displayApiUrl}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
@@ -561,12 +576,12 @@ export function RailwayStatus() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   <span className="font-mono">FRONTEND_URL</span>
-                  <span className="text-gray-500">= https://hearty-prosperity-production-6047.up.railway.app</span>
+                  <span className="text-gray-500">= {frontendOrigin}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   <span className="font-mono">CORS_ORIGINS</span>
-                  <span className="text-gray-500">= https://hearty-prosperity-production-6047.up.railway.app</span>
+                  <span className="text-gray-500">= {frontendOrigin}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
@@ -581,7 +596,7 @@ export function RailwayStatus() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
                   <span className="font-mono">API_BASE_URL</span>
-                  <span className="text-gray-500">= https://professionalside-production.up.railway.app</span>
+                  <span className="text-gray-500">= {backendBase}</span>
                 </div>
               </div>
             </div>
