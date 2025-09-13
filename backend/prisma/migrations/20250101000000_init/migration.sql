@@ -21,6 +21,9 @@ CREATE TABLE "users" (
     "industry" TEXT,
     "yearsOfExperience" INTEGER,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "welcomeEmailSent" BOOLEAN NOT NULL DEFAULT false,
+    "hasSeenOnboardingOverlay" BOOLEAN NOT NULL DEFAULT false,
+    "onboardingSkipped" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -133,6 +136,8 @@ CREATE TABLE "workspaces" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "organizationId" TEXT,
+    "isPersonal" BOOLEAN NOT NULL DEFAULT false,
+    "allowTeamMembers" BOOLEAN NOT NULL DEFAULT true,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -204,6 +209,32 @@ CREATE TABLE "workspace_categories" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "workspace_categories_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "workspace_labels" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "workspaceId" TEXT NOT NULL,
+    "createdById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "workspace_labels_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "workspace_label_values" (
+    "id" TEXT NOT NULL,
+    "labelId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "color" TEXT NOT NULL,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "workspace_label_values_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -362,7 +393,10 @@ CREATE TABLE "goals" (
     "progress" INTEGER NOT NULL DEFAULT 0,
     "category" TEXT,
     "priority" TEXT NOT NULL DEFAULT 'medium',
+    "status" TEXT NOT NULL DEFAULT 'yet-to-start',
     "visibility" TEXT NOT NULL DEFAULT 'private',
+    "assignedToId" TEXT,
+    "reviewerId" TEXT,
     "userId" TEXT NOT NULL,
     "workspaceId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -380,9 +414,32 @@ CREATE TABLE "goal_milestones" (
     "completed" BOOLEAN NOT NULL DEFAULT false,
     "completedDate" TIMESTAMP(3),
     "completedViaJournalEntry" TEXT,
+    "autoCompleteFromTasks" BOOLEAN NOT NULL DEFAULT true,
+    "manuallyCompleted" BOOLEAN NOT NULL DEFAULT false,
     "order" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "goal_milestones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "goal_tasks" (
+    "id" TEXT NOT NULL,
+    "milestoneId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "completed" BOOLEAN NOT NULL DEFAULT false,
+    "completedDate" TIMESTAMP(3),
+    "completedBy" TEXT,
+    "assignedTo" TEXT,
+    "reviewerId" TEXT,
+    "priority" TEXT NOT NULL DEFAULT 'medium',
+    "status" TEXT NOT NULL DEFAULT 'Not Started',
+    "dueDate" TIMESTAMP(3),
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "goal_tasks_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -647,6 +704,26 @@ CREATE TABLE "system_logs" (
     CONSTRAINT "system_logs_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "skill_benchmarks" (
+    "id" TEXT NOT NULL,
+    "skillName" TEXT NOT NULL,
+    "industry" TEXT NOT NULL DEFAULT 'general',
+    "role" TEXT NOT NULL DEFAULT 'general',
+    "industryAverage" INTEGER NOT NULL,
+    "juniorLevel" INTEGER NOT NULL,
+    "midLevel" INTEGER NOT NULL,
+    "seniorLevel" INTEGER NOT NULL,
+    "expertLevel" INTEGER NOT NULL,
+    "marketDemand" TEXT NOT NULL,
+    "growthTrend" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "skill_benchmarks_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -673,6 +750,12 @@ CREATE UNIQUE INDEX "workspace_invitations_token_key" ON "workspace_invitations"
 
 -- CreateIndex
 CREATE UNIQUE INDEX "workspace_categories_workspaceId_name_key" ON "workspace_categories"("workspaceId", "name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "workspace_labels_workspaceId_type_key" ON "workspace_labels"("workspaceId", "type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "workspace_label_values_labelId_name_key" ON "workspace_label_values"("labelId", "name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "journal_collaborators_entryId_userId_key" ON "journal_collaborators"("entryId", "userId");
@@ -749,6 +832,18 @@ CREATE INDEX "system_logs_module_idx" ON "system_logs"("module");
 -- CreateIndex
 CREATE INDEX "system_logs_createdAt_idx" ON "system_logs"("createdAt");
 
+-- CreateIndex
+CREATE INDEX "skill_benchmarks_skillName_idx" ON "skill_benchmarks"("skillName");
+
+-- CreateIndex
+CREATE INDEX "skill_benchmarks_industry_idx" ON "skill_benchmarks"("industry");
+
+-- CreateIndex
+CREATE INDEX "skill_benchmarks_updatedAt_idx" ON "skill_benchmarks"("updatedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "skill_benchmarks_skillName_industry_key" ON "skill_benchmarks"("skillName", "industry");
+
 -- AddForeignKey
 ALTER TABLE "user_profiles" ADD CONSTRAINT "user_profiles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -796,6 +891,15 @@ ALTER TABLE "workspace_categories" ADD CONSTRAINT "workspace_categories_workspac
 
 -- AddForeignKey
 ALTER TABLE "workspace_categories" ADD CONSTRAINT "workspace_categories_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "workspace_labels" ADD CONSTRAINT "workspace_labels_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "workspace_labels" ADD CONSTRAINT "workspace_labels_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "workspace_label_values" ADD CONSTRAINT "workspace_label_values_labelId_fkey" FOREIGN KEY ("labelId") REFERENCES "workspace_labels"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "journal_entries" ADD CONSTRAINT "journal_entries_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -864,7 +968,25 @@ ALTER TABLE "goals" ADD CONSTRAINT "goals_userId_fkey" FOREIGN KEY ("userId") RE
 ALTER TABLE "goals" ADD CONSTRAINT "goals_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "goals" ADD CONSTRAINT "goals_assignedToId_fkey" FOREIGN KEY ("assignedToId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "goals" ADD CONSTRAINT "goals_reviewerId_fkey" FOREIGN KEY ("reviewerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "goal_milestones" ADD CONSTRAINT "goal_milestones_goalId_fkey" FOREIGN KEY ("goalId") REFERENCES "goals"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "goal_tasks" ADD CONSTRAINT "goal_tasks_milestoneId_fkey" FOREIGN KEY ("milestoneId") REFERENCES "goal_milestones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "goal_tasks" ADD CONSTRAINT "goal_tasks_assignedTo_fkey" FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "goal_tasks" ADD CONSTRAINT "goal_tasks_reviewerId_fkey" FOREIGN KEY ("reviewerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "goal_tasks" ADD CONSTRAINT "goal_tasks_completedBy_fkey" FOREIGN KEY ("completedBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "goal_journal_links" ADD CONSTRAINT "goal_journal_links_goalId_fkey" FOREIGN KEY ("goalId") REFERENCES "goals"("id") ON DELETE CASCADE ON UPDATE CASCADE;
