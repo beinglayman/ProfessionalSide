@@ -6,7 +6,7 @@
     "watchPatterns": ["**/*"]
   },
   "deploy": {
-    "startCommand": "npm run preview",
+    "startCommand": "npm run build && npm run preview",
     "restartPolicyType": "ON_FAILURE"
   }
 }
