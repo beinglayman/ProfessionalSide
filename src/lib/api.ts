@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// API Configuration - Temporarily hardcoded for Railway deployment fix
-export const API_BASE_URL = 'https://backend-production-76d6.up.railway.app/api/v1';
+// API Configuration - Production and development support
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:3002/api/v1' : 'https://backend-production-76d6.up.railway.app/api/v1');
 
 // Create axios instance
 export const api = axios.create({
