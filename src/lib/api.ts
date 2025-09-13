@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // API Configuration - Production and development support
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 
+const envApiUrl = import.meta.env.VITE_API_URL;
+const isValidUrl = envApiUrl && !envApiUrl.includes('professionalside-production');
+
+export const API_BASE_URL = isValidUrl ? envApiUrl :
   (import.meta.env.DEV ? 'http://localhost:3002/api/v1' : 'https://backend-production-76d6.up.railway.app/api/v1');
 
 // Create axios instance
