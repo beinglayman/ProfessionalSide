@@ -93,6 +93,12 @@ export interface JournalEntry {
   achievementTitle?: string; // Achievement title
   achievementDescription?: string; // Achievement description
   
+  // New achievement fields for goal/milestone completion
+  isAchievement?: boolean;
+  achievementCategory?: 'individual' | 'team' | 'org';
+  completedGoalId?: string;
+  completedMilestoneId?: string;
+  
   // Goal linking fields
   linkedGoals?: {
     goalId: string;

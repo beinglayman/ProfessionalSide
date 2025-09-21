@@ -59,6 +59,7 @@ export class UserService {
         industry: true,
         yearsOfExperience: true,
         avatar: true,
+        profileUrl: true,
         createdAt: true,
         profile: {
           select: {

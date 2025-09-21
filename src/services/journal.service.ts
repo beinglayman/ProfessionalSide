@@ -34,6 +34,11 @@ export interface CreateJournalEntryRequest {
     metrics?: string;
   }>;
   linkedGoalId?: string; // Optional goal to link this entry to
+  // Achievement-related fields
+  isAchievement?: boolean;
+  achievementType?: 'individual' | 'team' | 'org';
+  completedGoalId?: string; // Goal that was completed with this entry
+  completedMilestoneId?: string; // Milestone that was completed with this entry
 }
 
 export interface UpdateJournalEntryRequest {
@@ -83,6 +88,11 @@ export interface ApiJournalEntry {
   createdAt: string;
   updatedAt: string;
   lastModified: string;
+  // Achievement-related fields
+  isAchievement?: boolean;
+  achievementType?: 'individual' | 'team' | 'org';
+  completedGoalId?: string;
+  completedMilestoneId?: string;
   author: {
     id: string;
     name: string;
@@ -232,6 +242,11 @@ export class JournalService {
         engagementTrend: 'stable' as const,
         trendPercentage: 0,
       },
+      // Achievement fields
+      isAchievement: apiEntry.isAchievement || false,
+      achievementCategory: apiEntry.achievementType,
+      completedGoalId: apiEntry.completedGoalId,
+      completedMilestoneId: apiEntry.completedMilestoneId,
     };
   }
 

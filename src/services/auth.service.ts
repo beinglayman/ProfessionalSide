@@ -53,6 +53,7 @@ export interface RegisterRequest {
   title?: string;
   company?: string;
   location?: string;
+  invitationToken?: string;
 }
 
 export interface LoginResponse {

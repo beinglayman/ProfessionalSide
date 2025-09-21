@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User, UserPlus, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { profileApiService } from '../../services/profile-api.service';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
+import { InvitationService } from '../../services/invitation.service';
 
 export function UserNav() {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
+  const [invitationQuota, setInvitationQuota] = useState<{ remaining: number; isAdmin: boolean; hasQuota: boolean } | null>(null);
 
   // Load profile data with proper prioritization
   useEffect(() => {
@@ -43,8 +45,20 @@ export function UserNav() {
       }
     };
 
+    const loadInvitationQuota = async () => {
+      try {
+        const response = await InvitationService.getInvitationQuota();
+        if (response.success && response.data) {
+          setInvitationQuota(response.data.quota);
+        }
+      } catch (error) {
+        console.error('❌ UserNav: Failed to load invitation quota:', error);
+      }
+    };
+
     if (isAuthenticated) {
       loadProfileData();
+      loadInvitationQuota();
     }
 
     // Listen for custom profile data change events
@@ -138,6 +152,34 @@ export function UserNav() {
                 <span>Settings</span>
               </Link>
             </DropdownMenu.Item>
+            
+            {/* Invitation Management - Show Admin Panel for admins, Invitations for regular users */}
+            {invitationQuota && (
+              <DropdownMenu.Item asChild>
+                <Link
+                  to={invitationQuota.isAdmin ? "/admin" : "/invitations"}
+                  className="flex w-full items-center space-x-2 rounded-md p-2 text-sm hover:bg-gray-100"
+                >
+                  {invitationQuota.isAdmin ? (
+                    <>
+                      <Shield className="h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      <span>Invitations</span>
+                      {invitationQuota.hasQuota && (
+                        <span className="ml-auto text-xs text-gray-500">
+                          {invitationQuota.remaining}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Link>
+              </DropdownMenu.Item>
+            )}
+            
             <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
             <DropdownMenu.Item asChild>
               <button

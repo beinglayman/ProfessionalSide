@@ -43,6 +43,8 @@ import onboardingRoutes from './routes/onboarding.routes';
 import aiEntriesRoutes from './routes/ai-entries.routes';
 import migrationRoutes from './routes/migration.routes';
 import debugRoutes from './routes/debug.routes';
+import invitationRoutes from './routes/invitation.routes';
+import invitationRequestRoutes from './routes/invitation-request.routes';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -77,9 +79,11 @@ app.use(morgan('combined')); // Logging
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
+  'http://localhost:4173',
   'https://hearty-prosperity-production-6047.up.railway.app',
   'https://professionalside-production.up.railway.app',
-  /https:\/\/.*\.up\.railway\.app$/
+  /https:\/\/.*\.up\.railway\.app$/,
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [])
 ].filter(Boolean);
 
 app.use(cors({
@@ -684,6 +688,8 @@ app.use('/api/v1/ai-entries', aiEntriesRoutes);
 app.use('/api/v1/skills-benchmark', skillsBenchmarkRoutes);
 app.use('/api/v1/migration', migrationRoutes);
 app.use('/api/debug', debugRoutes);
+app.use('/api/v1/invitations', invitationRoutes);
+app.use('/api/v1/invitation-requests', invitationRequestRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

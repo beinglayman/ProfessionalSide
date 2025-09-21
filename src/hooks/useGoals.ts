@@ -897,3 +897,6 @@ export const useInitializeWorkspaceLabels = () => {
     }
   });
 };
+
+// Export alias for backward compatibility
+export const useGoals = useWorkspaceGoals;

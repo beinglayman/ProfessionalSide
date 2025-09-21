@@ -8,10 +8,11 @@ import { useCreateJournalEntry } from '../../hooks/useJournal';
 import { CreateJournalEntryRequest } from '../../services/journal.service';
 import { useFocusAreas, useWorkCategories, useWorkTypes, useSkillsForWorkTypes } from '../../hooks/useReference';
 import { useWorkspaces, useWorkspaceMembers } from '../../hooks/useWorkspace';
-import { useWorkspaceGoals } from '../../hooks/useGoals';
+import { useWorkspaceGoals, useGoals } from '../../hooks/useGoals';
 import { useAuth } from '../../contexts/AuthContext';
 import { TagInput } from '../ui/tag-input';
 import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
+import confetti from 'canvas-confetti';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -22,6 +23,74 @@ interface NewEntryModalProps {
 
 // Reference data is now fetched from the API
 
+
+// Achievement celebration functions (copied from useGoals)
+const triggerMilestoneCompletionCelebration = () => {
+  const duration = 4000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 40, spread: 360, ticks: 80, zIndex: 9999 };
+
+  function randomInRange(min: number, max: number) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(() => {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      return;
+    }
+
+    const particleCount = 75 * (timeLeft / duration);
+
+    // Multiple launch points for bigger celebration
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.4), y: Math.random() - 0.2 },
+      colors: ['#5D259F', '#7C3AED', '#A855F7', '#C084FC', '#DDD6FE', '#22C55E', '#16A34A', '#15803D', '#FBBF24', '#F59E0B']
+    });
+
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.6, 0.9), y: Math.random() - 0.2 },
+      colors: ['#5D259F', '#7C3AED', '#A855F7', '#C084FC', '#DDD6FE', '#22C55E', '#16A34A', '#15803D', '#FBBF24', '#F59E0B']
+    });
+  }, 200);
+};
+
+const triggerGoalCompletionCelebration = () => {
+  const duration = 5000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 50, spread: 360, ticks: 100, zIndex: 9999 };
+
+  function randomInRange(min: number, max: number) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(() => {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      return;
+    }
+
+    const particleCount = 100 * (timeLeft / duration);
+
+    // Epic celebration from multiple points
+    for (let i = 0; i < 3; i++) {
+      confetti({
+        ...defaults,
+        particleCount: particleCount / 3,
+        origin: { x: randomInRange(0.2 + i * 0.3, 0.3 + i * 0.3), y: Math.random() - 0.2 },
+        colors: ['#5D259F', '#7C3AED', '#A855F7', '#C084FC', '#DDD6FE', '#22C55E', '#16A34A', '#15803D', '#FBBF24', '#F59E0B', '#EF4444', '#DC2626']
+      });
+    }
+  }, 150);
+};
 
 export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange, preselectedWorkspaceId, preselectedGoalId }) => {
   const [step, setStep] = useState(1);
@@ -105,6 +174,12 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
     
     // Goal linking
     linkedGoalId: '', // Optional goal to link this entry to
+    
+    // Achievement fields
+    markGoalCompleted: false, // Whether to mark the linked goal as completed
+    markMilestoneCompleted: false, // Whether to mark a milestone as completed
+    completedMilestoneId: '', // Specific milestone being completed
+    achievementType: 'individual' as 'individual' | 'team' | 'org',
   });
 
   // Fetch reference data from API
@@ -123,6 +198,13 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const { data: workspaces = [], isLoading: loadingWorkspaces, error: workspacesError } = useWorkspaces();
   const { data: workspaceMembers = [], isLoading: loadingWorkspaceMembers, error: workspaceMembersError } = useWorkspaceMembers(formData.workspaceId || '');
   const { data: workspaceGoals = [], isLoading: loadingGoals, error: goalsError } = useWorkspaceGoals(formData.workspaceId || '');
+  
+  // Get goals data for milestone access  
+  const { data: goalsData } = useGoals(formData.workspaceId || '');
+  
+  // Get milestones for the selected goal
+  const selectedGoal = goalsData?.goals?.find(goal => goal.id === formData.linkedGoalId);
+  const availableMilestones = selectedGoal?.milestones || [];
   
   // Handle pre-selection when modal opens
   useEffect(() => {
@@ -324,7 +406,12 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         })),
         artifacts: formData.artifacts,
         outcomes: generatedEntries.workspaceEntry.outcomes || [],
-        linkedGoalId: formData.linkedGoalId || undefined
+        linkedGoalId: formData.linkedGoalId || undefined,
+        // Achievement fields
+        isAchievement: formData.markGoalCompleted || formData.markMilestoneCompleted,
+        achievementType: (formData.markGoalCompleted || formData.markMilestoneCompleted) ? formData.achievementType : undefined,
+        completedGoalId: formData.markGoalCompleted ? formData.linkedGoalId : undefined,
+        completedMilestoneId: formData.markMilestoneCompleted ? formData.completedMilestoneId : undefined
       };
 
       console.log('📝 Creating workspace entry:', workspaceJournalData);
@@ -338,7 +425,13 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           description: generatedEntries.networkEntry.description.substring(0, 490) + (generatedEntries.networkEntry.description.length > 490 ? '...' : ''),
           fullContent: formatAIContent(generatedEntries.networkEntry),
           visibility: 'network',
-          outcomes: generatedEntries.networkEntry.outcomes || []
+          outcomes: generatedEntries.networkEntry.outcomes || [],
+          // Achievement fields for network entry (no specific goal/milestone IDs for privacy)
+          linkedGoalId: undefined, // Remove goal ID for privacy in network entry
+          completedGoalId: undefined, // Remove specific goal ID for privacy
+          completedMilestoneId: undefined, // Remove specific milestone ID for privacy
+          isAchievement: formData.markGoalCompleted || formData.markMilestoneCompleted,
+          achievementType: (formData.markGoalCompleted || formData.markMilestoneCompleted) ? formData.achievementType : undefined
         };
 
         console.log('🌐 Creating network entry:', networkJournalData);
@@ -346,6 +439,13 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       }
       
       if (workspaceResponse.success) {
+        // Trigger confetti celebrations for achievements
+        if (formData.markGoalCompleted) {
+          triggerGoalCompletionCelebration();
+        } else if (formData.markMilestoneCompleted) {
+          triggerMilestoneCompletionCelebration();
+        }
+        
         setSubmitSuccess(true);
         setTimeout(() => {
           setSubmitSuccess(false);
@@ -372,6 +472,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             category: 'General',
             tags: [],
             artifacts: [],
+            linkedGoalId: '',
+            markGoalCompleted: false,
+            markMilestoneCompleted: false,
+            completedMilestoneId: '',
+            achievementType: 'individual' as 'individual' | 'team' | 'org',
           });
           setGeneratedEntries(null);
           setLastGenerationInputs(null);
@@ -1036,6 +1141,118 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 </div>
               )}
               
+              {/* Achievement Controls Section */}
+              {formData.linkedGoalId && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Trophy className="h-5 w-5 text-yellow-600" />
+                    <Label.Root className="text-sm font-medium text-yellow-800">
+                      Achievement Settings
+                    </Label.Root>
+                  </div>
+                  <p className="text-xs text-yellow-700 mb-4">
+                    Mark goals or milestones as completed with this journal entry to create an achievement.
+                  </p>
+                  
+                  {/* Goal Completion Toggle */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={formData.markGoalCompleted}
+                        onChange={(e) => setFormData({
+                          ...formData, 
+                          markGoalCompleted: e.target.checked,
+                          markMilestoneCompleted: e.target.checked ? false : formData.markMilestoneCompleted
+                        })}
+                        className="rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Award className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm font-medium text-yellow-800">
+                          Mark entire goal as completed
+                        </span>
+                      </div>
+                    </label>
+                    
+                    {/* Milestone Completion Toggle */}
+                    {availableMilestones.length > 0 && !formData.markGoalCompleted && (
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={formData.markMilestoneCompleted}
+                            onChange={(e) => setFormData({
+                              ...formData, 
+                              markMilestoneCompleted: e.target.checked,
+                              completedMilestoneId: e.target.checked ? (availableMilestones[0]?.id || '') : ''
+                            })}
+                            className="rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Star className="h-4 w-4 text-yellow-600" />
+                            <span className="text-sm font-medium text-yellow-800">
+                              Mark milestone as completed
+                            </span>
+                          </div>
+                        </label>
+                        
+                        {/* Milestone Selection */}
+                        {formData.markMilestoneCompleted && (
+                          <div className="ml-6">
+                            <select
+                              value={formData.completedMilestoneId}
+                              onChange={(e) => setFormData({...formData, completedMilestoneId: e.target.value})}
+                              className="mt-1 block w-full rounded-md border border-yellow-300 px-3 py-2 text-sm shadow-sm focus:border-yellow-500 focus:outline-none focus:ring-yellow-500"
+                            >
+                              <option value="">Select milestone to complete</option>
+                              {availableMilestones
+                                .filter(milestone => milestone.status !== 'completed')
+                                .map(milestone => (
+                                <option key={milestone.id} value={milestone.id}>
+                                  {milestone.title}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Achievement Type Selection */}
+                    {(formData.markGoalCompleted || formData.markMilestoneCompleted) && (
+                      <div className="pt-2 border-t border-yellow-200">
+                        <Label.Root className="text-sm font-medium text-yellow-800 mb-2 block">
+                          Achievement Type
+                        </Label.Root>
+                        <div className="flex gap-2">
+                          {[
+                            { value: 'individual', label: 'Individual', icon: Star },
+                            { value: 'team', label: 'Team', icon: Users },
+                            { value: 'org', label: 'Organizational', icon: Building2 }
+                          ].map(({ value, label, icon: Icon }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setFormData({...formData, achievementType: value as 'individual' | 'team' | 'org'})}
+                              className={cn(
+                                "flex items-center gap-1 px-3 py-2 text-xs rounded-full border transition-colors",
+                                formData.achievementType === value
+                                  ? "bg-yellow-600 text-white border-yellow-600"
+                                  : "bg-white text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                              )}
+                            >
+                              <Icon className="h-3 w-3" />
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div>
                 <Label.Root className="text-sm font-medium text-gray-700">
                   Title *
@@ -1670,7 +1887,12 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                             tags: [...new Set([...workTypeNames, ...formData.tags])],
                             workspaceId: formData.workspaceId,
                             projects: formData.projects,
-                            departments: formData.departments
+                            departments: formData.departments,
+                            // Achievement context for AI generation
+                            linkedGoalId: formData.linkedGoalId,
+                            markGoalCompleted: formData.markGoalCompleted,
+                            markMilestoneCompleted: formData.markMilestoneCompleted,
+                            achievementType: formData.achievementType
                           };
 
                           const generated = await generateAIMutation.mutateAsync(aiEntryData);

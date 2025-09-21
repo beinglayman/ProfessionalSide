@@ -12,6 +12,9 @@ import { PrivacyPolicyPage } from './pages/privacy';
 import { TermsOfServicePage } from './pages/terms';
 import { LoginPage } from './pages/auth/login';
 import { RegisterPage } from './pages/auth/register';
+import { RequestInvitationPage } from './pages/auth/request-invitation';
+import { AdminPage } from './pages/admin';
+import { InvitationsPage } from './pages/invitations';
 import { OnboardingPage } from './pages/onboarding';
 import JournalListPage  from './pages/journal/list';
 import { ActivityFeedPage } from './pages/activity/feed';
@@ -92,6 +95,12 @@ const AppRoutes: React.FC = () => {
           } 
         />
         <Route 
+          path="/request-invitation" 
+          element={
+            isAuthenticated ? <Navigate to="/" replace /> : <RequestInvitationPage />
+          } 
+        />
+        <Route 
           path="/onboarding" 
           element={
             <ProtectedRoute>
@@ -158,6 +167,14 @@ const AppRoutes: React.FC = () => {
           } 
         />
         <Route 
+          path="/u/:profileUrl" 
+          element={
+            <ProtectedRoute>
+              <PublicProfilePage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
           path="/settings" 
           element={
             <ProtectedRoute>
@@ -189,6 +206,22 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <AdminPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/invitations" 
+          element={
+            <ProtectedRoute>
+              <InvitationsPage />
+            </ProtectedRoute>
+          } 
+        />
       </Routes>
     </div>
   );
@@ -205,7 +238,10 @@ function App() {
             </Router>
           </ToastProvider>
         </OnboardingProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* Only render DevTools in development and after DOM is ready */}
+        {import.meta.env.DEV && typeof window !== 'undefined' && (
+          <ReactQueryDevtools initialIsOpen={false} />
+        )}
       </AuthProvider>
     </QueryClientProvider>
   );

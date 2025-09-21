@@ -188,9 +188,19 @@ export function ProfileViewPage() {
   }, [selectedSkills, journalEntriesData]);
 
   const filteredAchievements = useMemo(() => {
-    // No achievements from profile data yet - return empty array
-    return [];
-  }, [selectedSkills]);
+    // Filter journal entries that are marked as achievements
+    const realJournalEntries = journalEntriesData?.entries || [];
+    const achievementEntries = realJournalEntries.filter(entry => entry.isAchievement) || [];
+    
+    // Filter by selected skills if any are selected
+    if (selectedSkills.size === 0) {
+      return achievementEntries;
+    }
+    
+    return achievementEntries.filter(entry =>
+      entry.skills.some((skill: string) => selectedSkills.has(skill))
+    );
+  }, [selectedSkills, journalEntriesData]);
 
   // Skills growth data - currently empty until real tracking is implemented
   const dynamicSkillsGrowthData = useMemo(() => {
@@ -763,12 +773,45 @@ export function ProfileViewPage() {
 
               <div className="mt-6">
                 <Tabs.Content value="achievements" className="space-y-6">
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-                    <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-600">
-                      No achievements available yet. Complete more onboarding steps to see your achievements here.
-                    </p>
-                  </div>
+                  {filteredAchievements.length > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          Professional Achievements ({filteredAchievements.length})
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Journal entries where goals or milestones were completed
+                        </p>
+                      </div>
+                      <div className="space-y-6">
+                        {filteredAchievements.map((entry) => (
+                          <JournalCard
+                            key={entry.id}
+                            journal={entry}
+                            viewMode="workspace"
+                            showMenuButton={false}
+                            showAnalyticsButton={false}
+                            customActions={
+                              <div className="flex items-center gap-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                                <Award className="h-3 w-3" />
+                                Achievement
+                              </div>
+                            }
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+                      <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-gray-600 mb-2">
+                        No achievements yet
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Complete goals or milestones through your journal entries to see achievements here.
+                      </p>
+                    </div>
+                  )}
                 </Tabs.Content>
 
                 <Tabs.Content value="journal" className="space-y-6">

@@ -9,6 +9,8 @@ import {
   verifyToken
 } from '../utils/auth.utils';
 import { EmailService } from '../services/email.service';
+import { InvitationService } from '../services/invitation.service';
+import { SystemSettingsService } from '../services/system-settings.service';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import {
   registerSchema,
@@ -22,6 +24,8 @@ import {
 } from '../types/auth.types';
 
 const emailService = new EmailService();
+const invitationService = new InvitationService();
+const systemSettingsService = new SystemSettingsService();
 
 /**
  * Register a new user
@@ -29,6 +33,37 @@ const emailService = new EmailService();
 export const register = asyncHandler(async (req: Request, res: Response) => {
   // Validate input
   const validatedData: RegisterInput = registerSchema.parse(req.body);
+  const { invitationToken } = req.body;
+  
+  // Check if invitation-only mode is enabled
+  const invitationRequired = await systemSettingsService.isInvitationOnlyMode();
+  
+  // Check if admin email (for auto-admin assignment)
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [];
+  const isAdminEmail = adminEmails.includes(validatedData.email);
+  
+  // Validate invitation requirement
+  if (invitationRequired && !isAdminEmail && !invitationToken) {
+    return sendError(res, 'Valid invitation required', 403);
+  }
+  
+  let invitation = null;
+  if (invitationRequired && invitationToken) {
+    // Validate invitation token
+    const tokenValidation = await invitationService.validateInvitationToken(invitationToken);
+    if (!tokenValidation.valid) {
+      return sendError(res, 'Invalid or expired invitation', 400);
+    }
+    
+    if (tokenValidation.email !== validatedData.email) {
+      return sendError(res, 'Invitation email does not match registration email', 400);
+    }
+    
+    // Get full invitation details for later processing
+    invitation = await prisma.platformInvitation.findFirst({
+      where: { token: invitationToken }
+    });
+  }
   
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -42,7 +77,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   // Hash password
   const hashedPassword = await hashPassword(validatedData.password);
   
-  // Create user
+  // Create user with invitation tracking
   const user = await prisma.user.create({
     data: {
       name: validatedData.name,
@@ -51,6 +86,8 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       title: validatedData.title,
       company: validatedData.company,
       location: validatedData.location,
+      isAdmin: isAdminEmail, // Auto-assign admin for admin emails
+      invitationsRemaining: isAdminEmail ? 999 : 10, // Unlimited for admins
       profile: {
         create: {
           profileCompleteness: 40 // Base completeness for required fields
@@ -65,6 +102,8 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       company: true,
       location: true,
       avatar: true,
+      isAdmin: true,
+      invitationsRemaining: true,
       createdAt: true,
       profile: {
         select: {
@@ -74,6 +113,16 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       }
     }
   });
+  
+  // If invitation was used, mark it as accepted
+  if (invitation) {
+    try {
+      await invitationService.acceptInvitation(invitationToken, user.id);
+    } catch (error) {
+      console.error('Failed to process invitation acceptance:', error);
+      // Don't fail registration if invitation processing fails
+    }
+  }
   
   // Generate tokens
   const tokens = generateTokenPair(user.id, user.email);
@@ -97,6 +146,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   }).catch(error => {
     console.error(`Failed to send welcome email to user ${user.id}:`, error);
   });
+  
+  // Log successful registration
+  if (isAdminEmail) {
+    console.log(`🔑 Admin user registered: ${user.email}`);
+  } else if (invitation) {
+    console.log(`📨 Invited user registered: ${user.email}`);
+  } else {
+    console.log(`👤 User registered: ${user.email}`);
+  }
   
   sendSuccess(res, {
     user,

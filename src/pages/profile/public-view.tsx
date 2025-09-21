@@ -24,7 +24,7 @@ interface PrivacySettings {
 }
 
 export function PublicProfilePage() {
-  const { userId } = useParams<{ userId: string }>();
+  const { userId, profileUrl } = useParams<{ userId?: string; profileUrl?: string }>();
   const { user: currentUser } = useAuth();
   const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
   const [activeTab, setActiveTab] = useState('achievements');
@@ -51,12 +51,15 @@ export function PublicProfilePage() {
   const [connectionStatus, setConnectionStatus] = useState<'none' | 'connected' | 'pending_connection'>('none');
   const [connectionType, setConnectionType] = useState<'core' | 'extended' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Resolved user ID (from either userId param or profileUrl lookup)
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
 
   // Helper function to check if current user is in the profile owner's network
   const isInNetwork = () => {
     // TODO: This should be determined from actual network/connection data
     // For now, assume authenticated users are in network for demo purposes
-    return currentUser && currentUser.id !== userId;
+    return currentUser && currentUser.id !== resolvedUserId;
   };
 
   // Helper function to check if profile should be visible
@@ -64,7 +67,7 @@ export function PublicProfilePage() {
     if (!privacySettings) return true; // Default to visible while loading
     
     // Profile owner can always see their own profile
-    if (currentUser?.id === userId) return true;
+    if (currentUser?.id === resolvedUserId) return true;
     
     // Check profile visibility setting
     if (privacySettings.profileVisibility === 'public') return true;
@@ -144,26 +147,63 @@ export function PublicProfilePage() {
     return Math.round(totalMonths / 12);
   };
 
-  // Fetch profile data and privacy settings on component mount
+  // Resolve user ID from either userId or profileUrl
   useEffect(() => {
-    const fetchData = async () => {
-      if (!userId) {
-        setProfileError('User ID is required');
+    const resolveUserId = async () => {
+      if (userId) {
+        // Direct userId provided
+        setResolvedUserId(userId);
+      } else if (profileUrl) {
+        // Need to resolve profileUrl to userId
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1'}/users/by-url/${encodeURIComponent(profileUrl)}`,
+            {
+              headers: {
+                ...(currentUser && {
+                  'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
+                })
+              }
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            setResolvedUserId(result.data.id);
+          } else {
+            setProfileError('Profile not found');
+            setIsLoadingProfile(false);
+          }
+        } catch (error) {
+          console.error('❌ Failed to resolve profile URL:', error);
+          setProfileError('Failed to load profile');
+          setIsLoadingProfile(false);
+        }
+      } else {
+        setProfileError('User ID or profile URL is required');
         setIsLoadingProfile(false);
         setIsLoadingPrivacy(false);
-        return;
       }
+    };
+
+    resolveUserId();
+  }, [userId, profileUrl, currentUser]);
+
+  // Fetch profile data and privacy settings once we have resolved user ID
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!resolvedUserId) return;
 
       try {
         setIsLoadingProfile(true);
         setProfileError(null);
-        console.log('🔍 Fetching public profile and privacy settings for userId:', userId);
+        console.log('🔍 Fetching public profile and privacy settings for userId:', resolvedUserId);
         
         // Fetch privacy settings first to determine visibility
-        await fetchPrivacySettings(userId);
+        await fetchPrivacySettings(resolvedUserId);
         
         // Fetch profile data
-        const data = await profileApiService.getPublicProfile(userId);
+        const data = await profileApiService.getPublicProfile(resolvedUserId);
         console.log('✅ Public profile data received:', data);
         
         setProfileData(data);
@@ -186,11 +226,11 @@ export function PublicProfilePage() {
     };
 
     fetchData();
-  }, [userId]);
+  }, [resolvedUserId]);
 
   // Fetch public journal entries for this user
   const fetchPublicJournalEntries = async () => {
-    if (!userId) return;
+    if (!resolvedUserId) return;
     
     try {
       setIsLoadingJournalEntries(true);
@@ -198,7 +238,7 @@ export function PublicProfilePage() {
       
       // Fetch journal entries with network visibility (public to network)
       const response = await JournalService.getJournalEntries({
-        authorId: userId,
+        authorId: resolvedUserId,
         visibility: 'network'
       });
       
@@ -218,7 +258,7 @@ export function PublicProfilePage() {
 
   // Fetch public achievements for this user
   const fetchPublicAchievements = async () => {
-    if (!userId) return;
+    if (!resolvedUserId) return;
     
     try {
       setIsLoadingAchievements(true);
@@ -228,7 +268,7 @@ export function PublicProfilePage() {
       // TODO: Replace with actual achievements API when available
       // Using journal entries as a proxy for achievements for now
       const response = await JournalService.getJournalEntries({
-        authorId: userId,
+        authorId: resolvedUserId,
         visibility: 'network',
         category: 'achievement' // If achievements are stored as a category
       });
@@ -259,11 +299,11 @@ export function PublicProfilePage() {
 
   // Fetch achievements and journal entries when profile loads
   useEffect(() => {
-    if (profileData && userId) {
+    if (profileData && resolvedUserId) {
       fetchPublicJournalEntries();
       fetchPublicAchievements();
     }
-  }, [profileData, userId]);
+  }, [profileData, resolvedUserId]);
 
   const toggleSkill = (skillName: string) => {
     setSelectedSkills(prev => {
@@ -590,7 +630,7 @@ export function PublicProfilePage() {
               </div>
               
               {/* Privacy notice */}
-              {privacySettings && (currentUser?.id !== userId) && (
+              {privacySettings && (currentUser?.id !== resolvedUserId) && (
                 <div className="mt-2 text-xs text-gray-500">
                   {privacySettings.profileVisibility === 'network' && (
                     <p>🔒 This profile is visible to network connections only</p>

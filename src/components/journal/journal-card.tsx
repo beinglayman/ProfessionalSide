@@ -48,6 +48,7 @@ import { JournalEntry } from '../../types/journal';
 import { CommentsSection } from './comments-section';
 import { onboardingService } from '../../services/onboarding.service';
 import { useAuth } from '../../contexts/AuthContext';
+import confetti from 'canvas-confetti';
 
 interface JournalCardProps {
   journal: JournalEntry;
@@ -67,6 +68,21 @@ interface JournalCardProps {
   isRechronicleLoading?: boolean;
   currentUserAvatar?: string;
 }
+
+// Subtle confetti effect for achievement entries
+const triggerSubtleConfetti = () => {
+  confetti({
+    particleCount: 25,
+    spread: 50,
+    origin: { y: 0.6 },
+    colors: ['#5D259F', '#7C3AED', '#A855F7', '#C084FC', '#DDD6FE'],
+    ticks: 60,
+    gravity: 1.2,
+    decay: 0.94,
+    startVelocity: 20,
+    zIndex: 999
+  });
+};
 
 export function JournalCard({
   journal,
@@ -198,21 +214,58 @@ export function JournalCard({
 
   // Get achievement info for achievement entries
   const getAchievementInfo = () => {
-    if (!journal.achievementType || !journal.achievementTitle) return null;
+    // Check both old and new achievement fields for backward compatibility
+    const isOldAchievement = journal.achievementType && journal.achievementTitle;
+    const isNewAchievement = journal.isAchievement;
     
-    const achievementIcons = {
-      'certification': Award,
-      'award': Trophy,
-      'milestone': Star,
-      'recognition': Star
+    if (!isOldAchievement && !isNewAchievement) return null;
+    
+    if (isOldAchievement) {
+      // Legacy achievement system
+      const achievementIcons = {
+        'certification': Award,
+        'award': Trophy,
+        'milestone': Star,
+        'recognition': Star
+      };
+      
+      const AchievementIcon = achievementIcons[journal.achievementType] || Award;
+      
+      return {
+        icon: AchievementIcon,
+        title: journal.achievementTitle,
+        description: journal.achievementDescription,
+        type: journal.achievementType,
+        isGoalMilestone: false
+      };
+    }
+    
+    // New goal/milestone achievement system
+    const categoryIcons = {
+      'individual': Star,
+      'team': Users,
+      'org': Building2
     };
     
-    const AchievementIcon = achievementIcons[journal.achievementType] || Award;
+    const AchievementIcon = categoryIcons[journal.achievementCategory || 'individual'] || Trophy;
+    
+    let title = 'Achievement Completed';
+    let description = 'Successfully completed a professional goal or milestone.';
+    
+    if (journal.completedGoalId) {
+      title = 'Goal Achievement';
+      description = 'Successfully completed a workspace goal through this work.';
+    } else if (journal.completedMilestoneId) {
+      title = 'Milestone Achievement'; 
+      description = 'Successfully completed a goal milestone through this work.';
+    }
     
     return {
       icon: AchievementIcon,
-      title: journal.achievementTitle,
-      description: journal.achievementDescription
+      title,
+      description,
+      type: journal.achievementCategory || 'individual',
+      isGoalMilestone: true
     };
   };
 
@@ -220,8 +273,10 @@ export function JournalCard({
 
   return (
     <div className={cn(
-      "group relative rounded-lg border bg-white shadow-sm transition-shadow hover:shadow-md",
-      achievementInfo ? "border-purple-300" : "border-gray-200"
+      "group relative rounded-lg border bg-white shadow-sm transition-all duration-300",
+      achievementInfo 
+        ? "border-purple-300 shadow-purple-100 hover:shadow-purple-200 hover:shadow-lg" 
+        : "border-gray-200 hover:shadow-md"
     )}>
       {/* Workspace and Publication Status Tags - Top Right */}
       <div className="absolute top-4 right-4 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 z-10">
@@ -375,15 +430,33 @@ export function JournalCard({
       {/* Achievement Box */}
       {achievementInfo && (
         <div className="px-4 pb-4">
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
+          <div className="bg-gradient-to-r from-purple-50 to-yellow-50 border-2 border-purple-300 rounded-lg p-4 relative overflow-hidden">
+            {/* Subtle sparkle background effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-100/20 to-yellow-100/20"></div>
+            
+            <div className="relative flex items-start gap-3">
               <div className="flex-shrink-0">
-                <achievementInfo.icon className="h-6 w-6 text-purple-600" />
+                <button 
+                  onClick={triggerSubtleConfetti}
+                  className="group p-1 rounded-full hover:bg-purple-100 transition-colors cursor-pointer"
+                  title="Celebrate this achievement!"
+                >
+                  <achievementInfo.icon className="h-6 w-6 text-purple-600 group-hover:text-purple-700 transition-colors" />
+                </button>
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-purple-900 mb-1">
-                  Achievement
-                </h4>
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="text-sm font-semibold text-purple-900">
+                    🏆 Achievement
+                  </h4>
+                  {achievementInfo.isGoalMilestone && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-200 text-purple-800 text-xs rounded-full font-medium">
+                      {achievementInfo.type === 'individual' && '👤 Individual'}
+                      {achievementInfo.type === 'team' && '👥 Team'}
+                      {achievementInfo.type === 'org' && '🏢 Organization'}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm font-medium text-purple-800 mb-1">
                   {achievementInfo.title}
                 </p>

@@ -192,6 +192,29 @@ export const languageSchema = z.object({
   proficiency: z.enum(['Native', 'Fluent', 'Advanced', 'Intermediate', 'Basic'])
 });
 
+// Profile URL schemas
+export const checkProfileUrlSchema = z.object({
+  url: z.string()
+    .min(3, 'Profile URL must be at least 3 characters')
+    .max(50, 'Profile URL must be less than 50 characters')
+    .regex(/^[a-z0-9-]+$/, 'Profile URL can only contain lowercase letters, numbers, and hyphens')
+    .refine(url => !url.includes('--'), 'Profile URL cannot contain consecutive hyphens')
+    .refine(url => !url.startsWith('-') && !url.endsWith('-'), 'Profile URL cannot start or end with a hyphen')
+});
+
+export const updateProfileUrlSchema = z.object({
+  profileUrl: z.string()
+    .min(3, 'Profile URL must be at least 3 characters')
+    .max(50, 'Profile URL must be less than 50 characters')
+    .regex(/^[a-z0-9-]+$/, 'Profile URL can only contain lowercase letters, numbers, and hyphens')
+    .refine(url => !url.includes('--'), 'Profile URL cannot contain consecutive hyphens')
+    .refine(url => !url.startsWith('-') && !url.endsWith('-'), 'Profile URL cannot start or end with a hyphen')
+});
+
+export const getProfileByUrlSchema = z.object({
+  profileUrl: z.string().min(1, 'Profile URL is required')
+});
+
 // Type exports
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type AddUserSkillInput = z.infer<typeof addUserSkillSchema>;
@@ -202,3 +225,6 @@ export type WorkExperience = z.infer<typeof workExperienceSchema>;
 export type Education = z.infer<typeof educationSchema>;
 export type Certification = z.infer<typeof certificationSchema>;
 export type Language = z.infer<typeof languageSchema>;
+export type CheckProfileUrlInput = z.infer<typeof checkProfileUrlSchema>;
+export type UpdateProfileUrlInput = z.infer<typeof updateProfileUrlSchema>;
+export type GetProfileByUrlInput = z.infer<typeof getProfileByUrlSchema>;

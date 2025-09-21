@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # InChronicle - Claude Development Guide
 
 ## Project Overview
@@ -13,7 +17,7 @@ InChronicle is a professional journaling and career development platform with Re
 
 ## Key Development Commands
 
-### Frontend Development
+### Frontend Development (from project root)
 ```bash
 npm run dev          # Start development server (port 5173)
 npm run build        # Build for production
@@ -21,8 +25,9 @@ npm run lint         # Run ESLint
 npm run preview      # Preview production build (port 4173)
 ```
 
-### Backend Development
+### Backend Development (from backend/ directory)
 ```bash
+cd backend
 npm run dev          # Start development server with tsx watch
 npm run build        # Build TypeScript to JavaScript
 npm run start        # Production start with migrations and seeding
@@ -38,6 +43,23 @@ railway logs         # View deployment logs
 railway status       # Check service status
 railway redeploy     # Force redeploy
 railway run <cmd>    # Run commands in Railway environment
+```
+
+### Database Management Scripts
+```bash
+# Reference data and seeding
+npm run db:seed-reference      # Seed skills, work types, categories
+npm run db:seed-complete       # Complete seeding with skill benchmarks
+
+# Category and skill management
+npm run check:railway-empty-categories    # Check for empty categories in Railway
+npm run fix:empty-dynamic                 # Fix empty categories dynamically
+npm run analyze:all-unmapped              # Find unmapped work types
+npm run fix:all-unmapped                  # Fix unmapped work type mappings
+
+# Supply chain specific fixes
+npm run fix:supply-chain         # Fix supply chain visibility issues
+npm run diagnose:supply-chain    # Diagnose supply chain skill mappings
 ```
 
 ## Common Development Patterns

@@ -7,15 +7,22 @@ import {
   updateUserSkillSchema,
   searchUsersSchema,
   getUserProfileSchema,
+  checkProfileUrlSchema,
+  updateProfileUrlSchema,
+  getProfileByUrlSchema,
   UpdateProfileInput,
   AddUserSkillInput,
   UpdateUserSkillInput,
   SearchUsersInput,
-  GetUserProfileInput
+  GetUserProfileInput,
+  CheckProfileUrlInput,
+  UpdateProfileUrlInput,
+  GetProfileByUrlInput
 } from '../types/user.types';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { isProfileUrlAvailable, validateProfileUrl, updateUserProfileUrl, getUserByProfileUrl } from '../utils/profile-url.utils';
 // Note: Using Railway Volumes for persistent storage
 
 const userService = new UserService();
@@ -438,6 +445,83 @@ export const updatePrivacySettings = asyncHandler(async (req: Request, res: Resp
     const settings = await userService.updatePrivacySettings(userId, req.body);
     sendSuccess(res, settings, 'Privacy settings updated successfully');
   } catch (error: any) {
+    throw error;
+  }
+});
+
+/**
+ * Check if profile URL is available
+ */
+export const checkProfileUrlAvailability = asyncHandler(async (req: Request, res: Response) => {
+  const { url }: CheckProfileUrlInput = checkProfileUrlSchema.parse(req.params);
+  const userId = req.user?.id;
+
+  try {
+    // Validate URL format
+    const validation = validateProfileUrl(url);
+    if (!validation.isValid) {
+      return sendSuccess(res, { 
+        available: false, 
+        error: validation.error 
+      });
+    }
+
+    // Check availability
+    const available = await isProfileUrlAvailable(url, userId);
+    sendSuccess(res, { 
+      available,
+      url,
+      ...(available ? {} : { error: 'This profile URL is already taken' })
+    });
+  } catch (error: any) {
+    throw error;
+  }
+});
+
+/**
+ * Update user's profile URL
+ */
+export const updateUserProfileUrlController = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return sendError(res, 'User not authenticated', 401);
+  }
+
+  const { profileUrl }: UpdateProfileUrlInput = updateProfileUrlSchema.parse(req.body);
+
+  try {
+    await updateUserProfileUrl(userId, profileUrl);
+    sendSuccess(res, { profileUrl }, 'Profile URL updated successfully');
+  } catch (error: any) {
+    if (error.message.includes('already taken') || error.message.includes('reserved')) {
+      return sendError(res, error.message, 400);
+    }
+    throw error;
+  }
+});
+
+/**
+ * Get user profile by profile URL
+ */
+export const getUserProfileByUrl = asyncHandler(async (req: Request, res: Response) => {
+  const { profileUrl }: GetProfileByUrlInput = getProfileByUrlSchema.parse(req.params);
+  const requestingUserId = req.user?.id;
+
+  try {
+    const user = await getUserByProfileUrl(profileUrl);
+    
+    if (!user) {
+      return sendError(res, 'Profile not found', 404);
+    }
+
+    // Get full profile data using existing service
+    const profile = await userService.getUserProfile(user.id, requestingUserId);
+    sendSuccess(res, profile);
+  } catch (error: any) {
+    if (error.message === 'User not found') {
+      return sendError(res, 'Profile not found', 404);
+    }
     throw error;
   }
 });

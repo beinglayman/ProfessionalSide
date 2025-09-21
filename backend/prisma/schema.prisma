@@ -26,10 +26,18 @@ model User {
   company   String?
   industry  String?
   yearsOfExperience Int? 
+  profileUrl String? @unique
   isActive  Boolean  @default(true)
   welcomeEmailSent  Boolean  @default(false)
   hasSeenOnboardingOverlay Boolean @default(false)
   onboardingSkipped Boolean @default(false)
+  
+  // Invitation system fields
+  invitationsRemaining    Int       @default(10)
+  totalInvitationsSent   Int       @default(0)
+  isAdmin                Boolean   @default(false)
+  lastQuotaReplenishment DateTime  @default(now())
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -70,6 +78,12 @@ model User {
   sentNotifications     Notification[] @relation("NotificationSender")
   receivedNotifications Notification[] @relation("NotificationRecipient")
   notificationPreferences NotificationPreferences?
+  
+  // Invitation relationships
+  sentInvitations        PlatformInvitation[] @relation("SentInvitations")
+  acceptedInvitations    PlatformInvitation[] @relation("AcceptedInvitations")
+  reviewedRequests       InvitationRequest[]  @relation("ReviewedRequests")
+  systemSettingsUpdates SystemSettings[]     @relation("SystemSettingsUpdatedBy")
   
   // Task relationships
   assignedTasks         GoalTask[] @relation("TaskAssignee")
@@ -1040,4 +1054,63 @@ model SkillBenchmark {
   @@index([industry])
   @@index([updatedAt])
   @@map("skill_benchmarks")
+}
+
+// ============================================================================
+// PLATFORM INVITATION SYSTEM
+// ============================================================================
+
+model PlatformInvitation {
+  id          String    @id @default(cuid())
+  email       String
+  inviterId   String
+  token       String    @unique
+  status      String    @default("pending") // pending, accepted, declined, expired
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  acceptedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  inviter     User      @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+  acceptedBy  User?     @relation("AcceptedInvitations", fields: [acceptedById], references: [id], onDelete: SetNull)
+  
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("platform_invitations")
+}
+
+model InvitationRequest {
+  id            String    @id @default(cuid())
+  name          String
+  email         String
+  role          String
+  organization  String
+  linkedinUrl   String?
+  message       String?
+  status        String    @default("pending") // pending, approved, denied
+  reviewedAt    DateTime?
+  reviewedById  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  reviewedBy    User?     @relation("ReviewedRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+  
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@map("invitation_requests")
+}
+
+model SystemSettings {
+  id                 String    @id @default("singleton")
+  invitationOnlyMode Boolean   @default(false)
+  lastUpdatedBy      String?
+  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  
+  updatedBy          User?     @relation("SystemSettingsUpdatedBy", fields: [lastUpdatedBy], references: [id], onDelete: SetNull)
+  
+  @@map("system_settings")
 }

@@ -17,7 +17,10 @@ import {
   downloadExportData,
   deleteUserProfile,
   getPrivacySettings,
-  updatePrivacySettings
+  updatePrivacySettings,
+  checkProfileUrlAvailability,
+  updateUserProfileUrlController,
+  getUserProfileByUrl
 } from '../controllers/user.controller';
 import { authenticate, optionalAuth } from '../middleware/auth.middleware';
 
@@ -26,6 +29,7 @@ const router = Router();
 // Public routes (with optional auth)
 router.get('/search', optionalAuth, searchUsers);
 router.get('/skills/all', getAllSkills);
+router.get('/by-url/:profileUrl', optionalAuth, getUserProfileByUrl);
 router.get('/:userId', optionalAuth, getUserProfile);
 router.get('/:userId/skills', getUserSkills);
 
@@ -53,5 +57,9 @@ router.post('/export-data', requestDataExport);
 router.get('/export-data/:exportId/status', checkExportStatus);
 router.get('/export-data/:exportId/download', downloadExportData);
 router.delete('/profile', deleteUserProfile);
+
+// Profile URL management
+router.get('/profile-url/check/:url', checkProfileUrlAvailability);
+router.put('/profile-url', updateUserProfileUrlController);
 
 export default router;

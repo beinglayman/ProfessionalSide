@@ -16,6 +16,11 @@ interface EntryData {
   workspaceId: string;
   projects: string[];
   departments: string[];
+  // Achievement fields
+  linkedGoalId?: string;
+  markGoalCompleted?: boolean;
+  markMilestoneCompleted?: boolean;
+  achievementType?: 'individual' | 'team' | 'org';
 }
 
 interface GeneratedEntryContent {

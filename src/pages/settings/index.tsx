@@ -6,6 +6,7 @@ import NetworkSettings from '../../components/settings/network-settings';
 import NotificationSettings from '../../components/settings/notification-settings';
 import PrivacySettings from '../../components/settings/privacy-settings';
 import ProfileVisibility from '../../components/settings/profile-visibility';
+import ProfileUrlSettings from '../../components/settings/profile-url-settings';
 import { useNavigate, Link } from 'react-router-dom';
 
 type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy';
@@ -185,6 +186,9 @@ export function SettingsPage() {
                 </div>
               </div>
             </div>
+            
+            {/* Profile URL Settings */}
+            <ProfileUrlSettings />
             
             {/* Profile Visibility Settings */}
             <ProfileVisibility />

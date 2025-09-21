@@ -1,15 +1,18 @@
 import * as cron from 'node-cron';
 import { NotificationQueueService } from './notification-queue.service';
 import { ExportService } from './export.service';
+import { InvitationReplenishmentService } from './invitation-replenishment.service';
 
 export class CronService {
   private notificationQueue: NotificationQueueService;
   private exportService: ExportService;
+  private invitationReplenishment: InvitationReplenishmentService;
   private jobs: Map<string, cron.ScheduledTask> = new Map();
 
   constructor() {
     this.notificationQueue = new NotificationQueueService();
     this.exportService = new ExportService();
+    this.invitationReplenishment = new InvitationReplenishmentService();
   }
 
   /**
@@ -48,6 +51,17 @@ export class CronService {
         console.log('Export cleanup completed successfully');
       } catch (error) {
         console.error('Error cleaning up exports:', error);
+      }
+    });
+
+    // Monthly invitation quota replenishment - 1st of every month at 9:00 AM
+    this.scheduleJob('invitation-replenishment', '0 9 1 * *', async () => {
+      console.log('🔄 Triggering monthly invitation quota replenishment...');
+      try {
+        const results = await this.invitationReplenishment.replenishMonthlyQuotas();
+        console.log(`✅ Monthly replenishment completed: ${results.replenished}/${results.processed} users replenished, ${results.errors} errors`);
+      } catch (error) {
+        console.error('❌ Error in monthly invitation replenishment:', error);
       }
     });
 
@@ -118,6 +132,7 @@ export class CronService {
         'daily-digest': '0 8 * * *',
         'weekly-digest': '0 9 * * 1',
         'cleanup-exports': '0 2 * * *',
+        'invitation-replenishment': '0 9 1 * *',
         'health-check': '*/5 * * * *'
       };
 
@@ -145,6 +160,9 @@ export class CronService {
           return true;
         case 'cleanup-exports':
           await this.exportService.cleanupExpiredExports();
+          return true;
+        case 'invitation-replenishment':
+          await this.invitationReplenishment.replenishMonthlyQuotas();
           return true;
         default:
           console.error(`Unknown job: ${jobName}`);

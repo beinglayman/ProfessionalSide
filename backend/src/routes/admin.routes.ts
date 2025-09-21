@@ -2,20 +2,17 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireAdmin, requirePermission, requireSuperAdmin } from '../middleware/admin.middleware';
 import {
-  getDashboardOverview,
-  getSystemMetrics,
-  getUserMetrics,
+  // New invitation system endpoints
+  getSystemSettings,
+  updateSystemSettings,
+  toggleInvitationMode,
+  getAdminDashboard,
+  grantInvitations,
   getUsers,
-  getUserById,
-  updateUser,
-  toggleUserStatus,
-  getContentMetrics,
-  getSystemHealth,
-  getSystemStatistics,
-  getAdminActivityLogs,
-  getWorkspaces,
-  deleteJournalEntry,
-  getAdminPermissions
+  getReplenishmentHistory,
+  getReplenishmentPreview,
+  triggerManualReplenishment,
+  requireAdmin as requireAdminMiddleware
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -25,115 +22,74 @@ router.use(authenticate);
 router.use(requireAdmin);
 
 /**
- * @route   GET /api/v1/admin/dashboard
- * @desc    Get admin dashboard overview
- * @access  Private (Admin)
- */
-router.get('/dashboard', getDashboardOverview);
-
-/**
- * @route   GET /api/v1/admin/permissions
- * @desc    Get current admin's permissions
- * @access  Private (Admin)
- */
-router.get('/permissions', getAdminPermissions);
-
-/**
- * @route   GET /api/v1/admin/system/metrics
- * @desc    Get system metrics
- * @access  Private (Admin)
- */
-router.get('/system/metrics', requirePermission('system', 'read'), getSystemMetrics);
-
-/**
- * @route   GET /api/v1/admin/system/health
- * @desc    Get system health status
- * @access  Private (Admin)
- */
-router.get('/system/health', requirePermission('system', 'read'), getSystemHealth);
-
-/**
- * @route   GET /api/v1/admin/system/statistics
- * @desc    Get system statistics for charts
- * @access  Private (Admin)
- * @query   period - daily, weekly, or monthly
- */
-router.get('/system/statistics', requirePermission('analytics', 'read'), getSystemStatistics);
-
-/**
- * @route   GET /api/v1/admin/users/metrics
- * @desc    Get user metrics
- * @access  Private (Admin)
- */
-router.get('/users/metrics', requirePermission('users', 'read'), getUserMetrics);
-
-/**
  * @route   GET /api/v1/admin/users
  * @desc    Get all users with pagination and search
  * @access  Private (Admin)
  * @query   page - Page number
  * @query   limit - Items per page
  * @query   search - Search term
- * @query   status - active, inactive, or all
+ * @query   isAdmin - filter by admin status
  */
-router.get('/users', requirePermission('users', 'read'), getUsers);
+router.get('/users', getUsers);
+
+// Invitation system admin endpoints
 
 /**
- * @route   GET /api/v1/admin/users/:userId
- * @desc    Get user details by ID
- * @access  Private (Admin)
- * @params  userId - User ID
- */
-router.get('/users/:userId', requirePermission('users', 'read'), getUserById);
-
-/**
- * @route   PUT /api/v1/admin/users/:userId
- * @desc    Update user information
- * @access  Private (Admin)
- * @params  userId - User ID
- * @body    { name?, email?, isActive?, title?, company? }
- */
-router.put('/users/:userId', requirePermission('users', 'update'), updateUser);
-
-/**
- * @route   POST /api/v1/admin/users/:userId/toggle-status
- * @desc    Suspend or activate user
- * @access  Private (Admin)
- * @params  userId - User ID
- */
-router.post('/users/:userId/toggle-status', requirePermission('users', 'suspend'), toggleUserStatus);
-
-/**
- * @route   GET /api/v1/admin/content/metrics
- * @desc    Get content metrics
+ * @route   GET /api/v1/admin/system-settings
+ * @desc    Get current system settings
  * @access  Private (Admin)
  */
-router.get('/content/metrics', requirePermission('journal_entries', 'read'), getContentMetrics);
+router.get('/system-settings', getSystemSettings);
 
 /**
- * @route   GET /api/v1/admin/workspaces
- * @desc    Get all workspaces with admin view
+ * @route   PUT /api/v1/admin/system-settings
+ * @desc    Update system settings
  * @access  Private (Admin)
- * @query   page - Page number
- * @query   limit - Items per page
- * @query   search - Search term
  */
-router.get('/workspaces', requirePermission('workspaces', 'read'), getWorkspaces);
+router.put('/system-settings', updateSystemSettings);
 
 /**
- * @route   DELETE /api/v1/admin/journal-entries/:entryId
- * @desc    Delete journal entry (admin action)
+ * @route   POST /api/v1/admin/toggle-invitation-mode
+ * @desc    Toggle invitation-only mode
  * @access  Private (Admin)
- * @params  entryId - Journal entry ID
  */
-router.delete('/journal-entries/:entryId', requirePermission('journal_entries', 'delete'), deleteJournalEntry);
+router.post('/toggle-invitation-mode', toggleInvitationMode);
 
 /**
- * @route   GET /api/v1/admin/activity-logs
- * @desc    Get admin activity logs
- * @access  Private (Super Admin)
- * @query   limit - Number of logs to retrieve
+ * @route   GET /api/v1/admin/invitation-dashboard
+ * @desc    Get comprehensive admin dashboard data including invitation stats
+ * @access  Private (Admin)
  */
-router.get('/activity-logs', requireSuperAdmin, getAdminActivityLogs);
+router.get('/invitation-dashboard', getAdminDashboard);
+
+/**
+ * @route   POST /api/v1/admin/grant-invitations
+ * @desc    Grant additional invitations to a user
+ * @access  Private (Admin)
+ * @body    { userId: string, amount: number }
+ */
+router.post('/grant-invitations', grantInvitations);
+
+/**
+ * @route   GET /api/v1/admin/replenishment-history
+ * @desc    Get invitation replenishment history
+ * @access  Private (Admin)
+ * @query   limit - Number of history entries to return
+ */
+router.get('/replenishment-history', getReplenishmentHistory);
+
+/**
+ * @route   GET /api/v1/admin/replenishment-preview
+ * @desc    Get preview of users eligible for replenishment
+ * @access  Private (Admin)
+ */
+router.get('/replenishment-preview', getReplenishmentPreview);
+
+/**
+ * @route   POST /api/v1/admin/trigger-replenishment
+ * @desc    Manually trigger invitation quota replenishment
+ * @access  Private (Admin)
+ */
+router.post('/trigger-replenishment', triggerManualReplenishment);
 
 export default router;
