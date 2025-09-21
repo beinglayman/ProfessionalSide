@@ -55,20 +55,20 @@ CREATE UNIQUE INDEX "InvitationRequest_email_key" ON "InvitationRequest"("email"
 CREATE UNIQUE INDEX "SystemSettings_key_key" ON "SystemSettings"("key");
 
 -- AddForeignKey
-ALTER TABLE "PlatformInvitation" ADD CONSTRAINT "PlatformInvitation_inviterId_fkey" FOREIGN KEY ("inviterId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "PlatformInvitation" ADD CONSTRAINT "PlatformInvitation_inviterId_fkey" FOREIGN KEY ("inviterId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "InvitationRequest" ADD CONSTRAINT "InvitationRequest_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "InvitationRequest" ADD CONSTRAINT "InvitationRequest_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddColumn to User table for new fields
-ALTER TABLE "User" ADD COLUMN "profileUrl" TEXT;
-ALTER TABLE "User" ADD COLUMN "invitationsRemaining" INTEGER NOT NULL DEFAULT 5;
-ALTER TABLE "User" ADD COLUMN "totalInvitationsSent" INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE "User" ADD COLUMN "isAdmin" BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE "User" ADD COLUMN "lastQuotaReplenishment" TIMESTAMP(3);
+-- AddColumn to users table for new fields
+ALTER TABLE "users" ADD COLUMN "profileUrl" TEXT;
+ALTER TABLE "users" ADD COLUMN "invitationsRemaining" INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE "users" ADD COLUMN "totalInvitationsSent" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "users" ADD COLUMN "isAdmin" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "users" ADD COLUMN "lastQuotaReplenishment" TIMESTAMP(3);
 
--- AddColumn to Workspace table
-ALTER TABLE "Workspace" ADD COLUMN "isPersonal" BOOLEAN NOT NULL DEFAULT false;
+-- AddColumn to workspaces table
+ALTER TABLE "workspaces" ADD COLUMN "isPersonal" BOOLEAN NOT NULL DEFAULT false;
 
 -- Create unique index for profileUrl
-CREATE UNIQUE INDEX "User_profileUrl_key" ON "User"("profileUrl");
+CREATE UNIQUE INDEX "users_profileUrl_key" ON "users"("profileUrl");
