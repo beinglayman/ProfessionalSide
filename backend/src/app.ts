@@ -655,60 +655,38 @@ app.post('/api/v1/fix-system-settings', async (req, res) => {
   }
 });
 
-// Fix missing invitationsRemaining column in users table
-app.post('/api/v1/fix-users-table', async (req, res) => {
+// Reset database schema to match Prisma exactly
+app.post('/api/v1/reset-schema', async (req, res) => {
   try {
-    console.log('🔧 Fixing users table structure...');
+    console.log('🔧 Resetting database schema to match Prisma...');
 
-    console.log('📄 Adding missing columns to users table...');
+    // Force push the current Prisma schema
+    console.log('📄 Running prisma db push --force-reset...');
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execAsync = util.promisify(exec);
 
-    // Add invitationsRemaining column if it doesn't exist
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "users"
-      ADD COLUMN IF NOT EXISTS "invitationsRemaining" INTEGER NOT NULL DEFAULT 10
-    `);
+    // Execute prisma db push with force reset
+    const { stdout, stderr } = await execAsync('npx prisma db push --force-reset --accept-data-loss', {
+      cwd: process.cwd(),
+      env: process.env
+    });
 
-    // Add totalInvitationsSent column if it doesn't exist
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "users"
-      ADD COLUMN IF NOT EXISTS "totalInvitationsSent" INTEGER NOT NULL DEFAULT 0
-    `);
-
-    // Add lastQuotaReplenishment column if it doesn't exist
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "users"
-      ADD COLUMN IF NOT EXISTS "lastQuotaReplenishment" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-    `);
-
-    // Add isAdmin column if it doesn't exist
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "users"
-      ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT false
-    `);
-
-    // Add profileUrl column if it doesn't exist
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "users"
-      ADD COLUMN IF NOT EXISTS "profileUrl" TEXT
-    `);
-
-    // Add unique constraint for profileUrl if it doesn't exist
-    await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "users_profileUrl_key" ON "users"("profileUrl")
-    `);
-
-    console.log('✅ Users table structure fixed');
+    console.log('✅ Prisma schema reset completed');
+    console.log('Stdout:', stdout);
+    if (stderr) console.log('Stderr:', stderr);
 
     res.json({
       success: true,
-      message: 'Users table structure fixed successfully'
+      message: 'Database schema reset successfully',
+      output: stdout
     });
 
   } catch (error: any) {
-    console.error('❌ Users table fix error:', error);
+    console.error('❌ Schema reset error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fix users table',
+      message: 'Failed to reset database schema',
       error: error.message
     });
   }
