@@ -12,7 +12,7 @@ export class SystemSettingsService {
    * Get current system settings
    */
   async getSettings(): Promise<SystemSettingsData> {
-    let settings = await prisma.systemSettings.findUnique({
+    let settings = await prisma.system_settings.findUnique({
       where: { id: 'singleton' },
       include: {
         updatedBy: {
@@ -27,7 +27,7 @@ export class SystemSettingsService {
 
     // Create default settings if they don't exist
     if (!settings) {
-      settings = await prisma.systemSettings.create({
+      settings = await prisma.system_settings.create({
         data: {
           id: 'singleton',
           invitationOnlyMode: false, // Start with open registration
@@ -68,7 +68,7 @@ export class SystemSettingsService {
       throw new Error('Only admins can update system settings');
     }
 
-    const settings = await prisma.systemSettings.upsert({
+    const settings = await prisma.system_settings.upsert({
       where: { id: 'singleton' },
       update: {
         ...updates,
@@ -217,7 +217,7 @@ export class SystemSettingsService {
    * Initialize system settings (for seeding/first run)
    */
   async initializeSettings(): Promise<SystemSettingsData> {
-    const settings = await prisma.systemSettings.upsert({
+    const settings = await prisma.system_settings.upsert({
       where: { id: 'singleton' },
       update: {}, // Don't update if already exists
       create: {
