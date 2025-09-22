@@ -15,7 +15,7 @@ export class SystemSettingsService {
     let settings = await prisma.system_settings.findUnique({
       where: { id: 'singleton' },
       include: {
-        updatedBy: {
+        users: {
           select: {
             id: true,
             name: true,
@@ -34,7 +34,7 @@ export class SystemSettingsService {
           lastUpdatedBy: null
         },
         include: {
-          updatedBy: {
+          users: {
             select: {
               id: true,
               name: true,
@@ -81,7 +81,7 @@ export class SystemSettingsService {
         lastUpdatedBy: updatedBy
       },
       include: {
-        updatedBy: {
+        users: {
           select: {
             id: true,
             name: true,

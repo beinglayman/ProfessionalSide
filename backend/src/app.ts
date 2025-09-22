@@ -13,12 +13,17 @@ dotenv.config();
 process.env.UV_THREADPOOL_SIZE = '16'; // Increase thread pool size
 process.setMaxListeners(0); // Remove listener limit
 
-// Memory optimization
+// Memory optimization (avoid CommonJS require in ESM runtime)
 if (process.env.NODE_ENV === 'production') {
-  // Increase memory limits for production
-  const v8 = require('v8');
-  const maxHeapSize = v8.getHeapStatistics().heap_size_limit;
-  console.log(`📊 Max heap size: ${Math.round(maxHeapSize / 1024 / 1024)}MB`);
+  (async () => {
+    try {
+      const v8 = await import('v8');
+      const maxHeapSize = v8.getHeapStatistics().heap_size_limit;
+      console.log(`📊 Max heap size: ${Math.round(maxHeapSize / 1024 / 1024)}MB`);
+    } catch {
+      // ignore if v8 import fails; non-critical telemetry
+    }
+  })();
 }
 
 // Import routes
@@ -691,6 +696,13 @@ app.use('/api/v1/migration', migrationRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/v1/invitations', invitationRoutes);
 app.use('/api/v1/invitation-requests', invitationRequestRoutes);
+
+// EMERGENCY: Database reset route (enable via env flag)
+if (process.env.EMERGENCY_ENABLE === 'true') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const emergencyResetRoutes = require('./routes/emergency-reset');
+  app.use('/api/v1/emergency', emergencyResetRoutes);
+}
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

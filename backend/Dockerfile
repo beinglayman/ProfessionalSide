@@ -17,11 +17,11 @@ COPY . .
 # Copy screenshots from frontend public directory
 COPY public/screenshots ./public/screenshots
 
-# Generate Prisma client only
+# Generate Prisma client only (run TS with tsx at runtime)
 RUN npm run db:generate
 
-# Expose port (Railway uses PORT env var)
-EXPOSE $PORT
+# Expose default app port (App Service uses PORT env var at runtime)
+EXPOSE 3002
 
-# Start with tsx (runs TypeScript directly, no build needed)  
-CMD ["sh", "-c", "npm run db:migrate:deploy && NODE_ENV=production npx tsx src/app.ts"]
+# Start with tsx (runs TypeScript directly)
+CMD ["sh", "-c", "NODE_ENV=production npx tsx src/app.ts"]
