@@ -31,7 +31,8 @@ export class SystemSettingsService {
         data: {
           id: 'singleton',
           invitationOnlyMode: false, // Start with open registration
-          lastUpdatedBy: null
+          lastUpdatedBy: null,
+          updatedAt: new Date()
         },
         include: {
           users: {
@@ -223,7 +224,8 @@ export class SystemSettingsService {
       create: {
         id: 'singleton',
         invitationOnlyMode: false, // Start with open registration
-        lastUpdatedBy: null
+        lastUpdatedBy: null,
+        updatedAt: new Date()
       }
     });
 
