@@ -8,12 +8,12 @@ Avatars are being uploaded but URLs are using HTTP instead of HTTPS, causing loa
 ### Step 1: Add Environment Variables to Railway
 
 1. Go to [Railway Dashboard](https://railway.app/dashboard)
-2. Select your **backend service** (professionalside-production)
+2. Select your **backend service** (api.inchronicle.com)
 3. Go to **Variables** tab
 4. Add these missing variables:
 
 ```bash
-API_BASE_URL=https://professionalside-production.up.railway.app
+API_BASE_URL=https://api.inchronicle.com
 UPLOAD_VOLUME_PATH=/app/uploads
 ```
 

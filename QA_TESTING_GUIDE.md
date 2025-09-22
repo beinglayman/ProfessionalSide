@@ -34,8 +34,8 @@ npm run dev
 ```
 
 ### Production URLs
-- **Frontend**: https://professionalside-production.up.railway.app
-- **Backend API**: https://hearty-prosperity-production-6047.up.railway.app/api/v1
+- **Frontend**: https://inchronicle.com
+- **Backend API**: https://api.inchronicle.com/api/v1
 
 ### Test Credentials
 ```
@@ -603,7 +603,7 @@ railway status
 railway logs
 
 # Run health checks
-curl -f https://hearty-prosperity-production-6047.up.railway.app/health
+curl -f https://api.inchronicle.com/health
 
 # Verify environment variables
 railway variables

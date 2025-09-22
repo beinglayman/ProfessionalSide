@@ -25,7 +25,7 @@
    JWT_EXPIRES_IN=15m
    JWT_REFRESH_EXPIRES_IN=7d
    API_PORT=3002
-   API_BASE_URL=https://professionalside-production.up.railway.app
+   API_BASE_URL=https://api.inchronicle.com
    RATE_LIMIT_WINDOW_MS=900000
    RATE_LIMIT_MAX_REQUESTS=100
    MAX_FILE_SIZE=10485760

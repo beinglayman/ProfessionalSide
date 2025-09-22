@@ -21,9 +21,9 @@ export function RailwayStatus() {
   // Derive production URLs dynamically
   const frontendOrigin = (typeof window !== 'undefined' && window.location.origin)
     ? window.location.origin
-    : 'https://frontend-production-3023.up.railway.app';
+    : 'https://inchronicle.com';
   const apiUrl: string | undefined = (import.meta as any).env?.VITE_API_URL as string | undefined;
-  let backendBase = 'https://backend-production-76d6.up.railway.app';
+  let backendBase = 'https://api.inchronicle.com';
   try {
     if (apiUrl) {
       backendBase = new URL(apiUrl).origin;
@@ -31,7 +31,7 @@ export function RailwayStatus() {
   } catch {
     // keep fallback
   }
-  const displayApiUrl = apiUrl || 'https://backend-production-76d6.up.railway.app/api/v1';
+  const displayApiUrl = apiUrl || 'https://api.inchronicle.com/api/v1';
 
   const [services, setServices] = useState<ServiceStatus[]>([
     {

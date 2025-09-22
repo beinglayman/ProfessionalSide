@@ -80,8 +80,8 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
   'http://localhost:4173',
-  'https://hearty-prosperity-production-6047.up.railway.app',
-  'https://professionalside-production.up.railway.app',
+  'https://inchronicle.com',
+  'https://inchronicle.com',
   /https:\/\/.*\.up\.railway\.app$/,
   ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [])
 ].filter(Boolean);
@@ -183,7 +183,7 @@ app.use('/uploads', (req, res, next) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
-    'https://hearty-prosperity-production-6047.up.railway.app',
+    'https://inchronicle.com',
     'https://*.up.railway.app'
   ].filter(Boolean);
   
@@ -218,7 +218,7 @@ app.use('/screenshots', (req, res, next) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
-    'https://hearty-prosperity-production-6047.up.railway.app',
+    'https://inchronicle.com',
     'https://*.up.railway.app'
   ].filter(Boolean);
   

@@ -17,7 +17,7 @@ async function fixAvatarUrls() {
     const usersWithHttpAvatars = await prisma.user.findMany({
       where: {
         avatar: {
-          startsWith: 'http://professionalside-production.up.railway.app'
+          startsWith: 'http://api.inchronicle.com'
         }
       },
       select: {

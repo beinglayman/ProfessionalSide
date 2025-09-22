@@ -66,7 +66,7 @@ npm run diagnose:supply-chain    # Diagnose supply chain skill mappings
 
 ### API Structure
 - Base URL: `http://localhost:3002/api/v1` (development)
-- Production: `https://hearty-prosperity-production-6047.up.railway.app/api/v1`
+- Production: `https://api.inchronicle.com/api/v1`
 - All API calls use axios with centralized configuration in `src/lib/api.ts`
 
 ### Authentication Flow

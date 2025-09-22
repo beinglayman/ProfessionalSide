@@ -2,7 +2,7 @@
 
 const https = require('https');
 
-const baseUrl = 'https://professionalside-production.up.railway.app/api/v1';
+const baseUrl = 'https://api.inchronicle.com/api/v1';
 
 // Test user authentication endpoint first
 function testAuth() {
@@ -13,7 +13,7 @@ function testAuth() {
     });
     
     const options = {
-      hostname: 'professionalside-production.up.railway.app',
+      hostname: 'api.inchronicle.com',
       port: 443,
       path: '/api/v1/auth/login',
       method: 'POST',
@@ -50,7 +50,7 @@ function testAuth() {
 function testSkills(token) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'professionalside-production.up.railway.app',
+      hostname: 'api.inchronicle.com',
       port: 443,
       path: '/api/v1/users/skills/my',
       method: 'GET',

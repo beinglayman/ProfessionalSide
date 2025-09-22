@@ -6,7 +6,7 @@ const https = require('https');
 function testWorkspaces(token) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'professionalside-production.up.railway.app',
+      hostname: 'api.inchronicle.com',
       port: 443,
       path: '/api/v1/workspaces',
       method: 'GET',

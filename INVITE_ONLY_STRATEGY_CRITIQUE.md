@@ -285,3 +285,6 @@ The key is treating invite-only as a **launch strategy, not a permanent business
 ---
 
 *This analysis assumes a professional networking platform competing with LinkedIn. Results may vary based on actual product features, market conditions, and execution quality.*
+
+
+For the initial launch phase I want to start with an invite-only model with 10 invitations per user. As an admin I would still like to keep control on which account to add more invitations to. Also, I'd want to automatically replenish invitations monthly (say on day 1 of the month) if the invitations are exhausted. There should be an interface where the user should be able to track the invites they 
