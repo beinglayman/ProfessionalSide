@@ -686,6 +686,17 @@ app.post('/api/v1/fix-users-table', async (req, res) => {
       ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT false
     `);
 
+    // Add profileUrl column if it doesn't exist
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "users"
+      ADD COLUMN IF NOT EXISTS "profileUrl" TEXT
+    `);
+
+    // Add unique constraint for profileUrl if it doesn't exist
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "users_profileUrl_key" ON "users"("profileUrl")
+    `);
+
     console.log('✅ Users table structure fixed');
 
     res.json({
