@@ -290,7 +290,12 @@ app.get('/health', (req, res) => {
 
 // Test API route
 app.get('/api/v1/test', (req, res) => {
-  res.json({ message: 'API working', timestamp: new Date().toISOString() });
+  res.json({
+    message: 'API working with latest changes v2',
+    timestamp: new Date().toISOString(),
+    prismaStatus: !!prisma,
+    deployedAt: '2025-09-22T19:25:00.000Z'
+  });
 });
 
 // Database health check
