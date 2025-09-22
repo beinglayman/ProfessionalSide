@@ -607,23 +607,36 @@ app.post('/api/v1/fix-system-settings', async (req, res) => {
   try {
     console.log('🔧 Fixing SystemSettings table structure...');
 
-    const fs = require('fs');
-    const path = require('path');
+    // Execute SQL commands individually since Prisma doesn't support multiple commands
+    console.log('📄 Dropping existing incorrect table...');
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "SystemSettings"`);
 
-    // Read the SQL fix file
-    const sqlPath = path.join(__dirname, '../fix-system-settings.sql');
-    if (!fs.existsSync(sqlPath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'SQL fix file not found'
-      });
-    }
+    console.log('📄 Creating correct system_settings table...');
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "system_settings" (
+        "id" TEXT NOT NULL DEFAULT 'singleton',
+        "invitationOnlyMode" BOOLEAN NOT NULL DEFAULT false,
+        "lastUpdatedBy" TEXT,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "system_settings_pkey" PRIMARY KEY ("id")
+      )
+    `);
 
-    const sqlScript = fs.readFileSync(sqlPath, 'utf8');
-    console.log('📄 SQL script loaded, executing...');
+    console.log('📄 Adding foreign key constraint...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "system_settings"
+      ADD CONSTRAINT "system_settings_lastUpdatedBy_fkey"
+      FOREIGN KEY ("lastUpdatedBy") REFERENCES "users"("id")
+      ON DELETE SET NULL ON UPDATE CASCADE
+    `);
 
-    // Execute the SQL script
-    await prisma.$executeRawUnsafe(sqlScript);
+    console.log('📄 Inserting default settings...');
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "system_settings" ("id", "invitationOnlyMode", "lastUpdatedBy", "updatedAt", "createdAt")
+      VALUES ('singleton', false, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT ("id") DO NOTHING
+    `);
 
     console.log('✅ SystemSettings table structure fixed');
 
