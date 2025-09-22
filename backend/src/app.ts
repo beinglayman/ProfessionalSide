@@ -26,6 +26,9 @@ if (process.env.NODE_ENV === 'production') {
   })();
 }
 
+// Import shared Prisma client FIRST (before routes that depend on it)
+import { prisma } from './lib/prisma';
+
 // Import routes
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
@@ -70,8 +73,6 @@ app.set('trust proxy', true);
 const port = process.env.PORT || 8080;
 console.log(`🔧 Port configuration - PORT: ${process.env.PORT}, API_PORT: ${process.env.API_PORT}, Using: ${port}`);
 
-// Import shared Prisma client
-import { prisma } from './lib/prisma';
 
 // Initialize services
 const cronService = new CronService();
