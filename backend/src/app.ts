@@ -572,31 +572,71 @@ app.post('/api/v1/migrate-benchmarks', async (req, res) => {
 app.post('/api/v1/run-migrations', async (req, res) => {
   try {
     console.log('🚀 Running database migrations...');
-    
+
     const { exec } = require('child_process');
     const { promisify } = require('util');
     const execAsync = promisify(exec);
-    
+
     // Run Prisma migrations
     const { stdout, stderr } = await execAsync('npx prisma migrate deploy');
-    
+
     console.log('✅ Migration output:', stdout);
     if (stderr) {
       console.log('⚠️ Migration stderr:', stderr);
     }
-    
+
     res.json({
       success: true,
       message: 'Database migrations completed',
       output: stdout,
       errors: stderr || null
     });
-    
+
   } catch (error: any) {
     console.error('❌ Migration error:', error);
     res.status(500).json({
       success: false,
       message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
+// Fix SystemSettings table structure
+app.post('/api/v1/fix-system-settings', async (req, res) => {
+  try {
+    console.log('🔧 Fixing SystemSettings table structure...');
+
+    const fs = require('fs');
+    const path = require('path');
+
+    // Read the SQL fix file
+    const sqlPath = path.join(__dirname, '../fix-system-settings.sql');
+    if (!fs.existsSync(sqlPath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'SQL fix file not found'
+      });
+    }
+
+    const sqlScript = fs.readFileSync(sqlPath, 'utf8');
+    console.log('📄 SQL script loaded, executing...');
+
+    // Execute the SQL script
+    await prisma.$executeRawUnsafe(sqlScript);
+
+    console.log('✅ SystemSettings table structure fixed');
+
+    res.json({
+      success: true,
+      message: 'SystemSettings table structure fixed successfully'
+    });
+
+  } catch (error: any) {
+    console.error('❌ SystemSettings fix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix SystemSettings table',
       error: error.message
     });
   }
