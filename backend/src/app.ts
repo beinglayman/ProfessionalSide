@@ -50,6 +50,9 @@ import migrationRoutes from './routes/migration.routes';
 import debugRoutes from './routes/debug.routes';
 import invitationRoutes from './routes/invitation.routes';
 import invitationRequestRoutes from './routes/invitation-request.routes';
+import { promisify } from 'util';
+import { exec as execCb } from 'child_process';
+const exec = promisify(execCb);
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -453,6 +456,22 @@ app.post('/api/v1/admin/seed-reference', async (req, res) => {
       message: 'Seeding failed',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+});
+
+// Admin: Resolve a specific Prisma migration state (use with caution)
+app.post('/api/v1/migrations/resolve', async (req, res) => {
+  try {
+    const name = (req.body?.name || '').toString();
+    const action = (req.body?.action || 'applied').toString(); // 'applied' | 'rolled-back'
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Missing migration name' });
+    }
+    const flag = action === 'rolled-back' ? '--rolled-back' : '--applied';
+    const { stdout, stderr } = await exec(`npx prisma migrate resolve ${flag} ${name}`);
+    res.json({ success: true, message: 'Migration resolve executed', output: stdout, errors: stderr || null });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Migration resolve failed', error: error.message });
   }
 });
 
