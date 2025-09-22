@@ -655,6 +655,54 @@ app.post('/api/v1/fix-system-settings', async (req, res) => {
   }
 });
 
+// Fix missing invitationsRemaining column in users table
+app.post('/api/v1/fix-users-table', async (req, res) => {
+  try {
+    console.log('🔧 Fixing users table structure...');
+
+    console.log('📄 Adding missing columns to users table...');
+
+    // Add invitationsRemaining column if it doesn't exist
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "users"
+      ADD COLUMN IF NOT EXISTS "invitationsRemaining" INTEGER NOT NULL DEFAULT 10
+    `);
+
+    // Add totalInvitationsSent column if it doesn't exist
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "users"
+      ADD COLUMN IF NOT EXISTS "totalInvitationsSent" INTEGER NOT NULL DEFAULT 0
+    `);
+
+    // Add lastQuotaReplenishment column if it doesn't exist
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "users"
+      ADD COLUMN IF NOT EXISTS "lastQuotaReplenishment" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    `);
+
+    // Add isAdmin column if it doesn't exist
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "users"
+      ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT false
+    `);
+
+    console.log('✅ Users table structure fixed');
+
+    res.json({
+      success: true,
+      message: 'Users table structure fixed successfully'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Users table fix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix users table',
+      error: error.message
+    });
+  }
+});
+
 // Debug endpoint to check user/profile data
 app.get('/api/v1/debug-profile', async (req, res) => {
   try {
