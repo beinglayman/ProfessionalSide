@@ -19,7 +19,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-reference": "tsx prisma/seed-reference-data.ts",
     "db:seed-complete": "npm run db:seed-reference && node import-skill-benchmarks.js",
-    "db:reset": "prisma migrate reset --force && npm run db:seed"
+    "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "db:reset-production": "node reset-production-schema.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
