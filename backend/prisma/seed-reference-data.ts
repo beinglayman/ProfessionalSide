@@ -1043,11 +1043,11 @@ async function seedReferenceData() {
                   skillId: skill.id
                 }
               },
-              update: { updatedAt: new Date() },
+              update: {},
               create: {
+                id: `${workType.id}-${skill.id}`,
                 workTypeId: workType.id,
-                skillId: skill.id,
-                updatedAt: new Date()
+                skillId: skill.id
               }
             });
           }
