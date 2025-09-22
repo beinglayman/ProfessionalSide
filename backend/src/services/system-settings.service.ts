@@ -108,8 +108,14 @@ export class SystemSettingsService {
    * This is a frequently called method, so we might want to cache it in the future
    */
   async isInvitationOnlyMode(): Promise<boolean> {
-    const settings = await this.getSettings();
-    return settings.invitationOnlyMode;
+    try {
+      const settings = await this.getSettings();
+      return settings.invitationOnlyMode;
+    } catch (error) {
+      // Fallback to open registration if table doesn't exist
+      console.warn('SystemSettings table not found, defaulting to open registration:', error.message);
+      return false;
+    }
   }
 
   /**

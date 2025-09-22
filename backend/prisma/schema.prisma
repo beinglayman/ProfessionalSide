@@ -7,113 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                       String                   @id @default(cuid())
-  email                    String                   @unique
-  password                 String
-  name                     String
-  avatar                   String?
-  title                    String?
-  bio                      String?
-  location                 String?
-  company                  String?
-  industry                 String?
-  yearsOfExperience        Int?
-  isActive                 Boolean                  @default(true)
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  welcomeEmailSent         Boolean                  @default(false)
-  hasSeenOnboardingOverlay Boolean                  @default(false)
-  onboardingSkipped        Boolean                  @default(false)
-  invitationsRemaining     Int                      @default(10)
-  isAdmin                  Boolean                  @default(false)
-  lastQuotaReplenishment   DateTime                 @default(now())
-  totalInvitationsSent     Int                      @default(0)
-  profileUrl               String?                  @unique
-  achievementAttestations  AchievementAttestation[]
-  achievements             Achievement[]
-  adminAuditLogs           AuditLog[]               @relation("AdminAuditLogs")
-  auditLogs                AuditLog[]               @relation("UserAuditLogs")
-  certifications           Certification[]
-  education                Education[]
-  assignedTasks            GoalTask[]               @relation("TaskAssignee")
-  completedTasks           GoalTask[]               @relation("TaskCompleter")
-  reviewingTasks           GoalTask[]               @relation("TaskReviewer")
-  assignedGoals            Goal[]                   @relation("GoalAssignedTo")
-  reviewingGoals           Goal[]                   @relation("GoalReviewer")
-  goals                    Goal[]
-  reviewedRequests         InvitationRequest[]      @relation("ReviewedRequests")
-  entryAppreciates         JournalAppreciate[]
-  entryCollaborations      JournalCollaborator[]
-  entryComments            JournalComment[]
-  journalEntries           JournalEntry[]
-  entryViews               JournalEntryAnalytics[]
-  entryLikes               JournalLike[]
-  entryRechronicles        JournalRechronicle[]
-  entryReviews             JournalReviewer[]
-  receivedConnections      NetworkConnection[]      @relation("ConnectionReceiver")
-  sentConnections          NetworkConnection[]      @relation("ConnectionSender")
-  networkPolicies          NetworkPolicy?
-  notificationPreferences  NotificationPreferences?
-  receivedNotifications    Notification[]           @relation("NotificationRecipient")
-  sentNotifications        Notification[]           @relation("NotificationSender")
-  onboardingData           OnboardingData?
-  acceptedInvitations      PlatformInvitation[]     @relation("AcceptedInvitations")
-  sentInvitations          PlatformInvitation[]     @relation("SentInvitations")
-  resolvedSecurityEvents   SecurityEvent[]          @relation("ResolvedSecurityEvents")
-  securityEvents           SecurityEvent[]          @relation("UserSecurityEvents")
-  systemSettingsUpdates    SystemSettings[]         @relation("SystemSettingsUpdatedBy")
-  languages                UserLanguage[]
-  profile                  UserProfile?
-  skills                   UserSkill[]
-  workExperiences          WorkExperience[]
-  workspaceCategories      WorkspaceCategory[]      @relation("WorkspaceCategories")
-  workspaceFiles           WorkspaceFile[]          @relation("WorkspaceFiles")
-  sentWorkspaceInvites     WorkspaceInvitation[]    @relation("WorkspaceInviter")
-  workspaceLabelsCreated   WorkspaceLabel[]         @relation("WorkspaceLabelsCreated")
-  workspaceMemberships     WorkspaceMember[]
-
-  @@map("users")
-}
-
-model UserProfile {
-  id                        String   @id @default(cuid())
-  userId                    String   @unique
-  joinedDate                DateTime @default(now())
-  lastActiveAt              DateTime @default(now())
-  profileCompleteness       Int      @default(0)
-  showEmail                 Boolean  @default(false)
-  showLocation              Boolean  @default(true)
-  showCompany               Boolean  @default(true)
-  allowSearchEngineIndexing Boolean  @default(false)
-  profileVisibility         String   @default("network")
-  showConnections           Boolean  @default(true)
-  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_profiles")
+model FocusArea {
+  id           String         @id
+  label        String
+  description  String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  WorkCategory WorkCategory[]
 }
 
 model Skill {
-  id             String          @id
-  name           String          @unique
-  category       String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  workTypeSkills WorkTypeSkill[]
-  userSkills     UserSkill[]
-
-  @@map("Skill")
-}
-
-model FocusArea {
-  id             String         @id
-  label          String
-  description    String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  workCategories WorkCategory[]
-
-  @@map("FocusArea")
+  id            String          @id
+  name          String          @unique
+  category      String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  WorkTypeSkill WorkTypeSkill[]
+  user_skills   user_skills[]
 }
 
 model WorkCategory {
@@ -121,11 +31,9 @@ model WorkCategory {
   label       String
   focusAreaId String
   createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  focusArea   FocusArea  @relation(fields: [focusAreaId], references: [id], onDelete: Cascade)
-  workTypes   WorkType[]
-
-  @@map("WorkCategory")
+  updatedAt   DateTime
+  FocusArea   FocusArea  @relation(fields: [focusAreaId], references: [id], onDelete: Cascade)
+  WorkType    WorkType[]
 }
 
 model WorkType {
@@ -133,501 +41,378 @@ model WorkType {
   label          String
   workCategoryId String
   createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  workCategory   WorkCategory    @relation(fields: [workCategoryId], references: [id], onDelete: Cascade)
-  workTypeSkills WorkTypeSkill[]
-
-  @@map("WorkType")
+  updatedAt      DateTime
+  WorkCategory   WorkCategory    @relation(fields: [workCategoryId], references: [id], onDelete: Cascade)
+  WorkTypeSkill  WorkTypeSkill[]
 }
 
 model WorkTypeSkill {
-  id         String   @id @default(cuid())
+  id         String   @id
   workTypeId String
   skillId    String
   createdAt  DateTime @default(now())
-  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  workType   WorkType @relation(fields: [workTypeId], references: [id], onDelete: Cascade)
+  Skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  WorkType   WorkType @relation(fields: [workTypeId], references: [id], onDelete: Cascade)
 
   @@unique([workTypeId, skillId])
-  @@map("WorkTypeSkill")
 }
 
-model UserSkill {
-  id           String    @id @default(cuid())
-  userId       String
-  skillId      String
-  level        String
-  endorsements Int       @default(0)
-  projects     Int       @default(0)
-  startDate    DateTime?
-  yearsOfExp   Int       @default(0)
-  isVisible    Boolean   @default(true)
-  skill        Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+model achievement_attestations {
+  id            String       @id
+  achievementId String
+  attesterId    String
+  comment       String?
+  attestedAt    DateTime     @default(now())
+  achievements  achievements @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  users         users        @relation(fields: [attesterId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, skillId])
-  @@map("user_skills")
+  @@unique([achievementId, attesterId])
 }
 
-model Organization {
-  id          String      @id @default(cuid())
-  name        String
-  domain      String?     @unique
-  logo        String?
-  description String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  workspaces  Workspace[]
-
-  @@map("organizations")
+model achievements {
+  id                       String                     @id
+  title                    String
+  description              String
+  impact                   String?
+  skills                   String[]                   @default([])
+  status                   String                     @default("completed")
+  backgroundColor          String?
+  userId                   String
+  achievedAt               DateTime                   @default(now())
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime
+  achievement_attestations achievement_attestations[]
+  users                    users                      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Workspace {
-  id               String                @id @default(cuid())
-  name             String
-  description      String?
-  organizationId   String?
-  isActive         Boolean               @default(true)
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  allowTeamMembers Boolean               @default(true)
-  isPersonal       Boolean               @default(false)
-  goals            Goal[]
-  journalEntries   JournalEntry[]
-  categories       WorkspaceCategory[]
-  files            WorkspaceFile[]
-  invitations      WorkspaceInvitation[]
-  labels           WorkspaceLabel[]
-  members          WorkspaceMember[]
-  organization     Organization?         @relation(fields: [organizationId], references: [id])
+model audit_logs {
+  id                              String   @id
+  action                          String
+  entityType                      String
+  entityId                        String?
+  userId                          String?
+  adminId                         String?
+  ipAddress                       String?
+  userAgent                       String?
+  details                         Json?
+  oldValues                       Json?
+  newValues                       Json?
+  status                          String   @default("success")
+  errorMessage                    String?
+  sessionId                       String?
+  requestId                       String?
+  createdAt                       DateTime @default(now())
+  users_audit_logs_adminIdTousers users?   @relation("audit_logs_adminIdTousers", fields: [adminId], references: [id])
+  users_audit_logs_userIdTousers  users?   @relation("audit_logs_userIdTousers", fields: [userId], references: [id])
 
-  @@map("workspaces")
+  @@index([action])
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([entityType])
+  @@index([userId])
 }
 
-model WorkspaceMember {
-  id          String    @id @default(cuid())
-  userId      String
-  workspaceId String
-  role        String    @default("member")
-  permissions Json?
-  joinedAt    DateTime  @default(now())
-  isActive    Boolean   @default(true)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, workspaceId])
-  @@map("workspace_members")
+model certifications {
+  id                  String   @id
+  userId              String
+  name                String
+  issuingOrganization String
+  issueDate           String
+  expirationDate      String?
+  credentialId        String?
+  credentialUrl       String?
+  neverExpires        Boolean  @default(false)
+  description         String?
+  skills              String[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime
+  users               users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model WorkspaceInvitation {
-  id          String    @id @default(cuid())
-  email       String
-  name        String
-  workspaceId String
-  inviterId   String
-  role        String    @default("editor")
-  permissions Json?
-  message     String?
-  token       String    @unique
-  status      String    @default("pending")
-  expiresAt   DateTime
-  acceptedAt  DateTime?
-  declinedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  inviter     User      @relation("WorkspaceInviter", fields: [inviterId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@map("workspace_invitations")
+model education {
+  id                  String   @id
+  userId              String
+  institution         String
+  degree              String
+  fieldOfStudy        String?
+  location            String?
+  startYear           String
+  endYear             String?
+  isCurrentlyStudying Boolean  @default(false)
+  grade               String?
+  description         String?
+  activities          String[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime
+  users               users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model WorkspaceFile {
-  id           String    @id @default(cuid())
+model goal_journal_links {
+  id                   String          @id
+  goalId               String
+  journalEntryId       String
+  contributionType     String
+  progressContribution Int             @default(0)
+  linkedAt             DateTime        @default(now())
+  linkedBy             String
+  goals                goals           @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  journal_entries      journal_entries @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, journalEntryId])
+}
+
+model goal_milestones {
+  id                       String       @id
+  goalId                   String
+  title                    String
+  targetDate               DateTime?
+  completed                Boolean      @default(false)
+  completedDate            DateTime?
+  completedViaJournalEntry String?
+  order                    Int          @default(0)
+  autoCompleteFromTasks    Boolean      @default(true)
+  manuallyCompleted        Boolean      @default(false)
+  goals                    goals        @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goal_tasks               goal_tasks[]
+}
+
+model goal_tasks {
+  id                                  String          @id
+  milestoneId                         String
+  title                               String
+  description                         String?
+  completed                           Boolean         @default(false)
+  completedDate                       DateTime?
+  completedBy                         String?
+  assignedTo                          String?
+  priority                            String          @default("medium")
+  dueDate                             DateTime?
+  order                               Int             @default(0)
+  createdAt                           DateTime        @default(now())
+  updatedAt                           DateTime
+  reviewerId                          String?
+  status                              String          @default("Not Started")
+  users_goal_tasks_assignedToTousers  users?          @relation("goal_tasks_assignedToTousers", fields: [assignedTo], references: [id])
+  users_goal_tasks_completedByTousers users?          @relation("goal_tasks_completedByTousers", fields: [completedBy], references: [id])
+  goal_milestones                     goal_milestones @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  users_goal_tasks_reviewerIdTousers  users?          @relation("goal_tasks_reviewerIdTousers", fields: [reviewerId], references: [id])
+}
+
+model goals {
+  id                              String               @id
+  title                           String
+  description                     String?
+  targetDate                      DateTime?
+  completed                       Boolean              @default(false)
+  completedDate                   DateTime?
+  progress                        Int                  @default(0)
+  category                        String?
+  priority                        String               @default("medium")
+  visibility                      String               @default("private")
+  userId                          String
+  workspaceId                     String?
+  createdAt                       DateTime             @default(now())
+  updatedAt                       DateTime
+  assignedToId                    String?
+  reviewerId                      String?
+  status                          String               @default("yet-to-start")
+  goal_journal_links              goal_journal_links[]
+  goal_milestones                 goal_milestones[]
+  users_goals_assignedToIdTousers users?               @relation("goals_assignedToIdTousers", fields: [assignedToId], references: [id])
+  users_goals_reviewerIdTousers   users?               @relation("goals_reviewerIdTousers", fields: [reviewerId], references: [id])
+  users_goals_userIdTousers       users                @relation("goals_userIdTousers", fields: [userId], references: [id], onDelete: Cascade)
+  workspaces                      workspaces?          @relation(fields: [workspaceId], references: [id])
+}
+
+model invitation_requests {
+  id           String    @id
   name         String
-  originalName String
-  size         Int
-  mimeType     String
-  url          String
-  category     String?
-  description  String?
-  workspaceId  String
-  uploadedById String
+  email        String
+  role         String
+  organization String
+  linkedinUrl  String?
+  message      String?
+  status       String    @default("pending")
+  reviewedAt   DateTime?
+  reviewedById String?
   createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  uploadedBy   User      @relation("WorkspaceFiles", fields: [uploadedById], references: [id], onDelete: Cascade)
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  updatedAt    DateTime
+  users        users?    @relation(fields: [reviewedById], references: [id])
 
-  @@map("workspace_files")
+  @@index([createdAt])
+  @@index([email])
+  @@index([status])
 }
 
-model WorkspaceCategory {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  color       String    @default("blue")
-  workspaceId String
-  createdById String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   User      @relation("WorkspaceCategories", fields: [createdById], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+model journal_appreciates {
+  id              String          @id
+  entryId         String
+  userId          String
+  appreciatedAt   DateTime        @default(now())
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  users           users           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([workspaceId, name])
-  @@map("workspace_categories")
+  @@unique([entryId, userId])
 }
 
-model WorkspaceLabel {
-  id          String                @id @default(cuid())
-  name        String
-  type        String
-  workspaceId String
-  createdById String
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  values      WorkspaceLabelValue[]
-  createdBy   User                  @relation("WorkspaceLabelsCreated", fields: [createdById], references: [id], onDelete: Cascade)
-  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, type])
-  @@map("workspace_labels")
+model journal_artifacts {
+  id              String          @id
+  entryId         String
+  name            String
+  type            String
+  url             String
+  size            String?
+  metadata        String?
+  uploadedAt      DateTime        @default(now())
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
-model WorkspaceLabelValue {
-  id        String         @id @default(cuid())
-  labelId   String
-  name      String
-  color     String
-  order     Int            @default(0)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  label     WorkspaceLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+model journal_collaborators {
+  id              String          @id
+  entryId         String
+  userId          String
+  role            String          @default("collaborator")
+  addedAt         DateTime        @default(now())
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  users           users           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([labelId, name])
-  @@map("workspace_label_values")
+  @@unique([entryId, userId])
 }
 
-model JournalEntry {
-  id              String                  @id @default(cuid())
+model journal_comments {
+  id                     String             @id
+  entryId                String
+  userId                 String
+  content                String
+  parentId               String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime
+  journal_entries        journal_entries    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  journal_comments       journal_comments?  @relation("journal_commentsTojournal_comments", fields: [parentId], references: [id])
+  other_journal_comments journal_comments[] @relation("journal_commentsTojournal_comments")
+  users                  users              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model journal_entries {
+  id                      String                    @id
+  title                   String
+  description             String
+  fullContent             String
+  abstractContent         String?
+  authorId                String
+  workspaceId             String
+  visibility              String                    @default("workspace")
+  isPublished             Boolean                   @default(false)
+  publishedAt             DateTime?
+  category                String?
+  tags                    String[]                  @default([])
+  skills                  String[]                  @default([])
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  lastModified            DateTime                  @default(now())
+  goal_journal_links      goal_journal_links[]
+  journal_appreciates     journal_appreciates[]
+  journal_artifacts       journal_artifacts[]
+  journal_collaborators   journal_collaborators[]
+  journal_comments        journal_comments[]
+  users                   users                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  workspaces              workspaces                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  journal_entry_analytics journal_entry_analytics[]
+  journal_likes           journal_likes[]
+  journal_outcomes        journal_outcomes[]
+  journal_rechronicles    journal_rechronicles[]
+  journal_reviewers       journal_reviewers[]
+}
+
+model journal_entry_analytics {
+  id              String          @id
+  entryId         String
+  userId          String?
+  viewedAt        DateTime        @default(now())
+  readTime        Int?
+  engagementType  String?
+  referrer        String?
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  users           users?          @relation(fields: [userId], references: [id])
+}
+
+model journal_likes {
+  id              String          @id
+  entryId         String
+  userId          String
+  likedAt         DateTime        @default(now())
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  users           users           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, userId])
+}
+
+model journal_outcomes {
+  id              String          @id
+  entryId         String
+  category        String
   title           String
   description     String
-  fullContent     String
-  abstractContent String?
-  authorId        String
-  workspaceId     String
-  visibility      String                  @default("workspace")
-  isPublished     Boolean                 @default(false)
-  publishedAt     DateTime?
-  category        String?
-  tags            String[]                @default([])
-  skills          String[]                @default([])
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  lastModified    DateTime                @default(now())
-  goalLinks       GoalJournalLink[]
-  appreciates     JournalAppreciate[]
-  artifacts       JournalArtifact[]
-  collaborators   JournalCollaborator[]
-  comments        JournalComment[]
-  author          User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  analytics       JournalEntryAnalytics[]
-  likes           JournalLike[]
-  outcomes        JournalOutcome[]
-  rechronicles    JournalRechronicle[]
-  reviewers       JournalReviewer[]
-
-  @@map("journal_entries")
+  highlight       String?
+  metrics         String?
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
-model JournalCollaborator {
-  id      String       @id @default(cuid())
-  entryId String
-  userId  String
-  role    String       @default("collaborator")
-  addedAt DateTime     @default(now())
-  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+model journal_rechronicles {
+  id              String          @id
+  entryId         String
+  userId          String
+  comment         String?
+  rechronicledAt  DateTime        @default(now())
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  users           users           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([entryId, userId])
-  @@map("journal_collaborators")
 }
 
-model JournalReviewer {
-  id         String       @id @default(cuid())
-  entryId    String
-  userId     String
-  department String?
-  addedAt    DateTime     @default(now())
-  entry      JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+model journal_reviewers {
+  id              String          @id
+  entryId         String
+  userId          String
+  department      String?
+  addedAt         DateTime        @default(now())
+  journal_entries journal_entries @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  users           users           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([entryId, userId])
-  @@map("journal_reviewers")
 }
 
-model JournalArtifact {
-  id         String       @id @default(cuid())
-  entryId    String
-  name       String
-  type       String
-  url        String
-  size       String?
-  metadata   String?
-  uploadedAt DateTime     @default(now())
-  entry      JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-
-  @@map("journal_artifacts")
-}
-
-model JournalOutcome {
-  id          String       @id @default(cuid())
-  entryId     String
-  category    String
-  title       String
-  description String
-  highlight   String?
-  metrics     String?
-  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-
-  @@map("journal_outcomes")
-}
-
-model JournalLike {
-  id      String       @id @default(cuid())
-  entryId String
-  userId  String
-  likedAt DateTime     @default(now())
-  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([entryId, userId])
-  @@map("journal_likes")
-}
-
-model JournalComment {
-  id        String           @id @default(cuid())
-  entryId   String
-  userId    String
-  content   String
-  parentId  String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  entry     JournalEntry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  parent    JournalComment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   JournalComment[] @relation("CommentReplies")
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("journal_comments")
-}
-
-model JournalAppreciate {
-  id            String       @id @default(cuid())
-  entryId       String
-  userId        String
-  appreciatedAt DateTime     @default(now())
-  entry         JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([entryId, userId])
-  @@map("journal_appreciates")
-}
-
-model JournalRechronicle {
-  id             String       @id @default(cuid())
-  entryId        String
-  userId         String
-  comment        String?
-  rechronicledAt DateTime     @default(now())
-  entry          JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([entryId, userId])
-  @@map("journal_rechronicles")
-}
-
-model NetworkConnection {
-  id                String   @id @default(cuid())
-  senderId          String
-  receiverId        String
-  status            String   @default("pending")
-  tier              String   @default("extended")
-  context           String?
-  autoAdded         Boolean  @default(false)
-  sharedWorkspaces  String[] @default([])
-  lastInteractionAt DateTime @default(now())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  receiver          User     @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  sender            User     @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
+model network_connections {
+  id                                          String   @id
+  senderId                                    String
+  receiverId                                  String
+  status                                      String   @default("pending")
+  tier                                        String   @default("extended")
+  context                                     String?
+  autoAdded                                   Boolean  @default(false)
+  sharedWorkspaces                            String[] @default([])
+  lastInteractionAt                           DateTime @default(now())
+  createdAt                                   DateTime @default(now())
+  updatedAt                                   DateTime
+  users_network_connections_receiverIdTousers users    @relation("network_connections_receiverIdTousers", fields: [receiverId], references: [id], onDelete: Cascade)
+  users_network_connections_senderIdTousers   users    @relation("network_connections_senderIdTousers", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
-  @@map("network_connections")
 }
 
-model NetworkPolicy {
-  id                 String   @id @default(cuid())
+model network_policies {
+  id                 String   @id
   userId             String   @unique
   autoAddPolicy      String   @default("auto-extended")
   coreRequirements   String[] @default(["direct-collaboration"])
   notifyOnConnection Boolean  @default(true)
   notifyOnPromotion  Boolean  @default(true)
   allowAutoAdd       Boolean  @default(true)
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("network_policies")
+  users              users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Goal {
-  id            String            @id @default(cuid())
-  title         String
-  description   String?
-  targetDate    DateTime?
-  completed     Boolean           @default(false)
-  completedDate DateTime?
-  progress      Int               @default(0)
-  category      String?
-  priority      String            @default("medium")
-  visibility    String            @default("private")
-  userId        String
-  workspaceId   String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  assignedToId  String?
-  reviewerId    String?
-  status        String            @default("yet-to-start")
-  journalLinks  GoalJournalLink[]
-  milestones    GoalMilestone[]
-  assignedTo    User?             @relation("GoalAssignedTo", fields: [assignedToId], references: [id])
-  reviewer      User?             @relation("GoalReviewer", fields: [reviewerId], references: [id])
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace     Workspace?        @relation(fields: [workspaceId], references: [id])
-
-  @@map("goals")
-}
-
-model GoalMilestone {
-  id                       String     @id @default(cuid())
-  goalId                   String
-  title                    String
-  targetDate               DateTime?
-  completed                Boolean    @default(false)
-  completedDate            DateTime?
-  completedViaJournalEntry String?
-  order                    Int        @default(0)
-  autoCompleteFromTasks    Boolean    @default(true)
-  manuallyCompleted        Boolean    @default(false)
-  goal                     Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  tasks                    GoalTask[]
-
-  @@map("goal_milestones")
-}
-
-model GoalTask {
-  id              String        @id @default(cuid())
-  milestoneId     String
-  title           String
-  description     String?
-  completed       Boolean       @default(false)
-  completedDate   DateTime?
-  completedBy     String?
-  assignedTo      String?
-  priority        String        @default("medium")
-  dueDate         DateTime?
-  order           Int           @default(0)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  reviewerId      String?
-  status          String        @default("Not Started")
-  assignee        User?         @relation("TaskAssignee", fields: [assignedTo], references: [id])
-  completedByUser User?         @relation("TaskCompleter", fields: [completedBy], references: [id])
-  milestone       GoalMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
-  reviewer        User?         @relation("TaskReviewer", fields: [reviewerId], references: [id])
-
-  @@map("goal_tasks")
-}
-
-model GoalJournalLink {
-  id                   String       @id @default(cuid())
-  goalId               String
-  journalEntryId       String
-  contributionType     String
-  progressContribution Int          @default(0)
-  linkedAt             DateTime     @default(now())
-  linkedBy             String
-  goal                 Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  journalEntry         JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-
-  @@unique([goalId, journalEntryId])
-  @@map("goal_journal_links")
-}
-
-model Achievement {
-  id              String                   @id @default(cuid())
-  title           String
-  description     String
-  impact          String?
-  skills          String[]                 @default([])
-  status          String                   @default("completed")
-  backgroundColor String?
-  userId          String
-  achievedAt      DateTime                 @default(now())
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  attestations    AchievementAttestation[]
-  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("achievements")
-}
-
-model AchievementAttestation {
-  id            String      @id @default(cuid())
-  achievementId String
-  attesterId    String
-  comment       String?
-  attestedAt    DateTime    @default(now())
-  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
-  attester      User        @relation(fields: [attesterId], references: [id], onDelete: Cascade)
-
-  @@unique([achievementId, attesterId])
-  @@map("achievement_attestations")
-}
-
-model JournalEntryAnalytics {
-  id             String       @id @default(cuid())
-  entryId        String
-  userId         String?
-  viewedAt       DateTime     @default(now())
-  readTime       Int?
-  engagementType String?
-  referrer       String?
-  entry          JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  viewer         User?        @relation(fields: [userId], references: [id])
-
-  @@map("journal_entry_analytics")
-}
-
-model Notification {
-  id                String           @id @default(cuid())
-  type              NotificationType
-  title             String
-  message           String?
-  data              Json?
-  isRead            Boolean          @default(false)
-  recipientId       String
-  senderId          String?
-  relatedEntityType EntityType?
-  relatedEntityId   String?
-  createdAt         DateTime         @default(now())
-  readAt            DateTime?
-  recipient         User             @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-  sender            User?            @relation("NotificationSender", fields: [senderId], references: [id])
-
-  @@map("notifications")
-}
-
-model NotificationPreferences {
-  id                 String          @id @default(cuid())
+model notification_preferences {
+  id                 String          @id
   userId             String          @unique
   emailNotifications Boolean         @default(true)
   pushNotifications  Boolean         @default(true)
@@ -641,84 +426,29 @@ model NotificationPreferences {
   quietHoursStart    String?
   quietHoursEnd      String?
   createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notification_preferences")
+  updatedAt          DateTime
+  users              users           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model WorkExperience {
-  id            String   @id @default(cuid())
-  userId        String
-  company       String
-  title         String
-  location      String?
-  startDate     String
-  endDate       String?
-  isCurrentRole Boolean  @default(false)
-  description   String
-  achievements  String[]
-  skills        String[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("work_experiences")
+model notifications {
+  id                                     String           @id
+  type                                   NotificationType
+  title                                  String
+  message                                String?
+  data                                   Json?
+  isRead                                 Boolean          @default(false)
+  recipientId                            String
+  senderId                               String?
+  relatedEntityType                      EntityType?
+  relatedEntityId                        String?
+  createdAt                              DateTime         @default(now())
+  readAt                                 DateTime?
+  users_notifications_recipientIdTousers users            @relation("notifications_recipientIdTousers", fields: [recipientId], references: [id], onDelete: Cascade)
+  users_notifications_senderIdTousers    users?           @relation("notifications_senderIdTousers", fields: [senderId], references: [id])
 }
 
-model Education {
-  id                  String   @id @default(cuid())
-  userId              String
-  institution         String
-  degree              String
-  fieldOfStudy        String?
-  location            String?
-  startYear           String
-  endYear             String?
-  isCurrentlyStudying Boolean  @default(false)
-  grade               String?
-  description         String?
-  activities          String[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("education")
-}
-
-model Certification {
-  id                  String   @id @default(cuid())
-  userId              String
-  name                String
-  issuingOrganization String
-  issueDate           String
-  expirationDate      String?
-  credentialId        String?
-  credentialUrl       String?
-  neverExpires        Boolean  @default(false)
-  description         String?
-  skills              String[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("certifications")
-}
-
-model UserLanguage {
-  id          String   @id @default(cuid())
-  userId      String
-  language    String
-  proficiency String
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, language])
-  @@map("user_languages")
-}
-
-model OnboardingData {
-  id                    String    @id @default(cuid())
+model onboarding_data {
+  id                    String    @id
   userId                String    @unique
   fullName              String?
   currentTitle          String?
@@ -741,96 +471,67 @@ model OnboardingData {
   isCompleted           Boolean   @default(false)
   completedAt           DateTime?
   createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("onboarding_data")
+  updatedAt             DateTime
+  users                 users     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model UserSession {
-  id           String   @id @default(cuid())
-  userId       String
-  refreshToken String   @unique
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-
-  @@map("user_sessions")
+model organizations {
+  id          String       @id
+  name        String
+  domain      String?      @unique
+  logo        String?
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+  workspaces  workspaces[]
 }
 
-model AuditLog {
-  id           String   @id @default(cuid())
-  action       String
-  entityType   String
-  entityId     String?
-  userId       String?
-  adminId      String?
-  ipAddress    String?
-  userAgent    String?
-  details      Json?
-  oldValues    Json?
-  newValues    Json?
-  status       String   @default("success")
-  errorMessage String?
-  sessionId    String?
-  requestId    String?
-  createdAt    DateTime @default(now())
-  admin        User?    @relation("AdminAuditLogs", fields: [adminId], references: [id])
-  user         User?    @relation("UserAuditLogs", fields: [userId], references: [id])
+model platform_invitations {
+  id                                             String    @id
+  email                                          String
+  inviterId                                      String
+  token                                          String    @unique
+  status                                         String    @default("pending")
+  expiresAt                                      DateTime
+  acceptedAt                                     DateTime?
+  acceptedById                                   String?
+  createdAt                                      DateTime  @default(now())
+  updatedAt                                      DateTime
+  users_platform_invitations_acceptedByIdTousers users?    @relation("platform_invitations_acceptedByIdTousers", fields: [acceptedById], references: [id])
+  users_platform_invitations_inviterIdTousers    users     @relation("platform_invitations_inviterIdTousers", fields: [inviterId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([adminId])
-  @@index([entityType])
-  @@index([action])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([status])
+}
+
+model security_events {
+  id                                      String    @id
+  type                                    String
+  severity                                String    @default("medium")
+  description                             String
+  userId                                  String?
+  ipAddress                               String?
+  userAgent                               String?
+  location                                String?
+  metadata                                Json?
+  resolved                                Boolean   @default(false)
+  resolvedBy                              String?
+  resolvedAt                              DateTime?
+  resolution                              String?
+  createdAt                               DateTime  @default(now())
+  users_security_events_resolvedByTousers users?    @relation("security_events_resolvedByTousers", fields: [resolvedBy], references: [id])
+  users_security_events_userIdTousers     users?    @relation("security_events_userIdTousers", fields: [userId], references: [id])
+
   @@index([createdAt])
-  @@map("audit_logs")
-}
-
-model SecurityEvent {
-  id          String    @id @default(cuid())
-  type        String
-  severity    String    @default("medium")
-  description String
-  userId      String?
-  ipAddress   String?
-  userAgent   String?
-  location    String?
-  metadata    Json?
-  resolved    Boolean   @default(false)
-  resolvedBy  String?
-  resolvedAt  DateTime?
-  resolution  String?
-  createdAt   DateTime  @default(now())
-  resolver    User?     @relation("ResolvedSecurityEvents", fields: [resolvedBy], references: [id])
-  user        User?     @relation("UserSecurityEvents", fields: [userId], references: [id])
-
-  @@index([type])
   @@index([severity])
+  @@index([type])
   @@index([userId])
-  @@index([createdAt])
-  @@map("security_events")
 }
 
-model SystemLog {
-  id         String   @id @default(cuid())
-  level      String
-  message    String
-  module     String?
-  function   String?
-  metadata   Json?
-  stackTrace String?
-  requestId  String?
-  userId     String?
-  sessionId  String?
-  createdAt  DateTime @default(now())
-
-  @@index([level])
-  @@index([module])
-  @@index([createdAt])
-  @@map("system_logs")
-}
-
-model SkillBenchmark {
-  id              String   @id @default(cuid())
+model skill_benchmarks {
+  id              String   @id
   skillName       String
   industry        String   @default("general")
   role            String   @default("general")
@@ -843,65 +544,300 @@ model SkillBenchmark {
   growthTrend     String
   description     String
   createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  updatedAt       DateTime
 
-  @@unique([skillName, industry], name: "skillName_industry")
-  @@index([skillName])
+  @@unique([skillName, industry])
   @@index([industry])
+  @@index([skillName])
   @@index([updatedAt])
-  @@map("skill_benchmarks")
 }
 
-model PlatformInvitation {
-  id           String    @id @default(cuid())
-  email        String
-  inviterId    String
-  token        String    @unique
-  status       String    @default("pending")
-  expiresAt    DateTime
-  acceptedAt   DateTime?
-  acceptedById String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  acceptedBy   User?     @relation("AcceptedInvitations", fields: [acceptedById], references: [id])
-  inviter      User      @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+model system_logs {
+  id         String   @id
+  level      String
+  message    String
+  module     String?
+  function   String?
+  metadata   Json?
+  stackTrace String?
+  requestId  String?
+  userId     String?
+  sessionId  String?
+  createdAt  DateTime @default(now())
 
-  @@index([email])
-  @@index([status])
-  @@index([expiresAt])
-  @@map("platform_invitations")
-}
-
-model InvitationRequest {
-  id           String    @id @default(cuid())
-  name         String
-  email        String
-  role         String
-  organization String
-  linkedinUrl  String?
-  message      String?
-  status       String    @default("pending")
-  reviewedAt   DateTime?
-  reviewedById String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  reviewedBy   User?     @relation("ReviewedRequests", fields: [reviewedById], references: [id])
-
-  @@index([email])
-  @@index([status])
   @@index([createdAt])
-  @@map("invitation_requests")
+  @@index([level])
+  @@index([module])
 }
 
-model SystemSettings {
+model system_settings {
   id                 String   @id @default("singleton")
   invitationOnlyMode Boolean  @default(false)
   lastUpdatedBy      String?
-  updatedAt          DateTime @updatedAt
+  updatedAt          DateTime
   createdAt          DateTime @default(now())
-  updatedBy          User?    @relation("SystemSettingsUpdatedBy", fields: [lastUpdatedBy], references: [id])
+  users              users?   @relation(fields: [lastUpdatedBy], references: [id])
+}
 
-  @@map("system_settings")
+model user_languages {
+  id          String   @id
+  userId      String
+  language    String
+  proficiency String
+  createdAt   DateTime @default(now())
+  users       users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, language])
+}
+
+model user_profiles {
+  id                        String   @id
+  userId                    String   @unique
+  joinedDate                DateTime @default(now())
+  lastActiveAt              DateTime @default(now())
+  profileCompleteness       Int      @default(0)
+  showEmail                 Boolean  @default(false)
+  showLocation              Boolean  @default(true)
+  showCompany               Boolean  @default(true)
+  allowSearchEngineIndexing Boolean  @default(false)
+  profileVisibility         String   @default("network")
+  showConnections           Boolean  @default(true)
+  users                     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model user_sessions {
+  id           String   @id
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model user_skills {
+  id           String    @id
+  userId       String
+  skillId      String
+  level        String
+  endorsements Int       @default(0)
+  projects     Int       @default(0)
+  startDate    DateTime?
+  yearsOfExp   Int       @default(0)
+  isVisible    Boolean   @default(true)
+  Skill        Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  users        users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+}
+
+model users {
+  id                                                            String                     @id
+  email                                                         String                     @unique
+  password                                                      String
+  name                                                          String
+  avatar                                                        String?
+  title                                                         String?
+  bio                                                           String?
+  location                                                      String?
+  company                                                       String?
+  industry                                                      String?
+  yearsOfExperience                                             Int?
+  isActive                                                      Boolean                    @default(true)
+  createdAt                                                     DateTime                   @default(now())
+  updatedAt                                                     DateTime
+  welcomeEmailSent                                              Boolean                    @default(false)
+  hasSeenOnboardingOverlay                                      Boolean                    @default(false)
+  onboardingSkipped                                             Boolean                    @default(false)
+  invitationsRemaining                                          Int                        @default(10)
+  isAdmin                                                       Boolean                    @default(false)
+  lastQuotaReplenishment                                        DateTime                   @default(now())
+  totalInvitationsSent                                          Int                        @default(0)
+  profileUrl                                                    String?                    @unique
+  achievement_attestations                                      achievement_attestations[]
+  achievements                                                  achievements[]
+  audit_logs_audit_logs_adminIdTousers                          audit_logs[]               @relation("audit_logs_adminIdTousers")
+  audit_logs_audit_logs_userIdTousers                           audit_logs[]               @relation("audit_logs_userIdTousers")
+  certifications                                                certifications[]
+  education                                                     education[]
+  goal_tasks_goal_tasks_assignedToTousers                       goal_tasks[]               @relation("goal_tasks_assignedToTousers")
+  goal_tasks_goal_tasks_completedByTousers                      goal_tasks[]               @relation("goal_tasks_completedByTousers")
+  goal_tasks_goal_tasks_reviewerIdTousers                       goal_tasks[]               @relation("goal_tasks_reviewerIdTousers")
+  goals_goals_assignedToIdTousers                               goals[]                    @relation("goals_assignedToIdTousers")
+  goals_goals_reviewerIdTousers                                 goals[]                    @relation("goals_reviewerIdTousers")
+  goals_goals_userIdTousers                                     goals[]                    @relation("goals_userIdTousers")
+  invitation_requests                                           invitation_requests[]
+  journal_appreciates                                           journal_appreciates[]
+  journal_collaborators                                         journal_collaborators[]
+  journal_comments                                              journal_comments[]
+  journal_entries                                               journal_entries[]
+  journal_entry_analytics                                       journal_entry_analytics[]
+  journal_likes                                                 journal_likes[]
+  journal_rechronicles                                          journal_rechronicles[]
+  journal_reviewers                                             journal_reviewers[]
+  network_connections_network_connections_receiverIdTousers     network_connections[]      @relation("network_connections_receiverIdTousers")
+  network_connections_network_connections_senderIdTousers       network_connections[]      @relation("network_connections_senderIdTousers")
+  network_policies                                              network_policies?
+  notification_preferences                                      notification_preferences?
+  notifications_notifications_recipientIdTousers                notifications[]            @relation("notifications_recipientIdTousers")
+  notifications_notifications_senderIdTousers                   notifications[]            @relation("notifications_senderIdTousers")
+  onboarding_data                                               onboarding_data?
+  platform_invitations_platform_invitations_acceptedByIdTousers platform_invitations[]     @relation("platform_invitations_acceptedByIdTousers")
+  platform_invitations_platform_invitations_inviterIdTousers    platform_invitations[]     @relation("platform_invitations_inviterIdTousers")
+  security_events_security_events_resolvedByTousers             security_events[]          @relation("security_events_resolvedByTousers")
+  security_events_security_events_userIdTousers                 security_events[]          @relation("security_events_userIdTousers")
+  system_settings                                               system_settings[]
+  user_languages                                                user_languages[]
+  user_profiles                                                 user_profiles?
+  user_skills                                                   user_skills[]
+  work_experiences                                              work_experiences[]
+  workspace_categories                                          workspace_categories[]
+  workspace_files                                               workspace_files[]
+  workspace_invitations                                         workspace_invitations[]
+  workspace_labels                                              workspace_labels[]
+  workspace_members                                             workspace_members[]
+}
+
+model work_experiences {
+  id            String   @id
+  userId        String
+  company       String
+  title         String
+  location      String?
+  startDate     String
+  endDate       String?
+  isCurrentRole Boolean  @default(false)
+  description   String
+  achievements  String[]
+  skills        String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  users         users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model workspace_categories {
+  id          String     @id
+  name        String
+  description String?
+  color       String     @default("blue")
+  workspaceId String
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime
+  users       users      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  workspaces  workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+}
+
+model workspace_files {
+  id           String     @id
+  name         String
+  originalName String
+  size         Int
+  mimeType     String
+  url          String
+  category     String?
+  description  String?
+  workspaceId  String
+  uploadedById String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime
+  users        users      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  workspaces   workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model workspace_invitations {
+  id          String     @id
+  email       String
+  name        String
+  workspaceId String
+  inviterId   String
+  role        String     @default("editor")
+  permissions Json?
+  message     String?
+  token       String     @unique
+  status      String     @default("pending")
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime
+  users       users      @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  workspaces  workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model workspace_label_values {
+  id               String           @id
+  labelId          String
+  name             String
+  color            String
+  order            Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  workspace_labels workspace_labels @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([labelId, name])
+}
+
+model workspace_labels {
+  id                     String                   @id
+  name                   String
+  type                   String
+  workspaceId            String
+  createdById            String
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  workspace_label_values workspace_label_values[]
+  users                  users                    @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  workspaces             workspaces               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, type])
+}
+
+model workspace_members {
+  id          String     @id
+  userId      String
+  workspaceId String
+  role        String     @default("member")
+  permissions Json?
+  joinedAt    DateTime   @default(now())
+  isActive    Boolean    @default(true)
+  users       users      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaces  workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+}
+
+model workspaces {
+  id                    String                  @id
+  name                  String
+  description           String?
+  organizationId        String?
+  isActive              Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  allowTeamMembers      Boolean                 @default(true)
+  isPersonal            Boolean                 @default(false)
+  goals                 goals[]
+  journal_entries       journal_entries[]
+  workspace_categories  workspace_categories[]
+  workspace_files       workspace_files[]
+  workspace_invitations workspace_invitations[]
+  workspace_labels      workspace_labels[]
+  workspace_members     workspace_members[]
+  organizations         organizations?          @relation(fields: [organizationId], references: [id])
+}
+
+enum DigestFrequency {
+  NONE
+  DAILY
+  WEEKLY
+}
+
+enum EntityType {
+  JOURNAL_ENTRY
+  WORKSPACE
+  USER
+  COMMENT
 }
 
 enum NotificationType {
@@ -916,17 +852,4 @@ enum NotificationType {
   CONNECTION_DECLINED
   ACHIEVEMENT
   SYSTEM
-}
-
-enum DigestFrequency {
-  NONE
-  DAILY
-  WEEKLY
-}
-
-enum EntityType {
-  JOURNAL_ENTRY
-  WORKSPACE
-  USER
-  COMMENT
 }
