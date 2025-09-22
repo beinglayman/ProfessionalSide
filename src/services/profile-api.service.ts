@@ -1,7 +1,6 @@
 // Production-ready profile API service
 import { OnboardingData } from './onboarding.service';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1';
+import { api, apiFormData, ApiResponse, getFullApiUrl, createFormData, handleApiError } from '../lib/api';
 
 export interface ProfileData {
   id: string;
@@ -29,7 +28,7 @@ class ProfileApiService {
     if (!avatarUrl || avatarUrl === '/default-avatar.png') {
       return '/default-avatar.png';
     }
-    
+
     // If URL is already absolute, ensure it's HTTPS for Railway domains
     if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
       // Convert HTTP to HTTPS for Railway domains
@@ -38,107 +37,24 @@ class ProfileApiService {
       }
       return avatarUrl;
     }
-    
+
     // If URL is relative, make it absolute with API base URL
     if (avatarUrl.startsWith('/uploads/')) {
-      return `${API_BASE_URL}${avatarUrl}`;
+      return getFullApiUrl(avatarUrl);
     }
-    
+
     return avatarUrl;
   }
 
-  private getAuthHeaders() {
-    const token = localStorage.getItem('inchronicle_access_token');
-    if (!token) {
-      throw new Error('Authentication required');
-    }
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-  }
 
-  // Helper method for retrying API calls
-  private async retryApiCall<T>(
-    apiCall: () => Promise<Response>,
-    errorContext: string,
-    maxRetries: number = 2
-  ): Promise<Response> {
-    let lastError: Error;
-    
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      try {
-        console.log(`🔄 ${errorContext}: Attempt ${attempt}/${maxRetries + 1}`);
-        const response = await apiCall();
-        
-        if (response.ok) {
-          console.log(`✅ ${errorContext}: Success on attempt ${attempt}`);
-          return response;
-        }
-        
-        // Don't retry auth errors or client errors (except 400)
-        if (response.status === 401 || response.status === 403 || response.status === 404) {
-          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-        }
-        
-        // For 400 errors, log details and don't retry
-        if (response.status === 400) {
-          const errorText = await response.text();
-          console.error(`❌ ${errorContext}: 400 error details:`, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-            body: errorText
-          });
-          throw new Error(`HTTP 400: ${errorText}`);
-        }
-        
-        // Retry for server errors and other 400s
-        if (attempt <= maxRetries) {
-          console.warn(`⚠️ ${errorContext}: Attempt ${attempt} failed with ${response.status}, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
-          continue;
-        }
-        
-        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-      } catch (error) {
-        lastError = error as Error;
-        if (attempt <= maxRetries && !lastError.message.includes('401') && !lastError.message.includes('403')) {
-          console.warn(`⚠️ ${errorContext}: Attempt ${attempt} failed, retrying...`, lastError.message);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          continue;
-        }
-        throw lastError;
-      }
-    }
-    
-    throw lastError!;
-  }
 
   async getProfile(): Promise<ProfileData> {
     try {
       console.log('🔍 Starting profile data fetch...');
       
-      // 1. Get basic profile data with retry
-      const response = await this.retryApiCall(
-        () => fetch(`${API_BASE_URL}/users/profile/me`, {
-          headers: this.getAuthHeaders(),
-        }),
-        'Profile fetch'
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication failed');
-        }
-        if (response.status === 404) {
-          throw new Error('Profile not found');
-        }
-        throw new Error(`Failed to fetch profile: ${response.status}`);
-      }
-
-      const profileData = await response.json();
+      // 1. Get basic profile data using centralized API
+      const response = await api.get<ApiResponse<any>>('/users/profile/me');
+      const profileData = response.data;
       console.log('🔍 Raw backend profile response:', profileData);
       console.log('🔍 Backend user fields:', {
         name: profileData.data?.name,
@@ -148,13 +64,13 @@ class ProfileApiService {
         bio: profileData.data?.bio
       });
 
-      // 2. Get skills data from skills API with retry
+      // 2. Get skills data from skills API
       console.log('🔍 Fetching skills data...');
-      const skillsData = await this.getUserSkillsWithRetry();
+      const skillsData = await this.getUserSkills();
       
-      // 3. Get onboarding data from experience field with retry
+      // 3. Get onboarding data from experience field
       console.log('🔍 Fetching onboarding data...');
-      const onboardingData = await this.getStoredOnboardingDataWithRetry(profileData.data || profileData);
+      const onboardingData = await this.getStoredOnboardingData(profileData.data || profileData);
       
       // 4. Transform and combine all data
       return this.transformBackendProfileToFrontend(profileData.data || profileData, skillsData, onboardingData);
@@ -168,25 +84,9 @@ class ProfileApiService {
     try {
       console.log(`🔍 Fetching public profile for user: ${userId}`);
       
-      // 1. Get public profile data
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          // Include auth token if available for better data access
-          ...(localStorage.getItem('inchronicle_access_token') && {
-            'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-          })
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('User not found');
-        }
-        throw new Error(`Failed to fetch public profile: ${response.status}`);
-      }
-
-      const profileData = await response.json();
+      // 1. Get public profile data using centralized API
+      const response = await api.get<ApiResponse<any>>(`/users/${userId}`);
+      const profileData = response.data;
       console.log('🔍 Raw backend public profile response:', profileData);
       console.log('🔍 Backend skills in profile:', profileData.data?.skills || profileData.skills);
       console.log('🔍 Backend workExperiences:', profileData.data?.workExperiences || profileData.workExperiences);
@@ -210,58 +110,26 @@ class ProfileApiService {
   // Helper method to get user skills from skills API
   private async getUserSkills(): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/skills/my`, {
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (response.ok) {
-        const skillsResponse = await response.json();
-        console.log('🔍 Skills from API:', skillsResponse.data);
-        return skillsResponse.data || [];
-      }
+      const response = await api.get<ApiResponse<any[]>>('/users/skills/my');
+      console.log('🔍 Skills from API:', response.data.data);
+      return response.data.data || [];
     } catch (error) {
       console.error('❌ Failed to fetch skills:', error);
-    }
-    return [];
-  }
-
-  // Helper method to get user skills with retry
-  private async getUserSkillsWithRetry(): Promise<any[]> {
-    try {
-      const response = await this.retryApiCall(
-        () => fetch(`${API_BASE_URL}/users/skills/my`, {
-          headers: this.getAuthHeaders(),
-        }),
-        'Skills fetch'
-      );
-      
-      const skillsResponse = await response.json();
-      console.log('🔍 Skills from API:', skillsResponse.data);
-      return skillsResponse.data || [];
-    } catch (error) {
-      console.error('❌ Failed to fetch skills after retries:', error);
       return [];
     }
   }
 
+
   // Helper method to get public user skills
   private async getPublicUserSkills(userId: string): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/${userId}/skills`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const skillsResponse = await response.json();
-        console.log('🔍 Public skills from API:', skillsResponse.data);
-        return skillsResponse.data || [];
-      }
+      const response = await api.get<ApiResponse<any[]>>(`/users/${userId}/skills`);
+      console.log('🔍 Public skills from API:', response.data.data);
+      return response.data.data || [];
     } catch (error) {
       console.error('❌ Failed to fetch public skills:', error);
+      return [];
     }
-    return [];
   }
 
   // Helper method to extract onboarding data from API database
@@ -270,12 +138,10 @@ class ProfileApiService {
       console.log('🔍 Fetching onboarding data from API database...');
       
       // Fetch onboarding data from the API database
-      const response = await fetch(`${API_BASE_URL}/onboarding/data`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await api.get<ApiResponse<any>>('/onboarding/data');
       
-      if (response.ok) {
-        const apiData = await response.json();
+      if (response.data.success && response.data.data) {
+        const apiData = response.data;
         if (apiData.success && apiData.data) {
           console.log('✅ Found onboarding data in API database:', apiData.data);
           console.log('🔍 API onboarding fields:', {
@@ -389,63 +255,6 @@ class ProfileApiService {
     return null;
   }
 
-  // Helper method to extract onboarding data with retry
-  private async getStoredOnboardingDataWithRetry(profileData: any): Promise<any | null> {
-    try {
-      console.log('🔍 Fetching onboarding data with retry...');
-      
-      // Fetch onboarding data from the API database with retry
-      const response = await this.retryApiCall(
-        () => fetch(`${API_BASE_URL}/onboarding/data`, {
-          headers: this.getAuthHeaders(),
-        }),
-        'Onboarding data fetch'
-      );
-      
-      const apiData = await response.json();
-      if (apiData.success && apiData.data) {
-        console.log('✅ Found onboarding data in API database:', apiData.data);
-        
-        // Transform API data to frontend format
-        const transformedData = {
-          fullName: apiData.data.fullName || '',
-          currentTitle: apiData.data.currentTitle || '',
-          currentCompany: apiData.data.currentCompany || '',
-          location: apiData.data.location || '',
-          industry: apiData.data.industry || '',
-          yearsOfExperience: apiData.data.yearsOfExperience || 0,
-          profileImageUrl: apiData.data.profileImageUrl || '',
-          professionalSummary: apiData.data.professionalSummary || '',
-          specializations: apiData.data.specializations || [],
-          careerHighlights: apiData.data.careerHighlights || '',
-          skills: Array.isArray(apiData.data.skills) ? apiData.data.skills : 
-                 (typeof apiData.data.skills === 'object' && apiData.data.skills) ? 
-                 Object.values(apiData.data.skills) : [],
-          topSkills: apiData.data.topSkills || [],
-          workExperiences: Array.isArray(apiData.data.workExperiences) ? apiData.data.workExperiences :
-                         (typeof apiData.data.workExperiences === 'object' && apiData.data.workExperiences) ?
-                         Object.values(apiData.data.workExperiences) : [],
-          education: Array.isArray(apiData.data.education) ? apiData.data.education :
-                    (typeof apiData.data.education === 'object' && apiData.data.education) ?
-                    Object.values(apiData.data.education) : [],
-          certifications: Array.isArray(apiData.data.certifications) ? apiData.data.certifications :
-                         (typeof apiData.data.certifications === 'object' && apiData.data.certifications) ?
-                         Object.values(apiData.data.certifications) : [],
-          careerGoals: apiData.data.careerGoals || [],
-          professionalInterests: apiData.data.professionalInterests || [],
-        };
-        
-        console.log('🔄 Transformed API data with retry:', transformedData);
-        return transformedData;
-      }
-      
-      console.log('⚠️ No onboarding data in API response, using fallback...');
-      return this.getStoredOnboardingData(profileData);
-    } catch (error) {
-      console.error('❌ Failed to fetch onboarding data after retries:', error);
-      return this.getStoredOnboardingData(profileData);
-    }
-  }
 
   async updateProfile(data: Partial<OnboardingData>): Promise<ProfileData> {
     console.log('🔄 ProfileAPI: Received onboarding data to save:', data);
@@ -453,9 +262,8 @@ class ProfileApiService {
     const token = localStorage.getItem('inchronicle_access_token');
     console.log('🔍 ProfileAPI: Auth token exists:', !!token);
     console.log('🔍 ProfileAPI: Auth token (first 10 chars):', token ? token.substring(0, 10) + '...' : 'null');
-    console.log('🔍 ProfileAPI: API_BASE_URL:', API_BASE_URL);
+    console.log('🔍 ProfileAPI: Using centralized API');
     
-    let profileResponse: Response;
     
     try {
       // Transform onboarding data to backend format with relational structure
@@ -463,24 +271,10 @@ class ProfileApiService {
       const profileData = this.transformOnboardingToBackendFormat(data);
       console.log('🔄 ProfileAPI: Transformed profile data:', profileData);
 
-      console.log('🔄 ProfileAPI: Making PUT request to /users/profile...');
-      profileResponse = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(profileData),
-      });
+        console.log('🔄 ProfileAPI: Making PUT request to /users/profile...');
+      const profileResponse = await api.put<ApiResponse<any>>('/users/profile', profileData);
 
-      console.log('📡 ProfileAPI: Response status:', profileResponse.status);
-      console.log('📡 ProfileAPI: Response headers:', Object.fromEntries(profileResponse.headers.entries()));
-
-      if (!profileResponse.ok) {
-        const errorText = await profileResponse.text();
-        console.error('❌ ProfileAPI: Profile update failed');
-        console.error('❌ ProfileAPI: Status:', profileResponse.status);
-        console.error('❌ ProfileAPI: Error text:', errorText);
-        console.error('❌ ProfileAPI: Request data was:', profileData);
-        throw new Error(`Failed to update profile: ${profileResponse.status} - ${errorText}`);
-      }
+      console.log('📡 ProfileAPI: Response received:', profileResponse.data);
 
       // Store complete onboarding data for prepopulation (before skills API call)
       console.log('🔍 DEBUG: About to store onboarding data:', {
@@ -495,9 +289,8 @@ class ProfileApiService {
         await this.updateUserSkills(data.skills, data.topSkills || []);
       }
 
-      const result = await profileResponse.json();
       console.log('✅ ProfileAPI: Profile updated successfully');
-      return result;
+      return profileResponse.data;
     } catch (error) {
       console.error('❌ ProfileAPI: Exception during profile update:', error);
       throw error;
@@ -513,39 +306,18 @@ class ProfileApiService {
       lastModified: file.lastModified
     });
 
-    const token = localStorage.getItem('inchronicle_access_token');
-    console.log('🔍 Auth token exists:', !!token);
-    console.log('🔍 API_BASE_URL:', API_BASE_URL);
+    const formData = createFormData({ avatar: file });
 
-    const formData = new FormData();
-    formData.append('avatar', file);
-
-    console.log('🔄 Making request to:', `${API_BASE_URL}/users/avatar`);
+    console.log('🔄 Making avatar upload request using apiFormData');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/users/avatar`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const response = await apiFormData.post<ApiResponse<any>>('/users/avatar', formData);
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('✅ Upload successful, response:', response.data);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Upload failed with response:', errorText);
-        throw new Error(`Failed to upload avatar: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Upload successful, response:', result);
-      
-      const avatarUrl = result.data?.avatarUrl || result.avatarUrl;
+      const avatarUrl = response.data.data?.avatarUrl || response.data.avatarUrl;
       console.log('🔍 Extracted avatar URL:', avatarUrl);
-      
+
       return avatarUrl;
     } catch (error) {
       console.error('❌ Upload error details:', error);
@@ -559,11 +331,9 @@ class ProfileApiService {
     
     try {
       // First, get existing skills to avoid duplicates
-      const existingSkillsResponse = await fetch(`${API_BASE_URL}/users/skills/my`, {
-        headers: this.getAuthHeaders(),
-      });
+      const existingSkillsResponse = await api.get<ApiResponse<any[]>>('/users/skills/my');
       
-      const existingSkills = existingSkillsResponse.ok ? await existingSkillsResponse.json() : { data: [] };
+      const existingSkills = existingSkillsResponse.data.success ? existingSkillsResponse.data : { data: [] };
       const existingSkillNames = existingSkills.data?.map((skill: any) => skill.skill?.name || skill.skillName) || [];
       
       // Add new skills that don't exist
@@ -590,14 +360,10 @@ class ProfileApiService {
 
   // Helper method to add a single skill
   private async addSingleSkill(skillData: any): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/users/skills`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(skillData),
-    });
-    
-    if (!response.ok) {
-      console.error('❌ Failed to add skill:', skillData.skillName);
+    try {
+      await api.post<ApiResponse<any>>('/users/skills', skillData);
+    } catch (error) {
+      console.error('❌ Failed to add skill:', skillData.skillName, error);
     }
   }
 

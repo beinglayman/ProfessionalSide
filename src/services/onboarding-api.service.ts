@@ -1,7 +1,6 @@
 // API service for onboarding data persistence via user profile endpoints
 import { OnboardingData } from './onboarding.service';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1';
+import { api, ApiResponse, handleApiError } from '../lib/api';
 
 
 export class OnboardingApiService {
@@ -24,73 +23,47 @@ export class OnboardingApiService {
   async saveOnboardingData(data: Partial<OnboardingData>): Promise<void> {
     console.log('=== ONBOARDING API SERVICE SAVE START ===');
     console.log('📊 Input data:', data);
-    
+
     try {
-      // Check if user is authenticated
-      const token = localStorage.getItem('inchronicle_access_token');
-      console.log('🔑 Auth token exists:', !!token);
-      
-      if (!token) {
-        throw new Error('No authentication token - user not logged in');
-      }
-      
       // Validate required fields before sending to API
       if (data.fullName && data.fullName.length < 2) {
         console.log('⚠️ Skipping API save - name too short:', data.fullName);
         throw new Error('Name must be at least 2 characters');
       }
-      
+
       if (data.currentTitle && data.currentTitle.length < 2) {
         console.log('⚠️ Skipping API save - title too short:', data.currentTitle);
         throw new Error('Title must be at least 2 characters');
       }
-      
+
       // Skip API call if we don't have minimum viable data
       const hasMinViableData = (data.fullName && data.fullName.length >= 2) ||
                               (data.currentTitle && data.currentTitle.length >= 2) ||
                               data.profileImageUrl;
-      
+
       if (!hasMinViableData) {
         console.log('⚠️ Skipping API save - no minimum viable data available');
         return; // Don't throw error, just skip silently
       }
-      
+
       // Transform onboarding data to profile format for the API
       const profileData = this.transformOnboardingToProfile(data);
       console.log('🔄 Transformed profile data:', profileData);
-      
-      console.log('🌐 Making API request to:', `${API_BASE_URL}/users/profile`);
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(profileData)
-      });
 
-      console.log('🔄 API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-      
-      const responseData = await response.json();
-      console.log('✅ API save successful:', responseData);
+      const response = await api.put<ApiResponse<any>>('/users/profile', profileData);
+      console.log('✅ API save successful:', response.data);
       console.log('=== ONBOARDING API SERVICE SAVE END ===');
 
     } catch (error) {
       console.error('❌ Failed to save onboarding data to API:', error);
-      
+
       // Fallback to localStorage if database fails
       console.log('💾 Attempting localStorage fallback...');
       const existingData = this.getLocalStorageData();
       const updatedData = { ...existingData, ...data };
       localStorage.setItem('onboarding_data', JSON.stringify(updatedData));
       console.log('✅ LocalStorage fallback completed');
-      
+
       throw error;
     }
   }
@@ -98,46 +71,26 @@ export class OnboardingApiService {
   // Get onboarding data from user profile
   async getOnboardingData(): Promise<OnboardingData | null> {
     console.log('=== ONBOARDING API SERVICE GET START ===');
-    
+
     try {
-      const token = localStorage.getItem('inchronicle_access_token');
-      console.log('🔑 Auth token exists:', !!token);
-      
-      if (!token) {
-        throw new Error('No authentication token - user not logged in');
-      }
-      
-      console.log('🌐 Making API request to:', `${API_BASE_URL}/users/profile/me`);
-      const response = await fetch(`${API_BASE_URL}/users/profile/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await api.get<ApiResponse<any>>('/users/profile/me');
+      console.log('✅ API data retrieved:', response.data);
 
-      console.log('🔄 API response status:', response.status);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log('⚠️ No profile data found (404)');
-          return null;
-        }
-        const errorText = await response.text();
-        console.error('❌ API error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const profileData = await response.json();
-      console.log('✅ API data retrieved:', profileData);
-      
       // Transform profile data back to onboarding format
-      const transformed = this.transformProfileToOnboarding(profileData);
+      const transformed = this.transformProfileToOnboarding(response.data);
       console.log('🔄 Transformed to onboarding format:', transformed);
       console.log('=== ONBOARDING API SERVICE GET END ===');
-      
+
       return transformed;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to retrieve user profile from API:', error.message);
-      
+
+      // Check for 404 specifically
+      if (error.response?.status === 404) {
+        console.log('⚠️ No profile data found (404)');
+        return null;
+      }
+
       // Fallback to localStorage if database fails
       console.log('💾 Trying localStorage fallback...');
       const fallbackData = this.getLocalStorageData();
@@ -211,40 +164,29 @@ export class OnboardingApiService {
   async clearOnboardingData(): Promise<void> {
     try {
       // Reset profile by sending empty/default values
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        },
-        body: JSON.stringify({
-          name: '',
-          title: '',
-          company: '',
-          location: '',
-          industry: '',
-          bio: '',
-          specializations: [],
-          careerHighlights: '',
-          topSkills: [],
-          careerGoals: [],
-          professionalInterests: [],
-          onboardingData: null
-        })
+      await api.put<ApiResponse<any>>('/users/profile', {
+        name: '',
+        title: '',
+        company: '',
+        location: '',
+        industry: '',
+        bio: '',
+        specializations: [],
+        careerHighlights: '',
+        topSkills: [],
+        careerGoals: [],
+        professionalInterests: [],
+        onboardingData: null
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
     } catch (error) {
       console.error('Failed to clear profile data:', error);
-      
+
       // Fallback to localStorage cleanup
       localStorage.removeItem('onboarding_data');
       localStorage.removeItem('onboarding_complete');
       localStorage.removeItem('onboarding_current_step');
-      
+
       throw error;
     }
   }
@@ -307,23 +249,10 @@ export class OnboardingApiService {
   // Upload profile image
   async uploadProfileImage(file: File): Promise<string> {
     try {
-      const formData = new FormData();
-      formData.append('avatar', file);
+      const formData = createFormData({ avatar: file });
 
-      const response = await fetch(`${API_BASE_URL}/users/avatar`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const imageUrl = result.data?.avatarUrl || result.avatarUrl;
+      const response = await apiFormData.post<ApiResponse<any>>('/users/avatar', formData);
+      const imageUrl = response.data.data?.avatarUrl || response.data.avatarUrl;
       return imageUrl;
     } catch (error) {
       console.error('Failed to upload profile image:', error);

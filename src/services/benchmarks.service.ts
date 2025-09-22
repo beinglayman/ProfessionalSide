@@ -1,5 +1,5 @@
 // Skills Benchmark API service
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1';
+import { api, ApiResponse, handleApiError } from '../lib/api';
 
 export interface SkillBenchmark {
   id: string;
@@ -17,40 +17,20 @@ export interface SkillBenchmark {
 }
 
 class BenchmarksService {
-  private getAuthHeaders() {
-    const token = localStorage.getItem('inchronicle_access_token');
-    if (!token) {
-      throw new Error('Authentication required');
-    }
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-  }
-
   async getBenchmarksForSkills(skillNames: string[]): Promise<Record<string, number>> {
     try {
-      const response = await fetch(`${API_BASE_URL}/skills-benchmark/bulk`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ skillNames }),
+      const response = await api.post<ApiResponse<SkillBenchmark[]>>('/skills-benchmark/bulk', {
+        skillNames,
       });
 
-      if (!response.ok) {
-        console.error('Failed to fetch benchmarks:', response.status);
-        return this.getFallbackBenchmarks(skillNames);
-      }
-
-      const result = await response.json();
       const benchmarks: Record<string, number> = {};
-      
-      if (result.success && result.data) {
-        result.data.forEach((benchmark: SkillBenchmark) => {
+
+      if (response.data.success && response.data.data) {
+        response.data.data.forEach((benchmark: SkillBenchmark) => {
           benchmarks[benchmark.skillName] = benchmark.industryAverage;
         });
       }
-      
+
       // Fill in missing skills with fallback values
       skillNames.forEach(skillName => {
         if (!(skillName in benchmarks)) {
@@ -67,17 +47,8 @@ class BenchmarksService {
 
   async getBenchmarkForSkill(skillName: string): Promise<SkillBenchmark | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/skills-benchmark/${encodeURIComponent(skillName)}`, {
-        headers: this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        console.error(`Failed to fetch benchmark for ${skillName}:`, response.status);
-        return null;
-      }
-
-      const result = await response.json();
-      return result.success ? result.data : null;
+      const response = await api.get<ApiResponse<SkillBenchmark>>(`/skills-benchmark/${encodeURIComponent(skillName)}`);
+      return response.data.success ? response.data.data || null : null;
     } catch (error) {
       console.error(`Error fetching benchmark for ${skillName}:`, error);
       return null;

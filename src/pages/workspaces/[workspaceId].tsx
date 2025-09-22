@@ -76,7 +76,7 @@ import { JournalCard } from '../../components/journal/journal-card';
 import { JournalEntry } from '../../types/journal';
 import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { useAuth } from '../../contexts/AuthContext';
-import { API_BASE_URL, getAuthToken } from '../../lib/api';
+import { api, ApiResponse, getAuthToken, getFullApiUrl } from '../../lib/api';
 import { GoalCompletionDialog } from '../../components/goals/goal-completion-dialog';
 import { GoalStatusWorkflow } from '../../components/GoalStatusWorkflow';
 import { UnifiedStatusBar, UnifiedStatusBarMobile } from '../../components/UnifiedStatusBar';
@@ -2656,28 +2656,19 @@ const InviteTeamMemberSidePanel = ({
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/invitations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          role: formData.role.toLowerCase(),
-          message: formData.message,
-          permissions: formData.permissions
-        })
+      const response = await api.post<ApiResponse<any>>(`/workspaces/${workspaceId}/invitations`, {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role.toLowerCase(),
+        message: formData.message,
+        permissions: formData.permissions
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        alert(`Invitation sent successfully to ${formData.email}!${result.data.hasExistingAccount ? ' They will also receive a notification.' : ' They will receive an email.'}`);
+      if (response.data.success) {
+        alert(`Invitation sent successfully to ${formData.email}!${response.data.data.hasExistingAccount ? ' They will also receive a notification.' : ' They will receive an email.'}`);
         handleClose();
       } else {
-        alert(result.error || 'Failed to send invitation');
+        alert(response.data.error || 'Failed to send invitation');
       }
     } catch (error) {
       console.error('Error sending invitation:', error);
@@ -4804,7 +4795,7 @@ export default function WorkspaceDetailPage() {
       mimeType: file.mimeType,
       description: file.description,
       uploadedById: file.uploadedById,
-      url: file.url || `${API_BASE_URL}/files/${file.id}/download`, // For download/link functionality
+      url: file.url || getFullApiUrl(`/files/${file.id}/download`), // For download/link functionality
       isExternalLink: file.type === 'link',
     })) : [];
 
@@ -4845,7 +4836,7 @@ export default function WorkspaceDetailPage() {
         mimeType: artifact.type,
         description: `Artifact from journal entry: ${entry.title}`,
         uploadedById: entry.author?.id,
-        url: artifact.url || `${API_BASE_URL}/files/${artifact.id}/download`, // Direct artifact URL or constructed download URL
+        url: artifact.url || getFullApiUrl(`/files/${artifact.id}/download`), // Direct artifact URL or constructed download URL
         isExternalLink: artifact.url?.startsWith('http') && !artifact.url?.includes(window.location.host),
         sourceJournalEntry: entry, // Keep reference to source journal entry
       }));

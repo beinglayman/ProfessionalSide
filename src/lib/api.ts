@@ -126,3 +126,111 @@ export interface ApiError {
   error: string;
   details?: any;
 }
+
+// Enhanced API instances for different use cases
+
+// API instance for multipart/form-data (file uploads)
+export const apiFormData = axios.create({
+  baseURL: API_BASE_URL,
+  // Don't set Content-Type for form data - let browser set it with boundary
+});
+
+// API instance for public endpoints (no auth required)
+export const apiPublic = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Apply auth interceptor to form data instance
+apiFormData.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Apply same response interceptor to form data instance
+apiFormData.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
+
+          const { accessToken } = response.data.data;
+          setAuthToken(accessToken);
+
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return apiFormData(originalRequest);
+        } catch (refreshError) {
+          clearAuthTokens();
+          const currentPath = window.location.pathname;
+          const publicPaths = ['/', '/login', '/register', '/about', '/privacy', '/terms'];
+          if (!publicPaths.includes(currentPath)) {
+            window.location.href = '/login';
+          }
+        }
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// Utility functions for common API patterns
+
+/**
+ * Get full URL for relative paths (useful for file downloads, etc.)
+ */
+export const getFullApiUrl = (path: string): string => {
+  if (path.startsWith('http')) return path;
+  return `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+};
+
+/**
+ * Create FormData instance with proper handling
+ */
+export const createFormData = (data: Record<string, any>): FormData => {
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value instanceof File) {
+      formData.append(key, value);
+    } else if (value !== null && value !== undefined) {
+      formData.append(key, String(value));
+    }
+  });
+  return formData;
+};
+
+/**
+ * Enhanced error handler for API responses
+ */
+export const handleApiError = (error: any): never => {
+  if (error.response) {
+    // Server responded with error status
+    const message = error.response.data?.error || error.response.data?.message || `HTTP ${error.response.status}`;
+    throw new Error(message);
+  } else if (error.request) {
+    // Request was made but no response
+    throw new Error('Network error - please check your connection');
+  } else {
+    // Something else happened
+    throw new Error(error.message || 'An unexpected error occurred');
+  }
+};

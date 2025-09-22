@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
-import { API_BASE_URL } from '../../lib/api';
+import { api, ApiResponse } from '../../lib/api';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -82,24 +82,18 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
   const handleAcceptInvitation = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!notification.data?.invitationId) return;
-    
+
     setIsProcessing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/workspaces/invitations/${notification.data.invitationId}/accept-by-id`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        }
-      });
+      const response = await api.post<ApiResponse<any>>(`/workspaces/invitations/${notification.data.invitationId}/accept-by-id`);
 
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         alert(`Successfully joined ${notification.data.workspaceName}!`);
         onMarkAsRead(notification.id);
         // Optionally reload page or update UI
         window.location.reload();
       } else {
-        alert(result.error || 'Failed to accept invitation');
+        alert(response.data.error || 'Failed to accept invitation');
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
@@ -112,22 +106,16 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
   const handleDeclineInvitation = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!notification.data?.invitationId) return;
-    
+
     setIsProcessing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/workspaces/invitations/${notification.data.invitationId}/decline-by-id`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        }
-      });
+      const response = await api.post<ApiResponse<any>>(`/workspaces/invitations/${notification.data.invitationId}/decline-by-id`);
 
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         alert('Invitation declined');
         onMarkAsRead(notification.id);
       } else {
-        alert(result.error || 'Failed to decline invitation');
+        alert(response.data.error || 'Failed to decline invitation');
       }
     } catch (error) {
       console.error('Error declining invitation:', error);
@@ -140,22 +128,16 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
   const handleAcceptConnection = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!notification.data?.connectionRequestId) return;
-    
+
     setIsProcessing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/network/requests/${notification.data.connectionRequestId}/accept`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        }
-      });
+      const response = await api.post<ApiResponse<any>>(`/network/requests/${notification.data.connectionRequestId}/accept`);
 
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         alert('Connection request accepted!');
         onMarkAsRead(notification.id);
       } else {
-        alert(result.error || 'Failed to accept connection request');
+        alert(response.data.error || 'Failed to accept connection request');
       }
     } catch (error) {
       console.error('Error accepting connection request:', error);
@@ -168,22 +150,16 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
   const handleDeclineConnection = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!notification.data?.connectionRequestId) return;
-    
+
     setIsProcessing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/network/requests/${notification.data.connectionRequestId}/decline`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        }
-      });
+      const response = await api.post<ApiResponse<any>>(`/network/requests/${notification.data.connectionRequestId}/decline`);
 
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         alert('Connection request declined');
         onMarkAsRead(notification.id);
       } else {
-        alert(result.error || 'Failed to decline connection request');
+        alert(response.data.error || 'Failed to decline connection request');
       }
     } catch (error) {
       console.error('Error declining connection request:', error);
