@@ -64,6 +64,9 @@ import { CronService } from './services/cron.service';
 
 // Initialize Express app
 const app = express();
+
+// Trust proxy for Railway/production deployment
+app.set('trust proxy', true);
 const port = process.env.PORT || 8080;
 console.log(`🔧 Port configuration - PORT: ${process.env.PORT}, API_PORT: ${process.env.API_PORT}, Using: ${port}`);
 

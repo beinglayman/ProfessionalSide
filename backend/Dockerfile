@@ -18,10 +18,10 @@ COPY . .
 COPY public/screenshots ./public/screenshots
 
 # Generate Prisma client only (run TS with tsx at runtime)
-RUN npm run db:generate
+RUN npm run db:generate && npm run build:production
 
 # Expose default app port (App Service uses PORT env var at runtime)
 EXPOSE 3002
 
 # Start with tsx (runs TypeScript directly)
-CMD ["sh", "-c", "NODE_ENV=production npx tsx src/app.ts"]
+CMD ["sh", "-c", "NODE_ENV=production node dist/app.js"]
