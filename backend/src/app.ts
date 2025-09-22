@@ -65,6 +65,7 @@ import { CronService } from './services/cron.service';
 // Initialize Express app
 const app = express();
 const port = process.env.PORT || 8080;
+console.log(`🔧 Port configuration - PORT: ${process.env.PORT}, API_PORT: ${process.env.API_PORT}, Using: ${port}`);
 
 // Initialize Prisma client with optimized settings
 export const prisma = new PrismaClient({
