@@ -714,6 +714,38 @@ app.post('/api/v1/fix-users-table', async (req, res) => {
   }
 });
 
+// Debug endpoint to check users table structure
+app.get('/api/v1/debug-users-structure', async (req, res) => {
+  try {
+    console.log('🔍 Checking users table structure...');
+
+    // Get table structure
+    const result = await prisma.$queryRawUnsafe(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_name = 'users'
+      ORDER BY ordinal_position;
+    `);
+
+    console.log('Users table columns:', result);
+
+    res.json({
+      success: true,
+      data: {
+        columns: result
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Debug users structure error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check users table structure',
+      error: error.message
+    });
+  }
+});
+
 // Debug endpoint to check user/profile data
 app.get('/api/v1/debug-profile', async (req, res) => {
   try {
