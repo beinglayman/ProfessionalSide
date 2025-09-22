@@ -9,7 +9,7 @@
     "build:production": "npm run db:generate && tsc --noEmitOnError false",
     "start": "npx tsx src/app.ts",
     "start:with-migrations": "npm run db:migrate:deploy && npx tsx src/app.ts",
-    "start:production": "node railway-reset-startup.js",
+    "start:production": "npx tsx src/app.ts",
     "start:production:with-migrations": "npm run db:migrate:deploy && (npm run db:seed-reference || echo 'Seeding failed but continuing...') && npx tsx src/app.ts",
     "health-check": "curl -f http://localhost:3002/health",
     "db:generate": "prisma generate",
