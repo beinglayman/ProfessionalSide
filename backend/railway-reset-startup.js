@@ -9,7 +9,7 @@ const { execSync } = require('child_process');
 
 async function resetAndStart() {
   try {
-    console.log('🔧 PRODUCTION DATABASE RESET - ONE TIME ONLY');
+    console.log('🔧 PRODUCTION DATABASE RESET - ONE TIME ONLY - FORCED DEPLOY');
     console.log('⚠️  This will DELETE ALL DATA and recreate the schema in production');
 
     // Execute Prisma DB push with force reset on production database
