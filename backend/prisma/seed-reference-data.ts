@@ -961,8 +961,11 @@ async function seedReferenceData() {
     for (const focusArea of primaryFocusAreas) {
       await prisma.focusArea.upsert({
         where: { id: focusArea.id },
-        update: {},
-        create: focusArea
+        update: { updatedAt: new Date() },
+        create: {
+          ...focusArea,
+          updatedAt: new Date()
+        }
       });
     }
 
@@ -974,11 +977,12 @@ async function seedReferenceData() {
         const categoryId = `${focusAreaId}-${category.id}`;
         await prisma.workCategory.upsert({
           where: { id: categoryId },
-          update: {},
+          update: { updatedAt: new Date() },
           create: {
             id: categoryId,
             label: category.label,
-            focusAreaId: focusAreaId
+            focusAreaId: focusAreaId,
+            updatedAt: new Date()
           }
         });
 
@@ -987,11 +991,12 @@ async function seedReferenceData() {
           const workTypeId = `${categoryId}-${workType.id}`;
           await prisma.workType.upsert({
             where: { id: workTypeId },
-            update: {},
+            update: { updatedAt: new Date() },
             create: {
               id: workTypeId,
               label: workType.label,
-              workCategoryId: categoryId
+              workCategoryId: categoryId,
+              updatedAt: new Date()
             }
           });
         }
@@ -1003,8 +1008,11 @@ async function seedReferenceData() {
     for (const skill of skills) {
       await prisma.skill.upsert({
         where: { id: skill.id },
-        update: {},
-        create: skill
+        update: { updatedAt: new Date() },
+        create: {
+          ...skill,
+          updatedAt: new Date()
+        }
       });
     }
 
@@ -1029,16 +1037,17 @@ async function seedReferenceData() {
           
           if (skill) {
             await prisma.workTypeSkill.upsert({
-              where: { 
-                workTypeId_skillId: { 
-                  workTypeId: workType.id, 
-                  skillId: skill.id 
-                } 
+              where: {
+                workTypeId_skillId: {
+                  workTypeId: workType.id,
+                  skillId: skill.id
+                }
               },
-              update: {},
+              update: { updatedAt: new Date() },
               create: {
                 workTypeId: workType.id,
-                skillId: skill.id
+                skillId: skill.id,
+                updatedAt: new Date()
               }
             });
           }
