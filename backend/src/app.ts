@@ -70,15 +70,8 @@ app.set('trust proxy', true);
 const port = process.env.PORT || 8080;
 console.log(`🔧 Port configuration - PORT: ${process.env.PORT}, API_PORT: ${process.env.API_PORT}, Using: ${port}`);
 
-// Initialize Prisma client with optimized settings
-export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-});
+// Import shared Prisma client
+import { prisma } from './lib/prisma';
 
 // Initialize services
 const cronService = new CronService();

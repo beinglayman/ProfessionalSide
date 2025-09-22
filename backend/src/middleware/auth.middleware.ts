@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, JwtPayload } from '../utils/auth.utils';
 import { sendError } from '../utils/response.utils';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 // Extend Express Request type to include user
 declare global {
