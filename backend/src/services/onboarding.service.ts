@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
+import { prisma } from '../lib/prisma';
 import {
   CreateOnboardingDataInput,
   UpdateOnboardingDataInput,
@@ -6,8 +7,6 @@ import {
   CompleteOnboardingInput,
   OnboardingDataResponse
 } from '../types/onboarding.types';
-
-const prisma = new PrismaClient();
 
 export class OnboardingService {
   /**
@@ -44,6 +43,7 @@ export class OnboardingService {
       // Create new onboarding data
       updatedOnboardingData = await prisma.onboarding_data.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           ...data
         }
@@ -157,6 +157,7 @@ export class OnboardingService {
     if (!existingData) {
       await prisma.onboarding_data.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           currentStep: 0,
           isCompleted: false
