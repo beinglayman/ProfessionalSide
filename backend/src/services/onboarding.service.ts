@@ -45,7 +45,8 @@ export class OnboardingService {
         data: {
           id: crypto.randomUUID(),
           userId,
-          ...data
+          ...data,
+          updatedAt: new Date()
         }
       });
     }
@@ -160,7 +161,8 @@ export class OnboardingService {
           id: crypto.randomUUID(),
           userId,
           currentStep: 0,
-          isCompleted: false
+          isCompleted: false,
+          updatedAt: new Date()
         }
       });
     }
