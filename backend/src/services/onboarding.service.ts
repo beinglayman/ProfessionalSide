@@ -14,7 +14,7 @@ export class OnboardingService {
    * Get user's onboarding data
    */
   async getOnboardingData(userId: string): Promise<OnboardingDataResponse | null> {
-    const onboardingData = await prisma.onboardingData.findUnique({
+    const onboardingData = await prisma.onboarding_data.findUnique({
       where: { userId }
     });
 
@@ -25,7 +25,7 @@ export class OnboardingService {
    * Create or update onboarding data
    */
   async upsertOnboardingData(userId: string, data: UpdateOnboardingDataInput): Promise<OnboardingDataResponse> {
-    const existingData = await prisma.onboardingData.findUnique({
+    const existingData = await prisma.onboarding_data.findUnique({
       where: { userId }
     });
 
@@ -33,7 +33,7 @@ export class OnboardingService {
 
     if (existingData) {
       // Update existing onboarding data
-      updatedOnboardingData = await prisma.onboardingData.update({
+      updatedOnboardingData = await prisma.onboarding_data.update({
         where: { userId },
         data: {
           ...data,
@@ -42,7 +42,7 @@ export class OnboardingService {
       });
     } else {
       // Create new onboarding data
-      updatedOnboardingData = await prisma.onboardingData.create({
+      updatedOnboardingData = await prisma.onboarding_data.create({
         data: {
           userId,
           ...data
@@ -70,7 +70,7 @@ export class OnboardingService {
     // Ensure onboarding data exists
     await this.ensureOnboardingDataExists(userId);
 
-    return await prisma.onboardingData.update({
+    return await prisma.onboarding_data.update({
       where: { userId },
       data: {
         currentStep: data.currentStep,
@@ -87,7 +87,7 @@ export class OnboardingService {
     await this.ensureOnboardingDataExists(userId);
 
     // Get the current onboarding data
-    const onboardingData = await prisma.onboardingData.findUnique({
+    const onboardingData = await prisma.onboarding_data.findUnique({
       where: { userId }
     });
 
@@ -99,7 +99,7 @@ export class OnboardingService {
     await this.syncOnboardingDataToUser(userId, onboardingData);
 
     // Mark onboarding as complete
-    return await prisma.onboardingData.update({
+    return await prisma.onboarding_data.update({
       where: { userId },
       data: {
         isCompleted: true,
@@ -113,7 +113,7 @@ export class OnboardingService {
    * Delete onboarding data (reset onboarding)
    */
   async deleteOnboardingData(userId: string): Promise<void> {
-    await prisma.onboardingData.deleteMany({
+    await prisma.onboarding_data.deleteMany({
       where: { userId }
     });
   }
@@ -122,7 +122,7 @@ export class OnboardingService {
    * Check if user has completed onboarding
    */
   async hasCompletedOnboarding(userId: string): Promise<boolean> {
-    const onboardingData = await prisma.onboardingData.findUnique({
+    const onboardingData = await prisma.onboarding_data.findUnique({
       where: { userId },
       select: { isCompleted: true }
     });
@@ -134,7 +134,7 @@ export class OnboardingService {
    * Get onboarding progress
    */
   async getOnboardingProgress(userId: string): Promise<{ currentStep: number; isCompleted: boolean; totalSteps: number }> {
-    const onboardingData = await prisma.onboardingData.findUnique({
+    const onboardingData = await prisma.onboarding_data.findUnique({
       where: { userId },
       select: { currentStep: true, isCompleted: true }
     });
@@ -150,12 +150,12 @@ export class OnboardingService {
    * Ensure onboarding data exists for user
    */
   private async ensureOnboardingDataExists(userId: string): Promise<void> {
-    const existingData = await prisma.onboardingData.findUnique({
+    const existingData = await prisma.onboarding_data.findUnique({
       where: { userId }
     });
 
     if (!existingData) {
-      await prisma.onboardingData.create({
+      await prisma.onboarding_data.create({
         data: {
           userId,
           currentStep: 0,
@@ -173,7 +173,7 @@ export class OnboardingService {
     await this.ensureOnboardingDataExists(userId);
 
     // Update the current step if this step is higher
-    const currentData = await prisma.onboardingData.findUnique({
+    const currentData = await prisma.onboarding_data.findUnique({
       where: { userId },
       select: { currentStep: true }
     });
@@ -188,7 +188,7 @@ export class OnboardingService {
       updateData.currentStep = stepNumber;
     }
 
-    return await prisma.onboardingData.update({
+    return await prisma.onboarding_data.update({
       where: { userId },
       data: updateData
     });
@@ -200,7 +200,7 @@ export class OnboardingService {
   async manualSyncOnboardingData(userId: string): Promise<boolean> {
     console.log('🔧 Manual sync requested for user:', userId);
     
-    const onboardingData = await prisma.onboardingData.findUnique({
+    const onboardingData = await prisma.onboarding_data.findUnique({
       where: { userId }
     });
     

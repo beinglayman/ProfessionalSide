@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import crypto from 'crypto';
 import {
   hashPassword,
   comparePassword,
@@ -58,7 +59,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     }
     
     // Get full invitation details for later processing
-    invitation = await prisma.platformInvitation.findFirst({
+    invitation = await prisma.platform_invitations.findFirst({
       where: { token: invitationToken }
     });
   }
@@ -89,8 +90,10 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const hashedPassword = await hashPassword(validatedData.password);
   
   // Create user with invitation tracking
+  const userId = crypto.randomUUID();
   const user = await prisma.users.create({
     data: {
+      id: userId,
       name: validatedData.name,
       email: validatedData.email,
       password: hashedPassword,
@@ -99,11 +102,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       location: validatedData.location,
       isAdmin: isAdminEmail, // Auto-assign admin for admin emails
       invitationsRemaining: isAdminEmail ? 999 : 10, // Unlimited for admins
-      profile: {
-        create: {
-          profileCompleteness: 40 // Base completeness for required fields
-        }
-      }
+      updatedAt: new Date()
     },
     select: {
       id: true,
@@ -115,15 +114,28 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       avatar: true,
       isAdmin: true,
       invitationsRemaining: true,
-      createdAt: true,
-      profile: {
-        select: {
-          profileCompleteness: true,
-          joinedDate: true
-        }
-      }
+      createdAt: true
     }
   });
+
+  // Create user profile separately
+  const profile = await prisma.user_profiles.create({
+    data: {
+      id: crypto.randomUUID(),
+      userId: userId,
+      profileCompleteness: 40 // Base completeness for required fields
+    },
+    select: {
+      profileCompleteness: true,
+      joinedDate: true
+    }
+  });
+
+  // Add profile to user object
+  const userWithProfile = {
+    ...user,
+    profile
+  };
   
   // If invitation was used, mark it as accepted
   if (invitation) {
@@ -137,16 +149,17 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   
   // Generate tokens
   const tokens = generateTokenPair(user.id, user.email);
-  
+
   // Store refresh token
   await prisma.user_sessions.create({
     data: {
+      id: crypto.randomUUID(),
       userId: user.id,
       refreshToken: tokens.refreshToken,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
     }
   });
-  
+
   // Send welcome email asynchronously (don't block registration)
   emailService.sendWelcomeEmail(user.id).then(() => {
     // Mark welcome email as sent
@@ -157,7 +170,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   }).catch(error => {
     console.error(`Failed to send welcome email to user ${user.id}:`, error);
   });
-  
+
   // Log successful registration
   if (isAdminEmail) {
     console.log(`🔑 Admin user registered: ${user.email}`);
@@ -166,9 +179,9 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   } else {
     console.log(`👤 User registered: ${user.email}`);
   }
-  
+
   sendSuccess(res, {
-    user,
+    user: userWithProfile,
     ...tokens
   }, 'User registered successfully', 201);
 });

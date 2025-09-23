@@ -321,7 +321,7 @@ export class ExportService {
       }
     }
 
-    const entries = await prisma.journalEntry.findMany({
+    const entries = await prisma.journal_entries.findMany({
       where: whereClause,
       include: {
         workspace: {

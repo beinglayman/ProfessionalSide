@@ -280,7 +280,7 @@ async function main() {
   ]);
 
   // Create journal entries
-  const journalEntry1 = await prisma.journalEntry.create({
+  const journalEntry1 = await prisma.journal_entries.create({
     data: {
       title: 'Built Custom React Hook Library',
       description: 'Developed a comprehensive library of 12 custom React hooks to standardize common functionality across all projects.',
@@ -346,7 +346,7 @@ async function main() {
     }
   });
 
-  const journalEntry2 = await prisma.journalEntry.create({
+  const journalEntry2 = await prisma.journal_entries.create({
     data: {
       title: 'Implemented Responsive Design System',
       description: 'Created a comprehensive responsive design system with breakpoints and flexible components.',
@@ -499,7 +499,7 @@ async function main() {
   // Create some analytics entries
   await Promise.all([
     ...Array.from({ length: 245 }, (_, i) => 
-      prisma.journalEntryAnalytics.create({
+      prisma.journal_entry_analytics.create({
         data: {
           entryId: journalEntry1.id,
           userId: i % 4 === 0 ? emily.id : i % 3 === 0 ? alex.id : null,
@@ -510,7 +510,7 @@ async function main() {
       })
     ),
     ...Array.from({ length: 156 }, (_, i) => 
-      prisma.journalEntryAnalytics.create({
+      prisma.journal_entry_analytics.create({
         data: {
           entryId: journalEntry2.id,
           userId: i % 3 === 0 ? jason.id : i % 4 === 0 ? marcus.id : null,

@@ -138,7 +138,7 @@ export class InvitationReplenishmentService {
     fatalError?: string;
   }) {
     try {
-      await prisma.auditLog.create({
+      await prisma.audit_logs.create({
         data: {
           action: 'SYSTEM_REPLENISHMENT',
           entityType: 'invitation_quota',
@@ -170,7 +170,7 @@ export class InvitationReplenishmentService {
    */
   async getReplenishmentHistory(limit: number = 10) {
     try {
-      const history = await prisma.auditLog.findMany({
+      const history = await prisma.audit_logs.findMany({
         where: {
           action: 'SYSTEM_REPLENISHMENT',
           entityType: 'invitation_quota'

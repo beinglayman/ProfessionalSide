@@ -34,7 +34,7 @@ export class JournalService {
     }
 
     // Create the journal entry
-    const entry = await prisma.journalEntry.create({
+    const entry = await prisma.journal_entries.create({
       data: {
         title: data.title,
         description: data.description,
@@ -269,7 +269,7 @@ export class JournalService {
     }
 
     const [entries, total] = await Promise.all([
-      prisma.journalEntry.findMany({
+      prisma.journal_entries.findMany({
         where,
         include: {
           author: {
@@ -331,7 +331,7 @@ export class JournalService {
         skip,
         take: limit
       }),
-      prisma.journalEntry.count({ where })
+      prisma.journal_entries.count({ where })
     ]);
 
     // Add user's interaction status to each entry
@@ -390,7 +390,7 @@ export class JournalService {
    * Get single journal entry by ID
    */
   async getJournalEntryById(entryId: string, userId: string) {
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal_entries.findUnique({
       where: { id: entryId },
       include: {
         author: {
@@ -514,7 +514,7 @@ export class JournalService {
    * Update journal entry
    */
   async updateJournalEntry(entryId: string, userId: string, data: UpdateJournalEntryInput) {
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal_entries.findUnique({
       where: { id: entryId }
     });
 
@@ -526,7 +526,7 @@ export class JournalService {
       throw new Error('Access denied: You can only edit your own entries');
     }
 
-    return prisma.journalEntry.update({
+    return prisma.journal_entries.update({
       where: { id: entryId },
       data: {
         ...data,
@@ -589,7 +589,7 @@ export class JournalService {
    * Delete journal entry
    */
   async deleteJournalEntry(entryId: string, userId: string) {
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal_entries.findUnique({
       where: { id: entryId }
     });
 
@@ -601,7 +601,7 @@ export class JournalService {
       throw new Error('Access denied: You can only delete your own entries');
     }
 
-    return prisma.journalEntry.delete({
+    return prisma.journal_entries.delete({
       where: { id: entryId }
     });
   }
@@ -610,7 +610,7 @@ export class JournalService {
    * Publish journal entry
    */
   async publishJournalEntry(entryId: string, userId: string, data: PublishJournalEntryInput) {
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal_entries.findUnique({
       where: { id: entryId }
     });
 
@@ -622,7 +622,7 @@ export class JournalService {
       throw new Error('Access denied: You can only publish your own entries');
     }
 
-    return prisma.journalEntry.update({
+    return prisma.journal_entries.update({
       where: { id: entryId },
       data: {
         isPublished: true,
@@ -711,7 +711,7 @@ export class JournalService {
    * Record analytics
    */
   async recordAnalytics(entryId: string, userId: string, data: RecordAnalyticsInput) {
-    return prisma.journalEntryAnalytics.create({
+    return prisma.journal_entry_analytics.create({
       data: {
         entryId,
         userId,
@@ -729,7 +729,7 @@ export class JournalService {
     console.log('🔍 Getting comments for entry:', entryId);
     
     // First check if entry exists
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal_entries.findUnique({
       where: { id: entryId }
     });
 
@@ -800,7 +800,7 @@ export class JournalService {
    */
   async addComment(entryId: string, userId: string, data: AddCommentInput) {
     // Check if entry exists
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal_entries.findUnique({
       where: { id: entryId },
       select: {
         id: true,

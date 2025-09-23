@@ -213,11 +213,11 @@ export class AdminDashboardService {
         totalAppreciates,
         newInteractions24h
       ] = await Promise.all([
-        prisma.journalEntry.count(),
-        prisma.journalEntry.count({ where: { isPublished: true } }),
-        prisma.journalEntry.count({ where: { createdAt: { gte: yesterday } } }),
-        prisma.journalEntry.count({ where: { createdAt: { gte: weekAgo } } }),
-        prisma.journalEntry.count({ where: { createdAt: { gte: monthAgo } } }),
+        prisma.journal_entries.count(),
+        prisma.journal_entries.count({ where: { isPublished: true } }),
+        prisma.journal_entries.count({ where: { createdAt: { gte: yesterday } } }),
+        prisma.journal_entries.count({ where: { createdAt: { gte: weekAgo } } }),
+        prisma.journal_entries.count({ where: { createdAt: { gte: monthAgo } } }),
         prisma.workspace.count(),
         prisma.workspace.count({ where: { isActive: true } }),
         prisma.workspace.count({ where: { createdAt: { gte: monthAgo } } }),

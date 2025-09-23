@@ -238,7 +238,7 @@ export class NotificationQueueService {
       });
 
       // Get workspace activity
-      const workspaceActivity = await prisma.journalEntry.findMany({
+      const workspaceActivity = await prisma.journal_entries.findMany({
         where: {
           authorId: { not: userId },
           workspace: {

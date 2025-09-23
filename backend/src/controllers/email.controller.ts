@@ -267,7 +267,7 @@ export const updateNotificationPreferences = asyncHandler(async (req: Request, r
   try {
     const validatedData = updateSchema.parse(req.body);
 
-    const updatedPreferences = await prisma.notificationPreferences.upsert({
+    const updatedPreferences = await prisma.notification_preferences.upsert({
       where: { userId },
       update: validatedData,
       create: {
@@ -296,7 +296,7 @@ export const getNotificationPreferences = asyncHandler(async (req: Request, res:
   }
 
   try {
-    const preferences = await prisma.notificationPreferences.findUnique({
+    const preferences = await prisma.notification_preferences.findUnique({
       where: { userId }
     });
 

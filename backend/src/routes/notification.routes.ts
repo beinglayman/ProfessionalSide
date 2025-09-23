@@ -138,13 +138,13 @@ router.get('/preferences', async (req, res) => {
   try {
     const userId = req.user.id;
 
-    let preferences = await prisma.notificationPreferences.findUnique({
+    let preferences = await prisma.notification_preferences.findUnique({
       where: { userId }
     });
 
     // Create default preferences if they don't exist
     if (!preferences) {
-      preferences = await prisma.notificationPreferences.create({
+      preferences = await prisma.notification_preferences.create({
         data: {
           userId,
           emailNotifications: false,
@@ -183,7 +183,7 @@ router.post('/', async (req, res) => {
     }
 
     // Check recipient's notification preferences
-    const preferences = await prisma.notificationPreferences.findUnique({
+    const preferences = await prisma.notification_preferences.findUnique({
       where: { userId: validatedData.recipientId }
     });
 
@@ -408,7 +408,7 @@ router.put('/preferences', async (req, res) => {
     const userId = req.user.id;
     const validatedData = updatePreferencesSchema.parse(req.body);
 
-    const preferences = await prisma.notificationPreferences.upsert({
+    const preferences = await prisma.notification_preferences.upsert({
       where: { userId },
       create: {
         userId,
@@ -451,7 +451,7 @@ export async function createNotificationForEvent(
     // Check if recipient exists and preferences
     const [recipient, preferences] = await Promise.all([
       prisma.users.findUnique({ where: { id: recipientId } }),
-      prisma.notificationPreferences.findUnique({ where: { userId: recipientId } })
+      prisma.notification_preferences.findUnique({ where: { userId: recipientId } })
     ]);
 
     if (!recipient) return null;

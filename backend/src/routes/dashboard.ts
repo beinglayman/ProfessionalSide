@@ -23,24 +23,24 @@ router.get('/stats', auth, async (req, res) => {
       currentStreak,
       profileCompleteness
     ] = await Promise.all([
-      prisma.journalEntry.count({ where: { userId } }),
+      prisma.journal_entries.count({ where: { userId } }),
       prisma.usersSkill.count({ where: { userId } }),
       prisma.goal.count({ where: { userId } }),
       prisma.goal.count({ where: { userId, status: 'COMPLETED' } }),
-      prisma.journalEntry.aggregate({
+      prisma.journal_entries.aggregate({
         where: { userId },
         _sum: { likesCount: true }
       }),
-      prisma.journalEntry.aggregate({
+      prisma.journal_entries.aggregate({
         where: { userId },
         _sum: { commentsCount: true }
       }),
-      prisma.journalEntry.aggregate({
+      prisma.journal_entries.aggregate({
         where: { userId },
         _sum: { viewsCount: true }
       }),
       // Calculate current streak (simplified)
-      prisma.journalEntry.count({
+      prisma.journal_entries.count({
         where: {
           userId,
           createdAt: { gte: subDays(new Date(), 7) }
@@ -83,7 +83,7 @@ router.get('/stats', auth, async (req, res) => {
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
       const [journalEntries, skillsAdded, goalsCompleted] = await Promise.all([
-        prisma.journalEntry.count({
+        prisma.journal_entries.count({
           where: {
             userId,
             createdAt: { gte: startOfMonth, lte: endOfMonth }
@@ -113,7 +113,7 @@ router.get('/stats', auth, async (req, res) => {
     }
 
     // Get recent activity
-    const recentActivity = await prisma.journalEntry.findMany({
+    const recentActivity = await prisma.journal_entries.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 10,
@@ -239,7 +239,7 @@ router.get('/journal-streak', auth, async (req, res) => {
     const userId = req.user.id;
 
     // Get all journal entries for the user
-    const entries = await prisma.journalEntry.findMany({
+    const entries = await prisma.journal_entries.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -484,7 +484,7 @@ router.get('/recent-activity', auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const activities = await prisma.journalEntry.findMany({
+    const activities = await prisma.journal_entries.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 20,

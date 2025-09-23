@@ -151,7 +151,7 @@ export class SystemSettingsService {
     const offset = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([
-      prisma.auditLog.findMany({
+      prisma.audit_logs.findMany({
         where: {
           entityType: 'system_settings',
           action: 'UPDATE'
@@ -169,7 +169,7 @@ export class SystemSettingsService {
         skip: offset,
         take: limit
       }),
-      prisma.auditLog.count({
+      prisma.audit_logs.count({
         where: {
           entityType: 'system_settings',
           action: 'UPDATE'
@@ -193,7 +193,7 @@ export class SystemSettingsService {
    */
   private async createSettingsAuditLog(userId: string, changes: Partial<SystemSettingsData>) {
     try {
-      await prisma.auditLog.create({
+      await prisma.audit_logs.create({
         data: {
           action: 'UPDATE',
           entityType: 'system_settings',
@@ -249,10 +249,10 @@ export class SystemSettingsService {
       recentUsers
     ] = await Promise.all([
       prisma.users.count(),
-      prisma.platformInvitation.count({
+      prisma.platform_invitations.count({
         where: { status: 'pending' }
       }),
-      prisma.invitationRequest.count({
+      prisma.invitation_requests.count({
         where: { status: 'pending' }
       }),
       prisma.users.count({

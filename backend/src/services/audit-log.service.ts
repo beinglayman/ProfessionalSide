@@ -50,7 +50,7 @@ export class AuditLogService {
    */
   async logActivity(entry: AuditLogEntry): Promise<string> {
     try {
-      const auditLog = await prisma.auditLog.create({
+      const auditLog = await prisma.audit_logs.create({
         data: {
           action: entry.action,
           entityType: entry.entityType,
@@ -174,7 +174,7 @@ export class AuditLogService {
       }
 
       const [logs, total] = await Promise.all([
-        prisma.auditLog.findMany({
+        prisma.audit_logs.findMany({
           where: whereClause,
           include: {
             user: {
@@ -196,7 +196,7 @@ export class AuditLogService {
           skip,
           take: limit
         }),
-        prisma.auditLog.count({ where: whereClause })
+        prisma.audit_logs.count({ where: whereClause })
       ]);
 
       return {
@@ -406,22 +406,22 @@ export class AuditLogService {
         securityEventCounts,
         systemLogCounts
       ] = await Promise.all([
-        prisma.auditLog.count({ where: whereClause }),
-        prisma.auditLog.groupBy({
+        prisma.audit_logs.count({ where: whereClause }),
+        prisma.audit_logs.groupBy({
           by: ['action'],
           where: whereClause,
           _count: { action: true },
           orderBy: { _count: { action: 'desc' } },
           take: 10
         }),
-        prisma.auditLog.groupBy({
+        prisma.audit_logs.groupBy({
           by: ['entityType'],
           where: whereClause,
           _count: { entityType: true },
           orderBy: { _count: { entityType: 'desc' } },
           take: 10
         }),
-        prisma.auditLog.groupBy({
+        prisma.audit_logs.groupBy({
           by: ['status'],
           where: whereClause,
           _count: { status: true }
@@ -480,7 +480,7 @@ export class AuditLogService {
       cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
       const [auditDeleted, systemDeleted] = await Promise.all([
-        prisma.auditLog.deleteMany({
+        prisma.audit_logs.deleteMany({
           where: {
             createdAt: { lt: cutoffDate },
             status: 'success' // Keep failed/error logs longer

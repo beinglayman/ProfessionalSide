@@ -43,7 +43,7 @@ router.get('/db-check', async (req, res) => {
     }
 
     try {
-      const journalCount = await prisma.journalEntry.count();
+      const journalCount = await prisma.journal_entries.count();
       results.tables['journal_entries'] = `✅ ${journalCount} records`;
     } catch (e: any) {
       results.tables['journal_entries'] = `❌ ${e.message}`;

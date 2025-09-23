@@ -71,7 +71,7 @@ export class InvitationService {
     }
 
     // Check for existing pending invitation
-    const existingInvitation = await prisma.platformInvitation.findFirst({
+    const existingInvitation = await prisma.platform_invitations.findFirst({
       where: {
         email,
         status: 'pending',
@@ -170,7 +170,7 @@ export class InvitationService {
    * Accept an invitation
    */
   async acceptInvitation(token: string, acceptingUserId: string): Promise<any> {
-    const invitation = await prisma.platformInvitation.findFirst({
+    const invitation = await prisma.platform_invitations.findFirst({
       where: {
         token,
         status: 'pending',
@@ -192,7 +192,7 @@ export class InvitationService {
     }
 
     // Update invitation status
-    const updatedInvitation = await prisma.platformInvitation.update({
+    const updatedInvitation = await prisma.platform_invitations.update({
       where: { id: invitation.id },
       data: {
         status: 'accepted',
@@ -228,7 +228,7 @@ export class InvitationService {
     const offset = (page - 1) * limit;
 
     const [invitations, total] = await Promise.all([
-      prisma.platformInvitation.findMany({
+      prisma.platform_invitations.findMany({
         where: { inviterId: userId },
         include: {
           acceptedBy: {
@@ -245,7 +245,7 @@ export class InvitationService {
         skip: offset,
         take: limit
       }),
-      prisma.platformInvitation.count({
+      prisma.platform_invitations.count({
         where: { inviterId: userId }
       })
     ]);
@@ -265,7 +265,7 @@ export class InvitationService {
    * Get invitation statistics for a user
    */
   async getUserInvitationStats(userId: string): Promise<InvitationStats> {
-    const stats = await prisma.platformInvitation.groupBy({
+    const stats = await prisma.platform_invitations.groupBy({
       by: ['status'],
       where: { inviterId: userId },
       _count: true
@@ -293,12 +293,12 @@ export class InvitationService {
   async getPlatformInvitationStats() {
     const [totalStats, recentStats] = await Promise.all([
       // Overall stats
-      prisma.platformInvitation.groupBy({
+      prisma.platform_invitations.groupBy({
         by: ['status'],
         _count: true
       }),
       // Stats for last 30 days
-      prisma.platformInvitation.groupBy({
+      prisma.platform_invitations.groupBy({
         by: ['status'],
         where: {
           createdAt: {
@@ -332,7 +332,7 @@ export class InvitationService {
    * Expire old invitations (called by cron)
    */
   async expireOldInvitations(): Promise<number> {
-    const result = await prisma.platformInvitation.updateMany({
+    const result = await prisma.platform_invitations.updateMany({
       where: {
         status: 'pending',
         expiresAt: { lt: new Date() }
@@ -350,7 +350,7 @@ export class InvitationService {
    * Validate invitation token without accepting
    */
   async validateInvitationToken(token: string): Promise<{ valid: boolean; email?: string; inviter?: any }> {
-    const invitation = await prisma.platformInvitation.findFirst({
+    const invitation = await prisma.platform_invitations.findFirst({
       where: {
         token,
         status: 'pending',

@@ -319,7 +319,7 @@ export class SearchService {
       whereClause.AND.push({ createdAt: dateFilter });
     }
 
-    const entries = await prisma.journalEntry.findMany({
+    const entries = await prisma.journal_entries.findMany({
       where: whereClause,
       include: {
         author: true,
@@ -371,7 +371,7 @@ export class SearchService {
    */
   private async searchSkills(userId: string, query: string, filters: any, networkContext: any): Promise<SkillSearchResult[]> {
     // Get skills from journal entries and user profiles
-    const skillsFromEntries = await prisma.journalEntry.findMany({
+    const skillsFromEntries = await prisma.journal_entries.findMany({
       where: {
         skills: { has: query.toLowerCase() }
       },
@@ -752,7 +752,7 @@ export class SearchService {
     const suggestions: string[] = [];
     
     // Get popular tags
-    const popularTags = await prisma.journalEntry.findMany({
+    const popularTags = await prisma.journal_entries.findMany({
       select: { tags: true },
       where: { 
         NOT: { tags: { isEmpty: true } }

@@ -318,7 +318,7 @@ async function getRecentActivity() {
       orderBy: { createdAt: 'desc' },
       take: 5
     }),
-    prisma.platformInvitation.findMany({
+    prisma.platform_invitations.findMany({
       where: {
         createdAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
@@ -332,7 +332,7 @@ async function getRecentActivity() {
       orderBy: { createdAt: 'desc' },
       take: 5
     }),
-    prisma.invitationRequest.findMany({
+    prisma.invitation_requests.findMany({
       where: {
         createdAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)

@@ -39,7 +39,7 @@ export class InvitationRequestService {
     }
 
     // Check if request already exists
-    const existingRequest = await prisma.invitationRequest.findFirst({
+    const existingRequest = await prisma.invitation_requests.findFirst({
       where: {
         email,
         status: 'pending'
@@ -51,7 +51,7 @@ export class InvitationRequestService {
     }
 
     // Check if pending invitation exists
-    const existingInvitation = await prisma.platformInvitation.findFirst({
+    const existingInvitation = await prisma.platform_invitations.findFirst({
       where: {
         email,
         status: 'pending',
@@ -64,7 +64,7 @@ export class InvitationRequestService {
     }
 
     // Create the request
-    const request = await prisma.invitationRequest.create({
+    const request = await prisma.invitation_requests.create({
       data: {
         name,
         email,
@@ -99,7 +99,7 @@ export class InvitationRequestService {
     }
 
     // Get the request
-    const request = await prisma.invitationRequest.findUnique({
+    const request = await prisma.invitation_requests.findUnique({
       where: { id: requestId }
     });
 
@@ -112,7 +112,7 @@ export class InvitationRequestService {
     }
 
     // Update request status
-    const updatedRequest = await prisma.invitationRequest.update({
+    const updatedRequest = await prisma.invitation_requests.update({
       where: { id: requestId },
       data: {
         status,
@@ -144,7 +144,7 @@ export class InvitationRequestService {
       } catch (invitationError) {
         console.error('Failed to create invitation for approved request:', invitationError);
         // Revert the request status if invitation creation fails
-        await prisma.invitationRequest.update({
+        await prisma.invitation_requests.update({
           where: { id: requestId },
           data: { status: 'pending' }
         });
@@ -165,13 +165,13 @@ export class InvitationRequestService {
     const offset = (page - 1) * limit;
 
     const [requests, total] = await Promise.all([
-      prisma.invitationRequest.findMany({
+      prisma.invitation_requests.findMany({
         where: { status: 'pending' },
         orderBy: { createdAt: 'asc' }, // Oldest first for fair processing
         skip: offset,
         take: limit
       }),
-      prisma.invitationRequest.count({
+      prisma.invitation_requests.count({
         where: { status: 'pending' }
       })
     ]);
@@ -200,7 +200,7 @@ export class InvitationRequestService {
     const where = status ? { status } : {};
 
     const [requests, total] = await Promise.all([
-      prisma.invitationRequest.findMany({
+      prisma.invitation_requests.findMany({
         where,
         include: {
           reviewedBy: {
@@ -215,7 +215,7 @@ export class InvitationRequestService {
         skip: offset,
         take: limit
       }),
-      prisma.invitationRequest.count({ where })
+      prisma.invitation_requests.count({ where })
     ]);
 
     return {
@@ -235,12 +235,12 @@ export class InvitationRequestService {
   async getRequestStats() {
     const [totalStats, recentStats] = await Promise.all([
       // Overall stats
-      prisma.invitationRequest.groupBy({
+      prisma.invitation_requests.groupBy({
         by: ['status'],
         _count: true
       }),
       // Stats for last 30 days
-      prisma.invitationRequest.groupBy({
+      prisma.invitation_requests.groupBy({
         by: ['status'],
         where: {
           createdAt: {

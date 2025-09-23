@@ -424,7 +424,7 @@ router.get('/:workspaceId/journal-entries', async (req, res) => {
     };
 
     const [entries, total] = await Promise.all([
-      prisma.journalEntry.findMany({
+      prisma.journal_entries.findMany({
         where,
         include: {
           author: {
@@ -484,7 +484,7 @@ router.get('/:workspaceId/journal-entries', async (req, res) => {
         skip: offset,
         take: limitNum
       }),
-      prisma.journalEntry.count({ where })
+      prisma.journal_entries.count({ where })
     ]);
 
     // Check user interactions for each entry
