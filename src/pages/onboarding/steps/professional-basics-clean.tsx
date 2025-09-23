@@ -162,12 +162,26 @@ export function ProfessionalBasicsStepClean({
       
       setErrors(prev => ({ ...prev, profileImage: '' }));
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
+      let friendlyMessage = 'Unable to upload your photo. You can continue and try uploading again later in your profile settings.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('400')) {
+          if (error.message.includes('file') || error.message.includes('size')) {
+            friendlyMessage = 'Image too large. Please choose an image smaller than 5MB and try again.';
+          } else if (error.message.includes('format') || error.message.includes('type')) {
+            friendlyMessage = 'Please select a JPG, PNG, or GIF image file.';
+          } else {
+            friendlyMessage = 'Unable to upload image. Please try a different image or continue without a photo for now.';
+          }
+        } else if (error.message.includes('Network') || error.message.includes('network')) {
+          friendlyMessage = 'Unable to upload image. Please check your internet connection and try again.';
+        }
+      }
+
       // Keep the preview URL so user can still see their selected image
-      setErrors(prev => ({ 
-        ...prev, 
-        profileImage: `Failed to upload image: ${errorMessage}. Preview shown, will retry on save.` 
+      setErrors(prev => ({
+        ...prev,
+        profileImage: friendlyMessage
       }));
     } finally {
       setIsImageUploading(false);
@@ -243,10 +257,18 @@ export function ProfessionalBasicsStepClean({
       
       await onNext();
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? `Save failed: ${error.message}` 
-        : 'Failed to save data. Please try again.';
-        
+      let errorMessage = 'Unable to save your progress. Please try again.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('Network error') || error.message.includes('network')) {
+          errorMessage = 'Unable to save your progress. Please check your internet connection and try again.';
+        } else if (error.message.includes('token') || error.message.includes('unauthorized')) {
+          errorMessage = 'Your session has expired. Please refresh the page and try again.';
+        } else if (error.message.includes('server') || error.message.includes('500')) {
+          errorMessage = 'Server temporarily unavailable. Please try again in a moment.';
+        }
+      }
+
       setErrors({ general: errorMessage });
     } finally {
       setIsLoading(false);
