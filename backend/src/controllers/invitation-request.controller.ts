@@ -78,7 +78,7 @@ export const getPendingRequests = asyncHandler(async (req: Request, res: Respons
   // Check if user is admin
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { isAdmin: true }
   });
@@ -112,7 +112,7 @@ export const getAllRequests = asyncHandler(async (req: Request, res: Response) =
   // Check if user is admin
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { isAdmin: true }
   });
@@ -152,7 +152,7 @@ export const reviewInvitationRequest = asyncHandler(async (req: Request, res: Re
   // Check if user is admin
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { isAdmin: true, name: true }
   });
@@ -202,7 +202,7 @@ export const bulkReviewRequests = asyncHandler(async (req: Request, res: Respons
   // Check if user is admin
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { isAdmin: true, name: true }
   });
@@ -242,7 +242,7 @@ export const getRequestStats = asyncHandler(async (req: Request, res: Response) 
   // Check if user is admin
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { isAdmin: true }
   });

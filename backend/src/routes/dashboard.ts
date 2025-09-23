@@ -24,7 +24,7 @@ router.get('/stats', auth, async (req, res) => {
       profileCompleteness
     ] = await Promise.all([
       prisma.journalEntry.count({ where: { userId } }),
-      prisma.userSkill.count({ where: { userId } }),
+      prisma.usersSkill.count({ where: { userId } }),
       prisma.goal.count({ where: { userId } }),
       prisma.goal.count({ where: { userId, status: 'COMPLETED' } }),
       prisma.journalEntry.aggregate({
@@ -47,7 +47,7 @@ router.get('/stats', auth, async (req, res) => {
         }
       }),
       // Calculate profile completeness (simplified)
-      prisma.user.findUnique({
+      prisma.users.findUnique({
         where: { id: userId },
         select: {
           name: true,
@@ -89,7 +89,7 @@ router.get('/stats', auth, async (req, res) => {
             createdAt: { gte: startOfMonth, lte: endOfMonth }
           }
         }),
-        prisma.userSkill.count({
+        prisma.usersSkill.count({
           where: {
             userId,
             createdAt: { gte: startOfMonth, lte: endOfMonth }
@@ -161,7 +161,7 @@ router.get('/profile-completeness', auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
         skills: true,
@@ -343,7 +343,7 @@ router.get('/skills-growth', auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const skills = await prisma.userSkill.findMany({
+    const skills = await prisma.usersSkill.findMany({
       where: { userId },
       orderBy: { proficiency: 'desc' },
       select: {

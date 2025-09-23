@@ -174,7 +174,7 @@ router.post('/', async (req, res) => {
     const validatedData = createNotificationSchema.parse(req.body);
 
     // Check if recipient exists
-    const recipient = await prisma.user.findUnique({
+    const recipient = await prisma.users.findUnique({
       where: { id: validatedData.recipientId }
     });
 
@@ -450,7 +450,7 @@ export async function createNotificationForEvent(
   try {
     // Check if recipient exists and preferences
     const [recipient, preferences] = await Promise.all([
-      prisma.user.findUnique({ where: { id: recipientId } }),
+      prisma.users.findUnique({ where: { id: recipientId } }),
       prisma.notificationPreferences.findUnique({ where: { userId: recipientId } })
     ]);
 

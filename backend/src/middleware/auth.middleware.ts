@@ -40,7 +40,7 @@ export const authenticate = async (
       console.log('🔧 Using demo authentication for development');
       
       // Create or get demo user
-      let user = await prisma.user.findUnique({
+      let user = await prisma.users.findUnique({
         where: { email: 'demo@example.com' },
         select: {
           id: true,
@@ -53,7 +53,7 @@ export const authenticate = async (
       
       if (!user) {
         // Create demo user with rich profile data
-        user = await prisma.user.create({
+        user = await prisma.users.create({
           data: {
             email: 'demo@example.com',
             name: 'Demo User',
@@ -76,7 +76,7 @@ export const authenticate = async (
         console.log('✅ Created demo user:', user.id);
       } else if (!user.title || !user.company) {
         // Update existing demo user with rich profile data if missing
-        user = await prisma.user.update({
+        user = await prisma.users.update({
           where: { email: 'demo@example.com' },
           data: {
             title: 'Software Engineer',
@@ -109,7 +109,7 @@ export const authenticate = async (
     }
     
     // Get user from database
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: decoded.userId },
       select: {
         id: true,
@@ -208,7 +208,7 @@ export const optionalAuth = async (
     const decoded: JwtPayload = verifyToken(token);
     
     if (decoded.type === 'access') {
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { id: decoded.userId },
         select: {
           id: true,

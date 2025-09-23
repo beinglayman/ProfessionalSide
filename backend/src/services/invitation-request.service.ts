@@ -30,7 +30,7 @@ export class InvitationRequestService {
     const { name, email, role, organization, linkedinUrl, message } = input;
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email }
     });
 
@@ -89,7 +89,7 @@ export class InvitationRequestService {
     const { requestId, reviewerId, status, adminMessage } = input;
 
     // Verify reviewer is admin
-    const reviewer = await prisma.user.findUnique({
+    const reviewer = await prisma.users.findUnique({
       where: { id: reviewerId },
       select: { isAdmin: true, name: true, email: true }
     });
@@ -287,7 +287,7 @@ export class InvitationRequestService {
     adminMessage?: string
   ) {
     // Verify reviewer is admin
-    const reviewer = await prisma.user.findUnique({
+    const reviewer = await prisma.users.findUnique({
       where: { id: reviewerId },
       select: { isAdmin: true, name: true, email: true }
     });
@@ -330,7 +330,7 @@ export class InvitationRequestService {
   private async notifyAdminsOfNewRequest(request: any) {
     try {
       // Get all admin users
-      const admins = await prisma.user.findMany({
+      const admins = await prisma.users.findMany({
         where: { isAdmin: true },
         select: { id: true, email: true, name: true }
       });

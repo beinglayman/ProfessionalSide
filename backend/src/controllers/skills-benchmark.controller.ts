@@ -42,7 +42,7 @@ export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Res
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     
-    const userSkills = await prisma.userSkill.findMany({
+    const userSkills = await prisma.usersSkill.findMany({
       where: { userId },
       include: { skill: true },
       take: 10 // Limit to top 10 skills
@@ -55,7 +55,7 @@ export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Res
     const skillNames = userSkills.map(us => us.skill.name);
     
     // Get user context for better benchmarking
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { industry: true, title: true, company: true, location: true }
     });

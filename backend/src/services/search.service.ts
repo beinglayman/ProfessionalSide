@@ -107,7 +107,7 @@ export class SearchService {
   private async getUserNetworkContext(userId: string) {
     // Get user's direct connections, workspaces, and skill interests
     console.log('🔍 Getting network context for user:', userId);
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
         workspaceMemberships: {
@@ -155,7 +155,7 @@ export class SearchService {
       whereClause.AND.push({ location: { contains: filters.location, mode: 'insensitive' } });
     }
 
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       where: whereClause,
       include: {
         workspaceMemberships: {

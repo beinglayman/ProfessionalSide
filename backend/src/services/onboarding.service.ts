@@ -270,7 +270,7 @@ export class OnboardingService {
       
       console.log('📝 Updating main user record with:', Object.keys(userUpdateData));
       
-      await prisma.user.update({
+      await prisma.users.update({
         where: { id: userId },
         data: userUpdateData
       });
@@ -306,7 +306,7 @@ export class OnboardingService {
     }
     
     // Get user name for workspace description
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { name: true }
     });
@@ -364,7 +364,7 @@ export class OnboardingService {
     
     try {
       // Mark user as having skipped onboarding
-      await prisma.user.update({
+      await prisma.users.update({
         where: { id: userId },
         data: {
           onboardingSkipped: true,

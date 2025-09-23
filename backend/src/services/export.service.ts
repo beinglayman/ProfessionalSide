@@ -183,7 +183,7 @@ export class ExportService {
    * Collect data for export
    */
   private async collectExportData(userId: string, request: ExportRequest): Promise<ExportData> {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { name: true, email: true }
     });
@@ -248,7 +248,7 @@ export class ExportService {
    * Collect user profile data
    */
   private async collectProfileData(userId: string): Promise<UserProfileExport> {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
         profile: true,

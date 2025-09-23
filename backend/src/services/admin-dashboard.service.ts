@@ -148,12 +148,12 @@ export class AdminDashboardService {
         new30d,
         topContributors
       ] = await Promise.all([
-        prisma.user.count(),
-        prisma.user.count({ where: { isActive: true } }),
-        prisma.user.count({ where: { createdAt: { gte: yesterday } } }),
-        prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
-        prisma.user.count({ where: { createdAt: { gte: monthAgo } } }),
-        prisma.user.findMany({
+        prisma.users.count(),
+        prisma.users.count({ where: { isActive: true } }),
+        prisma.users.count({ where: { createdAt: { gte: yesterday } } }),
+        prisma.users.count({ where: { createdAt: { gte: weekAgo } } }),
+        prisma.users.count({ where: { createdAt: { gte: monthAgo } } }),
+        prisma.users.findMany({
           include: {
             _count: {
               select: { journalEntries: true }

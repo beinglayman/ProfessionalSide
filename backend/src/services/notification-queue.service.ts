@@ -57,7 +57,7 @@ export class NotificationQueueService {
       console.log(`Queueing ${period} digest emails...`);
 
       // Get users who want digest emails for this period
-      const users = await prisma.user.findMany({
+      const users = await prisma.users.findMany({
         where: {
           isActive: true,
           notificationPreferences: {

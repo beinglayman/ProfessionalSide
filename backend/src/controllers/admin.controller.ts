@@ -33,7 +33,7 @@ export const requireAdmin = asyncHandler(async (req: Request, res: Response, nex
     return sendError(res, 'User not authenticated', 401);
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { isAdmin: true }
   });
@@ -152,7 +152,7 @@ export const grantInvitations = asyncHandler(async (req: Request, res: Response)
 
   try {
     // Check if target user exists
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await prisma.users.findUnique({
       where: { id: validatedData.userId },
       select: { 
         id: true, 
@@ -168,7 +168,7 @@ export const grantInvitations = asyncHandler(async (req: Request, res: Response)
     }
 
     // Update user's invitation quota
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await prisma.users.update({
       where: { id: validatedData.userId },
       data: {
         invitationsRemaining: { increment: validatedData.amount }
@@ -218,7 +218,7 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const [users, total] = await Promise.all([
-      prisma.user.findMany({
+      prisma.users.findMany({
         where,
         select: {
           id: true,
@@ -241,7 +241,7 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
         skip: offset,
         take: limit
       }),
-      prisma.user.count({ where })
+      prisma.users.count({ where })
     ]);
 
     sendSuccess(res, {
@@ -270,17 +270,17 @@ async function getUserStats() {
     newUsersThisMonth,
     invitationUserStats
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { isAdmin: true } }),
-    prisma.user.count({ where: { isActive: true } }),
-    prisma.user.count({
+    prisma.users.count(),
+    prisma.users.count({ where: { isAdmin: true } }),
+    prisma.users.count({ where: { isActive: true } }),
+    prisma.users.count({
       where: {
         createdAt: {
           gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         }
       }
     }),
-    prisma.user.aggregate({
+    prisma.users.aggregate({
       _avg: { invitationsRemaining: true, totalInvitationsSent: true },
       _sum: { invitationsRemaining: true, totalInvitationsSent: true }
     })
@@ -303,7 +303,7 @@ async function getUserStats() {
  */
 async function getRecentActivity() {
   const [recentUsers, recentInvitations, recentRequests] = await Promise.all([
-    prisma.user.findMany({
+    prisma.users.findMany({
       where: {
         createdAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days

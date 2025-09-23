@@ -24,7 +24,7 @@ export class InvitationReplenishmentService {
 
     try {
       // Find all non-admin users who have 0 invitations remaining
-      const usersToReplenish = await prisma.user.findMany({
+      const usersToReplenish = await prisma.users.findMany({
         where: {
           AND: [
             { invitationsRemaining: 0 },
@@ -60,7 +60,7 @@ export class InvitationReplenishmentService {
 
         for (const user of batch) {
           try {
-            await prisma.user.update({
+            await prisma.users.update({
               where: { id: user.id },
               data: {
                 invitationsRemaining: 10, // Standard monthly quota
@@ -225,7 +225,7 @@ export class InvitationReplenishmentService {
     }>;
   }> {
     try {
-      const users = await prisma.user.findMany({
+      const users = await prisma.users.findMany({
         where: {
           AND: [
             { invitationsRemaining: 0 },
@@ -264,7 +264,7 @@ export class InvitationReplenishmentService {
   }> {
     try {
       // Verify admin status
-      const admin = await prisma.user.findUnique({
+      const admin = await prisma.users.findUnique({
         where: { id: adminId },
         select: { isAdmin: true, name: true }
       });

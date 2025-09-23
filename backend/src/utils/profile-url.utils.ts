@@ -82,7 +82,7 @@ export function validateProfileUrl(url: string): { isValid: boolean; error?: str
  * Check if a profile URL is available
  */
 export async function isProfileUrlAvailable(url: string, excludeUserId?: string): Promise<boolean> {
-  const existingUser = await prisma.user.findFirst({
+  const existingUser = await prisma.users.findFirst({
     where: {
       profileUrl: url,
       ...(excludeUserId && { id: { not: excludeUserId } })
@@ -154,7 +154,7 @@ export async function updateUserProfileUrl(userId: string, newUrl: string): Prom
   }
 
   // Update the user's profile URL
-  await prisma.user.update({
+  await prisma.users.update({
     where: { id: userId },
     data: { profileUrl: newUrl }
   });
@@ -164,7 +164,7 @@ export async function updateUserProfileUrl(userId: string, newUrl: string): Prom
  * Get user by profile URL
  */
 export async function getUserByProfileUrl(profileUrl: string) {
-  return await prisma.user.findFirst({
+  return await prisma.users.findFirst({
     where: {
       profileUrl: profileUrl,
       isActive: true

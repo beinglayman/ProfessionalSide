@@ -24,7 +24,7 @@ export class InvitationService {
    * Check if user has remaining invitation quota
    */
   async checkInvitationQuota(userId: string): Promise<{ hasQuota: boolean; remaining: number; isAdmin: boolean }> {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { invitationsRemaining: true, isAdmin: true }
     });
@@ -62,7 +62,7 @@ export class InvitationService {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email }
     });
 

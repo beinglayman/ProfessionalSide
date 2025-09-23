@@ -50,7 +50,7 @@ async function main() {
   const hashedPassword = await hashPassword('password123');
 
   // Sarah Chen - Main user from frontend
-  const sarah = await prisma.user.create({
+  const sarah = await prisma.users.create({
     data: {
       name: 'Sarah Chen',
       email: 'sarah.chen@techcorp.com',
@@ -117,7 +117,7 @@ async function main() {
   });
 
   // Emily Chen - Collaborator
-  const emily = await prisma.user.create({
+  const emily = await prisma.users.create({
     data: {
       name: 'Emily Chen',
       email: 'emily.chen@techcorp.com',
@@ -135,7 +135,7 @@ async function main() {
   });
 
   // Alex Wong - Designer
-  const alex = await prisma.user.create({
+  const alex = await prisma.users.create({
     data: {
       name: 'Alex Wong',
       email: 'alex.wong@techcorp.com',
@@ -153,7 +153,7 @@ async function main() {
   });
 
   // Sarah Johnson - Tech Lead
-  const sarahJ = await prisma.user.create({
+  const sarahJ = await prisma.users.create({
     data: {
       name: 'Sarah Johnson',
       email: 'sarah.johnson@techcorp.com',
@@ -171,7 +171,7 @@ async function main() {
   });
 
   // Marcus Williams - Engineering Manager
-  const marcus = await prisma.user.create({
+  const marcus = await prisma.users.create({
     data: {
       name: 'Marcus Williams',
       email: 'marcus.williams@techcorp.com',
@@ -189,7 +189,7 @@ async function main() {
   });
 
   // Jason Park - Design Lead
-  const jason = await prisma.user.create({
+  const jason = await prisma.users.create({
     data: {
       name: 'Jason Park',
       email: 'jason.park@techcorp.com',
@@ -233,7 +233,7 @@ async function main() {
 
   // Add skills to Sarah
   await Promise.all([
-    prisma.userSkill.create({
+    prisma.usersSkill.create({
       data: {
         userId: sarah.id,
         skillId: skills.find(s => s.name === 'React.js')!.id,
@@ -244,7 +244,7 @@ async function main() {
         startDate: new Date('2020-01-15')
       }
     }),
-    prisma.userSkill.create({
+    prisma.usersSkill.create({
       data: {
         userId: sarah.id,
         skillId: skills.find(s => s.name === 'TypeScript')!.id,
@@ -255,7 +255,7 @@ async function main() {
         startDate: new Date('2020-06-01')
       }
     }),
-    prisma.userSkill.create({
+    prisma.usersSkill.create({
       data: {
         userId: sarah.id,
         skillId: skills.find(s => s.name === 'UI/UX Design')!.id,
@@ -266,7 +266,7 @@ async function main() {
         startDate: new Date('2021-03-15')
       }
     }),
-    prisma.userSkill.create({
+    prisma.usersSkill.create({
       data: {
         userId: sarah.id,
         skillId: skills.find(s => s.name === 'Node.js')!.id,

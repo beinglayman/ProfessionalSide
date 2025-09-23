@@ -111,7 +111,7 @@ export class EmailService {
   async sendNotificationEmail(event: EmailNotificationEvent): Promise<boolean> {
     try {
       // Get recipient user and preferences
-      const recipient = await prisma.user.findUnique({
+      const recipient = await prisma.users.findUnique({
         where: { id: event.recipientId },
         include: {
           notificationPreferences: true
@@ -132,7 +132,7 @@ export class EmailService {
       // Get sender information if available
       let sender = null;
       if (event.senderId) {
-        sender = await prisma.user.findUnique({
+        sender = await prisma.users.findUnique({
           where: { id: event.senderId },
           select: { id: true, name: true, email: true, avatar: true }
         });
@@ -173,7 +173,7 @@ export class EmailService {
    */
   async sendDigestEmail(digestData: DigestEmailData): Promise<boolean> {
     try {
-      const recipient = await prisma.user.findUnique({
+      const recipient = await prisma.users.findUnique({
         where: { id: digestData.recipientId },
         include: {
           notificationPreferences: true
@@ -231,7 +231,7 @@ export class EmailService {
    */
   async sendWelcomeEmail(userId: string): Promise<boolean> {
     try {
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { id: userId }
       });
 
@@ -272,7 +272,7 @@ export class EmailService {
    */
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
     try {
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { email }
       });
 

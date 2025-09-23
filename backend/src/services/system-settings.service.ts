@@ -58,7 +58,7 @@ export class SystemSettingsService {
     updatedBy: string
   ): Promise<SystemSettingsData> {
     // Verify updater is admin
-    const admin = await prisma.user.findUnique({
+    const admin = await prisma.users.findUnique({
       where: { id: updatedBy },
       select: { isAdmin: true, name: true }
     });
@@ -129,7 +129,7 @@ export class SystemSettingsService {
       adminId
     );
 
-    const admin = await prisma.user.findUnique({
+    const admin = await prisma.users.findUnique({
       where: { id: adminId },
       select: { name: true }
     });
@@ -248,14 +248,14 @@ export class SystemSettingsService {
       pendingRequests,
       recentUsers
     ] = await Promise.all([
-      prisma.user.count(),
+      prisma.users.count(),
       prisma.platformInvitation.count({
         where: { status: 'pending' }
       }),
       prisma.invitationRequest.count({
         where: { status: 'pending' }
       }),
-      prisma.user.count({
+      prisma.users.count({
         where: {
           createdAt: {
             gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days

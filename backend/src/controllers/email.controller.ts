@@ -172,7 +172,7 @@ export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response)
 
   try {
     // Check if welcome email was already sent
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { welcomeEmailSent: true, email: true, name: true }
     });
@@ -189,7 +189,7 @@ export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response)
 
     if (success) {
       // Mark welcome email as sent
-      await prisma.user.update({
+      await prisma.users.update({
         where: { id: userId },
         data: { welcomeEmailSent: true }
       });

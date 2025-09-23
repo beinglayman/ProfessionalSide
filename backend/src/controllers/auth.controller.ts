@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import {
   hashPassword,
   comparePassword,
@@ -20,16 +20,6 @@ import {
   RefreshTokenInput,
   ChangePasswordInput
 } from '../types/auth.types';
-
-// Initialize Prisma client directly in this file for debugging
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-});
 
 const emailService = new EmailService();
 const invitationService = new InvitationService();
@@ -76,16 +66,16 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   // Check if user already exists
   console.log('🔍 About to check existing user, prisma status:', !!prisma);
   console.log('🔍 Prisma client type:', typeof prisma);
-  console.log('🔍 Prisma user property:', typeof prisma?.user);
+  console.log('🔍 Prisma users property:', typeof prisma?.users);
   console.log('🔍 Email to check:', validatedData.email);
   console.log('🔍 Code deployment timestamp:', new Date().toISOString());
 
-  if (!prisma || !prisma.user) {
-    console.error('❌ Prisma client or user model is undefined');
+  if (!prisma || !prisma.users) {
+    console.error('❌ Prisma client or users model is undefined');
     return sendError(res, 'Database connection error', 500);
   }
 
-  const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.users.findUnique({
     where: { email: validatedData.email }
   });
 
@@ -99,7 +89,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const hashedPassword = await hashPassword(validatedData.password);
   
   // Create user with invitation tracking
-  const user = await prisma.user.create({
+  const user = await prisma.users.create({
     data: {
       name: validatedData.name,
       email: validatedData.email,
@@ -149,7 +139,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const tokens = generateTokenPair(user.id, user.email);
   
   // Store refresh token
-  await prisma.userSession.create({
+  await prisma.user_sessions.create({
     data: {
       userId: user.id,
       refreshToken: tokens.refreshToken,
@@ -160,7 +150,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   // Send welcome email asynchronously (don't block registration)
   emailService.sendWelcomeEmail(user.id).then(() => {
     // Mark welcome email as sent
-    return prisma.user.update({
+    return prisma.users.update({
       where: { id: user.id },
       data: { welcomeEmailSent: true }
     });
@@ -191,7 +181,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   const validatedData: LoginInput = loginSchema.parse(req.body);
   
   // Find user
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { email: validatedData.email },
     select: {
       id: true,
@@ -227,7 +217,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   }
   
   // Update last active
-  await prisma.userProfile.update({
+  await prisma.user_profiles.update({
     where: { userId: user.id },
     data: { lastActiveAt: new Date() }
   });
@@ -236,7 +226,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   const tokens = generateTokenPair(user.id, user.email);
   
   // Store refresh token
-  await prisma.userSession.create({
+  await prisma.user_sessions.create({
     data: {
       userId: user.id,
       refreshToken: tokens.refreshToken,
@@ -268,7 +258,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
   }
   
   // Check if refresh token exists in database
-  const session = await prisma.userSession.findUnique({
+  const session = await prisma.user_sessions.findUnique({
     where: { refreshToken: validatedData.refreshToken },
     include: {
       user: {
@@ -294,7 +284,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
   const tokens = generateTokenPair(session.user.id, session.user.email);
   
   // Update session with new refresh token
-  await prisma.userSession.update({
+  await prisma.user_sessions.update({
     where: { id: session.id },
     data: {
       refreshToken: tokens.refreshToken,
@@ -315,7 +305,7 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response) =
     return sendError(res, 'User not authenticated', 401);
   }
   
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -380,7 +370,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   
   if (refreshToken) {
     // Remove specific session
-    await prisma.userSession.deleteMany({
+    await prisma.user_sessions.deleteMany({
       where: {
         userId,
         refreshToken
@@ -388,7 +378,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
     });
   } else if (userId) {
     // Remove all sessions for user
-    await prisma.userSession.deleteMany({
+    await prisma.user_sessions.deleteMany({
       where: { userId }
     });
   }
@@ -409,15 +399,15 @@ export const testPrisma = asyncHandler(async (req: Request, res: Response) => {
       return sendError(res, 'Prisma client is undefined', 500);
     }
 
-    console.log('🧪 Prisma user model exists:', !!prisma.user);
-    console.log('🧪 Prisma user model type:', typeof prisma.user);
+    console.log('🧪 Prisma users model exists:', !!prisma.users);
+    console.log('🧪 Prisma users model type:', typeof prisma.users);
 
-    if (!prisma.user) {
-      return sendError(res, 'Prisma user model is undefined', 500);
+    if (!prisma.users) {
+      return sendError(res, 'Prisma users model is undefined', 500);
     }
 
     // Try to count users instead of finding a specific one
-    const userCount = await prisma.user.count();
+    const userCount = await prisma.users.count();
     console.log('🧪 User count:', userCount);
 
     sendSuccess(res, {
@@ -445,7 +435,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   const validatedData: ChangePasswordInput = changePasswordSchema.parse(req.body);
   
   // Get current user
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: { password: true }
   });
@@ -468,13 +458,13 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   const hashedNewPassword = await hashPassword(validatedData.newPassword);
   
   // Update password
-  await prisma.user.update({
+  await prisma.users.update({
     where: { id: userId },
     data: { password: hashedNewPassword }
   });
   
   // Invalidate all sessions (force re-login)
-  await prisma.userSession.deleteMany({
+  await prisma.user_sessions.deleteMany({
     where: { userId }
   });
   

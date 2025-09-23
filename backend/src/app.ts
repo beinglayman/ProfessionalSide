@@ -633,9 +633,9 @@ app.post('/api/v1/run-migrations', async (req, res) => {
 // Debug endpoint to check user/profile data
 app.get('/api/v1/debug-profile', async (req, res) => {
   try {
-    const userCount = await prisma.user.count();
-    const profileCount = await prisma.userProfile.count();
-    const users = await prisma.user.findMany({
+    const userCount = await prisma.users.count();
+    const profileCount = await prisma.user_profiles.count();
+    const users = await prisma.users.findMany({
       select: { id: true, email: true, name: true },
       take: 3
     });

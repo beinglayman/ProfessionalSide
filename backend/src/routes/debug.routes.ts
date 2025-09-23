@@ -15,7 +15,7 @@ router.get('/db-check', async (req, res) => {
 
     // Test each table existence
     try {
-      const userCount = await prisma.user.count();
+      const userCount = await prisma.users.count();
       results.tables['users'] = `✅ ${userCount} records`;
     } catch (e: any) {
       results.tables['users'] = `❌ ${e.message}`;

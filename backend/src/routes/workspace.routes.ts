@@ -740,7 +740,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email: validatedData.email }
     });
 
@@ -879,7 +879,7 @@ router.get('/invitations/pending', async (req, res) => {
     const userId = req.user.id;
 
     // Get current user's email
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { email: true }
     });
@@ -1010,7 +1010,7 @@ router.post('/invitations/:token/accept', async (req, res) => {
     }
 
     // Verify email matches current user
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { email: true, name: true }
     });
@@ -1128,7 +1128,7 @@ router.post('/invitations/:invitationId/accept-by-id', async (req, res) => {
     }
 
     // Verify email matches current user
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { email: true, name: true }
     });
@@ -1220,7 +1220,7 @@ router.post('/invitations/:invitationId/decline-by-id', async (req, res) => {
     }
 
     // Verify email matches current user
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { email: true, name: true }
     });
@@ -1284,7 +1284,7 @@ router.post('/invitations/:token/decline', async (req, res) => {
     }
 
     // Verify email matches current user
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       select: { email: true, name: true }
     });

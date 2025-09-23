@@ -46,7 +46,7 @@ export class UserService {
    * Get user profile by ID
    */
   async getUserProfile(userId: string, requestingUserId?: string) {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId, isActive: true },
       select: {
         id: true,
@@ -177,7 +177,7 @@ export class UserService {
    * Update user profile with relational data
    */
   async updateProfile(userId: string, data: UpdateProfileInput) {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: { 
         profile: true, 
@@ -326,7 +326,7 @@ export class UserService {
     
     // Update profile completeness
     const completeness = this.calculateProfileCompleteness(completeProfile);
-    await prisma.userProfile.update({
+    await prisma.user_profiles.update({
       where: { userId },
       data: { profileCompleteness: completeness }
     });
@@ -355,7 +355,7 @@ export class UserService {
     }
 
     // Check if user already has this skill
-    const existingUserSkill = await prisma.userSkill.findUnique({
+    const existingUserSkill = await prisma.usersSkill.findUnique({
       where: {
         userId_skillId: {
           userId,
@@ -369,7 +369,7 @@ export class UserService {
     }
 
     // Add skill to user
-    const userSkill = await prisma.userSkill.create({
+    const userSkill = await prisma.usersSkill.create({
       data: {
         userId,
         skillId: skill.id,
@@ -385,14 +385,14 @@ export class UserService {
     });
 
     // Update profile completeness
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: { profile: true, skills: true }
     });
     
     if (user) {
       const completeness = this.calculateProfileCompleteness(user);
-      await prisma.userProfile.update({
+      await prisma.user_profiles.update({
         where: { userId },
         data: { profileCompleteness: completeness }
       });
@@ -405,7 +405,7 @@ export class UserService {
    * Update user skill
    */
   async updateUserSkill(userId: string, skillId: string, data: UpdateUserSkillInput) {
-    const userSkill = await prisma.userSkill.findUnique({
+    const userSkill = await prisma.usersSkill.findUnique({
       where: {
         userId_skillId: {
           userId,
@@ -418,7 +418,7 @@ export class UserService {
       throw new Error('Skill not found');
     }
 
-    return prisma.userSkill.update({
+    return prisma.usersSkill.update({
       where: {
         userId_skillId: {
           userId,
@@ -442,7 +442,7 @@ export class UserService {
    * Remove user skill
    */
   async removeUserSkill(userId: string, skillId: string) {
-    const userSkill = await prisma.userSkill.findUnique({
+    const userSkill = await prisma.usersSkill.findUnique({
       where: {
         userId_skillId: {
           userId,
@@ -455,7 +455,7 @@ export class UserService {
       throw new Error('Skill not found');
     }
 
-    return prisma.userSkill.delete({
+    return prisma.usersSkill.delete({
       where: {
         userId_skillId: {
           userId,
@@ -502,7 +502,7 @@ export class UserService {
     }
 
     const [users, total] = await Promise.all([
-      prisma.user.findMany({
+      prisma.users.findMany({
         where,
         select: {
           id: true,
@@ -538,7 +538,7 @@ export class UserService {
           { name: 'asc' }
         ]
       }),
-      prisma.user.count({ where })
+      prisma.users.count({ where })
     ]);
 
     // Apply privacy settings
@@ -564,7 +564,7 @@ export class UserService {
    * Get user skills
    */
   async getUserSkills(userId: string) {
-    return prisma.userSkill.findMany({
+    return prisma.usersSkill.findMany({
       where: { userId },
       include: {
         skill: true
@@ -596,7 +596,7 @@ export class UserService {
       throw new Error('You cannot endorse your own skills');
     }
 
-    const userSkill = await prisma.userSkill.findUnique({
+    const userSkill = await prisma.usersSkill.findUnique({
       where: {
         userId_skillId: {
           userId,
@@ -610,7 +610,7 @@ export class UserService {
     }
 
     // Increment endorsement count
-    return prisma.userSkill.update({
+    return prisma.usersSkill.update({
       where: {
         userId_skillId: {
           userId,
@@ -721,7 +721,7 @@ export class UserService {
    */
   async getPrivacySettings(userId: string) {
     // Use findFirst to handle cases where profile might not exist
-    const profile = await prisma.userProfile.findFirst({
+    const profile = await prisma.user_profiles.findFirst({
       where: { userId },
       select: {
         profileVisibility: true,
@@ -748,7 +748,7 @@ export class UserService {
    * Update privacy settings
    */
   async updatePrivacySettings(userId: string, settings: any) {
-    const updatedProfile = await prisma.userProfile.upsert({
+    const updatedProfile = await prisma.user_profiles.upsert({
       where: { userId },
       create: {
         userId,
@@ -783,7 +783,7 @@ export class UserService {
    * Get user data for export (private helper method)
    */
   private async getUserDataForExport(userId: string) {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
         profile: true,
