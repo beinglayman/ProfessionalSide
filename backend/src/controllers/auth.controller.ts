@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
+import { PrismaClient } from '@prisma/client';
 import {
   hashPassword,
   comparePassword,
@@ -20,6 +20,16 @@ import {
   RefreshTokenInput,
   ChangePasswordInput
 } from '../types/auth.types';
+
+// Initialize Prisma client directly in this file for debugging
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
 
 const emailService = new EmailService();
 const invitationService = new InvitationService();
