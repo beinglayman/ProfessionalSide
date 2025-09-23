@@ -397,6 +397,41 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 });
 
 /**
+ * Test Prisma connection
+ */
+export const testPrisma = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    console.log('🧪 Testing Prisma connection...');
+    console.log('🧪 Prisma client exists:', !!prisma);
+    console.log('🧪 Prisma client type:', typeof prisma);
+
+    if (!prisma) {
+      return sendError(res, 'Prisma client is undefined', 500);
+    }
+
+    console.log('🧪 Prisma user model exists:', !!prisma.user);
+    console.log('🧪 Prisma user model type:', typeof prisma.user);
+
+    if (!prisma.user) {
+      return sendError(res, 'Prisma user model is undefined', 500);
+    }
+
+    // Try to count users instead of finding a specific one
+    const userCount = await prisma.user.count();
+    console.log('🧪 User count:', userCount);
+
+    sendSuccess(res, {
+      prismaConnected: true,
+      userCount,
+      timestamp: new Date().toISOString()
+    }, 'Prisma test successful');
+  } catch (error) {
+    console.error('🧪 Prisma test error:', error);
+    sendError(res, `Prisma test failed: ${error.message}`, 500);
+  }
+});
+
+/**
  * Change password
  */
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {

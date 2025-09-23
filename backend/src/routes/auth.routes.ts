@@ -5,7 +5,8 @@ import {
   refreshToken,
   getCurrentUser,
   logout,
-  changePassword
+  changePassword,
+  testPrisma
 } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authRateLimiter } from '../middleware/rateLimiter.middleware';
@@ -16,6 +17,7 @@ const router = Router();
 router.post('/register', authRateLimiter, register);
 router.post('/login', /* authRateLimiter, */ login); // Temporarily disabled for debugging
 router.post('/refresh', authRateLimiter, refreshToken);
+router.get('/test-prisma', testPrisma); // Debug endpoint
 
 // Protected routes
 router.get('/me', authenticate, getCurrentUser);
