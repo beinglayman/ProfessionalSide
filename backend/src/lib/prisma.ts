@@ -1,11 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
-// Create a singleton Prisma client instance
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+// Create Prisma client instance
+export const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   datasources: {
     db: {
@@ -14,9 +10,13 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   },
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+// Initialize connection
+prisma.$connect().then(() => {
+  console.log('✅ Prisma client connected successfully');
+}).catch((error) => {
+  console.error('❌ Failed to connect Prisma client:', error);
+  process.exit(1);
+});
 
 // Handle graceful shutdown
 process.on('beforeExit', async () => {

@@ -65,7 +65,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   
   // Check if user already exists
   console.log('🔍 About to check existing user, prisma status:', !!prisma);
+  console.log('🔍 Prisma client type:', typeof prisma);
+  console.log('🔍 Prisma user property:', typeof prisma?.user);
   console.log('🔍 Email to check:', validatedData.email);
+  console.log('🔍 Code deployment timestamp:', new Date().toISOString());
+
+  if (!prisma || !prisma.user) {
+    console.error('❌ Prisma client or user model is undefined');
+    return sendError(res, 'Database connection error', 500);
+  }
 
   const existingUser = await prisma.user.findUnique({
     where: { email: validatedData.email }
