@@ -1,4 +1,4 @@
-import { OpenAI } from 'openai';
+import { AzureOpenAI } from 'openai';
 
 interface EntryData {
   title: string;
@@ -33,7 +33,7 @@ interface GeneratedEntry {
 }
 
 export class AIEntryGeneratorService {
-  private openai: OpenAI;
+  private openai: AzureOpenAI;
 
   constructor() {
     console.log('🤖 Initializing AI Entry Generator Service...');
@@ -56,27 +56,16 @@ export class AIEntryGeneratorService {
       throw new Error(error);
     }
 
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/$/, '');
-    
-    // Try both endpoint formats for Global Standard deployments
-    const baseURL = `${endpoint}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`;
-    console.log('🔗 Azure OpenAI Base URL:', baseURL);
-    console.log('🔗 Environment details:', {
-      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-      apiVersion: process.env.AZURE_OPENAI_API_VERSION
-    });
-
-    this.openai = new OpenAI({
+    // Use AzureOpenAI client which handles endpoint formatting correctly
+    this.openai = new AzureOpenAI({
       apiKey: process.env.AZURE_OPENAI_API_KEY,
-      baseURL: baseURL,
-      defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION || '2024-07-18' },
-      defaultHeaders: {
-        'api-key': process.env.AZURE_OPENAI_API_KEY,
-      },
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-07-18',
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
     });
 
     console.log('✅ AI Entry Generator Service initialized successfully');
+    console.log('🔗 Using deployment:', process.env.AZURE_OPENAI_DEPLOYMENT_NAME);
   }
 
   async generateEntries(entryData: EntryData): Promise<GeneratedEntry> {
