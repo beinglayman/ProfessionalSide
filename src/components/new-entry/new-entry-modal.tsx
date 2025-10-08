@@ -1875,13 +1875,27 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                             departments: formData.departments
                           };
 
+                          console.log('🤖 Generating AI content with data:', aiEntryData);
                           const generated = await generateAIMutation.mutateAsync(aiEntryData);
                           setGeneratedEntries(generated);
-                          
+
                           // Save the current inputs hash to prevent regeneration without changes
                           setLastGenerationInputs(getFormInputsHash());
-                        } catch (error) {
+                        } catch (error: any) {
                           console.error('AI generation failed:', error);
+                          console.error('Error response:', error?.response?.data);
+                          console.error('Error details:', {
+                            status: error?.response?.status,
+                            statusText: error?.response?.statusText,
+                            data: error?.response?.data
+                          });
+
+                          // Show error message to user
+                          const errorMessage = error?.response?.data?.error || error?.response?.data?.details || error?.message || 'Failed to generate AI content';
+                          setValidationError(`AI Generation Error: ${errorMessage}`);
+
+                          // Clear error after 10 seconds for longer errors
+                          setTimeout(() => setValidationError(''), 10000);
                         } finally {
                           setIsGeneratingAI(false);
                         }
