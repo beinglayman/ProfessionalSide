@@ -44,6 +44,17 @@ import aiEntriesRoutes from './routes/ai-entries.routes';
 import migrationRoutes from './routes/migration.routes';
 import debugRoutes from './routes/debug.routes';
 
+// Conditionally import MCP routes (only in production to avoid tsx issues)
+let mcpRoutes: any = null;
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_MCP === 'true') {
+  try {
+    mcpRoutes = require('./routes/mcp.routes').default;
+    console.log('✅ MCP routes imported successfully');
+  } catch (error: any) {
+    console.error('❌ Failed to import MCP routes:', error.message);
+  }
+}
+
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
 import { rateLimiter } from './middleware/rateLimiter.middleware';
@@ -688,16 +699,10 @@ app.use('/api/v1/skills-benchmark', skillsBenchmarkRoutes);
 app.use('/api/v1/migration', migrationRoutes);
 
 // MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
-if (process.env.NODE_ENV === 'production' || process.env.ENABLE_MCP === 'true') {
-  // Dynamic import to avoid module loading errors in development
-  import('./routes/mcp.routes').then((mcpModule) => {
-    const mcpRoutes = mcpModule.default;
-    app.use('/api/v1/mcp', mcpRoutes);
-    console.log('✅ MCP routes enabled (production mode)');
-  }).catch((error) => {
-    console.error('❌ Failed to load MCP routes:', error.message);
-  });
-} else {
+if (mcpRoutes) {
+  app.use('/api/v1/mcp', mcpRoutes);
+  console.log('✅ MCP routes enabled (production mode)');
+} else if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_MCP !== 'true') {
   console.log('⚠️  MCP routes disabled in development (tsx hot-reload limitation)');
   console.log('   To enable MCP in development: set ENABLE_MCP=true');
   console.log('   For testing MCP: use production build (npm run build && npm start)');
