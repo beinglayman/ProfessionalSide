@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
@@ -47,9 +47,9 @@ router.use(authenticate);
 
 
 // Get connections for current user with workspace-based auto-connections
-router.get('/connections', async (req, res) => {
+router.get('/connections', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { type, search, workspaces, skills, department, organization, lastActivity } = req.query;
 
     // Get all workspaces the user is a member of
@@ -208,19 +208,19 @@ router.get('/connections', async (req, res) => {
 });
 
 // Move connection between core/extended networks
-router.put('/connections/:connectionId', async (req, res) => {
+router.put('/connections/:connectionId', async (req: Request, res: Response) => {
   try {
     const { connectionId } = req.params;
     const { connectionType, reason } = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Validate required fields
     if (!connectionType) {
-      return sendError(res, 'connectionType is required', 400);
+      return void sendError(res, 'connectionType is required', 400);
     }
 
     if (!['core', 'extended'].includes(connectionType)) {
-      return sendError(res, 'Invalid connection type. Must be "core" or "extended"', 400);
+      return void sendError(res, 'Invalid connection type. Must be "core" or "extended"', 400);
     }
 
     // Store the connection type preference
@@ -243,10 +243,10 @@ router.put('/connections/:connectionId', async (req, res) => {
 });
 
 // Remove connection
-router.delete('/connections/:connectionId', async (req, res) => {
+router.delete('/connections/:connectionId', async (req: Request, res: Response) => {
   try {
     const { connectionId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Log the removal (in real implementation, you'd update preferences)
     console.log(`User ${userId} removed connection ${connectionId} from network`);
@@ -259,13 +259,13 @@ router.delete('/connections/:connectionId', async (req, res) => {
 });
 
 // Bulk update connections
-router.post('/connections/bulk', async (req, res) => {
+router.post('/connections/bulk', async (req: Request, res: Response) => {
   try {
     const { actions } = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     if (!Array.isArray(actions)) {
-      return sendError(res, 'Actions must be an array', 400);
+      return void sendError(res, 'Actions must be an array', 400);
     }
 
     // Process bulk actions
@@ -282,9 +282,9 @@ router.post('/connections/bulk', async (req, res) => {
 });
 
 // Get available workspaces for filtering
-router.get('/filters/workspaces', async (req, res) => {
+router.get('/filters/workspaces', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const userWorkspaces = await prisma.workspaceMember.findMany({
       where: { userId },
@@ -308,9 +308,9 @@ router.get('/filters/workspaces', async (req, res) => {
 });
 
 // Get available skills for filtering
-router.get('/filters/skills', async (req, res) => {
+router.get('/filters/skills', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Get skills from all workspace collaborators
     const userWorkspaces = await prisma.workspaceMember.findMany({
@@ -350,9 +350,9 @@ router.get('/filters/skills', async (req, res) => {
 });
 
 // Get connection requests
-router.get('/requests', async (req, res) => {
+router.get('/requests', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // For now, return empty array since connection requests are not fully implemented
     // In a real implementation, this would fetch actual connection requests from database
@@ -366,9 +366,9 @@ router.get('/requests', async (req, res) => {
 });
 
 // Get followers
-router.get('/followers', async (req, res) => {
+router.get('/followers', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { search, skills, department, organization } = req.query;
 
     // For now, return empty array since followers are not fully implemented
@@ -393,9 +393,9 @@ router.get('/followers', async (req, res) => {
 });
 
 // Get network suggestions
-router.get('/suggestions', async (req, res) => {
+router.get('/suggestions', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Get user's workspaces for suggestions
     const userWorkspaces = await prisma.workspaceMember.findMany({
@@ -429,9 +429,9 @@ router.get('/suggestions', async (req, res) => {
 });
 
 // Get network statistics
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Get user's workspaces
     const userWorkspaces = await prisma.workspaceMember.findMany({

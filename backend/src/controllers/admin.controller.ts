@@ -28,11 +28,11 @@ const createUserSchema = z.object({
 /**
  * Get admin dashboard overview
  */
-export const getDashboardOverview = asyncHandler(async (req: Request, res: Response) => {
+export const getDashboardOverview = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin) {
-    return sendError(res, 'Admin access required', 403);
+    return void sendError(res, 'Admin access required', 403);
   }
 
   try {
@@ -49,10 +49,10 @@ export const getDashboardOverview = asyncHandler(async (req: Request, res: Respo
       content: contentMetrics,
       health: systemHealth,
       admin: {
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-        permissions: admin.permissions
+        name: admin!.name,
+        email: admin!.email,
+        role: admin!.role,
+        permissions: admin!.permissions
       }
     };
 
@@ -65,11 +65,11 @@ export const getDashboardOverview = asyncHandler(async (req: Request, res: Respo
 /**
  * Get system metrics
  */
-export const getSystemMetrics = asyncHandler(async (req: Request, res: Response) => {
+export const getSystemMetrics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'system', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -83,11 +83,11 @@ export const getSystemMetrics = asyncHandler(async (req: Request, res: Response)
 /**
  * Get user metrics and management
  */
-export const getUserMetrics = asyncHandler(async (req: Request, res: Response) => {
+export const getUserMetrics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'users', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -101,11 +101,11 @@ export const getUserMetrics = asyncHandler(async (req: Request, res: Response) =
 /**
  * Get all users with pagination
  */
-export const getUsers = asyncHandler(async (req: Request, res: Response) => {
+export const getUsers = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'users', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -179,16 +179,16 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Get user details by ID
  */
-export const getUserById = asyncHandler(async (req: Request, res: Response) => {
+export const getUserById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   const { userId } = req.params;
   
   if (!admin || !hasAdminPermission(admin, 'users', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   if (!userId) {
-    return sendError(res, 'User ID is required', 400);
+    return void sendError(res, 'User ID is required', 400);
   }
 
   try {
@@ -224,7 +224,7 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return sendError(res, 'User not found', 404);
+      return void sendError(res, 'User not found', 404);
     }
 
     sendSuccess(res, user, 'User details retrieved successfully');
@@ -236,16 +236,16 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Update user
  */
-export const updateUser = asyncHandler(async (req: Request, res: Response) => {
+export const updateUser = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   const { userId } = req.params;
   
   if (!admin || !hasAdminPermission(admin, 'users', 'update')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   if (!userId) {
-    return sendError(res, 'User ID is required', 400);
+    return void sendError(res, 'User ID is required', 400);
   }
 
   try {
@@ -267,14 +267,14 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 
     sendSuccess(res, updatedUser, 'User updated successfully');
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid user data', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid user data', 400, error.errors);
     }
-    if (error.code === 'P2002') {
-      return sendError(res, 'Email already exists', 409);
+    if ((error as any).code === 'P2002') {
+      return void sendError(res, 'Email already exists', 409);
     }
-    if (error.code === 'P2025') {
-      return sendError(res, 'User not found', 404);
+    if ((error as any).code === 'P2025') {
+      return void sendError(res, 'User not found', 404);
     }
     throw error;
   }
@@ -283,16 +283,16 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Suspend/unsuspend user
  */
-export const toggleUserStatus = asyncHandler(async (req: Request, res: Response) => {
+export const toggleUserStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   const { userId } = req.params;
   
   if (!admin || !hasAdminPermission(admin, 'users', 'suspend')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   if (!userId) {
-    return sendError(res, 'User ID is required', 400);
+    return void sendError(res, 'User ID is required', 400);
   }
 
   try {
@@ -302,7 +302,7 @@ export const toggleUserStatus = asyncHandler(async (req: Request, res: Response)
     });
 
     if (!user) {
-      return sendError(res, 'User not found', 404);
+      return void sendError(res, 'User not found', 404);
     }
 
     const updatedUser = await prisma.user.update({
@@ -327,11 +327,11 @@ export const toggleUserStatus = asyncHandler(async (req: Request, res: Response)
 /**
  * Get content metrics
  */
-export const getContentMetrics = asyncHandler(async (req: Request, res: Response) => {
+export const getContentMetrics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'journal_entries', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -345,11 +345,11 @@ export const getContentMetrics = asyncHandler(async (req: Request, res: Response
 /**
  * Get system health
  */
-export const getSystemHealth = asyncHandler(async (req: Request, res: Response) => {
+export const getSystemHealth = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'system', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -363,11 +363,11 @@ export const getSystemHealth = asyncHandler(async (req: Request, res: Response) 
 /**
  * Get system statistics for charts
  */
-export const getSystemStatistics = asyncHandler(async (req: Request, res: Response) => {
+export const getSystemStatistics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'analytics', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -382,11 +382,11 @@ export const getSystemStatistics = asyncHandler(async (req: Request, res: Respon
 /**
  * Get admin activity logs
  */
-export const getAdminActivityLogs = asyncHandler(async (req: Request, res: Response) => {
+export const getAdminActivityLogs = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'admin', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -401,11 +401,11 @@ export const getAdminActivityLogs = asyncHandler(async (req: Request, res: Respo
 /**
  * Get workspaces with admin view
  */
-export const getWorkspaces = asyncHandler(async (req: Request, res: Response) => {
+export const getWorkspaces = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'workspaces', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -464,16 +464,16 @@ export const getWorkspaces = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Delete journal entry (admin)
  */
-export const deleteJournalEntry = asyncHandler(async (req: Request, res: Response) => {
+export const deleteJournalEntry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   const { entryId } = req.params;
   
   if (!admin || !hasAdminPermission(admin, 'journal_entries', 'delete')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   if (!entryId) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   try {
@@ -483,8 +483,8 @@ export const deleteJournalEntry = asyncHandler(async (req: Request, res: Respons
 
     sendSuccess(res, null, 'Journal entry deleted successfully');
   } catch (error: any) {
-    if (error.code === 'P2025') {
-      return sendError(res, 'Journal entry not found', 404);
+    if ((error as any).code === 'P2025') {
+      return void sendError(res, 'Journal entry not found', 404);
     }
     throw error;
   }
@@ -493,15 +493,15 @@ export const deleteJournalEntry = asyncHandler(async (req: Request, res: Respons
 /**
  * Get admin permissions for current user
  */
-export const getAdminPermissions = asyncHandler(async (req: Request, res: Response) => {
+export const getAdminPermissions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin) {
-    return sendError(res, 'Admin access required', 403);
+    return void sendError(res, 'Admin access required', 403);
   }
 
   sendSuccess(res, {
-    role: admin.role,
-    permissions: admin.permissions
+    role: admin!.role,
+    permissions: admin!.permissions
   }, 'Admin permissions retrieved successfully');
 });

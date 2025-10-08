@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.middleware';
@@ -109,9 +109,9 @@ const createCategorySchema = z.object({
 });
 
 // Get all workspaces for current user
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const workspaces = await prisma.workspace.findMany({
       where: {
@@ -166,10 +166,10 @@ router.get('/', async (req, res) => {
 });
 
 // Get specific workspace
-router.get('/:workspaceId', async (req, res) => {
+router.get('/:workspaceId', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const workspace = await prisma.workspace.findFirst({
       where: {
@@ -200,7 +200,7 @@ router.get('/:workspaceId', async (req, res) => {
     });
 
     if (!workspace) {
-      return sendError(res, 'Workspace not found or access denied', 404);
+      return void sendError(res, 'Workspace not found or access denied', 404);
     }
 
     const workspaceWithStats = {
@@ -227,10 +227,10 @@ router.get('/:workspaceId', async (req, res) => {
 });
 
 // Get workspace members
-router.get('/:workspaceId/members', async (req, res) => {
+router.get('/:workspaceId/members', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -238,7 +238,7 @@ router.get('/:workspaceId/members', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     const members = await prisma.workspaceMember.findMany({
@@ -266,10 +266,10 @@ router.get('/:workspaceId/members', async (req, res) => {
 });
 
 // Get workspace categories
-router.get('/:workspaceId/categories', async (req, res) => {
+router.get('/:workspaceId/categories', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -277,7 +277,7 @@ router.get('/:workspaceId/categories', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     const categories = await prisma.workspaceCategory.findMany({
@@ -318,10 +318,10 @@ router.get('/:workspaceId/categories', async (req, res) => {
 });
 
 // Get workspace files
-router.get('/:workspaceId/files', async (req, res) => {
+router.get('/:workspaceId/files', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { page = '1', limit = '20', search } = req.query;
 
     // Check if user has access to workspace
@@ -330,7 +330,7 @@ router.get('/:workspaceId/files', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     const pageNum = parseInt(page as string);
@@ -381,10 +381,10 @@ router.get('/:workspaceId/files', async (req, res) => {
 });
 
 // Get workspace journal entries
-router.get('/:workspaceId/journal-entries', async (req, res) => {
+router.get('/:workspaceId/journal-entries', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { 
       page = '1', 
       limit = '20', 
@@ -400,7 +400,7 @@ router.get('/:workspaceId/journal-entries', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     const pageNum = parseInt(page as string);
@@ -531,10 +531,10 @@ router.get('/:workspaceId/journal-entries', async (req, res) => {
 });
 
 // Update workspace
-router.put('/:workspaceId', async (req, res) => {
+router.put('/:workspaceId', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const validatedData = updateWorkspaceSchema.parse(req.body);
 
     // Check if user has admin permissions
@@ -543,7 +543,7 @@ router.put('/:workspaceId', async (req, res) => {
     });
 
     if (!memberRole || !['OWNER', 'admin'].includes(memberRole.role)) {
-      return sendError(res, 'Only workspace owners and admins can update workspace settings', 403);
+      return void sendError(res, 'Only workspace owners and admins can update workspace settings', 403);
     }
 
     // Update the workspace
@@ -582,7 +582,7 @@ router.put('/:workspaceId', async (req, res) => {
     sendSuccess(res, workspaceWithStats, 'Workspace updated successfully');
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error updating workspace:', error);
     sendError(res, 'Failed to update workspace', 500);
@@ -590,9 +590,9 @@ router.put('/:workspaceId', async (req, res) => {
 });
 
 // Create workspace
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const validatedData = createWorkspaceSchema.parse(req.body);
 
     // Check if organization exists
@@ -603,7 +603,7 @@ router.post('/', async (req, res) => {
     });
 
     if (!organization) {
-      return sendError(res, 'Organization not found', 404);
+      return void sendError(res, 'Organization not found', 404);
     }
 
     const workspace = await prisma.workspace.create({
@@ -694,7 +694,7 @@ router.post('/', async (req, res) => {
     sendSuccess(res, workspaceWithStats, 'Workspace created successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error creating workspace:', error);
     sendError(res, 'Failed to create workspace', 500);
@@ -702,10 +702,10 @@ router.post('/', async (req, res) => {
 });
 
 // Send workspace invitation
-router.post('/:workspaceId/invitations', async (req, res) => {
+router.post('/:workspaceId/invitations', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const validatedData = inviteMemberSchema.parse(req.body);
 
     // Check if user has invite permissions
@@ -715,7 +715,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
     });
 
     if (!memberRole) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Check permissions
@@ -726,7 +726,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
       (normalizedRole === 'editor' && (memberRole.permissions as any)?.canInvite !== false);
 
     if (!hasInvitePermission) {
-      return sendError(res, 'Insufficient permissions to invite members', 403);
+      return void sendError(res, 'Insufficient permissions to invite members', 403);
     }
 
     // Get workspace details
@@ -736,7 +736,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
     });
 
     if (!workspace) {
-      return sendError(res, 'Workspace not found', 404);
+      return void sendError(res, 'Workspace not found', 404);
     }
 
     // Check if user already exists
@@ -751,7 +751,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
       });
 
       if (existingMember) {
-        return sendError(res, 'User is already a member of this workspace', 400);
+        return void sendError(res, 'User is already a member of this workspace', 400);
       }
     }
 
@@ -765,7 +765,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
     });
 
     if (existingInvitation) {
-      return sendError(res, 'Invitation already sent to this email', 400);
+      return void sendError(res, 'Invitation already sent to this email', 400);
     }
 
     // Generate unique invitation token
@@ -866,7 +866,7 @@ router.post('/:workspaceId/invitations', async (req, res) => {
     }, 'Invitation sent successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error sending invitation:', error);
     sendError(res, 'Failed to send invitation', 500);
@@ -874,9 +874,9 @@ router.post('/:workspaceId/invitations', async (req, res) => {
 });
 
 // Get pending invitations for current user
-router.get('/invitations/pending', async (req, res) => {
+router.get('/invitations/pending', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Get current user's email
     const user = await prisma.user.findUnique({
@@ -885,7 +885,7 @@ router.get('/invitations/pending', async (req, res) => {
     });
 
     if (!user) {
-      return sendError(res, 'User not found', 404);
+      return void sendError(res, 'User not found', 404);
     }
 
     // Find all pending invitations for the user's email
@@ -951,10 +951,10 @@ router.get('/invitations/pending', async (req, res) => {
 });
 
 // Get workspace invitations
-router.get('/:workspaceId/invitations', async (req, res) => {
+router.get('/:workspaceId/invitations', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has access to workspace
     const memberRole = await prisma.workspaceMember.findFirst({
@@ -962,7 +962,7 @@ router.get('/:workspaceId/invitations', async (req, res) => {
     });
 
     if (!memberRole || !['owner', 'admin'].includes(memberRole.role)) {
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     const invitations = await prisma.workspaceInvitation.findMany({
@@ -987,10 +987,10 @@ router.get('/:workspaceId/invitations', async (req, res) => {
 });
 
 // Accept workspace invitation by token
-router.post('/invitations/:token/accept', async (req, res) => {
+router.post('/invitations/:token/accept', async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Find invitation
     const invitation = await prisma.workspaceInvitation.findFirst({
@@ -1006,7 +1006,7 @@ router.post('/invitations/:token/accept', async (req, res) => {
     });
 
     if (!invitation) {
-      return sendError(res, 'Invalid or expired invitation', 400);
+      return void sendError(res, 'Invalid or expired invitation', 400);
     }
 
     // Verify email matches current user
@@ -1016,7 +1016,7 @@ router.post('/invitations/:token/accept', async (req, res) => {
     });
 
     if (!user || user.email !== invitation.email) {
-      return sendError(res, 'This invitation is not for your email address', 400);
+      return void sendError(res, 'This invitation is not for your email address', 400);
     }
 
     // Check if user is already a member
@@ -1028,7 +1028,7 @@ router.post('/invitations/:token/accept', async (req, res) => {
     });
 
     if (existingMember) {
-      return sendError(res, 'You are already a member of this workspace', 400);
+      return void sendError(res, 'You are already a member of this workspace', 400);
     }
 
     // Accept invitation in transaction
@@ -1105,10 +1105,10 @@ router.post('/invitations/:token/accept', async (req, res) => {
 });
 
 // Accept workspace invitation by ID (for notifications)
-router.post('/invitations/:invitationId/accept-by-id', async (req, res) => {
+router.post('/invitations/:invitationId/accept-by-id', async (req: Request, res: Response) => {
   try {
     const { invitationId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Find invitation
     const invitation = await prisma.workspaceInvitation.findFirst({
@@ -1124,7 +1124,7 @@ router.post('/invitations/:invitationId/accept-by-id', async (req, res) => {
     });
 
     if (!invitation) {
-      return sendError(res, 'Invalid or expired invitation', 400);
+      return void sendError(res, 'Invalid or expired invitation', 400);
     }
 
     // Verify email matches current user
@@ -1134,7 +1134,7 @@ router.post('/invitations/:invitationId/accept-by-id', async (req, res) => {
     });
 
     if (!user || user.email !== invitation.email) {
-      return sendError(res, 'This invitation is not for your email address', 400);
+      return void sendError(res, 'This invitation is not for your email address', 400);
     }
 
     // Check if user is already a member
@@ -1146,7 +1146,7 @@ router.post('/invitations/:invitationId/accept-by-id', async (req, res) => {
     });
 
     if (existingMember) {
-      return sendError(res, 'You are already a member of this workspace', 400);
+      return void sendError(res, 'You are already a member of this workspace', 400);
     }
 
     // Accept invitation in transaction
@@ -1198,10 +1198,10 @@ router.post('/invitations/:invitationId/accept-by-id', async (req, res) => {
 });
 
 // Decline workspace invitation by ID (for notifications)
-router.post('/invitations/:invitationId/decline-by-id', async (req, res) => {
+router.post('/invitations/:invitationId/decline-by-id', async (req: Request, res: Response) => {
   try {
     const { invitationId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Find invitation
     const invitation = await prisma.workspaceInvitation.findFirst({
@@ -1216,7 +1216,7 @@ router.post('/invitations/:invitationId/decline-by-id', async (req, res) => {
     });
 
     if (!invitation) {
-      return sendError(res, 'Invitation not found', 404);
+      return void sendError(res, 'Invitation not found', 404);
     }
 
     // Verify email matches current user
@@ -1226,7 +1226,7 @@ router.post('/invitations/:invitationId/decline-by-id', async (req, res) => {
     });
 
     if (!user || user.email !== invitation.email) {
-      return sendError(res, 'This invitation is not for your email address', 400);
+      return void sendError(res, 'This invitation is not for your email address', 400);
     }
 
     // Decline invitation in transaction
@@ -1262,10 +1262,10 @@ router.post('/invitations/:invitationId/decline-by-id', async (req, res) => {
 });
 
 // Decline workspace invitation by token
-router.post('/invitations/:token/decline', async (req, res) => {
+router.post('/invitations/:token/decline', async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Find invitation
     const invitation = await prisma.workspaceInvitation.findFirst({
@@ -1280,7 +1280,7 @@ router.post('/invitations/:token/decline', async (req, res) => {
     });
 
     if (!invitation) {
-      return sendError(res, 'Invitation not found', 404);
+      return void sendError(res, 'Invitation not found', 404);
     }
 
     // Verify email matches current user
@@ -1290,7 +1290,7 @@ router.post('/invitations/:token/decline', async (req, res) => {
     });
 
     if (!user || user.email !== invitation.email) {
-      return sendError(res, 'This invitation is not for your email address', 400);
+      return void sendError(res, 'This invitation is not for your email address', 400);
     }
 
     // Decline invitation in transaction
@@ -1360,10 +1360,10 @@ function getDefaultPermissions(role: string) {
 }
 
 // Create category
-router.post('/:workspaceId/categories', async (req, res) => {
+router.post('/:workspaceId/categories', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     console.log('Creating category request:', { workspaceId, userId, body: req.body });
     const validatedData = createCategorySchema.parse(req.body);
     console.log('Validated data:', validatedData);
@@ -1376,7 +1376,7 @@ router.post('/:workspaceId/categories', async (req, res) => {
 
     if (!memberRole || !(['owner', 'admin', 'editor', 'member', 'OWNER', 'ADMIN', 'EDITOR', 'MEMBER'].includes(memberRole.role))) {
       console.log('Permission denied for user:', userId, 'in workspace:', workspaceId, 'role:', memberRole?.role);
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     const category = await prisma.workspaceCategory.create({
@@ -1401,7 +1401,7 @@ router.post('/:workspaceId/categories', async (req, res) => {
     sendSuccess(res, category, 'Category created successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error creating category:', error);
     sendError(res, 'Failed to create category', 500);
@@ -1409,10 +1409,10 @@ router.post('/:workspaceId/categories', async (req, res) => {
 });
 
 // Delete category
-router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
+router.delete('/:workspaceId/categories/:categoryId', async (req: Request, res: Response) => {
   try {
     const { workspaceId, categoryId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has admin access
     const memberRole = await prisma.workspaceMember.findFirst({
@@ -1420,7 +1420,7 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (!memberRole || !(['owner', 'admin', 'editor', 'member', 'OWNER', 'ADMIN', 'EDITOR', 'MEMBER'].includes(memberRole.role))) {
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     // Check if category exists and belongs to the workspace
@@ -1432,7 +1432,7 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (!category) {
-      return sendError(res, 'Category not found', 404);
+      return void sendError(res, 'Category not found', 404);
     }
 
     // Check if there are files using this category
@@ -1444,7 +1444,7 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (fileCount > 0) {
-      return sendError(res, `Cannot delete category. ${fileCount} file(s) are still using this category. Please reassign or delete these files first.`, 400);
+      return void sendError(res, `Cannot delete category. ${fileCount} file(s) are still using this category. Please reassign or delete these files first.`, 400);
     }
 
     // Delete the category
@@ -1460,10 +1460,10 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
 });
 
 // Update category
-router.put('/:workspaceId/categories/:categoryId', async (req, res) => {
+router.put('/:workspaceId/categories/:categoryId', async (req: Request, res: Response) => {
   try {
     const { workspaceId, categoryId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const validatedData = createCategorySchema.parse(req.body);
 
     // Check if user has admin access
@@ -1472,7 +1472,7 @@ router.put('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (!memberRole || !(['owner', 'admin', 'editor', 'member', 'OWNER', 'ADMIN', 'EDITOR', 'MEMBER'].includes(memberRole.role))) {
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     // Check if category exists and belongs to workspace
@@ -1481,7 +1481,7 @@ router.put('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (!existingCategory) {
-      return sendError(res, 'Category not found', 404);
+      return void sendError(res, 'Category not found', 404);
     }
 
     // If the category name is changing, update all files that use the old name
@@ -1521,7 +1521,7 @@ router.put('/:workspaceId/categories/:categoryId', async (req, res) => {
     sendSuccess(res, category, 'Category updated successfully');
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error updating category:', error);
     sendError(res, 'Failed to update category', 500);
@@ -1529,10 +1529,10 @@ router.put('/:workspaceId/categories/:categoryId', async (req, res) => {
 });
 
 // Delete category
-router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
+router.delete('/:workspaceId/categories/:categoryId', async (req: Request, res: Response) => {
   try {
     const { workspaceId, categoryId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has admin access
     const memberRole = await prisma.workspaceMember.findFirst({
@@ -1540,7 +1540,7 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (!memberRole || !(['owner', 'admin', 'editor', 'member', 'OWNER', 'ADMIN', 'EDITOR', 'MEMBER'].includes(memberRole.role))) {
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     // Check if category exists and belongs to workspace
@@ -1549,7 +1549,7 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
     });
 
     if (!existingCategory) {
-      return sendError(res, 'Category not found', 404);
+      return void sendError(res, 'Category not found', 404);
     }
 
     await prisma.workspaceCategory.delete({
@@ -1564,14 +1564,14 @@ router.delete('/:workspaceId/categories/:categoryId', async (req, res) => {
 });
 
 // Upload file
-router.post('/:workspaceId/files', upload.single('file'), async (req, res) => {
+router.post('/:workspaceId/files', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { description, category } = req.body;
 
     if (!req.file) {
-      return sendError(res, 'No file provided', 400);
+      return void sendError(res, 'No file provided', 400);
     }
 
     // Check if user has access
@@ -1580,7 +1580,7 @@ router.post('/:workspaceId/files', upload.single('file'), async (req, res) => {
     });
 
     if (!memberRole) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     const file = await prisma.workspaceFile.create({
@@ -1614,10 +1614,10 @@ router.post('/:workspaceId/files', upload.single('file'), async (req, res) => {
 });
 
 // Delete file
-router.delete('/:workspaceId/files/:fileId', async (req, res) => {
+router.delete('/:workspaceId/files/:fileId', async (req: Request, res: Response) => {
   try {
     const { workspaceId, fileId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has access to workspace
     const memberRole = await prisma.workspaceMember.findFirst({
@@ -1625,7 +1625,7 @@ router.delete('/:workspaceId/files/:fileId', async (req, res) => {
     });
 
     if (!memberRole) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Get file details first to delete from filesystem
@@ -1637,7 +1637,7 @@ router.delete('/:workspaceId/files/:fileId', async (req, res) => {
     });
 
     if (!file) {
-      return sendError(res, 'File not found', 404);
+      return void sendError(res, 'File not found', 404);
     }
 
     // Check if user can delete (file owner, admin, or owner)
@@ -1647,7 +1647,7 @@ router.delete('/:workspaceId/files/:fileId', async (req, res) => {
       memberRole.role === 'admin';
 
     if (!canDelete) {
-      return sendError(res, 'Insufficient permissions to delete this file', 403);
+      return void sendError(res, 'Insufficient permissions to delete this file', 403);
     }
 
     // Delete file from database
@@ -1672,10 +1672,10 @@ router.delete('/:workspaceId/files/:fileId', async (req, res) => {
 });
 
 // Update file metadata
-router.put('/:workspaceId/files/:fileId', async (req, res) => {
+router.put('/:workspaceId/files/:fileId', async (req: Request, res: Response) => {
   try {
     const { workspaceId, fileId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { name, description, category } = req.body;
 
     // Check if user has access to workspace
@@ -1684,7 +1684,7 @@ router.put('/:workspaceId/files/:fileId', async (req, res) => {
     });
 
     if (!memberRole) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Get file details
@@ -1696,7 +1696,7 @@ router.put('/:workspaceId/files/:fileId', async (req, res) => {
     });
 
     if (!file) {
-      return sendError(res, 'File not found', 404);
+      return void sendError(res, 'File not found', 404);
     }
 
     // Check if user can edit (file owner, admin, or owner, or has edit permissions)
@@ -1707,7 +1707,7 @@ router.put('/:workspaceId/files/:fileId', async (req, res) => {
       (memberRole.permissions as any)?.canEdit;
 
     if (!canEdit) {
-      return sendError(res, 'Insufficient permissions to edit this file', 403);
+      return void sendError(res, 'Insufficient permissions to edit this file', 403);
     }
 
     // Update file metadata
@@ -1737,10 +1737,10 @@ router.put('/:workspaceId/files/:fileId', async (req, res) => {
 });
 
 // Get workspace goals
-router.get('/:workspaceId/goals', async (req, res) => {
+router.get('/:workspaceId/goals', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -1748,7 +1748,7 @@ router.get('/:workspaceId/goals', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Get goals from database with full relationships
@@ -1929,10 +1929,10 @@ router.get('/:workspaceId/goals', async (req, res) => {
 });
 
 // Archive workspace
-router.put('/:workspaceId/archive', async (req, res) => {
+router.put('/:workspaceId/archive', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has admin permissions
     const memberRole = await prisma.workspaceMember.findFirst({
@@ -1940,7 +1940,7 @@ router.put('/:workspaceId/archive', async (req, res) => {
     });
 
     if (!memberRole || !['OWNER', 'admin'].includes(memberRole.role)) {
-      return sendError(res, 'Only workspace owners and admins can archive workspaces', 403);
+      return void sendError(res, 'Only workspace owners and admins can archive workspaces', 403);
     }
 
     // Archive the workspace
@@ -2012,10 +2012,10 @@ router.put('/:workspaceId/archive', async (req, res) => {
 });
 
 // Unarchive workspace
-router.put('/:workspaceId/unarchive', async (req, res) => {
+router.put('/:workspaceId/unarchive', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has admin permissions
     const memberRole = await prisma.workspaceMember.findFirst({
@@ -2023,7 +2023,7 @@ router.put('/:workspaceId/unarchive', async (req, res) => {
     });
 
     if (!memberRole || !['OWNER', 'admin'].includes(memberRole.role)) {
-      return sendError(res, 'Only workspace owners and admins can unarchive workspaces', 403);
+      return void sendError(res, 'Only workspace owners and admins can unarchive workspaces', 403);
     }
 
     // Unarchive the workspace
@@ -2067,10 +2067,10 @@ router.put('/:workspaceId/unarchive', async (req, res) => {
 });
 
 // Delete workspace goal
-router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
+router.delete('/:workspaceId/goals/:goalId', async (req: Request, res: Response) => {
   try {
     const { workspaceId, goalId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Check if user has access to workspace
     const hasAccess = await prisma.workspaceMember.findFirst({
@@ -2078,7 +2078,7 @@ router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Get existing goals
@@ -2089,7 +2089,7 @@ router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
     
     if (goalIndex === -1) {
       console.log('🎯 Goal not found:', goalId);
-      return sendError(res, 'Goal not found', 404);
+      return void sendError(res, 'Goal not found', 404);
     }
 
     // Remove the goal from storage
@@ -2105,10 +2105,10 @@ router.delete('/:workspaceId/goals/:goalId', async (req, res) => {
 });
 
 // Create workspace goal
-router.post('/:workspaceId/goals', async (req, res) => {
+router.post('/:workspaceId/goals', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const goalData = req.body;
 
     // Check if user has access to workspace
@@ -2117,7 +2117,7 @@ router.post('/:workspaceId/goals', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Get workspace members to populate user information

@@ -469,7 +469,7 @@ export class EmailService {
       job.updatedAt = new Date();
     } catch (error) {
       job.status = 'failed';
-      job.error = error.message;
+      job.error = (error as any).message;
       job.updatedAt = new Date();
       console.error('Error processing email job:', error);
     }

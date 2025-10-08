@@ -91,6 +91,11 @@ model User {
   securityEvents        SecurityEvent[] @relation("UserSecurityEvents")
   resolvedSecurityEvents SecurityEvent[] @relation("ResolvedSecurityEvents")
 
+  // MCP Integration relationships
+  mcpIntegrations       MCPIntegration[]
+  mcpAuditLogs          MCPAuditLog[]
+  mcpDailySummaryPreference MCPDailySummaryPreference?
+
   @@map("users")
 }
 
@@ -122,7 +127,7 @@ model UserProfile {
 // ============================================================================
 
 model Skill {
-  id          String      @id
+  id          String      @id @default(cuid())
   name        String      @unique
   category    String?     // Technical, Soft, Industry, etc.
   createdAt   DateTime    @default(now())
@@ -379,7 +384,12 @@ model JournalEntry {
   category        String?
   tags            String[]  @default([])
   skills          String[]  @default([])
-  
+
+  // Achievement fields for achievement entries
+  achievementType        String?   // certification, award, milestone, recognition
+  achievementTitle       String?
+  achievementDescription String?
+
   // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -1040,4 +1050,95 @@ model SkillBenchmark {
   @@index([industry])
   @@index([updatedAt])
   @@map("skill_benchmarks")
+}
+
+// ============================================================================
+// MCP (MODEL CONTEXT PROTOCOL) INTEGRATION - PRIVACY FIRST
+// ============================================================================
+
+// Only stores OAuth tokens - NO external data is persisted
+model MCPIntegration {
+  id           String    @id @default(cuid())
+  userId       String
+  toolType     String    // github, jira, figma, outlook, confluence, slack, teams
+
+  // Encrypted OAuth tokens (AES-256)
+  accessToken  String?   @db.Text // Encrypted at rest (optional for mock)
+  refreshToken String?   @db.Text // Encrypted, optional based on OAuth provider
+  expiresAt    DateTime? // Token expiration time
+  encryptedTokens String?   @db.Text // Alternative encrypted token storage
+
+  // Integration metadata (no actual data from tools)
+  scope        String?   // OAuth scope granted
+  isActive     Boolean   @default(true)
+  isConnected  Boolean   @default(false) // Connection status
+  connectedAt  DateTime? // When the integration was connected
+  lastUsedAt   DateTime? // Last time user fetched data
+  lastSyncAt   DateTime? // Last successful sync
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditLogs    MCPAuditLog[]
+
+  @@unique([userId, toolType])
+  @@index([userId])
+  @@index([toolType])
+  @@map("mcp_integrations")
+}
+
+// Audit log for MCP operations - tracks actions, not data
+model MCPAuditLog {
+  id             String         @id @default(cuid())
+  userId         String
+  integrationId  String?
+
+  // Action tracking (no actual fetched data stored)
+  action         String         // connect, disconnect, fetch_requested, fetch_completed, data_cleared, consent_given
+  toolType       String         // github, jira, figma, etc.
+
+  // Privacy tracking
+  consentGiven   Boolean        @default(false)
+  dataCleared    Boolean        @default(true) // Always true - we clear after each session
+
+  // Metadata (no external data)
+  itemCount      Int?           // Number of items fetched (for metrics)
+  success        Boolean        @default(true)
+  errorMessage   String?
+  sessionId      String?        // Temporary session ID (for tracking data lifecycle)
+
+  createdAt      DateTime       @default(now())
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration    MCPIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([integrationId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("mcp_audit_logs")
+}
+
+// Daily summary preferences - NO external data stored
+model MCPDailySummaryPreference {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+
+  // User preferences only
+  isEnabled       Boolean   @default(false)
+  preferredTime   String?   // Time of day for summary generation (HH:mm format)
+  enabledTools    String[]  // Which tools to include in daily summary
+  autoPost        Boolean   @default(false) // Never auto-post, always require review
+
+  // Privacy preferences
+  requireReview   Boolean   @default(true)  // Always true - user must review
+  excludePatterns String[]  // Patterns to exclude from summaries
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mcp_daily_summary_preferences")
 }

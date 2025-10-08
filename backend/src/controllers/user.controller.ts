@@ -16,14 +16,14 @@ import {
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-// Note: Using Railway Volumes for persistent storage
+// Note: Using Azure Files for persistent storage
 
 const userService = new UserService();
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Use Railway volume path if available, fallback to local
+    // Use Azure Files mount path if available, fallback to local
     const baseUploadPath = process.env.UPLOAD_VOLUME_PATH || 'uploads';
     const uploadDir = path.join(baseUploadPath, 'avatars');
     
@@ -57,17 +57,17 @@ const upload = multer({
   }
 });
 
-// Export upload middleware for Railway Volumes
+// Export upload middleware for Azure Files
 export const uploadAvatarMiddleware = upload.single('avatar');
 
 /**
  * Get current user's full profile
  */
-export const getMyProfile = asyncHandler(async (req: Request, res: Response) => {
+export const getMyProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const profile = await userService.getUserProfile(userId, userId);
@@ -77,7 +77,7 @@ export const getMyProfile = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Get user profile by ID
  */
-export const getUserProfile = asyncHandler(async (req: Request, res: Response) => {
+export const getUserProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { userId }: GetUserProfileInput = getUserProfileSchema.parse(req.params);
   const requestingUserId = req.user?.id;
 
@@ -85,8 +85,8 @@ export const getUserProfile = asyncHandler(async (req: Request, res: Response) =
     const profile = await userService.getUserProfile(userId, requestingUserId);
     sendSuccess(res, profile);
   } catch (error: any) {
-    if (error.message === 'User not found') {
-      return sendError(res, 'User not found', 404);
+    if ((error as any).message === 'User not found') {
+      return void sendError(res, 'User not found', 404);
     }
     throw error;
   }
@@ -95,11 +95,11 @@ export const getUserProfile = asyncHandler(async (req: Request, res: Response) =
 /**
  * Update user profile
  */
-export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+export const updateProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const validatedData: UpdateProfileInput = updateProfileSchema.parse(req.body);
@@ -108,8 +108,8 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
     const updatedProfile = await userService.updateProfile(userId, validatedData);
     sendSuccess(res, updatedProfile, 'Profile updated successfully');
   } catch (error: any) {
-    if (error.message.includes('Invalid') || error.message.includes('JSON')) {
-      return sendError(res, error.message, 400);
+    if ((error as any).message.includes('Invalid') || (error as any).message.includes('JSON')) {
+      return void sendError(res, (error as any).message, 400);
     }
     throw error;
   }
@@ -118,11 +118,11 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Get user skills
  */
-export const getUserSkills = asyncHandler(async (req: Request, res: Response) => {
+export const getUserSkills = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.params.userId || req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const skills = await userService.getUserSkills(userId);
@@ -132,11 +132,11 @@ export const getUserSkills = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Add skill to user
  */
-export const addUserSkill = asyncHandler(async (req: Request, res: Response) => {
+export const addUserSkill = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const validatedData: AddUserSkillInput = addUserSkillSchema.parse(req.body);
@@ -145,8 +145,8 @@ export const addUserSkill = asyncHandler(async (req: Request, res: Response) => 
     const userSkill = await userService.addUserSkill(userId, validatedData);
     sendSuccess(res, userSkill, 'Skill added successfully', 201);
   } catch (error: any) {
-    if (error.message === 'You already have this skill') {
-      return sendError(res, error.message, 409);
+    if ((error as any).message === 'You already have this skill') {
+      return void sendError(res, (error as any).message, 409);
     }
     throw error;
   }
@@ -155,16 +155,16 @@ export const addUserSkill = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Update user skill
  */
-export const updateUserSkill = asyncHandler(async (req: Request, res: Response) => {
+export const updateUserSkill = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { skillId } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!skillId) {
-    return sendError(res, 'Skill ID required', 400);
+    return void sendError(res, 'Skill ID required', 400);
   }
 
   const validatedData: UpdateUserSkillInput = updateUserSkillSchema.parse(req.body);
@@ -173,8 +173,8 @@ export const updateUserSkill = asyncHandler(async (req: Request, res: Response) 
     const userSkill = await userService.updateUserSkill(userId, skillId, validatedData);
     sendSuccess(res, userSkill, 'Skill updated successfully');
   } catch (error: any) {
-    if (error.message === 'Skill not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Skill not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -183,24 +183,24 @@ export const updateUserSkill = asyncHandler(async (req: Request, res: Response) 
 /**
  * Remove user skill
  */
-export const removeUserSkill = asyncHandler(async (req: Request, res: Response) => {
+export const removeUserSkill = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { skillId } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!skillId) {
-    return sendError(res, 'Skill ID required', 400);
+    return void sendError(res, 'Skill ID required', 400);
   }
 
   try {
     await userService.removeUserSkill(userId, skillId);
     sendSuccess(res, null, 'Skill removed successfully');
   } catch (error: any) {
-    if (error.message === 'Skill not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Skill not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -209,7 +209,7 @@ export const removeUserSkill = asyncHandler(async (req: Request, res: Response) 
 /**
  * Search users
  */
-export const searchUsers = asyncHandler(async (req: Request, res: Response) => {
+export const searchUsers = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const validatedData: SearchUsersInput = searchUsersSchema.parse(req.query);
   const requestingUserId = req.user?.id;
 
@@ -221,7 +221,7 @@ export const searchUsers = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Get all available skills
  */
-export const getAllSkills = asyncHandler(async (req: Request, res: Response) => {
+export const getAllSkills = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const skills = await userService.getAllSkills();
   sendSuccess(res, skills);
 });
@@ -229,27 +229,27 @@ export const getAllSkills = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Endorse user skill
  */
-export const endorseUserSkill = asyncHandler(async (req: Request, res: Response) => {
+export const endorseUserSkill = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const endorserId = req.user?.id;
   const { userId, skillId } = req.params;
   
   if (!endorserId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!userId || !skillId) {
-    return sendError(res, 'User ID and Skill ID required', 400);
+    return void sendError(res, 'User ID and Skill ID required', 400);
   }
 
   try {
     const userSkill = await userService.endorseUserSkill(userId, skillId, endorserId);
     sendSuccess(res, userSkill, 'Skill endorsed successfully');
   } catch (error: any) {
-    if (error.message === 'You cannot endorse your own skills') {
-      return sendError(res, error.message, 400);
+    if ((error as any).message === 'You cannot endorse your own skills') {
+      return void sendError(res, (error as any).message, 400);
     }
-    if (error.message === 'Skill not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Skill not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -258,29 +258,29 @@ export const endorseUserSkill = asyncHandler(async (req: Request, res: Response)
 /**
  * Upload user avatar
  */
-export const handleAvatarUpload = asyncHandler(async (req: Request, res: Response) => {
+export const handleAvatarUpload = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!req.file) {
-    return sendError(res, 'No file uploaded', 400);
+    return void sendError(res, 'No file uploaded', 400);
   }
 
   try {
     // Generate full avatar URL including protocol and host
-    // Force HTTPS for Railway production environment
+    // Force HTTPS for Azure production environment
     const isProduction = process.env.NODE_ENV === 'production';
     const host = req.get('host');
-    
-    // Always use HTTPS for Railway production domains
+
+    // Always use HTTPS for Azure production domains
     let baseUrl;
     if (process.env.API_BASE_URL && process.env.API_BASE_URL.startsWith('http')) {
       baseUrl = process.env.API_BASE_URL;
-    } else if (host && host.includes('railway.app')) {
-      // Force HTTPS for Railway domains
+    } else if (host && host.includes('azurewebsites.net')) {
+      // Force HTTPS for Azure domains
       baseUrl = `https://${host}`;
     } else {
       // Use detected protocol for local development, but force HTTP for localhost
@@ -309,11 +309,11 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
 /**
  * Request data export
  */
-export const requestDataExport = asyncHandler(async (req: Request, res: Response) => {
+export const requestDataExport = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -327,24 +327,24 @@ export const requestDataExport = asyncHandler(async (req: Request, res: Response
 /**
  * Check export status
  */
-export const checkExportStatus = asyncHandler(async (req: Request, res: Response) => {
+export const checkExportStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { exportId } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!exportId) {
-    return sendError(res, 'Export ID required', 400);
+    return void sendError(res, 'Export ID required', 400);
   }
 
   try {
     const status = await userService.checkExportStatus(userId, exportId);
     sendSuccess(res, status);
   } catch (error: any) {
-    if (error.message === 'Export not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Export not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -353,16 +353,16 @@ export const checkExportStatus = asyncHandler(async (req: Request, res: Response
 /**
  * Download export data
  */
-export const downloadExportData = asyncHandler(async (req: Request, res: Response) => {
+export const downloadExportData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { exportId } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!exportId) {
-    return sendError(res, 'Export ID required', 400);
+    return void sendError(res, 'Export ID required', 400);
   }
 
   try {
@@ -376,8 +376,8 @@ export const downloadExportData = asyncHandler(async (req: Request, res: Respons
     const jsonData = Buffer.from(downloadInfo.filePath, 'base64').toString('utf-8');
     res.send(jsonData);
   } catch (error: any) {
-    if (error.message === 'Export not found' || error.message === 'Export not ready') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Export not found' || (error as any).message === 'Export not ready') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -386,16 +386,16 @@ export const downloadExportData = asyncHandler(async (req: Request, res: Respons
 /**
  * Delete user profile
  */
-export const deleteUserProfile = asyncHandler(async (req: Request, res: Response) => {
+export const deleteUserProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { confirmText } = req.body;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (confirmText !== 'DELETE MY PROFILE') {
-    return sendError(res, 'Invalid confirmation text', 400);
+    return void sendError(res, 'Invalid confirmation text', 400);
   }
 
   try {
@@ -409,11 +409,11 @@ export const deleteUserProfile = asyncHandler(async (req: Request, res: Response
 /**
  * Get privacy settings
  */
-export const getPrivacySettings = asyncHandler(async (req: Request, res: Response) => {
+export const getPrivacySettings = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -427,11 +427,11 @@ export const getPrivacySettings = asyncHandler(async (req: Request, res: Respons
 /**
  * Update privacy settings
  */
-export const updatePrivacySettings = asyncHandler(async (req: Request, res: Response) => {
+export const updatePrivacySettings = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {

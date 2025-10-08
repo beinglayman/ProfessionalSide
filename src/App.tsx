@@ -24,7 +24,7 @@ import NetworkPage from './pages/network';
 import SettingsPage from './pages/settings';
 import NotificationsPage from './pages/notifications';
 import ServiceStatusPageStandalone from './pages/services/status-standalone';
-import { RailwayStatus } from './pages/RailwayStatus';
+import { MCPCallbackPage } from './pages/mcp/callback';
 
 export type NetworkType = 'organization' | 'global';
 
@@ -54,11 +54,10 @@ const AppRoutes: React.FC = () => {
   const location = useLocation();
 
   // Special handling for services pages and legal pages - no header
-  if (location.pathname === '/services' || location.pathname === '/railway' || location.pathname === '/privacy' || location.pathname === '/terms') {
+  if (location.pathname === '/services' || location.pathname === '/privacy' || location.pathname === '/terms') {
     return (
       <Routes>
         <Route path="/services" element={<ServiceStatusPageStandalone />} />
-        <Route path="/railway" element={<RailwayStatus />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
       </Routes>
@@ -165,15 +164,19 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/notifications" 
+        <Route
+          path="/notifications"
           element={
             <ProtectedRoute>
               <NotificationsPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
+        <Route
+          path="/mcp/callback"
+          element={<MCPCallbackPage />}
+        />
+        <Route
           path="/workspaces/discovery" 
           element={
             <ProtectedRoute>

@@ -46,6 +46,10 @@ export class JournalService {
         category: data.category,
         tags: data.tags,
         skills: data.skills,
+        // Achievement fields
+        achievementType: data.achievementType,
+        achievementTitle: data.achievementTitle,
+        achievementDescription: data.achievementDescription,
         // Create collaborators
         collaborators: {
           create: data.collaborators?.map(collab => ({

@@ -156,7 +156,7 @@ export class NotificationQueueService {
       }
     } catch (error) {
       console.error(`Error processing notification ${notification.id}:`, error);
-      notification.error = error.message;
+      notification.error = (error as any).message;
       this.handleNotificationFailure(notification);
     }
   }

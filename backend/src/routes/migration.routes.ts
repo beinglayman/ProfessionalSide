@@ -8,7 +8,7 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Admin migration endpoint - execute benchmark data migration
-router.post('/execute-benchmark-migration', async (req: Request, res: Response) => {
+router.post('/execute-benchmark-migration', async (req: Request, res: Response): Promise<void> => {
   try {
     console.log('🚀 Starting benchmark migration via API endpoint...\n');
 
@@ -101,7 +101,7 @@ router.post('/execute-benchmark-migration', async (req: Request, res: Response) 
               errorCount++;
               errors.push({
                 skillName: benchmark.skillName,
-                error: error.message
+                error: (error as any).message
               });
               process.stdout.write('❌');
             }
@@ -139,7 +139,7 @@ router.post('/execute-benchmark-migration', async (req: Request, res: Response) 
       res.status(500).json({
         success: false,
         message: 'Migration failed',
-        error: error.message
+        error: (error as any).message
       });
     }
   } finally {
@@ -174,7 +174,7 @@ router.get('/benchmark-status', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to check benchmark status',
-      error: error.message
+      error: (error as any).message
     });
   }
 });

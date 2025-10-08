@@ -13,7 +13,7 @@ const searchService = new SearchService();
 /**
  * Global search across all content
  */
-export const globalSearch = asyncHandler(async (req: Request, res: Response) => {
+export const globalSearch = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   console.log('🔍 Search request received:', {
     query: req.query,
     user: req.user?.id,
@@ -24,7 +24,7 @@ export const globalSearch = asyncHandler(async (req: Request, res: Response) => 
   
   if (!userId) {
     console.log('❌ User not authenticated');
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const { 
@@ -45,7 +45,7 @@ export const globalSearch = asyncHandler(async (req: Request, res: Response) => 
 
   if (!q || typeof q !== 'string' || q.length < 2) {
     console.log('❌ Invalid query:', { q, type: typeof q, length: q?.length });
-    return sendError(res, 'Query must be at least 2 characters long', 400);
+    return void sendError(res, 'Query must be at least 2 characters long', 400);
   }
 
   // Parse types array
@@ -77,9 +77,9 @@ export const globalSearch = asyncHandler(async (req: Request, res: Response) => 
       company: company as string,
       skills: skillsArray,
       workspaceId: workspaceId as string,
-      dateRange: (dateFrom || dateTo) ? {
-        from: dateFrom ? new Date(dateFrom as string) : undefined,
-        to: dateTo ? new Date(dateTo as string) : undefined
+      dateRange: (dateFrom && dateTo) ? {
+        from: new Date(dateFrom as string),
+        to: new Date(dateTo as string)
       } : undefined,
       contentTypes: contentTypesArray
     },
@@ -95,8 +95,8 @@ export const globalSearch = asyncHandler(async (req: Request, res: Response) => 
     sendSuccess(res, result);
   } catch (error: any) {
     console.error('❌ Search error:', error);
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -105,21 +105,21 @@ export const globalSearch = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Get search suggestions
  */
-export const getSearchSuggestions = asyncHandler(async (req: Request, res: Response) => {
+export const getSearchSuggestions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const { q } = req.query;
 
   if (!q || typeof q !== 'string' || q.length < 2) {
-    return sendSuccess(res, []);
+    void sendSuccess(res, []);
   }
 
   try {
-    const suggestions = await searchService.getSearchSuggestions(userId, q);
+    const suggestions = await searchService.getSearchSuggestions(userId, q as string);
     sendSuccess(res, suggestions);
   } catch (error: any) {
     console.error('Search suggestions error:', error);
@@ -130,11 +130,11 @@ export const getSearchSuggestions = asyncHandler(async (req: Request, res: Respo
 /**
  * Get search history
  */
-export const getSearchHistory = asyncHandler(async (req: Request, res: Response) => {
+export const getSearchHistory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -149,25 +149,25 @@ export const getSearchHistory = asyncHandler(async (req: Request, res: Response)
 /**
  * Save a search query
  */
-export const saveSearch = asyncHandler(async (req: Request, res: Response) => {
+export const saveSearch = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const { name, query, filters } = req.body as SaveSearchInput;
 
   if (!name || !query) {
-    return sendError(res, 'Name and query are required', 400);
+    return void sendError(res, 'Name and query are required', 400);
   }
 
   try {
     const savedSearch = await searchService.saveSearch(userId, { name, query, filters });
     sendSuccess(res, savedSearch, 'Search saved successfully', 201);
   } catch (error: any) {
-    if (error.message.includes('already exists')) {
-      return sendError(res, error.message, 409);
+    if ((error as any).message.includes('already exists')) {
+      return void sendError(res, (error as any).message, 409);
     }
     throw error;
   }
@@ -176,27 +176,27 @@ export const saveSearch = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Delete saved search
  */
-export const deleteSavedSearch = asyncHandler(async (req: Request, res: Response) => {
+export const deleteSavedSearch = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { searchId } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!searchId) {
-    return sendError(res, 'Search ID is required', 400);
+    return void sendError(res, 'Search ID is required', 400);
   }
 
   try {
     await searchService.deleteSavedSearch(userId, searchId);
     sendSuccess(res, null, 'Saved search deleted successfully');
   } catch (error: any) {
-    if (error.message === 'Saved search not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Saved search not found') {
+      return void sendError(res, (error as any).message, 404);
     }
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -205,17 +205,17 @@ export const deleteSavedSearch = asyncHandler(async (req: Request, res: Response
 /**
  * Record search interaction (for analytics)
  */
-export const recordSearchInteraction = asyncHandler(async (req: Request, res: Response) => {
+export const recordSearchInteraction = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const { query, resultId, action } = req.body as SearchInteractionInput;
 
   if (!query || !resultId || !action) {
-    return sendError(res, 'Query, resultId, and action are required', 400);
+    return void sendError(res, 'Query, resultId, and action are required', 400);
   }
 
   try {

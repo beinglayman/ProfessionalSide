@@ -53,7 +53,7 @@ export class ExportService {
     // Start export process asynchronously
     this.processExport(exportProgress, request).catch(error => {
       console.error('Export process failed:', error);
-      this.updateExportStatus(exportId, 'failed', 0, error.message);
+      this.updateExportStatus(exportId, 'failed', 0, (error as any).message);
     });
 
     return exportProgress;
@@ -174,7 +174,7 @@ export class ExportService {
 
     } catch (error) {
       console.error('Export processing error:', error);
-      await this.updateExportStatus(exportProgress.id, 'failed', exportProgress.progress, error.message);
+      await this.updateExportStatus(exportProgress.id, 'failed', exportProgress.progress, (error as any).message);
       throw error;
     }
   }

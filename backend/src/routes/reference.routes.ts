@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 const router = express.Router();
@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
  * @desc Get all focus areas
  * @access Public
  */
-router.get('/focus-areas', async (req, res) => {
+router.get('/focus-areas', async (req: Request, res: Response) => {
   try {
     const focusAreas = await prisma.focusArea.findMany({
       orderBy: {
@@ -35,7 +35,7 @@ router.get('/focus-areas', async (req, res) => {
  * @desc Get work categories for a specific focus area
  * @access Public
  */
-router.get('/work-categories/:focusAreaId', async (req, res) => {
+router.get('/work-categories/:focusAreaId', async (req: Request, res: Response) => {
   try {
     const { focusAreaId } = req.params;
     
@@ -66,7 +66,7 @@ router.get('/work-categories/:focusAreaId', async (req, res) => {
  * @desc Get work types for a specific work category
  * @access Public
  */
-router.get('/work-types/:workCategoryId', async (req, res) => {
+router.get('/work-types/:workCategoryId', async (req: Request, res: Response) => {
   try {
     const { workCategoryId } = req.params;
     
@@ -97,7 +97,7 @@ router.get('/work-types/:workCategoryId', async (req, res) => {
  * @desc Get all skills
  * @access Public
  */
-router.get('/skills', async (req, res) => {
+router.get('/skills', async (req: Request, res: Response) => {
   try {
     const { category, workTypeId } = req.query;
     
@@ -151,7 +151,7 @@ router.get('/skills', async (req, res) => {
  * @desc Get skills associated with a specific work type
  * @access Public
  */
-router.get('/skills-for-work-type/:workTypeId', async (req, res) => {
+router.get('/skills-for-work-type/:workTypeId', async (req: Request, res: Response) => {
   try {
     const { workTypeId } = req.params;
     
@@ -184,7 +184,7 @@ router.get('/skills-for-work-type/:workTypeId', async (req, res) => {
  * @desc Get skills associated with multiple work types
  * @access Public
  */
-router.get('/skills-for-work-types', async (req, res) => {
+router.get('/skills-for-work-types', async (req: Request, res: Response): Promise<void> => {
   try {
     const { workTypeIds } = req.query;
     
@@ -248,7 +248,7 @@ router.get('/skills-for-work-types', async (req, res) => {
  * @desc Get complete hierarchical data for a focus area (categories, work types, and skills)
  * @access Public
  */
-router.get('/hierarchical-data/:focusAreaId', async (req, res) => {
+router.get('/hierarchical-data/:focusAreaId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { focusAreaId } = req.params;
     

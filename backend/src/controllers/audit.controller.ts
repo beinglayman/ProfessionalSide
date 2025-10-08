@@ -45,11 +45,11 @@ const resolveSecurityEventSchema = z.object({
 /**
  * Get audit logs
  */
-export const getAuditLogs = asyncHandler(async (req: Request, res: Response) => {
+export const getAuditLogs = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'admin', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -71,8 +71,8 @@ export const getAuditLogs = asyncHandler(async (req: Request, res: Response) => 
     
     sendPaginated(res, result.logs, result.pagination, 'Audit logs retrieved successfully');
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid query parameters', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid query parameters', 400, error.errors);
     }
     throw error;
   }
@@ -81,11 +81,11 @@ export const getAuditLogs = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Get user's own audit logs
  */
-export const getUserAuditLogs = asyncHandler(async (req: Request, res: Response) => {
+export const getUserAuditLogs = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -115,11 +115,11 @@ export const getUserAuditLogs = asyncHandler(async (req: Request, res: Response)
 /**
  * Get security events
  */
-export const getSecurityEvents = asyncHandler(async (req: Request, res: Response) => {
+export const getSecurityEvents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'admin', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -142,8 +142,8 @@ export const getSecurityEvents = asyncHandler(async (req: Request, res: Response
     
     sendPaginated(res, result.events, result.pagination, 'Security events retrieved successfully');
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid query parameters', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid query parameters', 400, error.errors);
     }
     throw error;
   }
@@ -152,16 +152,16 @@ export const getSecurityEvents = asyncHandler(async (req: Request, res: Response
 /**
  * Resolve security event
  */
-export const resolveSecurityEvent = asyncHandler(async (req: Request, res: Response) => {
+export const resolveSecurityEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   const { eventId } = req.params;
   
   if (!admin || !hasAdminPermission(admin, 'admin', 'update')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   if (!eventId) {
-    return sendError(res, 'Event ID is required', 400);
+    return void sendError(res, 'Event ID is required', 400);
   }
 
   try {
@@ -179,8 +179,8 @@ export const resolveSecurityEvent = asyncHandler(async (req: Request, res: Respo
       sendError(res, 'Failed to resolve security event', 500);
     }
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid resolution data', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid resolution data', 400, error.errors);
     }
     throw error;
   }
@@ -189,11 +189,11 @@ export const resolveSecurityEvent = asyncHandler(async (req: Request, res: Respo
 /**
  * Get system logs
  */
-export const getSystemLogs = asyncHandler(async (req: Request, res: Response) => {
+export const getSystemLogs = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'system', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -215,8 +215,8 @@ export const getSystemLogs = asyncHandler(async (req: Request, res: Response) =>
     
     sendPaginated(res, result.logs, result.pagination, 'System logs retrieved successfully');
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid query parameters', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid query parameters', 400, error.errors);
     }
     throw error;
   }
@@ -225,11 +225,11 @@ export const getSystemLogs = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Get audit statistics
  */
-export const getAuditStatistics = asyncHandler(async (req: Request, res: Response) => {
+export const getAuditStatistics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'analytics', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -247,18 +247,18 @@ export const getAuditStatistics = asyncHandler(async (req: Request, res: Respons
 /**
  * Clean up old logs (admin maintenance)
  */
-export const cleanupOldLogs = asyncHandler(async (req: Request, res: Response) => {
+export const cleanupOldLogs = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
-  if (!admin || admin.role !== 'super_admin') {
-    return sendError(res, 'Super admin access required', 403);
+  if (!admin || admin!.role !== 'super_admin') {
+    return void sendError(res, 'Super admin access required', 403);
   }
 
   try {
     const retentionDays = parseInt(req.query.retentionDays as string) || 90;
 
     if (retentionDays < 30) {
-      return sendError(res, 'Retention period must be at least 30 days', 400);
+      return void sendError(res, 'Retention period must be at least 30 days', 400);
     }
 
     await auditLogService.cleanupOldLogs(retentionDays);
@@ -272,11 +272,11 @@ export const cleanupOldLogs = asyncHandler(async (req: Request, res: Response) =
 /**
  * Export audit logs
  */
-export const exportAuditLogs = asyncHandler(async (req: Request, res: Response) => {
+export const exportAuditLogs = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const admin = req.admin;
   
   if (!admin || !hasAdminPermission(admin, 'admin', 'read')) {
-    return sendError(res, 'Permission denied', 403);
+    return void sendError(res, 'Permission denied', 403);
   }
 
   try {
@@ -285,7 +285,7 @@ export const exportAuditLogs = asyncHandler(async (req: Request, res: Response) 
     const format = (req.query.format as string) || 'json';
 
     if (!['json', 'csv'].includes(format)) {
-      return sendError(res, 'Invalid export format. Use json or csv', 400);
+      return void sendError(res, 'Invalid export format. Use json or csv', 400);
     }
 
     // Get all audit logs for the period (without pagination)

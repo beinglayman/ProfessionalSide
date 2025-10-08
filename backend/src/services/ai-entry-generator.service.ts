@@ -96,11 +96,11 @@ export class AIEntryGeneratorService {
     } catch (error) {
       console.error('❌ Error generating AI entries:', error);
       console.error('❌ Original error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        status: error.status,
-        type: error.type
+        message: (error as any).message,
+        stack: (error as any).stack,
+        name: (error as any).name,
+        status: (error as any).status,
+        type: (error as any).type
       });
       throw error; // Preserve original error instead of generic message
     }
@@ -338,9 +338,9 @@ Create a comprehensive network journal entry in JSON format that sanitizes all s
     } catch (error) {
       console.error('❌ Azure OpenAI connection test failed:', error);
       console.error('Error details:', {
-        message: error.message,
-        status: error.status,
-        type: error.type
+        message: (error as any).message,
+        status: (error as any).status,
+        type: (error as any).type
       });
       return false;
     }

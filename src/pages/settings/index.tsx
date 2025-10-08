@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit, Clock, Settings } from 'lucide-react';
+import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit, Clock, Settings, Link2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import NetworkSettings from '../../components/settings/network-settings';
 import NotificationSettings from '../../components/settings/notification-settings';
 import PrivacySettings from '../../components/settings/privacy-settings';
 import ProfileVisibility from '../../components/settings/profile-visibility';
+import IntegrationsSettings from '../../components/settings/integrations-settings';
 import { useNavigate, Link } from 'react-router-dom';
 
-type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy';
+type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy' | 'integrations';
 
 // Additional Settings Component
 function AdditionalSettings() {
@@ -136,6 +137,12 @@ const settingsTabs = [
     label: 'Privacy',
     icon: Shield,
     description: 'Manage your privacy and data sharing preferences'
+  },
+  {
+    id: 'integrations' as SettingsTab,
+    label: 'Integrations',
+    icon: Link2,
+    description: 'Connect external tools to import work activity'
   }
 ];
 
@@ -199,7 +206,10 @@ export function SettingsPage() {
       
       case 'privacy':
         return <PrivacySettings />;
-      
+
+      case 'integrations':
+        return <IntegrationsSettings />;
+
       default:
         return null;
     }

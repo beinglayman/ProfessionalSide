@@ -65,22 +65,25 @@ export interface SkillSearchResult extends BaseSearchResult {
 
 export type SearchResult = PeopleSearchResult | WorkspaceSearchResult | ContentSearchResult | SkillSearchResult;
 
+// Search filters interface
+export interface SearchFilters {
+  connectionType?: ('core' | 'extended' | 'following' | 'none')[];
+  location?: string;
+  company?: string;
+  skills?: string[];
+  workspaceId?: string;
+  dateRange?: {
+    from: Date;
+    to: Date;
+  };
+  contentTypes?: ('journal_entry' | 'achievement' | 'artifact')[];
+}
+
 // Search request parameters
 export interface SearchParams {
   query: string;
   types?: ('people' | 'workspaces' | 'content' | 'skills')[];
-  filters?: {
-    connectionType?: ('core' | 'extended' | 'following' | 'none')[];
-    location?: string;
-    company?: string;
-    skills?: string[];
-    workspaceId?: string;
-    dateRange?: {
-      from: Date;
-      to: Date;
-    };
-    contentTypes?: ('journal_entry' | 'achievement' | 'artifact')[];
-  };
+  filters?: SearchFilters;
   sortBy?: 'relevance' | 'recent' | 'popular' | 'network_proximity';
   limit?: number;
   offset?: number;

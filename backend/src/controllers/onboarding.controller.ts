@@ -17,11 +17,11 @@ const onboardingService = new OnboardingService();
 /**
  * Get current user's onboarding data
  */
-export const getMyOnboardingData = asyncHandler(async (req: Request, res: Response) => {
+export const getMyOnboardingData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const onboardingData = await onboardingService.getOnboardingData(userId);
@@ -36,7 +36,7 @@ export const getMyOnboardingData = asyncHandler(async (req: Request, res: Respon
       careerGoals: [],
       professionalInterests: []
     };
-    return sendSuccess(res, defaultData);
+    void sendSuccess(res, defaultData);
   }
 
   sendSuccess(res, onboardingData);
@@ -45,11 +45,11 @@ export const getMyOnboardingData = asyncHandler(async (req: Request, res: Respon
 /**
  * Create or update onboarding data
  */
-export const upsertOnboardingData = asyncHandler(async (req: Request, res: Response) => {
+export const upsertOnboardingData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const validatedData: UpdateOnboardingDataInput = updateOnboardingDataSchema.parse(req.body);
@@ -58,8 +58,8 @@ export const upsertOnboardingData = asyncHandler(async (req: Request, res: Respo
     const onboardingData = await onboardingService.upsertOnboardingData(userId, validatedData);
     sendSuccess(res, onboardingData, 'Onboarding data updated successfully');
   } catch (error: any) {
-    if (error.message.includes('Validation') || error.message.includes('Invalid')) {
-      return sendError(res, error.message, 400);
+    if ((error as any).message.includes('Validation') || (error as any).message.includes('Invalid')) {
+      return void sendError(res, (error as any).message, 400);
     }
     throw error;
   }
@@ -68,11 +68,11 @@ export const upsertOnboardingData = asyncHandler(async (req: Request, res: Respo
 /**
  * Update current step
  */
-export const updateCurrentStep = asyncHandler(async (req: Request, res: Response) => {
+export const updateCurrentStep = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const validatedData: UpdateOnboardingStepInput = updateOnboardingStepSchema.parse(req.body);
@@ -81,8 +81,8 @@ export const updateCurrentStep = asyncHandler(async (req: Request, res: Response
     const onboardingData = await onboardingService.updateCurrentStep(userId, validatedData);
     sendSuccess(res, onboardingData, 'Onboarding step updated successfully');
   } catch (error: any) {
-    if (error.message.includes('Validation') || error.message.includes('Invalid')) {
-      return sendError(res, error.message, 400);
+    if ((error as any).message.includes('Validation') || (error as any).message.includes('Invalid')) {
+      return void sendError(res, (error as any).message, 400);
     }
     throw error;
   }
@@ -91,16 +91,16 @@ export const updateCurrentStep = asyncHandler(async (req: Request, res: Response
 /**
  * Complete onboarding
  */
-export const completeOnboarding = asyncHandler(async (req: Request, res: Response) => {
+export const completeOnboarding = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
     // Complete onboarding with personal workspace creation
-    const success = await onboardingService.completeOnboardingWithWorkspace(userId, {});
+    const success = await onboardingService.completeOnboardingWithWorkspace(userId, { isCompleted: true });
     sendSuccess(res, { success }, 'Onboarding completed successfully with personal workspace created');
   } catch (error: any) {
     throw error;
@@ -110,11 +110,11 @@ export const completeOnboarding = asyncHandler(async (req: Request, res: Respons
 /**
  * Reset onboarding (delete onboarding data)
  */
-export const resetOnboarding = asyncHandler(async (req: Request, res: Response) => {
+export const resetOnboarding = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -128,11 +128,11 @@ export const resetOnboarding = asyncHandler(async (req: Request, res: Response) 
 /**
  * Get onboarding progress
  */
-export const getOnboardingProgress = asyncHandler(async (req: Request, res: Response) => {
+export const getOnboardingProgress = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const progress = await onboardingService.getOnboardingProgress(userId);
@@ -142,11 +142,11 @@ export const getOnboardingProgress = asyncHandler(async (req: Request, res: Resp
 /**
  * Check if user has completed onboarding
  */
-export const checkOnboardingStatus = asyncHandler(async (req: Request, res: Response) => {
+export const checkOnboardingStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const hasCompleted = await onboardingService.hasCompletedOnboarding(userId);
@@ -156,11 +156,11 @@ export const checkOnboardingStatus = asyncHandler(async (req: Request, res: Resp
 /**
  * Manually sync onboarding data to user profile (for fixing sync issues)
  */
-export const syncOnboardingToProfile = asyncHandler(async (req: Request, res: Response) => {
+export const syncOnboardingToProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const success = await onboardingService.manualSyncOnboardingData(userId);
@@ -175,11 +175,11 @@ export const syncOnboardingToProfile = asyncHandler(async (req: Request, res: Re
 /**
  * Skip onboarding
  */
-export const skipOnboarding = asyncHandler(async (req: Request, res: Response) => {
+export const skipOnboarding = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -194,16 +194,16 @@ export const skipOnboarding = asyncHandler(async (req: Request, res: Response) =
 /**
  * Update specific step data
  */
-export const updateStepData = asyncHandler(async (req: Request, res: Response) => {
+export const updateStepData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const stepNumber = parseInt(req.params.stepNumber);
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!stepNumber || stepNumber < 1 || stepNumber > 7) {
-    return sendError(res, 'Invalid step number. Must be between 1 and 7', 400);
+    return void sendError(res, 'Invalid step number. Must be between 1 and 7', 400);
   }
 
   // Validate the step data based on the step number
@@ -211,15 +211,15 @@ export const updateStepData = asyncHandler(async (req: Request, res: Response) =
   try {
     validatedData = updateOnboardingDataSchema.parse(req.body);
   } catch (error: any) {
-    return sendError(res, `Validation failed: ${error.message}`, 400);
+    return void sendError(res, `Validation failed: ${(error as any).message}`, 400);
   }
 
   try {
     const onboardingData = await onboardingService.updateStepData(userId, stepNumber, validatedData);
     sendSuccess(res, onboardingData, `Step ${stepNumber} data updated successfully`);
   } catch (error: any) {
-    if (error.message.includes('Validation') || error.message.includes('Invalid')) {
-      return sendError(res, error.message, 400);
+    if ((error as any).message.includes('Validation') || (error as any).message.includes('Invalid')) {
+      return void sendError(res, (error as any).message, 400);
     }
     throw error;
   }

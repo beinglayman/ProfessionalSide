@@ -52,7 +52,12 @@ export const createJournalEntrySchema = z.object({
     description: z.string().min(1).max(1000),
     highlight: z.string().max(200).optional(),
     metrics: z.string().optional() // JSON string for metrics data
-  })).optional().default([])
+  })).optional().default([]),
+  // Achievement fields (optional - for achievement entries)
+  achievementType: z.enum(['certification', 'award', 'milestone', 'recognition']).optional(),
+  achievementTitle: z.string().min(1).max(200).optional(),
+  achievementDescription: z.string().max(1000).optional(),
+  linkedGoalId: z.string().optional() // Optional goal linking
 });
 
 // Update journal entry schema
@@ -83,7 +88,11 @@ export const updateJournalEntrySchema = z.object({
     .optional(),
   skills: z.array(z.string().max(100))
     .max(20, 'Maximum 20 skills allowed')
-    .optional()
+    .optional(),
+  // Achievement fields (optional - for achievement entries)
+  achievementType: z.enum(['certification', 'award', 'milestone', 'recognition']).optional(),
+  achievementTitle: z.string().min(1).max(200).optional(),
+  achievementDescription: z.string().max(1000).optional()
 });
 
 // Get journal entries schema (query parameters)

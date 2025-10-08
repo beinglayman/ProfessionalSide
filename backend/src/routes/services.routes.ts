@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -79,7 +79,7 @@ const checkHealthEndpoint = async (url: string): Promise<boolean> => {
   }
 };
 
-router.post('/status', async (req, res) => {
+router.post('/status', async (req: Request, res: Response) => {
   try {
     const { serviceId, port, healthEndpoint } = req.body;
     let serviceInfo: ServiceInfo = { status: 'unknown' };
@@ -146,7 +146,7 @@ router.post('/status', async (req, res) => {
   }
 });
 
-router.post('/control', async (req, res) => {
+router.post('/control', async (req: Request, res: Response): Promise<void> => {
   try {
     const { serviceId, action, command } = req.body;
 
@@ -192,7 +192,7 @@ router.post('/control', async (req, res) => {
   }
 });
 
-router.get('/logs/:serviceId', async (req, res) => {
+router.get('/logs/:serviceId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { serviceId } = req.params;
     const lines = parseInt(req.query.lines as string) || 100;
@@ -234,7 +234,7 @@ router.get('/logs/:serviceId', async (req, res) => {
 });
 
 // System overview endpoint
-router.get('/overview', async (req, res) => {
+router.get('/overview', async (req: Request, res: Response) => {
   try {
     const services = ['frontend', 'backend', 'prisma-studio'];
     const overview = {

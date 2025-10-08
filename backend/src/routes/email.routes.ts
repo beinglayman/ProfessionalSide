@@ -25,7 +25,7 @@ router.get('/test-config', authenticate, testEmailConfig);
 
 /**
  * @route   GET /api/v1/email/test-config-public
- * @desc    Test email configuration (public access for Railway status page)
+ * @desc    Test email configuration (public access for health monitoring)
  * @access  Public
  */
 router.get('/test-config-public', testEmailConfig);
@@ -40,7 +40,7 @@ router.post('/test', authenticate, sendTestEmail);
 
 /**
  * @route   POST /api/v1/email/test-public
- * @desc    Send test email (public access for Railway status page)
+ * @desc    Send test email (public access for health monitoring)
  * @access  Public
  * @body    { to: string, subject: string, message: string }
  */

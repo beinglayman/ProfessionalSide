@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
 import { prisma } from '../app';
@@ -99,27 +99,27 @@ const validateStatusTransition = (currentStatus: string, newStatus: string): str
 };
 
 // Update goal (general endpoint for assignedToId, reviewerId, status, etc.)
-router.put('/:goalId', async (req, res) => {
+router.put('/:goalId', async (req: Request, res: Response) => {
   try {
     const { goalId } = req.params;
     const updateData = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     
     
     // Validate goal ID format
     if (!goalId || typeof goalId !== 'string' || goalId.trim().length === 0) {
-      return sendError(res, 'Invalid goal ID format', 400);
+      return void sendError(res, 'Invalid goal ID format', 400);
     }
     
     // Validate request body
     if (!updateData || typeof updateData !== 'object') {
-      return sendError(res, 'Invalid request body', 400);
+      return void sendError(res, 'Invalid request body', 400);
     }
     
     // Comprehensive request validation
     const validationErrors = validateUpdateRequest(updateData);
     if (validationErrors.length > 0) {
-      return sendError(res, validationErrors.join('; '), 400);
+      return void sendError(res, validationErrors.join('; '), 400);
     }
     
     // Find the goal in the database
@@ -145,7 +145,7 @@ router.put('/:goalId', async (req, res) => {
     });
     
     if (!goal) {
-      return sendError(res, 'Goal not found', 404);
+      return void sendError(res, 'Goal not found', 404);
     }
     
     // Check if user has permission to update this goal
@@ -154,14 +154,14 @@ router.put('/:goalId', async (req, res) => {
                          goal.reviewerId === userId;
     
     if (!hasPermission) {
-      return sendError(res, 'You do not have permission to modify this goal. Only the creator, assignee, or reviewer can make changes.', 403);
+      return void sendError(res, 'You do not have permission to modify this goal. Only the creator, assignee, or reviewer can make changes.', 403);
     }
     
     // Validate status transition if status is being changed
     if (updateData.status !== undefined && updateData.status !== goal.status) {
       const transitionError = validateStatusTransition(goal.status, updateData.status);
       if (transitionError) {
-        return sendError(res, transitionError, 400);
+        return void sendError(res, transitionError, 400);
       }
     }
     
@@ -302,38 +302,38 @@ router.put('/:goalId', async (req, res) => {
       changeLog
     });
     
-    return sendSuccess(res, transformedGoal, 'Goal updated successfully');
+    void sendSuccess(res, transformedGoal, 'Goal updated successfully');
     
   } catch (error) {
     console.error('❌ Goal update failed:', {
       goalId: req.params.goalId,
       userId: req.user?.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? (error as any).message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
     
     // Return user-friendly error messages
     if (error instanceof Error) {
-      if (error.message.includes('Unique constraint') || error.message.includes('unique')) {
-        return sendError(res, 'A goal with this name already exists in the workspace', 409);
+      if ((error as any).message.includes('Unique constraint') || (error as any).message.includes('unique')) {
+        return void sendError(res, 'A goal with this name already exists in the workspace', 409);
       }
-      if (error.message.includes('Foreign key constraint') || error.message.includes('reference')) {
-        return sendError(res, 'Referenced user or workspace does not exist', 400);
+      if ((error as any).message.includes('Foreign key constraint') || (error as any).message.includes('reference')) {
+        return void sendError(res, 'Referenced user or workspace does not exist', 400);
       }
-      if (error.message.includes('timeout') || error.message.includes('connection')) {
-        return sendError(res, 'Database connection timeout. Please try again.', 503);
+      if ((error as any).message.includes('timeout') || (error as any).message.includes('connection')) {
+        return void sendError(res, 'Database connection timeout. Please try again.', 503);
       }
     }
     
-    return sendError(res, 'Failed to update goal due to an internal error. Please try again or contact support if the problem persists.', 500);
+    return void sendError(res, 'Failed to update goal due to an internal error. Please try again or contact support if the problem persists.', 500);
   }
 });
 
 // Toggle milestone completion
-router.put('/:goalId/milestones/:milestoneId/toggle', async (req, res) => {
+router.put('/:goalId/milestones/:milestoneId/toggle', async (req: Request, res: Response) => {
   try {
     const { goalId, milestoneId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     
     console.log('🎯 Toggle milestone called:', { goalId, milestoneId, userId });
     
@@ -355,7 +355,7 @@ router.put('/:goalId/milestones/:milestoneId/toggle', async (req, res) => {
     
     if (!milestone) {
       console.log('❌ Milestone not found:', milestoneId);
-      return sendError(res, 'Milestone not found', 404);
+      return void sendError(res, 'Milestone not found', 404);
     }
 
     // Check if user has access to this workspace
@@ -367,7 +367,7 @@ router.put('/:goalId/milestones/:milestoneId/toggle', async (req, res) => {
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
     
     // Toggle completion status in database
@@ -427,11 +427,11 @@ router.put('/:goalId/milestones/:milestoneId/toggle', async (req, res) => {
 });
 
 // Update goal progress manually
-router.put('/:goalId/progress', async (req, res) => {
+router.put('/:goalId/progress', async (req: Request, res: Response) => {
   try {
     const { goalId } = req.params;
     const { progressOverride, autoCalculateProgress } = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     
     console.log('🎯 Manual progress update called:', { goalId, progressOverride, autoCalculateProgress });
     
@@ -451,7 +451,7 @@ router.put('/:goalId/progress', async (req, res) => {
     
     if (!targetGoal) {
       console.log('❌ Goal not found:', goalId);
-      return sendError(res, 'Goal not found', 404);
+      return void sendError(res, 'Goal not found', 404);
     }
     
     // Update progress settings
@@ -512,12 +512,12 @@ router.put('/:goalId/progress', async (req, res) => {
 // Test routes removed - catch-all routes were interfering with task routes
 
 // Create a new task for a milestone
-router.post('/:goalId/milestones/:milestoneId/tasks', async (req, res) => {
+router.post('/:goalId/milestones/:milestoneId/tasks', async (req: Request, res: Response) => {
   console.log('🚀 POST TASK ROUTE HIT:', req.path, req.params);
   try {
     const { goalId, milestoneId } = req.params;
     const { title, description, assignedTo, reviewerId, priority, status, dueDate } = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     console.log('📝 Creating task for milestone:', { goalId, milestoneId, title });
 
@@ -551,7 +551,7 @@ router.post('/:goalId/milestones/:milestoneId/tasks', async (req, res) => {
 
     if (!milestone) {
       console.log('❌ Milestone not found or access denied:', { goalId, milestoneId });
-      return sendError(res, 'Milestone not found or access denied', 404);
+      return void sendError(res, 'Milestone not found or access denied', 404);
     }
 
     console.log('✅ Found milestone:', { goalId, milestoneId: milestone.id });
@@ -613,10 +613,10 @@ router.post('/:goalId/milestones/:milestoneId/tasks', async (req, res) => {
 });
 
 // Get all tasks for a milestone
-router.get('/:goalId/milestones/:milestoneId/tasks', async (req, res) => {
+router.get('/:goalId/milestones/:milestoneId/tasks', async (req: Request, res: Response) => {
   try {
     const { goalId, milestoneId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     console.log('📋 Retrieving tasks for milestone:', { goalId, milestoneId });
 
@@ -639,7 +639,7 @@ router.get('/:goalId/milestones/:milestoneId/tasks', async (req, res) => {
 
     if (!milestone) {
       console.log('❌ Milestone not found or access denied:', { goalId, milestoneId });
-      return sendError(res, 'Milestone not found or access denied', 404);
+      return void sendError(res, 'Milestone not found or access denied', 404);
     }
 
     // Get all tasks for the milestone from database
@@ -692,10 +692,10 @@ router.get('/:goalId/milestones/:milestoneId/tasks', async (req, res) => {
 
 
 // Toggle task completion
-router.put('/:goalId/milestones/:milestoneId/tasks/:taskId/toggle', async (req, res) => {
+router.put('/:goalId/milestones/:milestoneId/tasks/:taskId/toggle', async (req: Request, res: Response) => {
   try {
     const { goalId, milestoneId, taskId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     console.log('☑️ Toggling task completion:', { taskId });
 
@@ -724,7 +724,7 @@ router.put('/:goalId/milestones/:milestoneId/tasks/:taskId/toggle', async (req, 
 
     if (!task) {
       console.log('❌ Task not found:', taskId);
-      return sendError(res, 'Task not found', 404);
+      return void sendError(res, 'Task not found', 404);
     }
 
     // Check if user has access to this workspace
@@ -736,7 +736,7 @@ router.put('/:goalId/milestones/:milestoneId/tasks/:taskId/toggle', async (req, 
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     console.log('✅ Found task:', { taskId: task.id, currentCompleted: task.completed });
@@ -840,10 +840,10 @@ router.put('/:goalId/milestones/:milestoneId/tasks/:taskId/toggle', async (req, 
 });
 
 // Update task properties (priority, status, assignment, etc.)
-router.put('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res) => {
+router.put('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req: Request, res: Response) => {
   try {
     const { goalId, milestoneId, taskId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const updates = req.body;
 
     // Find the task in database
@@ -870,7 +870,7 @@ router.put('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res) =>
 
     if (!task) {
       console.log('❌ Task not found:', taskId);
-      return sendError(res, 'Task not found', 404);
+      return void sendError(res, 'Task not found', 404);
     }
 
     // Check if user has access to this workspace
@@ -882,7 +882,7 @@ router.put('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res) =>
     });
 
     if (!hasAccess) {
-      return sendError(res, 'Access denied', 403);
+      return void sendError(res, 'Access denied', 403);
     }
 
     // Update the task with provided fields
@@ -992,10 +992,10 @@ router.put('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res) =>
 });
 
 // Delete a task
-router.delete('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res) => {
+router.delete('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req: Request, res: Response) => {
   try {
     const { goalId, milestoneId, taskId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     console.log('🗑️ Deleting task:', { taskId });
 
@@ -1029,7 +1029,7 @@ router.delete('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res)
 
     if (!task) {
       console.log('❌ Task not found or access denied:', { goalId, milestoneId, taskId });
-      return sendError(res, 'Task not found or access denied', 404);
+      return void sendError(res, 'Task not found or access denied', 404);
     }
 
     console.log('✅ Found task to delete:', { taskId: task.id, title: task.title });
@@ -1097,11 +1097,11 @@ router.delete('/:goalId/milestones/:milestoneId/tasks/:taskId', async (req, res)
 });
 
 // Manually complete/uncomplete a milestone (override task-based completion)
-router.put('/:goalId/milestones/:milestoneId/complete', async (req, res) => {
+router.put('/:goalId/milestones/:milestoneId/complete', async (req: Request, res: Response) => {
   try {
     const { goalId, milestoneId } = req.params;
     const { completed } = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     console.log('🎯 Manually completing milestone:', { milestoneId, completed });
 
@@ -1123,7 +1123,7 @@ router.put('/:goalId/milestones/:milestoneId/complete', async (req, res) => {
     });
 
     if (!milestone) {
-      return sendError(res, 'Milestone not found or access denied', 404);
+      return void sendError(res, 'Milestone not found or access denied', 404);
     }
 
     // Update milestone completion
@@ -1170,10 +1170,10 @@ router.put('/:goalId/milestones/:milestoneId/complete', async (req, res) => {
 // ============================================================================
 
 // Get workspace labels for Priority and Status
-router.get('/workspace/:workspaceId/labels', async (req, res) => {
+router.get('/workspace/:workspaceId/labels', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Verify user has access to workspace
     const workspaceMember = await prisma.workspaceMember.findFirst({
@@ -1185,7 +1185,7 @@ router.get('/workspace/:workspaceId/labels', async (req, res) => {
     });
 
     if (!workspaceMember) {
-      return sendError(res, 'Workspace access denied', 403);
+      return void sendError(res, 'Workspace access denied', 403);
     }
 
     // Get all labels for this workspace
@@ -1207,11 +1207,11 @@ router.get('/workspace/:workspaceId/labels', async (req, res) => {
 });
 
 // Create or update workspace label values
-router.put('/workspace/:workspaceId/labels/:type', async (req, res) => {
+router.put('/workspace/:workspaceId/labels/:type', async (req: Request, res: Response) => {
   try {
     const { workspaceId, type } = req.params;
     const { values } = req.body; // Array of { name, color, order }
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Verify user has access to workspace (admin/owner only)
     const workspaceMember = await prisma.workspaceMember.findFirst({
@@ -1224,12 +1224,12 @@ router.put('/workspace/:workspaceId/labels/:type', async (req, res) => {
     });
 
     if (!workspaceMember) {
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     // Validate type
     if (!['priority', 'status'].includes(type)) {
-      return sendError(res, 'Invalid label type. Must be "priority" or "status"', 400);
+      return void sendError(res, 'Invalid label type. Must be "priority" or "status"', 400);
     }
 
     // Find or create the workspace label
@@ -1282,10 +1282,10 @@ router.put('/workspace/:workspaceId/labels/:type', async (req, res) => {
 });
 
 // Initialize default workspace labels (called when workspace is created)
-router.post('/workspace/:workspaceId/labels/initialize', async (req, res) => {
+router.post('/workspace/:workspaceId/labels/initialize', async (req: Request, res: Response) => {
   try {
     const { workspaceId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     // Verify user has access to workspace (admin/owner only)
     const workspaceMember = await prisma.workspaceMember.findFirst({
@@ -1298,7 +1298,7 @@ router.post('/workspace/:workspaceId/labels/initialize', async (req, res) => {
     });
 
     if (!workspaceMember) {
-      return sendError(res, 'Insufficient permissions', 403);
+      return void sendError(res, 'Insufficient permissions', 403);
     }
 
     // Check if labels already exist
@@ -1307,7 +1307,7 @@ router.post('/workspace/:workspaceId/labels/initialize', async (req, res) => {
     });
 
     if (existingLabels > 0) {
-      return sendError(res, 'Workspace labels already initialized', 400);
+      return void sendError(res, 'Workspace labels already initialized', 400);
     }
 
     // Create Priority label with default values

@@ -28,29 +28,30 @@ router.post('/generate',
     body('projects').isArray().withMessage('Projects must be an array'),
     body('departments').isArray().withMessage('Departments must be an array'),
   ],
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       // Validate input
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: 'Validation failed',
           details: errors.array()
         });
+        return;
       }
 
-      const entryData = req.body;
+      const entryData = req.body as any;
       
       // Initialize AI service
       const aiService = new AIEntryGeneratorService();
       
-      console.log('🤖 Generating AI entries for user:', req.user?.id);
-      console.log('📝 Entry data:', entryData.title);
+      console.log('🤖 Generating AI entries for user:', (req as any).user?.id);
+      console.log('📝 Entry data:', entryData?.title);
       console.log('🔍 User context:', {
-        userId: req.user?.id,
-        userEmail: req.user?.email,
-        userName: req.user?.name
+        userId: (req as any).user?.id,
+        userEmail: (req as any).user?.email,
+        userName: (req as any).user?.name
       });
       
       // Generate both workspace and network entries
@@ -64,32 +65,34 @@ router.post('/generate',
     } catch (error) {
       console.error('❌ AI entry generation error:', error);
       console.error('❌ Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        status: error.status,
-        type: error.type
+        message: (error as any).message,
+        stack: (error as any).stack,
+        name: (error as any).name,
+        status: (error as any).status,
+        type: (error as any).type
       });
       
       // Handle specific Azure OpenAI errors
-      if (error.message.includes('Azure OpenAI credentials not configured')) {
-        return res.status(500).json({
+      if ((error as any).message.includes('Azure OpenAI credentials not configured')) {
+        res.status(500).json({
           success: false,
           error: 'AI service is not properly configured'
         });
+        return;
       }
       
-      if (error.message.includes('Failed to generate AI entries')) {
-        return res.status(500).json({
+      if ((error as any).message.includes('Failed to generate AI entries')) {
+        res.status(500).json({
           success: false,
           error: 'Failed to generate entries. Please try again.'
         });
+        return;
       }
       
       res.status(500).json({
         success: false,
         error: 'Internal server error while generating AI entries',
-        details: error.message
+        details: (error as any).message
       });
     }
   }
@@ -102,7 +105,7 @@ router.post('/generate',
  */
 router.post('/test-connection', 
   authenticate,
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       // Only allow admin users to test connection (optional security measure)
       // You can uncomment this if you want to restrict access
@@ -132,7 +135,7 @@ router.post('/test-connection',
       res.status(500).json({
         success: false,
         error: 'Failed to test AI connection',
-        details: error.message
+        details: (error as any).message
       });
     }
   }
@@ -145,7 +148,7 @@ router.post('/test-connection',
  */
 router.get('/config-status',
   authenticate,
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       const isConfigured = !!(
         process.env.AZURE_OPENAI_ENDPOINT && 

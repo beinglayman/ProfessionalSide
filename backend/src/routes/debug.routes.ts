@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { sendSuccess, sendError } from '../utils/response.utils';
 
@@ -6,7 +6,7 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Debug route to check database schema
-router.get('/db-check', async (req, res) => {
+router.get('/db-check', async (req: Request, res: Response) => {
   try {
     const results = {
       tables: {},

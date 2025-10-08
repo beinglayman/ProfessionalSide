@@ -76,7 +76,7 @@ export const authenticate = async (
           }
         });
         console.log('✅ Created demo user:', user.id);
-      } else if (!user.title || !user.company) {
+      } else if (!(user as any).title || !(user as any).company) {
         // Update existing demo user with rich profile data if missing
         user = await prisma.user.update({
           where: { email: 'demo@example.com' },
@@ -97,7 +97,7 @@ export const authenticate = async (
         console.log('✅ Updated demo user with profile data:', user.id);
       }
       
-      req.user = user;
+      req.user = user as any;
       next();
       return;
     }

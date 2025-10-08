@@ -36,7 +36,7 @@ export const generateAccessToken = (userId: string, email: string): string => {
     type: 'access'
   };
   
-  return jwt.sign(payload, JWT_SECRET, { 
+  return (jwt.sign as any)(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
     issuer: 'inchronicle-api',
     audience: 'inchronicle-app'
@@ -53,7 +53,7 @@ export const generateRefreshToken = (userId: string, email: string): string => {
     type: 'refresh'
   };
   
-  return jwt.sign(payload, JWT_SECRET, { 
+  return (jwt.sign as any)(payload, JWT_SECRET, {
     expiresIn: JWT_REFRESH_EXPIRES_IN,
     issuer: 'inchronicle-api',
     audience: 'inchronicle-app'

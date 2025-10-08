@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.middleware';
@@ -61,9 +61,9 @@ const updatePreferencesSchema = z.object({
 });
 
 // Get notifications for current user
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { 
       page = '1', 
       limit = '20', 
@@ -115,9 +115,9 @@ router.get('/', async (req, res) => {
 });
 
 // Get unread notification count
-router.get('/unread-count', async (req, res) => {
+router.get('/unread-count', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const count = await prisma.notification.count({
       where: {
@@ -134,9 +134,9 @@ router.get('/unread-count', async (req, res) => {
 });
 
 // Get notification preferences
-router.get('/preferences', async (req, res) => {
+router.get('/preferences', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     let preferences = await prisma.notificationPreferences.findUnique({
       where: { userId }
@@ -168,9 +168,9 @@ router.get('/preferences', async (req, res) => {
 });
 
 // Create notification
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const senderId = req.user.id;
+    const senderId = req.user!.id;
     const validatedData = createNotificationSchema.parse(req.body);
 
     // Check if recipient exists
@@ -179,7 +179,7 @@ router.post('/', async (req, res) => {
     });
 
     if (!recipient) {
-      return sendError(res, 'Recipient not found', 404);
+      return void sendError(res, 'Recipient not found', 404);
     }
 
     // Check recipient's notification preferences
@@ -199,7 +199,7 @@ router.post('/', async (req, res) => {
       };
 
       if (!typeEnabled[validatedData.type]) {
-        return sendSuccess(res, null, 'Notification blocked by user preferences');
+        void sendSuccess(res, null, 'Notification blocked by user preferences');
       }
 
       // Check quiet hours for email and push notifications
@@ -299,7 +299,7 @@ router.post('/', async (req, res) => {
     sendSuccess(res, notification, 'Notification created successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error creating notification:', error);
     sendError(res, 'Failed to create notification', 500);
@@ -307,10 +307,10 @@ router.post('/', async (req, res) => {
 });
 
 // Mark notification as read
-router.put('/:notificationId/read', async (req, res) => {
+router.put('/:notificationId/read', async (req: Request, res: Response) => {
   try {
     const { notificationId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const notification = await prisma.notification.findFirst({
       where: {
@@ -320,11 +320,11 @@ router.put('/:notificationId/read', async (req, res) => {
     });
 
     if (!notification) {
-      return sendError(res, 'Notification not found', 404);
+      return void sendError(res, 'Notification not found', 404);
     }
 
     if (notification.isRead) {
-      return sendSuccess(res, notification, 'Notification already read');
+      void sendSuccess(res, notification, 'Notification already read');
     }
 
     const updatedNotification = await prisma.notification.update({
@@ -352,9 +352,9 @@ router.put('/:notificationId/read', async (req, res) => {
 });
 
 // Mark all notifications as read
-router.put('/mark-all-read', async (req, res) => {
+router.put('/mark-all-read', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const result = await prisma.notification.updateMany({
       where: {
@@ -375,10 +375,10 @@ router.put('/mark-all-read', async (req, res) => {
 });
 
 // Delete notification
-router.delete('/:notificationId', async (req, res) => {
+router.delete('/:notificationId', async (req: Request, res: Response) => {
   try {
     const { notificationId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const notification = await prisma.notification.findFirst({
       where: {
@@ -388,7 +388,7 @@ router.delete('/:notificationId', async (req, res) => {
     });
 
     if (!notification) {
-      return sendError(res, 'Notification not found', 404);
+      return void sendError(res, 'Notification not found', 404);
     }
 
     await prisma.notification.delete({
@@ -403,9 +403,9 @@ router.delete('/:notificationId', async (req, res) => {
 });
 
 // Update notification preferences
-router.put('/preferences', async (req, res) => {
+router.put('/preferences', async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const validatedData = updatePreferencesSchema.parse(req.body);
 
     const preferences = await prisma.notificationPreferences.upsert({
@@ -429,7 +429,7 @@ router.put('/preferences', async (req, res) => {
     sendSuccess(res, preferences, 'Preferences updated successfully');
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error updating notification preferences:', error);
     sendError(res, 'Failed to update notification preferences', 500);

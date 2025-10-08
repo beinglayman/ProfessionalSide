@@ -49,6 +49,7 @@ export function ProfileViewPage() {
   const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
   const [activeTab, setActiveTab] = useState('journal');
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
   
   // Onboarding overlay state
   const { 
@@ -95,6 +96,13 @@ export function ProfileViewPage() {
 
   const clearAllSkills = () => {
     setSelectedSkills(new Set());
+  };
+
+  const toggleEntryViewMode = (entryId: string) => {
+    setEntryViewModes(prev => ({
+      ...prev,
+      [entryId]: prev[entryId] === 'workspace' ? 'network' : 'workspace'
+    }));
   };
 
   // Create dynamic skills from profile skills and topSkills combined with journal entries
@@ -168,6 +176,30 @@ export function ProfileViewPage() {
     });
   }, [journalEntriesData, profile?.topSkills]);
 
+  // Enhanced journal entries with dual-view capability
+  const enhancedJournalEntries = useMemo(() => {
+    const realJournalEntries = journalEntriesData?.entries || [];
+
+    return realJournalEntries.map((entry: JournalEntryType) => {
+      // Check if entry supports dual views (has abstractContent and is published)
+      const hasMultipleVisibilities = !!(entry.abstractContent && entry.visibility === 'network');
+
+      // Set default view mode if not already set for dual-view entries
+      if (hasMultipleVisibilities && !entryViewModes[entry.id]) {
+        setEntryViewModes(prev => ({
+          ...prev,
+          [entry.id]: 'workspace' // Default to workspace view
+        }));
+      }
+
+      return {
+        ...entry,
+        hasMultipleVisibilities,
+        currentViewMode: entryViewModes[entry.id] || 'workspace'
+      };
+    });
+  }, [journalEntriesData, entryViewModes]);
+
   const selectAllSkills = () => {
     setSelectedSkills(new Set(combinedSkills.map((skill: Skill) => skill.name)));
   };
@@ -178,14 +210,11 @@ export function ProfileViewPage() {
   );
 
   const filteredJournalEntries = useMemo(() => {
-    // Use real journal entries data, fallback to empty array if loading or no data
-    const realJournalEntries = journalEntriesData?.entries || [];
-    
-    if (selectedSkills.size === 0) return realJournalEntries;
-    return realJournalEntries.filter((entry: JournalEntryType) =>
+    if (selectedSkills.size === 0) return enhancedJournalEntries;
+    return enhancedJournalEntries.filter((entry) =>
       entry.skills.some((skill: string) => selectedSkills.has(skill))
     );
-  }, [selectedSkills, journalEntriesData]);
+  }, [selectedSkills, enhancedJournalEntries]);
 
   const filteredAchievements = useMemo(() => {
     // No achievements from profile data yet - return empty array
@@ -763,12 +792,40 @@ export function ProfileViewPage() {
 
               <div className="mt-6">
                 <Tabs.Content value="achievements" className="space-y-6">
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-                    <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-600">
-                      No achievements available yet. Complete more onboarding steps to see your achievements here.
-                    </p>
-                  </div>
+                  {(() => {
+                    // Filter journal entries that have achievement data
+                    const achievementEntries = filteredJournalEntries.filter(entry =>
+                      entry.achievementType && entry.achievementTitle
+                    );
+
+                    if (achievementEntries.length === 0) {
+                      return (
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+                          <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                          <p className="text-gray-600">
+                            No achievements available yet. Complete goals through journal entries to see your achievements here.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return achievementEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="transform transition-all duration-300 ease-in-out"
+                      >
+                        <JournalCard
+                          journal={entry}
+                          viewMode={entry.currentViewMode}
+                          showMenuButton={false}
+                          showAnalyticsButton={true}
+                          showUserProfile={false}
+                          hasMultipleVisibilities={entry.hasMultipleVisibilities}
+                          onToggleViewMode={() => toggleEntryViewMode(entry.id)}
+                        />
+                      </div>
+                    ));
+                  })()}
                 </Tabs.Content>
 
                 <Tabs.Content value="journal" className="space-y-6">
@@ -777,12 +834,14 @@ export function ProfileViewPage() {
                       key={entry.id}
                       className="transform transition-all duration-300 ease-in-out"
                     >
-                      <JournalCard 
+                      <JournalCard
                         journal={entry}
-                        viewMode="network"
+                        viewMode={entry.currentViewMode}
                         showMenuButton={false}
                         showAnalyticsButton={true}
                         showUserProfile={false}
+                        hasMultipleVisibilities={entry.hasMultipleVisibilities}
+                        onToggleViewMode={() => toggleEntryViewMode(entry.id)}
                       />
                     </div>
                   ))}

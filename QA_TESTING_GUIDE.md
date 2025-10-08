@@ -8,8 +8,8 @@ InChronicle is a professional journaling and career development platform that he
 ### Technology Stack
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + Radix UI
 - **Backend**: Node.js + Express + TypeScript + Prisma ORM
-- **Database**: PostgreSQL (Railway hosted)
-- **Deployment**: Railway (both frontend and backend)
+- **Database**: PostgreSQL (Azure Flexible Server)
+- **Deployment**: Azure (Web Apps with Container Registry)
 - **Authentication**: JWT with refresh tokens
 - **State Management**: TanStack React Query
 
@@ -34,8 +34,8 @@ npm run dev
 ```
 
 ### Production URLs
-- **Frontend**: https://professionalside-production.up.railway.app
-- **Backend API**: https://hearty-prosperity-production-6047.up.railway.app/api/v1
+- **Frontend**: https://ps-frontend-1758551070.azurewebsites.net
+- **Backend API**: https://ps-backend-1758551070.azurewebsites.net/api/v1
 
 ### Test Credentials
 ```
@@ -181,11 +181,9 @@ describe('Onboarding Flow', () => {
 
 #### Data Validation Scripts
 ```bash
-# Check for empty categories
-npm run check:railway-empty-categories
-
 # Verify skill mappings
-npm run analyze:all-unmapped
+cd backend
+npm run db:studio  # Open Prisma Studio to inspect data
 
 # Fix supply chain mappings
 npm run fix:supply-chain-skills
@@ -594,19 +592,19 @@ node create-user-profile.js
 
 ## Deployment Testing
 
-### Railway Deployment Verification
+### Azure Deployment Verification
 ```bash
 # Check deployment status
-railway status
+az webapp show -g ps-prod-rg -n ps-backend-1758551070 --query state
 
 # View logs
-railway logs
+az webapp log tail -g ps-prod-rg -n ps-backend-1758551070
 
 # Run health checks
-curl -f https://hearty-prosperity-production-6047.up.railway.app/health
+curl -f https://ps-backend-1758551070.azurewebsites.net/health
 
 # Verify environment variables
-railway variables
+az webapp config appsettings list -g ps-prod-rg -n ps-backend-1758551070
 ```
 
 ### Smoke Tests for Production

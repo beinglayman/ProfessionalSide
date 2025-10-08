@@ -30,10 +30,10 @@ class ProfileApiService {
       return '/default-avatar.png';
     }
     
-    // If URL is already absolute, ensure it's HTTPS for Railway domains
+    // If URL is already absolute, ensure it's HTTPS for Azure domains
     if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
-      // Convert HTTP to HTTPS for Railway domains
-      if (avatarUrl.includes('railway.app') && avatarUrl.startsWith('http://')) {
+      // Convert HTTP to HTTPS for Azure domains
+      if (avatarUrl.includes('azurewebsites.net') && avatarUrl.startsWith('http://')) {
         return avatarUrl.replace('http://', 'https://');
       }
       return avatarUrl;

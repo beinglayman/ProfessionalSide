@@ -422,7 +422,10 @@ export function ActivityFeedPage() {
     outcomes: entry.outcomes,
     collaborators: entry.collaborators,
     tags: entry.tags,
-    source: entry.visibility === 'network' ? 'network' : 'workspace'
+    source: entry.visibility === 'network' ? 'network' : 'workspace',
+    achievementType: entry.achievementType,
+    achievementTitle: entry.achievementTitle,
+    achievementDescription: entry.achievementDescription
   });
 
   // Get activities from API - no dummy data fallback

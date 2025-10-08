@@ -1,33 +1,43 @@
 const { PrismaClient } = require('@prisma/client');
+
 const prisma = new PrismaClient();
 
 async function createUserProfile() {
   try {
+    // Find the test user
     const user = await prisma.user.findUnique({
-      where: { email: 'sarah.chen@techcorp.com' }
+      where: { email: 'test@example.com' }
     });
     
     if (!user) {
-      console.log('User not found');
+      console.log('Test user not found');
       return;
     }
     
-    // Create profile for the user
+    // Create user profile
     const profile = await prisma.userProfile.create({
       data: {
         userId: user.id,
-        profileCompleteness: 40,
+        profileCompleteness: 80,
         showEmail: false,
         showLocation: true,
-        showCompany: true
+        showCompany: true,
+        experience: 'Full-stack development',
+        education: 'Computer Science Graduate',
+        certifications: 'Various certifications',
+        languages: 'English'
       }
     });
+    console.log('Created user profile for:', user.email);
     
-    console.log('Created profile for user:', user.email);
-    
-    await prisma.$disconnect();
   } catch (error) {
-    console.error('Error creating profile:', error);
+    if (error.code === 'P2002') {
+      console.log('User profile already exists');
+    } else {
+      console.error('Error:', error);
+    }
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

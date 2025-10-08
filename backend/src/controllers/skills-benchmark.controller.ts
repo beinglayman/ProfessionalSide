@@ -7,15 +7,15 @@ const benchmarkService = new SkillsBenchmarkService();
 /**
  * Generate benchmarks for a list of skills
  */
-export const generateSkillBenchmarks = asyncHandler(async (req: Request, res: Response) => {
+export const generateSkillBenchmarks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { skills, context } = req.body;
   
   if (!skills || !Array.isArray(skills) || skills.length === 0) {
-    return sendError(res, 'Skills array is required and must not be empty', 400);
+    return void sendError(res, 'Skills array is required and must not be empty', 400);
   }
 
   if (skills.length > 20) {
-    return sendError(res, 'Maximum 20 skills allowed per request', 400);
+    return void sendError(res, 'Maximum 20 skills allowed per request', 400);
   }
 
   try {
@@ -30,11 +30,11 @@ export const generateSkillBenchmarks = asyncHandler(async (req: Request, res: Re
 /**
  * Get benchmarks for user's top skills
  */
-export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Response) => {
+export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -49,10 +49,10 @@ export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Res
     });
     
     if (userSkills.length === 0) {
-      return sendSuccess(res, [], 'No skills found for user');
+      void sendSuccess(res, [], 'No skills found for user');
     }
     
-    const skillNames = userSkills.map(us => us.skill.name);
+    const skillNames = userSkills.map((us: any) => us.skill.name);
     
     // Get user context for better benchmarking
     const user = await prisma.user.findUnique({
@@ -78,7 +78,7 @@ export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Res
 /**
  * Test the benchmark service connection
  */
-export const testBenchmarkService = asyncHandler(async (req: Request, res: Response) => {
+export const testBenchmarkService = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     const isConnected = await benchmarkService.testConnection();
     
@@ -96,7 +96,7 @@ export const testBenchmarkService = asyncHandler(async (req: Request, res: Respo
 /**
  * Get trending skills and their benchmarks
  */
-export const getTrendingSkillBenchmarks = asyncHandler(async (req: Request, res: Response) => {
+export const getTrendingSkillBenchmarks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     // Define trending skills for 2024-2025
     const trendingSkills = [
@@ -131,7 +131,7 @@ export const getTrendingSkillBenchmarks = asyncHandler(async (req: Request, res:
 /**
  * Populate benchmarks for ALL skills in the database (production mass operation)
  */
-export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res: Response) => {
+export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { PrismaClient } = require('@prisma/client');
   const nodemailer = require('nodemailer');
   const prisma = new PrismaClient();
@@ -177,7 +177,7 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
     console.log(`📊 Found ${allSkills.length} skills needing benchmarks`);
     
     if (allSkills.length === 0) {
-      return sendSuccess(res, { message: 'All skills already have benchmarks' }, 'No skills to process');
+      void sendSuccess(res, { message: 'All skills already have benchmarks' }, 'No skills to process');
     }
 
     // Send immediate response to client
@@ -214,28 +214,28 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
             await prisma.skillBenchmark.create({
               data: {
                 skillId: skill.id,
-                averageSalary: benchmark.averageSalary,
-                marketDemand: benchmark.marketDemand,
-                growthTrend: benchmark.growthTrend,
-                difficulty: benchmark.difficulty,
-                timeToLearn: benchmark.timeToLearn,
-                relatedSkills: benchmark.relatedSkills,
-                industryBreakdown: benchmark.industryBreakdown,
+                averageSalary: (benchmark as any).averageSalary,
+                marketDemand: (benchmark as any).marketDemand,
+                growthTrend: (benchmark as any).growthTrend,
+                difficulty: (benchmark as any).difficulty,
+                timeToLearn: (benchmark as any).timeToLearn,
+                relatedSkills: (benchmark as any).relatedSkills,
+                industryBreakdown: (benchmark as any).industryBreakdown,
                 source: 'api-mass-population',
                 lastUpdated: new Date()
               }
             });
             
             processStats.processedCount++;
-            console.log(`  ✅ ${skill.name}: ${benchmark.marketDemand} demand, ${benchmark.growthTrend} trend`);
+            console.log(`  ✅ ${skill.name}: ${(benchmark as any).marketDemand} demand, ${(benchmark as any).growthTrend} trend`);
           }
         } catch (error: any) {
           processStats.errorCount++;
           processStats.errors.push({
             skillName: skill.name,
-            error: error.message
+            error: (error as any).message
           });
-          console.log(`  ❌ ${skill.name}: Error - ${error.message}`);
+          console.log(`  ❌ ${skill.name}: Error - ${(error as any).message}`);
         }
       }
       
@@ -279,7 +279,7 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
   } catch (error: any) {
     console.error('💥 Critical error in mass benchmark population:', error);
     processStats.errorCount++;
-    processStats.errors.push({ error: error.message });
+    processStats.errors.push({ error: (error as any).message });
   } finally {
     await prisma.$disconnect();
   }
@@ -288,15 +288,15 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
 /**
  * Get benchmarks for multiple skills (bulk fetch)
  */
-export const getBulkSkillBenchmarks = asyncHandler(async (req: Request, res: Response) => {
+export const getBulkSkillBenchmarks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { skillNames } = req.body;
   
   if (!skillNames || !Array.isArray(skillNames) || skillNames.length === 0) {
-    return sendError(res, 'skillNames array is required and must not be empty', 400);
+    return void sendError(res, 'skillNames array is required and must not be empty', 400);
   }
 
   if (skillNames.length > 50) {
-    return sendError(res, 'Maximum 50 skills allowed per request', 400);
+    return void sendError(res, 'Maximum 50 skills allowed per request', 400);
   }
 
   try {

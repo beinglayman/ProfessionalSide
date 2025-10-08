@@ -30,7 +30,7 @@ const journalService = new JournalService();
 /**
  * Create a new journal entry
  */
-export const createJournalEntry = asyncHandler(async (req: Request, res: Response) => {
+export const createJournalEntry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   console.log('🔍 createJournalEntry called with:', {
     userId: req.user?.id,
     bodyKeys: Object.keys(req.body),
@@ -41,7 +41,7 @@ export const createJournalEntry = asyncHandler(async (req: Request, res: Respons
   
   if (!userId) {
     console.log('❌ User not authenticated');
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -55,20 +55,20 @@ export const createJournalEntry = asyncHandler(async (req: Request, res: Respons
     sendSuccess(res, entry, 'Journal entry created successfully', 201);
   } catch (error: any) {
     console.error('❌ Error in createJournalEntry:', {
-      message: error.message,
-      name: error.name,
-      code: error.code,
+      message: (error as any).message,
+      name: (error as any).name,
+      code: (error as any).code,
       issues: error.issues || error.errors,
       stack: error.stack?.split('\n').slice(0, 3)
     });
     
-    if (error.name === 'ZodError') {
+    if ((error as any).name === 'ZodError') {
       console.log('❌ Zod validation failed:', error.issues);
-      return sendError(res, 'Validation failed: ' + error.issues.map(i => i.message).join(', '), 400);
+      return void sendError(res, 'Validation failed: ' + error.issues.map((i: any) => i.message).join(', '), 400);
     }
     
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -77,11 +77,11 @@ export const createJournalEntry = asyncHandler(async (req: Request, res: Respons
 /**
  * Get journal entries with filtering and pagination
  */
-export const getJournalEntries = asyncHandler(async (req: Request, res: Response) => {
+export const getJournalEntries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   // Parse and validate query parameters
@@ -97,8 +97,8 @@ export const getJournalEntries = asyncHandler(async (req: Request, res: Response
     const result = await journalService.getJournalEntries(userId, validatedData);
     sendPaginated(res, result.entries, result.pagination, 'Journal entries retrieved');
   } catch (error: any) {
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -107,27 +107,27 @@ export const getJournalEntries = asyncHandler(async (req: Request, res: Response
 /**
  * Get single journal entry by ID
  */
-export const getJournalEntryById = asyncHandler(async (req: Request, res: Response) => {
+export const getJournalEntryById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   try {
     const entry = await journalService.getJournalEntryById(id, userId);
     sendSuccess(res, entry);
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
-    if (error.message === 'Access denied') {
-      return sendError(res, error.message, 403);
+    if ((error as any).message === 'Access denied') {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -136,16 +136,16 @@ export const getJournalEntryById = asyncHandler(async (req: Request, res: Respon
 /**
  * Update journal entry
  */
-export const updateJournalEntry = asyncHandler(async (req: Request, res: Response) => {
+export const updateJournalEntry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   const validatedData: UpdateJournalEntryInput = updateJournalEntrySchema.parse(req.body);
@@ -154,11 +154,11 @@ export const updateJournalEntry = asyncHandler(async (req: Request, res: Respons
     const entry = await journalService.updateJournalEntry(id, userId, validatedData);
     sendSuccess(res, entry, 'Journal entry updated successfully');
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -167,27 +167,27 @@ export const updateJournalEntry = asyncHandler(async (req: Request, res: Respons
 /**
  * Delete journal entry
  */
-export const deleteJournalEntry = asyncHandler(async (req: Request, res: Response) => {
+export const deleteJournalEntry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   try {
     await journalService.deleteJournalEntry(id, userId);
     sendSuccess(res, null, 'Journal entry deleted successfully');
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -196,16 +196,16 @@ export const deleteJournalEntry = asyncHandler(async (req: Request, res: Respons
 /**
  * Publish journal entry
  */
-export const publishJournalEntry = asyncHandler(async (req: Request, res: Response) => {
+export const publishJournalEntry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   const validatedData: PublishJournalEntryInput = publishJournalEntrySchema.parse(req.body);
@@ -214,11 +214,11 @@ export const publishJournalEntry = asyncHandler(async (req: Request, res: Respon
     const entry = await journalService.publishJournalEntry(id, userId, validatedData);
     sendSuccess(res, entry, 'Journal entry published successfully');
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }
@@ -227,29 +227,29 @@ export const publishJournalEntry = asyncHandler(async (req: Request, res: Respon
 /**
  * Like/unlike journal entry
  */
-export const toggleLike = asyncHandler(async (req: Request, res: Response) => {
+export const toggleLike = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   try {
     const result = await journalService.toggleLike(id, userId);
     
     // Create notification if liked (not when unliking)
-    if (result.liked && result.entry) {
+    if (result.liked && (result as any).entry) {
       await createNotificationForEvent(
         'LIKE',
-        result.entry.authorId,
+        (result as any).entry.authorId,
         userId,
         'Someone liked your journal entry',
-        `${req.user.name} liked your entry "${result.entry.title}"`,
+        `${req.user!.name} liked your entry "${(result as any).entry.title}"`,
         'JOURNAL_ENTRY',
         id
       );
@@ -257,8 +257,8 @@ export const toggleLike = asyncHandler(async (req: Request, res: Response) => {
     
     sendSuccess(res, result, result.liked ? 'Entry liked' : 'Entry unliked');
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -267,24 +267,24 @@ export const toggleLike = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Appreciate journal entry
  */
-export const toggleAppreciate = asyncHandler(async (req: Request, res: Response) => {
+export const toggleAppreciate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   try {
     const result = await journalService.toggleAppreciate(id, userId);
     sendSuccess(res, result, result.appreciated ? 'Entry appreciated' : 'Appreciation removed');
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -293,16 +293,16 @@ export const toggleAppreciate = asyncHandler(async (req: Request, res: Response)
 /**
  * Record analytics
  */
-export const recordAnalytics = asyncHandler(async (req: Request, res: Response) => {
+export const recordAnalytics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   const validatedData: RecordAnalyticsInput = recordAnalyticsSchema.parse(req.body);
@@ -320,14 +320,14 @@ export const recordAnalytics = asyncHandler(async (req: Request, res: Response) 
 /**
  * Get entry comments
  */
-export const getEntryComments = asyncHandler(async (req: Request, res: Response) => {
+export const getEntryComments = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   
   console.log('🔍 getEntryComments called with ID:', id);
   
   if (!id) {
     console.log('❌ No entry ID provided');
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   try {
@@ -337,11 +337,11 @@ export const getEntryComments = asyncHandler(async (req: Request, res: Response)
     sendSuccess(res, comments, 'Comments retrieved successfully');
   } catch (error: any) {
     console.error('❌ Error in getEntryComments controller:', error);
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
-    if (error.message.includes('Failed to fetch comments')) {
-      return sendError(res, error.message, 500);
+    if ((error as any).message.includes('Failed to fetch comments')) {
+      return void sendError(res, (error as any).message, 500);
     }
     throw error;
   }
@@ -350,16 +350,16 @@ export const getEntryComments = asyncHandler(async (req: Request, res: Response)
 /**
  * Add comment (placeholder)
  */
-export const addComment = asyncHandler(async (req: Request, res: Response) => {
+export const addComment = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   const validatedData: AddCommentInput = addCommentSchema.parse(req.body);
@@ -374,7 +374,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
         comment.entry.authorId,
         userId,
         'New comment on your journal entry',
-        `${req.user.name} commented on your entry "${comment.entry.title}"`,
+        `${req.user!.name} commented on your entry "${comment.entry.title}"`,
         'JOURNAL_ENTRY',
         id,
         { commentId: comment.id }
@@ -383,8 +383,8 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
     
     sendSuccess(res, comment, 'Comment added successfully', 201);
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -393,16 +393,16 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
 /**
  * ReChronicle (repost) journal entry
  */
-export const rechronicleEntry = asyncHandler(async (req: Request, res: Response) => {
+export const rechronicleEntry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   const validatedData: RechronicleInput = rechronicleSchema.parse(req.body);
@@ -411,8 +411,8 @@ export const rechronicleEntry = asyncHandler(async (req: Request, res: Response)
     const result = await journalService.rechronicleEntry(id, userId, validatedData);
     sendSuccess(res, result, result.rechronicled ? 'Entry rechronicled' : 'ReChronicle removed');
   } catch (error: any) {
-    if (error.message === 'Journal entry not found') {
-      return sendError(res, error.message, 404);
+    if ((error as any).message === 'Journal entry not found') {
+      return void sendError(res, (error as any).message, 404);
     }
     throw error;
   }
@@ -421,16 +421,16 @@ export const rechronicleEntry = asyncHandler(async (req: Request, res: Response)
 /**
  * Add artifact (placeholder)
  */
-export const addArtifact = asyncHandler(async (req: Request, res: Response) => {
+export const addArtifact = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   if (!id) {
-    return sendError(res, 'Entry ID is required', 400);
+    return void sendError(res, 'Entry ID is required', 400);
   }
 
   const validatedData: AddArtifactInput = addArtifactSchema.parse(req.body);
@@ -442,11 +442,11 @@ export const addArtifact = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Get user rechronicles
  */
-export const getUserRechronicles = asyncHandler(async (req: Request, res: Response) => {
+export const getUserRechronicles = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -460,11 +460,11 @@ export const getUserRechronicles = asyncHandler(async (req: Request, res: Respon
 /**
  * Get user feed including both original entries and rechronicled entries
  */
-export const getUserFeed = asyncHandler(async (req: Request, res: Response) => {
+export const getUserFeed = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   // Parse and validate query parameters
@@ -480,8 +480,8 @@ export const getUserFeed = asyncHandler(async (req: Request, res: Response) => {
     const result = await journalService.getUserFeed(userId, validatedData);
     sendPaginated(res, result.entries, result.pagination, 'User feed retrieved');
   } catch (error: any) {
-    if (error.message.includes('Access denied')) {
-      return sendError(res, error.message, 403);
+    if ((error as any).message.includes('Access denied')) {
+      return void sendError(res, (error as any).message, 403);
     }
     throw error;
   }

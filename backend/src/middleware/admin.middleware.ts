@@ -102,13 +102,13 @@ export const requirePermission = (resource: string, action: string) => {
     }
 
     // Super admin has all permissions
-    if (admin.role === 'super_admin') {
+    if (admin!.role === 'super_admin') {
       next();
       return;
     }
 
     // Check if admin has the required permission
-    const hasPermission = admin.permissions.some(permission => 
+    const hasPermission = admin!.permissions.some(permission => 
       permission.resource === resource && permission.actions.includes(action)
     );
 
@@ -127,7 +127,7 @@ export const requirePermission = (resource: string, action: string) => {
 export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
   const admin = req.admin;
   
-  if (!admin || admin.role !== 'super_admin') {
+  if (!admin || admin!.role !== 'super_admin') {
     sendError(res, 'Super admin access required', 403);
     return;
   }
@@ -223,11 +223,11 @@ function getAdminPermissions(role: string): AdminPermission[] {
  * Check if current admin has permission
  */
 export const hasAdminPermission = (admin: AdminUser, resource: string, action: string): boolean => {
-  if (admin.role === 'super_admin') {
+  if (admin!.role === 'super_admin') {
     return true;
   }
 
-  return admin.permissions.some(permission => 
+  return admin!.permissions.some(permission => 
     permission.resource === resource && permission.actions.includes(action)
   );
 };

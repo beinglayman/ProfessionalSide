@@ -1,0 +1,49 @@
+name: deploy-frontend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-frontend.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push frontend image to ACR
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          echo "VITE_API_URL=${VITE_API_URL}" > .env.production
+          az acr build --registry "${{ secrets.ACR_NAME }}" \
+            --image inchronicle-frontend:latest .
+
+      - name: Update Web App container image
+        run: |
+          az webapp config container set \
+            --resource-group "${{ secrets.AZ_RG }}" \
+            --name "${{ secrets.FRONTEND_APPNAME }}" \
+            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:latest"
+
+      - name: Set ports and restart
+        run: |
+          az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
+          az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+
+

@@ -26,7 +26,7 @@ const emailService = new EmailService();
 /**
  * Register a new user
  */
-export const register = asyncHandler(async (req: Request, res: Response) => {
+export const register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   // Validate input
   const validatedData: RegisterInput = registerSchema.parse(req.body);
   
@@ -36,7 +36,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   });
   
   if (existingUser) {
-    return sendError(res, 'User with this email already exists', 409);
+    return void sendError(res, 'User with this email already exists', 409);
   }
   
   // Hash password
@@ -107,7 +107,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Login user
  */
-export const login = asyncHandler(async (req: Request, res: Response) => {
+export const login = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   // Validate input
   const validatedData: LoginInput = loginSchema.parse(req.body);
   
@@ -134,17 +134,17 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   });
   
   if (!user) {
-    return sendError(res, 'Invalid email or password', 401);
+    return void sendError(res, 'Invalid email or password', 401);
   }
   
   if (!user.isActive) {
-    return sendError(res, 'Account is deactivated', 401);
+    return void sendError(res, 'Account is deactivated', 401);
   }
   
   // Verify password
   const isPasswordValid = await comparePassword(validatedData.password, user.password);
   if (!isPasswordValid) {
-    return sendError(res, 'Invalid email or password', 401);
+    return void sendError(res, 'Invalid email or password', 401);
   }
   
   // Update last active
@@ -177,7 +177,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Refresh access token
  */
-export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
+export const refreshToken = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   // Validate input
   const validatedData: RefreshTokenInput = refreshTokenSchema.parse(req.body);
   
@@ -185,34 +185,34 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
   const decoded = verifyToken(validatedData.refreshToken);
   
   if (decoded.type !== 'refresh') {
-    return sendError(res, 'Invalid token type', 401);
+    return void sendError(res, 'Invalid token type', 401);
   }
   
   // Check if refresh token exists in database
   const session = await prisma.userSession.findUnique({
-    where: { refreshToken: validatedData.refreshToken },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          isActive: true
-        }
-      }
+    where: { refreshToken: validatedData.refreshToken }
+  });
+
+  if (!session || session.expiresAt < new Date()) {
+    return void sendError(res, 'Invalid or expired refresh token', 401);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isActive: true
     }
   });
-  
-  if (!session || session.expiresAt < new Date()) {
-    return sendError(res, 'Invalid or expired refresh token', 401);
+
+  if (!user || !user.isActive) {
+    return void sendError(res, 'Account is deactivated', 401);
   }
-  
-  if (!session.user.isActive) {
-    return sendError(res, 'Account is deactivated', 401);
-  }
-  
+
   // Generate new tokens
-  const tokens = generateTokenPair(session.user.id, session.user.email);
+  const tokens = generateTokenPair(user.id, user.email);
   
   // Update session with new refresh token
   await prisma.userSession.update({
@@ -229,11 +229,11 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Get current user profile
  */
-export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
+export const getCurrentUser = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
   
   const user = await prisma.user.findUnique({
@@ -286,7 +286,7 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response) =
   });
   
   if (!user) {
-    return sendError(res, 'User not found', 404);
+    return void sendError(res, 'User not found', 404);
   }
   
   sendSuccess(res, user);
@@ -295,7 +295,7 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response) =
 /**
  * Logout user
  */
-export const logout = asyncHandler(async (req: Request, res: Response) => {
+export const logout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const refreshToken = req.body.refreshToken;
   
@@ -320,11 +320,11 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Change password
  */
-export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+export const changePassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
   
   // Validate input
@@ -337,7 +337,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   });
   
   if (!user) {
-    return sendError(res, 'User not found', 404);
+    return void sendError(res, 'User not found', 404);
   }
   
   // Verify current password
@@ -347,7 +347,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   );
   
   if (!isCurrentPasswordValid) {
-    return sendError(res, 'Current password is incorrect', 400);
+    return void sendError(res, 'Current password is incorrect', 400);
   }
   
   // Hash new password

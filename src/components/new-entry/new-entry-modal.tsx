@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Label from '@radix-ui/react-label';
-import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, Confluence, RepeatIcon, Sparkles} from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, RepeatIcon, Sparkles, Mail, ArrowRight} from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { Editor } from '../journal/editor';
@@ -8,10 +8,11 @@ import { useCreateJournalEntry } from '../../hooks/useJournal';
 import { CreateJournalEntryRequest } from '../../services/journal.service';
 import { useFocusAreas, useWorkCategories, useWorkTypes, useSkillsForWorkTypes } from '../../hooks/useReference';
 import { useWorkspaces, useWorkspaceMembers } from '../../hooks/useWorkspace';
-import { useWorkspaceGoals } from '../../hooks/useGoals';
+import { useWorkspaceGoals, useUpdateGoal, triggerGoalCompletionCelebration } from '../../hooks/useGoals';
 import { useAuth } from '../../contexts/AuthContext';
 import { TagInput } from '../ui/tag-input';
 import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
+import { useMCPIntegrations } from '../../hooks/useMCP';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -56,6 +57,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const createJournalMutation = useCreateJournalEntry();
   const generateAIMutation = useGenerateAIEntries();
   const { user: currentUser } = useAuth();
+  const { data: integrations } = useMCPIntegrations();
   
   const [formData, setFormData] = useState({
     // Step 1: Primary Focus Area (Persona)
@@ -105,6 +107,8 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
     
     // Goal linking
     linkedGoalId: '', // Optional goal to link this entry to
+    markGoalAsComplete: false, // Mark linked goal as completed
+    goalCompletionNotes: '', // Optional completion notes
   });
 
   // Fetch reference data from API
@@ -123,6 +127,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const { data: workspaces = [], isLoading: loadingWorkspaces, error: workspacesError } = useWorkspaces();
   const { data: workspaceMembers = [], isLoading: loadingWorkspaceMembers, error: workspaceMembersError } = useWorkspaceMembers(formData.workspaceId || '');
   const { data: workspaceGoals = [], isLoading: loadingGoals, error: goalsError } = useWorkspaceGoals(formData.workspaceId || '');
+  const updateGoalMutation = useUpdateGoal();
   
   // Handle pre-selection when modal opens
   useEffect(() => {
@@ -196,7 +201,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
       reviewers: formData.reviewers.sort(),
       projects: formData.projects.sort(),
       departments: formData.departments.sort(),
-      artifacts: formData.artifacts.map(a => ({ name: a.name, type: a.type, url: a.url })).sort((a, b) => a.name.localeCompare(b.name))
+      artifacts: formData.artifacts.map(a => ({ name: a.name, type: a.type, url: a.url })).sort((a, b) => a.name.localeCompare(b.name)),
+      // Include goal completion fields for proper change detection
+      linkedGoalId: formData.linkedGoalId,
+      markGoalAsComplete: formData.markGoalAsComplete,
+      goalCompletionNotes: formData.goalCompletionNotes?.trim() || ''
     };
     return JSON.stringify(inputs);
   };
@@ -297,20 +306,34 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
 
       // Convert structured AI content to formatted text
       const formatAIContent = (aiContent: typeof generatedEntries.workspaceEntry) => {
-        const formattedOutcomes = aiContent.outcomes?.map(outcome => 
+        const formattedOutcomes = aiContent.outcomes?.map(outcome =>
           `**${outcome.title}** (${outcome.category})\n${outcome.description}`
         ).join('\n\n') || '';
-        
+
         return `${aiContent.description}\n\n**Outcomes & Results:**\n\n${formattedOutcomes}`;
       };
 
-      // Create workspace entry (always created)
-      const workspaceJournalData: CreateJournalEntryRequest = {
+      // Format abstract content with length limit for network entries
+      const formatAbstractContent = (aiContent: typeof generatedEntries.networkEntry) => {
+        const baseContent = aiContent.description;
+        const maxLength = 950; // Leave room for any additional formatting
+
+        if (baseContent.length <= maxLength) {
+          return baseContent;
+        }
+
+        return baseContent.substring(0, maxLength - 3) + '...';
+      };
+
+      // Create single entry with both workspace and network content
+      const journalData: CreateJournalEntryRequest = {
         title: generatedEntries.workspaceEntry.title,
         description: generatedEntries.workspaceEntry.description.substring(0, 490) + (generatedEntries.workspaceEntry.description.length > 490 ? '...' : ''),
         fullContent: formatAIContent(generatedEntries.workspaceEntry),
+        // Include abstract content for potential network publishing (with length limit)
+        abstractContent: formData.isPublished ? formatAbstractContent(generatedEntries.networkEntry) : undefined,
         workspaceId: formData.workspaceId,
-        visibility: 'workspace',
+        visibility: formData.isPublished ? 'network' : 'workspace',
         category: formData.workCategory || 'General',
         tags: [...new Set([...workTypeNames, ...formData.tags])],
         skills: skillNames,
@@ -323,29 +346,48 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           // Remove department field if undefined to avoid validation issues
         })),
         artifacts: formData.artifacts,
-        outcomes: generatedEntries.workspaceEntry.outcomes || [],
-        linkedGoalId: formData.linkedGoalId || undefined
+        outcomes: formData.isPublished ? generatedEntries.networkEntry.outcomes || [] : generatedEntries.workspaceEntry.outcomes || [],
+        linkedGoalId: formData.linkedGoalId || undefined,
+        // Add achievement fields when goal is marked as complete
+        ...(formData.markGoalAsComplete && formData.linkedGoalId && {
+          achievementType: 'milestone' as const,
+          achievementTitle: `Completed Goal: ${workspaceGoals.find(g => g.id === formData.linkedGoalId)?.title || 'Unknown Goal'}`,
+          achievementDescription: formData.goalCompletionNotes?.trim() ||
+            `Successfully completed the goal "${workspaceGoals.find(g => g.id === formData.linkedGoalId)?.title}" through this journal entry.`
+        }),
+        // Note: Original modal doesn't have regular achievement entry fields yet
+        // This would need to be added when the original modal is updated with achievement entry types
       };
 
-      console.log('📝 Creating workspace entry:', workspaceJournalData);
-      const workspaceResponse = await createJournalMutation.mutateAsync(workspaceJournalData);
+      console.log('📝 Creating journal entry:', journalData);
+      const response = await createJournalMutation.mutateAsync(journalData);
 
-      // Create network entry if publishing is enabled
-      if (formData.isPublished) {
-        const networkJournalData: CreateJournalEntryRequest = {
-          ...workspaceJournalData,
-          title: generatedEntries.networkEntry.title,
-          description: generatedEntries.networkEntry.description.substring(0, 490) + (generatedEntries.networkEntry.description.length > 490 ? '...' : ''),
-          fullContent: formatAIContent(generatedEntries.networkEntry),
-          visibility: 'network',
-          outcomes: generatedEntries.networkEntry.outcomes || []
-        };
+      if (response.success) {
+        // Handle goal completion if requested
+        if (formData.markGoalAsComplete && formData.linkedGoalId) {
+          try {
+            const selectedGoal = workspaceGoals.find(g => g.id === formData.linkedGoalId);
+            if (selectedGoal) {
+              await updateGoalMutation.mutateAsync({
+                goalId: formData.linkedGoalId,
+                data: {
+                  status: 'achieved',
+                  progressOverride: 100,
+                  completionNotes: formData.goalCompletionNotes?.trim() || undefined
+                }
+              });
 
-        console.log('🌐 Creating network entry:', networkJournalData);
-        await createJournalMutation.mutateAsync(networkJournalData);
-      }
-      
-      if (workspaceResponse.success) {
+              // Trigger celebration
+              triggerGoalCompletionCelebration();
+              console.log(`🎉 Goal "${selectedGoal.title}" marked as completed!`);
+            }
+          } catch (goalError) {
+            console.error('Error completing goal:', goalError);
+            // Don't fail the entire submission - journal was created successfully
+            // Could show a warning toast here if needed
+          }
+        }
+
         setSubmitSuccess(true);
         setTimeout(() => {
           setSubmitSuccess(false);
@@ -372,13 +414,16 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             category: 'General',
             tags: [],
             artifacts: [],
+            linkedGoalId: '',
+            markGoalAsComplete: false,
+            goalCompletionNotes: '',
           });
           setGeneratedEntries(null);
           setLastGenerationInputs(null);
           setStep(1);
         }, 1500);
       } else {
-        throw new Error(workspaceResponse.error || 'Failed to create entry');
+        throw new Error(response.error || 'Failed to create entry');
       }
     } catch (error: any) {
       console.error('❌ Failed to create AI-generated journal entry:', error);
@@ -984,7 +1029,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 ) : (
                   <select
                     value={formData.workspaceId}
-                    onChange={(e) => setFormData({...formData, workspaceId: e.target.value, collaborators: [], reviewers: [], linkedGoalId: ''})}
+                    onChange={(e) => setFormData({...formData, workspaceId: e.target.value, collaborators: [], reviewers: [], linkedGoalId: '', markGoalAsComplete: false, goalCompletionNotes: ''})}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                   >
                     <option value="">Select a workspace...</option>
@@ -1022,7 +1067,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                   ) : (
                     <select
                       value={formData.linkedGoalId}
-                      onChange={(e) => setFormData({...formData, linkedGoalId: e.target.value})}
+                      onChange={(e) => setFormData({...formData, linkedGoalId: e.target.value, markGoalAsComplete: false, goalCompletionNotes: ''})}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                     >
                       <option value="">No goal selected</option>
@@ -1033,9 +1078,47 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                       ))}
                     </select>
                   )}
+
+                  {/* Goal Completion Option */}
+                  {formData.linkedGoalId && workspaceGoals.find(g => g.id === formData.linkedGoalId)?.status !== 'completed' && (
+                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-start space-x-3">
+                        <input
+                          type="checkbox"
+                          id="markGoalComplete"
+                          checked={formData.markGoalAsComplete}
+                          onChange={(e) => setFormData({...formData, markGoalAsComplete: e.target.checked})}
+                          className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="markGoalComplete" className="text-sm font-medium text-green-800">
+                            Mark this goal as completed with this entry
+                          </label>
+                          <p className="text-xs text-green-600 mt-1">
+                            This entry represents the completion of the linked goal
+                          </p>
+                        </div>
+                      </div>
+
+                      {formData.markGoalAsComplete && (
+                        <div className="mt-3">
+                          <label className="block text-sm font-medium text-green-700 mb-1">
+                            Completion Notes (Optional)
+                          </label>
+                          <textarea
+                            value={formData.goalCompletionNotes}
+                            onChange={(e) => setFormData({...formData, goalCompletionNotes: e.target.value})}
+                            placeholder="Add notes about how this goal was completed..."
+                            rows={2}
+                            className="w-full px-3 py-2 border border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
-              
+
               <div>
                 <Label.Root className="text-sm font-medium text-gray-700">
                   Title *
@@ -1598,6 +1681,125 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             
             {!generatedEntries ? (
               <div className="space-y-6">
+                {/* MCP Import Section - Always Visible */}
+                <div className="text-center space-y-4 pb-6 border-b border-gray-200">
+                  {/* Check if any tools are connected */}
+                  {integrations && integrations.integrations.some((i: any) => i.isConnected) ? (
+                    <>
+                      {/* Connected Tools State */}
+                      <div className="space-y-3">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full text-sm text-blue-600">
+                          <Link className="h-3.5 w-3.5" />
+                          Import from Connected Tools
+                        </div>
+
+                        <div className="max-w-md mx-auto">
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            AI will automatically import and summarize your recent work
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Connected Tools */}
+                      <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto">
+                        {integrations.integrations
+                          .filter((i: any) => i.isConnected)
+                          .map((integration: any) => (
+                            <Button
+                              key={integration.id}
+                              onClick={() => {
+                                // Navigate to settings to manage integrations
+                                window.location.href = '/settings/integrations';
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-2"
+                            >
+                              {integration.toolType === 'github' && <Github className="h-4 w-4" />}
+                              {integration.toolType === 'jira' && <Database className="h-4 w-4" />}
+                              {integration.toolType === 'figma' && <Figma className="h-4 w-4" />}
+                              {integration.toolType === 'outlook' && <Mail className="h-4 w-4" />}
+                              {integration.toolType === 'confluence' && <FileText className="h-4 w-4" />}
+                              {integration.toolType === 'slack' && <MessageSquare className="h-4 w-4" />}
+                              <span className="capitalize">{integration.toolType}</span>
+                            </Button>
+                          ))}
+                      </div>
+
+                      <div className="pt-2">
+                        <p className="text-xs text-gray-500">
+                          Coming soon: Direct import from your connected tools
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Discovery State - No Tools Connected */}
+                      <div className="space-y-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full text-sm text-purple-600">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          AI-Powered Work Import
+                        </div>
+
+                        <div className="max-w-lg mx-auto space-y-3">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Let AI capture your work automatically
+                          </h3>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            Connect your tools and InChronicle's AI will intelligently import and summarize your commits,
+                            tickets, designs, and team discussions into professional journal entries.
+                          </p>
+                        </div>
+
+                        {/* Available Tools Preview */}
+                        <div className="flex flex-wrap justify-center gap-3 max-w-xl mx-auto py-3">
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
+                            <Github className="h-4 w-4" />
+                            <span>GitHub</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
+                            <Database className="h-4 w-4" />
+                            <span>Jira</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
+                            <Figma className="h-4 w-4" />
+                            <span>Figma</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
+                            <Mail className="h-4 w-4" />
+                            <span>Outlook</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
+                            <FileText className="h-4 w-4" />
+                            <span>Confluence</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
+                            <MessageSquare className="h-4 w-4" />
+                            <span>Slack</span>
+                          </div>
+                        </div>
+
+                        {/* Call to Action */}
+                        <div className="pt-2">
+                          <Button
+                            onClick={() => window.location.href = '/settings/integrations'}
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <Link className="h-4 w-4" />
+                            Connect Your Tools
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
+                        <p className="text-xs text-gray-500 pt-1">
+                          Your data remains private • Import on-demand only • Never stored
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 {/* AI Generation Section */}
                 <div className="text-center space-y-4">
                   <div className="space-y-3">
@@ -1833,6 +2035,32 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                         </div>
                       )}
 
+                      {/* Achievement Preview */}
+                      {formData.markGoalAsComplete && formData.linkedGoalId && (
+                        <div className="mb-4">
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0">
+                                <Star className="h-6 w-6 text-purple-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold text-purple-900 mb-1">
+                                  Achievement
+                                </h4>
+                                <p className="text-sm font-medium text-purple-800 mb-1">
+                                  Completed Goal: {workspaceGoals.find(g => g.id === formData.linkedGoalId)?.title || 'Unknown Goal'}
+                                </p>
+                                {formData.goalCompletionNotes && (
+                                  <p className="text-xs text-purple-700">
+                                    {formData.goalCompletionNotes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Skills and Tags */}
                       {(formData.skillsApplied.length > 0 || formData.tags.length > 0) && (
                         <div className="flex flex-wrap gap-2 mb-4">
@@ -1854,93 +2082,12 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                     </div>
                   </div>
 
-                  {/* Publication Choice Section */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                    <div className="text-center mb-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-1">Choose Your Journal Entry Scope</h4>
-                      <p className="text-xs text-gray-600">Select what entries to create from your AI-generated content</p>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {/* Always Created - Workspace Entry */}
-                      <div className="flex items-center gap-3 p-3 bg-white border border-blue-100 rounded-lg">
-                        <div className="flex-shrink-0">
-                          <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5 text-blue-600" />
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Shield className="w-3.5 h-3.5 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-900">Workspace Entry</span>
-                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Always Created</span>
-                          </div>
-                          <p className="text-xs text-gray-600">Internal use with full details, metrics, and confidential information</p>
-                        </div>
-                      </div>
-
-                      {/* Optional - Network Entry */}
-                      <div className={cn(
-                        "flex items-center gap-3 p-3 border rounded-lg transition-all",
-                        formData.isPublished 
-                          ? "bg-white border-green-100" 
-                          : "bg-gray-50 border-gray-200"
-                      )}>
-                        <div className="flex-shrink-0">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={formData.isPublished}
-                              onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
-                              className="sr-only peer"
-                            />
-                            <div className={cn(
-                              "w-4 h-4 border-2 rounded flex items-center justify-center transition-all",
-                              formData.isPublished 
-                                ? "bg-green-500 border-green-500" 
-                                : "bg-white border-gray-300 hover:border-gray-400"
-                            )}>
-                              {formData.isPublished && (
-                                <Check className="w-2.5 h-2.5 text-white" />
-                              )}
-                            </div>
-                          </label>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Globe className={cn(
-                              "w-3.5 h-3.5",
-                              formData.isPublished ? "text-green-600" : "text-gray-400"
-                            )} />
-                            <span className={cn(
-                              "text-sm font-medium",
-                              formData.isPublished ? "text-gray-900" : "text-gray-500"
-                            )}>Network Entry</span>
-                            <span className={cn(
-                              "text-xs px-2 py-0.5 rounded",
-                              formData.isPublished 
-                                ? "text-green-600 bg-green-50" 
-                                : "text-gray-500 bg-gray-100"
-                            )}>
-                              {formData.isPublished ? "Also Create" : "Optional"}
-                            </span>
-                          </div>
-                          <p className={cn(
-                            "text-xs",
-                            formData.isPublished ? "text-gray-600" : "text-gray-500"
-                          )}>
-                            Public sharing with sanitized content, no confidential details
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Network Entry Preview Header */}
                   <div className="flex items-center gap-2 mb-3">
                     <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wide">Network Entry Preview</h4>
                     {!formData.isPublished && (
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Disabled - Enable above to create</span>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Disabled - Enable below to create</span>
                     )}
                   </div>
 
@@ -1969,7 +2116,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                         <div className="text-center p-4">
                           <Globe className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500 font-medium">Network Entry Creation Disabled</p>
-                          <p className="text-xs text-gray-400">Check "Network Entry" above to create a public version</p>
+                          <p className="text-xs text-gray-400">Check "Network Entry" below to create a public version</p>
                         </div>
                       </div>
                     )}
@@ -2079,6 +2226,88 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                           ))}
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Publication Choice Section */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                    <div className="text-center mb-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Choose Your Journal Entry Scope</h4>
+                      <p className="text-xs text-gray-600">Select what entries to create from your AI-generated content</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Always Created - Workspace Entry */}
+                      <div className="flex items-center gap-3 p-3 bg-white border border-blue-100 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Shield className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="text-sm font-medium text-gray-900">Workspace Entry</span>
+                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Always Created</span>
+                          </div>
+                          <p className="text-xs text-gray-600">Internal use with full details, metrics, and confidential information</p>
+                        </div>
+                      </div>
+
+                      {/* Optional - Network Entry */}
+                      <div className={cn(
+                        "flex items-center gap-3 p-3 border rounded-lg transition-all",
+                        formData.isPublished
+                          ? "bg-white border-green-100"
+                          : "bg-gray-50 border-gray-200"
+                      )}>
+                        <div className="flex-shrink-0">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.isPublished}
+                              onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
+                              className="sr-only peer"
+                            />
+                            <div className={cn(
+                              "w-4 h-4 border-2 rounded flex items-center justify-center transition-all",
+                              formData.isPublished
+                                ? "bg-green-500 border-green-500"
+                                : "bg-white border-gray-300 hover:border-gray-400"
+                            )}>
+                              {formData.isPublished && (
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              )}
+                            </div>
+                          </label>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Globe className={cn(
+                              "w-3.5 h-3.5",
+                              formData.isPublished ? "text-green-600" : "text-gray-400"
+                            )} />
+                            <span className={cn(
+                              "text-sm font-medium",
+                              formData.isPublished ? "text-gray-900" : "text-gray-500"
+                            )}>Network Entry</span>
+                            <span className={cn(
+                              "text-xs px-2 py-0.5 rounded",
+                              formData.isPublished
+                                ? "text-green-600 bg-green-50"
+                                : "text-gray-500 bg-gray-100"
+                            )}>
+                              {formData.isPublished ? "Also Create" : "Optional"}
+                            </span>
+                          </div>
+                          <p className={cn(
+                            "text-xs",
+                            formData.isPublished ? "text-gray-600" : "text-gray-500"
+                          )}>
+                            Public sharing with sanitized content, no confidential details
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2517,8 +2746,8 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 disabled={isSubmitting}
                 className="bg-primary-500 hover:bg-primary-600 text-white"
               >
-                {isSubmitting ? 'Creating Entries...' : 
-                 `Create ${formData.isPublished ? 'Workspace & Network' : 'Workspace'} Entry`}
+                {isSubmitting ? 'Creating Entry...' :
+                 `Create ${formData.isPublished ? 'Published' : 'Workspace'} Entry`}
               </Button>
             )}
           </div>

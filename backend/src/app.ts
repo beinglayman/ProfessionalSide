@@ -73,13 +73,13 @@ const cronService = new CronService();
 app.use(helmet()); // Security headers
 app.use(morgan('combined')); // Logging
 
-// Configure CORS with proper settings for Railway
+// Configure CORS with proper settings for Azure
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
-  'https://hearty-prosperity-production-6047.up.railway.app',
-  'https://professionalside-production.up.railway.app',
-  /https:\/\/.*\.up\.railway\.app$/
+  'http://localhost:5174',
+  'https://ps-frontend-1758551070.azurewebsites.net',
+  /https:\/\/.*\.azurewebsites\.net$/
 ].filter(Boolean);
 
 app.use(cors({
@@ -112,16 +112,16 @@ app.use(cors({
 // Body parsing with limits and error handling
 app.use(express.json({ 
   limit: '10mb',
-  verify: (req, res, buf, encoding) => {
+  verify: (req: any, res: any, buf: Buffer, encoding: string) => {
     try {
-      JSON.parse(buf.toString(encoding || 'utf8'));
+      JSON.parse(buf.toString((encoding || 'utf8') as BufferEncoding));
     } catch (error) {
       console.error('🚨 JSON Parse Error:', {
         url: req.url,
         method: req.method,
         contentType: req.get('content-type'),
-        body: buf.toString(encoding || 'utf8').substring(0, 200),
-        error: error.message
+        body: buf.toString((encoding || 'utf8') as BufferEncoding).substring(0, 200),
+        error: (error as any).message
       });
       throw error;
     }
@@ -151,7 +151,7 @@ app.use((req, res, next) => {
         params: req.params,
         body: req.body,
         response: typeof data === 'string' ? data : JSON.stringify(data),
-        userInfo: req.user ? { id: req.user.id, email: req.user.email } : 'NOT_AUTHENTICATED'
+        userInfo: req.user ? { id: req.user!.id, email: req.user.email } : 'NOT_AUTHENTICATED'
       });
     }
     return originalSend.call(this, data);
@@ -175,18 +175,18 @@ app.use((req, res, next) => {
 
 // Serve uploaded files with CORS headers
 app.use('/uploads', (req, res, next) => {
-  // Add CORS headers for image requests - more permissive for Railway
+  // Add CORS headers for image requests - more permissive for Azure
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
-    'https://hearty-prosperity-production-6047.up.railway.app',
-    'https://*.up.railway.app'
+    'https://ps-frontend-1758551070.azurewebsites.net',
+    'https://*.azurewebsites.net'
   ].filter(Boolean);
-  
+
   const origin = req.get('Origin');
-  const isAllowed = allowedOrigins.some(allowed => 
-    allowed === origin || 
-    (allowed.includes('*') && origin?.includes('.up.railway.app'))
+  const isAllowed = allowedOrigins.some(allowed =>
+    allowed === origin ||
+    (allowed?.includes('*') && origin?.includes('.azurewebsites.net'))
   );
   
   if (isAllowed || !origin) {
@@ -214,14 +214,14 @@ app.use('/screenshots', (req, res, next) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
-    'https://hearty-prosperity-production-6047.up.railway.app',
-    'https://*.up.railway.app'
+    'https://ps-frontend-1758551070.azurewebsites.net',
+    'https://*.azurewebsites.net'
   ].filter(Boolean);
-  
+
   const origin = req.get('Origin');
-  const isAllowed = allowedOrigins.some(allowed => 
-    allowed === origin || 
-    (allowed.includes('*') && origin?.includes('.up.railway.app'))
+  const isAllowed = allowedOrigins.some(allowed =>
+    allowed === origin ||
+    (allowed?.includes('*') && origin?.includes('.azurewebsites.net'))
   );
   
   if (isAllowed || !origin) {
@@ -298,14 +298,14 @@ app.get('/api/v1/health/database', async (req, res) => {
     res.status(503).json({
       status: 'unhealthy',
       message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? (error as any).message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
   }
 });
 
 // Benchmark import endpoint (simple, no auth)
-app.post('/api/v1/import-benchmarks', async (req, res) => {
+app.post('/api/v1/import-benchmarks', async (req, res): Promise<void> => {
   try {
     const fs = require('fs');
     const path = require('path');
@@ -315,10 +315,11 @@ app.post('/api/v1/import-benchmarks', async (req, res) => {
     // Read JSON export data
     const exportFile = path.join(__dirname, '../skill-benchmarks-export.json');
     if (!fs.existsSync(exportFile)) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Benchmark export file not found'
       });
+      return;
     }
 
     const benchmarks = JSON.parse(fs.readFileSync(exportFile, 'utf8'));
@@ -354,7 +355,7 @@ app.post('/api/v1/import-benchmarks', async (req, res) => {
         });
         successCount++;
       } catch (error) {
-        if (error.code === 'P2002') {
+        if ((error as any).code === 'P2002') {
           // Record already exists, count as success
           successCount++;
         } else {
@@ -382,12 +383,12 @@ app.post('/api/v1/import-benchmarks', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Import failed',
-      error: error.message
+      error: (error as any).message
     });
   }
 });
 
-// Database migration endpoint for Railway
+// Database migration endpoint for Azure (admin use)
 app.post('/api/v1/run-migrations', async (req, res) => {
   try {
     const { exec } = require('child_process');
@@ -412,12 +413,12 @@ app.post('/api/v1/run-migrations', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Migration failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? (error as any).message : 'Unknown error'
     });
   }
 });
 
-// Manual seeding endpoint for Railway
+// Manual seeding endpoint for Azure (admin use)
 app.post('/api/v1/admin/seed-reference', async (req, res) => {
   try {
     const { exec } = require('child_process');
@@ -442,13 +443,13 @@ app.post('/api/v1/admin/seed-reference', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Seeding failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? (error as any).message : 'Unknown error'
     });
   }
 });
 
-// Benchmark migration endpoint for Railway
-app.post('/api/v1/migrate-benchmarks', async (req, res) => {
+// Benchmark migration endpoint for Azure (admin use)
+app.post('/api/v1/migrate-benchmarks', async (req, res): Promise<void> => {
   try {
     const fs = require('fs');
     const path = require('path');
@@ -458,10 +459,11 @@ app.post('/api/v1/migrate-benchmarks', async (req, res) => {
     // Read JSON export data
     const exportFile = path.join(__dirname, '../skill-benchmarks-export.json');
     if (!fs.existsSync(exportFile)) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Benchmark export file not found'
       });
+      return;
     }
 
     const benchmarks = JSON.parse(fs.readFileSync(exportFile, 'utf8'));
@@ -558,7 +560,7 @@ app.post('/api/v1/migrate-benchmarks', async (req, res) => {
       res.status(500).json({
         success: false,
         message: 'Benchmark migration failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? (error as any).message : 'Unknown error'
       });
     }
   }
@@ -593,7 +595,7 @@ app.post('/api/v1/run-migrations', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Migration failed',
-      error: error.message
+      error: (error as any).message
     });
   }
 });
@@ -617,24 +619,25 @@ app.get('/api/v1/debug-profile', async (req, res) => {
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: (error as any).message
     });
   }
 });
 
 // Debug endpoint to test profile endpoint behavior
-app.get('/api/v1/debug-profile-test', async (req, res) => {
+app.get('/api/v1/debug-profile-test', async (req, res): Promise<void> => {
   try {
     // Test the profile endpoint logic directly
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.json({
+      res.json({
         success: false,
         error: 'No Bearer token provided',
         authHeader: authHeader ? 'Present but invalid format' : 'Missing',
         expectedFormat: 'Bearer <token>'
       });
+      return;
     }
     
     const token = authHeader.substring(7);
@@ -653,7 +656,7 @@ app.get('/api/v1/debug-profile-test', async (req, res) => {
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: (error as any).message,
       stack: error.stack?.split('\n').slice(0, 3)
     });
   }
@@ -683,6 +686,23 @@ app.use('/api/v1/onboarding', onboardingRoutes);
 app.use('/api/v1/ai-entries', aiEntriesRoutes);
 app.use('/api/v1/skills-benchmark', skillsBenchmarkRoutes);
 app.use('/api/v1/migration', migrationRoutes);
+
+// MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_MCP === 'true') {
+  // Dynamic import to avoid module loading errors in development
+  import('./routes/mcp.routes').then((mcpModule) => {
+    const mcpRoutes = mcpModule.default;
+    app.use('/api/v1/mcp', mcpRoutes);
+    console.log('✅ MCP routes enabled (production mode)');
+  }).catch((error) => {
+    console.error('❌ Failed to load MCP routes:', error.message);
+  });
+} else {
+  console.log('⚠️  MCP routes disabled in development (tsx hot-reload limitation)');
+  console.log('   To enable MCP in development: set ENABLE_MCP=true');
+  console.log('   For testing MCP: use production build (npm run build && npm start)');
+}
+
 app.use('/api/debug', debugRoutes);
 
 // Error handling middleware (must be last)
@@ -738,7 +758,7 @@ server.timeout = 120000; // Overall server timeout
 
 // Handle server errors
 server.on('error', (error: NodeJS.ErrnoException) => {
-  if (error.code === 'EADDRINUSE') {
+  if ((error as any).code === 'EADDRINUSE') {
     console.error(`❌ Port ${port} is already in use`);
     process.exit(1);
   } else {

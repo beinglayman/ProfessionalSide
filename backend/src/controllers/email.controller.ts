@@ -31,7 +31,7 @@ const sendNotificationSchema = z.object({
 /**
  * Test email configuration
  */
-export const testEmailConfig = asyncHandler(async (req: Request, res: Response) => {
+export const testEmailConfig = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     const isValid = await emailService.testEmailConfig();
     
@@ -41,18 +41,18 @@ export const testEmailConfig = asyncHandler(async (req: Request, res: Response) 
       sendError(res, 'Email configuration is invalid', 500);
     }
   } catch (error: any) {
-    sendError(res, 'Email configuration test failed', 500, error.message);
+    sendError(res, 'Email configuration test failed', 500, (error as any).message);
   }
 });
 
 /**
  * Send test email
  */
-export const sendTestEmail = asyncHandler(async (req: Request, res: Response) => {
+export const sendTestEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -80,17 +80,17 @@ export const sendTestEmail = asyncHandler(async (req: Request, res: Response) =>
       sendError(res, 'Failed to send test email', 500);
     }
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid email data', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid email data', 400, error.errors);
     }
     throw error;
   }
 });
 
 /**
- * Send test email (public endpoint for Railway status page)
+ * Send test email (public endpoint for health monitoring)
  */
-export const sendTestEmailPublic = asyncHandler(async (req: Request, res: Response) => {
+export const sendTestEmailPublic = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     const validatedData = testEmailSchema.parse(req.body);
 
@@ -100,16 +100,16 @@ export const sendTestEmailPublic = asyncHandler(async (req: Request, res: Respon
       htmlContent: `
         <html>
           <body style="font-family: Arial, sans-serif;">
-            <h2>🚀 Railway Email Test</h2>
+            <h2>🚀 Azure Email Test</h2>
             <p>${validatedData.message}</p>
             <p><strong>Test Status:</strong> Email service is working correctly!</p>
             <p><strong>Test Time:</strong> ${new Date().toISOString()}</p>
             <hr>
-            <p><small>Sent from InChronicle Backend via Railway</small></p>
+            <p><small>Sent from InChronicle Backend via Azure</small></p>
           </body>
         </html>
       `,
-      textContent: `🚀 Railway Email Test\n\n${validatedData.message}\n\nTest Status: Email service is working correctly!\nTest Time: ${new Date().toISOString()}\n\nSent from InChronicle Backend via Railway`,
+      textContent: `🚀 Azure Email Test\n\n${validatedData.message}\n\nTest Status: Email service is working correctly!\nTest Time: ${new Date().toISOString()}\n\nSent from InChronicle Backend via Azure`,
       category: 'test'
     });
 
@@ -118,13 +118,13 @@ export const sendTestEmailPublic = asyncHandler(async (req: Request, res: Respon
         emailSent: true,
         recipient: validatedData.to,
         timestamp: new Date().toISOString()
-      }, 'Test email sent successfully from Railway');
+      }, 'Test email sent successfully from Azure');
     } else {
       sendError(res, 'Failed to send test email', 500);
     }
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid email data', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid email data', 400, error.errors);
     }
     throw error;
   }
@@ -133,11 +133,11 @@ export const sendTestEmailPublic = asyncHandler(async (req: Request, res: Respon
 /**
  * Send notification email manually
  */
-export const sendNotificationEmail = asyncHandler(async (req: Request, res: Response) => {
+export const sendNotificationEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -153,8 +153,8 @@ export const sendNotificationEmail = asyncHandler(async (req: Request, res: Resp
 
     sendSuccess(res, { notificationId }, 'Notification queued successfully');
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid notification data', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid notification data', 400, error.errors);
     }
     throw error;
   }
@@ -163,11 +163,11 @@ export const sendNotificationEmail = asyncHandler(async (req: Request, res: Resp
 /**
  * Send welcome email to new user
  */
-export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response) => {
+export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { userId } = req.params;
   
   if (!userId) {
-    return sendError(res, 'User ID is required', 400);
+    return void sendError(res, 'User ID is required', 400);
   }
 
   try {
@@ -178,11 +178,11 @@ export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response)
     });
 
     if (!user) {
-      return sendError(res, 'User not found', 404);
+      return void sendError(res, 'User not found', 404);
     }
 
     if (user.welcomeEmailSent) {
-      return sendError(res, 'Welcome email already sent to this user', 409);
+      return void sendError(res, 'Welcome email already sent to this user', 409);
     }
 
     const success = await emailService.sendWelcomeEmail(userId);
@@ -206,7 +206,7 @@ export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response)
 /**
  * Trigger daily digest emails
  */
-export const triggerDailyDigest = asyncHandler(async (req: Request, res: Response) => {
+export const triggerDailyDigest = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     await notificationQueue.queueDigestEmails('daily');
     sendSuccess(res, null, 'Daily digest emails queued successfully');
@@ -218,7 +218,7 @@ export const triggerDailyDigest = asyncHandler(async (req: Request, res: Respons
 /**
  * Trigger weekly digest emails
  */
-export const triggerWeeklyDigest = asyncHandler(async (req: Request, res: Response) => {
+export const triggerWeeklyDigest = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     await notificationQueue.queueDigestEmails('weekly');
     sendSuccess(res, null, 'Weekly digest emails queued successfully');
@@ -230,7 +230,7 @@ export const triggerWeeklyDigest = asyncHandler(async (req: Request, res: Respon
 /**
  * Get notification queue statistics
  */
-export const getQueueStats = asyncHandler(async (req: Request, res: Response) => {
+export const getQueueStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     const stats = notificationQueue.getQueueStats();
     sendSuccess(res, stats, 'Queue statistics retrieved successfully');
@@ -242,11 +242,11 @@ export const getQueueStats = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Update user notification preferences
  */
-export const updateNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
+export const updateNotificationPreferences = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   const updateSchema = z.object({
@@ -278,8 +278,8 @@ export const updateNotificationPreferences = asyncHandler(async (req: Request, r
 
     sendSuccess(res, updatedPreferences, 'Notification preferences updated successfully');
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return sendError(res, 'Invalid preferences data', 400, error.errors);
+    if ((error as any).name === 'ZodError') {
+      return void sendError(res, 'Invalid preferences data', 400, error.errors);
     }
     throw error;
   }
@@ -288,11 +288,11 @@ export const updateNotificationPreferences = asyncHandler(async (req: Request, r
 /**
  * Get user notification preferences
  */
-export const getNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
+export const getNotificationPreferences = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   
   if (!userId) {
-    return sendError(res, 'User not authenticated', 401);
+    return void sendError(res, 'User not authenticated', 401);
   }
 
   try {
@@ -330,11 +330,11 @@ export const getNotificationPreferences = asyncHandler(async (req: Request, res:
 /**
  * Unsubscribe from all email notifications
  */
-export const unsubscribeFromEmails = asyncHandler(async (req: Request, res: Response) => {
+export const unsubscribeFromEmails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { token } = req.params;
   
   if (!token) {
-    return sendError(res, 'Unsubscribe token is required', 400);
+    return void sendError(res, 'Unsubscribe token is required', 400);
   }
 
   try {

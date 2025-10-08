@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -47,6 +47,7 @@ import { cn } from '../../lib/utils';
 import { JournalEntry } from '../../types/journal';
 import { CommentsSection } from './comments-section';
 import { onboardingService } from '../../services/onboarding.service';
+import { useContainedConfetti } from '../../hooks/useContainedConfetti';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface JournalCardProps {
@@ -66,6 +67,8 @@ interface JournalCardProps {
   customActions?: React.ReactNode;
   isRechronicleLoading?: boolean;
   currentUserAvatar?: string;
+  hasMultipleVisibilities?: boolean;
+  onToggleViewMode?: () => void;
 }
 
 export function JournalCard({
@@ -85,8 +88,12 @@ export function JournalCard({
   customActions,
   isRechronicleLoading = false,
   currentUserAvatar,
+  hasMultipleVisibilities = false,
+  onToggleViewMode,
 }: JournalCardProps) {
   const { user: currentUser } = useAuth();
+  const { triggerContainedConfetti } = useContainedConfetti();
+  const cardRef = useRef<HTMLDivElement>(null);
   const isWorkspaceView = viewMode === 'workspace';
   const [showComments, setShowComments] = useState(false);
   const [onboardingProfileImage, setOnboardingProfileImage] = useState<string | null>(null);
@@ -218,11 +225,31 @@ export function JournalCard({
 
   const achievementInfo = getAchievementInfo();
 
+  // Handler for achievement hover confetti with throttling
+  const [lastConfettiTime, setLastConfettiTime] = useState(0);
+  const handleAchievementHover = () => {
+    if (achievementInfo && cardRef.current) {
+      const now = Date.now();
+      // Throttle confetti to max once every 3 seconds
+      if (now - lastConfettiTime > 3000) {
+        triggerContainedConfetti(cardRef, {
+          particleCount: 40,
+          colors: ['#5D259F', '#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE']
+        });
+        setLastConfettiTime(now);
+      }
+    }
+  };
+
   return (
-    <div className={cn(
-      "group relative rounded-lg border bg-white shadow-sm transition-shadow hover:shadow-md",
-      achievementInfo ? "border-purple-300" : "border-gray-200"
-    )}>
+    <div
+      ref={cardRef}
+      className={cn(
+        "group relative rounded-lg border bg-white shadow-sm transition-shadow hover:shadow-md overflow-hidden",
+        achievementInfo ? "border-purple-300" : "border-gray-200"
+      )}
+      onMouseEnter={handleAchievementHover}
+    >
       {/* Workspace and Publication Status Tags - Top Right */}
       <div className="absolute top-4 right-4 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 z-10">
         {/* Workspace tag */}
@@ -231,7 +258,12 @@ export function JournalCard({
           <span className="hidden sm:inline">{journal.workspaceName}</span>
           <span className="sm:hidden">{journal.workspaceName && journal.workspaceName.length > 15 ? journal.workspaceName.substring(0, 15) + '...' : journal.workspaceName}</span>
         </span>
-        {journal.visibility === 'network' ? (
+        {hasMultipleVisibilities ? (
+          <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full whitespace-nowrap">
+            <Globe className="h-3 w-3" />
+            Published
+          </div>
+        ) : journal.visibility === 'network' ? (
           <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full whitespace-nowrap">
             <Globe className="h-3 w-3" />
             Published
@@ -241,6 +273,19 @@ export function JournalCard({
             <Shield className="h-3 w-3" />
             Workspace Only
           </div>
+        )}
+        {/* View mode toggle - only show if entry has multiple visibilities */}
+        {hasMultipleVisibilities && onToggleViewMode && (
+          <button
+            onClick={onToggleViewMode}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-white/80 hover:bg-white border border-gray-200 hover:border-gray-300 px-2 py-1 rounded-full font-medium transition-all duration-200 backdrop-blur-sm"
+            title={`Switch to ${viewMode === 'workspace' ? 'network' : 'workspace'} view`}
+          >
+            <Eye className="h-3 w-3" />
+            <span className="hidden sm:inline">
+              {viewMode === 'workspace' ? 'Workspace' : 'Network'}
+            </span>
+          </button>
         )}
         {/* Publish/Unpublish Menu */}
         {showMenuButton && (
@@ -372,56 +417,6 @@ export function JournalCard({
         </div>
       )}
       
-      {/* Achievement Box */}
-      {achievementInfo && (
-        <div className="px-4 pb-4">
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <achievementInfo.icon className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-purple-900 mb-1">
-                  Achievement
-                </h4>
-                <p className="text-sm font-medium text-purple-800 mb-1">
-                  {achievementInfo.title}
-                </p>
-                {achievementInfo.description && (
-                  <p className="text-xs text-purple-700">
-                    {achievementInfo.description}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Linked Goals Section */}
-      {journal.linkedGoals && journal.linkedGoals.length > 0 && (
-        <div className="px-6 py-3 bg-primary-50 border-l-4 border-primary-500 mx-4 mb-4 rounded-r-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="h-4 w-4 text-primary-600" />
-            <span className="text-sm font-medium text-primary-900">Linked Goals</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {journal.linkedGoals.map((link, index) => (
-              <div key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-primary-200 text-xs">
-                <span className="font-medium text-primary-900">{link.goalTitle}</span>
-                <span className="text-primary-600">•</span>
-                <span className="text-primary-700">{link.contributionType}</span>
-                {link.progressContribution > 0 && (
-                  <>
-                    <span className="text-primary-600">•</span>
-                    <span className="text-primary-700">+{link.progressContribution}%</span>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       
       {/* Header */}
       <div className={cn("px-6 pb-4", showUserProfile ? "pt-0" : "pt-6")}>
@@ -431,10 +426,63 @@ export function JournalCard({
           </h3>
         </div>
 
+        {/* Achievement Box */}
+        {achievementInfo && (
+          <div className="mb-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <achievementInfo.icon className="h-6 w-6 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold text-purple-900 mb-1">
+                    Achievement
+                  </h4>
+                  <p className="text-sm font-medium text-purple-800 mb-1">
+                    {achievementInfo.title}
+                  </p>
+                  {achievementInfo.description && (
+                    <p className="text-xs text-purple-700">
+                      {achievementInfo.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Linked Goals Section */}
+        {journal.linkedGoals && journal.linkedGoals.length > 0 && (
+          <div className="mb-4 py-3 bg-primary-50 border-l-4 border-primary-500 -mx-6 px-6 rounded-r-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="h-4 w-4 text-primary-600" />
+              <span className="text-sm font-medium text-primary-900">Linked Goals</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {journal.linkedGoals.map((link, index) => (
+                <div key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-primary-200 text-xs">
+                  <span className="font-medium text-primary-900">{link.goalTitle}</span>
+                  <span className="text-primary-600">•</span>
+                  <span className="text-primary-700">{link.contributionType}</span>
+                  {link.progressContribution > 0 && (
+                    <>
+                      <span className="text-primary-600">•</span>
+                      <span className="text-primary-700">+{link.progressContribution}%</span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         <div className="mb-4">
           <p className="text-sm text-gray-600 line-clamp-3">
-            {isWorkspaceView ? journal.description : journal.abstractContent}
+            {hasMultipleVisibilities && viewMode === 'network'
+              ? journal.abstractContent
+              : journal.description}
           </p>
         </div>
 

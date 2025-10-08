@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.middleware';
@@ -18,7 +18,7 @@ const createOrganizationSchema = z.object({
 });
 
 // Get all organizations
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const organizations = await prisma.organization.findMany({
       where: { isActive: true },
@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create organization
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const validatedData = createOrganizationSchema.parse(req.body);
 
@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
     });
 
     if (existingOrg) {
-      return sendError(res, 'Organization with this name already exists', 400);
+      return void sendError(res, 'Organization with this name already exists', 400);
     }
 
     const organization = await prisma.organization.create({
@@ -59,7 +59,7 @@ router.post('/', async (req, res) => {
     sendSuccess(res, organization, 'Organization created successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return sendError(res, 'Validation failed', 400, error.errors);
+      return void sendError(res, 'Validation failed', 400, error.errors);
     }
     console.error('Error creating organization:', error);
     sendError(res, 'Failed to create organization', 500);

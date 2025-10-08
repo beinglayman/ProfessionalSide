@@ -34,6 +34,9 @@ export interface CreateJournalEntryRequest {
     metrics?: string;
   }>;
   linkedGoalId?: string; // Optional goal to link this entry to
+  achievementType?: 'certification' | 'award' | 'milestone' | 'recognition'; // For achievement entries
+  achievementTitle?: string; // Achievement title
+  achievementDescription?: string; // Achievement description
 }
 
 export interface UpdateJournalEntryRequest {
@@ -151,6 +154,10 @@ export interface ApiJournalEntry {
   hasLiked: boolean;
   hasAppreciated: boolean;
   hasRechronicled: boolean;
+  // Achievement fields for achievement entries
+  achievementType?: 'certification' | 'award' | 'milestone' | 'recognition';
+  achievementTitle?: string;
+  achievementDescription?: string;
 }
 
 export class JournalService {
@@ -232,6 +239,10 @@ export class JournalService {
         engagementTrend: 'stable' as const,
         trendPercentage: 0,
       },
+      // Map achievement fields from API response
+      achievementType: apiEntry.achievementType,
+      achievementTitle: apiEntry.achievementTitle,
+      achievementDescription: apiEntry.achievementDescription,
     };
   }
 

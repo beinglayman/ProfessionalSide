@@ -138,6 +138,8 @@ const triggerGoalCompletionCelebration = () => {
   }, 150);
 };
 
+export { triggerGoalCompletionCelebration, triggerTaskCompletionCelebration };
+
 export interface TeamMember {
   id: string;
   name: string;

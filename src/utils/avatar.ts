@@ -3,7 +3,7 @@
  */
 
 /**
- * Ensures avatar URL uses HTTPS for Railway deployment
+ * Ensures avatar URL uses HTTPS for Azure deployment
  * @param avatarUrl - The avatar URL to normalize
  * @returns HTTPS version of the URL or fallback
  */
@@ -39,8 +39,8 @@ export function getAvatarUrl(avatarUrl: string | null | undefined): string {
     return normalized;
   }
 
-  // For Railway URLs, ensure they're HTTPS
-  if (normalized.includes('railway.app') && normalized.startsWith('http:')) {
+  // For Azure URLs, ensure they're HTTPS
+  if (normalized.includes('azurewebsites.net') && normalized.startsWith('http:')) {
     return normalized.replace('http:', 'https:');
   }
 
