@@ -61,10 +61,10 @@ export class AIEntryGeneratorService {
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       endpoint: process.env.AZURE_OPENAI_ENDPOINT,
       apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-07-18',
-      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
     });
 
     console.log('✅ AI Entry Generator Service initialized successfully');
+    console.log('🔗 Using endpoint:', process.env.AZURE_OPENAI_ENDPOINT);
     console.log('🔗 Using deployment:', process.env.AZURE_OPENAI_DEPLOYMENT_NAME);
   }
 
