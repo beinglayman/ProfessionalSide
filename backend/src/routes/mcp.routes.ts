@@ -4,9 +4,16 @@ import {
   getIntegrationStatus,
   initiateOAuth,
   handleOAuthCallback,
-  disconnectIntegration
+  disconnectIntegration,
+  fetchData,
+  getSession,
+  clearSession,
+  clearAllSessions,
+  getPrivacyStatus,
+  getAuditHistory,
+  deleteAllMCPData
 } from '../controllers/mcp.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authenticate as authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -63,56 +70,56 @@ router.delete('/integrations/:toolType', authMiddleware, disconnectIntegration);
 // Data Fetching (Memory-Only)
 // ============================================================================
 
-// /**
-//  * POST /api/v1/mcp/fetch
-//  * Fetch data from connected tools (temporary storage only)
-//  * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean }
-//  */
-// router.post('/fetch', authMiddleware, mcpController.fetchData);
+/**
+ * POST /api/v1/mcp/fetch
+ * Fetch data from connected tools (temporary storage only)
+ * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean }
+ */
+router.post('/fetch', authMiddleware, fetchData);
 
-// // ============================================================================
-// // Session Management
-// // ============================================================================
+// ============================================================================
+// Session Management
+// ============================================================================
 
-// /**
-//  * GET /api/v1/mcp/sessions/:sessionId
-//  * Get session data (memory-only, auto-expires)
-//  */
-// router.get('/sessions/:sessionId', authMiddleware, mcpController.getSession);
+/**
+ * GET /api/v1/mcp/sessions/:sessionId
+ * Get session data (memory-only, auto-expires)
+ */
+router.get('/sessions/:sessionId', authMiddleware, getSession);
 
-// /**
-//  * DELETE /api/v1/mcp/sessions/:sessionId
-//  * Clear specific session data
-//  */
-// router.delete('/sessions/:sessionId', authMiddleware, mcpController.clearSession);
+/**
+ * DELETE /api/v1/mcp/sessions/:sessionId
+ * Clear specific session data
+ */
+router.delete('/sessions/:sessionId', authMiddleware, clearSession);
 
-// /**
-//  * DELETE /api/v1/mcp/sessions
-//  * Clear all user sessions
-//  */
-// router.delete('/sessions', authMiddleware, mcpController.clearAllSessions);
+/**
+ * DELETE /api/v1/mcp/sessions
+ * Clear all user sessions
+ */
+router.delete('/sessions', authMiddleware, clearAllSessions);
 
-// // ============================================================================
-// // Privacy & Audit
-// // ============================================================================
+// ============================================================================
+// Privacy & Audit
+// ============================================================================
 
-// /**
-//  * GET /api/v1/mcp/privacy/status
-//  * Get MCP privacy status and policies
-//  */
-// router.get('/privacy/status', mcpController.getPrivacyStatus);
+/**
+ * GET /api/v1/mcp/privacy/status
+ * Get MCP privacy status and policies
+ */
+router.get('/privacy/status', getPrivacyStatus);
 
-// /**
-//  * GET /api/v1/mcp/audit
-//  * Get user's audit history
-//  * Query: { limit?: number, toolType?: MCPToolType }
-//  */
-// router.get('/audit', authMiddleware, mcpController.getAuditHistory);
+/**
+ * GET /api/v1/mcp/audit
+ * Get user's audit history
+ * Query: { limit?: number, toolType?: MCPToolType }
+ */
+router.get('/audit', authMiddleware, getAuditHistory);
 
-// /**
-//  * DELETE /api/v1/mcp/data
-//  * Delete all MCP data for user (GDPR compliance)
-//  */
-// router.delete('/data', authMiddleware, mcpController.deleteAllMCPData);
+/**
+ * DELETE /api/v1/mcp/data
+ * Delete all MCP data for user (GDPR compliance)
+ */
+router.delete('/data', authMiddleware, deleteAllMCPData);
 
 export default router;

@@ -342,3 +342,274 @@ export const disconnectIntegration = asyncHandler(async (req: Request, res: Resp
     sendError(res, 'Failed to disconnect integration');
   }
 });
+
+/**
+ * Fetch data from connected tools (memory-only storage)
+ */
+export const fetchData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as any).userId;
+  const { toolTypes, dateRange, consentGiven } = req.body;
+
+  try {
+    // Validate consent
+    if (!consentGiven) {
+      sendError(res, 'User consent is required to fetch data', 400);
+      return;
+    }
+
+    // Validate tool types
+    if (!toolTypes || !Array.isArray(toolTypes) || toolTypes.length === 0) {
+      sendError(res, 'At least one tool type is required', 400);
+      return;
+    }
+
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const invalidTools = toolTypes.filter((t: string) => !validTools.includes(t));
+
+    if (invalidTools.length > 0) {
+      sendError(res, `Invalid tool types: ${invalidTools.join(', ')}`, 400);
+      return;
+    }
+
+    // Import tool services dynamically
+    const { GitHubTool } = await import('../services/mcp/tools/github.tool');
+
+    const results = [];
+
+    // Fetch data from each tool
+    for (const toolType of toolTypes) {
+      try {
+        if (toolType === 'github') {
+          const githubTool = new GitHubTool();
+          const result = await githubTool.fetchActivity(userId, dateRange);
+          results.push({
+            toolType,
+            ...result
+          });
+        } else {
+          // Other tools not yet implemented
+          results.push({
+            toolType,
+            success: false,
+            error: `${toolType} integration not yet implemented`
+          });
+        }
+      } catch (error: any) {
+        console.error(`[MCP Controller] Error fetching from ${toolType}:`, error);
+        results.push({
+          toolType,
+          success: false,
+          error: error.message || `Failed to fetch from ${toolType}`
+        });
+      }
+    }
+
+    sendSuccess(res, {
+      results,
+      privacyNotice: 'All fetched data is stored in memory only and will automatically expire after 30 minutes. No external data is persisted to our database.',
+      message: 'Data fetch completed'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error fetching data:', error);
+    sendError(res, 'Failed to fetch data from tools');
+  }
+});
+
+/**
+ * Get session data (memory-only)
+ */
+export const getSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as any).userId;
+  const { sessionId } = req.params;
+
+  try {
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+    const sessionService = MCPSessionService.getInstance();
+
+    const sessionData = sessionService.getSession(sessionId, userId);
+
+    if (!sessionData) {
+      sendError(res, 'Session not found or expired', 404);
+      return;
+    }
+
+    sendSuccess(res, {
+      session: sessionData,
+      privacyNotice: 'Session data is stored in memory only and will expire after 30 minutes.'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error getting session:', error);
+    sendError(res, 'Failed to get session data');
+  }
+});
+
+/**
+ * Clear specific session
+ */
+export const clearSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as any).userId;
+  const { sessionId } = req.params;
+
+  try {
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+    const sessionService = MCPSessionService.getInstance();
+
+    const sessionData = sessionService.getSession(sessionId, userId);
+
+    // Verify session belongs to user before clearing
+    if (sessionData && sessionData.userId !== userId) {
+      sendError(res, 'Unauthorized access to session', 403);
+      return;
+    }
+
+    sessionService.clearSession(sessionId);
+
+    sendSuccess(res, {
+      message: 'Session data cleared successfully',
+      privacyNotice: 'All temporary data has been removed from memory.'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error clearing session:', error);
+    sendError(res, 'Failed to clear session');
+  }
+});
+
+/**
+ * Clear all user sessions
+ */
+export const clearAllSessions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as any).userId;
+
+  try {
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+    const sessionService = MCPSessionService.getInstance();
+
+    sessionService.clearUserSessions(userId);
+
+    sendSuccess(res, {
+      message: 'All session data cleared successfully',
+      privacyNotice: 'All your temporary data has been removed from memory.'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error clearing all sessions:', error);
+    sendError(res, 'Failed to clear sessions');
+  }
+});
+
+/**
+ * Get MCP privacy status
+ */
+export const getPrivacyStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  try {
+    sendSuccess(res, {
+      dataRetentionPolicy: 'zero-persistence',
+      dataRetentionDescription: 'No external data is ever persisted to our database. Only encrypted OAuth tokens are stored.',
+      sessionDuration: parseInt(process.env.MCP_SESSION_DURATION || '30'),
+      sessionDurationUnit: 'minutes',
+      encryptionStandard: 'AES-256',
+      consentRequired: true,
+      auditLogging: true,
+      auditRetention: '90 days',
+      gdprCompliant: true,
+      features: {
+        autoExpiry: true,
+        manualClear: true,
+        encryptedTokens: true,
+        noDataPersistence: true,
+        explicitConsent: true,
+        auditTrail: true
+      },
+      privacyPrinciples: [
+        'Zero external data persistence',
+        'Memory-only temporary storage',
+        'Automatic 30-minute expiry',
+        'Encrypted OAuth tokens (AES-256)',
+        'Explicit user consent required',
+        'Complete audit logging (no data)',
+        'User-controlled data deletion',
+        'GDPR compliant'
+      ]
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error getting privacy status:', error);
+    sendError(res, 'Failed to get privacy status');
+  }
+});
+
+/**
+ * Get user's audit history
+ */
+export const getAuditHistory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as any).userId;
+  const { limit = 50, toolType } = req.query;
+
+  try {
+    const where: any = { userId };
+
+    if (toolType) {
+      where.toolType = toolType as string;
+    }
+
+    const auditLogs = await prisma.mCPAuditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit as string),
+      select: {
+        id: true,
+        action: true,
+        toolType: true,
+        itemCount: true,
+        sessionId: true,
+        success: true,
+        errorMessage: true,
+        createdAt: true
+      }
+    });
+
+    sendSuccess(res, {
+      auditLogs,
+      total: auditLogs.length,
+      privacyNotice: 'Audit logs contain only action metadata. No actual data from external tools is logged.'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error getting audit history:', error);
+    sendError(res, 'Failed to get audit history');
+  }
+});
+
+/**
+ * Delete all MCP data for user (GDPR compliance)
+ */
+export const deleteAllMCPData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as any).userId;
+
+  try {
+    // Clear all sessions
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+    const sessionService = MCPSessionService.getInstance();
+    sessionService.clearUserSessions(userId);
+
+    // Delete all integrations (including encrypted tokens)
+    const integrationsDeleted = await prisma.mCPIntegration.deleteMany({
+      where: { userId }
+    });
+
+    // Delete all audit logs
+    const auditLogsDeleted = await prisma.mCPAuditLog.deleteMany({
+      where: { userId }
+    });
+
+    sendSuccess(res, {
+      message: 'All MCP data deleted successfully',
+      deleted: {
+        integrations: integrationsDeleted.count,
+        auditLogs: auditLogsDeleted.count,
+        sessions: 'all'
+      },
+      privacyNotice: 'All your MCP-related data, including OAuth tokens and audit logs, has been permanently deleted.'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error deleting MCP data:', error);
+    sendError(res, 'Failed to delete MCP data');
+  }
+});
