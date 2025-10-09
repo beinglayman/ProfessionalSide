@@ -94,7 +94,7 @@ class MCPService {
     privacyNotice: string;
   }> {
     const response = await api.post('/mcp/oauth/initiate', { toolType });
-    return response.data;
+    return response.data.data; // Backend wraps in { success: true, data: {...} }
   }
 
   /**
