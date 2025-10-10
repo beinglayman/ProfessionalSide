@@ -52,11 +52,13 @@ export class MCPOAuthService {
     }
 
     // Jira OAuth configuration (OAuth 2.0 for Atlassian Cloud)
-    if (process.env.JIRA_CLIENT_ID && process.env.JIRA_CLIENT_SECRET) {
+    // Uses shared ATLASSIAN credentials
+    if (process.env.ATLASSIAN_CLIENT_ID && process.env.ATLASSIAN_CLIENT_SECRET) {
       this.oauthConfigs.set(MCPToolType.JIRA, {
-        clientId: process.env.JIRA_CLIENT_ID,
-        clientSecret: process.env.JIRA_CLIENT_SECRET,
-        redirectUri: process.env.JIRA_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/jira',
+        clientId: process.env.ATLASSIAN_CLIENT_ID,
+        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET,
+        redirectUri: process.env.JIRA_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/jira`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
         scope: 'read:jira-work read:jira-user offline_access'
@@ -68,7 +70,8 @@ export class MCPOAuthService {
       this.oauthConfigs.set(MCPToolType.FIGMA, {
         clientId: process.env.FIGMA_CLIENT_ID,
         clientSecret: process.env.FIGMA_CLIENT_SECRET,
-        redirectUri: process.env.FIGMA_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/figma',
+        redirectUri: process.env.FIGMA_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/figma`,
         authorizationUrl: 'https://www.figma.com/oauth',
         tokenUrl: 'https://www.figma.com/api/oauth/token',
         scope: 'file_read'
@@ -76,45 +79,39 @@ export class MCPOAuthService {
     }
 
     // Outlook (Microsoft Graph) OAuth configuration
-    if (process.env.OUTLOOK_CLIENT_ID && process.env.OUTLOOK_CLIENT_SECRET) {
+    // Uses shared MICROSOFT credentials
+    const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
+    if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
       this.oauthConfigs.set(MCPToolType.OUTLOOK, {
-        clientId: process.env.OUTLOOK_CLIENT_ID,
-        clientSecret: process.env.OUTLOOK_CLIENT_SECRET,
-        redirectUri: process.env.OUTLOOK_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/outlook',
-        authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-        tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        redirectUri: process.env.OUTLOOK_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/outlook`,
+        authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+        tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
         scope: 'User.Read Mail.Read Calendars.Read offline_access'
       });
-    }
 
-    // Microsoft Teams OAuth configuration (uses same Microsoft app as Outlook but with Teams scopes)
-    if (process.env.TEAMS_CLIENT_ID && process.env.TEAMS_CLIENT_SECRET) {
+      // Microsoft Teams OAuth configuration (uses same Microsoft app credentials)
       this.oauthConfigs.set(MCPToolType.TEAMS, {
-        clientId: process.env.TEAMS_CLIENT_ID,
-        clientSecret: process.env.TEAMS_CLIENT_SECRET,
-        redirectUri: process.env.TEAMS_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/teams',
-        authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-        tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-        scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read ChannelMessage.Read.All offline_access'
-      });
-    } else if (process.env.OUTLOOK_CLIENT_ID && process.env.OUTLOOK_CLIENT_SECRET) {
-      // Fallback: Use Outlook credentials for Teams (same Microsoft account)
-      this.oauthConfigs.set(MCPToolType.TEAMS, {
-        clientId: process.env.OUTLOOK_CLIENT_ID,
-        clientSecret: process.env.OUTLOOK_CLIENT_SECRET,
-        redirectUri: process.env.TEAMS_REDIRECT_URI || process.env.OUTLOOK_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/teams',
-        authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-        tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        redirectUri: process.env.TEAMS_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/teams`,
+        authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+        tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
         scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read ChannelMessage.Read.All offline_access'
       });
     }
 
     // Confluence OAuth configuration (Atlassian)
-    if (process.env.CONFLUENCE_CLIENT_ID && process.env.CONFLUENCE_CLIENT_SECRET) {
+    // Uses shared ATLASSIAN credentials
+    if (process.env.ATLASSIAN_CLIENT_ID && process.env.ATLASSIAN_CLIENT_SECRET) {
       this.oauthConfigs.set(MCPToolType.CONFLUENCE, {
-        clientId: process.env.CONFLUENCE_CLIENT_ID,
-        clientSecret: process.env.CONFLUENCE_CLIENT_SECRET,
-        redirectUri: process.env.CONFLUENCE_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/confluence',
+        clientId: process.env.ATLASSIAN_CLIENT_ID,
+        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET,
+        redirectUri: process.env.CONFLUENCE_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
         scope: 'read:confluence-content.all read:confluence-user offline_access'
@@ -126,14 +123,62 @@ export class MCPOAuthService {
       this.oauthConfigs.set(MCPToolType.SLACK, {
         clientId: process.env.SLACK_CLIENT_ID,
         clientSecret: process.env.SLACK_CLIENT_SECRET,
-        redirectUri: process.env.SLACK_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/slack',
+        redirectUri: process.env.SLACK_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/slack`,
         authorizationUrl: 'https://slack.com/oauth/v2/authorize',
         tokenUrl: 'https://slack.com/api/oauth.v2.access',
-        scope: 'channels:read users:read chat:write'
+        scope: 'channels:read channels:history users:read chat:write'
       });
     }
 
     console.log(`[MCP OAuth] Initialized ${this.oauthConfigs.size} OAuth configurations`);
+
+    // Log detailed configuration status
+    this.logConfigurationDiagnostics();
+  }
+
+  /**
+   * Log detailed diagnostics about OAuth configuration status
+   */
+  private logConfigurationDiagnostics(): void {
+    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const configured: string[] = [];
+    const missing: string[] = [];
+
+    allTools.forEach(tool => {
+      if (this.oauthConfigs.has(tool as MCPToolType)) {
+        configured.push(tool);
+      } else {
+        missing.push(tool);
+      }
+    });
+
+    console.log('[MCP OAuth] Configuration Status:');
+    console.log(`  ✓ Configured (${configured.length}): ${configured.join(', ') || 'none'}`);
+
+    if (missing.length > 0) {
+      console.log(`  ✗ Not Configured (${missing.length}): ${missing.join(', ')}`);
+      console.log('  💡 See MCP_OAUTH_SETUP_GUIDE.md for setup instructions');
+
+      // Log specific missing environment variables
+      const envVarMap: Record<string, string[]> = {
+        'github': ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'],
+        'jira': ['ATLASSIAN_CLIENT_ID', 'ATLASSIAN_CLIENT_SECRET'],
+        'confluence': ['ATLASSIAN_CLIENT_ID', 'ATLASSIAN_CLIENT_SECRET'],
+        'figma': ['FIGMA_CLIENT_ID', 'FIGMA_CLIENT_SECRET'],
+        'outlook': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
+        'teams': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
+        'slack': ['SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET']
+      };
+
+      missing.forEach(tool => {
+        const vars = envVarMap[tool] || [];
+        const missingVars = vars.filter(v => !process.env[v]);
+        if (missingVars.length > 0) {
+          console.log(`  → ${tool}: Missing ${missingVars.join(', ')}`);
+        }
+      });
+    }
   }
 
   /**
