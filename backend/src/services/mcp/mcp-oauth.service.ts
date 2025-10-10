@@ -356,6 +356,8 @@ export class MCPOAuthService {
         expiresAt: tokens.expiresAt,
         scope: tokens.scope,
         isActive: true,
+        isConnected: true,
+        connectedAt: new Date(),
         updatedAt: new Date()
       },
       create: {
@@ -365,7 +367,9 @@ export class MCPOAuthService {
         refreshToken: encryptedRefreshToken,
         expiresAt: tokens.expiresAt,
         scope: tokens.scope,
-        isActive: true
+        isActive: true,
+        isConnected: true,
+        connectedAt: new Date()
       }
     });
   }
