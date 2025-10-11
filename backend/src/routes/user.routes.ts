@@ -28,12 +28,9 @@ router.get('/search', optionalAuth, searchUsers);
 router.get('/skills/all', getAllSkills);
 
 // Protected routes (require authentication) - must be BEFORE /:userId
-router.use('/profile', authenticate);
-router.get('/profile/me', getMyProfile);
-router.put('/profile', updateProfile);
-
-router.use('/avatar', authenticate);
-router.post('/avatar', uploadAvatarMiddleware, handleAvatarUpload);
+router.get('/profile/me', authenticate, getMyProfile);
+router.put('/profile', authenticate, updateProfile);
+router.post('/avatar', authenticate, uploadAvatarMiddleware, handleAvatarUpload);
 
 // Public user profile routes (with optional auth) - AFTER specific routes
 router.get('/:userId', optionalAuth, getUserProfile);
