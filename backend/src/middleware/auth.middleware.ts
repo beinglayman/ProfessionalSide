@@ -103,14 +103,18 @@ export const authenticate = async (
     }
     
     // Verify token
+    console.log('[authenticate] Verifying JWT token for path:', req.path);
     const decoded: JwtPayload = verifyToken(token);
-    
+    console.log('[authenticate] Token decoded - userId:', decoded.userId, 'type:', decoded.type);
+
     if (decoded.type !== 'access') {
+      console.log('[authenticate] ERROR - Invalid token type:', decoded.type);
       sendError(res, 'Invalid token type', 401);
       return;
     }
-    
+
     // Get user from database
+    console.log('[authenticate] Looking up user in database...');
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -121,17 +125,20 @@ export const authenticate = async (
         isActive: true
       }
     });
-    
+    console.log('[authenticate] User lookup result - found:', !!user);
+
     if (!user) {
+      console.log('[authenticate] ERROR - User not found for userId:', decoded.userId);
       sendError(res, 'User not found', 401);
       return;
     }
-    
+
     if (!user.isActive) {
+      console.log('[authenticate] ERROR - User account is deactivated');
       sendError(res, 'Account is deactivated', 401);
       return;
     }
-    
+
     // Add user to request object
     req.user = {
       id: user.id,
@@ -139,10 +146,12 @@ export const authenticate = async (
       name: user.name,
       avatar: user.avatar || undefined
     };
-    
+    console.log('[authenticate] SUCCESS - User added to request, calling next()');
+
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[authenticate] ERROR - Exception caught:', error);
+    console.error('[authenticate] Error stack:', (error as any).stack);
     sendError(res, 'Invalid or expired token', 401);
   }
 };

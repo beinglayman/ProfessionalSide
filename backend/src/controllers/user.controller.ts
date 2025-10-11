@@ -64,14 +64,29 @@ export const uploadAvatarMiddleware = upload.single('avatar');
  * Get current user's full profile
  */
 export const getMyProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  console.log('[getMyProfile] START - Request received');
+  console.log('[getMyProfile] User from token:', req.user);
+
   const userId = req.user?.id;
-  
+
   if (!userId) {
+    console.log('[getMyProfile] ERROR - No userId in token');
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  const profile = await userService.getUserProfile(userId, userId);
-  sendSuccess(res, profile);
+  console.log('[getMyProfile] Fetching profile for userId:', userId);
+
+  try {
+    const profile = await userService.getUserProfile(userId, userId);
+    console.log('[getMyProfile] Profile fetched successfully');
+    console.log('[getMyProfile] Profile keys:', Object.keys(profile));
+    sendSuccess(res, profile);
+    console.log('[getMyProfile] SUCCESS - Response sent');
+  } catch (error: any) {
+    console.error('[getMyProfile] ERROR in service call:', error);
+    console.error('[getMyProfile] Error stack:', error.stack);
+    throw error;
+  }
 });
 
 /**

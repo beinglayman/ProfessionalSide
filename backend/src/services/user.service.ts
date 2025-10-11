@@ -46,7 +46,10 @@ export class UserService {
    * Get user profile by ID
    */
   async getUserProfile(userId: string, requestingUserId?: string) {
-    const user = await prisma.user.findUnique({
+    console.log('[UserService.getUserProfile] START - userId:', userId, 'requestingUserId:', requestingUserId);
+
+    try {
+      const user = await prisma.user.findUnique({
       where: { id: userId, isActive: true },
       select: {
         id: true,
@@ -150,9 +153,14 @@ export class UserService {
       }
     });
 
+    console.log('[UserService.getUserProfile] Query completed - user found:', !!user);
+
     if (!user) {
+      console.log('[UserService.getUserProfile] ERROR - User not found');
       throw new Error('User not found');
     }
+
+    console.log('[UserService.getUserProfile] Applying privacy settings...');
 
     // Apply privacy settings
     const isOwnProfile = userId === requestingUserId;
@@ -169,7 +177,13 @@ export class UserService {
       }
     }
 
+    console.log('[UserService.getUserProfile] SUCCESS - Returning user profile');
     return user;
+    } catch (error: any) {
+      console.error('[UserService.getUserProfile] ERROR:', error);
+      console.error('[UserService.getUserProfile] Error stack:', error.stack);
+      throw error;
+    }
   }
 
   /**
