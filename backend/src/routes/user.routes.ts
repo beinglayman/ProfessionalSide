@@ -23,19 +23,24 @@ import { authenticate, optionalAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Public routes (with optional auth)
+// Public routes (with optional auth) - specific routes BEFORE parametric
 router.get('/search', optionalAuth, searchUsers);
 router.get('/skills/all', getAllSkills);
+
+// Protected routes (require authentication) - must be BEFORE /:userId
+router.use('/profile', authenticate);
+router.get('/profile/me', getMyProfile);
+router.put('/profile', updateProfile);
+
+router.use('/avatar', authenticate);
+router.post('/avatar', uploadAvatarMiddleware, handleAvatarUpload);
+
+// Public user profile routes (with optional auth) - AFTER specific routes
 router.get('/:userId', optionalAuth, getUserProfile);
 router.get('/:userId/skills', getUserSkills);
 
 // Protected routes (require authentication)
 router.use(authenticate);
-
-// Profile management
-router.get('/profile/me', getMyProfile);
-router.put('/profile', updateProfile);
-router.post('/avatar', uploadAvatarMiddleware, handleAvatarUpload);
 
 // Skills management
 router.get('/skills/my', getUserSkills);
