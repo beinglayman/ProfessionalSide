@@ -119,7 +119,15 @@ az webapp config appsettings set \
 ```
 
 ### Scopes Required
-- `file_read` - Read files and comments
+
+**Users:**
+- `current_user:read` - Read the current user's name, email, and profile image
+
+**Files:**
+- `file_comments:read` - Read comments in accessible files
+- `file_content:read` - Read the contents of and render images from files
+- `file_metadata:read` - Read metadata of files
+- `file_versions:read` - Read version history of files
 
 ---
 

@@ -74,7 +74,7 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/figma`,
         authorizationUrl: 'https://www.figma.com/oauth',
         tokenUrl: 'https://www.figma.com/api/oauth/token',
-        scope: 'file_read'
+        scope: 'current_user:read file_comments:read file_content:read file_metadata:read file_versions:read'
       });
     }
 
