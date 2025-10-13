@@ -10,12 +10,14 @@ import {
   Shield,
   Clock,
   Database,
-  Lock
+  Lock,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations, useMCPOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
-import { MCPToolType } from '../../types/mcp.types';
+import { MCPToolType, MCPIntegrationGroup } from '../../types/mcp.types';
 
 // Tool configurations with icons and descriptions
 const toolConfigs: Record<MCPToolType, {
@@ -107,12 +109,35 @@ const toolConfigs: Record<MCPToolType, {
   }
 };
 
+// Integration groups configuration
+const integrationGroups: MCPIntegrationGroup[] = [
+  {
+    id: 'atlassian',
+    name: 'Atlassian Suite',
+    description: 'Connect once to authorize both Jira and Confluence',
+    tools: ['jira', 'confluence'],
+    providerName: 'Atlassian'
+  },
+  {
+    id: 'microsoft',
+    name: 'Microsoft Suite',
+    description: 'Connect once to authorize both Outlook and Teams',
+    tools: ['outlook', 'teams'],
+    providerName: 'Microsoft'
+  }
+];
+
+// Standalone tools (not part of any group)
+const standaloneTools: MCPToolType[] = ['github', 'figma', 'slack'];
+
 export function IntegrationsSettings() {
-  const { data: integrations, isLoading: integrationsLoading } = useMCPIntegrations();
+  const { data, isLoading: integrationsLoading } = useMCPIntegrations();
+  const integrations = data?.integrations;
   const { mutate: initiateOAuth, isPending: isConnecting } = useMCPOAuth();
   const { mutate: disconnect, isPending: isDisconnecting } = useDisconnectIntegration();
   const [connectingTool, setConnectingTool] = useState<MCPToolType | null>(null);
   const [disconnectingTool, setDisconnectingTool] = useState<MCPToolType | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['atlassian', 'microsoft']));
 
   const handleConnect = (toolType: MCPToolType) => {
     setConnectingTool(toolType);
@@ -159,6 +184,55 @@ export function IntegrationsSettings() {
     return integration?.isConnected ? 'connected' : 'disconnected';
   };
 
+  const getGroupConnectionStatus = (group: MCPIntegrationGroup) => {
+    const connectedCount = group.tools.filter(tool => getConnectionStatus(tool) === 'connected').length;
+    return {
+      connected: connectedCount,
+      total: group.tools.length,
+      allConnected: connectedCount === group.tools.length,
+      noneConnected: connectedCount === 0,
+      partiallyConnected: connectedCount > 0 && connectedCount < group.tools.length
+    };
+  };
+
+  const handleConnectGroup = (group: MCPIntegrationGroup) => {
+    // Connect the first tool in the group - since they share credentials,
+    // the user can then manually connect the others or we can auto-detect
+    const firstTool = group.tools[0];
+    handleConnect(firstTool);
+  };
+
+  const handleDisconnectGroup = (group: MCPIntegrationGroup) => {
+    const connectedTools = group.tools.filter(tool => getConnectionStatus(tool) === 'connected');
+
+    if (connectedTools.length === 0) return;
+
+    const toolNames = connectedTools.map(tool => toolConfigs[tool].name).join(' and ');
+    if (!confirm(`Are you sure you want to disconnect ${toolNames}?`)) {
+      return;
+    }
+
+    // Disconnect all connected tools in the group
+    connectedTools.forEach(tool => {
+      setDisconnectingTool(tool);
+      disconnect(tool, {
+        onSettled: () => setDisconnectingTool(null)
+      });
+    });
+  };
+
+  const toggleGroupExpanded = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
   if (integrationsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -202,83 +276,237 @@ export function IntegrationsSettings() {
         </div>
       </div>
 
-      {/* Integration Tools Grid */}
-      <div className="grid gap-4">
-        {(Object.keys(toolConfigs) as MCPToolType[]).map(toolType => {
-          const config = toolConfigs[toolType];
-          const status = getConnectionStatus(toolType);
-          const isConnected = status === 'connected';
-          const isProcessing =
-            (connectingTool === toolType && isConnecting) ||
-            (disconnectingTool === toolType && isDisconnecting);
-
-          const IconComponent = config.icon;
+      {/* Integration Tools */}
+      <div className="space-y-6">
+        {/* Grouped Integrations */}
+        {integrationGroups.map(group => {
+          const groupStatus = getGroupConnectionStatus(group);
+          const isExpanded = expandedGroups.has(group.id);
 
           return (
-            <div
-              key={toolType}
-              className={cn(
-                "bg-white border rounded-lg p-6 transition-all",
-                isConnected ? "border-green-200 bg-green-50/30" : "border-gray-200",
-                isProcessing && "opacity-75"
-              )}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4 flex-1">
-                  <div className={cn("p-3 rounded-lg", config.bgColor)}>
-                    <IconComponent className={cn("h-6 w-6", config.color)} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {config.name}
-                      </h3>
-                      {isConnected && (
-                        <div className="flex items-center space-x-1 text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Connected</span>
-                        </div>
+            <div key={group.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Group Header */}
+              <div
+                className={cn(
+                  "bg-gray-50 border-b border-gray-200 p-4 cursor-pointer hover:bg-gray-100 transition-colors",
+                  groupStatus.allConnected && "bg-green-50 border-green-200"
+                )}
+                onClick={() => toggleGroupExpanded(group.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3 flex-1">
+                    <div className="flex-shrink-0">
+                      {isExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-gray-600" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-600" />
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">
-                      {config.description}
-                    </p>
-                    {isConnected && integrations && (
-                      <div className="text-xs text-gray-500">
-                        Connected on {new Date(
-                          integrations.find(i => i.tool === toolType)?.connectedAt || ''
-                        ).toLocaleDateString()}
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
+                        {groupStatus.allConnected && (
+                          <div className="flex items-center space-x-1 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">All Connected</span>
+                          </div>
+                        )}
+                        {groupStatus.partiallyConnected && (
+                          <div className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded">
+                            {groupStatus.connected}/{groupStatus.total} Connected
+                          </div>
+                        )}
                       </div>
+                      <p className="text-sm text-gray-600 mt-1">{group.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4" onClick={(e) => e.stopPropagation()}>
+                    {groupStatus.noneConnected ? (
+                      <Button
+                        onClick={() => handleConnectGroup(group)}
+                        className="bg-primary-600 hover:bg-primary-700"
+                        disabled={isConnecting}
+                      >
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Connect {group.providerName}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleDisconnectGroup(group)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                        disabled={isDisconnecting}
+                      >
+                        Disconnect All
+                      </Button>
                     )}
                   </div>
                 </div>
-                <div className="flex-shrink-0 ml-4">
-                  {isProcessing ? (
-                    <Button disabled variant="outline">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </Button>
-                  ) : isConnected ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleDisconnect(toolType)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                    >
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleConnect(toolType)}
-                      className="bg-primary-600 hover:bg-primary-700"
-                    >
-                      <Link2 className="h-4 w-4 mr-2" />
-                      Connect
-                    </Button>
-                  )}
-                </div>
               </div>
+
+              {/* Group Tools (Collapsible) */}
+              {isExpanded && (
+                <div className="bg-white divide-y divide-gray-100">
+                  {group.tools.map(toolType => {
+                    const config = toolConfigs[toolType];
+                    const status = getConnectionStatus(toolType);
+                    const isConnected = status === 'connected';
+                    const isProcessing =
+                      (connectingTool === toolType && isConnecting) ||
+                      (disconnectingTool === toolType && isDisconnecting);
+
+                    const IconComponent = config.icon;
+
+                    return (
+                      <div
+                        key={toolType}
+                        className={cn(
+                          "p-4 transition-all",
+                          isConnected && "bg-green-50/30"
+                        )}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-4 flex-1">
+                            <div className={cn("p-3 rounded-lg", config.bgColor)}>
+                              <IconComponent className={cn("h-5 w-5", config.color)} />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h4 className="text-base font-semibold text-gray-900">
+                                  {config.name}
+                                </h4>
+                                {isConnected && (
+                                  <div className="flex items-center space-x-1 text-green-600">
+                                    <CheckCircle className="h-4 w-4" />
+                                    <span className="text-xs font-medium">Connected</span>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                {config.description}
+                              </p>
+                              {isConnected && integrations && (
+                                <div className="text-xs text-gray-500 mt-2">
+                                  Connected on {new Date(
+                                    integrations.find(i => i.tool === toolType)?.connectedAt || ''
+                                  ).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 ml-4">
+                            {isProcessing ? (
+                              <Button disabled variant="outline" size="sm">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </Button>
+                            ) : isConnected ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDisconnect(toolType)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                Disconnect
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleConnect(toolType)}
+                                className="bg-primary-600 hover:bg-primary-700"
+                              >
+                                <Link2 className="h-4 w-4 mr-2" />
+                                Connect
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
+
+        {/* Standalone Integrations */}
+        <div className="space-y-4">
+          {standaloneTools.map(toolType => {
+            const config = toolConfigs[toolType];
+            const status = getConnectionStatus(toolType);
+            const isConnected = status === 'connected';
+            const isProcessing =
+              (connectingTool === toolType && isConnecting) ||
+              (disconnectingTool === toolType && isDisconnecting);
+
+            const IconComponent = config.icon;
+
+            return (
+              <div
+                key={toolType}
+                className={cn(
+                  "bg-white border rounded-lg p-6 transition-all",
+                  isConnected ? "border-green-200 bg-green-50/30" : "border-gray-200",
+                  isProcessing && "opacity-75"
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-4 flex-1">
+                    <div className={cn("p-3 rounded-lg", config.bgColor)}>
+                      <IconComponent className={cn("h-6 w-6", config.color)} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {config.name}
+                        </h3>
+                        {isConnected && (
+                          <div className="flex items-center space-x-1 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">Connected</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        {config.description}
+                      </p>
+                      {isConnected && integrations && (
+                        <div className="text-xs text-gray-500">
+                          Connected on {new Date(
+                            integrations.find(i => i.tool === toolType)?.connectedAt || ''
+                          ).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 ml-4">
+                    {isProcessing ? (
+                      <Button disabled variant="outline">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </Button>
+                    ) : isConnected ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleDisconnect(toolType)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      >
+                        Disconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handleConnect(toolType)}
+                        className="bg-primary-600 hover:bg-primary-700"
+                      >
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Help Section */}

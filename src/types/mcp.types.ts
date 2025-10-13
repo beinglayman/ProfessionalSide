@@ -8,6 +8,17 @@ export type MCPToolType =
   | 'slack'
   | 'teams';
 
+// Integration Group Types
+export type MCPIntegrationGroupType = 'atlassian' | 'microsoft';
+
+export interface MCPIntegrationGroup {
+  id: MCPIntegrationGroupType;
+  name: string;
+  description: string;
+  tools: MCPToolType[];
+  providerName: string; // "Atlassian" or "Microsoft"
+}
+
 // Integration status for a single tool
 export interface MCPIntegrationStatus {
   tool: MCPToolType;
@@ -121,4 +132,79 @@ export interface TeamsActivity {
   messagesPosted: number;
   channelsActive: string[];
   highlights: string[];
+}
+
+// Multi-source organized activity types (AI-powered)
+export interface CrossToolCorrelation {
+  id: string;
+  type: 'pr_to_jira' | 'meeting_to_code' | 'design_to_code' | 'discussion_to_doc' | 'general';
+  source1: {
+    tool: MCPToolType;
+    id: string;
+    title: string;
+    url?: string;
+  };
+  source2: {
+    tool: MCPToolType;
+    id: string;
+    title: string;
+    url?: string;
+  };
+  confidence: number; // 0-1
+  reasoning: string;
+}
+
+export interface OrganizedActivityItem {
+  id: string;
+  source: MCPToolType;
+  type: string; // 'pr', 'issue', 'commit', 'meeting', 'file', etc.
+  title: string;
+  description: string;
+  url: string;
+  importance: 'high' | 'medium' | 'low';
+  selected: boolean;
+  metadata?: any;
+}
+
+export interface OrganizedActivityCategory {
+  type: 'achievement' | 'learning' | 'collaboration' | 'documentation' | 'problem_solving';
+  label: string;
+  summary: string;
+  suggestedEntryType: 'achievement' | 'learning' | 'reflection' | 'challenge';
+  items: OrganizedActivityItem[];
+}
+
+export interface OrganizedActivityArtifact {
+  type: string;
+  source: MCPToolType;
+  title: string;
+  url: string;
+  description: string;
+  importance: 'high' | 'medium' | 'low';
+}
+
+export interface OrganizedActivity {
+  // AI-suggested entry metadata
+  suggestedEntryType: 'achievement' | 'learning' | 'reflection' | 'challenge';
+  suggestedTitle: string;
+  contextSummary: string;
+  extractedSkills: string[];
+
+  // Cross-tool correlations detected by AI
+  correlations: CrossToolCorrelation[];
+
+  // Unified categories across all sources
+  categories: OrganizedActivityCategory[];
+
+  // Top artifacts from each source for journal entry
+  artifacts: OrganizedActivityArtifact[];
+}
+
+export interface MultiSourceFetchResponse {
+  sessionId: string;
+  sources: MCPToolType[];
+  organized: OrganizedActivity;
+  expiresAt: string;
+  privacyNotice: string;
+  message: string;
 }
