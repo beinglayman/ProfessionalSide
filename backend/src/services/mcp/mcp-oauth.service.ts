@@ -321,8 +321,23 @@ export class MCPOAuthService {
       console.log(`[MCP OAuth] Successfully connected ${toolType} for user ${userId}`);
 
       return { success: true, userId, toolType };
-    } catch (error) {
+    } catch (error: any) {
       console.error('[MCP OAuth] Error handling callback:', error);
+      if (error.response) {
+        // Axios error with response from server
+        console.error('[MCP OAuth] Response error:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('[MCP OAuth] No response received:', error.message);
+      } else {
+        // Something else happened
+        console.error('[MCP OAuth] Error details:', error.message);
+      }
       return { success: false };
     }
   }
