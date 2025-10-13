@@ -100,7 +100,7 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/teams`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-        scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read ChannelMessage.Read.All offline_access'
+        scope: 'User.Read Channel.ReadBasic.All ChannelMessage.Edit Chat.Read Chat.ReadBasic offline_access'
       });
     }
 
