@@ -3,9 +3,11 @@ import {
   getAvailableTools,
   getIntegrationStatus,
   initiateOAuth,
+  initiateGroupOAuth,
   handleOAuthCallback,
   disconnectIntegration,
   fetchData,
+  fetchMultiSource,
   getSession,
   clearSession,
   clearAllSessions,
@@ -54,8 +56,16 @@ router.get('/integrations', authMiddleware, getIntegrationStatus);
 router.post('/oauth/initiate', authMiddleware, initiateOAuth);
 
 /**
+ * POST /api/v1/mcp/oauth/initiate-group
+ * Initiate OAuth flow for a group of tools (connects multiple tools at once)
+ * Body: { groupType: 'atlassian' | 'microsoft' }
+ */
+router.post('/oauth/initiate-group', authMiddleware, initiateGroupOAuth);
+
+/**
  * GET /api/v1/mcp/callback/:toolType
  * OAuth callback endpoint (called by external services)
+ * Supports individual tools (github, jira, etc.) and groups (atlassian, microsoft)
  * Query: { code: string, state: string }
  */
 router.get('/callback/:toolType', handleOAuthCallback);
@@ -76,6 +86,13 @@ router.delete('/integrations/:toolType', authMiddleware, disconnectIntegration);
  * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean }
  */
 router.post('/fetch', authMiddleware, fetchData);
+
+/**
+ * POST /api/v1/mcp/fetch-multi-source
+ * Fetch and organize data from multiple tools using AI (unified results)
+ * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean }
+ */
+router.post('/fetch-multi-source', authMiddleware, fetchMultiSource);
 
 // ============================================================================
 // Session Management

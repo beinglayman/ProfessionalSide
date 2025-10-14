@@ -82,7 +82,7 @@ class MCPService {
     integrations: MCPIntegration[];
   }> {
     const response = await api.get('/mcp/integrations');
-    return response.data;
+    return response.data.data; // Unwrap the data property from backend response
   }
 
   /**
@@ -94,6 +94,20 @@ class MCPService {
     privacyNotice: string;
   }> {
     const response = await api.post('/mcp/oauth/initiate', { toolType });
+    return response.data.data; // Backend wraps in { success: true, data: {...} }
+  }
+
+  /**
+   * Initiate OAuth flow for a group of tools (connects multiple tools at once)
+   */
+  async initiateGroupOAuth(groupType: 'atlassian' | 'microsoft'): Promise<{
+    authUrl: string;
+    state: string;
+    groupType: string;
+    tools: MCPToolType[];
+    privacyNotice: string;
+  }> {
+    const response = await api.post('/mcp/oauth/initiate-group', { groupType });
     return response.data.data; // Backend wraps in { success: true, data: {...} }
   }
 
@@ -126,6 +140,29 @@ class MCPService {
       consentGiven
     });
     return response.data;
+  }
+
+  /**
+   * Fetch and organize data from multiple tools using AI (unified results)
+   */
+  async fetchMultiSource(
+    toolTypes: MCPToolType[],
+    dateRange?: { start?: string; end?: string },
+    consentGiven: boolean = false
+  ): Promise<{
+    sessionId: string;
+    sources: MCPToolType[];
+    organized: any; // Will be OrganizedActivity type
+    expiresAt: string;
+    privacyNotice: string;
+    message: string;
+  }> {
+    const response = await api.post('/mcp/fetch-multi-source', {
+      toolTypes,
+      dateRange,
+      consentGiven
+    });
+    return response.data.data; // Unwrap data property from backend response
   }
 
   /**

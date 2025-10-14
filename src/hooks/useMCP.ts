@@ -29,6 +29,23 @@ export function useMCPOAuth() {
   });
 }
 
+export function useMCPGroupOAuth() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ groupType }: { groupType: 'atlassian' | 'microsoft' }) =>
+      mcpService.initiateGroupOAuth(groupType),
+    onSuccess: (data) => {
+      // Return the auth URL for redirect
+      return data;
+    },
+    onError: (error: any) => {
+      toast.error('Connection failed', error.response?.data?.error || 'Failed to initiate group connection');
+    }
+  });
+}
+
 export function useDisconnectIntegration() {
   const queryClient = useQueryClient();
   const toast = useToast();

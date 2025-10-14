@@ -13,7 +13,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
     strictPort: false,
-    allowedHosts: ['localhost', '.azurewebsites.net'],
+    allowedHosts: ['localhost', '.azurewebsites.net', 'inchronicle.com', '.inchronicle.com'],
   },
   optimizeDeps: {
     exclude: ['lucide-react'],

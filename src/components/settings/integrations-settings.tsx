@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
-import { useMCPIntegrations, useMCPOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
+import { useMCPIntegrations, useMCPOAuth, useMCPGroupOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
 import { MCPToolType, MCPIntegrationGroup } from '../../types/mcp.types';
 
 // Tool configurations with icons and descriptions
@@ -134,8 +134,10 @@ export function IntegrationsSettings() {
   const { data, isLoading: integrationsLoading } = useMCPIntegrations();
   const integrations = data?.integrations;
   const { mutate: initiateOAuth, isPending: isConnecting } = useMCPOAuth();
+  const { mutate: initiateGroupOAuth, isPending: isGroupConnecting } = useMCPGroupOAuth();
   const { mutate: disconnect, isPending: isDisconnecting } = useDisconnectIntegration();
   const [connectingTool, setConnectingTool] = useState<MCPToolType | null>(null);
+  const [connectingGroup, setConnectingGroup] = useState<string | null>(null);
   const [disconnectingTool, setDisconnectingTool] = useState<MCPToolType | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['atlassian', 'microsoft']));
 
@@ -196,10 +198,22 @@ export function IntegrationsSettings() {
   };
 
   const handleConnectGroup = (group: MCPIntegrationGroup) => {
-    // Connect the first tool in the group - since they share credentials,
-    // the user can then manually connect the others or we can auto-detect
-    const firstTool = group.tools[0];
-    handleConnect(firstTool);
+    setConnectingGroup(group.id);
+    initiateGroupOAuth(
+      { groupType: group.id },
+      {
+        onSuccess: (data) => {
+          // Redirect to OAuth URL (will authorize both tools at once)
+          if (data.authUrl) {
+            window.location.href = data.authUrl;
+          }
+        },
+        onError: (error) => {
+          console.error('Group OAuth initiation failed:', error);
+          setConnectingGroup(null);
+        }
+      }
+    );
   };
 
   const handleDisconnectGroup = (group: MCPIntegrationGroup) => {
@@ -325,9 +339,13 @@ export function IntegrationsSettings() {
                       <Button
                         onClick={() => handleConnectGroup(group)}
                         className="bg-primary-600 hover:bg-primary-700"
-                        disabled={isConnecting}
+                        disabled={isGroupConnecting && connectingGroup === group.id}
                       >
-                        <Link2 className="h-4 w-4 mr-2" />
+                        {isGroupConnecting && connectingGroup === group.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Link2 className="h-4 w-4 mr-2" />
+                        )}
                         Connect {group.providerName}
                       </Button>
                     ) : (

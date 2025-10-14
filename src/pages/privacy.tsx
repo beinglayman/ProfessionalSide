@@ -61,7 +61,30 @@ export function PrivacyPolicyPage() {
                       <li>Log data and device information</li>
                       <li>How you interact with our platform</li>
                       <li>Features and pages you access</li>
+                      <li>Session recordings and interaction heatmaps (via Microsoft Clarity)</li>
+                      <li>Anonymized user behavior analytics to improve user experience</li>
                     </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Analytics Information</h3>
+                    <p className="text-gray-600 mb-2">
+                      We use Microsoft Clarity to understand how visitors interact with our website.
+                      Clarity collects information such as:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-600">
+                      <li>Mouse movements, clicks, and scrolling behavior</li>
+                      <li>Session recordings (with sensitive data masked)</li>
+                      <li>Device and browser information</li>
+                      <li>Pages visited and time spent on each page</li>
+                    </ul>
+                    <p className="text-gray-600 mt-2">
+                      All data collected through Microsoft Clarity is anonymized and used solely to improve
+                      the user experience. For more information, see{' '}
+                      <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700">
+                        Microsoft's Privacy Policy
+                      </a>.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -125,8 +148,8 @@ export function PrivacyPolicyPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">Service Providers</h3>
                     <ul className="list-disc list-inside space-y-1 text-gray-600">
-                      <li>Cloud hosting and storage providers</li>
-                      <li>Analytics and performance monitoring services</li>
+                      <li>Cloud hosting and storage providers (Microsoft Azure)</li>
+                      <li>Analytics and performance monitoring services (Microsoft Clarity)</li>
                       <li>Customer support tools</li>
                     </ul>
                   </div>

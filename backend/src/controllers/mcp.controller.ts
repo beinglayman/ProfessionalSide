@@ -12,7 +12,11 @@ const mockIntegrations = new Map<string, any>();
  * Get available MCP tools and their connection status
  */
 export const getAvailableTools = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     // Get user's integrations from database
@@ -72,7 +76,11 @@ export const getAvailableTools = asyncHandler(async (req: Request, res: Response
  * Get integration status for the current user
  */
 export const getIntegrationStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     const integrations = await prisma.mCPIntegration.findMany({
@@ -93,7 +101,15 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
 
     const allIntegrations = allTools.map(tool => {
       const existing = integrationMap.get(tool);
-      return existing || {
+      if (existing) {
+        // Return existing integration with consistent property name
+        return {
+          ...existing,
+          tool: existing.toolType
+        };
+      }
+      // Return placeholder with consistent structure
+      return {
         tool,
         isConnected: false,
         connectedAt: null,
@@ -115,8 +131,12 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
  * Initiate OAuth flow for a tool
  */
 export const initiateOAuth = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
   const { toolType } = req.body;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
 
@@ -126,48 +146,73 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
   }
 
   try {
-    // Generate state token for security
-    const state = crypto.randomBytes(32).toString('base64url');
+    // Use OAuth service to get authorization URL
+    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
+    const oauthService = new MCPOAuthService();
 
-    // Store state in session or cache (for production, use Redis or similar)
-    // For now, we'll encode userId in the state
-    const stateData = Buffer.from(JSON.stringify({
-      userId,
-      toolType,
-      timestamp: Date.now()
-    })).toString('base64url');
+    const result = oauthService.getAuthorizationUrl(userId, toolType);
 
-    let authUrl: string;
-
-    // Generate OAuth URL based on tool type
-    if (toolType === 'github') {
-      const clientId = process.env.GITHUB_CLIENT_ID;
-      const redirectUri = process.env.GITHUB_REDIRECT_URI ||
-        `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/github`;
-
-      if (!clientId) {
-        sendError(res, 'GitHub OAuth not configured', 500);
-        return;
-      }
-
-      authUrl = `https://github.com/login/oauth/authorize?` +
-        `client_id=${clientId}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&scope=${encodeURIComponent('repo user')}` +
-        `&state=${stateData}`;
-    } else {
-      // Mock OAuth URLs for other tools (to be implemented)
-      authUrl = `https://example.com/oauth/${toolType}?state=${stateData}`;
+    if (!result) {
+      sendError(res, `${toolType} OAuth not configured. Please ensure OAuth credentials are set in environment variables.`, 500);
+      return;
     }
 
+    console.log(`[MCP OAuth] Generated authorization URL for ${toolType}, user ${userId}`);
+
     sendSuccess(res, {
-      authUrl,
-      state: stateData,
+      authUrl: result.url,
+      state: result.state,
+      toolType,
       privacyNotice: 'You will be redirected to authenticate with the external service. InChronicle only stores encrypted access tokens.'
     });
   } catch (error) {
     console.error('[MCP Controller] Error initiating OAuth:', error);
     sendError(res, 'Failed to initiate OAuth');
+  }
+});
+
+/**
+ * Initiate OAuth for a group of tools (e.g., Jira + Confluence)
+ */
+export const initiateGroupOAuth = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { groupType } = req.body;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
+
+  const validGroups = ['atlassian', 'microsoft'];
+
+  if (!groupType || !validGroups.includes(groupType)) {
+    sendError(res, 'Invalid group type. Must be "atlassian" or "microsoft"', 400);
+    return;
+  }
+
+  try {
+    // Use OAuth service to get group authorization URL
+    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
+    const oauthService = new MCPOAuthService();
+
+    const result = oauthService.getAuthorizationUrlForGroup(userId, groupType);
+
+    if (!result) {
+      sendError(res, `${groupType} OAuth not configured. Please ensure OAuth credentials are set in environment variables.`, 500);
+      return;
+    }
+
+    console.log(`[MCP OAuth] Generated group authorization URL for ${groupType} (${result.tools.join(', ')}), user ${userId}`);
+
+    sendSuccess(res, {
+      authUrl: result.url,
+      state: result.state,
+      groupType,
+      tools: result.tools,
+      privacyNotice: 'You will be redirected to authenticate with the external service. InChronicle only stores encrypted access tokens.'
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error initiating group OAuth:', error);
+    sendError(res, 'Failed to initiate group OAuth');
   }
 });
 
@@ -182,133 +227,80 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
 
   try {
     if (oauthError) {
-      // Redirect to frontend with error
-      return res.redirect(`${frontendUrl}/mcp/callback?error=${oauthError}`);
+      console.error(`[MCP OAuth] OAuth error from ${toolType}:`, oauthError);
+      return res.redirect(`${frontendUrl}/mcp/callback?error=${oauthError}&tool=${toolType}`);
     }
 
     if (!code || !state) {
-      return res.redirect(`${frontendUrl}/mcp/callback?error=missing_params`);
+      console.error(`[MCP OAuth] Missing code or state for ${toolType}`);
+      return res.redirect(`${frontendUrl}/mcp/callback?error=missing_params&tool=${toolType}`);
+    }
+
+    // Validate that the toolType in params matches expected tools or groups
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const validGroups = ['atlassian', 'microsoft'];
+    const isGroupCallback = validGroups.includes(toolType);
+
+    if (!validTools.includes(toolType) && !isGroupCallback) {
+      console.error(`[MCP OAuth] Invalid tool type: ${toolType}`);
+      return res.redirect(`${frontendUrl}/mcp/callback?error=invalid_tool&tool=${toolType}`);
     }
 
     // Decode and validate state
     let stateData: any;
     try {
-      stateData = JSON.parse(Buffer.from(state as string, 'base64url').toString());
+      stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
     } catch (e) {
-      return res.redirect(`${frontendUrl}/mcp/callback?error=invalid_state`);
+      console.error(`[MCP OAuth] Invalid state format for ${toolType}`);
+      return res.redirect(`${frontendUrl}/mcp/callback?error=invalid_state&tool=${toolType}`);
     }
 
-    const { userId, toolType: stateToolType } = stateData;
+    const { userId, toolType: stateToolType, toolTypes, groupType } = stateData;
 
-    if (stateToolType !== toolType) {
-      return res.redirect(`${frontendUrl}/mcp/callback?error=state_mismatch`);
-    }
-
-    // For GitHub, exchange code for tokens
-    if (toolType === 'github') {
-      const clientId = process.env.GITHUB_CLIENT_ID;
-      const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-
-      if (!clientId || !clientSecret) {
-        return res.redirect(`${frontendUrl}/mcp/callback?error=oauth_config_missing`);
-    }
-
-      // Exchange code for access token
-      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          client_id: clientId,
-          client_secret: clientSecret,
-          code,
-          redirect_uri: process.env.GITHUB_REDIRECT_URI ||
-            `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/github`
-        })
-      });
-
-      const tokenData = await tokenResponse.json() as any;
-
-      if (tokenData.error) {
-        console.error('GitHub OAuth error:', tokenData);
-        return res.redirect(`${frontendUrl}/mcp/callback?error=oauth_exchange_failed`);
+    // For group callbacks, validate the groupType matches the URL param
+    // For individual callbacks, validate the toolType matches
+    if (isGroupCallback) {
+      if (groupType !== toolType) {
+        console.error(`[MCP OAuth] Group type mismatch: expected ${groupType}, got ${toolType}`);
+        return res.redirect(`${frontendUrl}/mcp/callback?error=state_mismatch&tool=${toolType}`);
       }
-
-      // Encrypt the access token
-      const encryptionKey = process.env.MCP_ENCRYPTION_KEY;
-      if (!encryptionKey) {
-        console.error('MCP_ENCRYPTION_KEY not set');
-        return res.redirect(`${frontendUrl}/mcp/callback?error=encryption_config_missing`);
-      }
-
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv(
-        'aes-256-cbc',
-        Buffer.from(encryptionKey, 'base64'),
-        iv
-      );
-
-      let encryptedToken = cipher.update(tokenData.access_token, 'utf8', 'hex');
-      encryptedToken += cipher.final('hex');
-
-      const encryptedData = iv.toString('hex') + ':' + encryptedToken;
-
-      // Store the integration in database
-      await prisma.mCPIntegration.upsert({
-        where: {
-          userId_toolType: {
-            userId,
-            toolType
-          }
-        },
-        update: {
-          isConnected: true,
-          connectedAt: new Date(),
-          encryptedTokens: encryptedData,
-          scope: tokenData.scope || 'repo user',
-          isActive: true
-        },
-        create: {
-          userId,
-          toolType,
-          isConnected: true,
-          connectedAt: new Date(),
-          encryptedTokens: encryptedData,
-          scope: tokenData.scope || 'repo user',
-          isActive: true
-        }
-      });
     } else {
-      // For other tools (mock for now)
-      await prisma.mCPIntegration.upsert({
-        where: {
-          userId_toolType: {
-            userId,
-            toolType
-          }
-        },
-        update: {
-          isConnected: true,
-          connectedAt: new Date(),
-          isActive: true
-        },
-        create: {
-          userId,
-          toolType,
-          isConnected: true,
-          connectedAt: new Date(),
-          isActive: true
-        }
-      });
+      if (stateToolType !== toolType) {
+        console.error(`[MCP OAuth] State mismatch for ${toolType}: expected ${stateToolType}`);
+        return res.redirect(`${frontendUrl}/mcp/callback?error=state_mismatch&tool=${toolType}`);
+      }
     }
+
+    if (!userId) {
+      console.error(`[MCP OAuth] No userId in state for ${toolType}`);
+      return res.redirect(`${frontendUrl}/mcp/callback?error=invalid_state&tool=${toolType}`);
+    }
+
+    console.log(`[MCP OAuth] Processing callback for ${toolType}, user ${userId}`);
+
+    // Use OAuth service to handle callback for all tools
+    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
+    const oauthService = new MCPOAuthService();
+
+    const result = await oauthService.handleCallback(code as string, state as string);
+
+    if (!result.success) {
+      console.error(`[MCP OAuth] Failed to handle callback for ${toolType}`);
+      return res.redirect(`${frontendUrl}/mcp/callback?error=oauth_exchange_failed&tool=${toolType}`);
+    }
+
+    // For group callbacks, pass all connected tools
+    // For individual callbacks, pass the single tool
+    const connectedTools = result.toolTypes || [result.toolType];
+    const toolsParam = connectedTools.join(',');
+
+    console.log(`[MCP OAuth] Successfully connected ${connectedTools.join(', ')} for user ${userId}`);
 
     // Redirect to frontend success page
-    return res.redirect(`${frontendUrl}/mcp/callback?success=true&tool=${toolType}`);
+    return res.redirect(`${frontendUrl}/mcp/callback?success=true&tools=${toolsParam}`);
   } catch (error) {
-    console.error('[MCP Controller] Error handling OAuth callback:', error);
-    return res.redirect(`${frontendUrl}/mcp/callback?error=callback_failed`);
+    console.error('[MCP OAuth] Error handling OAuth callback:', error);
+    return res.redirect(`${frontendUrl}/mcp/callback?error=callback_failed&tool=${toolType}`);
   }
 });
 
@@ -316,8 +308,12 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
  * Disconnect a tool integration
  */
 export const disconnectIntegration = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
   const { toolType } = req.params;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     // Delete integration from database
@@ -347,8 +343,12 @@ export const disconnectIntegration = asyncHandler(async (req: Request, res: Resp
  * Fetch data from connected tools (memory-only storage)
  */
 export const fetchData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
   const { toolTypes, dateRange, consentGiven } = req.body;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     // Validate consent
@@ -416,11 +416,178 @@ export const fetchData = asyncHandler(async (req: Request, res: Response): Promi
 });
 
 /**
+ * Fetch and organize data from multiple tools using AI
+ * This is the multi-source endpoint that provides unified, AI-organized results
+ */
+export const fetchMultiSource = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { toolTypes, dateRange, consentGiven } = req.body;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
+
+  try {
+    // Validate consent
+    if (!consentGiven) {
+      sendError(res, 'User consent is required to fetch data', 400);
+      return;
+    }
+
+    // Validate tool types
+    if (!toolTypes || !Array.isArray(toolTypes) || toolTypes.length === 0) {
+      sendError(res, 'At least one tool type is required', 400);
+      return;
+    }
+
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const invalidTools = toolTypes.filter((t: string) => !validTools.includes(t));
+
+    if (invalidTools.length > 0) {
+      sendError(res, `Invalid tool types: ${invalidTools.join(', ')}`, 400);
+      return;
+    }
+
+    console.log(`[MCP Multi-Source] Fetching from ${toolTypes.length} tools for user ${userId}`);
+
+    // Import tool services
+    const { GitHubTool } = await import('../services/mcp/tools/github.tool');
+    const { JiraTool } = await import('../services/mcp/tools/jira.tool');
+    const { FigmaTool } = await import('../services/mcp/tools/figma.tool');
+    const { OutlookTool } = await import('../services/mcp/tools/outlook.tool');
+    const { ConfluenceTool } = await import('../services/mcp/tools/confluence.tool');
+    const { SlackTool } = await import('../services/mcp/tools/slack.tool');
+    const { TeamsTool } = await import('../services/mcp/tools/teams.tool');
+    const { MCPMultiSourceOrganizer } = await import('../services/mcp/mcp-multi-source-organizer.service');
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+
+    // Parse date range
+    let parsedDateRange: { start: Date; end: Date } | undefined;
+    if (dateRange?.start && dateRange?.end) {
+      parsedDateRange = {
+        start: new Date(dateRange.start),
+        end: new Date(dateRange.end)
+      };
+    }
+
+    // Fetch data from all tools in parallel
+    const fetchPromises = toolTypes.map(async (toolType: string) => {
+      try {
+        let tool: any;
+        let result: any;
+
+        switch (toolType) {
+          case 'github':
+            tool = new GitHubTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'jira':
+            tool = new JiraTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'figma':
+            tool = new FigmaTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'outlook':
+            tool = new OutlookTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'confluence':
+            tool = new ConfluenceTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'slack':
+            tool = new SlackTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'teams':
+            tool = new TeamsTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          default:
+            console.log(`[MCP Multi-Source] Unknown tool type: ${toolType}`);
+            return null;
+        }
+
+        if (result && result.success && result.data) {
+          return { toolType, data: result.data };
+        }
+
+        return null;
+      } catch (error: any) {
+        console.error(`[MCP Multi-Source] Error fetching from ${toolType}:`, error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(fetchPromises);
+
+    // Filter out failed fetches and create source map
+    const sourcesMap = new Map<string, any>();
+    results.forEach(result => {
+      if (result && result.data) {
+        sourcesMap.set(result.toolType, result.data);
+      }
+    });
+
+    if (sourcesMap.size === 0) {
+      sendError(res, 'Failed to fetch data from any connected tools. Please ensure at least one tool is properly connected.', 400);
+      return;
+    }
+
+    console.log(`[MCP Multi-Source] Successfully fetched from ${sourcesMap.size} tools`);
+
+    // Use AI to organize and correlate multi-source data
+    const organizer = new MCPMultiSourceOrganizer();
+    const organized = await organizer.organizeMultiSourceActivity(sourcesMap, parsedDateRange);
+
+    // Store organized results in session
+    const sessionService = MCPSessionService.getInstance();
+    const sessionId = sessionService.createSession(
+      userId,
+      'multi-source' as any, // Special multi-source session type
+      {
+        sources: Array.from(sourcesMap.keys()),
+        organized,
+        rawData: Object.fromEntries(sourcesMap)
+      },
+      true
+    );
+
+    console.log(`[MCP Multi-Source] Created session ${sessionId} with organized data`);
+
+    sendSuccess(res, {
+      sessionId,
+      sources: Array.from(sourcesMap.keys()),
+      organized,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+      privacyNotice: 'All fetched data is stored in memory only and will automatically expire after 30 minutes. No external data is persisted to our database.',
+      message: `Successfully organized activity from ${sourcesMap.size} tool(s) with AI`
+    });
+  } catch (error: any) {
+    console.error('[MCP Multi-Source] Error:', error);
+    sendError(res, error.message || 'Failed to fetch and organize multi-source data');
+  }
+});
+
+/**
  * Get session data (memory-only)
  */
 export const getSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
   const { sessionId } = req.params;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
@@ -447,8 +614,12 @@ export const getSession = asyncHandler(async (req: Request, res: Response): Prom
  * Clear specific session
  */
 export const clearSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
   const { sessionId } = req.params;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
@@ -478,7 +649,11 @@ export const clearSession = asyncHandler(async (req: Request, res: Response): Pr
  * Clear all user sessions
  */
 export const clearAllSessions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
@@ -540,8 +715,12 @@ export const getPrivacyStatus = asyncHandler(async (req: Request, res: Response)
  * Get user's audit history
  */
 export const getAuditHistory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
   const { limit = 50, toolType } = req.query;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     const where: any = { userId };
@@ -581,7 +760,11 @@ export const getAuditHistory = asyncHandler(async (req: Request, res: Response):
  * Delete all MCP data for user (GDPR compliance)
  */
 export const deleteAllMCPData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = (req as any).userId;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return sendError(res, 'Unauthorized: User not authenticated', 401);
+  }
 
   try {
     // Clear all sessions

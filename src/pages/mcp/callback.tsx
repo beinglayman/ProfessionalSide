@@ -1,50 +1,70 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
 export function MCPCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Processing authorization...');
 
   useEffect(() => {
     const processCallback = async () => {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
+      const success = searchParams.get('success');
+      const tool = searchParams.get('tool'); // Legacy single tool parameter
+      const tools = searchParams.get('tools'); // New multiple tools parameter
       const error = searchParams.get('error');
-      const errorDescription = searchParams.get('error_description');
 
-      // Check for OAuth errors
+      // Check for errors from backend redirect
       if (error) {
         setStatus('error');
-        setMessage(errorDescription || `Authorization failed: ${error}`);
+        const errorMessages: Record<string, string> = {
+          'missing_params': 'Missing required authorization parameters',
+          'invalid_state': 'Invalid authorization state',
+          'callback_failed': 'Failed to process authorization',
+          'invalid_callback': 'Invalid callback parameters',
+          'invalid_tool': 'Invalid tool type',
+          'state_mismatch': 'Authorization state mismatch',
+          'oauth_exchange_failed': 'Failed to exchange authorization code'
+        };
+        setMessage(errorMessages[error] || `Authorization failed: ${error}`);
         return;
       }
 
-      // Validate we have required params
-      if (!code || !state) {
-        setStatus('error');
-        setMessage('Missing required authorization parameters');
-        return;
-      }
-
-      // The backend will handle the actual OAuth callback
-      // For now, just show success and redirect
-      setTimeout(() => {
+      // Check for success from backend redirect
+      if (success === 'true' && (tool || tools)) {
         setStatus('success');
-        setMessage('Successfully connected! Redirecting to settings...');
+
+        // Handle both single tool and multiple tools
+        if (tools) {
+          const toolList = tools.split(',');
+          const toolNames = toolList.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' and ');
+          setMessage(`Successfully connected ${toolNames}! Redirecting to settings...`);
+        } else if (tool) {
+          const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+          setMessage(`Successfully connected ${toolName}! Redirecting to settings...`);
+        }
+
+        // Invalidate the integrations cache to refetch updated status
+        queryClient.invalidateQueries({ queryKey: ['mcp', 'integrations'] });
 
         // Redirect to settings integrations tab after 2 seconds
         setTimeout(() => {
           navigate('/settings', { state: { tab: 'integrations' } });
         }, 2000);
-      }, 1500);
+        return;
+      }
+
+      // If neither success nor error, something went wrong
+      setStatus('error');
+      setMessage('Missing required authorization parameters');
     };
 
     processCallback();
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, queryClient]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

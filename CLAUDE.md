@@ -264,6 +264,28 @@ Required settings: NODE_ENV, PORT, WEBSITES_PORT, DATABASE_URL, FRONTEND_URL, CO
 - Use `cn()` utility for conditional className merging
 - Follow shadcn/ui patterns for component composition
 
+## Analytics & Monitoring
+
+### Microsoft Clarity
+- **Integration**: User behavior analytics for understanding site usage
+- **Project ID**: `tb149y3elh`
+- **Location**: Tracking script in `/index.html`
+- **Features**:
+  - Session recordings with sensitive data masking
+  - Interaction heatmaps
+  - User flow analysis
+  - Performance metrics
+- **Privacy**: Disclosed in privacy policy at `/privacy`
+- **Dashboard**: Access at https://clarity.microsoft.com
+
+### Usage Analytics
+- View Clarity dashboard for:
+  - User interaction patterns
+  - Common user flows
+  - Rage clicks and dead clicks
+  - Session replays for debugging
+  - Device and browser distribution
+
 ## Performance Considerations
 - React Query caching for API responses
 - Image optimization for avatars and uploads

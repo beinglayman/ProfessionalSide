@@ -14,6 +14,10 @@ RUN npm ci --include=optional
 # Copy source code
 COPY . .
 
+# Accept build argument for API URL
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build the application
 # If rollup binary issues occur, install platform-specific binary first
 RUN npm run build || (npm install @rollup/rollup-linux-x64-gnu --save-dev && npm run build)

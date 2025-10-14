@@ -266,6 +266,93 @@ export class MCPOAuthService {
   }
 
   /**
+   * Generate OAuth authorization URL for a group of tools (e.g., Jira + Confluence)
+   * @param userId User ID
+   * @param groupType Group type ('atlassian' or 'microsoft')
+   * @returns Authorization URL and state parameter
+   */
+  public getAuthorizationUrlForGroup(
+    userId: string,
+    groupType: 'atlassian' | 'microsoft'
+  ): { url: string; state: string; tools: MCPToolType[] } | null {
+    // Define tool groups
+    const toolGroups: Record<string, MCPToolType[]> = {
+      atlassian: [MCPToolType.JIRA, MCPToolType.CONFLUENCE],
+      microsoft: [MCPToolType.OUTLOOK, MCPToolType.TEAMS]
+    };
+
+    const tools = toolGroups[groupType];
+    if (!tools || tools.length === 0) {
+      console.error(`[MCP OAuth] Invalid group type: ${groupType}`);
+      return null;
+    }
+
+    // Get configs for all tools in the group
+    const configs = tools.map(tool => ({
+      tool,
+      config: this.oauthConfigs.get(tool)
+    }));
+
+    // Check if all tools have configs
+    const missingConfigs = configs.filter(c => !c.config);
+    if (missingConfigs.length > 0) {
+      console.error(`[MCP OAuth] Missing configs for tools: ${missingConfigs.map(c => c.tool).join(', ')}`);
+      return null;
+    }
+
+    // Use the first tool's config for authorization URL and redirect
+    const primaryConfig = configs[0].config!;
+
+    // Combine scopes from all tools (deduplicate)
+    const combinedScopes = Array.from(
+      new Set(
+        configs
+          .map(c => c.config!.scope.split(' '))
+          .flat()
+      )
+    ).join(' ');
+
+    // Use the first tool's redirect URI (they should all use the same callback)
+    // But we'll use a group-specific callback
+    const redirectUri = primaryConfig.redirectUri.replace(/\/(jira|outlook)$/, `/${groupType}`);
+
+    // Generate secure state parameter
+    const state = crypto.randomBytes(32).toString('hex');
+
+    // Store state with all tool types
+    const stateData = Buffer.from(
+      JSON.stringify({
+        userId,
+        toolTypes: tools,
+        groupType,
+        state
+      })
+    ).toString('base64');
+
+    // Build authorization URL
+    const params = new URLSearchParams({
+      client_id: primaryConfig.clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: combinedScopes,
+      state: stateData,
+      access_type: 'offline'
+    });
+
+    // Add tool-specific parameters based on group
+    if (groupType === 'microsoft') {
+      params.append('response_mode', 'query');
+      params.append('prompt', 'consent');
+    }
+
+    const url = `${primaryConfig.authorizationUrl}?${params.toString()}`;
+
+    console.log(`[MCP OAuth] Generated group auth URL for ${groupType} (${tools.join(', ')}): ${url}`);
+
+    return { url, state: stateData, tools };
+  }
+
+  /**
    * Exchange authorization code for access token
    * @param code Authorization code
    * @param state State parameter
@@ -274,16 +361,26 @@ export class MCPOAuthService {
   public async handleCallback(
     code: string,
     state: string
-  ): Promise<{ success: boolean; userId?: string; toolType?: MCPToolType }> {
+  ): Promise<{ success: boolean; userId?: string; toolType?: MCPToolType; toolTypes?: MCPToolType[] }> {
     try {
       // Decode and validate state
       const stateData = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-      const { userId, toolType } = stateData;
+      const { userId, toolType, toolTypes, groupType } = stateData;
 
-      const config = this.oauthConfigs.get(toolType);
+      // Determine which tools to connect (group or single)
+      const toolsToConnect: MCPToolType[] = toolTypes || [toolType];
+
+      // Use the first tool's config for token exchange
+      const primaryTool = toolsToConnect[0];
+      const config = this.oauthConfigs.get(primaryTool);
       if (!config) {
-        throw new Error(`No OAuth config for tool: ${toolType}`);
+        throw new Error(`No OAuth config for tool: ${primaryTool}`);
       }
+
+      // Determine redirect URI (group-specific if applicable)
+      const redirectUri = groupType
+        ? config.redirectUri.replace(/\/(jira|outlook)$/, `/${groupType}`)
+        : config.redirectUri;
 
       // Exchange code for tokens
       const tokenResponse = await axios.post(
@@ -292,7 +389,7 @@ export class MCPOAuthService {
           client_id: config.clientId,
           client_secret: config.clientSecret,
           code,
-          redirect_uri: config.redirectUri,
+          redirect_uri: redirectUri,
           grant_type: 'authorization_code'
         }),
         {
@@ -305,22 +402,29 @@ export class MCPOAuthService {
 
       const tokens = tokenResponse.data;
 
-      // Store encrypted tokens
-      await this.storeTokens(userId, toolType, {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt: tokens.expires_in
-          ? new Date(Date.now() + tokens.expires_in * 1000)
-          : undefined,
-        scope: tokens.scope
-      });
+      // Store tokens for ALL tools in the group
+      for (const tool of toolsToConnect) {
+        await this.storeTokens(userId, tool, {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresAt: tokens.expires_in
+            ? new Date(Date.now() + tokens.expires_in * 1000)
+            : undefined,
+          scope: tokens.scope
+        });
 
-      // Log successful connection
-      await this.privacyService.logIntegrationAction(userId, toolType, MCPAction.CONNECT, true);
+        // Log successful connection for each tool
+        await this.privacyService.logIntegrationAction(userId, tool, MCPAction.CONNECT, true);
+      }
 
-      console.log(`[MCP OAuth] Successfully connected ${toolType} for user ${userId}`);
+      console.log(`[MCP OAuth] Successfully connected ${toolsToConnect.join(', ')} for user ${userId}`);
 
-      return { success: true, userId, toolType };
+      return {
+        success: true,
+        userId,
+        toolType: toolsToConnect[0],
+        toolTypes: toolsToConnect
+      };
     } catch (error: any) {
       console.error('[MCP OAuth] Error handling callback:', error);
       if (error.response) {

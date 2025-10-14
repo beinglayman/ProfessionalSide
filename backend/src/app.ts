@@ -121,9 +121,14 @@ app.use(cors({
 }));
 
 // Body parsing with limits and error handling
-app.use(express.json({ 
+app.use(express.json({
   limit: '10mb',
   verify: (req: any, res: any, buf: Buffer, encoding: string) => {
+    // Skip validation for empty bodies (GET requests, etc.)
+    if (buf.length === 0) {
+      return;
+    }
+
     try {
       JSON.parse(buf.toString((encoding || 'utf8') as BufferEncoding));
     } catch (error) {

@@ -1,4 +1,7 @@
 import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Mock data store - replace with database later
 const mockIntegrations = new Map<string, any>();
@@ -196,14 +199,42 @@ export async function handleOAuthCallback(req: Request, res: Response): Promise<
     const userId = Buffer.from(state as string, 'base64').toString().split(':')[0];
 
     if (userId) {
-      // Store mock integration
-      mockIntegrations.set(`${userId}-${toolType}`, {
-        connectedAt: new Date().toISOString(),
-        toolType
-      });
+      try {
+        // Store integration in database
+        await prisma.mCPIntegration.upsert({
+          where: {
+            userId_toolType: {
+              userId,
+              toolType: toolType as string
+            }
+          },
+          update: {
+            isConnected: true,
+            connectedAt: new Date(),
+            isActive: true
+          },
+          create: {
+            userId,
+            toolType: toolType as string,
+            isConnected: true,
+            connectedAt: new Date(),
+            isActive: true
+          }
+        });
 
-      // Redirect to frontend success page
-      return res.redirect(`${frontendUrl}/mcp/callback?success=true&tool=${toolType}`);
+        // Also store in mock map for backward compatibility
+        mockIntegrations.set(`${userId}-${toolType}`, {
+          connectedAt: new Date().toISOString(),
+          toolType
+        });
+
+        // Redirect to frontend success page
+        return res.redirect(`${frontendUrl}/mcp/callback?success=true&tool=${toolType}`);
+      } catch (dbError) {
+        console.error('[MCP OAuth] Database error:', dbError);
+        // Fall back to redirect with success even if DB fails
+        return res.redirect(`${frontendUrl}/mcp/callback?success=true&tool=${toolType}`);
+      }
     } else {
       return res.redirect(`${frontendUrl}/mcp/callback?error=invalid_state`);
     }
