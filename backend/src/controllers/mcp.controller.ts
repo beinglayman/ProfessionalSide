@@ -15,7 +15,9 @@ export const getAvailableTools = asyncHandler(async (req: Request, res: Response
   const userId = req.user?.id;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+    return;
   }
 
   try {
@@ -79,7 +81,8 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
   const userId = req.user?.id;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -135,7 +138,8 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
   const { toolType } = req.body;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
@@ -179,7 +183,8 @@ export const initiateGroupOAuth = asyncHandler(async (req: Request, res: Respons
   const { groupType } = req.body;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   const validGroups = ['atlassian', 'microsoft'];
@@ -312,7 +317,8 @@ export const disconnectIntegration = asyncHandler(async (req: Request, res: Resp
   const { toolType } = req.params;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -347,7 +353,8 @@ export const fetchData = asyncHandler(async (req: Request, res: Response): Promi
   const { toolTypes, dateRange, consentGiven } = req.body;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -424,7 +431,8 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
   const { toolTypes, dateRange, consentGiven } = req.body;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -547,7 +555,7 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
 
     // Use AI to organize and correlate multi-source data
     const organizer = new MCPMultiSourceOrganizer();
-    const organized = await organizer.organizeMultiSourceActivity(sourcesMap, parsedDateRange);
+    const organized = await organizer.organizeMultiSourceActivity(sourcesMap as Map<any, any>, parsedDateRange);
 
     // Store organized results in session
     const sessionService = MCPSessionService.getInstance();
@@ -579,6 +587,238 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
 });
 
 /**
+ * Process fetched data with AI agents (progressive endpoint)
+ * Allows frontend to call different processing stages independently
+ */
+export const processWithAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const {
+    stage,
+    sessionId,
+    data,
+    options = {}
+  } = req.body;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    // Validate stage
+    const validStages = ['analyze', 'correlate', 'generate'];
+    if (!validStages.includes(stage)) {
+      sendError(res, `Invalid processing stage. Must be one of: ${validStages.join(', ')}`, 400);
+      return;
+    }
+
+    // Import required services
+    const { MCPMultiSourceOrganizer } = await import('../services/mcp/mcp-multi-source-organizer.service');
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+
+    const organizer = new MCPMultiSourceOrganizer();
+    const sessionService = MCPSessionService.getInstance();
+
+    // For generate stage, we need a sessionId to get previous results
+    if (stage === 'generate' && !sessionId) {
+      sendError(res, 'Session ID required for generate stage', 400);
+      return;
+    }
+
+    // Get session data if sessionId provided
+    let sessionData = null;
+    if (sessionId) {
+      sessionData = sessionService.getSession(sessionId, userId);
+      if (!sessionData) {
+        sendError(res, 'Session not found or expired', 404);
+        return;
+      }
+    }
+
+    console.log(`[MCP Agents] Processing stage: ${stage} for user ${userId}`);
+
+    // Process the stage
+    const result = await organizer.processStage(stage as any, data || sessionData?.tempData, options);
+
+    // Store result in session for next stages
+    if (result.nextStage) {
+      const newSessionId = sessionId || crypto.randomBytes(16).toString('hex');
+
+      // Update or create session with new data
+      sessionService.createSession(
+        userId,
+        'agent-processing' as any,
+        {
+          stage,
+          result: result.result,
+          previousData: data || sessionData?.tempData,
+          nextStage: result.nextStage
+        },
+        true
+      );
+
+      sendSuccess(res, {
+        sessionId: newSessionId,
+        stage,
+        result: result.result,
+        nextStage: result.nextStage,
+        progress: result.progress,
+        message: `Stage '${stage}' completed successfully`
+      });
+    } else {
+      // Final stage completed
+      sendSuccess(res, {
+        sessionId,
+        stage,
+        result: result.result,
+        progress: 100,
+        complete: true,
+        message: 'All processing stages completed'
+      });
+    }
+  } catch (error: any) {
+    console.error(`[MCP Agents] Error in ${stage} stage:`, error);
+    sendError(res, error.message || `Failed to process ${stage} stage`);
+  }
+});
+
+/**
+ * Fetch and process with agents in one call (convenience endpoint)
+ */
+export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const {
+    toolTypes,
+    dateRange,
+    consentGiven,
+    quality = 'balanced',
+    generateContent = true,
+    workspaceName
+  } = req.body;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    // Validate consent
+    if (!consentGiven) {
+      sendError(res, 'User consent is required to fetch data', 400);
+      return;
+    }
+
+    // Validate tool types
+    if (!toolTypes || !Array.isArray(toolTypes) || toolTypes.length === 0) {
+      sendError(res, 'At least one tool type is required', 400);
+      return;
+    }
+
+    console.log(`[MCP Agents] Full pipeline: Fetching from ${toolTypes.length} tools and processing with agents`);
+
+    // Import tool services
+    const toolImports = {
+      github: () => import('../services/mcp/tools/github.tool').then(m => new m.GitHubTool()),
+      jira: () => import('../services/mcp/tools/jira.tool').then(m => new m.JiraTool()),
+      figma: () => import('../services/mcp/tools/figma.tool').then(m => new m.FigmaTool()),
+      outlook: () => import('../services/mcp/tools/outlook.tool').then(m => new m.OutlookTool()),
+      confluence: () => import('../services/mcp/tools/confluence.tool').then(m => new m.ConfluenceTool()),
+      slack: () => import('../services/mcp/tools/slack.tool').then(m => new m.SlackTool()),
+      teams: () => import('../services/mcp/tools/teams.tool').then(m => new m.TeamsTool())
+    };
+
+    // Parse date range
+    let parsedDateRange: { start: Date; end: Date } | undefined;
+    if (dateRange?.start && dateRange?.end) {
+      parsedDateRange = {
+        start: new Date(dateRange.start),
+        end: new Date(dateRange.end)
+      };
+    }
+
+    // Fetch data from all tools in parallel
+    const fetchPromises = toolTypes.map(async (toolType: string) => {
+      try {
+        const toolImport = toolImports[toolType as keyof typeof toolImports];
+        if (!toolImport) return null;
+
+        const tool = await toolImport();
+        const result = await tool.fetchActivity(userId, parsedDateRange);
+
+        if (result && result.success && result.data) {
+          return { toolType, data: result.data };
+        }
+        return null;
+      } catch (error: any) {
+        console.error(`[MCP Agents] Error fetching from ${toolType}:`, error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(fetchPromises);
+
+    // Filter out failed fetches and create source map
+    const sourcesMap = new Map<string, any>();
+    results.forEach(result => {
+      if (result && result.data) {
+        sourcesMap.set(result.toolType, result.data);
+      }
+    });
+
+    if (sourcesMap.size === 0) {
+      sendError(res, 'Failed to fetch data from any connected tools. Please ensure at least one tool is properly connected.', 400);
+      return;
+    }
+
+    console.log(`[MCP Agents] Successfully fetched from ${sourcesMap.size} tools, starting agent processing`);
+
+    // Use AI agents to organize and generate content
+    const { MCPMultiSourceOrganizer } = await import('../services/mcp/mcp-multi-source-organizer.service');
+    const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
+
+    const organizer = new MCPMultiSourceOrganizer();
+    const agentResults = await organizer.organizeWithAgents(
+      sourcesMap as Map<any, any>,
+      {
+        quality,
+        generateContent,
+        workspaceName: workspaceName || 'Professional Work'
+      }
+    );
+
+    // Store results in session
+    const sessionService = MCPSessionService.getInstance();
+    const sessionId = sessionService.createSession(
+      userId,
+      'agent-processed' as any,
+      {
+        sources: Array.from(sourcesMap.keys()),
+        ...agentResults,
+        rawData: Object.fromEntries(sourcesMap)
+      },
+      true
+    );
+
+    console.log(`[MCP Agents] Created session ${sessionId} with agent-processed data`);
+
+    sendSuccess(res, {
+      sessionId,
+      sources: Array.from(sourcesMap.keys()),
+      analysis: agentResults.analysis,
+      correlations: agentResults.correlations,
+      content: agentResults.content,
+      organized: agentResults.organized,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+      privacyNotice: 'All fetched data is stored in memory only and will automatically expire after 30 minutes.',
+      message: `Successfully processed activity from ${sourcesMap.size} tool(s) with AI agents`
+    });
+  } catch (error: any) {
+    console.error('[MCP Agents] Full pipeline error:', error);
+    sendError(res, error.message || 'Failed to fetch and process with agents');
+  }
+});
+
+/**
  * Get session data (memory-only)
  */
 export const getSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -586,7 +826,8 @@ export const getSession = asyncHandler(async (req: Request, res: Response): Prom
   const { sessionId } = req.params;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -618,7 +859,8 @@ export const clearSession = asyncHandler(async (req: Request, res: Response): Pr
   const { sessionId } = req.params;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -652,7 +894,8 @@ export const clearAllSessions = asyncHandler(async (req: Request, res: Response)
   const userId = req.user?.id;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -719,7 +962,8 @@ export const getAuditHistory = asyncHandler(async (req: Request, res: Response):
   const { limit = 50, toolType } = req.query;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {
@@ -763,7 +1007,8 @@ export const deleteAllMCPData = asyncHandler(async (req: Request, res: Response)
   const userId = req.user?.id;
 
   if (!userId) {
-    return sendError(res, 'Unauthorized: User not authenticated', 401);
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
   }
 
   try {

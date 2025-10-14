@@ -8,6 +8,8 @@ import {
   disconnectIntegration,
   fetchData,
   fetchMultiSource,
+  processWithAgents,
+  fetchAndProcessWithAgents,
   getSession,
   clearSession,
   clearAllSessions,
@@ -93,6 +95,20 @@ router.post('/fetch', authMiddleware, fetchData);
  * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean }
  */
 router.post('/fetch-multi-source', authMiddleware, fetchMultiSource);
+
+/**
+ * POST /api/v1/mcp/process-agents
+ * Process fetched data with AI agents progressively
+ * Body: { stage: 'analyze'|'correlate'|'generate', sessionId?: string, data?: any, options?: {...} }
+ */
+router.post('/process-agents', authMiddleware, processWithAgents);
+
+/**
+ * POST /api/v1/mcp/fetch-and-process
+ * Fetch from tools and process with AI agents in one call (convenience endpoint)
+ * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean, quality?: string, generateContent?: boolean, workspaceName?: string }
+ */
+router.post('/fetch-and-process', authMiddleware, fetchAndProcessWithAgents);
 
 // ============================================================================
 // Session Management

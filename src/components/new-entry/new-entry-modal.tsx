@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Label from '@radix-ui/react-label';
-import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, RepeatIcon, Sparkles, Mail, ArrowRight} from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, RepeatIcon, Sparkles, Mail, ArrowRight, PenTool} from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { Editor } from '../journal/editor';
@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { TagInput } from '../ui/tag-input';
 import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
 import { useMCPIntegrations } from '../../hooks/useMCP';
+import { MCPFlowModal } from './new-entry-modal-enhanced';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -25,7 +26,9 @@ interface NewEntryModalProps {
 
 
 export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange, preselectedWorkspaceId, preselectedGoalId }) => {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // Start with entry method selection
+  const [entryMethod, setEntryMethod] = useState<'manual' | 'mcp' | null>(null);
+  const [showMCPFlow, setShowMCPFlow] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -129,12 +132,18 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const { data: workspaceGoals = [], isLoading: loadingGoals, error: goalsError } = useWorkspaceGoals(formData.workspaceId || '');
   const updateGoalMutation = useUpdateGoal();
   
-  // Handle pre-selection when modal opens
+  // Handle pre-selection when modal opens and reset to Step 0
   useEffect(() => {
-    if (open && preselectedWorkspaceId) {
-      setFormData(prev => ({
-        ...prev,
-        workspaceId: preselectedWorkspaceId,
+    if (open) {
+      // Reset to entry method selection when modal opens
+      setStep(0);
+      setEntryMethod(null);
+      setShowMCPFlow(false);
+
+      if (preselectedWorkspaceId) {
+        setFormData(prev => ({
+          ...prev,
+          workspaceId: preselectedWorkspaceId,
         linkedGoalId: preselectedGoalId || '',
         collaborators: [],
         reviewers: []
@@ -280,7 +289,13 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   };
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    if (step === 1 && entryMethod === 'manual') {
+      // Go back to step 0 (entry method selection)
+      setStep(0);
+      setEntryMethod(null);
+    } else if (step > 0) {
+      setStep(step - 1);
+    }
   };
 
   const handleSubmit = async () => {
@@ -792,6 +807,96 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
 
   const renderStep = () => {
     switch (step) {
+      case 0: // Entry method selection
+        const connectedToolsCount = integrations?.integrations?.filter((i: any) => i.isConnected).length || 0;
+
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold mb-2">Create Your Journal Entry</h2>
+              <p className="text-sm text-gray-600">Choose how you'd like to get started</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+              {/* Manual Entry Card */}
+              <button
+                onClick={() => {
+                  setEntryMethod('manual');
+                  setStep(1);
+                }}
+                className="p-6 border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all group text-left"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-primary-100 rounded-lg group-hover:bg-primary-200 transition-colors">
+                    <PenTool className="h-5 w-5 text-primary-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Manual Entry</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Create your journal entry from scratch with our guided 7-step process
+                </p>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                  Full control over content
+                </div>
+              </button>
+
+              {/* Pull from Tools Card */}
+              <button
+                onClick={() => {
+                  if (connectedToolsCount > 0) {
+                    setEntryMethod('mcp');
+                    setShowMCPFlow(true);
+                  }
+                }}
+                disabled={connectedToolsCount === 0}
+                className={cn(
+                  "p-6 border-2 rounded-lg transition-all group text-left",
+                  connectedToolsCount > 0
+                    ? "border-blue-200 hover:border-blue-500 hover:bg-blue-50 cursor-pointer"
+                    : "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+                )}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    connectedToolsCount > 0
+                      ? "bg-blue-100 group-hover:bg-blue-200"
+                      : "bg-gray-100"
+                  )}>
+                    <Database className={cn(
+                      "h-5 w-5",
+                      connectedToolsCount > 0 ? "text-blue-600" : "text-gray-400"
+                    )} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Pull from Tools</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Import your recent work from GitHub, Jira, Figma, and more with AI assistance
+                </p>
+                {connectedToolsCount > 0 ? (
+                  <div className="flex items-center text-xs text-blue-600">
+                    <Sparkles className="h-3.5 w-3.5 mr-1" />
+                    {connectedToolsCount} tool{connectedToolsCount !== 1 ? 's' : ''} connected
+                  </div>
+                ) : (
+                  <div className="flex items-center text-xs text-gray-500">
+                    <Link className="h-3.5 w-3.5 mr-1" />
+                    Connect tools in Settings first
+                  </div>
+                )}
+              </button>
+            </div>
+
+            {/* Help Text */}
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                You can always switch between methods or combine both approaches
+              </p>
+            </div>
+          </div>
+        );
+
       case 1:
         return (
           <div className="space-y-6">
@@ -1676,130 +1781,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-lg font-semibold mb-2">Step 7 of {getTotalSteps()}</h2>
-              <p className="text-sm text-gray-600">AI Preview & Publishing</p>
+              <p className="text-sm text-gray-600">AI Enhancement & Preview</p>
             </div>
-            
+
             {!generatedEntries ? (
               <div className="space-y-6">
-                {/* MCP Import Section - Always Visible */}
-                <div className="text-center space-y-4 pb-6 border-b border-gray-200">
-                  {/* Check if any tools are connected */}
-                  {integrations && integrations.integrations.some((i: any) => i.isConnected) ? (
-                    <>
-                      {/* Connected Tools State */}
-                      <div className="space-y-3">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full text-sm text-blue-600">
-                          <Link className="h-3.5 w-3.5" />
-                          Import from Connected Tools
-                        </div>
-
-                        <div className="max-w-md mx-auto">
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            AI will automatically import and summarize your recent work
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Connected Tools */}
-                      <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto">
-                        {integrations.integrations
-                          .filter((i: any) => i.isConnected)
-                          .map((integration: any) => (
-                            <Button
-                              key={integration.id}
-                              onClick={() => {
-                                // Navigate to settings to manage integrations
-                                window.location.href = '/settings/integrations';
-                              }}
-                              variant="outline"
-                              size="sm"
-                              className="flex items-center gap-2"
-                            >
-                              {integration.toolType === 'github' && <Github className="h-4 w-4" />}
-                              {integration.toolType === 'jira' && <Database className="h-4 w-4" />}
-                              {integration.toolType === 'figma' && <Figma className="h-4 w-4" />}
-                              {integration.toolType === 'outlook' && <Mail className="h-4 w-4" />}
-                              {integration.toolType === 'confluence' && <FileText className="h-4 w-4" />}
-                              {integration.toolType === 'slack' && <MessageSquare className="h-4 w-4" />}
-                              <span className="capitalize">{integration.toolType}</span>
-                            </Button>
-                          ))}
-                      </div>
-
-                      <div className="pt-2">
-                        <p className="text-xs text-gray-500">
-                          Coming soon: Direct import from your connected tools
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* Discovery State - No Tools Connected */}
-                      <div className="space-y-4">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full text-sm text-purple-600">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          AI-Powered Work Import
-                        </div>
-
-                        <div className="max-w-lg mx-auto space-y-3">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            Let AI capture your work automatically
-                          </h3>
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            Connect your tools and InChronicle's AI will intelligently import and summarize your commits,
-                            tickets, designs, and team discussions into professional journal entries.
-                          </p>
-                        </div>
-
-                        {/* Available Tools Preview */}
-                        <div className="flex flex-wrap justify-center gap-3 max-w-xl mx-auto py-3">
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
-                            <Github className="h-4 w-4" />
-                            <span>GitHub</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
-                            <Database className="h-4 w-4" />
-                            <span>Jira</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
-                            <Figma className="h-4 w-4" />
-                            <span>Figma</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
-                            <Mail className="h-4 w-4" />
-                            <span>Outlook</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
-                            <FileText className="h-4 w-4" />
-                            <span>Confluence</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-600">
-                            <MessageSquare className="h-4 w-4" />
-                            <span>Slack</span>
-                          </div>
-                        </div>
-
-                        {/* Call to Action */}
-                        <div className="pt-2">
-                          <Button
-                            onClick={() => window.location.href = '/settings/integrations'}
-                            size="sm"
-                            className="gap-2"
-                          >
-                            <Link className="h-4 w-4" />
-                            Connect Your Tools
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-
-                        <p className="text-xs text-gray-500 pt-1">
-                          Your data remains private • Import on-demand only • Never stored
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
-
                 {/* AI Generation Section */}
                 <div className="text-center space-y-4">
                   <div className="space-y-3">
@@ -2683,25 +2669,27 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           </div>
         </div>
 
-        {/* Progress Indicator */}
-        <div className="px-6 py-4 bg-gray-50 border-b">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-600">
-              Step {step} of {getTotalSteps()}
-            </span>
-            <div className="flex space-x-1">
-              {Array.from({ length: getTotalSteps() }, (_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "h-2 w-8 rounded-full",
-                    i + 1 <= step ? "bg-primary-500" : "bg-gray-200"
-                  )}
-                />
-              ))}
+        {/* Progress Indicator - Only show for steps 1-7 */}
+        {step > 0 && (
+          <div className="px-6 py-4 bg-gray-50 border-b">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">
+                Step {step} of {getTotalSteps()}
+              </span>
+              <div className="flex space-x-1">
+                {Array.from({ length: getTotalSteps() }, (_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "h-2 w-8 rounded-full",
+                      i + 1 <= step ? "bg-primary-500" : "bg-gray-200"
+                    )}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
@@ -2735,7 +2723,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             <Button
               variant="outline"
               onClick={handleBack}
-              disabled={step === 1 || showPreview}
+              disabled={step === 0 || showPreview}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
@@ -2767,6 +2755,42 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
           </div>
         </div>
       </div>
+
+      {/* MCP Flow Modal */}
+      {showMCPFlow && (
+        <MCPFlowModal
+          open={showMCPFlow}
+          onOpenChange={(open) => {
+            setShowMCPFlow(open);
+            if (!open) {
+              // Reset to step 0 if MCP flow is cancelled
+              setStep(0);
+              setEntryMethod(null);
+            }
+          }}
+          onComplete={(data) => {
+            // Pre-fill the form with MCP data
+            setFormData(prevData => ({
+              ...prevData,
+              title: data.title,
+              description: data.workspaceEntry.description,
+              // Map skills if they have IDs, otherwise keep as names for later resolution
+              skillsApplied: data.skills?.filter(s => typeof s === 'string') || [],
+              // Store the full MCP data for reference
+              mcpImportData: data
+            }));
+
+            // Close MCP flow and switch to manual mode at step 4 (Work Details)
+            setShowMCPFlow(false);
+            setEntryMethod('manual');
+            setStep(4); // Jump to step 4 where title/description are entered
+
+            // Optionally show a success message
+            setValidationError(''); // Clear any errors
+          }}
+          workspaceName={selectedWorkspaceName || 'Professional Work'}
+        />
+      )}
     </>
   );
 };
