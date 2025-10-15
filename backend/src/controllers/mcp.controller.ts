@@ -98,22 +98,40 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
       }
     });
 
+    // Tool metadata
+    const toolMetadata: Record<string, { name: string; description: string }> = {
+      github: { name: 'GitHub', description: 'Code contributions and repositories' },
+      jira: { name: 'Jira', description: 'Task completions and sprint activity' },
+      figma: { name: 'Figma', description: 'Design contributions and projects' },
+      outlook: { name: 'Outlook', description: 'Meeting notes and calendar events' },
+      confluence: { name: 'Confluence', description: 'Documentation updates' },
+      slack: { name: 'Slack', description: 'Important messages and discussions' },
+      teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' }
+    };
+
     // Ensure all tools are represented
     const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
     const integrationMap = new Map(integrations.map(i => [i.toolType, i]));
 
     const allIntegrations = allTools.map(tool => {
       const existing = integrationMap.get(tool);
+      const metadata = toolMetadata[tool] || { name: tool, description: '' };
+
       if (existing) {
-        // Return existing integration with consistent property name
+        // Return existing integration with complete metadata
         return {
           ...existing,
+          name: metadata.name,
+          description: metadata.description,
           tool: existing.toolType
         };
       }
-      // Return placeholder with consistent structure
+      // Return placeholder with consistent structure and metadata
       return {
+        toolType: tool,
         tool,
+        name: metadata.name,
+        description: metadata.description,
         isConnected: false,
         connectedAt: null,
         lastSyncAt: null

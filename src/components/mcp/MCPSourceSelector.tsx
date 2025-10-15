@@ -34,6 +34,17 @@ const toolIcons: Record<string, string> = {
   teams: '👥'
 };
 
+// Tool metadata mapping
+const toolMetadata: Record<string, { name: string; description: string }> = {
+  github: { name: 'GitHub', description: 'Code contributions and repositories' },
+  jira: { name: 'Jira', description: 'Task completions and sprint activity' },
+  figma: { name: 'Figma', description: 'Design contributions and projects' },
+  outlook: { name: 'Outlook', description: 'Meeting notes and calendar events' },
+  confluence: { name: 'Confluence', description: 'Documentation updates' },
+  slack: { name: 'Slack', description: 'Important messages and discussions' },
+  teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' }
+};
+
 export function MCPSourceSelector({
   onFetch,
   isLoading = false,
@@ -54,11 +65,11 @@ export function MCPSourceSelector({
   // Convert integrations data to tools format
   const tools: MCPTool[] = integrationsData?.integrations?.map((integration: any) => ({
     type: integration.toolType,
-    name: integration.name || integration.toolType,
-    description: integration.description || '',
-    isConnected: integration.isActive,
-    connectedAt: integration.createdAt,
-    lastSyncAt: integration.lastUsedAt
+    name: integration.name || toolMetadata[integration.toolType]?.name || integration.toolType,
+    description: integration.description || toolMetadata[integration.toolType]?.description || '',
+    isConnected: integration.isConnected, // Fixed: use isConnected instead of isActive
+    connectedAt: integration.connectedAt,
+    lastSyncAt: integration.lastSyncAt
   })) || [];
 
   // Auto-select connected tools when data loads
