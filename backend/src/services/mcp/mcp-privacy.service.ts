@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { MCPAction, MCPToolType, MCPPrivacyStatus } from '../../types/mcp.types';
+import { prisma } from '../../lib/prisma';
 
 /**
  * MCP Privacy Service - Handles consent, audit logging, and privacy controls
@@ -14,7 +15,7 @@ export class MCPPrivacyService {
   private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma; // Use singleton Prisma client
   }
 
   /**

@@ -3,6 +3,7 @@ import axios from 'axios';
 import * as crypto from 'crypto';
 import { MCPToolType, MCPOAuthConfig, MCPOAuthTokens, MCPAction } from '../../types/mcp.types';
 import { MCPPrivacyService } from './mcp-privacy.service';
+import { prisma } from '../../lib/prisma';
 
 /**
  * MCP OAuth Service - Handles OAuth authentication for external tools
@@ -22,13 +23,13 @@ export class MCPOAuthService {
   private oauthConfigs: Map<MCPToolType, MCPOAuthConfig> = new Map();
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma; // Use singleton Prisma client
     this.privacyService = new MCPPrivacyService();
 
     // Initialize encryption key from environment
-    this.encryptionKey = process.env.MCP_ENCRYPTION_KEY || process.env.JWT_SECRET || 'default-key';
+    this.encryptionKey = process.env.ENCRYPTION_KEY || process.env.MCP_ENCRYPTION_KEY || process.env.JWT_SECRET || 'default-key';
     if (this.encryptionKey === 'default-key') {
-      console.warn('[MCP OAuth] WARNING: Using default encryption key. Set MCP_ENCRYPTION_KEY in environment.');
+      console.warn('[MCP OAuth] WARNING: Using default encryption key. Set ENCRYPTION_KEY in environment.');
     }
 
     // Initialize OAuth configurations
