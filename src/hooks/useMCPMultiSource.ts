@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
+// TODO: Add toast notifications when toast library is available
+// import { toast } from 'sonner';
 
 interface MCPMultiSourceState {
   // Fetch state
@@ -119,7 +120,7 @@ export function useMCPMultiSource() {
         organizedData: result.data.organized
       });
 
-      toast.success(`Successfully processed activities from ${result.data.sources.length} tool(s)`);
+      // toast.success(`Successfully processed activities from ${result.data.sources.length} tool(s)`);
 
       return result.data;
     } catch (error: any) {
@@ -133,7 +134,7 @@ export function useMCPMultiSource() {
         progress: 0
       }));
 
-      toast.error(error.message || 'Failed to fetch activities');
+      // toast.error(error.message || 'Failed to fetch activities');
       throw error;
     }
   }, []);
@@ -192,7 +193,7 @@ export function useMCPMultiSource() {
         organizedData: result.data.organized
       }));
 
-      toast.success(`Fetched activities from ${result.data.sources.length} tool(s)`);
+      // toast.success(`Fetched activities from ${result.data.sources.length} tool(s)`);
 
       return result.data;
     } catch (error: any) {
@@ -206,7 +207,7 @@ export function useMCPMultiSource() {
         progress: 0
       }));
 
-      toast.error(error.message || 'Failed to fetch activities');
+      // toast.error(error.message || 'Failed to fetch activities');
       throw error;
     }
   }, []);
@@ -283,7 +284,7 @@ export function useMCPMultiSource() {
         return updates;
       });
 
-      toast.success(`${stage} stage completed successfully`);
+      // toast.success(`${stage} stage completed successfully`);
 
       return result.data;
     } catch (error: any) {
@@ -295,7 +296,7 @@ export function useMCPMultiSource() {
         fetchError: error.message
       }));
 
-      toast.error(error.message || `Failed to process ${stage} stage`);
+      // toast.error(error.message || `Failed to process ${stage} stage`);
       throw error;
     }
   }, [state.sessionId, state.organizedData]);
@@ -323,7 +324,7 @@ export function useMCPMultiSource() {
       return result.data.session;
     } catch (error: any) {
       console.error('Failed to get session:', error);
-      toast.error(error.message || 'Failed to get session data');
+      // toast.error(error.message || 'Failed to get session data');
       throw error;
     }
   }, []);
@@ -346,10 +347,10 @@ export function useMCPMultiSource() {
       });
 
       reset();
-      toast.success('Session cleared successfully');
+      // toast.success('Session cleared successfully');
     } catch (error: any) {
       console.error('Failed to clear session:', error);
-      toast.error('Failed to clear session');
+      // toast.error('Failed to clear session');
     }
   }, [state.sessionId, reset]);
 
