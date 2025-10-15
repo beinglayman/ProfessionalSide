@@ -109,16 +109,20 @@ export function useMCPMultiSource() {
       return result.data;
     } catch (error: any) {
       console.error('Failed to fetch and process:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error config:', error.config?.data);
+
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch activities';
 
       setState(prev => ({
         ...prev,
         isFetching: false,
-        fetchError: error.message,
+        fetchError: errorMessage,
         stage: 'idle',
         progress: 0
       }));
 
-      // toast.error(error.message || 'Failed to fetch activities');
+      // toast.error(errorMessage);
       throw error;
     }
   }, []);
