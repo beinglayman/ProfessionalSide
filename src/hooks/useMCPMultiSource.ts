@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { api } from '../lib/api';
 // TODO: Add toast notifications when toast library is available
 // import { toast } from 'sonner';
 
@@ -74,37 +75,20 @@ export function useMCPMultiSource() {
     }));
 
     try {
-      const token = localStorage.getItem('inchronicle_access_token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
       // Use the all-in-one endpoint for better performance
-      const response = await fetch('/api/v1/mcp/fetch-and-process', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+      const response = await api.post('/mcp/fetch-and-process', {
+        toolTypes,
+        dateRange: {
+          start: dateRange.start.toISOString(),
+          end: dateRange.end.toISOString()
         },
-        body: JSON.stringify({
-          toolTypes,
-          dateRange: {
-            start: dateRange.start.toISOString(),
-            end: dateRange.end.toISOString()
-          },
-          consentGiven: true,
-          quality: options.quality || 'balanced',
-          generateContent: options.generateContent !== false,
-          workspaceName: options.workspaceName || 'Professional Work'
-        })
+        consentGiven: true,
+        quality: options.quality || 'balanced',
+        generateContent: options.generateContent !== false,
+        workspaceName: options.workspaceName || 'Professional Work'
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch and process activities');
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       setState({
         isFetching: false,
@@ -153,34 +137,17 @@ export function useMCPMultiSource() {
     }));
 
     try {
-      const token = localStorage.getItem('inchronicle_access_token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
       // First, just fetch the data
-      const response = await fetch('/api/v1/mcp/fetch-multi-source', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+      const response = await api.post('/mcp/fetch-multi-source', {
+        toolTypes,
+        dateRange: {
+          start: dateRange.start.toISOString(),
+          end: dateRange.end.toISOString()
         },
-        body: JSON.stringify({
-          toolTypes,
-          dateRange: {
-            start: dateRange.start.toISOString(),
-            end: dateRange.end.toISOString()
-          },
-          consentGiven: true
-        })
+        consentGiven: true
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch activities');
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       setState(prev => ({
         ...prev,
@@ -232,31 +199,14 @@ export function useMCPMultiSource() {
     }));
 
     try {
-      const token = localStorage.getItem('inchronicle_access_token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch('/api/v1/mcp/process-agents', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          stage,
-          sessionId: state.sessionId,
-          data: data || state.organizedData,
-          options
-        })
+      const response = await api.post('/mcp/process-agents', {
+        stage,
+        sessionId: state.sessionId,
+        data: data || state.organizedData,
+        options
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `Failed to process ${stage} stage`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       // Update state based on stage
       setState(prev => {
@@ -304,24 +254,8 @@ export function useMCPMultiSource() {
   // Get session data
   const getSession = useCallback(async (sessionId: string) => {
     try {
-      const token = localStorage.getItem('inchronicle_access_token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`/api/v1/mcp/sessions/${sessionId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to get session');
-      }
-
-      const result = await response.json();
-      return result.data.session;
+      const response = await api.get(`/mcp/sessions/${sessionId}`);
+      return response.data.data.session;
     } catch (error: any) {
       console.error('Failed to get session:', error);
       // toast.error(error.message || 'Failed to get session data');
@@ -334,18 +268,7 @@ export function useMCPMultiSource() {
     if (!state.sessionId) return;
 
     try {
-      const token = localStorage.getItem('inchronicle_access_token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      await fetch(`/api/v1/mcp/sessions/${state.sessionId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
+      await api.delete(`/mcp/sessions/${state.sessionId}`);
       reset();
       // toast.success('Session cleared successfully');
     } catch (error: any) {
