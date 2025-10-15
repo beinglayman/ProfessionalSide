@@ -757,23 +757,37 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
     // Fetch data from all tools in parallel
     const fetchPromises = toolTypes.map(async (toolType: string) => {
       try {
+        console.log(`[MCP Agents] Attempting to fetch from ${toolType} for user ${userId}`);
         const toolImport = toolImports[toolType as keyof typeof toolImports];
-        if (!toolImport) return null;
+        if (!toolImport) {
+          console.log(`[MCP Agents] No tool import found for ${toolType}`);
+          return null;
+        }
 
         const tool = await toolImport();
+        console.log(`[MCP Agents] Tool instance created for ${toolType}, calling fetchActivity`);
         const result = await tool.fetchActivity(userId, parsedDateRange);
+        console.log(`[MCP Agents] fetchActivity result for ${toolType}:`, { success: result?.success, hasData: !!result?.data, dataLength: result?.data?.length });
 
         if (result && result.success && result.data) {
+          console.log(`[MCP Agents] Successfully fetched ${result.data.length} items from ${toolType}`);
           return { toolType, data: result.data };
         }
+        console.log(`[MCP Agents] No valid data from ${toolType} (success: ${result?.success})`);
         return null;
       } catch (error: any) {
-        console.error(`[MCP Agents] Error fetching from ${toolType}:`, error);
+        console.error(`[MCP Agents] Error fetching from ${toolType}:`, error.message);
+        console.error(`[MCP Agents] Error details for ${toolType}:`, {
+          name: error.name,
+          message: error.message,
+          stack: error.stack?.split('\n')[0]
+        });
         return null;
       }
     });
 
     const results = await Promise.all(fetchPromises);
+    console.log(`[MCP Agents] Completed all fetch attempts. Results:`, results.map(r => r ? `${r.toolType}: ${r.data.length} items` : 'null'));
 
     // Filter out failed fetches and create source map
     const sourcesMap = new Map<string, any>();
@@ -783,7 +797,10 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
       }
     });
 
+    console.log(`[MCP Agents] sourcesMap size: ${sourcesMap.size}, tools: [${Array.from(sourcesMap.keys()).join(', ')}]`);
+
     if (sourcesMap.size === 0) {
+      console.error(`[MCP Agents] No data fetched from any tool. All ${toolTypes.length} tools failed.`);
       sendError(res, 'Failed to fetch data from any connected tools. Please ensure at least one tool is properly connected.', 400);
       return;
     }
