@@ -72,6 +72,11 @@ export function MCPSourceSelector({
     lastSyncAt: integration.lastSyncAt
   })) || [];
 
+  // DEBUG: Log the data to understand what's happening
+  console.log('[MCPSourceSelector] Raw integrations data:', integrationsData);
+  console.log('[MCPSourceSelector] Mapped tools:', tools);
+  console.log('[MCPSourceSelector] Connected tools:', tools.filter(t => t.isConnected));
+
   // Auto-select connected tools when data loads
   useEffect(() => {
     if (tools.length > 0 && defaultSelected.length === 0 && selectedTools.size === 0) {
