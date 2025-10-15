@@ -144,10 +144,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
         setFormData(prev => ({
           ...prev,
           workspaceId: preselectedWorkspaceId,
-        linkedGoalId: preselectedGoalId || '',
-        collaborators: [],
-        reviewers: []
-      }));
+          linkedGoalId: preselectedGoalId || '',
+          collaborators: [],
+          reviewers: []
+        }));
+      }
     }
   }, [open, preselectedWorkspaceId, preselectedGoalId]);
   
