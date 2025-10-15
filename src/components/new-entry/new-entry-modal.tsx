@@ -2789,7 +2789,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
             // Optionally show a success message
             setValidationError(''); // Clear any errors
           }}
-          workspaceName={selectedWorkspaceName || 'Professional Work'}
+          workspaceName={workspaces.find(w => w.id === formData.workspaceId)?.name || 'Professional Work'}
         />
       )}
     </>
