@@ -5,6 +5,7 @@ import { Checkbox } from '../ui/checkbox';
 import { Alert, AlertDescription } from '../ui/alert';
 import { cn } from '../../lib/utils';
 import { format, subDays, startOfDay, endOfDay, set } from 'date-fns';
+import { useMCPIntegrations } from '../../hooks/useMCP';
 
 interface MCPTool {
   type: string;
@@ -39,9 +40,10 @@ export function MCPSourceSelector({
   defaultSelected = [],
   className
 }: MCPSourceSelectorProps) {
-  const [tools, setTools] = useState<MCPTool[]>([]);
+  // Use the proper hook instead of manual fetch
+  const { data: integrationsData, isLoading: fetchingTools } = useMCPIntegrations();
+
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(defaultSelected));
-  const [fetchingTools, setFetchingTools] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dateRangeType, setDateRangeType] = useState<'auto' | 'yesterday' | 'today' | 'custom'>('auto');
   const [customDateRange, setCustomDateRange] = useState({
@@ -49,36 +51,25 @@ export function MCPSourceSelector({
     end: new Date()
   });
 
+  // Convert integrations data to tools format
+  const tools: MCPTool[] = integrationsData?.integrations?.map((integration: any) => ({
+    type: integration.toolType,
+    name: integration.name || integration.toolType,
+    description: integration.description || '',
+    isConnected: integration.isActive,
+    connectedAt: integration.createdAt,
+    lastSyncAt: integration.lastUsedAt
+  })) || [];
+
+  // Auto-select connected tools when data loads
   useEffect(() => {
-    fetchAvailableTools();
-  }, []);
-
-  const fetchAvailableTools = async () => {
-    try {
-      const response = await fetch('/api/v1/mcp/integrations', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTools(data.data.integrations || []);
-
-        // Auto-select connected tools if no default provided
-        if (defaultSelected.length === 0) {
-          const connectedTools = data.data.integrations
-            .filter((t: MCPTool) => t.isConnected)
-            .map((t: MCPTool) => t.type);
-          setSelectedTools(new Set(connectedTools));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch MCP tools:', error);
-    } finally {
-      setFetchingTools(false);
+    if (tools.length > 0 && defaultSelected.length === 0 && selectedTools.size === 0) {
+      const connectedTools = tools
+        .filter((t: MCPTool) => t.isConnected)
+        .map((t: MCPTool) => t.type);
+      setSelectedTools(new Set(connectedTools));
     }
-  };
+  }, [tools, defaultSelected.length, selectedTools.size]);
 
   const toggleTool = (toolType: string) => {
     const newSelected = new Set(selectedTools);
