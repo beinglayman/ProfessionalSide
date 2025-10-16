@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Shield, Github, Database, Figma, Mail, FileText, MessageSquare, Check, X, Loader2, ExternalLink, RefreshCw, Trash2, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Alert, AlertDescription } from '../../components/ui/alert';
 import { MCPPrivacyNotice } from '../../components/mcp/MCPPrivacyNotice';
 import { useMCPTools, useMCPPrivacy } from '../../hooks/useMCP';
 import { MCPToolType } from '../../services/mcp.service';
@@ -265,32 +264,34 @@ const IntegrationsPage: React.FC = () => {
             </div>
           )}
 
-          <Alert className="border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription>
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong className="text-red-900">Danger Zone</strong>
-                  <p className="text-sm text-red-800 mt-1">
-                    Delete all MCP data including integrations and audit logs
-                  </p>
+          <div className="border border-red-200 bg-red-50 rounded-lg p-4" role="alert">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <strong className="text-red-900">Danger Zone</strong>
+                    <p className="text-sm text-red-800 mt-1">
+                      Delete all MCP data including integrations and audit logs
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteAllData}
+                    disabled={isDeletingData}
+                  >
+                    {isDeletingData ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    Delete All Data
+                  </Button>
                 </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDeleteAllData}
-                  disabled={isDeletingData}
-                >
-                  {isDeletingData ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                  Delete All Data
-                </Button>
               </div>
-            </AlertDescription>
-          </Alert>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

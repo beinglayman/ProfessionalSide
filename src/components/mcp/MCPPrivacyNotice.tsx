@@ -1,6 +1,5 @@
 import React from 'react';
 import { Shield, Lock, Info, CheckCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '../ui/alert';
 
 interface MCPPrivacyNoticeProps {
   variant?: 'default' | 'compact' | 'detailed';
@@ -69,17 +68,19 @@ export const MCPPrivacyNotice: React.FC<MCPPrivacyNoticeProps> = ({
 
   // Default variant
   return (
-    <Alert className={`border-blue-200 bg-blue-50 ${className}`}>
-      <Shield className="h-4 w-4 text-blue-600" />
-      <AlertDescription>
-        <strong>Your data, your control</strong>
-        <ul className="mt-2 space-y-1 text-sm">
-          <li>• InChronicle fetches data only when you request</li>
-          <li>• No external data is stored without your approval</li>
-          <li>• Only your final published entry is saved</li>
-        </ul>
-      </AlertDescription>
-    </Alert>
+    <div className={`border border-blue-200 bg-blue-50 rounded-lg p-4 ${className}`} role="alert">
+      <div className="flex items-start gap-3">
+        <Shield className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <strong className="text-gray-900">Your data, your control</strong>
+          <ul className="mt-2 space-y-1 text-sm text-gray-700">
+            <li>• InChronicle fetches data only when you request</li>
+            <li>• No external data is stored without your approval</li>
+            <li>• Only your final published entry is saved</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   );
 };
 
