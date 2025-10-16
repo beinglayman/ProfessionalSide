@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
-import { Alert, AlertDescription } from '../ui/alert';
 import { cn } from '../../lib/utils';
 import { format, subDays, startOfDay, endOfDay, set } from 'date-fns';
 import { useMCPIntegrations } from '../../hooks/useMCP';
@@ -366,12 +365,12 @@ export function MCPSourceSelector({
           </div>
         </div>
       ) : (
-        <Alert className="bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-sm text-yellow-800">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-yellow-800">
             No tools are connected yet. Please connect at least one tool from Settings → Integrations.
-          </AlertDescription>
-        </Alert>
+          </p>
+        </div>
       )}
 
       {/* Disconnected Tools (Show as disabled) */}
