@@ -60,6 +60,9 @@ export class FigmaTool {
       const endDate = dateRange?.end || new Date();
       const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+      console.log(`[Figma Tool] === Starting Figma fetch for user ${userId} ===`);
+      console.log(`[Figma Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
       // Fetch different types of activity
       const [userInfo, teamProjects, recentFiles] = await Promise.all([
         this.fetchUserInfo(),
@@ -67,12 +70,17 @@ export class FigmaTool {
         this.fetchRecentFiles()
       ]);
 
+      console.log(`[Figma Tool] Fetched ${recentFiles.length} files from ${teamProjects.length} projects`);
+
       // For each file, fetch more details and filter by date
       const filesWithDetails = await this.fetchFileDetails(recentFiles, startDate, endDate);
 
       // Extract components and comments from files
       const components = this.extractComponents(filesWithDetails);
       const comments = await this.fetchRecentComments(filesWithDetails, startDate, endDate);
+
+      console.log(`[Figma Tool] Extracted ${components.length} components from ${filesWithDetails.length} files`);
+      console.log(`[Figma Tool] Fetched ${comments.length} comments from ${filesWithDetails.length} files`);
 
       // Compile activity data
       const activity: FigmaActivity = {
@@ -83,6 +91,12 @@ export class FigmaTool {
 
       // Calculate total items
       const itemCount = filesWithDetails.length + components.length + comments.length;
+
+      console.log(`[Figma Tool] === Summary ===`);
+      console.log(`[Figma Tool] Files: ${filesWithDetails.length}`);
+      console.log(`[Figma Tool] Components: ${components.length}`);
+      console.log(`[Figma Tool] Comments: ${comments.length}`);
+      console.log(`[Figma Tool] Total items: ${itemCount}`);
 
       // Store in memory-only session
       const sessionId = this.sessionService.createSession(
@@ -151,25 +165,45 @@ export class FigmaTool {
       const meResponse = await this.figmaApi.get('/me');
       const teams = meResponse.data.teams || [];
 
+      console.log(`[Figma Tool] Found ${teams.length} teams for user`);
+      if (teams.length === 0) {
+        console.log('[Figma Tool] WARNING: No teams found! Files must be in team projects, not Drafts.');
+      }
+
       const projects: any[] = [];
 
       // For each team, get projects (limit to first 3 teams)
       for (const team of teams.slice(0, 3)) {
         try {
+          console.log(`[Figma Tool] Fetching projects for team: ${team.name} (${team.id})`);
           const projectsResponse = await this.figmaApi.get(`/teams/${team.id}/projects`);
-          projects.push(...projectsResponse.data.projects.map((project: any) => ({
+          const teamProjects = projectsResponse.data.projects || [];
+          console.log(`[Figma Tool] Found ${teamProjects.length} projects in team ${team.name}`);
+
+          projects.push(...teamProjects.map((project: any) => ({
             ...project,
             teamId: team.id,
             teamName: team.name
           })));
-        } catch (error) {
-          console.error(`[Figma Tool] Error fetching projects for team ${team.id}:`, error);
+        } catch (error: any) {
+          console.error(`[Figma Tool] Error fetching projects for team ${team.id}:`, {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+          });
         }
       }
 
+      console.log(`[Figma Tool] Total projects found: ${projects.length}`);
       return projects;
-    } catch (error) {
-      console.error('[Figma Tool] Error fetching team projects:', error);
+    } catch (error: any) {
+      console.error('[Figma Tool] Error fetching team projects:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       return [];
     }
   }
@@ -182,24 +216,40 @@ export class FigmaTool {
       const projects = await this.fetchTeamProjects();
       const files: any[] = [];
 
+      console.log(`[Figma Tool] Fetching files from ${projects.length} projects`);
+
       // For each project, get files (limit to first 5 projects)
       for (const project of projects.slice(0, 5)) {
         try {
+          console.log(`[Figma Tool] Fetching files from project: ${project.name} (${project.id})`);
           const filesResponse = await this.figmaApi.get(`/projects/${project.id}/files`);
-          files.push(...filesResponse.data.files.map((file: any) => ({
+          const projectFiles = filesResponse.data.files || [];
+          console.log(`[Figma Tool] Found ${projectFiles.length} files in project ${project.name}`);
+
+          files.push(...projectFiles.map((file: any) => ({
             ...file,
             projectId: project.id,
             projectName: project.name,
             teamName: project.teamName
           })));
-        } catch (error) {
-          console.error(`[Figma Tool] Error fetching files for project ${project.id}:`, error);
+        } catch (error: any) {
+          console.error(`[Figma Tool] Error fetching files for project ${project.id}:`, {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+          });
         }
       }
 
+      console.log(`[Figma Tool] Total files found across all projects: ${files.length}`);
       return files;
-    } catch (error) {
-      console.error('[Figma Tool] Error fetching recent files:', error);
+    } catch (error: any) {
+      console.error('[Figma Tool] Error fetching recent files:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       return [];
     }
   }
@@ -210,9 +260,13 @@ export class FigmaTool {
   private async fetchFileDetails(files: any[], startDate: Date, endDate: Date): Promise<any[]> {
     const detailedFiles: any[] = [];
 
+    console.log(`[Figma Tool] Fetching details for ${files.length} files (max 10)`);
+    console.log(`[Figma Tool] Date filter: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
     // Limit to 10 most recent files to avoid rate limiting
     for (const file of files.slice(0, 10)) {
       try {
+        console.log(`[Figma Tool] Fetching details for file: ${file.name} (${file.key})`);
         // Get file metadata
         const fileResponse = await this.figmaApi.get(`/files/${file.key}`, {
           params: {
@@ -222,9 +276,13 @@ export class FigmaTool {
 
         const fileData = fileResponse.data;
         const lastModified = new Date(fileData.lastModified || file.last_modified);
+        const inDateRange = lastModified >= startDate && lastModified <= endDate;
+
+        console.log(`[Figma Tool] File "${file.name}" - lastModified: ${lastModified.toISOString()}, inRange: ${inDateRange}`);
 
         // Only include files modified within date range
-        if (lastModified >= startDate && lastModified <= endDate) {
+        if (inDateRange) {
+          console.log(`[Figma Tool] ✓ Including file "${file.name}"`);
           detailedFiles.push({
             key: file.key,
             name: fileData.name || file.name,
@@ -237,15 +295,23 @@ export class FigmaTool {
             components: fileData.components || {},
             styles: fileData.styles || {}
           });
+        } else {
+          console.log(`[Figma Tool] ✗ Excluding file "${file.name}" (outside date range)`);
         }
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error(`[Figma Tool] Error fetching details for file ${file.key}:`, error);
+      } catch (error: any) {
+        console.error(`[Figma Tool] Error fetching details for file ${file.key}:`, {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        });
       }
     }
 
+    console.log(`[Figma Tool] Files after date filtering: ${detailedFiles.length}`);
     return detailedFiles;
   }
 

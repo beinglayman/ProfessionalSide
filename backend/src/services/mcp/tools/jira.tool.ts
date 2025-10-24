@@ -93,6 +93,10 @@ export class JiraTool {
       const endDate = dateRange?.end || new Date();
       const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+      console.log(`[Jira Tool] === Starting Jira fetch for user ${userId} ===`);
+      console.log(`[Jira Tool] Cloud ID: ${this.cloudId}`);
+      console.log(`[Jira Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
       // Fetch different types of activity in parallel
       const [currentUser, issues, projects, sprints] = await Promise.all([
         this.fetchCurrentUser(),
@@ -100,6 +104,8 @@ export class JiraTool {
         this.fetchProjects(),
         this.fetchActiveSprints()
       ]);
+
+      console.log(`[Jira Tool] Fetched ${issues.length} issues, ${projects.length} projects, ${sprints.length} sprints`);
 
       // Compile activity data
       const activity: JiraActivity = {
@@ -110,6 +116,12 @@ export class JiraTool {
 
       // Calculate total items
       const itemCount = issues.length + projects.length + sprints.length;
+
+      console.log(`[Jira Tool] === Summary ===`);
+      console.log(`[Jira Tool] Issues: ${issues.length}`);
+      console.log(`[Jira Tool] Projects: ${projects.length}`);
+      console.log(`[Jira Tool] Sprints: ${sprints.length}`);
+      console.log(`[Jira Tool] Total items: ${itemCount}`);
 
       // Store in memory-only session
       const sessionId = this.sessionService.createSession(
@@ -177,13 +189,17 @@ export class JiraTool {
       // JQL query for issues updated in date range
       const jql = `updated >= "${startDate.toISOString().split('T')[0]}" AND updated <= "${endDate.toISOString().split('T')[0]}" ORDER BY updated DESC`;
 
-      const response = await this.jiraApi!.get('/rest/api/3/search', {
-        params: {
-          jql,
-          maxResults: 50,
-          fields: 'summary,status,assignee,reporter,priority,project,issuetype,created,updated,timespent,timeestimate,description,comment'
-        }
+      console.log(`[Jira Tool] Fetching issues with JQL: ${jql}`);
+
+      // Updated to use /search/jql endpoint (old /search endpoint deprecated as of Oct 2024)
+      // Migration guide: https://developer.atlassian.com/changelog/#CHANGE-2046
+      const response = await this.jiraApi!.post('/rest/api/3/search/jql', {
+        jql,
+        maxResults: 50,
+        fields: ['summary', 'status', 'assignee', 'reporter', 'priority', 'project', 'issuetype', 'created', 'updated', 'timespent', 'timeestimate', 'description', 'comment']
       });
+
+      console.log(`[Jira Tool] Found ${response.data.issues?.length || 0} issues`);
 
       return response.data.issues.map((issue: any) => ({
         key: issue.key,
@@ -206,8 +222,14 @@ export class JiraTool {
         commentCount: issue.fields.comment?.total || 0,
         url: `https://${this.cloudId}.atlassian.net/browse/${issue.key}`
       }));
-    } catch (error) {
-      console.error('[Jira Tool] Error fetching issues:', error);
+    } catch (error: any) {
+      console.error('[Jira Tool] Error fetching issues:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        endpoint: '/rest/api/3/search'
+      });
       return [];
     }
   }
@@ -217,12 +239,16 @@ export class JiraTool {
    */
   private async fetchProjects(): Promise<any[]> {
     try {
+      console.log(`[Jira Tool] Fetching projects...`);
+
       const response = await this.jiraApi!.get('/rest/api/3/project/search', {
         params: {
           maxResults: 20,
           orderBy: 'lastIssueUpdatedTime'
         }
       });
+
+      console.log(`[Jira Tool] Found ${response.data.values?.length || 0} projects`);
 
       return response.data.values.map((project: any) => ({
         key: project.key,
@@ -231,8 +257,14 @@ export class JiraTool {
         lead: project.lead?.displayName,
         url: `https://${this.cloudId}.atlassian.net/browse/${project.key}`
       }));
-    } catch (error) {
-      console.error('[Jira Tool] Error fetching projects:', error);
+    } catch (error: any) {
+      console.error('[Jira Tool] Error fetching projects:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        endpoint: '/rest/api/3/project/search'
+      });
       return [];
     }
   }
@@ -242,6 +274,8 @@ export class JiraTool {
    */
   private async fetchActiveSprints(): Promise<any[]> {
     try {
+      console.log(`[Jira Tool] Fetching boards...`);
+
       // First get boards
       const boardsResponse = await this.jiraApi!.get('/rest/agile/1.0/board', {
         params: {
@@ -250,17 +284,22 @@ export class JiraTool {
         }
       });
 
+      console.log(`[Jira Tool] Found ${boardsResponse.data.values?.length || 0} boards`);
+
       const sprints: any[] = [];
 
       // For each board, get active sprints
       for (const board of boardsResponse.data.values.slice(0, 5)) { // Limit to 5 boards
         try {
+          console.log(`[Jira Tool] Fetching sprints for board: ${board.name} (${board.id})`);
           const sprintsResponse = await this.jiraApi!.get(`/rest/agile/1.0/board/${board.id}/sprint`, {
             params: {
               state: 'active,future',
               maxResults: 3
             }
           });
+
+          console.log(`[Jira Tool] Found ${sprintsResponse.data.values?.length || 0} sprints in board ${board.name}`);
 
           for (const sprint of sprintsResponse.data.values) {
             sprints.push({
@@ -273,15 +312,29 @@ export class JiraTool {
               goal: sprint.goal
             });
           }
-        } catch (error) {
+        } catch (error: any) {
+          console.error(`[Jira Tool] Error fetching sprints for board ${board.id}:`, {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            endpoint: `/rest/agile/1.0/board/${board.id}/sprint`
+          });
           // Some boards might not have sprints
           continue;
         }
       }
 
+      console.log(`[Jira Tool] Total sprints found: ${sprints.length}`);
       return sprints;
-    } catch (error) {
-      console.error('[Jira Tool] Error fetching sprints:', error);
+    } catch (error: any) {
+      console.error('[Jira Tool] Error fetching sprints:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        endpoint: '/rest/agile/1.0/board'
+      });
       return [];
     }
   }

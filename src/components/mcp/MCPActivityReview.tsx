@@ -441,7 +441,14 @@ export function MCPActivityReview({
                               </div>
 
                               <span className="text-xs text-gray-400">
-                                {format(new Date(activity.timestamp), 'h:mm a')}
+                                {(() => {
+                                  try {
+                                    const ts = new Date(activity.timestamp);
+                                    return !isNaN(ts.getTime()) ? format(ts, 'h:mm a') : '';
+                                  } catch {
+                                    return '';
+                                  }
+                                })()}
                               </span>
                             </div>
                           </div>
@@ -458,12 +465,12 @@ export function MCPActivityReview({
 
       {/* Warning if nothing selected */}
       {selectedCount === 0 && (
-        <Alert className="bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-sm text-yellow-800">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3" role="alert">
+          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-yellow-800">
             Please select at least one activity to include in your journal entry.
-          </AlertDescription>
-        </Alert>
+          </p>
+        </div>
       )}
 
       {/* Actions */}

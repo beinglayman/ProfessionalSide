@@ -67,28 +67,38 @@ export class ConfluenceTool {
     dateRange?: { start?: Date; end?: Date }
   ): Promise<MCPServiceResponse<ConfluenceActivity>> {
     try {
+      console.log(`[Confluence Tool] Starting fetch for user ${userId}`);
+
       // Get access token
       const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.CONFLUENCE);
       if (!accessToken) {
+        console.log('[Confluence Tool] No access token found');
         return {
           success: false,
           error: 'Confluence not connected. Please connect your Confluence account first.'
         };
       }
 
+      console.log('[Confluence Tool] Access token retrieved successfully');
+
       // Initialize Confluence client
       await this.initializeConfluenceClient(accessToken);
 
       if (!this.confluenceApi) {
+        console.error('[Confluence Tool] Failed to initialize client');
         return {
           success: false,
           error: 'Failed to initialize Confluence client'
         };
       }
 
-      // Calculate date range (default: last 7 days)
+      console.log(`[Confluence Tool] Initialized with cloud ID: ${this.cloudId}`);
+
+      // Calculate date range (default: last 30 days for better coverage)
       const endDate = dateRange?.end || new Date();
-      const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const startDate = dateRange?.start || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      console.log(`[Confluence Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
       // Fetch different types of activity
       const [currentUser, spaces, recentPages, blogPosts] = await Promise.all([
@@ -98,8 +108,16 @@ export class ConfluenceTool {
         this.fetchBlogPosts(startDate, endDate)
       ]);
 
+      console.log(`[Confluence Tool] Fetched data:
+        - Current user: ${currentUser ? 'Yes' : 'No'}
+        - Spaces: ${spaces.length}
+        - Pages: ${recentPages.length}
+        - Blog posts: ${blogPosts.length}`);
+
       // Fetch comments on pages
       const comments = await this.fetchRecentComments(recentPages, startDate, endDate);
+
+      console.log(`[Confluence Tool] Fetched ${comments.length} comments`);
 
       // Compile activity data
       const activity: ConfluenceActivity = {
@@ -129,7 +147,7 @@ export class ConfluenceTool {
         true
       );
 
-      console.log(`[Confluence Tool] Fetched ${itemCount} items for user ${userId}`);
+      console.log(`[Confluence Tool] Successfully fetched ${itemCount} total items for user ${userId}`);
 
       return {
         success: true,
@@ -139,6 +157,11 @@ export class ConfluenceTool {
       };
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching activity:', error);
+      console.error('[Confluence Tool] Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
 
       await this.privacyService.logFetchOperation(
         userId,
@@ -162,9 +185,19 @@ export class ConfluenceTool {
   private async fetchCurrentUser(): Promise<any> {
     try {
       const response = await this.confluenceApi!.get('/wiki/rest/api/user/current');
+      console.log('[Confluence Tool] Current user:', {
+        accountId: response.data.accountId,
+        displayName: response.data.displayName,
+        email: response.data.email
+      });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Confluence Tool] Error fetching user info:', error);
+      console.error('[Confluence Tool] User error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       return null;
     }
   }
@@ -200,16 +233,32 @@ export class ConfluenceTool {
    */
   private async fetchRecentPages(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // CQL query for pages updated in date range
-      const cql = `lastmodified >= "${startDate.toISOString().split('T')[0]}" AND lastmodified <= "${endDate.toISOString().split('T')[0]}" AND type = page ORDER BY lastmodified DESC`;
+      // CQL query for pages created OR modified in date range
+      // Using created OR lastmodified to catch all activities
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      const cql = `(created >= "${startDateStr}" AND created <= "${endDateStr}" OR lastmodified >= "${startDateStr}" AND lastmodified <= "${endDateStr}") AND type = page ORDER BY lastmodified DESC`;
+
+      console.log(`[Confluence Tool] Pages CQL query: ${cql}`);
 
       const response = await this.confluenceApi!.get('/wiki/rest/api/content/search', {
         params: {
           cql,
-          limit: 30,
-          expand: 'space,version,body.view'
+          limit: 50,  // Increased limit
+          expand: 'space,version,body.view,history'
         }
       });
+
+      console.log(`[Confluence Tool] Pages API response: ${response.data.results.length} pages found`);
+
+      if (response.data.results.length > 0) {
+        console.log('[Confluence Tool] Sample page:', {
+          title: response.data.results[0].title,
+          created: response.data.results[0].history?.createdDate,
+          modified: response.data.results[0].version?.when
+        });
+      }
 
       return response.data.results.map((page: any) => ({
         id: page.id,
@@ -219,13 +268,19 @@ export class ConfluenceTool {
           name: page.space.name
         },
         version: page.version.number,
+        created: page.history?.createdDate,
         lastModified: page.version.when,
         lastModifiedBy: page.version.by?.displayName || 'Unknown',
         url: `https://${this.cloudId}.atlassian.net/wiki${page._links.webui}`,
         excerpt: this.extractExcerpt(page.body?.view?.value)
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Confluence Tool] Error fetching pages:', error);
+      console.error('[Confluence Tool] Pages error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       return [];
     }
   }
@@ -235,16 +290,23 @@ export class ConfluenceTool {
    */
   private async fetchBlogPosts(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // CQL query for blog posts updated in date range
-      const cql = `lastmodified >= "${startDate.toISOString().split('T')[0]}" AND lastmodified <= "${endDate.toISOString().split('T')[0]}" AND type = blogpost ORDER BY lastmodified DESC`;
+      // CQL query for blog posts created OR modified in date range
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      const cql = `(created >= "${startDateStr}" AND created <= "${endDateStr}" OR lastmodified >= "${startDateStr}" AND lastmodified <= "${endDateStr}") AND type = blogpost ORDER BY lastmodified DESC`;
+
+      console.log(`[Confluence Tool] Blog posts CQL query: ${cql}`);
 
       const response = await this.confluenceApi!.get('/wiki/rest/api/content/search', {
         params: {
           cql,
           limit: 20,
-          expand: 'space,version,body.view'
+          expand: 'space,version,body.view,history'
         }
       });
+
+      console.log(`[Confluence Tool] Blog posts API response: ${response.data.results.length} posts found`);
 
       return response.data.results.map((post: any) => ({
         id: post.id,
@@ -254,13 +316,19 @@ export class ConfluenceTool {
           name: post.space.name
         },
         version: post.version.number,
+        created: post.history?.createdDate,
         publishedDate: post.version.when,
         author: post.version.by?.displayName || 'Unknown',
         url: `https://${this.cloudId}.atlassian.net/wiki${post._links.webui}`,
         excerpt: this.extractExcerpt(post.body?.view?.value)
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Confluence Tool] Error fetching blog posts:', error);
+      console.error('[Confluence Tool] Blog posts error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       return [];
     }
   }

@@ -85,12 +85,28 @@ export class AnalyzerAgent {
     const result = await this.modelSelector.executeTask('analyze', messages, 'high');
 
     try {
-      return JSON.parse(result.content);
+      // Strip markdown code blocks if present
+      const cleanedContent = this.stripMarkdownCodeBlocks(result.content);
+      return JSON.parse(cleanedContent);
     } catch (error) {
       console.error('Failed to parse deep analysis result:', error);
+      console.error('Raw content (first 500 chars):', result.content.substring(0, 500));
       // Fallback to quick analysis
       return this.quickAnalyze(activities);
     }
+  }
+
+  /**
+   * Strip markdown code blocks from JSON response
+   * AI models often wrap JSON in ```json...``` blocks
+   */
+  private stripMarkdownCodeBlocks(content: string): string {
+    // Remove ```json\n...\n``` or ```\n...\n```
+    const cleaned = content
+      .replace(/^```(?:json)?\s*\n/i, '')  // Remove opening ```json or ```
+      .replace(/\n```\s*$/, '')            // Remove closing ```
+      .trim();
+    return cleaned;
   }
 
   private buildQuickAnalysisPrompt(activities: Map<MCPToolType, any>): string {

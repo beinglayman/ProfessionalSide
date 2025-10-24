@@ -62,7 +62,8 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/jira`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        scope: 'read:jira-work read:jira-user offline_access'
+        // Added read:board-scope and read:sprint for Agile board/sprint access
+        scope: 'read:jira-work read:jira-user read:board-scope:jira-software read:sprint:jira-software offline_access'
       });
     }
 
@@ -75,7 +76,8 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/figma`,
         authorizationUrl: 'https://www.figma.com/oauth',
         tokenUrl: 'https://api.figma.com/v1/oauth/token',
-        scope: 'current_user:read file_comments:read file_content:read file_metadata:read file_versions:read'
+        // Granular scopes for 2025: file_content:read (file content), file_metadata:read (user/teams/projects), file_comments:read (comments)
+        scope: 'file_content:read file_metadata:read file_comments:read'
       });
     }
 
@@ -101,7 +103,9 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/teams`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-        scope: 'User.Read Channel.ReadBasic.All ChannelMessage.Edit Chat.Read Chat.ReadBasic offline_access'
+        // Read user's own channel messages + all chats (no admin consent required)
+        // ChannelMessage.Edit allows reading/editing user's own messages without admin consent
+        scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Edit Chat.Read Chat.ReadBasic offline_access'
       });
     }
 
@@ -115,7 +119,7 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        scope: 'read:confluence-content.all read:confluence-user offline_access'
+        scope: 'read:confluence-content.all read:confluence-space.summary read:confluence-user offline_access'
       });
     }
 
@@ -247,17 +251,20 @@ export class MCPOAuthService {
       redirect_uri: config.redirectUri,
       response_type: 'code',
       scope: config.scope,
-      state: stateData,
-      access_type: 'offline' // Request refresh token
+      state: stateData
     });
 
     // Add tool-specific parameters
-    if (toolType === MCPToolType.OUTLOOK) {
+    if (toolType === MCPToolType.OUTLOOK || toolType === MCPToolType.TEAMS) {
       params.append('response_mode', 'query');
       params.append('prompt', 'consent');
+      params.append('access_type', 'offline'); // Request refresh token for Microsoft
     } else if (toolType === MCPToolType.SLACK) {
       params.append('user_scope', config.scope);
+    } else if (toolType === MCPToolType.GITHUB) {
+      // GitHub doesn't need special parameters
     }
+    // Figma, Jira, Confluence don't need access_type parameter
 
     const url = `${config.authorizationUrl}?${params.toString()}`;
 

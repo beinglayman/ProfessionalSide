@@ -263,7 +263,9 @@ Return ONLY valid JSON, no additional text.
       console.log('✅ Multi-source organization complete');
 
       try {
-        const organized: OrganizedActivity = JSON.parse(content);
+        // Strip markdown code blocks if present (AI often wraps JSON in ```json...```)
+        const cleanedContent = this.stripMarkdownCodeBlocks(content);
+        const organized: OrganizedActivity = JSON.parse(cleanedContent);
 
         // Enrich with source metadata
         const enriched = this.enrichWithSourceMetadata(organized, sources);
@@ -275,7 +277,7 @@ Return ONLY valid JSON, no additional text.
         return enriched;
       } catch (parseError) {
         console.error('❌ Failed to parse AI response:', parseError);
-        console.error('❌ Raw AI response:', content.substring(0, 500));
+        console.error('❌ Raw AI response (first 500 chars):', content.substring(0, 500));
 
         // Fallback to basic organization
         return this.createFallbackOrganization(sources);
@@ -488,6 +490,19 @@ Return ONLY valid JSON, no additional text.
     }
 
     return summary;
+  }
+
+  /**
+   * Strip markdown code blocks from JSON response
+   * AI models often wrap JSON in ```json...``` blocks
+   */
+  private stripMarkdownCodeBlocks(content: string): string {
+    // Remove ```json\n...\n``` or ```\n...\n```
+    const cleaned = content
+      .replace(/^```(?:json)?\s*\n/i, '')  // Remove opening ```json or ```
+      .replace(/\n```\s*$/, '')            // Remove closing ```
+      .trim();
+    return cleaned;
   }
 
   /**

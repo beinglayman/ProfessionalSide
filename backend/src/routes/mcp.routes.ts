@@ -17,6 +17,7 @@ import {
   getAuditHistory,
   deleteAllMCPData
 } from '../controllers/mcp.controller';
+import { getTestActivities } from '../controllers/mcp-test.controller';
 import { authenticate as authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -109,6 +110,13 @@ router.post('/process-agents', authMiddleware, processWithAgents);
  * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean, quality?: string, generateContent?: boolean, workspaceName?: string }
  */
 router.post('/fetch-and-process', authMiddleware, fetchAndProcessWithAgents);
+
+/**
+ * POST /api/v1/mcp/test-activities
+ * Get realistic mock test data for all tools (for development/testing purposes)
+ * Body: { toolTypes?: MCPToolType[], dateRange?: {...} }
+ */
+router.post('/test-activities', authMiddleware, getTestActivities);
 
 // ============================================================================
 // Session Management

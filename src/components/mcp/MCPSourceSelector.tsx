@@ -5,6 +5,7 @@ import { Checkbox } from '../ui/checkbox';
 import { cn } from '../../lib/utils';
 import { format, subDays, startOfDay, endOfDay, set } from 'date-fns';
 import { useMCPIntegrations } from '../../hooks/useMCP';
+import { ToolIcon, getToolDisplayName, getToolDescription, type ToolType } from '../icons/ToolIcons';
 
 interface MCPTool {
   type: string;
@@ -21,28 +22,6 @@ interface MCPSourceSelectorProps {
   defaultSelected?: string[];
   className?: string;
 }
-
-// Tool icons mapping
-const toolIcons: Record<string, string> = {
-  github: '🐙',
-  jira: '📋',
-  figma: '🎨',
-  outlook: '📧',
-  confluence: '📚',
-  slack: '💬',
-  teams: '👥'
-};
-
-// Tool metadata mapping
-const toolMetadata: Record<string, { name: string; description: string }> = {
-  github: { name: 'GitHub', description: 'Code contributions and repositories' },
-  jira: { name: 'Jira', description: 'Task completions and sprint activity' },
-  figma: { name: 'Figma', description: 'Design contributions and projects' },
-  outlook: { name: 'Outlook', description: 'Meeting notes and calendar events' },
-  confluence: { name: 'Confluence', description: 'Documentation updates' },
-  slack: { name: 'Slack', description: 'Important messages and discussions' },
-  teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' }
-};
 
 export function MCPSourceSelector({
   onFetch,
@@ -64,8 +43,8 @@ export function MCPSourceSelector({
   // Convert integrations data to tools format
   const tools: MCPTool[] = integrationsData?.integrations?.map((integration: any) => ({
     type: integration.toolType,
-    name: integration.name || toolMetadata[integration.toolType]?.name || integration.toolType,
-    description: integration.description || toolMetadata[integration.toolType]?.description || '',
+    name: integration.name || getToolDisplayName(integration.toolType as ToolType) || integration.toolType,
+    description: integration.description || getToolDescription(integration.toolType as ToolType) || '',
     isConnected: integration.isConnected, // Fixed: use isConnected instead of isActive
     connectedAt: integration.connectedAt,
     lastSyncAt: integration.lastSyncAt
@@ -161,25 +140,35 @@ export function MCPSourceSelector({
   };
 
   const getDateRangeLabel = () => {
-    const range = getDateRange();
-    const now = new Date();
-    const currentHour = now.getHours();
+    try {
+      const range = getDateRange();
+      const now = new Date();
+      const currentHour = now.getHours();
 
-    switch (dateRangeType) {
-      case 'auto':
-        if (currentHour < 17) {
+      // Validate dates before formatting
+      if (!range.start || !range.end || isNaN(range.start.getTime()) || isNaN(range.end.getTime())) {
+        return 'Invalid date range';
+      }
+
+      switch (dateRangeType) {
+        case 'auto':
+          if (currentHour < 17) {
+            return `Yesterday (${format(range.start, 'MMM d')})`;
+          } else {
+            return `Today (${format(range.start, 'MMM d')})`;
+          }
+        case 'yesterday':
           return `Yesterday (${format(range.start, 'MMM d')})`;
-        } else {
+        case 'today':
           return `Today (${format(range.start, 'MMM d')})`;
-        }
-      case 'yesterday':
-        return `Yesterday (${format(range.start, 'MMM d')})`;
-      case 'today':
-        return `Today (${format(range.start, 'MMM d')})`;
-      case 'custom':
-        return `${format(range.start, 'MMM d')} - ${format(range.end, 'MMM d')}`;
-      default:
-        return '';
+        case 'custom':
+          return `${format(range.start, 'MMM d')} - ${format(range.end, 'MMM d')}`;
+        default:
+          return '';
+      }
+    } catch (error) {
+      console.error('[MCPSourceSelector] Date formatting error:', error);
+      return 'Date unavailable';
     }
   };
 
@@ -290,21 +279,35 @@ export function MCPSourceSelector({
                 <div className="flex items-center space-x-2 ml-6">
                   <input
                     type="date"
-                    value={format(customDateRange.start, 'yyyy-MM-dd')}
-                    onChange={(e) => setCustomDateRange({
-                      ...customDateRange,
-                      start: new Date(e.target.value)
-                    })}
+                    value={customDateRange.start && !isNaN(customDateRange.start.getTime())
+                      ? format(customDateRange.start, 'yyyy-MM-dd')
+                      : ''}
+                    onChange={(e) => {
+                      const newDate = new Date(e.target.value);
+                      if (!isNaN(newDate.getTime())) {
+                        setCustomDateRange({
+                          ...customDateRange,
+                          start: newDate
+                        });
+                      }
+                    }}
                     className="text-sm border rounded px-2 py-1"
                   />
                   <span className="text-sm text-gray-500">to</span>
                   <input
                     type="date"
-                    value={format(customDateRange.end, 'yyyy-MM-dd')}
-                    onChange={(e) => setCustomDateRange({
-                      ...customDateRange,
-                      end: new Date(e.target.value)
-                    })}
+                    value={customDateRange.end && !isNaN(customDateRange.end.getTime())
+                      ? format(customDateRange.end, 'yyyy-MM-dd')
+                      : ''}
+                    onChange={(e) => {
+                      const newDate = new Date(e.target.value);
+                      if (!isNaN(newDate.getTime())) {
+                        setCustomDateRange({
+                          ...customDateRange,
+                          end: newDate
+                        });
+                      }
+                    }}
                     className="text-sm border rounded px-2 py-1"
                   />
                 </div>
@@ -340,16 +343,25 @@ export function MCPSourceSelector({
                 onClick={() => toggleTool(tool.type)}
               >
                 <div className="flex items-center space-x-3">
-                  <div className="text-2xl">{toolIcons[tool.type] || '🔧'}</div>
+                  <div className="flex-shrink-0">
+                    <ToolIcon tool={tool.type as ToolType} size={28} />
+                  </div>
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-gray-900">{tool.name}</span>
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                     </div>
                     <p className="text-xs text-gray-500">
-                      {tool.lastSyncAt
-                        ? `Last synced ${format(new Date(tool.lastSyncAt), 'MMM d, h:mm a')}`
-                        : 'Connected, never synced'}
+                      {(() => {
+                        if (!tool.lastSyncAt) return 'Connected, never synced';
+                        try {
+                          const syncDate = new Date(tool.lastSyncAt);
+                          if (isNaN(syncDate.getTime())) return 'Connected, never synced';
+                          return `Last synced ${format(syncDate, 'MMM d, h:mm a')}`;
+                        } catch {
+                          return 'Connected, never synced';
+                        }
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -384,8 +396,8 @@ export function MCPSourceSelector({
                 className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="text-2xl grayscale opacity-50">
-                    {toolIcons[tool.type] || '🔧'}
+                  <div className="flex-shrink-0">
+                    <ToolIcon tool={tool.type as ToolType} size={28} disabled />
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">{tool.name}</span>

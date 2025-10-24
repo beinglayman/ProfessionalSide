@@ -3,6 +3,7 @@ import { useJournalEntries, useToggleLike, useToggleAppreciate } from '../../hoo
 import { JournalCard } from '../../components/journal/journal-card';
 import { Button } from '../../components/ui/button';
 import { Plus, Filter, Search, Grid, List } from 'lucide-react';
+import { MCPFlowSidePanel } from '../../components/new-entry/MCPFlowSidePanel';
 
 export default function JournalPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -11,7 +12,7 @@ export default function JournalPage() {
   const [sortBy, setSortBy] = useState<'createdAt' | 'likes' | 'comments'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
+  const [showMCPPanel, setShowMCPPanel] = useState(false);
 
   // API query parameters
   const queryParams = {
@@ -45,6 +46,15 @@ export default function JournalPage() {
     } catch (error) {
       console.error('Failed to toggle appreciate:', error);
     }
+  };
+
+  // Handle MCP flow completion
+  const handleMCPComplete = (data: any) => {
+    console.log('MCP flow completed with data:', data);
+    // TODO: Create journal entry with the data
+    // For now, just log and close the panel
+    alert(`Entry created: ${data.title}`);
+    setShowMCPPanel(false);
   };
 
   // Loading state
@@ -90,8 +100,8 @@ export default function JournalPage() {
                 Your professional journey documented
               </p>
             </div>
-            <Button 
-              onClick={() => setShowNewEntryModal(true)}
+            <Button
+              onClick={() => setShowMCPPanel(true)}
               className="bg-primary-600 hover:bg-primary-700"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -157,8 +167,8 @@ export default function JournalPage() {
                 {searchQuery ? 'Try adjusting your search filters.' : 'Start by creating your first journal entry.'}
               </p>
               {!searchQuery && (
-                <Button 
-                  onClick={() => setShowNewEntryModal(true)}
+                <Button
+                  onClick={() => setShowMCPPanel(true)}
                   className="mt-4"
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -207,37 +217,13 @@ export default function JournalPage() {
           </div>
         )}
 
-        {/* New Entry Modal */}
-        {showNewEntryModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-              <div className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <div>
-                  <div className="mt-3 text-center sm:mt-5">
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      Create New Entry
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        New entry creation will be implemented soon.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-5 sm:mt-6">
-                  <Button
-                    type="button"
-                    className="w-full"
-                    onClick={() => setShowNewEntryModal(false)}
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* MCP Flow Side Panel */}
+        <MCPFlowSidePanel
+          open={showMCPPanel}
+          onOpenChange={setShowMCPPanel}
+          onComplete={handleMCPComplete}
+          workspaceName="Professional Work"
+        />
       </div>
     </div>
   );
