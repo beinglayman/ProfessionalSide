@@ -119,7 +119,8 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        scope: 'read:confluence-content.all read:confluence-space.summary read:confluence-user offline_access'
+        // Added read:page:confluence for page access, read:comment:confluence for comments
+        scope: 'read:confluence-content.all read:confluence-space.summary read:confluence-user read:page:confluence read:comment:confluence offline_access'
       });
     }
 

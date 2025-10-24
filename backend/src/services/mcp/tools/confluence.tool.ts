@@ -207,23 +207,30 @@ export class ConfluenceTool {
    */
   private async fetchSpaces(): Promise<any[]> {
     try {
-      const response = await this.confluenceApi!.get('/wiki/rest/api/space', {
+      // Use v2 API to avoid 410 Gone error from deprecated v1 endpoint
+      const response = await this.confluenceApi!.get('/wiki/api/v2/spaces', {
         params: {
-          limit: 25,
-          expand: 'description.plain,homepage'
+          limit: 25
         }
       });
 
-      return response.data.results.map((space: any) => ({
+      console.log(`[Confluence Tool] Fetched ${response.data.results?.length || 0} spaces`);
+
+      return (response.data.results || []).map((space: any) => ({
         key: space.key,
         name: space.name,
         type: space.type,
-        description: space.description?.plain || '',
-        homepageId: space.homepage?.id,
+        description: space.description || '',
+        homepageId: space.homepageId,
         url: `https://${this.cloudId}.atlassian.net/wiki/spaces/${space.key}`
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Confluence Tool] Error fetching spaces:', error);
+      console.error('[Confluence Tool] Spaces error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       return [];
     }
   }
