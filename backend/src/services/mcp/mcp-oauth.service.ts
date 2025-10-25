@@ -119,8 +119,10 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        // Added read:page:confluence for page access, read:comment:confluence for comments
-        scope: 'read:confluence-content.all read:confluence-space.summary read:confluence-user read:page:confluence read:comment:confluence offline_access'
+        // Using ONLY granular scopes (cannot mix with classic scopes per Atlassian docs)
+        // read:page:confluence covers page content, read:comment:confluence covers comments
+        // read:space:confluence covers spaces, read:user:confluence covers user info
+        scope: 'read:page:confluence read:comment:confluence read:space:confluence read:user:confluence offline_access'
       });
     }
 
