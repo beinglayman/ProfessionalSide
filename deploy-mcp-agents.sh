@@ -35,7 +35,7 @@ az webapp config appsettings set \
   -n $BACKEND_APP \
   --settings \
   AZURE_OPENAI_GPT4O_ENDPOINT="https://inchronicle-openai.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview" \
-  AZURE_OPENAI_GPT4O_API_KEY="C1JwALgbuT7vQtSLZbExP9kmiyczWCLS9DZn78Ibwe6eFJBhePZ5JQQJ99BJACHYHv6XJ3w3AAABACOGjjNp" \
+  AZURE_OPENAI_GPT4O_API_KEY="$AZURE_OPENAI_GPT4O_API_KEY" \
   AZURE_OPENAI_GPT4O_DEPLOYMENT="gpt-4o" \
   ENABLE_MCP="true" \
   MCP_AGENTS_ENABLED="true" \

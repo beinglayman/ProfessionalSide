@@ -57,3 +57,19 @@ prisma/dev.db*
 # Coverage
 coverage/
 *.lcov
+
+# Debug/Log Archives (may contain secrets)
+*.zip
+backend-logs*.zip
+backend*.zip
+*-logs*.zip
+
+# Deployment scripts with secrets
+deploy-*.sh
+*-deploy.sh
+
+# Temporary secret files
+*.secret
+*.key
+*.pem
+credentials.json
