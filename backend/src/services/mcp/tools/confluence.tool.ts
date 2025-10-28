@@ -118,12 +118,25 @@ export class ConfluenceTool {
       console.log(`[Confluence Tool] Duration: ${daysDifference} days`);
       console.log('[Confluence Tool] ====================================');
 
+      // Fetch current user first (needed for filtering in v2 API)
+      const currentUser = await this.fetchCurrentUser();
+
+      if (!currentUser || !currentUser.accountId) {
+        console.error('[Confluence Tool] Failed to fetch current user - cannot filter by user');
+        return {
+          success: false,
+          error: 'Failed to fetch current user information'
+        };
+      }
+
+      const currentUserAccountId = currentUser.accountId;
+      console.log(`[Confluence Tool] Using accountId for filtering: ${currentUserAccountId}`);
+
       // Fetch different types of activity
-      const [currentUser, spaces, recentPages, blogPosts] = await Promise.all([
-        this.fetchCurrentUser(),
+      const [spaces, recentPages, blogPosts] = await Promise.all([
         this.fetchSpaces(),
-        this.fetchRecentPages(startDate, endDate),
-        this.fetchBlogPosts(startDate, endDate)
+        this.fetchRecentPages(startDate, endDate, currentUserAccountId),
+        this.fetchBlogPosts(startDate, endDate, currentUserAccountId)
       ]);
 
       console.log(`[Confluence Tool] Fetched data:
@@ -260,87 +273,78 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch recent pages
+   * Fetch recent pages using v2 API (v1 CQL deprecated for OAuth 2.0)
    */
-  private async fetchRecentPages(startDate: Date, endDate: Date): Promise<any[]> {
+  private async fetchRecentPages(startDate: Date, endDate: Date, currentUserAccountId: string): Promise<any[]> {
     try {
-      // CQL query for pages created OR modified in date range BY CURRENT USER
-      // Using creator = currentUser() OR contributor = currentUser() to filter by user's activity
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
+      console.log('[Confluence Tool] ========== FETCHING PAGES (v2 API) ==========');
+      console.log(`[Confluence Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      console.log(`[Confluence Tool] Filtering by accountId: ${currentUserAccountId}`);
 
-      const cql = `((created >= "${startDateStr}" AND created <= "${endDateStr}") OR (lastmodified >= "${startDateStr}" AND lastmodified <= "${endDateStr}")) AND type = page AND (creator = currentUser() OR contributor = currentUser()) ORDER BY lastmodified DESC`;
-
-      console.log('[Confluence Tool] ========== FETCHING PAGES ==========');
-      console.log(`[Confluence Tool] Date range: ${startDateStr} to ${endDateStr}`);
-      console.log(`[Confluence Tool] Pages CQL query: ${cql}`);
-
-      const response = await this.confluenceApi!.get('/wiki/rest/api/content/search', {
+      // Use v2 Pages API - works with OAuth 2.0 classic scopes
+      // Reference: https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-page/
+      const response = await this.confluenceApi!.get('/wiki/api/v2/pages', {
         params: {
-          cql,
-          limit: 50,  // Increased limit
-          expand: 'space,version,body.view,history'
+          limit: 100,  // Fetch more since we'll filter client-side
+          sort: '-modified-date',  // Sort by most recently modified
+          status: 'current'  // Only current versions
         }
       });
 
-      console.log(`[Confluence Tool] Pages API response status: ${response.status}`);
-      console.log(`[Confluence Tool] Pages API response: ${response.data.results.length} pages found`);
+      console.log(`[Confluence Tool] Pages API v2 response status: ${response.status}`);
+      console.log(`[Confluence Tool] Pages API v2 fetched: ${response.data.results?.length || 0} total pages`);
 
-      if (response.data.results.length > 0) {
-        console.log('[Confluence Tool] First page sample:', {
-          id: response.data.results[0].id,
-          title: response.data.results[0].title,
-          space: response.data.results[0].space?.name,
-          created: response.data.results[0].history?.createdDate,
-          modified: response.data.results[0].version?.when,
-          createdBy: response.data.results[0].history?.createdBy?.displayName,
-          modifiedBy: response.data.results[0].version?.by?.displayName
+      // Filter pages by date range and user (client-side filtering)
+      const startTime = startDate.getTime();
+      const endTime = endDate.getTime();
+
+      const filteredPages = (response.data.results || []).filter((page: any) => {
+        // Check if page was created or modified in date range
+        const createdTime = page.createdAt ? new Date(page.createdAt).getTime() : 0;
+        const modifiedTime = page.version?.createdAt ? new Date(page.version.createdAt).getTime() : 0;
+
+        const inDateRange =
+          (createdTime >= startTime && createdTime <= endTime) ||
+          (modifiedTime >= startTime && modifiedTime <= endTime);
+
+        if (!inDateRange) return false;
+
+        // Check if current user created or modified the page
+        const createdByUser = page.authorId === currentUserAccountId;
+        const modifiedByUser = page.version?.authorId === currentUserAccountId;
+
+        return createdByUser || modifiedByUser;
+      });
+
+      console.log(`[Confluence Tool] Filtered to ${filteredPages.length} pages for current user in date range`);
+
+      if (filteredPages.length > 0) {
+        console.log('[Confluence Tool] First filtered page:', {
+          id: filteredPages[0].id,
+          title: filteredPages[0].title,
+          created: filteredPages[0].createdAt,
+          modified: filteredPages[0].version?.createdAt,
+          authorId: filteredPages[0].authorId,
+          versionAuthorId: filteredPages[0].version?.authorId
         });
-      } else {
-        // Try fallback query without user filter to diagnose issue
-        console.log('[Confluence Tool] ⚠️  No pages found with user filter. Trying fallback query without user filter...');
-
-        const fallbackCql = `((created >= "${startDateStr}" AND created <= "${endDateStr}") OR (lastmodified >= "${startDateStr}" AND lastmodified <= "${endDateStr}")) AND type = page ORDER BY lastmodified DESC`;
-        console.log(`[Confluence Tool] Fallback CQL query: ${fallbackCql}`);
-
-        const fallbackResponse = await this.confluenceApi!.get('/wiki/rest/api/content/search', {
-          params: {
-            cql: fallbackCql,
-            limit: 10,
-            expand: 'space,version,history'
-          }
-        });
-
-        console.log(`[Confluence Tool] Fallback query result: ${fallbackResponse.data.results.length} pages found`);
-
-        if (fallbackResponse.data.results.length > 0) {
-          console.log('[Confluence Tool] First fallback page:', {
-            title: fallbackResponse.data.results[0].title,
-            createdBy: fallbackResponse.data.results[0].history?.createdBy?.displayName,
-            createdByAccountId: fallbackResponse.data.results[0].history?.createdBy?.accountId,
-            modifiedBy: fallbackResponse.data.results[0].version?.by?.displayName,
-            modifiedByAccountId: fallbackResponse.data.results[0].version?.by?.accountId
-          });
-          console.log('[Confluence Tool] 🔍 This shows pages exist but currentUser() filter excludes them!');
-        } else {
-          console.log('[Confluence Tool] No pages found even without user filter - no activity in date range');
-        }
       }
+
       console.log('[Confluence Tool] ====================================');
 
-      return response.data.results.map((page: any) => ({
+      // Map v2 API response to our expected format
+      return filteredPages.map((page: any) => ({
         id: page.id,
         title: page.title,
         space: {
-          key: page.space.key,
-          name: page.space.name
+          key: page.spaceId || '',  // v2 uses spaceId
+          name: page.spaceId || ''   // We'll enrich with space name if needed
         },
-        version: page.version.number,
-        created: page.history?.createdDate,
-        lastModified: page.version.when,
-        lastModifiedBy: page.version.by?.displayName || 'Unknown',
-        url: `https://${this.cloudId}.atlassian.net/wiki${page._links.webui}`,
-        excerpt: this.extractExcerpt(page.body?.view?.value)
+        version: page.version?.number || 1,
+        created: page.createdAt,
+        lastModified: page.version?.createdAt || page.createdAt,
+        lastModifiedBy: page.version?.authorId || page.authorId || 'Unknown',
+        url: page._links?.webui ? `https://${this.cloudId}.atlassian.net${page._links.webui}` : '',
+        excerpt: page.body?.storage?.value ? this.extractExcerpt(page.body.storage.value) : ''
       }));
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching pages:', error);
@@ -361,46 +365,66 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch blog posts
+   * Fetch blog posts using v2 API (v1 CQL deprecated for OAuth 2.0)
    */
-  private async fetchBlogPosts(startDate: Date, endDate: Date): Promise<any[]> {
+  private async fetchBlogPosts(startDate: Date, endDate: Date, currentUserAccountId: string): Promise<any[]> {
     try {
-      // CQL query for blog posts created OR modified in date range BY CURRENT USER
-      // Using creator = currentUser() OR contributor = currentUser() to filter by user's activity
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
+      console.log('[Confluence Tool] ========== FETCHING BLOG POSTS (v2 API) ==========');
+      console.log(`[Confluence Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      console.log(`[Confluence Tool] Filtering by accountId: ${currentUserAccountId}`);
 
-      const cql = `((created >= "${startDateStr}" AND created <= "${endDateStr}") OR (lastmodified >= "${startDateStr}" AND lastmodified <= "${endDateStr}")) AND type = blogpost AND (creator = currentUser() OR contributor = currentUser()) ORDER BY lastmodified DESC`;
-
-      console.log('[Confluence Tool] ========== FETCHING BLOG POSTS ==========');
-      console.log(`[Confluence Tool] Date range: ${startDateStr} to ${endDateStr}`);
-      console.log(`[Confluence Tool] Blog posts CQL query: ${cql}`);
-
-      const response = await this.confluenceApi!.get('/wiki/rest/api/content/search', {
+      // Use v2 Blogposts API - works with OAuth 2.0 classic scopes
+      // Reference: https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-blogpost/
+      const response = await this.confluenceApi!.get('/wiki/api/v2/blogposts', {
         params: {
-          cql,
-          limit: 20,
-          expand: 'space,version,body.view,history'
+          limit: 50,  // Fetch more since we'll filter client-side
+          sort: '-modified-date',  // Sort by most recently modified
+          status: 'current'  // Only current versions
         }
       });
 
-      console.log(`[Confluence Tool] Blog posts API response status: ${response.status}`);
-      console.log(`[Confluence Tool] Blog posts API response: ${response.data.results.length} posts found`);
+      console.log(`[Confluence Tool] Blogposts API v2 response status: ${response.status}`);
+      console.log(`[Confluence Tool] Blogposts API v2 fetched: ${response.data.results?.length || 0} total posts`);
+
+      // Filter blog posts by date range and user (client-side filtering)
+      const startTime = startDate.getTime();
+      const endTime = endDate.getTime();
+
+      const filteredPosts = (response.data.results || []).filter((post: any) => {
+        // Check if blog post was created or modified in date range
+        const createdTime = post.createdAt ? new Date(post.createdAt).getTime() : 0;
+        const modifiedTime = post.version?.createdAt ? new Date(post.version.createdAt).getTime() : 0;
+
+        const inDateRange =
+          (createdTime >= startTime && createdTime <= endTime) ||
+          (modifiedTime >= startTime && modifiedTime <= endTime);
+
+        if (!inDateRange) return false;
+
+        // Check if current user created or modified the blog post
+        const createdByUser = post.authorId === currentUserAccountId;
+        const modifiedByUser = post.version?.authorId === currentUserAccountId;
+
+        return createdByUser || modifiedByUser;
+      });
+
+      console.log(`[Confluence Tool] Filtered to ${filteredPosts.length} blog posts for current user in date range`);
       console.log('[Confluence Tool] ====================================');
 
-      return response.data.results.map((post: any) => ({
+      // Map v2 API response to our expected format
+      return filteredPosts.map((post: any) => ({
         id: post.id,
         title: post.title,
         space: {
-          key: post.space.key,
-          name: post.space.name
+          key: post.spaceId || '',
+          name: post.spaceId || ''
         },
-        version: post.version.number,
-        created: post.history?.createdDate,
-        publishedDate: post.version.when,
-        author: post.version.by?.displayName || 'Unknown',
-        url: `https://${this.cloudId}.atlassian.net/wiki${post._links.webui}`,
-        excerpt: this.extractExcerpt(post.body?.view?.value)
+        version: post.version?.number || 1,
+        created: post.createdAt,
+        publishedDate: post.version?.createdAt || post.createdAt,
+        author: post.version?.authorId || post.authorId || 'Unknown',
+        url: post._links?.webui ? `https://${this.cloudId}.atlassian.net${post._links.webui}` : '',
+        excerpt: post.body?.storage?.value ? this.extractExcerpt(post.body.storage.value) : ''
       }));
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching blog posts:', error);
