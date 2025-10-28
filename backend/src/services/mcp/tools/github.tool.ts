@@ -170,13 +170,31 @@ export class GitHubTool {
       for (const event of pushEvents) {
         if (event.payload?.commits) {
           for (const commit of event.payload.commits) {
+            const [owner, repo] = event.repo.name.split('/');
+
+            // Fetch commit details to get file stats
+            let stats = null;
+            try {
+              const commitDetails = await this.githubApi.get(`/repos/${owner}/${repo}/commits/${commit.sha}`);
+              stats = {
+                additions: commitDetails.data.stats?.additions || 0,
+                deletions: commitDetails.data.stats?.deletions || 0,
+                total: commitDetails.data.stats?.total || 0,
+                filesChanged: commitDetails.data.files?.length || 0
+              };
+            } catch (error) {
+              console.error(`[GitHub Tool] Error fetching commit details for ${commit.sha}:`, error);
+              // Continue without stats if request fails
+            }
+
             commits.push({
               sha: commit.sha,
               message: commit.message,
               author: commit.author?.name || event.actor?.login,
               timestamp: new Date(event.created_at),
               url: `https://github.com/${event.repo.name}/commit/${commit.sha}`,
-              repository: event.repo.name
+              repository: event.repo.name,
+              stats: stats
             });
           }
         }
@@ -197,17 +215,38 @@ export class GitHubTool {
    */
   private async fetchPullRequests(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // Search for PRs created or updated by the user
-      const searchResponse = await this.githubApi.get('/search/issues', {
-        params: {
-          q: `is:pr author:@me updated:${startDate.toISOString().split('T')[0]}..${endDate.toISOString().split('T')[0]}`,
-          sort: 'updated',
-          order: 'desc',
-          per_page: 50
-        }
-      });
+      const dateRangeStr = `updated:${startDate.toISOString().split('T')[0]}..${endDate.toISOString().split('T')[0]}`;
 
-      return searchResponse.data.items.map((pr: any) => ({
+      // Fetch both authored PRs and reviewed PRs in parallel
+      const [authoredPRs, reviewedPRs] = await Promise.all([
+        // Search for PRs created by the user
+        this.githubApi.get('/search/issues', {
+          params: {
+            q: `is:pr author:@me ${dateRangeStr}`,
+            sort: 'updated',
+            order: 'desc',
+            per_page: 50
+          }
+        }),
+        // Search for PRs reviewed by the user
+        this.githubApi.get('/search/issues', {
+          params: {
+            q: `is:pr reviewed-by:@me ${dateRangeStr}`,
+            sort: 'updated',
+            order: 'desc',
+            per_page: 50
+          }
+        })
+      ]);
+
+      // Combine and deduplicate PRs
+      const allPRs = [...authoredPRs.data.items, ...reviewedPRs.data.items];
+      const uniquePRs = Array.from(
+        new Map(allPRs.map(pr => [pr.id, pr])).values()
+      );
+
+      // Map PRs with comment counts
+      return uniquePRs.map((pr: any) => ({
         id: pr.number,
         title: pr.title,
         state: pr.state,
@@ -218,7 +257,9 @@ export class GitHubTool {
         repository: pr.repository_url.split('/').slice(-2).join('/'),
         labels: pr.labels.map((l: any) => l.name),
         isDraft: pr.draft || false,
-        reviewStatus: pr.pull_request?.merged_at ? 'merged' : pr.state
+        reviewStatus: pr.pull_request?.merged_at ? 'merged' : pr.state,
+        commentsCount: pr.comments || 0, // Number of review comments
+        isReviewed: !authoredPRs.data.items.some((authored: any) => authored.id === pr.id) // True if only reviewed, not authored
       }));
     } catch (error) {
       console.error('[GitHub Tool] Error fetching pull requests:', error);
@@ -254,7 +295,8 @@ export class GitHubTool {
         updatedAt: new Date(issue.updated_at),
         url: issue.html_url,
         repository: issue.repository_url.split('/').slice(-2).join('/'),
-        labels: issue.labels.map((l: any) => l.name)
+        labels: issue.labels.map((l: any) => l.name),
+        commentsCount: issue.comments || 0 // Number of comments on the issue
       }));
     } catch (error) {
       console.error('[GitHub Tool] Error fetching issues:', error);
