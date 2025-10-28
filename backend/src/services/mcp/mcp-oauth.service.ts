@@ -62,8 +62,14 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/jira`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        // Added read:board-scope and read:sprint for Agile board/sprint access
-        scope: 'read:jira-work read:jira-user read:board-scope:jira-software read:sprint:jira-software offline_access'
+        // CLASSIC scopes (Atlassian recommended approach) + Jira Software granular (no classic alternative)
+        // read:jira-work - Read issues, projects, worklogs, etc. (replaces granular issue/project scopes)
+        // read:jira-user - Read user information (replaces granular user scope)
+        // read:board-scope:jira-software - Read Jira Software boards (granular, no classic alternative)
+        // read:sprint:jira-software - Read Jira Software sprints (granular, no classic alternative)
+        // read:me - User Identity API (user profile)
+        // NOTE: Using classic scopes to avoid mixing with granular and prevent 401 errors
+        scope: 'read:jira-work read:jira-user read:board-scope:jira-software read:sprint:jira-software read:me offline_access'
       });
     }
 
@@ -119,10 +125,14 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        // Hybrid: granular scopes for pages/comments, classic for spaces/user (granular versions don't exist)
-        // Granular: read:page:confluence (pages), read:comment:confluence (comments)
-        // Classic: read:confluence-space.summary (spaces), read:confluence-user (user info)
-        scope: 'read:page:confluence read:comment:confluence read:confluence-space.summary read:confluence-user offline_access'
+        // CLASSIC scopes (Atlassian recommended approach)
+        // read:confluence-content.all - Read all content (pages, blogs, comments, attachments)
+        // read:confluence-space.summary - Read space information
+        // read:confluence-user - Read user information
+        // read:me - User Identity API (user profile)
+        // NOTE: Classic scopes are recommended by Atlassian to reduce total scope count
+        // and are more stable than granular scopes for v1 APIs
+        scope: 'read:confluence-content.all read:confluence-space.summary read:confluence-user read:me offline_access'
       });
     }
 
@@ -413,6 +423,13 @@ export class MCPOAuthService {
 
       const tokens = tokenResponse.data;
 
+      // Debug log to track token scope
+      console.log(`[MCP OAuth] Token received for ${toolsToConnect.join(', ')}:`, {
+        scope: tokens.scope,
+        expires_in: tokens.expires_in,
+        hasRefreshToken: !!tokens.refresh_token
+      });
+
       // Store tokens for ALL tools in the group
       for (const tool of toolsToConnect) {
         await this.storeTokens(userId, tool, {
@@ -525,8 +542,17 @@ export class MCPOAuthService {
       });
 
       if (!integration || !integration.isActive) {
+        console.log(`[MCP OAuth] No integration found for ${toolType}`);
         return null;
       }
+
+      // Debug log to track stored scope
+      console.log(`[MCP OAuth] Retrieved token for ${toolType}:`, {
+        scope: integration.scope,
+        expiresAt: integration.expiresAt,
+        hasRefreshToken: !!integration.refreshToken,
+        connectedAt: integration.connectedAt
+      });
 
       // Check if token is expired
       if (integration.expiresAt && new Date() > integration.expiresAt) {

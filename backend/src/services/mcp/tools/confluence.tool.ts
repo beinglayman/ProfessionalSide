@@ -207,10 +207,12 @@ export class ConfluenceTool {
    */
   private async fetchSpaces(): Promise<any[]> {
     try {
-      // Use v2 API to avoid 410 Gone error from deprecated v1 endpoint
-      const response = await this.confluenceApi!.get('/wiki/api/v2/spaces', {
+      // Use v1 API with classic scopes (read:confluence-space.summary, read:confluence-content.all)
+      // v1 is more stable and recommended by Atlassian for use with classic scopes
+      const response = await this.confluenceApi!.get('/wiki/rest/api/space', {
         params: {
-          limit: 25
+          limit: 25,
+          expand: 'description.plain,homepage'
         }
       });
 
@@ -220,8 +222,8 @@ export class ConfluenceTool {
         key: space.key,
         name: space.name,
         type: space.type,
-        description: space.description || '',
-        homepageId: space.homepageId,
+        description: space.description?.plain?.value || '',
+        homepageId: space.homepage?.id,
         url: `https://${this.cloudId}.atlassian.net/wiki/spaces/${space.key}`
       }));
     } catch (error: any) {
@@ -286,8 +288,15 @@ export class ConfluenceTool {
       console.error('[Confluence Tool] Pages error details:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        headers: error.response?.headers
       });
+      // Log specific 401 error details
+      if (error.response?.status === 401) {
+        console.error('[Confluence Tool] 401 Unauthorized - Token may have wrong scopes or be invalid');
+        console.error('[Confluence Tool] Response headers:', error.response.headers);
+      }
       return [];
     }
   }
