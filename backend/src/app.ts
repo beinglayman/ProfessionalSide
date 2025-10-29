@@ -9,6 +9,8 @@ import { PrismaClient } from '@prisma/client';
 // Load environment variables
 dotenv.config();
 
+// GitHub Actions deployment test - automated deployment configured
+
 // Optimize Node.js performance settings
 process.env.UV_THREADPOOL_SIZE = '16'; // Increase thread pool size
 process.setMaxListeners(0); // Remove listener limit
