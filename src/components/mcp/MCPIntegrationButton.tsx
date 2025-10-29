@@ -8,7 +8,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+} from '../ui/dialog';
 import { MCPConsentDialog } from './MCPConsentDialog';
 import { MCPDataReview } from './MCPDataReview';
 import { useMCPTools, useMCPFetch, useMCPDataProcessor } from '../../hooks/useMCP';
@@ -295,10 +300,3 @@ export const MCPIntegrationButton: React.FC<MCPIntegrationButtonProps> = ({
     </>
   );
 };
-
-// Add missing imports to match the component
-import {
-  Dialog,
-  DialogContent,
-} from '../ui/dialog';
-import { DropdownMenuTrigger } from '../ui/dropdown-menu';

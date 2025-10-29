@@ -226,22 +226,38 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch current user information
+   * Fetch current user information using Atlassian Identity API
+   * Uses https://api.atlassian.com/me with read:me scope (v2 compatible)
    */
   private async fetchCurrentUser(): Promise<any> {
     try {
-      const response = await this.confluenceApi!.get('/wiki/rest/api/user/current');
+      // Use Atlassian Identity API instead of Confluence-specific endpoint
+      // This works with the read:me scope from our v2 granular scopes
+      const response = await axios.get('https://api.atlassian.com/me', {
+        headers: {
+          Authorization: this.confluenceApi!.defaults.headers.Authorization,
+          Accept: 'application/json'
+        }
+      });
+
       console.log('[Confluence Tool] ========== CURRENT USER INFO ==========');
       console.log('[Confluence Tool] Full user response:', JSON.stringify(response.data, null, 2));
       console.log('[Confluence Tool] Current user summary:', {
-        accountId: response.data.accountId,
-        accountType: response.data.accountType,
-        displayName: response.data.displayName,
-        email: response.data.email,
-        publicName: response.data.publicName
+        accountId: response.data.account_id,
+        accountType: response.data.account_type,
+        name: response.data.name,
+        email: response.data.email
       });
       console.log('[Confluence Tool] ====================================');
-      return response.data;
+
+      // Return in format expected by the rest of the code
+      return {
+        accountId: response.data.account_id,
+        accountType: response.data.account_type,
+        displayName: response.data.name,
+        email: response.data.email,
+        publicName: response.data.name
+      };
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching user info:', error);
       console.error('[Confluence Tool] User error details:', {
@@ -254,26 +270,27 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch user's spaces
+   * Fetch user's spaces using v1 API
    */
   private async fetchSpaces(): Promise<any[]> {
     try {
-      // Use v2 API - v1 /wiki/rest/api/space was deprecated and removed (410 Gone)
-      // Reference: https://developer.atlassian.com/cloud/confluence/changelog/#CHANGE-864
+      // Use v2 API with granular scopes
+      // Reference: https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-space/
       const response = await this.confluenceApi!.get('/wiki/api/v2/spaces', {
         params: {
-          limit: 25
+          limit: 25,
+          sort: '-modified-date'  // Order by most recently active spaces first
         }
       });
 
-      console.log(`[Confluence Tool] Fetched ${response.data.results?.length || 0} spaces from v2 API`);
+      console.log(`[Confluence Tool] Fetched ${response.data.results?.length || 0} spaces from v2 API (sorted by activity)`);
 
       return (response.data.results || []).map((space: any) => ({
         key: space.key,
         name: space.name,
         type: space.type,
-        description: space.description?.plain?.value || '',
-        homepageId: space.homepage?.id,
+        description: space.description || '',
+        homepageId: space.homepageId,
         url: `https://${this.cloudId}.atlassian.net/wiki/spaces/${space.key}`
       }));
     } catch (error: any) {
@@ -288,7 +305,7 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch recent pages using v2 API (v1 CQL deprecated for OAuth 2.0)
+   * Fetch recent pages using v2 API with granular scopes
    */
   private async fetchRecentPages(startDate: Date, endDate: Date, currentUserAccountId: string): Promise<any[]> {
     try {
@@ -296,13 +313,13 @@ export class ConfluenceTool {
       console.log(`[Confluence Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
       console.log(`[Confluence Tool] Filtering by accountId: ${currentUserAccountId}`);
 
-      // Use v2 Pages API - works with OAuth 2.0 classic scopes
+      // Use v2 Pages API with read:page:confluence scope
       // Reference: https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-page/
       const response = await this.confluenceApi!.get('/wiki/api/v2/pages', {
         params: {
-          limit: 100,  // Fetch more since we'll filter client-side
-          sort: '-modified-date',  // Sort by most recently modified
-          status: 'current'  // Only current versions
+          limit: 100,
+          sort: '-modified-date',
+          status: 'current'
         }
       });
 
@@ -314,6 +331,7 @@ export class ConfluenceTool {
       const endTime = endDate.getTime();
 
       const filteredPages = (response.data.results || []).filter((page: any) => {
+        // V2 API uses different field names
         // Check if page was created or modified in date range
         const createdTime = page.createdAt ? new Date(page.createdAt).getTime() : 0;
         const modifiedTime = page.version?.createdAt ? new Date(page.version.createdAt).getTime() : 0;
@@ -325,6 +343,7 @@ export class ConfluenceTool {
         if (!inDateRange) return false;
 
         // Check if current user created or modified the page
+        // V2 API uses authorId and version.authorId
         const createdByUser = page.authorId === currentUserAccountId;
         const modifiedByUser = page.version?.authorId === currentUserAccountId;
 
@@ -339,8 +358,8 @@ export class ConfluenceTool {
           title: filteredPages[0].title,
           created: filteredPages[0].createdAt,
           modified: filteredPages[0].version?.createdAt,
-          authorId: filteredPages[0].authorId,
-          versionAuthorId: filteredPages[0].version?.authorId
+          createdBy: filteredPages[0].authorId,
+          modifiedBy: filteredPages[0].version?.authorId
         });
       }
 
@@ -351,8 +370,8 @@ export class ConfluenceTool {
         id: page.id,
         title: page.title,
         space: {
-          key: page.spaceId || '',  // v2 uses spaceId
-          name: page.spaceId || ''   // We'll enrich with space name if needed
+          key: page.spaceId || '',
+          name: page.spaceId || ''
         },
         version: page.version?.number || 1,
         created: page.createdAt,
@@ -380,7 +399,7 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch blog posts using v2 API (v1 CQL deprecated for OAuth 2.0)
+   * Fetch blog posts using v1 API
    */
   private async fetchBlogPosts(startDate: Date, endDate: Date, currentUserAccountId: string): Promise<any[]> {
     try {
@@ -388,13 +407,13 @@ export class ConfluenceTool {
       console.log(`[Confluence Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
       console.log(`[Confluence Tool] Filtering by accountId: ${currentUserAccountId}`);
 
-      // Use v2 Blogposts API - works with OAuth 2.0 classic scopes
+      // Use v2 Blogposts API with read:blogpost:confluence scope
       // Reference: https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-blogpost/
       const response = await this.confluenceApi!.get('/wiki/api/v2/blogposts', {
         params: {
-          limit: 50,  // Fetch more since we'll filter client-side
-          sort: '-modified-date',  // Sort by most recently modified
-          status: 'current'  // Only current versions
+          limit: 50,
+          sort: '-modified-date',
+          status: 'current'
         }
       });
 
@@ -406,7 +425,7 @@ export class ConfluenceTool {
       const endTime = endDate.getTime();
 
       const filteredPosts = (response.data.results || []).filter((post: any) => {
-        // Check if blog post was created or modified in date range
+        // V2 API uses different field names
         const createdTime = post.createdAt ? new Date(post.createdAt).getTime() : 0;
         const modifiedTime = post.version?.createdAt ? new Date(post.version.createdAt).getTime() : 0;
 
@@ -417,6 +436,7 @@ export class ConfluenceTool {
         if (!inDateRange) return false;
 
         // Check if current user created or modified the blog post
+        // V2 API uses authorId and version.authorId
         const createdByUser = post.authorId === currentUserAccountId;
         const modifiedByUser = post.version?.authorId === currentUserAccountId;
 
@@ -453,44 +473,90 @@ export class ConfluenceTool {
   }
 
   /**
-   * Fetch recent comments
+   * Fetch recent comments using v2 API with granular scopes
+   * Fetches both footer comments and inline comments
    */
   private async fetchRecentComments(pages: any[], startDate: Date, endDate: Date): Promise<any[]> {
     const allComments: any[] = [];
 
+    console.log('[Confluence Tool] ========== FETCHING COMMENTS (v2 API) ==========');
+    console.log(`[Confluence Tool] Checking comments on ${pages.length} pages (max 10)`);
+    console.log(`[Confluence Tool] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
     // Limit to first 10 pages to avoid rate limiting
     for (const page of pages.slice(0, 10)) {
       try {
-        const response = await this.confluenceApi!.get(`/wiki/rest/api/content/${page.id}/child/comment`, {
-          params: {
-            expand: 'version,body.view',
-            limit: 10
-          }
-        });
+        console.log(`[Confluence Tool] Fetching comments for page: ${page.id} (${page.title})`);
 
-        const comments = response.data.results || [];
+        // Fetch both footer comments and inline comments
+        const [footerResponse, inlineResponse] = await Promise.all([
+          // Footer comments (page-level comments)
+          this.confluenceApi!.get(`/wiki/api/v2/pages/${page.id}/footer-comments`, {
+            params: {
+              limit: 10,
+              sort: '-created-date'
+            }
+          }).catch(err => {
+            console.error(`[Confluence Tool] Error fetching footer comments for page ${page.id}:`, err.response?.status, err.response?.data);
+            return { data: { results: [] } };
+          }),
 
-        comments.forEach((comment: any) => {
-          const commentDate = new Date(comment.version.when);
-          if (commentDate >= startDate && commentDate <= endDate) {
+          // Inline comments (comments within page content)
+          this.confluenceApi!.get(`/wiki/api/v2/pages/${page.id}/inline-comments`, {
+            params: {
+              limit: 10,
+              sort: '-created-date'
+            }
+          }).catch(err => {
+            console.error(`[Confluence Tool] Error fetching inline comments for page ${page.id}:`, err.response?.status, err.response?.data);
+            return { data: { results: [] } };
+          })
+        ]);
+
+        const footerComments = footerResponse.data.results || [];
+        const inlineComments = inlineResponse.data.results || [];
+        const allPageComments = [...footerComments, ...inlineComments];
+
+        console.log(`[Confluence Tool] Found ${footerComments.length} footer + ${inlineComments.length} inline = ${allPageComments.length} total comments on page ${page.id}`);
+
+        if (allPageComments.length > 0) {
+          console.log(`[Confluence Tool] Sample comment:`, {
+            id: allPageComments[0].id,
+            createdAt: allPageComments[0].createdAt,
+            author: allPageComments[0].version?.authorId || allPageComments[0].authorId,
+            type: footerComments.includes(allPageComments[0]) ? 'footer' : 'inline'
+          });
+        }
+
+        allPageComments.forEach((comment: any) => {
+          const commentDate = new Date(comment.createdAt);
+          const inDateRange = commentDate >= startDate && commentDate <= endDate;
+
+          console.log(`[Confluence Tool] Comment ${comment.id}: created ${comment.createdAt}, in range: ${inDateRange}`);
+
+          if (inDateRange) {
             allComments.push({
               id: comment.id,
               pageId: page.id,
               pageTitle: page.title,
-              author: comment.version.by?.displayName || 'Unknown',
-              createdAt: comment.version.when,
-              content: this.extractExcerpt(comment.body?.view?.value)
+              author: comment.version?.authorId || comment.authorId || 'Unknown',
+              createdAt: comment.createdAt,
+              content: this.extractExcerpt(comment.body?.storage?.value || comment.body?.atlas_doc_format?.value),
+              type: footerComments.includes(comment) ? 'footer' : 'inline'
             });
           }
         });
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        // Comments might not be available for all pages
+      } catch (error: any) {
+        console.error(`[Confluence Tool] Unexpected error fetching comments for page ${page.id}:`, error.message);
         continue;
       }
     }
+
+    console.log(`[Confluence Tool] Total comments fetched across all pages: ${allComments.length}`);
+    console.log('[Confluence Tool] ====================================');
 
     return allComments;
   }

@@ -68,6 +68,7 @@ export function useDisconnectIntegration() {
  */
 export function useMCPTools() {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   // Get available tools
   const {
@@ -143,6 +144,7 @@ export function useMCPTools() {
  * Hook for fetching data from MCP tools
  */
 export function useMCPFetch() {
+  const toast = useToast();
   const [sessions, setSessions] = useState<Map<string, any>>(new Map());
   const [isConsenting, setIsConsenting] = useState(false);
 
@@ -222,6 +224,7 @@ export function useMCPFetch() {
  */
 export function useMCPPrivacy() {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   // Get privacy status
   const { data: privacyData } = useQuery({

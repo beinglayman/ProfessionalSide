@@ -14,9 +14,6 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Copy screenshots from frontend public directory
-COPY public/screenshots ./public/screenshots
-
 # Generate Prisma client only
 RUN npm run db:generate
 

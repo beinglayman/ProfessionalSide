@@ -125,15 +125,16 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
-        // CLASSIC scopes - officially supported for v2 REST API
-        // read:confluence-content.all - Read all Confluence content (pages, blogs, attachments)
-        // read:confluence-space.summary - Read space information
-        // read:confluence-user - Read user information
+        // GRANULAR scopes - required for v2 REST API
+        // v2 API requires granular scopes, not classic scopes
+        // read:page:confluence - Read pages via v2 API
+        // read:blogpost:confluence - Read blog posts via v2 API
+        // read:space:confluence - Read spaces via v2 API
+        // read:comment:confluence - Read comments via v2 API
+        // read:user:confluence - Read user information
         // read:me - User Identity API (user profile)
-        // NOTE: V2 API officially supports classic scopes. Granular scopes cause inconsistent 401 errors
-        // (spaces work but pages/blogposts fail with "scope does not match")
-        // Resource selection fix (confluence.tool.ts) ensures correct Confluence-enabled resource is used
-        scope: 'read:confluence-content.all read:confluence-space.summary read:confluence-user read:me offline_access'
+        // offline_access - Required for refresh tokens
+        scope: 'read:page:confluence read:blogpost:confluence read:space:confluence read:comment:confluence read:user:confluence read:me offline_access'
       });
     }
 

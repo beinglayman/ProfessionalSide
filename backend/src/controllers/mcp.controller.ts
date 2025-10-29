@@ -734,6 +734,62 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
 
     console.log(`[MCP Agents] Full pipeline: Fetching from ${toolTypes.length} tools and processing with agents`);
 
+    // Helper function to calculate item count for different tool data structures
+    const getItemCount = (toolType: string, data: any): number => {
+      if (!data) return 0;
+
+      switch (toolType) {
+        case 'confluence':
+          // Confluence returns object with arrays: {pages[], blogPosts[], comments[], spaces[]}
+          return (data.pages?.length || 0) + (data.blogPosts?.length || 0) + (data.comments?.length || 0);
+        case 'github':
+          // GitHub returns object with arrays: {commits[], pullRequests[], issues[], repositories[]}
+          return (data.commits?.length || 0) + (data.pullRequests?.length || 0) + (data.issues?.length || 0);
+        case 'jira':
+          // Jira returns object with arrays: {issues[], sprints[], epics[]}
+          return (data.issues?.length || 0) + (data.sprints?.length || 0);
+        case 'figma':
+          // Figma returns object with arrays: {files[], comments[], versions[]}
+          return (data.files?.length || 0) + (data.comments?.length || 0);
+        case 'outlook':
+          // Outlook returns object with arrays: {meetings[], emails[]}
+          return (data.meetings?.length || 0) + (data.emails?.length || 0);
+        case 'slack':
+          // Slack returns object with arrays: {messages[], threads[], channels[]}
+          return (data.messages?.length || 0) + (data.threads?.length || 0);
+        case 'teams':
+          // Teams returns object with arrays: {meetings[], messages[], calls[]}
+          return (data.meetings?.length || 0) + (data.messages?.length || 0);
+        default:
+          // Fallback: if data is an array, return its length
+          return Array.isArray(data) ? data.length : 0;
+      }
+    };
+
+    // Helper function to get detailed count summary for logging
+    const getCountSummary = (toolType: string, data: any): string => {
+      if (!data) return '0 items';
+
+      switch (toolType) {
+        case 'confluence':
+          return `${data.pages?.length || 0} pages, ${data.blogPosts?.length || 0} blog posts, ${data.comments?.length || 0} comments`;
+        case 'github':
+          return `${data.commits?.length || 0} commits, ${data.pullRequests?.length || 0} PRs, ${data.issues?.length || 0} issues`;
+        case 'jira':
+          return `${data.issues?.length || 0} issues, ${data.sprints?.length || 0} sprints`;
+        case 'figma':
+          return `${data.files?.length || 0} files, ${data.comments?.length || 0} comments`;
+        case 'outlook':
+          return `${data.meetings?.length || 0} meetings, ${data.emails?.length || 0} emails`;
+        case 'slack':
+          return `${data.messages?.length || 0} messages, ${data.threads?.length || 0} threads`;
+        case 'teams':
+          return `${data.meetings?.length || 0} meetings, ${data.messages?.length || 0} messages`;
+        default:
+          return `${Array.isArray(data) ? data.length : 0} items`;
+      }
+    };
+
     // Import tool services
     const toolImports = {
       github: () => import('../services/mcp/tools/github.tool').then(m => new m.GitHubTool()),
@@ -767,13 +823,20 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
         const tool = await toolImport();
         console.log(`[MCP Agents] Tool instance created for ${toolType}, calling fetchActivity`);
         const result = await tool.fetchActivity(userId, parsedDateRange);
-        console.log(`[MCP Agents] fetchActivity result for ${toolType}:`, { success: result?.success, hasData: !!result?.data, dataLength: result?.data?.length });
+
+        const itemCount = result?.data ? getItemCount(toolType, result.data) : 0;
+        console.log(`[MCP Agents] fetchActivity result for ${toolType}:`, {
+          success: result?.success,
+          hasData: !!result?.data,
+          itemCount,
+          details: getCountSummary(toolType, result?.data)
+        });
 
         if (result && result.success && result.data) {
-          console.log(`[MCP Agents] Successfully fetched ${result.data.length} items from ${toolType}`);
+          console.log(`[MCP Agents] ✅ Successfully fetched from ${toolType}: ${getCountSummary(toolType, result.data)}`);
           return { toolType, data: result.data };
         }
-        console.log(`[MCP Agents] No valid data from ${toolType} (success: ${result?.success})`);
+        console.log(`[MCP Agents] ❌ No valid data from ${toolType} (success: ${result?.success})`);
         return null;
       } catch (error: any) {
         console.error(`[MCP Agents] Error fetching from ${toolType}:`, error.message);
@@ -787,7 +850,7 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
     });
 
     const results = await Promise.all(fetchPromises);
-    console.log(`[MCP Agents] Completed all fetch attempts. Results:`, results.map(r => r ? `${r.toolType}: ${r.data.length} items` : 'null'));
+    console.log(`[MCP Agents] Completed all fetch attempts. Results:`, results.map(r => r ? `${r.toolType}: ${getCountSummary(r.toolType, r.data)}` : 'null'));
 
     // Filter out failed fetches and create source map
     const sourcesMap = new Map<string, any>();
