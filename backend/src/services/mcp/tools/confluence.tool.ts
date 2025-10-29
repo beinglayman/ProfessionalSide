@@ -42,16 +42,31 @@ export class ConfluenceTool {
     );
 
     console.log('[Confluence Tool] Accessible resources:', JSON.stringify(resourcesResponse.data, null, 2));
-    console.log(`[Confluence Tool] Found ${resourcesResponse.data.length} accessible Confluence site(s)`);
+    console.log(`[Confluence Tool] Found ${resourcesResponse.data.length} accessible resource(s)`);
 
     if (resourcesResponse.data.length === 0) {
       throw new Error('No Confluence sites accessible with this token');
     }
 
-    // Use the first accessible site
-    this.cloudId = resourcesResponse.data[0].id;
-    const siteUrl = resourcesResponse.data[0].url;
-    const siteName = resourcesResponse.data[0].name;
+    // Find resource with Confluence scopes (Atlassian may return separate resources for Jira and Confluence)
+    const confluenceResource = resourcesResponse.data.find((resource: any) =>
+      resource.scopes && resource.scopes.some((scope: string) => scope.includes('confluence'))
+    );
+
+    if (!confluenceResource) {
+      console.error('[Confluence Tool] No resource with Confluence scopes found!');
+      console.error('[Confluence Tool] Available resources:', resourcesResponse.data.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        scopes: r.scopes
+      })));
+      throw new Error('No Confluence-enabled resource found. Please ensure Confluence scopes are granted during OAuth.');
+    }
+
+    // Use the Confluence-enabled resource
+    this.cloudId = confluenceResource.id;
+    const siteUrl = confluenceResource.url;
+    const siteName = confluenceResource.name;
     const baseUrl = `https://api.atlassian.com/ex/confluence/${this.cloudId}`;
 
     console.log('[Confluence Tool] Using Confluence site:', {
@@ -59,7 +74,7 @@ export class ConfluenceTool {
       siteName,
       siteUrl,
       baseUrl,
-      scopes: resourcesResponse.data[0].scopes || 'not provided'
+      scopes: confluenceResource.scopes || 'not provided'
     });
 
     // Initialize Confluence API client
