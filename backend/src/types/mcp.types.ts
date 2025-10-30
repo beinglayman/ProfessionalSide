@@ -12,7 +12,10 @@ export enum MCPToolType {
   OUTLOOK = 'outlook',
   CONFLUENCE = 'confluence',
   SLACK = 'slack',
-  TEAMS = 'teams'
+  TEAMS = 'teams',
+  SHAREPOINT = 'sharepoint',
+  ONEDRIVE = 'onedrive',
+  ONENOTE = 'onenote'
 }
 
 // MCP action types for audit logging
@@ -284,6 +287,104 @@ export interface TeamsActivity {
   }>;
 }
 
+// SharePoint types
+export interface SharePointActivity {
+  sites: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    webUrl: string;
+    description?: string;
+    createdDateTime: string;
+    lastModifiedDateTime: string;
+  }>;
+  recentFiles: Array<{
+    id: string;
+    name: string;
+    webUrl: string;
+    fileType: string;
+    size: number;
+    createdDateTime: string;
+    lastModifiedDateTime: string;
+    lastModifiedBy: string;
+    siteName: string;
+    siteId: string;
+  }>;
+  lists: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    description?: string;
+    webUrl: string;
+    listType: string;
+    itemCount: number;
+    siteName: string;
+  }>;
+}
+
+// OneDrive types
+export interface OneDriveActivity {
+  recentFiles: Array<{
+    id: string;
+    name: string;
+    webUrl: string;
+    fileType: string;
+    size: number;
+    createdDateTime: string;
+    lastModifiedDateTime: string;
+    lastModifiedBy: string;
+    parentPath: string;
+  }>;
+  sharedFiles: Array<{
+    id: string;
+    name: string;
+    webUrl: string;
+    fileType: string;
+    sharedDateTime: string;
+    sharedWith: string[];
+    permissions: string;
+  }>;
+  folders: Array<{
+    id: string;
+    name: string;
+    webUrl: string;
+    itemCount: number;
+    lastModifiedDateTime: string;
+  }>;
+}
+
+// OneNote types
+export interface OneNoteActivity {
+  notebooks: Array<{
+    id: string;
+    displayName: string;
+    webUrl: string;
+    createdDateTime: string;
+    lastModifiedDateTime: string;
+    isDefault: boolean;
+    sectionCount: number;
+  }>;
+  sections: Array<{
+    id: string;
+    displayName: string;
+    webUrl: string;
+    notebookName: string;
+    createdDateTime: string;
+    lastModifiedDateTime: string;
+    pageCount: number;
+  }>;
+  pages: Array<{
+    id: string;
+    title: string;
+    webUrl: string;
+    createdDateTime: string;
+    lastModifiedDateTime: string;
+    sectionName: string;
+    notebookName: string;
+    contentPreview?: string;
+  }>;
+}
+
 // ============================================================================
 // API Request/Response Schemas
 // ============================================================================
@@ -370,6 +471,9 @@ export interface MCPDailySummaryData {
     confluence?: ConfluenceActivity;
     slack?: SlackActivity;
     teams?: TeamsActivity;
+    sharepoint?: SharePointActivity;
+    onedrive?: OneDriveActivity;
+    onenote?: OneNoteActivity;
   };
   suggestedContent?: {
     title: string;

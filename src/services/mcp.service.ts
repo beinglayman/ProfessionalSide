@@ -16,7 +16,10 @@ export enum MCPToolType {
   OUTLOOK = 'outlook',
   CONFLUENCE = 'confluence',
   SLACK = 'slack',
-  TEAMS = 'teams'
+  TEAMS = 'teams',
+  SHAREPOINT = 'sharepoint',
+  ONEDRIVE = 'onedrive',
+  ONENOTE = 'onenote'
 }
 
 export interface MCPTool {

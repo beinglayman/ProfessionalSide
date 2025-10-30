@@ -113,6 +113,43 @@ export class MCPOAuthService {
         // ChannelMessage.Edit allows reading/editing user's own messages without admin consent
         scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Edit Chat.Read Chat.ReadBasic offline_access'
       });
+
+      // SharePoint OAuth configuration (uses same Microsoft app credentials)
+      this.oauthConfigs.set(MCPToolType.SHAREPOINT, {
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        redirectUri: process.env.SHAREPOINT_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/sharepoint`,
+        authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+        tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+        // Sites.Read.All - Read SharePoint sites, lists, and items
+        // Files.Read.All - Read files in SharePoint document libraries
+        scope: 'User.Read Sites.Read.All Files.Read.All offline_access'
+      });
+
+      // OneDrive OAuth configuration (uses same Microsoft app credentials)
+      this.oauthConfigs.set(MCPToolType.ONEDRIVE, {
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        redirectUri: process.env.ONEDRIVE_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/onedrive`,
+        authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+        tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+        // Files.Read.All - Read all files user can access
+        scope: 'User.Read Files.Read.All offline_access'
+      });
+
+      // OneNote OAuth configuration (uses same Microsoft app credentials)
+      this.oauthConfigs.set(MCPToolType.ONENOTE, {
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        redirectUri: process.env.ONENOTE_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/onenote`,
+        authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+        tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+        // Notes.Read.All - Read all OneNote notebooks user can access
+        scope: 'User.Read Notes.Read.All offline_access'
+      });
     }
 
     // Confluence OAuth configuration (Atlassian)
@@ -161,7 +198,7 @@ export class MCPOAuthService {
    * Log detailed diagnostics about OAuth configuration status
    */
   private logConfigurationDiagnostics(): void {
-    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'sharepoint', 'onedrive', 'onenote'];
     const configured: string[] = [];
     const missing: string[] = [];
 
@@ -188,6 +225,9 @@ export class MCPOAuthService {
         'figma': ['FIGMA_CLIENT_ID', 'FIGMA_CLIENT_SECRET'],
         'outlook': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
         'teams': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
+        'sharepoint': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
+        'onedrive': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
+        'onenote': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
         'slack': ['SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET']
       };
 
@@ -301,7 +341,7 @@ export class MCPOAuthService {
     // Define tool groups
     const toolGroups: Record<string, MCPToolType[]> = {
       atlassian: [MCPToolType.JIRA, MCPToolType.CONFLUENCE],
-      microsoft: [MCPToolType.OUTLOOK, MCPToolType.TEAMS]
+      microsoft: [MCPToolType.OUTLOOK, MCPToolType.TEAMS, MCPToolType.SHAREPOINT, MCPToolType.ONEDRIVE, MCPToolType.ONENOTE]
     };
 
     const tools = toolGroups[groupType];

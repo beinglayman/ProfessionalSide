@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Github, Database, Figma, Mail, FileText, MessageSquare, Check, X, Loader2, ExternalLink, RefreshCw, Trash2, Clock, AlertCircle } from 'lucide-react';
+import { Shield, Github, Database, Figma, Mail, FileText, MessageSquare, Check, X, Loader2, ExternalLink, RefreshCw, Trash2, Clock, AlertCircle, Share2, Cloud, BookOpen } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { MCPPrivacyNotice } from '../../components/mcp/MCPPrivacyNotice';
@@ -14,6 +14,10 @@ const toolIcons: Record<MCPToolType, React.ComponentType<{ className?: string }>
   [MCPToolType.OUTLOOK]: Mail,
   [MCPToolType.CONFLUENCE]: FileText,
   [MCPToolType.SLACK]: MessageSquare,
+  [MCPToolType.TEAMS]: MessageSquare,
+  [MCPToolType.SHAREPOINT]: Share2,
+  [MCPToolType.ONEDRIVE]: Cloud,
+  [MCPToolType.ONENOTE]: BookOpen,
 };
 
 const toolDescriptions: Record<MCPToolType, string> = {
@@ -23,6 +27,10 @@ const toolDescriptions: Record<MCPToolType, string> = {
   [MCPToolType.OUTLOOK]: 'Import meeting notes and calendar events',
   [MCPToolType.CONFLUENCE]: 'Import documentation and wiki pages',
   [MCPToolType.SLACK]: 'Import team discussions and important messages',
+  [MCPToolType.TEAMS]: 'Import Teams chat messages and channel activity',
+  [MCPToolType.SHAREPOINT]: 'Import SharePoint site activity, documents, and list updates',
+  [MCPToolType.ONEDRIVE]: 'Import OneDrive file changes and collaboration activity',
+  [MCPToolType.ONENOTE]: 'Import OneNote pages, notebooks, and note-taking activity',
 };
 
 const IntegrationsPage: React.FC = () => {
