@@ -21,7 +21,7 @@ export const getTestActivities = asyncHandler(async (req: Request, res: Response
   const results: any[] = [];
 
   // Generate mock data for each requested tool
-  for (const toolType of toolTypes || ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams']) {
+  for (const toolType of toolTypes || ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint']) {
     switch (toolType) {
       case 'github':
         results.push({
@@ -372,6 +372,60 @@ export const getTestActivities = asyncHandler(async (req: Request, res: Response
                 duration: 15,
                 participants: ['You', 'Team Member 1', 'Team Member 2', 'Scrum Master']
               }
+            ]
+          }
+        });
+        break;
+
+      case 'onedrive':
+        results.push({
+          source: 'onedrive',
+          tool: 'OneDrive',
+          success: true,
+          data: {
+            recentFiles: 8,
+            sharedFiles: 3,
+            foldersAccessed: ['Projects', 'Documentation', 'Design Assets'],
+            highlights: [
+              'Created Q4 Planning Document',
+              'Updated Architecture Diagrams',
+              'Shared Team Resources folder with 5 teammates'
+            ]
+          }
+        });
+        break;
+
+      case 'onenote':
+        results.push({
+          source: 'onenote',
+          tool: 'OneNote',
+          success: true,
+          data: {
+            notebooks: 3,
+            pagesCreated: 5,
+            pagesUpdated: 7,
+            highlights: [
+              'Created meeting notes for Sprint Planning',
+              'Updated Technical Design document',
+              'Added research notes on new technologies'
+            ]
+          }
+        });
+        break;
+
+      case 'sharepoint':
+        results.push({
+          source: 'sharepoint',
+          tool: 'SharePoint',
+          success: true,
+          data: {
+            sitesAccessed: 4,
+            filesModified: 6,
+            listsUpdated: 2,
+            highlights: [
+              'Updated project status on Team Site',
+              'Modified design specifications',
+              'Updated sprint backlog list'
             ]
           }
         });

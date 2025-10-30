@@ -264,7 +264,7 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
     }
 
     // Validate that the toolType in params matches expected tools or groups
-    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'];
     const validGroups = ['atlassian', 'microsoft'];
     const isGroupCallback = validGroups.includes(toolType);
 
@@ -392,7 +392,7 @@ export const fetchData = asyncHandler(async (req: Request, res: Response): Promi
       return;
     }
 
-    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'];
     const invalidTools = toolTypes.filter((t: string) => !validTools.includes(t));
 
     if (invalidTools.length > 0) {
@@ -470,7 +470,7 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
       return;
     }
 
-    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'];
     const invalidTools = toolTypes.filter((t: string) => !validTools.includes(t));
 
     if (invalidTools.length > 0) {
@@ -488,6 +488,9 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
     const { ConfluenceTool } = await import('../services/mcp/tools/confluence.tool');
     const { SlackTool } = await import('../services/mcp/tools/slack.tool');
     const { TeamsTool } = await import('../services/mcp/tools/teams.tool');
+    const { OneDriveTool } = await import('../services/mcp/tools/onedrive.tool');
+    const { OneNoteTool } = await import('../services/mcp/tools/onenote.tool');
+    const { SharePointTool } = await import('../services/mcp/tools/sharepoint.tool');
     const { MCPMultiSourceOrganizer } = await import('../services/mcp/mcp-multi-source-organizer.service');
     const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
 
@@ -539,6 +542,21 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
 
           case 'teams':
             tool = new TeamsTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'onedrive':
+            tool = new OneDriveTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'onenote':
+            tool = new OneNoteTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'sharepoint':
+            tool = new SharePointTool();
             result = await tool.fetchActivity(userId, parsedDateRange);
             break;
 
@@ -764,6 +782,15 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
         case 'teams':
           // Teams returns object with arrays: {meetings[], messages[], calls[]}
           return (data.meetings?.length || 0) + (data.messages?.length || 0);
+        case 'onedrive':
+          // OneDrive returns object: {recentFiles, sharedFiles, foldersAccessed[], highlights[]}
+          return (data.recentFiles || 0) + (data.sharedFiles || 0);
+        case 'onenote':
+          // OneNote returns object: {notebooks, pagesCreated, pagesUpdated, highlights[]}
+          return (data.pagesCreated || 0) + (data.pagesUpdated || 0);
+        case 'sharepoint':
+          // SharePoint returns object: {sitesAccessed, filesModified, listsUpdated, highlights[]}
+          return (data.filesModified || 0) + (data.listsUpdated || 0);
         default:
           // Fallback: if data is an array, return its length
           return Array.isArray(data) ? data.length : 0;
@@ -789,6 +816,12 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
           return `${data.messages?.length || 0} messages, ${data.threads?.length || 0} threads`;
         case 'teams':
           return `${data.meetings?.length || 0} meetings, ${data.messages?.length || 0} messages`;
+        case 'onedrive':
+          return `${data.recentFiles || 0} recent files, ${data.sharedFiles || 0} shared files`;
+        case 'onenote':
+          return `${data.pagesCreated || 0} pages created, ${data.pagesUpdated || 0} pages updated`;
+        case 'sharepoint':
+          return `${data.filesModified || 0} files modified, ${data.listsUpdated || 0} lists updated`;
         default:
           return `${Array.isArray(data) ? data.length : 0} items`;
       }
@@ -802,7 +835,10 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
       outlook: () => import('../services/mcp/tools/outlook.tool').then(m => new m.OutlookTool()),
       confluence: () => import('../services/mcp/tools/confluence.tool').then(m => new m.ConfluenceTool()),
       slack: () => import('../services/mcp/tools/slack.tool').then(m => new m.SlackTool()),
-      teams: () => import('../services/mcp/tools/teams.tool').then(m => new m.TeamsTool())
+      teams: () => import('../services/mcp/tools/teams.tool').then(m => new m.TeamsTool()),
+      onedrive: () => import('../services/mcp/tools/onedrive.tool').then(m => new m.OneDriveTool()),
+      onenote: () => import('../services/mcp/tools/onenote.tool').then(m => new m.OneNoteTool()),
+      sharepoint: () => import('../services/mcp/tools/sharepoint.tool').then(m => new m.SharePointTool())
     };
 
     // Parse date range

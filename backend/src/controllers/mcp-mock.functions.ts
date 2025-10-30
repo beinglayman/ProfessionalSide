@@ -128,7 +128,7 @@ export async function initiateOAuth(req: Request, res: Response): Promise<void> 
     const userId = (req as any).userId;
     const { toolType } = req.body;
 
-    if (!toolType || !['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'].includes(toolType)) {
+    if (!toolType || !['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'].includes(toolType)) {
       res.status(400).json({
         success: false,
         error: 'Invalid or unavailable tool type'
