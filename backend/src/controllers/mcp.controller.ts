@@ -45,7 +45,9 @@ export const getAvailableTools = asyncHandler(async (req: Request, res: Response
       { type: 'outlook', name: 'Outlook', description: 'Import meeting notes and calendar events from Outlook' },
       { type: 'confluence', name: 'Confluence', description: 'Import documentation updates from Confluence' },
       { type: 'slack', name: 'Slack', description: 'Import important messages and discussions from Slack' },
-      { type: 'teams', name: 'Microsoft Teams', description: 'Sync meeting notes and chat discussions from Teams' }
+      { type: 'teams', name: 'Microsoft Teams', description: 'Sync meeting notes and chat discussions from Teams' },
+      { type: 'onedrive', name: 'OneDrive', description: 'Import OneDrive file changes and collaboration activity' },
+      { type: 'onenote', name: 'OneNote', description: 'Import OneNote pages, notebooks, and note-taking activity' }
     ].map(tool => {
       const integration = integrationMap.get(tool.type);
       return {
@@ -106,11 +108,13 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
       outlook: { name: 'Outlook', description: 'Meeting notes and calendar events' },
       confluence: { name: 'Confluence', description: 'Documentation updates' },
       slack: { name: 'Slack', description: 'Important messages and discussions' },
-      teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' }
+      teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' },
+      onedrive: { name: 'OneDrive', description: 'OneDrive file changes and collaboration' },
+      onenote: { name: 'OneNote', description: 'OneNote pages, notebooks, and notes' }
     };
 
     // Ensure all tools are represented
-    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote'];
     const integrationMap = new Map(integrations.map(i => [i.toolType, i]));
 
     const allIntegrations = allTools.map(tool => {
@@ -160,7 +164,7 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
     return;
   }
 
-  const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams'];
+  const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote'];
 
   if (!toolType || !validTools.includes(toolType)) {
     sendError(res, 'Invalid or unavailable tool type', 400);

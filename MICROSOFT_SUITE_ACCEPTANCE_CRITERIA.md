@@ -1,22 +1,23 @@
 # Microsoft Suite MCP Integrations - Acceptance Criteria
 
-**Date:** October 29, 2025
-**Version:** 1.0
-**Status:** Implementation Complete - Ready for Validation
+**Date:** October 30, 2025
+**Version:** 1.1
+**Status:** SharePoint Removed for B2C Compatibility
 
 ---
 
 ## Table of Contents
-1. [SharePoint Acceptance Criteria](#sharepoint-acceptance-criteria)
-2. [OneDrive Acceptance Criteria](#onedrive-acceptance-criteria)
-3. [OneNote Acceptance Criteria](#onenote-acceptance-criteria)
-4. [Cross-Tool Integration Criteria](#cross-tool-integration-criteria)
-5. [Privacy & Security Criteria](#privacy--security-criteria)
-6. [Testing Scenarios](#testing-scenarios)
+1. [OneDrive Acceptance Criteria](#onedrive-acceptance-criteria)
+2. [OneNote Acceptance Criteria](#onenote-acceptance-criteria)
+3. [Cross-Tool Integration Criteria](#cross-tool-integration-criteria)
+4. [Privacy & Security Criteria](#privacy--security-criteria)
+5. [Testing Scenarios](#testing-scenarios)
+
+**Note:** SharePoint acceptance criteria removed. SharePoint integration disabled to avoid admin consent requirements (`Sites.Read.All` permission).
 
 ---
 
-## SharePoint Acceptance Criteria
+## ~~SharePoint Acceptance Criteria~~ (Removed)
 
 ### AC-SP1: Site Activity Tracking
 
@@ -570,18 +571,19 @@
 - OAuth consent screen displays
 
 #### Then
-- [ ] Only required scopes requested
-- [ ] SharePoint: `Sites.Read.All`, `Files.Read.All`
-- [ ] OneDrive: `Files.Read.All`
-- [ ] OneNote: `Notes.Read.All`
+- [ ] Only required scopes requested (minimal permissions)
+- [ ] OneDrive: `Files.Read` (user-delegated, no admin consent)
+- [ ] OneNote: `Notes.Read` (user-delegated, no admin consent)
 - [ ] No write permissions requested
-- [ ] No admin permissions required
+- [ ] No admin consent required for any permission
 - [ ] Offline access for refresh tokens
+- [ ] SharePoint excluded (would require `Sites.Read.All` admin consent)
 
 #### Success Metrics
 - Minimal scope set requested
 - User sees only necessary permissions
-- No excessive privilege warnings
+- No admin consent warnings or requirements
+- B2C-compatible permissions only
 
 ---
 

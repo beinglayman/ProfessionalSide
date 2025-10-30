@@ -1,19 +1,20 @@
 # Microsoft Suite MCP Integrations - Implementation Guide
 
-**Date:** October 29, 2025
+**Date:** October 30, 2025
 **Status:** Ready for Testing
-**Version:** 1.0
+**Version:** 1.1
 
 ---
 
 ## Overview
 
-This guide documents the implementation of three new Microsoft Suite MCP integrations for InChronicle:
-- **SharePoint** - Team collaboration and document management
+This guide documents the Microsoft Suite MCP integrations for InChronicle:
 - **OneDrive** - Personal file storage and sharing
 - **OneNote** - Note-taking and knowledge management
 
-These integrations complement the existing Outlook and Teams integrations, providing comprehensive coverage of Microsoft 365 productivity tools.
+These integrations complement the existing Outlook and Teams integrations, providing comprehensive coverage of Microsoft 365 productivity tools without requiring admin consent.
+
+**Note:** SharePoint has been intentionally excluded to avoid admin consent requirements (`Sites.Read.All` permission), making the integration B2C-compatible.
 
 ---
 
@@ -31,13 +32,14 @@ Each tool requests specific Microsoft Graph API scopes:
 
 | Tool | Scopes | Purpose |
 |------|--------|---------|
-| **SharePoint** | `Sites.Read.All`, `Files.Read.All` | Read SharePoint sites, lists, and document libraries |
-| **OneDrive** | `Files.Read.All` | Read OneDrive files and folders |
-| **OneNote** | `Notes.Read.All` | Read OneNote notebooks, sections, and pages |
+| **OneDrive** | `Files.Read` | Read OneDrive files user has access to (no admin consent) |
+| **OneNote** | `Notes.Read` | Read OneNote notebooks, sections, and pages (no admin consent) |
 
 All tools also include:
 - `User.Read` - Basic user profile information
 - `offline_access` - Refresh token support for long-term access
+
+**Permissions Philosophy:** All scopes are user-delegated and do not require admin consent, ensuring B2C compatibility.
 
 ---
 
@@ -70,27 +72,19 @@ export enum MCPToolType {
 - Can be overridden with environment variables: `SHAREPOINT_REDIRECT_URI`, `ONEDRIVE_REDIRECT_URI`, `ONENOTE_REDIRECT_URI`
 
 **Group Authentication:**
-Updated the `microsoft` tool group to include all five Microsoft tools:
+The `microsoft` tool group includes four Microsoft tools:
 ```typescript
 microsoft: [
   MCPToolType.OUTLOOK,
   MCPToolType.TEAMS,
-  MCPToolType.SHAREPOINT,
   MCPToolType.ONEDRIVE,
   MCPToolType.ONENOTE
 ]
 ```
 
-This allows users to connect all Microsoft tools with a single OAuth flow.
+This allows users to connect all Microsoft tools with a single OAuth flow without requiring admin consent.
 
 #### 3. Tool Implementations
-
-**SharePoint Tool** ([sharepoint.tool.ts](backend/src/services/mcp/tools/sharepoint.tool.ts))
-- Fetches followed SharePoint sites
-- Retrieves recent files from site document libraries
-- Gets recently updated SharePoint lists
-- Filters results by date range (default: 30 days)
-- Rate limiting: Checks max 5 sites for files, 3 sites for lists
 
 **OneDrive Tool** ([onedrive.tool.ts](backend/src/services/mcp/tools/onedrive.tool.ts))
 - Fetches recent files from `/me/drive/recent`
@@ -116,23 +110,16 @@ Updated `MCPToolType` enum to include new tools.
 #### 2. Integrations Page ([integrations.tsx](src/pages/settings/integrations.tsx))
 
 **New Icons:**
-- SharePoint: `Share2` (Lucide icon)
 - OneDrive: `Cloud` (Lucide icon)
 - OneNote: `BookOpen` (Lucide icon)
 
 **Tool Descriptions:**
-- SharePoint: "Import SharePoint site activity, documents, and list updates"
 - OneDrive: "Import OneDrive file changes and collaboration activity"
 - OneNote: "Import OneNote pages, notebooks, and note-taking activity"
 
 ---
 
 ## Microsoft Graph API Endpoints
-
-### SharePoint
-- `GET /me/followedSites` - User's followed sites
-- `GET /sites/{site-id}/drive/recent` - Recent files in site
-- `GET /sites/{site-id}/lists` - Site lists
 
 ### OneDrive
 - `GET /me/drive/recent` - Recently accessed files (max 50)
@@ -158,7 +145,6 @@ MICROSOFT_TENANT_ID=common  # or specific tenant ID
 
 ### Optional (Override Defaults)
 ```bash
-SHAREPOINT_REDIRECT_URI=https://yourdomain.com/api/v1/mcp/callback/sharepoint
 ONEDRIVE_REDIRECT_URI=https://yourdomain.com/api/v1/mcp/callback/onedrive
 ONENOTE_REDIRECT_URI=https://yourdomain.com/api/v1/mcp/callback/onenote
 ```
@@ -171,18 +157,18 @@ ONENOTE_REDIRECT_URI=https://yourdomain.com/api/v1/mcp/callback/onenote
 
 If you already have a Microsoft OAuth app for Outlook/Teams, you need to add these permissions:
 
-**Delegated Permissions:**
-1. `Sites.Read.All` - Read items in all site collections
-2. `Files.Read.All` - Read files user can access
-3. `Notes.Read.All` - Read user's notebooks
+**Delegated Permissions (No Admin Consent Required):**
+1. `Files.Read` - Read files user has access to in OneDrive
+2. `Notes.Read` - Read user's OneNote notebooks
 
-**Grant Admin Consent:**
-Some permissions may require admin consent depending on your organization's policies. Check with your Azure AD administrator.
+**Why These Permissions:**
+- `Files.Read` provides access to OneDrive files the user can already access (no admin consent)
+- `Notes.Read` provides access to user's own notebooks (no admin consent)
+- SharePoint intentionally excluded to avoid `Sites.Read.All` which requires admin consent
 
 ### Redirect URIs
 
 Add these redirect URIs to your Azure app registration:
-- `{BACKEND_URL}/api/v1/mcp/callback/sharepoint`
 - `{BACKEND_URL}/api/v1/mcp/callback/onedrive`
 - `{BACKEND_URL}/api/v1/mcp/callback/onenote`
 
@@ -195,27 +181,26 @@ Or use the group callback (recommended):
 
 ### OAuth Flow
 - [ ] Navigate to Settings > Integrations
-- [ ] Click "Connect" for SharePoint
+- [ ] Click "Connect" for OneDrive
 - [ ] Verify redirect to Microsoft OAuth page
-- [ ] Grant permissions
+- [ ] Grant permissions (no admin consent required)
 - [ ] Verify redirect back to InChronicle
 - [ ] Confirm tool shows as "Connected"
-- [ ] Repeat for OneDrive and OneNote
+- [ ] Repeat for OneNote
 
 ### Data Fetching
 - [ ] Create a new journal entry
-- [ ] Select SharePoint in MCP tools
+- [ ] Select OneDrive in MCP tools
 - [ ] Set date range to last 30 days
 - [ ] Click "Fetch Activities"
-- [ ] Verify data appears (sites, files, lists)
-- [ ] Repeat for OneDrive (files, shared items, folders)
+- [ ] Verify data appears (files, shared items, folders)
 - [ ] Repeat for OneNote (notebooks, sections, pages)
 
 ### Journal Generation
 - [ ] Select activities from fetched data
 - [ ] Click "Generate Entry"
 - [ ] Verify AI generates meaningful content
-- [ ] Check that artifacts include links to SharePoint/OneDrive/OneNote
+- [ ] Check that artifacts include links to OneDrive/OneNote
 - [ ] Verify entry can be saved/published
 
 ### Privacy & Security
@@ -227,11 +212,6 @@ Or use the group callback (recommended):
 ---
 
 ## Rate Limiting & Performance
-
-### SharePoint
-- Checks max **5 sites** for recent files
-- Checks max **3 sites** for lists
-- 100ms delay between site queries
 
 ### OneDrive
 - Fetches max **50 recent files**
@@ -250,17 +230,6 @@ These limits prevent rate limiting and ensure reasonable performance.
 ---
 
 ## User Value Proposition
-
-### SharePoint
-**High Value** - Captures team collaboration context
-- Documents created/modified in team sites
-- SharePoint list updates (project tracking)
-- Site membership and activity
-
-**Journal Entry Examples:**
-- "Updated 5 documents in Project Alpha SharePoint site"
-- "Contributed to 3 team lists across 2 sites"
-- "Collaborated on proposal documents in Client Hub"
 
 ### OneDrive
 **High Value** - Tracks personal document work
@@ -288,11 +257,6 @@ These limits prevent rate limiting and ensure reasonable performance.
 
 ## Known Limitations
 
-### SharePoint
-- Only fetches from **followed sites** (not all accessible sites)
-- List item details not available (only list metadata)
-- Site activity limited to last 30 days by default
-
 ### OneDrive
 - "Recent files" endpoint has 50-item limit
 - Shared files use `lastModifiedDateTime` as proxy for share date
@@ -314,11 +278,6 @@ These limits prevent rate limiting and ensure reasonable performance.
 
 ### OAuth Errors
 
-**Error: "SharePoint not connected"**
-- Check `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET` are set
-- Verify Azure app has `Sites.Read.All` permission
-- Ensure redirect URI is configured in Azure app
-
 **Error: "Insufficient privileges"**
 - User may not have accepted required permissions
 - Admin consent may be required for your organization
@@ -329,8 +288,8 @@ These limits prevent rate limiting and ensure reasonable performance.
 **Error: "No data returned"**
 - Check date range (default is last 30 days)
 - Verify user has activity in that date range
-- For SharePoint: User must "follow" sites to see them
 - For OneNote: User must have created notebooks
+- For OneDrive: Ensure user has files in OneDrive
 
 **Error: "429 Too Many Requests"**
 - Microsoft Graph API rate limit exceeded
@@ -338,11 +297,6 @@ These limits prevent rate limiting and ensure reasonable performance.
 - Consider reducing date range to fetch less data
 
 ### Empty Results
-
-**SharePoint returns 0 items:**
-- User hasn't followed any SharePoint sites
-- No recent activity in followed sites
-- Try extending date range
 
 **OneDrive returns 0 items:**
 - No recent file activity
@@ -359,16 +313,11 @@ These limits prevent rate limiting and ensure reasonable performance.
 ### Potential Additions
 
 1. **Word/Excel/PowerPoint Online**
-   - Currently covered by OneDrive/SharePoint file activity
+   - Currently covered by OneDrive file activity
    - Could add specific file type filtering and metrics
    - Example: "Edited 5 Word documents" instead of "Modified 5 files"
 
-2. **SharePoint Enhancements**
-   - Fetch from all accessible sites (not just followed)
-   - Include list item details and changes
-   - Add site analytics (page views, visitor counts)
-
-3. **OneDrive Enhancements**
+2. **OneDrive Enhancements**
    - Version history tracking
    - Collaboration metrics (co-authors, reviewers)
    - File type breakdown and statistics
@@ -379,9 +328,9 @@ These limits prevent rate limiting and ensure reasonable performance.
    - Meeting notes vs. project notes classification
 
 5. **Cross-Tool Intelligence**
-   - Link SharePoint documents to OneNote meeting notes
    - Connect OneDrive files to email attachments (Outlook)
    - Associate Teams discussions with shared files
+   - Link OneNote meeting notes to calendar events
 
 ---
 
@@ -396,11 +345,11 @@ These limits prevent rate limiting and ensure reasonable performance.
 If you encounter issues with the Microsoft Suite integrations:
 1. Check backend logs: `az webapp log tail -g ps-prod-rg -n ps-backend-1758551070`
 2. Check browser console for frontend errors
-3. Verify OAuth tokens in database: `SELECT * FROM "mcp_integrations" WHERE "toolType" IN ('sharepoint', 'onedrive', 'onenote')`
+3. Verify OAuth tokens in database: `SELECT * FROM "mcp_integrations" WHERE "toolType" IN ('onedrive', 'onenote')`
 4. Review audit logs in Settings > Integrations > "View Audit Log"
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** October 29, 2025
-**Status:** Implementation Complete, Ready for Testing
+**Document Version:** 1.1
+**Last Updated:** October 30, 2025
+**Status:** SharePoint Removed for B2C Compatibility, OneDrive Permissions Reduced to Files.Read

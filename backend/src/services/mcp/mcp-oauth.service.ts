@@ -114,18 +114,18 @@ export class MCPOAuthService {
         scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Edit Chat.Read Chat.ReadBasic offline_access'
       });
 
-      // SharePoint OAuth configuration (uses same Microsoft app credentials)
-      this.oauthConfigs.set(MCPToolType.SHAREPOINT, {
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-        redirectUri: process.env.SHAREPOINT_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/sharepoint`,
-        authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
-        tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-        // Sites.Read.All - Read SharePoint sites, lists, and items
-        // Files.Read.All - Read files in SharePoint document libraries
-        scope: 'User.Read Sites.Read.All Files.Read.All offline_access'
-      });
+      // SharePoint OAuth configuration - DISABLED
+      // Requires Sites.Read.All permission which triggers admin consent requirement
+      // Disabled for B2C compatibility - can be re-enabled for enterprise deployments
+      // this.oauthConfigs.set(MCPToolType.SHAREPOINT, {
+      //   clientId: process.env.MICROSOFT_CLIENT_ID,
+      //   clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+      //   redirectUri: process.env.SHAREPOINT_REDIRECT_URI ||
+      //     `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/sharepoint`,
+      //   authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+      //   tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+      //   scope: 'User.Read Sites.Read.All Files.Read.All offline_access'
+      // });
 
       // OneDrive OAuth configuration (uses same Microsoft app credentials)
       this.oauthConfigs.set(MCPToolType.ONEDRIVE, {
@@ -135,8 +135,9 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/onedrive`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-        // Files.Read.All - Read all files user can access
-        scope: 'User.Read Files.Read.All offline_access'
+        // Files.Read - Read files user has access to (no admin consent required)
+        // Note: Includes files from OneDrive and SharePoint sites user has access to
+        scope: 'User.Read Files.Read offline_access'
       });
 
       // OneNote OAuth configuration (uses same Microsoft app credentials)
@@ -147,8 +148,8 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/onenote`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-        // Notes.Read.All - Read all OneNote notebooks user can access
-        scope: 'User.Read Notes.Read.All offline_access'
+        // Notes.Read - Read OneNote notebooks (no admin consent required)
+        scope: 'User.Read Notes.Read offline_access'
       });
     }
 
@@ -198,7 +199,8 @@ export class MCPOAuthService {
    * Log detailed diagnostics about OAuth configuration status
    */
   private logConfigurationDiagnostics(): void {
-    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'sharepoint', 'onedrive', 'onenote'];
+    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote'];
+    // Note: SharePoint removed (requires admin consent for Sites.Read.All)
     const configured: string[] = [];
     const missing: string[] = [];
 
@@ -341,7 +343,8 @@ export class MCPOAuthService {
     // Define tool groups
     const toolGroups: Record<string, MCPToolType[]> = {
       atlassian: [MCPToolType.JIRA, MCPToolType.CONFLUENCE],
-      microsoft: [MCPToolType.OUTLOOK, MCPToolType.TEAMS, MCPToolType.SHAREPOINT, MCPToolType.ONEDRIVE, MCPToolType.ONENOTE]
+      microsoft: [MCPToolType.OUTLOOK, MCPToolType.TEAMS, MCPToolType.ONEDRIVE, MCPToolType.ONENOTE]
+      // Note: SharePoint removed - requires admin consent (Sites.Read.All) incompatible with B2C
     };
 
     const tools = toolGroups[groupType];
