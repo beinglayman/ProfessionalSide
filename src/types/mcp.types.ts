@@ -6,7 +6,10 @@ export type MCPToolType =
   | 'outlook'
   | 'confluence'
   | 'slack'
-  | 'teams';
+  | 'teams'
+  | 'onedrive'
+  | 'onenote'
+  | 'sharepoint';
 
 // Integration Group Types
 export type MCPIntegrationGroupType = 'atlassian' | 'microsoft';
@@ -63,6 +66,9 @@ export interface MCPDailySummaryData {
     confluence?: ConfluenceActivity;
     slack?: SlackActivity;
     teams?: TeamsActivity;
+    onedrive?: OneDriveActivity;
+    onenote?: OneNoteActivity;
+    sharepoint?: SharePointActivity;
   };
   summary: string;
   highlights: string[];
@@ -131,6 +137,27 @@ export interface TeamsActivity {
   meetingsAttended: number;
   messagesPosted: number;
   channelsActive: string[];
+  highlights: string[];
+}
+
+export interface OneDriveActivity {
+  recentFiles: number;
+  sharedFiles: number;
+  foldersAccessed: string[];
+  highlights: string[];
+}
+
+export interface OneNoteActivity {
+  notebooks: number;
+  pagesCreated: number;
+  pagesUpdated: number;
+  highlights: string[];
+}
+
+export interface SharePointActivity {
+  sitesAccessed: number;
+  filesModified: number;
+  listsUpdated: number;
   highlights: string[];
 }
 
