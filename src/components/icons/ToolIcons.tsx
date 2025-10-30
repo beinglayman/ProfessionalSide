@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 
-export type ToolType = 'github' | 'jira' | 'figma' | 'outlook' | 'confluence' | 'slack' | 'teams';
+export type ToolType = 'github' | 'jira' | 'figma' | 'outlook' | 'confluence' | 'slack' | 'teams' | 'onedrive' | 'onenote' | 'sharepoint';
 
 interface ToolIconProps {
   tool: ToolType;
@@ -112,6 +112,52 @@ export function ToolIcon({ tool, size = 24, disabled = false, className }: ToolI
         <path fill="#FFF" d="M94.208 95.125h-21.82v59.416H58.487V95.125H36.769V83.599h57.439z"/>
       </svg>
     ),
+    onedrive: (
+      <svg width={size} height={size} viewBox="0 0 256 193" fill="none" className={iconClass}>
+        <defs>
+          <linearGradient id="logosOnedrive0" x1="50%" x2="50%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="#0364B8"/>
+            <stop offset="50%" stopColor="#0078D4"/>
+            <stop offset="100%" stopColor="#1490DF"/>
+          </linearGradient>
+          <linearGradient id="logosOnedrive1" x1="50%" x2="50%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="#0078D4"/>
+            <stop offset="100%" stopColor="#0A5EA8"/>
+          </linearGradient>
+        </defs>
+        <path fill="url(#logosOnedrive0)" d="M93.41 146.483c0 23.856 19.334 43.19 43.19 43.19h84.645c19.174 0 34.718-15.544 34.718-34.718c0-19.174-15.544-34.717-34.718-34.717c-4.09 0-8.006.707-11.637 2.003a57.82 57.82 0 0 0-1.697-13.74a57.66 57.66 0 0 0-5.918-14.56a57.917 57.917 0 0 0-49.118-27.437a57.86 57.86 0 0 0-49.118 27.437a57.66 57.66 0 0 0-5.918 14.56a57.924 57.924 0 0 0-2.084 15.496a43.177 43.177 0 0 0-2.345-.066c-23.856 0-43.19 19.334-43.19 43.19c0 23.856 19.334 43.19 43.19 43.19z"/>
+        <path fill="url(#logosOnedrive1)" d="M185.967 93.983a57.66 57.66 0 0 0-5.918-14.56a57.917 57.917 0 0 0-49.118-27.437a57.86 57.86 0 0 0-49.118 27.437a57.66 57.66 0 0 0-5.918 14.56c24.416 6.122 45.81 23.364 58.572 47.155c3.93 7.32 7.003 15.098 9.118 23.19h77.66c19.174 0 34.718-15.544 34.718-34.718c0-19.174-15.544-34.717-34.718-34.717c-4.09 0-8.006.707-11.637 2.003a57.82 57.82 0 0 0-1.697-13.74a57.66 57.66 0 0 0-5.918-14.56z"/>
+        <path fill="#0078D4" d="M79.87 108.502a57.924 57.924 0 0 0-2.084 15.496a43.177 43.177 0 0 0-2.345-.066c-23.856 0-43.19 19.334-43.19 43.19c0 23.856 19.334 43.19 43.19 43.19H136.6c-23.856 0-43.19-19.334-43.19-43.19c0-20.77 14.66-38.134 34.192-42.324c-12.762-23.791-34.156-41.033-58.572-47.155a57.66 57.66 0 0 0-5.918 14.56a57.924 57.924 0 0 0-2.242 16.3z"/>
+      </svg>
+    ),
+    onenote: (
+      <svg width={size} height={size} viewBox="0 0 256 256" fill="none" className={iconClass}>
+        <defs>
+          <linearGradient id="logosOnenote0" x1="50%" x2="50%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="#CA64EA"/>
+            <stop offset="100%" stopColor="#7E4EB8"/>
+          </linearGradient>
+        </defs>
+        <path fill="#7E4EB8" d="M126.667 21.333h-96A10.667 10.667 0 0 0 20 32v192a10.667 10.667 0 0 0 10.667 10.667h96a10.667 10.667 0 0 0 10.666-10.667V32a10.667 10.667 0 0 0-10.666-10.667Z"/>
+        <path fill="url(#logosOnenote0)" d="M256 64v128a21.333 21.333 0 0 1-21.333 21.333H106.667V42.667h128A21.333 21.333 0 0 1 256 64Z"/>
+        <path fill="#FFF" d="M106.667 128h64v21.333h-64zm0-42.667h64V107h-64zm0 85.334h64v21.333h-64z"/>
+        <path fill="#FFF" d="M73.333 74.667L64 176h-8l-9.333-101.333h8L64 153.6l9.333-78.933z"/>
+      </svg>
+    ),
+    sharepoint: (
+      <svg width={size} height={size} viewBox="0 0 256 256" fill="none" className={iconClass}>
+        <defs>
+          <linearGradient id="logosSharepoint0" x1="50%" x2="50%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="#03787C"/>
+            <stop offset="100%" stopColor="#02585B"/>
+          </linearGradient>
+        </defs>
+        <circle cx="128" cy="128" r="106.667" fill="url(#logosSharepoint0)"/>
+        <path fill="#FFF" d="M168.747 158.4c-6.4 3.2-14.187 4.8-23.467 4.8c-6.613 0-12.373-1.173-17.28-3.52a26.88 26.88 0 0 1-11.413-10.027c-2.773-4.373-4.16-9.493-4.16-15.36c0-6.293 1.493-11.733 4.48-16.32c3.093-4.693 7.36-8.32 12.8-10.88c5.547-2.667 11.84-4 18.88-4c4.373 0 8.32.48 11.84 1.44c3.52.96 6.507 2.187 8.96 3.68l-4.16 13.76c-2.133-1.28-4.587-2.347-7.36-3.2c-2.667-.853-5.547-1.28-8.64-1.28c-5.547 0-9.92 1.547-13.12 4.64c-3.2 3.093-4.8 7.36-4.8 12.8c0 5.653 1.493 9.92 4.48 12.8c2.987 2.88 7.253 4.32 12.8 4.32c3.52 0 6.72-.427 9.6-1.28c2.987-.853 5.653-2.027 8-3.52l3.52 13.44zM178.667 96v-21.333h21.333V96h-21.333zm0 64v-42.667h21.333V160h-21.333z"/>
+        <circle cx="81.92" cy="81.92" r="25.6" fill="#FFF"/>
+        <path fill="#FFF" d="M56.32 139.947V160h21.333v-20.053c0-5.867 2.24-10.88 6.72-15.04c4.48-4.16 9.92-6.24 16.32-6.24v-21.334c-10.773 0-19.84 3.627-27.2 10.88c-7.36 7.253-11.04 16.213-11.04 26.88l-6.133 5.854z"/>
+      </svg>
+    ),
   };
 
   return icons[tool];
@@ -127,6 +173,9 @@ export function getToolDisplayName(tool: ToolType): string {
     confluence: 'Confluence',
     slack: 'Slack',
     teams: 'Microsoft Teams',
+    onedrive: 'OneDrive',
+    onenote: 'OneNote',
+    sharepoint: 'SharePoint',
   };
   return names[tool];
 }
@@ -141,6 +190,9 @@ export function getToolDescription(tool: ToolType): string {
     confluence: 'Documentation updates',
     slack: 'Important messages and discussions',
     teams: 'Meeting notes and chat discussions',
+    onedrive: 'OneDrive file changes and collaboration',
+    onenote: 'OneNote pages, notebooks, and notes',
+    sharepoint: 'SharePoint site activity and documents',
   };
   return descriptions[tool];
 }

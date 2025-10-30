@@ -1,24 +1,12 @@
 import React, { useState } from 'react';
-import { Shield, Github, Database, Figma, Mail, FileText, MessageSquare, Check, X, Loader2, ExternalLink, RefreshCw, Trash2, Clock, AlertCircle, Share2, Cloud, BookOpen } from 'lucide-react';
+import { Shield, Check, X, Loader2, ExternalLink, RefreshCw, Trash2, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { MCPPrivacyNotice } from '../../components/mcp/MCPPrivacyNotice';
 import { useMCPTools, useMCPPrivacy } from '../../hooks/useMCP';
 import { MCPToolType } from '../../services/mcp.service';
 import { useToast } from '../../contexts/ToastContext';
-
-const toolIcons: Record<MCPToolType, React.ComponentType<{ className?: string }>> = {
-  [MCPToolType.GITHUB]: Github,
-  [MCPToolType.JIRA]: Database,
-  [MCPToolType.FIGMA]: Figma,
-  [MCPToolType.OUTLOOK]: Mail,
-  [MCPToolType.CONFLUENCE]: FileText,
-  [MCPToolType.SLACK]: MessageSquare,
-  [MCPToolType.TEAMS]: MessageSquare,
-  [MCPToolType.SHAREPOINT]: Share2,
-  [MCPToolType.ONEDRIVE]: Cloud,
-  [MCPToolType.ONENOTE]: BookOpen,
-};
+import { ToolIcon, type ToolType } from '../../components/icons/ToolIcons';
 
 const toolDescriptions: Record<MCPToolType, string> = {
   [MCPToolType.GITHUB]: 'Import commits, pull requests, and issues from your repositories',
@@ -111,7 +99,6 @@ const IntegrationsPage: React.FC = () => {
       {/* Tool Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {Object.values(MCPToolType).map(toolType => {
-          const Icon = toolIcons[toolType];
           const status = getToolStatus(toolType);
           const isCurrentlyConnecting = isConnecting && connectingTool === toolType;
 
@@ -121,7 +108,7 @@ const IntegrationsPage: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${status.isConnected ? 'bg-green-100' : 'bg-gray-100'}`}>
-                      <Icon className={`h-6 w-6 ${status.isConnected ? 'text-green-600' : 'text-gray-600'}`} />
+                      <ToolIcon tool={toolType as ToolType} size={24} disabled={!status.isConnected} />
                     </div>
                     <div>
                       <CardTitle className="text-lg">
