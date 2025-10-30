@@ -106,6 +106,39 @@ const toolConfigs: Record<MCPToolType, {
     description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.',
     color: 'text-indigo-700',
     bgColor: 'bg-indigo-100'
+  },
+  onedrive: {
+    name: 'OneDrive',
+    icon: ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M4.876 12.504c0-2.832 2.296-5.128 5.128-5.128 2.222 0 4.113 1.417 4.82 3.392a4.38 4.38 0 011.388-.224c2.424 0 4.388 1.964 4.388 4.388 0 2.424-1.964 4.388-4.388 4.388H5.788c-2.218 0-4.013-1.796-4.013-4.013 0-2.055 1.551-3.75 3.544-3.976a5.108 5.108 0 01-.443-2.077z" fill="#0078D4"/>
+      </svg>
+    ),
+    description: 'Import OneDrive file changes and collaboration activity.',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100'
+  },
+  onenote: {
+    name: 'OneNote',
+    icon: ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" fill="#7719AA"/>
+      </svg>
+    ),
+    description: 'Import OneNote pages, notebooks, and note-taking activity.',
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-100'
+  },
+  sharepoint: {
+    name: 'SharePoint',
+    icon: ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M15.5 8.5c-2.5 0-4.5 2-4.5 4.5s2 4.5 4.5 4.5S20 15.5 20 13s-2-4.5-4.5-4.5zm0 7c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5zM7 5.5C7 3.6 8.6 2 10.5 2S14 3.6 14 5.5 12.4 9 10.5 9 7 7.4 7 5.5zm3 0c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5-.7 1.5-1.5 1.5S10 6.3 10 5.5zM4 13c0-1.9 1.6-3.5 3.5-3.5S11 11.1 11 13s-1.6 3.5-3.5 3.5S4 14.9 4 13zm3 0c0-.8.7-1.5 1.5-1.5S10 12.2 10 13s-.7 1.5-1.5 1.5S7 13.8 7 13z" fill="#036C70"/>
+      </svg>
+    ),
+    description: 'Import SharePoint site activity, documents, and list updates.',
+    color: 'text-teal-700',
+    bgColor: 'bg-teal-100'
   }
 };
 
@@ -121,8 +154,8 @@ const integrationGroups: MCPIntegrationGroup[] = [
   {
     id: 'microsoft',
     name: 'Microsoft Suite',
-    description: 'Connect once to authorize both Outlook and Teams',
-    tools: ['outlook', 'teams'],
+    description: 'Connect once to authorize Outlook, Teams, OneDrive, and OneNote',
+    tools: ['outlook', 'teams', 'onedrive', 'onenote'],
     providerName: 'Microsoft'
   }
 ];
