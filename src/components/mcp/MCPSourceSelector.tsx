@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -40,30 +40,40 @@ export function MCPSourceSelector({
     end: new Date()
   });
 
-  // Convert integrations data to tools format
-  const tools: MCPTool[] = integrationsData?.integrations?.map((integration: any) => ({
-    type: integration.toolType,
-    name: integration.name || getToolDisplayName(integration.toolType as ToolType) || integration.toolType,
-    description: integration.description || getToolDescription(integration.toolType as ToolType) || '',
-    isConnected: integration.isConnected, // Fixed: use isConnected instead of isActive
-    connectedAt: integration.connectedAt,
-    lastSyncAt: integration.lastSyncAt
-  })) || [];
+  // Track if we've already auto-selected tools (to prevent re-selection)
+  const hasAutoSelectedRef = useRef(false);
+
+  // Convert integrations data to tools format (memoized to prevent unnecessary re-renders)
+  const tools: MCPTool[] = useMemo(() =>
+    integrationsData?.integrations?.map((integration: any) => ({
+      type: integration.toolType,
+      name: integration.name || getToolDisplayName(integration.toolType as ToolType) || integration.toolType,
+      description: integration.description || getToolDescription(integration.toolType as ToolType) || '',
+      isConnected: integration.isConnected, // Fixed: use isConnected instead of isActive
+      connectedAt: integration.connectedAt,
+      lastSyncAt: integration.lastSyncAt
+    })) || [],
+    [integrationsData]
+  );
 
   // DEBUG: Log the data to understand what's happening
   console.log('[MCPSourceSelector] Raw integrations data:', integrationsData);
   console.log('[MCPSourceSelector] Mapped tools:', tools);
   console.log('[MCPSourceSelector] Connected tools:', tools.filter(t => t.isConnected));
 
-  // Auto-select connected tools when data loads
+  // Auto-select connected tools when data loads (only once on initial load)
   useEffect(() => {
-    if (tools.length > 0 && defaultSelected.length === 0 && selectedTools.size === 0) {
+    // Only auto-select if we haven't already done so
+    if (!hasAutoSelectedRef.current && tools.length > 0 && defaultSelected.length === 0) {
       const connectedTools = tools
         .filter((t: MCPTool) => t.isConnected)
         .map((t: MCPTool) => t.type);
-      setSelectedTools(new Set(connectedTools));
+      if (connectedTools.length > 0) {
+        setSelectedTools(new Set(connectedTools));
+        hasAutoSelectedRef.current = true; // Mark as auto-selected
+      }
     }
-  }, [tools, defaultSelected.length, selectedTools.size]);
+  }, [tools.length, defaultSelected.length]);
 
   const toggleTool = (toolType: string) => {
     const newSelected = new Set(selectedTools);
