@@ -7,7 +7,10 @@ import {
   OutlookActivity,
   ConfluenceActivity,
   SlackActivity,
-  TeamsActivity
+  TeamsActivity,
+  SharePointActivity,
+  OneDriveActivity,
+  OneNoteActivity
 } from '../../types/mcp.types';
 import { ModelSelectorService, modelSelector } from '../ai/model-selector.service';
 import { AnalyzerAgent, CorrelatorAgent, GeneratorAgent } from './agents';
@@ -317,6 +320,15 @@ Return ONLY valid JSON, no additional text.
         case MCPToolType.TEAMS:
           summary += this.summarizeTeamsActivity(data as TeamsActivity);
           break;
+        case MCPToolType.SHAREPOINT:
+          summary += this.summarizeSharePointActivity(data as SharePointActivity);
+          break;
+        case MCPToolType.ONEDRIVE:
+          summary += this.summarizeOneDriveActivity(data as OneDriveActivity);
+          break;
+        case MCPToolType.ONENOTE:
+          summary += this.summarizeOneNoteActivity(data as OneNoteActivity);
+          break;
       }
     });
 
@@ -485,6 +497,98 @@ Return ONLY valid JSON, no additional text.
       activity.channelMessages.slice(0, 5).forEach((msg, idx) => {
         summary += `  ${idx + 1}. ${msg.content.substring(0, 100)}...\n`;
         summary += `     Team: ${msg.teamName}, Channel: ${msg.channelName}\n`;
+      });
+      summary += '\n';
+    }
+
+    return summary;
+  }
+
+  /**
+   * Summarize SharePoint activity for AI
+   */
+  private summarizeSharePointActivity(activity: SharePointActivity): string {
+    let summary = `\n**SharePoint Activity:**\n`;
+    summary += `- ${activity.sites?.length || 0} sites accessed\n`;
+    summary += `- ${activity.recentFiles?.length || 0} recent files\n`;
+    summary += `- ${activity.lists?.length || 0} lists\n\n`;
+
+    if (activity.recentFiles?.length > 0) {
+      summary += `Recent Files:\n`;
+      activity.recentFiles.slice(0, 5).forEach((file, idx) => {
+        summary += `  ${idx + 1}. ${file.name} (${file.fileType})\n`;
+        summary += `     Site: ${file.siteName}, Last Modified: ${new Date(file.lastModifiedDateTime).toLocaleDateString()}\n`;
+      });
+      summary += '\n';
+    }
+
+    if (activity.sites?.length > 0) {
+      summary += `Sites:\n`;
+      activity.sites.slice(0, 3).forEach((site, idx) => {
+        summary += `  ${idx + 1}. ${site.displayName}\n`;
+        summary += `     URL: ${site.webUrl}\n`;
+      });
+      summary += '\n';
+    }
+
+    return summary;
+  }
+
+  /**
+   * Summarize OneDrive activity for AI
+   */
+  private summarizeOneDriveActivity(activity: OneDriveActivity): string {
+    let summary = `\n**OneDrive Activity:**\n`;
+    summary += `- ${activity.recentFiles?.length || 0} recent files\n`;
+    summary += `- ${activity.sharedFiles?.length || 0} shared files\n\n`;
+
+    if (activity.recentFiles?.length > 0) {
+      summary += `Recent Files:\n`;
+      activity.recentFiles.slice(0, 5).forEach((file, idx) => {
+        summary += `  ${idx + 1}. ${file.name} (${file.fileType})\n`;
+        summary += `     Path: ${file.parentPath}, Last Modified: ${new Date(file.lastModifiedDateTime).toLocaleDateString()}\n`;
+      });
+      summary += '\n';
+    }
+
+    if (activity.sharedFiles?.length > 0) {
+      summary += `Shared Files:\n`;
+      activity.sharedFiles.slice(0, 5).forEach((file, idx) => {
+        summary += `  ${idx + 1}. ${file.name} (${file.fileType})\n`;
+        summary += `     Shared with: ${file.sharedWith.join(', ')}, Permissions: ${file.permissions}\n`;
+      });
+      summary += '\n';
+    }
+
+    return summary;
+  }
+
+  /**
+   * Summarize OneNote activity for AI
+   */
+  private summarizeOneNoteActivity(activity: OneNoteActivity): string {
+    let summary = `\n**OneNote Activity:**\n`;
+    summary += `- ${activity.notebooks?.length || 0} notebooks\n`;
+    summary += `- ${activity.sections?.length || 0} sections\n`;
+    summary += `- ${activity.pages?.length || 0} pages\n\n`;
+
+    if (activity.pages?.length > 0) {
+      summary += `Recent Pages:\n`;
+      activity.pages.slice(0, 5).forEach((page, idx) => {
+        summary += `  ${idx + 1}. ${page.title}\n`;
+        summary += `     Notebook: ${page.notebookName}, Section: ${page.sectionName}\n`;
+        summary += `     Last Modified: ${new Date(page.lastModifiedDateTime).toLocaleDateString()}\n`;
+        if (page.contentPreview) {
+          summary += `     Preview: ${page.contentPreview.substring(0, 100)}...\n`;
+        }
+      });
+      summary += '\n';
+    }
+
+    if (activity.notebooks?.length > 0) {
+      summary += `Notebooks:\n`;
+      activity.notebooks.slice(0, 3).forEach((notebook, idx) => {
+        summary += `  ${idx + 1}. ${notebook.displayName} (${notebook.sectionCount} sections)\n`;
       });
       summary += '\n';
     }

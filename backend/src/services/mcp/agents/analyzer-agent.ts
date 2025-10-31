@@ -1,5 +1,10 @@
 import { ModelSelectorService } from '../../ai/model-selector.service';
-import { MCPToolType } from '../../../types/mcp.types';
+import {
+  MCPToolType,
+  SharePointActivity,
+  OneDriveActivity,
+  OneNoteActivity
+} from '../../../types/mcp.types';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
 
 export interface AnalyzedActivity {
@@ -132,7 +137,7 @@ ${activitiesSummary}
   "activities": [
     {
       "id": "unique-id",
-      "source": "github|jira|figma|outlook|confluence|slack|teams",
+      "source": "github|jira|figma|outlook|confluence|slack|teams|sharepoint|onedrive|onenote",
       "type": "code_change|issue|meeting|design|documentation|discussion",
       "title": "Activity title",
       "description": "Brief description",
@@ -236,6 +241,51 @@ ${this.buildQuickAnalysisPrompt(activities)}
           }
           if (data.emails?.length > 0) {
             summaries.push(`- ${data.emails.length} Important Emails`);
+          }
+          break;
+
+        case MCPToolType.SHAREPOINT:
+          if (data.recentFiles?.length > 0) {
+            summaries.push(`- ${data.recentFiles.length} Recent Files`);
+            data.recentFiles.slice(0, 3).forEach((file: any) => {
+              summaries.push(`  • ${file.name} (${file.fileType}) - Modified: ${new Date(file.lastModifiedDateTime).toLocaleDateString()}`);
+            });
+          }
+          if (data.sites?.length > 0) {
+            summaries.push(`- ${data.sites.length} SharePoint Sites Accessed`);
+          }
+          if (data.lists?.length > 0) {
+            summaries.push(`- ${data.lists.length} Lists`);
+          }
+          break;
+
+        case MCPToolType.ONEDRIVE:
+          if (data.recentFiles?.length > 0) {
+            summaries.push(`- ${data.recentFiles.length} Recent Files`);
+            data.recentFiles.slice(0, 3).forEach((file: any) => {
+              summaries.push(`  • ${file.name} (${file.fileType}) - Modified: ${new Date(file.lastModifiedDateTime).toLocaleDateString()}`);
+            });
+          }
+          if (data.sharedFiles?.length > 0) {
+            summaries.push(`- ${data.sharedFiles.length} Shared Files`);
+            data.sharedFiles.slice(0, 3).forEach((file: any) => {
+              summaries.push(`  • ${file.name} shared with ${file.sharedWith.length} people`);
+            });
+          }
+          break;
+
+        case MCPToolType.ONENOTE:
+          if (data.pages?.length > 0) {
+            summaries.push(`- ${data.pages.length} OneNote Pages`);
+            data.pages.slice(0, 3).forEach((page: any) => {
+              summaries.push(`  • ${page.title} in ${page.notebookName}/${page.sectionName}`);
+            });
+          }
+          if (data.notebooks?.length > 0) {
+            summaries.push(`- ${data.notebooks.length} Notebooks`);
+          }
+          if (data.sections?.length > 0) {
+            summaries.push(`- ${data.sections.length} Sections`);
           }
           break;
 
