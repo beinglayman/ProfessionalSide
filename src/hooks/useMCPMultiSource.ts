@@ -75,6 +75,7 @@ export function useMCPMultiSource() {
     }));
 
     try {
+      console.log('[useMCPMultiSource] Calling API with toolTypes:', toolTypes);
       // Use the all-in-one endpoint for better performance
       const response = await api.post('/mcp/fetch-and-process', {
         toolTypes,

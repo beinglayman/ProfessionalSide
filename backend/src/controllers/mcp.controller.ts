@@ -755,6 +755,7 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
     }
 
     console.log(`[MCP Agents] Full pipeline: Fetching from ${toolTypes.length} tools and processing with agents`);
+    console.log(`[MCP Agents] Requested toolTypes:`, toolTypes);
 
     // Helper function to calculate item count for different tool data structures
     const getItemCount = (toolType: string, data: any): number => {

@@ -141,6 +141,7 @@ export function MCPSourceSelector({
 
   const handleFetch = async () => {
     const selectedToolTypes = Array.from(selectedTools);
+    console.log('[MCPSourceSelector] Selected tools:', selectedToolTypes);
     if (selectedToolTypes.length === 0) {
       return;
     }
