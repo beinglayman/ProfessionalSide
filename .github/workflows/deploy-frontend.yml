@@ -30,8 +30,9 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
-          echo "VITE_API_URL=${VITE_API_URL}" > .env.production
+          echo "Building frontend with API URL: ${VITE_API_URL}"
           az acr build --registry "${{ secrets.ACR_NAME }}" \
+            --build-arg VITE_API_URL="${VITE_API_URL}" \
             --image inchronicle-frontend:latest .
 
       - name: Update Web App container image
