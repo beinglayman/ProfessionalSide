@@ -347,6 +347,9 @@ export class MCPOAuthService {
       params.append('response_mode', 'query');
       params.append('prompt', 'consent');
       params.append('access_type', 'offline'); // Request refresh token for Microsoft
+    } else if (toolType === MCPToolType.GOOGLE_WORKSPACE) {
+      params.append('access_type', 'offline'); // Request refresh token for Google
+      params.append('prompt', 'consent'); // Force consent screen to ensure refresh token
     } else if (toolType === MCPToolType.SLACK) {
       params.append('user_scope', config.scope);
     } else if (toolType === MCPToolType.GITHUB) {
@@ -478,6 +481,14 @@ export class MCPOAuthService {
       const redirectUri = groupType
         ? config.redirectUri.replace(/\/(jira|outlook)$/, `/${groupType}`)
         : config.redirectUri;
+
+      console.log(`[MCP OAuth] Exchanging code for ${primaryTool}:`, {
+        tokenUrl: config.tokenUrl,
+        redirectUri,
+        clientId: config.clientId,
+        hasClientSecret: !!config.clientSecret,
+        codeLength: code.length
+      });
 
       // Exchange code for tokens
       const tokenResponse = await axios.post(
