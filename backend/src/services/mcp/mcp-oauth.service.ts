@@ -189,7 +189,7 @@ export class MCPOAuthService {
       });
     }
 
-    // Zoom OAuth configuration
+    // Zoom OAuth configuration (User-Managed OAuth)
     if (process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET) {
       this.oauthConfigs.set(MCPToolType.ZOOM, {
         clientId: process.env.ZOOM_CLIENT_ID,
@@ -198,9 +198,9 @@ export class MCPOAuthService {
           `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/zoom`,
         authorizationUrl: 'https://zoom.us/oauth/authorize',
         tokenUrl: 'https://zoom.us/oauth/token',
-        // Server-to-Server OAuth scopes (2025 format)
+        // User-Managed OAuth granular scopes (2025 format without :admin suffix)
         // Core meeting and recording access for professional activity tracking
-        scope: 'meeting:read:list_meetings:admin meeting:read:list_upcoming_meetings:admin meeting:read:past_meeting:admin meeting:read:meeting:admin meeting:read:list_past_participants:admin cloud_recording:read:list_user_recordings:admin cloud_recording:read:recording:admin cloud_recording:read:meeting_transcript:admin cloud_recording:read:list_recording_files:admin report:read:list_history_meetings:admin report:read:meeting:admin user:read:user:admin user:read:list_users:admin'
+        scope: 'meeting:read:meeting meeting:read:list_meetings meeting:read:list_upcoming_meetings meeting:read:list_past_instances cloud_recording:read:list_user_recordings cloud_recording:read:list_recording_files cloud_recording:read:meeting_transcript cloud_recording:read:recording user:read:user'
       });
     }
 
