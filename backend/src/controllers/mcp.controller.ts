@@ -268,7 +268,7 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
     }
 
     // Validate that the toolType in params matches expected tools or groups
-    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'];
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint', 'zoom', 'google_workspace'];
     const validGroups = ['atlassian', 'microsoft'];
     const isGroupCallback = validGroups.includes(toolType);
 
@@ -396,7 +396,7 @@ export const fetchData = asyncHandler(async (req: Request, res: Response): Promi
       return;
     }
 
-    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'];
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint', 'zoom', 'google_workspace'];
     const invalidTools = toolTypes.filter((t: string) => !validTools.includes(t));
 
     if (invalidTools.length > 0) {
@@ -474,7 +474,7 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
       return;
     }
 
-    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint'];
+    const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'sharepoint', 'zoom', 'google_workspace'];
     const invalidTools = toolTypes.filter((t: string) => !validTools.includes(t));
 
     if (invalidTools.length > 0) {
