@@ -189,6 +189,35 @@ export class MCPOAuthService {
       });
     }
 
+    // Zoom OAuth configuration
+    if (process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET) {
+      this.oauthConfigs.set(MCPToolType.ZOOM, {
+        clientId: process.env.ZOOM_CLIENT_ID,
+        clientSecret: process.env.ZOOM_CLIENT_SECRET,
+        redirectUri: process.env.ZOOM_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/zoom`,
+        authorizationUrl: 'https://zoom.us/oauth/authorize',
+        tokenUrl: 'https://zoom.us/oauth/token',
+        // Server-to-Server OAuth scopes (2025 format)
+        // Core meeting and recording access for professional activity tracking
+        scope: 'meeting:read:list_meetings:admin meeting:read:list_upcoming_meetings:admin meeting:read:past_meeting:admin meeting:read:meeting:admin meeting:read:list_past_participants:admin cloud_recording:read:list_user_recordings:admin cloud_recording:read:recording:admin cloud_recording:read:meeting_transcript:admin cloud_recording:read:list_recording_files:admin report:read:list_history_meetings:admin report:read:meeting:admin user:read:user:admin user:read:list_users:admin'
+      });
+    }
+
+    // Google Workspace OAuth configuration
+    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+      this.oauthConfigs.set(MCPToolType.GOOGLE_WORKSPACE, {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI ||
+          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/google_workspace`,
+        authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+        // Minimal scopes for Drive, Docs, Sheets, Slides, and Meet access
+        scope: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.meet.readonly https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/presentations.readonly https://www.googleapis.com/auth/calendar.readonly'
+      });
+    }
+
     console.log(`[MCP OAuth] Initialized ${this.oauthConfigs.size} OAuth configurations`);
 
     // Log detailed configuration status
@@ -199,7 +228,7 @@ export class MCPOAuthService {
    * Log detailed diagnostics about OAuth configuration status
    */
   private logConfigurationDiagnostics(): void {
-    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote'];
+    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'zoom', 'google_workspace'];
     // Note: SharePoint removed (requires admin consent for Sites.Read.All)
     const configured: string[] = [];
     const missing: string[] = [];
@@ -230,7 +259,9 @@ export class MCPOAuthService {
         'sharepoint': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
         'onedrive': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
         'onenote': ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
-        'slack': ['SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET']
+        'slack': ['SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET'],
+        'zoom': ['ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'],
+        'google_workspace': ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']
       };
 
       missing.forEach(tool => {

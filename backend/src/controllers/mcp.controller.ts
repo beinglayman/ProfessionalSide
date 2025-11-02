@@ -47,7 +47,9 @@ export const getAvailableTools = asyncHandler(async (req: Request, res: Response
       { type: 'slack', name: 'Slack', description: 'Import important messages and discussions from Slack' },
       { type: 'teams', name: 'Microsoft Teams', description: 'Sync meeting notes and chat discussions from Teams' },
       { type: 'onedrive', name: 'OneDrive', description: 'Import OneDrive file changes and collaboration activity' },
-      { type: 'onenote', name: 'OneNote', description: 'Import OneNote pages, notebooks, and note-taking activity' }
+      { type: 'onenote', name: 'OneNote', description: 'Import OneNote pages, notebooks, and note-taking activity' },
+      { type: 'zoom', name: 'Zoom', description: 'Import Zoom meeting recordings and transcripts' },
+      { type: 'google_workspace', name: 'Google Workspace', description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings' }
     ].map(tool => {
       const integration = integrationMap.get(tool.type);
       return {
@@ -110,11 +112,13 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
       slack: { name: 'Slack', description: 'Important messages and discussions' },
       teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' },
       onedrive: { name: 'OneDrive', description: 'OneDrive file changes and collaboration' },
-      onenote: { name: 'OneNote', description: 'OneNote pages, notebooks, and notes' }
+      onenote: { name: 'OneNote', description: 'OneNote pages, notebooks, and notes' },
+      zoom: { name: 'Zoom', description: 'Meeting recordings and transcripts' },
+      google_workspace: { name: 'Google Workspace', description: 'Google Docs, Sheets, Slides, Drive, and Meet' }
     };
 
     // Ensure all tools are represented
-    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote'];
+    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'zoom', 'google_workspace'];
     const integrationMap = new Map(integrations.map(i => [i.toolType, i]));
 
     const allIntegrations = allTools.map(tool => {
@@ -164,7 +168,7 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
     return;
   }
 
-  const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote'];
+  const validTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'zoom', 'google_workspace'];
 
   if (!toolType || !validTools.includes(toolType)) {
     sendError(res, 'Invalid or unavailable tool type', 400);
@@ -792,6 +796,12 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
         case 'sharepoint':
           // SharePoint returns object: {sitesAccessed, filesModified, listsUpdated, highlights[]}
           return (data.filesModified || 0) + (data.listsUpdated || 0);
+        case 'zoom':
+          // Zoom returns object: {meetings[], upcomingMeetings[], recordings[]}
+          return (data.meetings?.length || 0) + (data.upcomingMeetings?.length || 0) + (data.recordings?.length || 0);
+        case 'google_workspace':
+          // Google Workspace returns object: {driveFiles[], docs[], sheets[], slides[], meetRecordings[]}
+          return (data.driveFiles?.length || 0) + (data.docs?.length || 0) + (data.sheets?.length || 0) + (data.slides?.length || 0) + (data.meetRecordings?.length || 0);
         default:
           // Fallback: if data is an array, return its length
           return Array.isArray(data) ? data.length : 0;
@@ -823,6 +833,10 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
           return `${data.pagesCreated || 0} pages created, ${data.pagesUpdated || 0} pages updated`;
         case 'sharepoint':
           return `${data.filesModified || 0} files modified, ${data.listsUpdated || 0} lists updated`;
+        case 'zoom':
+          return `${data.meetings?.length || 0} meetings, ${data.upcomingMeetings?.length || 0} upcoming, ${data.recordings?.length || 0} recordings`;
+        case 'google_workspace':
+          return `${data.driveFiles?.length || 0} Drive files, ${data.docs?.length || 0} Docs, ${data.sheets?.length || 0} Sheets, ${data.slides?.length || 0} Slides, ${data.meetRecordings?.length || 0} Meet recordings`;
         default:
           return `${Array.isArray(data) ? data.length : 0} items`;
       }
@@ -839,7 +853,9 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
       teams: () => import('../services/mcp/tools/teams.tool').then(m => new m.TeamsTool()),
       onedrive: () => import('../services/mcp/tools/onedrive.tool').then(m => new m.OneDriveTool()),
       onenote: () => import('../services/mcp/tools/onenote.tool').then(m => new m.OneNoteTool()),
-      sharepoint: () => import('../services/mcp/tools/sharepoint.tool').then(m => new m.SharePointTool())
+      sharepoint: () => import('../services/mcp/tools/sharepoint.tool').then(m => new m.SharePointTool()),
+      zoom: () => import('../services/mcp/tools/zoom.tool').then(m => new m.ZoomTool()),
+      google_workspace: () => import('../services/mcp/tools/google-workspace.tool').then(m => new m.GoogleWorkspaceTool())
     };
 
     // Parse date range

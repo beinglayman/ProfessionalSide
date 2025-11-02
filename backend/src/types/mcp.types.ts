@@ -15,7 +15,9 @@ export enum MCPToolType {
   TEAMS = 'teams',
   SHAREPOINT = 'sharepoint',
   ONEDRIVE = 'onedrive',
-  ONENOTE = 'onenote'
+  ONENOTE = 'onenote',
+  ZOOM = 'zoom',
+  GOOGLE_WORKSPACE = 'google_workspace'
 }
 
 // MCP action types for audit logging
@@ -385,6 +387,123 @@ export interface OneNoteActivity {
   }>;
 }
 
+// Zoom types
+export interface ZoomActivity {
+  meetings: Array<{
+    id: string;
+    uuid: string;
+    topic: string;
+    type: number;
+    startTime: string;
+    duration: number;
+    timezone?: string;
+    hostId?: string;
+    hostEmail?: string;
+    participantsCount?: number;
+    joinUrl?: string;
+  }>;
+  upcomingMeetings: Array<{
+    id: string;
+    uuid: string;
+    topic: string;
+    type: number;
+    startTime: string;
+    duration: number;
+    timezone?: string;
+    joinUrl?: string;
+    agenda?: string;
+  }>;
+  recordings: Array<{
+    id: string;
+    meetingId: string;
+    recordingStart: string;
+    recordingEnd: string;
+    duration: number;
+    totalSize: number;
+    recordingCount: number;
+    shareUrl?: string;
+    topic: string;
+    recordingFiles: Array<{
+      id: string;
+      recordingType: string;
+      fileType: string;
+      fileSize: number;
+      downloadUrl?: string;
+      playUrl?: string;
+    }>;
+    transcript?: {
+      id: string;
+      meetingId: string;
+      transcript: string;
+      vttUrl?: string;
+    };
+  }>;
+}
+
+// Google Workspace types
+export interface GoogleWorkspaceActivity {
+  driveFiles: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    webViewLink: string;
+    iconLink?: string;
+    thumbnailLink?: string;
+    createdTime: string;
+    modifiedTime: string;
+    size?: string;
+    starred: boolean;
+    owners?: Array<{
+      displayName: string;
+      emailAddress: string;
+    }>;
+    lastModifyingUser?: {
+      displayName: string;
+      emailAddress: string;
+    };
+    shared: boolean;
+  }>;
+  docs: Array<{
+    id: string;
+    title: string;
+    documentId: string;
+    revisionId?: string;
+    webViewLink: string;
+    createdTime: string;
+    modifiedTime: string;
+    lastModifiedBy?: string;
+  }>;
+  sheets: Array<{
+    id: string;
+    title: string;
+    spreadsheetId: string;
+    webViewLink: string;
+    sheetCount?: number;
+    createdTime: string;
+    modifiedTime: string;
+    lastModifiedBy?: string;
+  }>;
+  slides: Array<{
+    id: string;
+    title: string;
+    presentationId: string;
+    webViewLink: string;
+    slideCount?: number;
+    createdTime: string;
+    modifiedTime: string;
+    lastModifiedBy?: string;
+  }>;
+  meetRecordings: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    webViewLink: string;
+    createdTime: string;
+    duration?: string;
+    size?: string;
+  }>;
+}
+
 // ============================================================================
 // API Request/Response Schemas
 // ============================================================================
@@ -474,6 +593,8 @@ export interface MCPDailySummaryData {
     sharepoint?: SharePointActivity;
     onedrive?: OneDriveActivity;
     onenote?: OneNoteActivity;
+    zoom?: ZoomActivity;
+    google_workspace?: GoogleWorkspaceActivity;
   };
   suggestedContent?: {
     title: string;
