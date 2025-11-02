@@ -19,6 +19,8 @@ const toolDescriptions: Record<MCPToolType, string> = {
   [MCPToolType.SHAREPOINT]: 'Import SharePoint site activity, documents, and list updates',
   [MCPToolType.ONEDRIVE]: 'Import OneDrive file changes and collaboration activity',
   [MCPToolType.ONENOTE]: 'Import OneNote pages, notebooks, and note-taking activity',
+  [MCPToolType.ZOOM]: 'Import Zoom meeting recordings, transcripts, and participant data',
+  [MCPToolType.GOOGLE_WORKSPACE]: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings',
 };
 
 const IntegrationsPage: React.FC = () => {
