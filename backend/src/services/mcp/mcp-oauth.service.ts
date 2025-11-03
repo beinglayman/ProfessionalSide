@@ -190,6 +190,7 @@ export class MCPOAuthService {
     }
 
     // Zoom OAuth configuration (User-Managed OAuth)
+    // Note: Uses granular scopes WITHOUT :admin suffix (User-Managed apps don't accept :admin)
     if (process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET) {
       this.oauthConfigs.set(MCPToolType.ZOOM, {
         clientId: process.env.ZOOM_CLIENT_ID,
