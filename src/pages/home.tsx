@@ -18,7 +18,33 @@ export function HomePage() {
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl mt-16 mb-16">
               Let your work do the talking.
               <br />
-              <span className="text-primary-600">Chronicle your professional journey.</span>
+              <span className="relative inline-block">
+                <span
+                  className="absolute -left-12 -top-2 text-3xl sm:text-5xl lg:text-6xl text-red-500 rotate-[-5deg]"
+                  style={{
+                    fontFamily: "'Caveat', cursive",
+                    fontWeight: 400
+                  }}
+                >
+                  In
+                  <svg
+                    className="absolute left-0 -bottom-2"
+                    width="50"
+                    height="10"
+                    viewBox="0 0 50 10"
+                    style={{ transform: 'rotate(-3deg)' }}
+                  >
+                    <path
+                      d="M 2 5 Q 15 3, 25 5 T 48 5"
+                      stroke="#ef4444"
+                      strokeWidth="2"
+                      fill="none"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                <span className="text-primary-600">Chronicle your professional journey.</span>
+              </span>
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl text-center mx-auto leading-relaxed">
               A platform that secures your work legacy, tracks your progress, 
