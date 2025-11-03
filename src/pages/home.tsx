@@ -18,27 +18,7 @@ export function HomePage() {
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl mt-16 mb-16">
               Let your work do the talking.
               <br />
-              <span className="relative inline-block">
-                <span
-                  className="absolute -left-10 text-2xl sm:text-3xl lg:text-4xl text-black rotate-[-5deg]"
-                  style={{
-                    fontFamily: "'Caveat', cursive",
-                    fontWeight: 400,
-                    top: '-30px'
-                  }}
-                >
-                  In
-                  <span
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xl sm:text-2xl lg:text-3xl text-black"
-                    style={{
-                      fontFamily: "'Caveat', cursive"
-                    }}
-                  >
-                    ^
-                  </span>
-                </span>
-                <span className="text-primary-600">Chronicle your professional journey.</span>
-              </span>
+              <span className="text-primary-600">Chronicle your professional journey.</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl text-center mx-auto leading-relaxed">
               A platform that secures your work legacy, tracks your progress, 
