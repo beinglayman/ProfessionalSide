@@ -20,15 +20,16 @@ export function HomePage() {
               <br />
               <span className="relative inline-block">
                 <span
-                  className="absolute -left-12 -top-2 text-3xl sm:text-5xl lg:text-6xl text-black rotate-[-5deg]"
+                  className="absolute -left-10 text-2xl sm:text-3xl lg:text-4xl text-black rotate-[-5deg]"
                   style={{
                     fontFamily: "'Caveat', cursive",
-                    fontWeight: 400
+                    fontWeight: 400,
+                    top: '-30px'
                   }}
                 >
                   In
                   <span
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-2xl sm:text-4xl lg:text-5xl text-black"
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xl sm:text-2xl lg:text-3xl text-black"
                     style={{
                       fontFamily: "'Caveat', cursive"
                     }}
