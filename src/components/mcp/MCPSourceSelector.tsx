@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -40,9 +40,6 @@ export function MCPSourceSelector({
     end: new Date()
   });
 
-  // Track if we've already auto-selected tools (to prevent re-selection)
-  const hasAutoSelectedRef = useRef(false);
-
   // Convert integrations data to tools format (memoized to prevent unnecessary re-renders)
   const tools: MCPTool[] = useMemo(() =>
     integrationsData?.integrations?.map((integration: any) => ({
@@ -63,17 +60,17 @@ export function MCPSourceSelector({
 
   // Auto-select connected tools when data loads (only once on initial load)
   useEffect(() => {
-    // Only auto-select if we haven't already done so
-    if (!hasAutoSelectedRef.current && tools.length > 0 && defaultSelected.length === 0) {
+    // Only auto-select on initial mount when no tools are selected yet
+    if (tools.length > 0 && defaultSelected.length === 0 && selectedTools.size === 0) {
       const connectedTools = tools
         .filter((t: MCPTool) => t.isConnected)
         .map((t: MCPTool) => t.type);
       if (connectedTools.length > 0) {
         setSelectedTools(new Set(connectedTools));
-        hasAutoSelectedRef.current = true; // Mark as auto-selected
       }
     }
-  }, [tools.length, defaultSelected.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tools]);
 
   const toggleTool = (toolType: string) => {
     const newSelected = new Set(selectedTools);
