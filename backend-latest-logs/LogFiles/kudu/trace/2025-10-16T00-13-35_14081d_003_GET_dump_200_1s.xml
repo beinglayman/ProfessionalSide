@@ -1,0 +1,4 @@
+<step title="Incoming Request" date="2025-10-16T00:13:35.339" instance="14081d" url="/dump" method="GET" type="request" pid="770,1,5" Host="ps-backend-1758551070.scm.azurewebsites.net" User-Agent="AZURECLI/2.75.0 (HOMEBREW)" Accept-Encoding="identity" Authorization="Bas..." x-ms-client-request-id="f1d065c6-aa24-11f0-adf6-8601b54499bd" X-ARR-LOG-ID="f1d065c6-aa24-11f0-adf6-8601b54499bd" CLIENT-IP="223.233.82.133:12107" X-SITE-DEPLOYMENT-ID="ps-backend-1758551070" WAS-DEFAULT-HOSTNAME="ps-backend-1758551070.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/dump" X-Client-IP="223.233.82.133" X-Client-Port="12107" >
+  <step title="Cleanup Xml Logs" date="2025-10-16T00:13:35.344" /><!-- duration: 15ms -->
+  <step title="Outgoing response" date="2025-10-16T00:13:36.555" type="response" statusCode="200" statusText="OK" /><!-- duration: 5ms -->
+</step><!-- duration: 1225ms -->

@@ -153,6 +153,24 @@ export function MCPFlowSidePanel({
         );
 
       case 'review':
+        console.log('[MCPFlowSidePanel] ========== RENDERING REVIEW STEP ==========');
+        console.log('[MCPFlowSidePanel] Organized data:', mcpMultiSource.organizedData);
+        console.log('[MCPFlowSidePanel] Sources:', mcpMultiSource.sources);
+
+        // Log detailed category breakdown
+        if (mcpMultiSource.organizedData) {
+          Object.entries(mcpMultiSource.organizedData).forEach(([category, data]: [string, any]) => {
+            console.log(`[MCPFlowSidePanel] Category "${category}":`, {
+              itemCount: data.items?.length || 0,
+              items: data.items?.map((item: any) => ({
+                title: item.title,
+                source: item.source,
+                category: item.category
+              }))
+            });
+          });
+        }
+
         return (
           <div className="space-y-6">
             <div className="text-center">

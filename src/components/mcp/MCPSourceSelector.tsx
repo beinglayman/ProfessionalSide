@@ -79,6 +79,7 @@ export function MCPSourceSelector({
     } else {
       newSelected.add(toolType);
     }
+    console.log('[MCPSourceSelector] Tool toggled:', toolType, 'New selection:', Array.from(newSelected));
     setSelectedTools(newSelected);
   };
 
@@ -138,12 +139,17 @@ export function MCPSourceSelector({
 
   const handleFetch = async () => {
     const selectedToolTypes = Array.from(selectedTools);
+    const dateRange = getDateRange();
+    console.log('[MCPSourceSelector] ========== FETCH TRIGGERED ==========');
     console.log('[MCPSourceSelector] Selected tools:', selectedToolTypes);
+    console.log('[MCPSourceSelector] Date range:', dateRange);
+    console.log('[MCPSourceSelector] Date range type:', dateRangeType);
+
     if (selectedToolTypes.length === 0) {
+      console.log('[MCPSourceSelector] No tools selected, aborting fetch');
       return;
     }
 
-    const dateRange = getDateRange();
     await onFetch(selectedToolTypes, dateRange);
   };
 

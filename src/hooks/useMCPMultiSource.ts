@@ -75,7 +75,10 @@ export function useMCPMultiSource() {
     }));
 
     try {
+      console.log('[useMCPMultiSource] ========== API CALL STARTING ==========');
       console.log('[useMCPMultiSource] Calling API with toolTypes:', toolTypes);
+      console.log('[useMCPMultiSource] Date range:', dateRange);
+
       // Use the all-in-one endpoint for better performance
       const response = await api.post('/mcp/fetch-and-process', {
         toolTypes,
@@ -90,6 +93,12 @@ export function useMCPMultiSource() {
       });
 
       const result = response.data;
+
+      console.log('[useMCPMultiSource] ========== API RESPONSE RECEIVED ==========');
+      console.log('[useMCPMultiSource] Response sources:', result.data?.sources);
+      console.log('[useMCPMultiSource] Organized data categories:', Object.keys(result.data?.organized || {}));
+      console.log('[useMCPMultiSource] Total activities:', result.data?.organized ?
+        Object.values(result.data.organized).reduce((sum: number, cat: any) => sum + (cat.items?.length || 0), 0) : 0);
 
       setState({
         isFetching: false,

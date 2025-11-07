@@ -758,8 +758,14 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
       return;
     }
 
-    console.log(`[MCP Agents] Full pipeline: Fetching from ${toolTypes.length} tools and processing with agents`);
+    console.log(`[MCP Agents] ========================================`);
+    console.log(`[MCP Agents] NEW REQUEST - Fetch and Process with Agents`);
+    console.log(`[MCP Agents] User ID: ${userId}`);
     console.log(`[MCP Agents] Requested toolTypes:`, toolTypes);
+    console.log(`[MCP Agents] Date range:`, dateRange);
+    console.log(`[MCP Agents] Quality:`, quality);
+    console.log(`[MCP Agents] Generate content:`, generateContent);
+    console.log(`[MCP Agents] ========================================`);
 
     // Helper function to calculate item count for different tool data structures
     const getItemCount = (toolType: string, data: any): number => {
@@ -962,6 +968,19 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
     );
 
     console.log(`[MCP Agents] Created session ${sessionId} with agent-processed data`);
+
+    // Log response details before sending
+    console.log(`[MCP Agents] ========================================`);
+    console.log(`[MCP Agents] SENDING RESPONSE TO FRONTEND`);
+    console.log(`[MCP Agents] Session ID: ${sessionId}`);
+    console.log(`[MCP Agents] Sources returned:`, Array.from(sourcesMap.keys()));
+    console.log(`[MCP Agents] Organized categories:`, Object.keys(agentResults.organized || {}));
+    if (agentResults.organized) {
+      Object.entries(agentResults.organized).forEach(([category, data]: [string, any]) => {
+        console.log(`[MCP Agents]   - ${category}: ${data.items?.length || 0} items`);
+      });
+    }
+    console.log(`[MCP Agents] ========================================`);
 
     sendSuccess(res, {
       sessionId,
