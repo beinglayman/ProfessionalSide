@@ -766,6 +766,7 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
     console.log(`[MCP Agents] Quality:`, quality);
     console.log(`[MCP Agents] Generate content:`, generateContent);
     console.log(`[MCP Agents] ========================================`);
+    // Comprehensive logging enabled for debugging tool selection issues
 
     // Helper function to calculate item count for different tool data structures
     const getItemCount = (toolType: string, data: any): number => {
