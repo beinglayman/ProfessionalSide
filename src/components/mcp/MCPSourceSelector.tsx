@@ -54,6 +54,7 @@ export function MCPSourceSelector({
   );
 
   // DEBUG: Log the data to understand what's happening
+  // Comprehensive logging added to track tool selection and fetch flow
   console.log('[MCPSourceSelector] Raw integrations data:', integrationsData);
   console.log('[MCPSourceSelector] Mapped tools:', tools);
   console.log('[MCPSourceSelector] Connected tools:', tools.filter(t => t.isConnected));
