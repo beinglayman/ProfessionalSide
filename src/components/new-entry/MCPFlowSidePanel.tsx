@@ -46,12 +46,16 @@ export function MCPFlowSidePanel({
 
       console.log('[MCPFlow] Fetch completed, result:', result);
 
-      // Move to review step once data is fetched
-      if (result && result.organized) {
+      // Move to review step only if we have actual activities
+      if (result?.organized?.categories && result.organized.categories.length > 0) {
         console.log('[MCPFlow] Moving to review step with organized data');
+        console.log('[MCPFlow] Categories with activities:', result.organized.categories.length);
         setStep('review');
       } else {
-        console.warn('[MCPFlow] No organized data in result:', result);
+        console.warn('[MCPFlow] No activities found:', {
+          hasOrganized: !!result?.organized,
+          categoriesCount: result?.organized?.categories?.length || 0
+        });
         alert('No activities found for the selected date range and tools. Try expanding your date range or selecting different tools.');
       }
     } catch (error: any) {

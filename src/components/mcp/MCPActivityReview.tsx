@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   Circle,
@@ -117,6 +117,21 @@ export function MCPActivityReview({
     return initial;
   });
   const [showCorrelations, setShowCorrelations] = useState(true);
+
+  // Reset state when activities prop changes to prevent stale data
+  useEffect(() => {
+    setExpandedCategories(new Set(activities.categories.map(c => c.label)));
+
+    const initial = new Set<string>();
+    activities.categories.forEach(category => {
+      category.items.forEach(item => {
+        if (item.selected) {
+          initial.add(item.id);
+        }
+      });
+    });
+    setSelectedActivities(initial);
+  }, [activities]);
 
   const toggleCategory = (label: string) => {
     const newExpanded = new Set(expandedCategories);
