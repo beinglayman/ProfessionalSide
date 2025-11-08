@@ -46,11 +46,24 @@ export class AnalyzerAgent {
   async quickAnalyze(activities: Map<MCPToolType, any>): Promise<AnalysisResult> {
     console.log('🔍 Quick analyzing activities from', activities.size, 'sources');
 
+    // Check if there are any real activities
+    const hasActivities = this.hasRealActivities(activities);
+    if (!hasActivities) {
+      console.log('⚠️ No real activities found - returning empty analysis');
+      return {
+        activities: [],
+        summary: 'No activities found for the selected date range.',
+        extractedSkills: [],
+        suggestedFocus: '',
+        totalTimeInvestment: 0
+      };
+    }
+
     const prompt = this.buildQuickAnalysisPrompt(activities);
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: 'You are an expert at analyzing professional work activities. Categorize and extract insights quickly and accurately. Always return valid JSON.'
+        content: 'You are an expert at analyzing professional work activities. Categorize and extract insights quickly and accurately. Always return valid JSON. IMPORTANT: Only analyze the actual activities provided. DO NOT generate fake or example activities.'
       },
       {
         role: 'user',
@@ -75,11 +88,24 @@ export class AnalyzerAgent {
   async deepAnalyze(activities: Map<MCPToolType, any>): Promise<AnalysisResult> {
     console.log('🔬 Deep analyzing activities from', activities.size, 'sources');
 
+    // Check if there are any real activities
+    const hasActivities = this.hasRealActivities(activities);
+    if (!hasActivities) {
+      console.log('⚠️ No real activities found - returning empty analysis');
+      return {
+        activities: [],
+        summary: 'No activities found for the selected date range.',
+        extractedSkills: [],
+        suggestedFocus: '',
+        totalTimeInvestment: 0
+      };
+    }
+
     const prompt = this.buildDeepAnalysisPrompt(activities);
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: 'You are an expert at deeply analyzing professional work activities. Extract nuanced insights, patterns, and professional growth indicators. Consider technical complexity, business impact, and skill development. Always return valid JSON.'
+        content: 'You are an expert at deeply analyzing professional work activities. Extract nuanced insights, patterns, and professional growth indicators. Consider technical complexity, business impact, and skill development. Always return valid JSON. IMPORTANT: Only analyze the actual activities provided. DO NOT generate fake or example activities.'
       },
       {
         role: 'user',
@@ -114,6 +140,46 @@ export class AnalyzerAgent {
     return cleaned;
   }
 
+  /**
+   * Check if there are any real activities in the data
+   * Returns false if all sources have empty arrays
+   */
+  private hasRealActivities(activities: Map<MCPToolType, any>): boolean {
+    let totalItems = 0;
+
+    activities.forEach((data, tool) => {
+      // Count items based on tool type
+      if (data) {
+        // Common array fields to check
+        const arrayFields = [
+          'pullRequests', 'commits', 'issues', 'repositories',
+          'files', 'comments', 'versions',
+          'meetings', 'emails', 'messages', 'threads', 'channels', 'calls',
+          'pages', 'blogPosts', 'spaces',
+          'docs', 'sheets', 'slides', 'driveFiles', 'meetRecordings',
+          'recentFiles', 'sharedFiles', 'notebooks', 'sections'
+        ];
+
+        arrayFields.forEach(field => {
+          if (Array.isArray(data[field])) {
+            totalItems += data[field].length;
+          }
+        });
+
+        // Check numeric fields
+        const numericFields = ['recentFiles', 'sharedFiles', 'notebooks', 'pagesCreated', 'pagesUpdated'];
+        numericFields.forEach(field => {
+          if (typeof data[field] === 'number' && data[field] > 0) {
+            totalItems += data[field];
+          }
+        });
+      }
+    });
+
+    console.log(`[AnalyzerAgent] Total items found across all sources: ${totalItems}`);
+    return totalItems > 0;
+  }
+
   private buildQuickAnalysisPrompt(activities: Map<MCPToolType, any>): string {
     const activitiesSummary = this.summarizeActivities(activities);
 
@@ -131,6 +197,8 @@ ${activitiesSummary}
 5. Estimate time investment
 6. Categorize into: achievement, learning, collaboration, documentation, or problem_solving
 7. Rank importance (high/medium/low)
+
+**CRITICAL INSTRUCTION: Only analyze activities that are actually listed above. DO NOT create, invent, or generate fake/example activities. If no activities are provided, return an empty activities array.**
 
 **Return JSON with this EXACT structure:**
 {
@@ -186,6 +254,8 @@ ${activitiesSummary}
 - Innovation and problem-solving approaches
 - Time management and prioritization patterns
 - Technical depth vs. breadth balance
+
+**CRITICAL INSTRUCTION: Only analyze activities that are actually listed above. DO NOT create, invent, or generate fake/example activities. If no activities are provided, return an empty activities array.**
 
 **Return comprehensive JSON analysis following the structure from quick analysis, but with richer insights in descriptions and additional metadata.**
 
@@ -286,6 +356,40 @@ ${this.buildQuickAnalysisPrompt(activities)}
           }
           if (data.sections?.length > 0) {
             summaries.push(`- ${data.sections.length} Sections`);
+          }
+          break;
+
+        case MCPToolType.GOOGLE_WORKSPACE:
+          if (data.docs?.length > 0) {
+            summaries.push(`- ${data.docs.length} Google Docs`);
+            data.docs.slice(0, 3).forEach((doc: any) => {
+              summaries.push(`  • ${doc.title} (Modified: ${new Date(doc.modifiedTime).toLocaleDateString()})`);
+            });
+          }
+          if (data.sheets?.length > 0) {
+            summaries.push(`- ${data.sheets.length} Google Sheets`);
+            data.sheets.slice(0, 3).forEach((sheet: any) => {
+              summaries.push(`  • ${sheet.title} (Modified: ${new Date(sheet.modifiedTime).toLocaleDateString()})`);
+            });
+          }
+          if (data.slides?.length > 0) {
+            summaries.push(`- ${data.slides.length} Google Slides`);
+            data.slides.slice(0, 3).forEach((slide: any) => {
+              summaries.push(`  • ${slide.title} (Modified: ${new Date(slide.modifiedTime).toLocaleDateString()})`);
+            });
+          }
+          if (data.driveFiles?.length > 0) {
+            const otherFiles = data.driveFiles.filter((f: any) =>
+              f.mimeType !== 'application/vnd.google-apps.document' &&
+              f.mimeType !== 'application/vnd.google-apps.spreadsheet' &&
+              f.mimeType !== 'application/vnd.google-apps.presentation'
+            );
+            if (otherFiles.length > 0) {
+              summaries.push(`- ${otherFiles.length} Other Drive Files`);
+            }
+          }
+          if (data.meetRecordings?.length > 0) {
+            summaries.push(`- ${data.meetRecordings.length} Google Meet Recordings`);
           }
           break;
 

@@ -56,6 +56,8 @@ export class GoogleWorkspaceTool {
       const endDate = dateRange?.end || new Date();
       const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+      console.log('[Google Workspace Tool] Starting fetch for user', userId, 'from', startDate.toISOString(), 'to', endDate.toISOString());
+
       // Fetch different types of activity in parallel
       const [driveFiles, meetRecordings, calendarEvents] = await Promise.all([
         this.fetchDriveFiles(drive, startDate, endDate),
@@ -63,10 +65,23 @@ export class GoogleWorkspaceTool {
         this.fetchCalendarEvents(calendar, startDate, endDate)
       ]);
 
+      console.log('[Google Workspace Tool] Fetch results:', {
+        driveFiles: driveFiles.length,
+        meetRecordings: meetRecordings.length,
+        calendarEvents: calendarEvents.length
+      });
+
       // Separate files by type (Google Docs, Sheets, Slides)
       const docs = driveFiles.filter(f => f.mimeType === 'application/vnd.google-apps.document');
       const sheets = driveFiles.filter(f => f.mimeType === 'application/vnd.google-apps.spreadsheet');
       const slides = driveFiles.filter(f => f.mimeType === 'application/vnd.google-apps.presentation');
+
+      console.log('[Google Workspace Tool] Categorized files:', {
+        docs: docs.length,
+        sheets: sheets.length,
+        slides: slides.length,
+        otherFiles: driveFiles.length - docs.length - sheets.length - slides.length
+      });
 
       // Map to expected format
       const activity: GoogleWorkspaceActivity = {
@@ -167,6 +182,9 @@ export class GoogleWorkspaceTool {
       // Build query for files modified in date range
       const query = `modifiedTime >= '${startDate.toISOString()}' and modifiedTime <= '${endDate.toISOString()}' and trashed = false`;
 
+      console.log('[Google Workspace Tool] Fetching Drive files with query:', query);
+      console.log('[Google Workspace Tool] Date range:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+
       const response = await drive.files.list({
         q: query,
         pageSize: 100,
@@ -175,6 +193,11 @@ export class GoogleWorkspaceTool {
       });
 
       const files = response.data.files || [];
+
+      console.log('[Google Workspace Tool] Drive API returned', files.length, 'files');
+      if (files.length > 0) {
+        console.log('[Google Workspace Tool] Sample files:', files.slice(0, 3).map((f: any) => ({ name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime })));
+      }
 
       return files.map((file: any) => ({
         id: file.id || '',
