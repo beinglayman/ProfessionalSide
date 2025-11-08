@@ -717,8 +717,27 @@ Return ONLY valid JSON, no additional text.
 
       console.log(`✅ Analysis complete: ${analysis.activities.length} activities identified`);
 
-      // Stage 2: Detect correlations
-      const correlations = await this.agents.correlator.detectCorrelations(analysis.activities);
+      // Validate and filter activities to only include sources that were actually requested
+      const requestedSources = Array.from(sources.keys());
+      console.log(`[Organizer] Requested sources:`, requestedSources);
+      console.log(`[Organizer] Activities before filtering:`, analysis.activities.map(a => ({ source: a.source, title: a.title })));
+
+      const validatedActivities = analysis.activities.filter(activity => {
+        const isValid = requestedSources.includes(activity.source as any);
+        if (!isValid) {
+          console.warn(`[Organizer] ⚠️ Filtering out hallucinated activity from ${activity.source}: "${activity.title}"`);
+        }
+        return isValid;
+      });
+
+      console.log(`[Organizer] Filtered ${analysis.activities.length - validatedActivities.length} hallucinated activities`);
+      console.log(`[Organizer] Valid activities remaining: ${validatedActivities.length}`);
+
+      // Replace with validated activities
+      analysis.activities = validatedActivities;
+
+      // Stage 2: Detect correlations (only on valid activities)
+      const correlations = await this.agents.correlator.detectCorrelations(validatedActivities);
       console.log(`✅ Found ${correlations.correlations.length} correlations (avg confidence: ${correlations.avgConfidence.toFixed(2)})`);
 
       // Convert to OrganizedActivity format
