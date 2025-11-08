@@ -50,6 +50,19 @@ export class GeneratorAgent {
   ): Promise<GeneratedEntries> {
     console.log('✍️ Generating journal entries for workspace:', workspaceName);
 
+    // Check if there are any actual activities to generate entries from
+    const totalActivities = organizedData.categories.reduce((sum, cat) => sum + (cat.items?.length || 0), 0);
+    if (totalActivities === 0) {
+      console.log('⚠️ No activities to generate entries from - returning minimal fallback');
+      const fallbackEntry = this.getFallbackEntry(organizedData, 'workspace');
+      return {
+        workspaceEntry: fallbackEntry,
+        networkEntry: fallbackEntry,
+        suggestedTags: [],
+        estimatedReadTime: 1
+      };
+    }
+
     // Generate both entries in parallel for speed
     const [workspaceEntry, networkEntry] = await Promise.all([
       this.generateWorkspaceEntry(organizedData, workspaceName, userContext),

@@ -64,6 +64,17 @@ export class CorrelatorAgent {
   async detectCorrelations(activities: AnalyzedActivity[]): Promise<CorrelationResult> {
     console.log('🔗 Detecting correlations between', activities.length, 'activities');
 
+    // Return empty result if no activities to correlate
+    if (activities.length === 0) {
+      console.log('⚠️ No activities to correlate - returning empty result');
+      return {
+        correlations: [],
+        avgConfidence: 0,
+        strongCorrelations: 0,
+        insights: []
+      };
+    }
+
     const prompt = this.buildCorrelationPrompt(activities);
     const messages: ChatCompletionMessageParam[] = [
       {
