@@ -736,6 +736,15 @@ Return ONLY valid JSON, no additional text.
       // Replace with validated activities
       analysis.activities = validatedActivities;
 
+      // If no valid activities remain, clear out AI-generated suggestions to prevent showing fake content
+      if (validatedActivities.length === 0) {
+        console.log(`[Organizer] ⚠️ No valid activities - clearing AI-generated suggestions`);
+        analysis.summary = 'No activities found for the selected date range.';
+        analysis.suggestedFocus = '';
+        analysis.extractedSkills = [];
+        analysis.totalTimeInvestment = 0;
+      }
+
       // Stage 2: Detect correlations (only on valid activities)
       const correlations = await this.agents.correlator.detectCorrelations(validatedActivities);
       console.log(`✅ Found ${correlations.correlations.length} correlations (avg confidence: ${correlations.avgConfidence.toFixed(2)})`);
