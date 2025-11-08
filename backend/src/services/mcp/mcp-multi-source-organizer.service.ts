@@ -769,9 +769,18 @@ Return ONLY valid JSON, no additional text.
       };
     } catch (error) {
       console.error('❌ Error in agent-based organization:', error);
-      // Fallback to basic organization
+      // Don't fall back to old AI-based organization which can generate fake activities
+      // Instead, return an empty organized result
       return {
-        organized: await this.organizeMultiSourceActivity(sources)
+        organized: {
+          suggestedEntryType: 'learning',
+          suggestedTitle: 'No Activities Found',
+          contextSummary: 'No activities found for the selected date range.',
+          extractedSkills: [],
+          correlations: [],
+          categories: [],
+          artifacts: []
+        }
       };
     }
   }

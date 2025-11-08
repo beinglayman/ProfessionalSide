@@ -74,7 +74,15 @@ export class AnalyzerAgent {
     const result = await this.modelSelector.executeTask('analyze', messages, 'quick');
 
     try {
-      return JSON.parse(result.content);
+      const parsed = JSON.parse(result.content);
+      // Convert timestamp strings to Date objects
+      if (parsed.activities && Array.isArray(parsed.activities)) {
+        parsed.activities = parsed.activities.map((act: any) => ({
+          ...act,
+          timestamp: act.timestamp ? new Date(act.timestamp) : new Date()
+        }));
+      }
+      return parsed;
     } catch (error) {
       console.error('Failed to parse analysis result:', error);
       // Return a basic structure if parsing fails
@@ -118,7 +126,15 @@ export class AnalyzerAgent {
     try {
       // Strip markdown code blocks if present
       const cleanedContent = this.stripMarkdownCodeBlocks(result.content);
-      return JSON.parse(cleanedContent);
+      const parsed = JSON.parse(cleanedContent);
+      // Convert timestamp strings to Date objects
+      if (parsed.activities && Array.isArray(parsed.activities)) {
+        parsed.activities = parsed.activities.map((act: any) => ({
+          ...act,
+          timestamp: act.timestamp ? new Date(act.timestamp) : new Date()
+        }));
+      }
+      return parsed;
     } catch (error) {
       console.error('Failed to parse deep analysis result:', error);
       console.error('Raw content (first 500 chars):', result.content.substring(0, 500));

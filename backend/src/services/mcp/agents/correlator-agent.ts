@@ -258,7 +258,10 @@ Focus on finding meaningful connections that tell a coherent story about the wor
         }
 
         // Check temporal proximity (within 2 hours)
-        const timeDiff = Math.abs(act1.timestamp.getTime() - act2.timestamp.getTime());
+        // Handle both Date objects and string timestamps
+        const ts1 = act1.timestamp instanceof Date ? act1.timestamp : new Date(act1.timestamp);
+        const ts2 = act2.timestamp instanceof Date ? act2.timestamp : new Date(act2.timestamp);
+        const timeDiff = Math.abs(ts1.getTime() - ts2.getTime());
         if (timeDiff < 2 * 60 * 60 * 1000 && act1.source !== act2.source) {
           // Check for keyword similarity
           const keywords1 = act1.title.toLowerCase().split(/\s+/);
