@@ -20,12 +20,14 @@ interface MCPMultiSourceState {
   correlations: any;
   generatedContent: any;
   organizedData: any;
+  format7Entry: any; // Format7JournalEntry structure
 }
 
 interface FetchOptions {
   quality?: 'quick' | 'balanced' | 'high';
   generateContent?: boolean;
   workspaceName?: string;
+  privacy?: 'private' | 'team' | 'network' | 'public';
 }
 
 export function useMCPMultiSource() {
@@ -40,7 +42,8 @@ export function useMCPMultiSource() {
     analyzedActivities: null,
     correlations: null,
     generatedContent: null,
-    organizedData: null
+    organizedData: null,
+    format7Entry: null
   });
 
   // Reset state
@@ -56,7 +59,8 @@ export function useMCPMultiSource() {
       analyzedActivities: null,
       correlations: null,
       generatedContent: null,
-      organizedData: null
+      organizedData: null,
+      format7Entry: null
     });
   }, []);
 
@@ -265,6 +269,84 @@ export function useMCPMultiSource() {
     }
   }, [state.sessionId, state.organizedData]);
 
+  // Fetch and process with Format7 transformation
+  const fetchAndProcessFormat7 = useCallback(async (
+    toolTypes: string[],
+    dateRange: { start: Date; end: Date },
+    options: FetchOptions = {}
+  ) => {
+    setState(prev => ({
+      ...prev,
+      isFetching: true,
+      fetchError: null,
+      stage: 'fetching',
+      progress: 10
+    }));
+
+    try {
+      console.log('[useMCPMultiSource] ========== FORMAT7 API CALL STARTING ==========');
+      console.log('[useMCPMultiSource] Calling Format7 endpoint with toolTypes:', toolTypes);
+      console.log('[useMCPMultiSource] Date range:', dateRange);
+      console.log('[useMCPMultiSource] Privacy:', options.privacy);
+
+      // Call the Format7 generation endpoint
+      const response = await api.post('/mcp/generate-format7-entry', {
+        toolTypes,
+        dateRange: {
+          start: dateRange.start.toISOString(),
+          end: dateRange.end.toISOString()
+        },
+        consentGiven: true,
+        quality: options.quality || 'balanced',
+        privacy: options.privacy || 'team',
+        workspaceName: options.workspaceName || 'Professional Work'
+      });
+
+      const format7Entry = response.data.data;
+
+      console.log('[useMCPMultiSource] ========== FORMAT7 RESPONSE RECEIVED ==========');
+      console.log('[useMCPMultiSource] Entry title:', format7Entry?.entry_metadata?.title);
+      console.log('[useMCPMultiSource] Entry type:', format7Entry?.entry_metadata?.type);
+      console.log('[useMCPMultiSource] Activities:', format7Entry?.activities?.length);
+      console.log('[useMCPMultiSource] Sources:', format7Entry?.context?.sources_included);
+
+      setState({
+        isFetching: false,
+        fetchError: null,
+        stage: 'complete',
+        progress: 100,
+        sessionId: null, // Format7 endpoint doesn't use sessions
+        sources: format7Entry?.context?.sources_included || [],
+        rawActivities: null,
+        analyzedActivities: null,
+        correlations: format7Entry?.correlations || [],
+        generatedContent: null,
+        organizedData: null,
+        format7Entry: format7Entry
+      });
+
+      // toast.success(`Successfully generated Format7 entry from ${format7Entry?.context?.sources_included?.length || 0} tool(s)`);
+
+      return format7Entry;
+    } catch (error: any) {
+      console.error('Failed to fetch and process Format7:', error);
+      console.error('Error response:', error.response?.data);
+
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to generate Format7 entry';
+
+      setState(prev => ({
+        ...prev,
+        isFetching: false,
+        fetchError: errorMessage,
+        stage: 'idle',
+        progress: 0
+      }));
+
+      // toast.error(errorMessage);
+      throw error;
+    }
+  }, []);
+
   // Get session data
   const getSession = useCallback(async (sessionId: string) => {
     try {
@@ -299,6 +381,7 @@ export function useMCPMultiSource() {
     fetchAndProcess,
     fetchActivities,
     processStage,
+    fetchAndProcessFormat7,
     getSession,
     clearSession,
     reset,
@@ -307,6 +390,7 @@ export function useMCPMultiSource() {
     isProcessing: state.isFetching,
     hasData: !!state.organizedData,
     hasGeneratedContent: !!state.generatedContent,
+    hasFormat7Entry: !!state.format7Entry,
     canGenerate: !!state.analyzedActivities && !!state.correlations
   };
 }

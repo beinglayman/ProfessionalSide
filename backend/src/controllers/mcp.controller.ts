@@ -1034,49 +1034,168 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
       return;
     }
 
+    console.log(`[Format7] ========================================`);
     console.log(`[Format7] Generating Format7 entry for user ${userId}`);
     console.log(`[Format7] Tools:`, toolTypes);
     console.log(`[Format7] Date range:`, dateRange);
     console.log(`[Format7] Privacy:`, privacy);
+    console.log(`[Format7] Workspace:`, workspaceName);
+    console.log(`[Format7] ========================================`);
 
-    // This will be implemented to call the MCP organizer service
-    // For now, return a structured response indicating Format7 generation is in progress
+    // Helper function to calculate item count for different tool data structures
+    const getItemCount = (toolType: string, data: any): number => {
+      if (!data) return 0;
 
-    const format7Entry = {
-      entry_metadata: {
-        title: 'Auto-generated Journal Entry',
-        date: new Date().toISOString().split('T')[0],
-        type: 'learning',
-        workspace: workspaceName || 'Default Workspace',
-        privacy: privacy,
-        isAutomated: true,
-        created_at: new Date().toISOString()
-      },
-      context: {
-        date_range: {
-          start: dateRange?.start || new Date().toISOString(),
-          end: dateRange?.end || new Date().toISOString()
-        },
-        sources_included: toolTypes,
-        total_activities: 0,
-        primary_focus: 'Processing activities from connected tools'
-      },
-      activities: [],
-      summary: {
-        total_time_range_hours: 0,
-        activities_by_type: {},
-        activities_by_source: {},
-        unique_collaborators: [],
-        unique_reviewers: [],
-        technologies_used: [],
-        skills_demonstrated: []
-      },
-      correlations: [],
-      artifacts: []
+      switch (toolType) {
+        case 'confluence':
+          return (data.pages?.length || 0) + (data.blogPosts?.length || 0) + (data.comments?.length || 0);
+        case 'github':
+          return (data.commits?.length || 0) + (data.pullRequests?.length || 0) + (data.issues?.length || 0);
+        case 'jira':
+          return (data.issues?.length || 0) + (data.sprints?.length || 0);
+        case 'figma':
+          return (data.files?.length || 0) + (data.comments?.length || 0);
+        case 'outlook':
+          return (data.meetings?.length || 0) + (data.emails?.length || 0);
+        case 'slack':
+          return (data.messages?.length || 0) + (data.threads?.length || 0);
+        case 'teams':
+          return (data.meetings?.length || 0) + (data.messages?.length || 0);
+        case 'onedrive':
+          return (data.recentFiles || 0) + (data.sharedFiles || 0);
+        case 'onenote':
+          return (data.pagesCreated || 0) + (data.pagesUpdated || 0);
+        case 'sharepoint':
+          return (data.filesModified || 0) + (data.listsUpdated || 0);
+        case 'zoom':
+          return (data.meetings?.length || 0) + (data.upcomingMeetings?.length || 0) + (data.recordings?.length || 0);
+        case 'google_workspace':
+          return (data.driveFiles?.length || 0) + (data.docs?.length || 0) + (data.sheets?.length || 0) + (data.slides?.length || 0) + (data.meetRecordings?.length || 0);
+        default:
+          return Array.isArray(data) ? data.length : 0;
+      }
     };
 
+    // Import tool services
+    const toolImports = {
+      github: () => import('../services/mcp/tools/github.tool').then(m => new m.GitHubTool()),
+      jira: () => import('../services/mcp/tools/jira.tool').then(m => new m.JiraTool()),
+      figma: () => import('../services/mcp/tools/figma.tool').then(m => new m.FigmaTool()),
+      outlook: () => import('../services/mcp/tools/outlook.tool').then(m => new m.OutlookTool()),
+      confluence: () => import('../services/mcp/tools/confluence.tool').then(m => new m.ConfluenceTool()),
+      slack: () => import('../services/mcp/tools/slack.tool').then(m => new m.SlackTool()),
+      teams: () => import('../services/mcp/tools/teams.tool').then(m => new m.TeamsTool()),
+      onedrive: () => import('../services/mcp/tools/onedrive.tool').then(m => new m.OneDriveTool()),
+      onenote: () => import('../services/mcp/tools/onenote.tool').then(m => new m.OneNoteTool()),
+      sharepoint: () => import('../services/mcp/tools/sharepoint.tool').then(m => new m.SharePointTool()),
+      zoom: () => import('../services/mcp/tools/zoom.tool').then(m => new m.ZoomTool()),
+      google_workspace: () => import('../services/mcp/tools/google-workspace.tool').then(m => new m.GoogleWorkspaceTool())
+    };
+
+    // Parse date range
+    let parsedDateRange: { start: Date; end: Date } | undefined;
+    if (dateRange?.start && dateRange?.end) {
+      parsedDateRange = {
+        start: new Date(dateRange.start),
+        end: new Date(dateRange.end)
+      };
+    }
+
+    // Fetch data from all tools in parallel
+    const fetchPromises = toolTypes.map(async (toolType: string) => {
+      try {
+        console.log(`[Format7] Fetching from ${toolType}...`);
+        const toolImport = toolImports[toolType as keyof typeof toolImports];
+        if (!toolImport) {
+          console.log(`[Format7] No tool import found for ${toolType}`);
+          return null;
+        }
+
+        const tool = await toolImport();
+        const result = await tool.fetchActivity(userId, parsedDateRange);
+
+        const itemCount = result?.data ? getItemCount(toolType, result.data) : 0;
+
+        if (result && result.success && result.data) {
+          console.log(`[Format7] ✅ Successfully fetched from ${toolType}: ${itemCount} items`);
+          return { toolType, data: result.data };
+        }
+        console.log(`[Format7] ❌ No valid data from ${toolType}`);
+        return null;
+      } catch (error: any) {
+        console.error(`[Format7] Error fetching from ${toolType}:`, error.message);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(fetchPromises);
+
+    // Filter out failed fetches and create source map
+    const sourcesMap = new Map<string, any>();
+    results.forEach(result => {
+      if (result && result.data) {
+        sourcesMap.set(result.toolType, result.data);
+      }
+    });
+
+    console.log(`[Format7] Successfully fetched from ${sourcesMap.size} tools: [${Array.from(sourcesMap.keys()).join(', ')}]`);
+
+    if (sourcesMap.size === 0) {
+      console.error(`[Format7] No data fetched from any tool`);
+      sendError(res, 'Failed to fetch data from any connected tools. Please ensure at least one tool is properly connected.', 400);
+      return;
+    }
+
+    // Use AI agents to organize and generate content
+    console.log(`[Format7] Processing with AI agents (quality: ${quality})...`);
+    const { MCPMultiSourceOrganizer } = await import('../services/mcp/mcp-multi-source-organizer.service');
+
+    const organizer = new MCPMultiSourceOrganizer();
+    const agentResults = await organizer.organizeWithAgents(
+      sourcesMap as Map<any, any>,
+      {
+        quality,
+        generateContent: true,
+        workspaceName: workspaceName || 'Professional Work'
+      }
+    );
+
+    console.log(`[Format7] AI agent processing complete. Categories:`, Object.keys(agentResults.organized || {}));
+
+    // Transform to Format7 structure
+    console.log(`[Format7] Transforming to Format7 structure...`);
+    const { format7Transformer } = await import('../services/mcp/format7-transformer.service');
+
+    const format7Entry = format7Transformer.transformToFormat7(
+      agentResults.organized,
+      sourcesMap,
+      {
+        userId,
+        workspaceName: workspaceName || 'Professional Work',
+        privacy: privacy as 'private' | 'team' | 'network' | 'public',
+        dateRange: parsedDateRange || {
+          start: new Date(),
+          end: new Date()
+        },
+        suggestedTitle: agentResults.analysis?.suggestedTitle,
+        suggestedEntryType: agentResults.analysis?.suggestedEntryType as 'achievement' | 'learning' | 'challenge' | 'reflection',
+        extractedSkills: agentResults.organized?.extractedSkills || [],
+        correlations: agentResults.correlations || [],
+        artifacts: agentResults.organized?.artifacts || []
+      }
+    );
+
+    console.log(`[Format7] ========================================`);
+    console.log(`[Format7] TRANSFORMATION COMPLETE`);
+    console.log(`[Format7] Title: ${format7Entry.entry_metadata.title}`);
+    console.log(`[Format7] Type: ${format7Entry.entry_metadata.type}`);
+    console.log(`[Format7] Activities: ${format7Entry.activities.length}`);
+    console.log(`[Format7] Collaborators: ${format7Entry.summary.unique_collaborators.length}`);
+    console.log(`[Format7] Technologies: ${format7Entry.summary.technologies_used.length}`);
+    console.log(`[Format7] ========================================`);
+
     sendSuccess(res, format7Entry, {
-      message: 'Format7 entry structure generated (full implementation pending)'
+      message: `Successfully generated Format7 entry from ${sourcesMap.size} tool(s)`
     });
   } catch (error: any) {
     console.error('[Format7] Error:', error);

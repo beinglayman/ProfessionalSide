@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useJournalEntries, useToggleLike, useToggleAppreciate } from '../../hooks/useJournal';
+import { useJournalEntries, useToggleLike, useToggleAppreciate, useCreateJournalEntry } from '../../hooks/useJournal';
 import { JournalCard } from '../../components/journal/journal-card';
 import { Button } from '../../components/ui/button';
 import { Plus, Filter, Search, Grid, List } from 'lucide-react';
 import { MCPFlowSidePanel } from '../../components/new-entry/MCPFlowSidePanel';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function JournalPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,6 +30,8 @@ export default function JournalPage() {
   const { data, isLoading, isError, error } = useJournalEntries(queryParams);
   const toggleLikeMutation = useToggleLike();
   const toggleAppreciateMutation = useToggleAppreciate();
+  const createJournalEntryMutation = useCreateJournalEntry();
+  const queryClient = useQueryClient();
 
   // Handle like toggle
   const handleLike = async (entryId: string) => {
@@ -48,13 +51,36 @@ export default function JournalPage() {
     }
   };
 
-  // Handle MCP flow completion
-  const handleMCPComplete = (data: any) => {
-    console.log('MCP flow completed with data:', data);
-    // TODO: Create journal entry with the data
-    // For now, just log and close the panel
-    alert(`Entry created: ${data.title}`);
-    setShowMCPPanel(false);
+  // Handle MCP flow completion - Format7 version
+  const handleMCPComplete = async (data: any) => {
+    console.log('MCP flow completed with Format7 data:', data);
+
+    try {
+      // Create journal entry with Format7 data
+      await createJournalEntryMutation.mutateAsync({
+        title: data.title,
+        type: data.format7Entry?.entry_metadata?.type || 'learning',
+        privacy: data.format7Entry?.entry_metadata?.privacy || 'team',
+        content: data.description,
+        // Store the complete Format7 structure for rich display
+        format7Data: data.format7Entry,
+        skills: data.skills || [],
+        // Optional fields
+        workspaceId: undefined, // Set if workspace is selected
+        categoryId: undefined
+      });
+
+      // Refresh the journal entries list
+      queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
+
+      // Close the panel
+      setShowMCPPanel(false);
+
+      console.log('Journal entry created successfully');
+    } catch (error: any) {
+      console.error('Failed to create journal entry:', error);
+      alert(`Failed to create entry: ${error.message || 'Unknown error'}`);
+    }
   };
 
   // Loading state

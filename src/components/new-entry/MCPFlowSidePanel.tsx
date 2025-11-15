@@ -6,6 +6,8 @@ import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useMCPMultiSource } from '../../hooks/useMCPMultiSource';
 import { MCPSourceSelector } from '../mcp/MCPSourceSelector';
 import { MCPActivityReview } from '../mcp/MCPActivityReview';
+import { JournalHybrid } from '../format7/journal-hybrid';
+import { JournalAchievement } from '../format7/journal-achievement';
 
 interface MCPFlowSidePanelProps {
   open: boolean;
@@ -33,49 +35,43 @@ export function MCPFlowSidePanel({
 
   const connectedTools = integrations?.integrations?.filter((i: any) => i.isConnected) || [];
 
-  // Handle MCP data fetch
+  // Handle MCP data fetch - Format7 version
   const handleFetchActivities = async (toolTypes: string[], dateRange: { start: Date; end: Date }) => {
     try {
-      console.log('[MCPFlow] Starting fetch with:', { toolTypes, dateRange });
+      console.log('[MCPFlow] Starting Format7 fetch with:', { toolTypes, dateRange });
 
-      const result = await mcpMultiSource.fetchAndProcess(toolTypes, dateRange, {
+      const format7Entry = await mcpMultiSource.fetchAndProcessFormat7(toolTypes, dateRange, {
         quality: 'balanced',
-        generateContent: true,
+        privacy: 'team',
         workspaceName
       });
 
-      console.log('[MCPFlow] Fetch completed, result:', result);
+      console.log('[MCPFlow] Format7 fetch completed, entry:', format7Entry);
 
-      // Check if we have ANY category with actual items
-      const hasActivities = result?.organized?.categories?.some((cat: any) =>
-        cat.items && Array.isArray(cat.items) && cat.items.length > 0
-      );
-
-      const totalItems = result?.organized?.categories?.reduce((sum: number, cat: any) =>
-        sum + (cat.items?.length || 0), 0
-      ) || 0;
+      // Check if we have activities
+      const hasActivities = format7Entry?.activities && format7Entry.activities.length > 0;
 
       console.log('[MCPFlow] Activity check:', {
-        categoriesCount: result?.organized?.categories?.length || 0,
         hasActivities,
-        totalItems
+        totalActivities: format7Entry?.activities?.length || 0,
+        entryType: format7Entry?.entry_metadata?.type
       });
 
-      // Move to review step only if we have actual activities in any category
-      if (hasActivities && totalItems > 0) {
-        console.log('[MCPFlow] ✅ Moving to review step with', totalItems, 'activities');
-        setStep('review');
+      // Move directly to preview with Format7 entry (skip review)
+      if (hasActivities) {
+        console.log('[MCPFlow] ✅ Moving to preview with Format7 entry');
+        setStep('preview');
       } else {
         console.warn('[MCPFlow] ❌ No activities found - staying on selection step');
         alert('No activities found for the selected date range and tools. Try expanding your date range or selecting different tools.');
       }
     } catch (error: any) {
-      console.error('[MCPFlow] Failed to fetch activities:', error);
+      console.error('[MCPFlow] Failed to fetch Format7 entry:', error);
       console.error('[MCPFlow] Error details:', error.response?.data || error.message);
 
       // Show user-friendly error message
-      const errorMsg = error.response?.data?.error || error.message || 'Failed to fetch activities';
-      alert(`Error fetching activities: ${errorMsg}\n\nPlease try again or check your internet connection.`);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to generate journal entry';
+      alert(`Error generating journal entry: ${errorMsg}\n\nPlease try again or check your internet connection.`);
     }
   };
 
@@ -94,16 +90,20 @@ export function MCPFlowSidePanel({
     setStep('preview');
   };
 
-  // Handle final confirmation
+  // Handle final confirmation - Format7 version
   const handleConfirmAndUse = () => {
-    if (mcpMultiSource.generatedContent && mcpMultiSource.organizedData) {
+    if (mcpMultiSource.format7Entry) {
       onComplete({
-        title: mcpMultiSource.generatedContent.workspaceEntry.title,
-        description: mcpMultiSource.generatedContent.workspaceEntry.description,
-        skills: mcpMultiSource.organizedData.extractedSkills || [],
-        activities: mcpMultiSource.organizedData,
-        workspaceEntry: mcpMultiSource.generatedContent.workspaceEntry,
-        networkEntry: mcpMultiSource.generatedContent.networkEntry
+        title: mcpMultiSource.format7Entry.entry_metadata.title,
+        description: mcpMultiSource.format7Entry.context.primary_focus,
+        skills: mcpMultiSource.format7Entry.summary.skills_demonstrated || [],
+        activities: mcpMultiSource.format7Entry.activities,
+        format7Entry: mcpMultiSource.format7Entry, // Pass complete Format7 entry
+        workspaceEntry: {
+          title: mcpMultiSource.format7Entry.entry_metadata.title,
+          description: mcpMultiSource.format7Entry.context.primary_focus
+        },
+        networkEntry: null // Format7 handles privacy differently
       });
       handleClose();
     }
@@ -209,10 +209,12 @@ export function MCPFlowSidePanel({
         );
 
       case 'preview':
-        // Debug logging
-        console.log('[MCPFlowSidePanel] Preview step - generatedContent:', mcpMultiSource.generatedContent);
-        console.log('[MCPFlowSidePanel] Preview step - organizedData:', mcpMultiSource.organizedData);
-        console.log('[MCPFlowSidePanel] Preview step - hasGeneratedContent:', mcpMultiSource.hasGeneratedContent);
+        // Debug logging for Format7
+        console.log('[MCPFlowSidePanel] Preview step - format7Entry:', mcpMultiSource.format7Entry);
+        console.log('[MCPFlowSidePanel] Preview step - hasFormat7Entry:', mcpMultiSource.hasFormat7Entry);
+
+        const format7Entry = mcpMultiSource.format7Entry;
+        const entryType = format7Entry?.entry_metadata?.type;
 
         return (
           <div className="space-y-6">
@@ -223,62 +225,18 @@ export function MCPFlowSidePanel({
               </p>
             </div>
 
-            {mcpMultiSource.generatedContent ? (
-              <div className="space-y-6">
-                {/* Workspace Entry */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="h-5 w-5 text-purple-600" />
-                    <h4 className="font-semibold text-gray-900">Workspace Entry</h4>
-                  </div>
-
-                  <h5 className="text-lg font-semibold text-gray-900 mb-3">
-                    {mcpMultiSource.generatedContent.workspaceEntry.title}
-                  </h5>
-
-                  <div className="prose prose-sm max-w-none text-gray-700">
-                    {mcpMultiSource.generatedContent.workspaceEntry.description}
-                  </div>
-
-                  {mcpMultiSource.organizedData?.extractedSkills && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Skills Detected:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {mcpMultiSource.organizedData.extractedSkills.map((skill: string) => (
-                          <span
-                            key={skill}
-                            className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Network Entry */}
-                {mcpMultiSource.generatedContent.networkEntry && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Sparkles className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-semibold text-gray-900">Network Share</h4>
-                    </div>
-
-                    <h5 className="text-lg font-semibold text-gray-900 mb-3">
-                      {mcpMultiSource.generatedContent.networkEntry.title}
-                    </h5>
-
-                    <div className="prose prose-sm max-w-none text-gray-700">
-                      {mcpMultiSource.generatedContent.networkEntry.description}
-                    </div>
-                  </div>
+            {format7Entry ? (
+              <div className="max-w-3xl mx-auto">
+                {entryType === 'achievement' ? (
+                  <JournalAchievement entry={format7Entry} />
+                ) : (
+                  <JournalHybrid entry={format7Entry} />
                 )}
               </div>
             ) : (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">
-                  No generated content available. Check console for debugging information.
+                  No journal entry generated. Check console for debugging information.
                 </p>
               </div>
             )}
