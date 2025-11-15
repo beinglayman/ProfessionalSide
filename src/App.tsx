@@ -25,6 +25,7 @@ import SettingsPage from './pages/settings';
 import NotificationsPage from './pages/notifications';
 import ServiceStatusPageStandalone from './pages/services/status-standalone';
 import { MCPCallbackPage } from './pages/mcp/callback';
+import Format7DesignShowcase from './pages/format7-design-showcase';
 
 export type NetworkType = 'organization' | 'global';
 
@@ -175,6 +176,10 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/mcp/callback"
           element={<MCPCallbackPage />}
+        />
+        <Route
+          path="/format7-showcase"
+          element={<Format7DesignShowcase />}
         />
         <Route
           path="/workspaces/discovery" 

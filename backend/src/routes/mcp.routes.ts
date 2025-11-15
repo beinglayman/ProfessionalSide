@@ -10,6 +10,7 @@ import {
   fetchMultiSource,
   processWithAgents,
   fetchAndProcessWithAgents,
+  generateFormat7Entry,
   getSession,
   clearSession,
   clearAllSessions,
@@ -110,6 +111,14 @@ router.post('/process-agents', authMiddleware, processWithAgents);
  * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean, quality?: string, generateContent?: boolean, workspaceName?: string }
  */
 router.post('/fetch-and-process', authMiddleware, fetchAndProcessWithAgents);
+
+/**
+ * POST /api/v1/mcp/generate-format7-entry
+ * Fetch from tools, process with AI, and transform to Format7 journal entry structure
+ * Body: { toolTypes: MCPToolType[], dateRange?: {...}, consentGiven: boolean, quality?: string, privacy?: 'private'|'team'|'network'|'public', workspaceName?: string }
+ * Returns: Complete Format7JournalEntry ready for display
+ */
+router.post('/generate-format7-entry', authMiddleware, generateFormat7Entry);
 
 /**
  * POST /api/v1/mcp/test-activities

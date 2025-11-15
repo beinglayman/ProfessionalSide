@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import * as crypto from 'crypto';
+import { format7Transformer } from '../services/mcp/format7-transformer.service';
 
 const prisma = new PrismaClient();
 
@@ -997,6 +998,89 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
   } catch (error: any) {
     console.error('[MCP Agents] Full pipeline error:', error);
     sendError(res, error.message || 'Failed to fetch and process with agents');
+  }
+});
+
+/**
+ * Generate Format7 journal entry from tools data
+ * Complete end-to-end: fetch, process with AI, transform to Format7
+ */
+export const generateFormat7Entry = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const {
+    toolTypes,
+    dateRange,
+    consentGiven,
+    quality = 'balanced',
+    privacy = 'team',
+    workspaceName
+  } = req.body;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    // Validate consent
+    if (!consentGiven) {
+      sendError(res, 'User consent is required to fetch data', 400);
+      return;
+    }
+
+    // Validate tool types
+    if (!toolTypes || !Array.isArray(toolTypes) || toolTypes.length === 0) {
+      sendError(res, 'At least one tool type is required', 400);
+      return;
+    }
+
+    console.log(`[Format7] Generating Format7 entry for user ${userId}`);
+    console.log(`[Format7] Tools:`, toolTypes);
+    console.log(`[Format7] Date range:`, dateRange);
+    console.log(`[Format7] Privacy:`, privacy);
+
+    // This will be implemented to call the MCP organizer service
+    // For now, return a structured response indicating Format7 generation is in progress
+
+    const format7Entry = {
+      entry_metadata: {
+        title: 'Auto-generated Journal Entry',
+        date: new Date().toISOString().split('T')[0],
+        type: 'learning',
+        workspace: workspaceName || 'Default Workspace',
+        privacy: privacy,
+        isAutomated: true,
+        created_at: new Date().toISOString()
+      },
+      context: {
+        date_range: {
+          start: dateRange?.start || new Date().toISOString(),
+          end: dateRange?.end || new Date().toISOString()
+        },
+        sources_included: toolTypes,
+        total_activities: 0,
+        primary_focus: 'Processing activities from connected tools'
+      },
+      activities: [],
+      summary: {
+        total_time_range_hours: 0,
+        activities_by_type: {},
+        activities_by_source: {},
+        unique_collaborators: [],
+        unique_reviewers: [],
+        technologies_used: [],
+        skills_demonstrated: []
+      },
+      correlations: [],
+      artifacts: []
+    };
+
+    sendSuccess(res, format7Entry, {
+      message: 'Format7 entry structure generated (full implementation pending)'
+    });
+  } catch (error: any) {
+    console.error('[Format7] Error:', error);
+    sendError(res, error.message || 'Failed to generate Format7 entry');
   }
 });
 

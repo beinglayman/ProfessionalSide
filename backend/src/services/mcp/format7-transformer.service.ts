@@ -1,0 +1,539 @@
+import { MCPToolType } from '../../types/mcp.types';
+import { Format7JournalEntry, Format7Activity, Collaborator, Evidence } from './types/format7.types';
+
+interface OrganizedActivity {
+  suggestedEntryType: 'achievement' | 'learning' | 'reflection' | 'challenge';
+  suggestedTitle: string;
+  contextSummary: string;
+  extractedSkills: string[];
+  categories: Array<{
+    type: string;
+    label: string;
+    summary: string;
+    suggestedEntryType: string;
+    items: Array<{
+      id: string;
+      source: MCPToolType;
+      type: string;
+      title: string;
+      description: string;
+      url: string;
+      importance: 'high' | 'medium' | 'low';
+      selected: boolean;
+      metadata: any;
+    }>;
+  }>;
+  correlations?: Array<{
+    id: string;
+    type: string;
+    source1: { tool: MCPToolType; id: string; title: string; url: string };
+    source2: { tool: MCPToolType; id: string; title: string; url: string };
+    confidence: number;
+    reasoning: string;
+  }>;
+  artifacts?: Array<{
+    type: string;
+    source: MCPToolType;
+    title: string;
+    url: string;
+    description: string;
+    importance: 'high' | 'medium' | 'low';
+  }>;
+}
+
+interface TransformOptions {
+  userId: string;
+  workspaceName: string;
+  privacy?: 'private' | 'team' | 'network' | 'public';
+  dateRange: { start: Date; end: Date };
+}
+
+export class Format7TransformerService {
+  /**
+   * Transform MCP organized activity data to Format7 journal entry structure
+   */
+  transformToFormat7(
+    organizedActivity: OrganizedActivity,
+    rawToolData: Map<MCPToolType, any>,
+    options: TransformOptions
+  ): Format7JournalEntry {
+    // Extract only selected activities
+    const selectedActivities = this.extractSelectedActivities(organizedActivity);
+
+    // Build activities with evidence
+    const activities = selectedActivities.map(item =>
+      this.buildActivity(item, rawToolData, organizedActivity.correlations || [])
+    );
+
+    // Extract collaborators and reviewers
+    const { collaborators, reviewers } = this.extractCollaborators(activities, rawToolData);
+
+    // Calculate time metrics
+    const timeSpanHours = this.calculateTimeSpan(activities);
+
+    // Build aggregations
+    const activitiesByType = this.aggregateByType(activities);
+    const activitiesBySource = this.aggregateBySource(activities);
+
+    // Filter technical skills
+    const technologies = this.filterTechnicalSkills(organizedActivity.extractedSkills);
+
+    // Map correlations to Format7 structure
+    const correlations = this.mapCorrelations(organizedActivity.correlations || []);
+
+    return {
+      entry_metadata: {
+        title: organizedActivity.suggestedTitle,
+        date: new Date().toISOString().split('T')[0],
+        type: organizedActivity.suggestedEntryType,
+        workspace: options.workspaceName,
+        privacy: options.privacy || 'team',
+        isAutomated: true,
+        created_at: new Date().toISOString()
+      },
+
+      context: {
+        date_range: {
+          start: options.dateRange.start.toISOString(),
+          end: options.dateRange.end.toISOString()
+        },
+        sources_included: Array.from(rawToolData.keys()),
+        total_activities: activities.length,
+        primary_focus: organizedActivity.contextSummary
+      },
+
+      activities,
+
+      summary: {
+        total_time_range_hours: timeSpanHours,
+        activities_by_type: activitiesByType,
+        activities_by_source: activitiesBySource,
+        unique_collaborators: collaborators,
+        unique_reviewers: reviewers,
+        technologies_used: technologies,
+        skills_demonstrated: organizedActivity.extractedSkills
+      },
+
+      correlations,
+
+      artifacts: organizedActivity.artifacts || []
+    };
+  }
+
+  /**
+   * Extract only selected activities from categories
+   */
+  private extractSelectedActivities(organizedActivity: OrganizedActivity): any[] {
+    const selected: any[] = [];
+
+    organizedActivity.categories.forEach(category => {
+      category.items.forEach(item => {
+        if (item.selected) {
+          selected.push(item);
+        }
+      });
+    });
+
+    return selected;
+  }
+
+  /**
+   * Build Format7 activity with evidence
+   */
+  private buildActivity(
+    item: any,
+    rawToolData: Map<MCPToolType, any>,
+    correlations: any[]
+  ): Format7Activity {
+    const evidence = this.buildEvidence(item, rawToolData.get(item.source));
+    const relatedActivities = this.findRelatedActivities(item.id, correlations);
+    const technologies = this.extractActivityTechnologies(item);
+
+    return {
+      id: item.id,
+      source: item.source,
+      type: item.type,
+      action: this.generateActionString(item),
+      description: item.description,
+      timestamp: item.metadata?.timestamp || item.metadata?.createdAt || new Date().toISOString(),
+      evidence,
+      related_activities: relatedActivities,
+      technologies,
+      collaborators: [], // Will be populated by extractCollaborators
+      reviewers: [], // Will be populated by extractCollaborators
+      importance: item.importance
+    };
+  }
+
+  /**
+   * Build evidence object with metadata
+   */
+  private buildEvidence(item: any, toolData: any): Evidence {
+    const evidenceType = this.getEvidenceType(item.type, item.source);
+
+    return {
+      type: evidenceType,
+      url: item.url,
+      title: item.title,
+      links: this.collectEvidenceLinks(item, toolData),
+      metadata: this.extractEvidenceMetadata(item, toolData)
+    };
+  }
+
+  /**
+   * Get evidence type based on activity type and source
+   */
+  private getEvidenceType(activityType: string, source: MCPToolType): string {
+    const typeMap: Record<string, string> = {
+      'pr': 'pull_request',
+      'commit': 'code_change',
+      'issue': 'issue_ticket',
+      'meeting': 'meeting_recording',
+      'message': 'discussion_thread',
+      'design': 'design_file',
+      'document': 'documentation'
+    };
+
+    return typeMap[activityType] || 'general';
+  }
+
+  /**
+   * Collect all related evidence links
+   */
+  private collectEvidenceLinks(item: any, toolData: any): string[] {
+    const links: string[] = [item.url];
+
+    // Add tool-specific additional links
+    if (item.source === 'github' && item.type === 'pr') {
+      links.push(`${item.url}/files`);
+      links.push(`${item.url}/checks`);
+    }
+
+    if (item.metadata?.relatedUrls) {
+      links.push(...item.metadata.relatedUrls);
+    }
+
+    return links.filter(Boolean);
+  }
+
+  /**
+   * Extract tool-specific evidence metadata
+   */
+  private extractEvidenceMetadata(item: any, toolData: any): Record<string, any> {
+    const metadata: Record<string, any> = {};
+
+    // GitHub PR metadata
+    if (item.source === 'github' && item.type === 'pr') {
+      metadata.lines_added = item.metadata?.additions || 0;
+      metadata.lines_deleted = item.metadata?.deletions || 0;
+      metadata.files_changed = item.metadata?.filesChanged || 0;
+      metadata.comments = item.metadata?.comments || 0;
+    }
+
+    // Jira issue metadata
+    if (item.source === 'jira') {
+      metadata.comments = item.metadata?.commentCount || 0;
+      metadata.time_spent_minutes = item.metadata?.timeSpent ? Math.floor(item.metadata.timeSpent / 60) : 0;
+    }
+
+    // Slack thread metadata
+    if (item.source === 'slack' && item.type === 'thread') {
+      metadata.messages_count = item.metadata?.replyCount || 0;
+      metadata.reactions = item.metadata?.reactions || 0;
+    }
+
+    // Meeting metadata
+    if (item.type === 'meeting') {
+      metadata.duration_minutes = item.metadata?.duration || 0;
+      metadata.participants = item.metadata?.participants || [];
+    }
+
+    return metadata;
+  }
+
+  /**
+   * Find activities related through correlations
+   */
+  private findRelatedActivities(activityId: string, correlations: any[]): string[] {
+    const related: string[] = [];
+
+    correlations.forEach(corr => {
+      if (corr.source1.id === activityId) {
+        related.push(corr.source2.id);
+      } else if (corr.source2.id === activityId) {
+        related.push(corr.source1.id);
+      }
+    });
+
+    return related;
+  }
+
+  /**
+   * Extract technologies for specific activity
+   */
+  private extractActivityTechnologies(item: any): string[] {
+    const techs: string[] = [];
+
+    // From metadata
+    if (item.metadata?.technologies) {
+      techs.push(...item.metadata.technologies);
+    }
+
+    // From GitHub repo language
+    if (item.source === 'github' && item.metadata?.language) {
+      techs.push(item.metadata.language);
+    }
+
+    // From Jira labels
+    if (item.source === 'jira' && item.metadata?.labels) {
+      techs.push(...item.metadata.labels);
+    }
+
+    return [...new Set(techs)]; // Deduplicate
+  }
+
+  /**
+   * Generate action string from activity
+   */
+  private generateActionString(item: any): string {
+    const actionMap: Record<string, Record<string, string>> = {
+      github: {
+        pr: 'Merged PR',
+        commit: 'Committed code',
+        issue: 'Resolved issue',
+        review: 'Reviewed PR'
+      },
+      jira: {
+        issue: 'Resolved issue',
+        story: 'Completed story',
+        bug: 'Fixed bug'
+      },
+      slack: {
+        message: 'Sent message',
+        thread: 'Discussed in thread'
+      },
+      teams: {
+        message: 'Sent message',
+        meeting: 'Attended meeting'
+      }
+    };
+
+    const toolActions = actionMap[item.source];
+    if (toolActions && toolActions[item.type]) {
+      return `${toolActions[item.type]} ${item.metadata?.number || item.metadata?.key || ''}`.trim();
+    }
+
+    return item.title;
+  }
+
+  /**
+   * Extract and deduplicate collaborators
+   */
+  private extractCollaborators(
+    activities: Format7Activity[],
+    rawToolData: Map<MCPToolType, any>
+  ): { collaborators: Collaborator[]; reviewers: Collaborator[] } {
+    const collaboratorMap = new Map<string, Collaborator>();
+    const reviewerMap = new Map<string, Collaborator>();
+
+    activities.forEach(activity => {
+      // Extract people from metadata
+      const people = this.extractPeopleFromActivity(activity, rawToolData);
+
+      people.collaborators.forEach(person => {
+        if (!collaboratorMap.has(person.name)) {
+          collaboratorMap.set(person.name, this.createCollaborator(person));
+        }
+      });
+
+      people.reviewers.forEach(person => {
+        if (!reviewerMap.has(person.name)) {
+          reviewerMap.set(person.name, this.createCollaborator(person));
+        }
+      });
+    });
+
+    return {
+      collaborators: Array.from(collaboratorMap.values()),
+      reviewers: Array.from(reviewerMap.values())
+    };
+  }
+
+  /**
+   * Extract people from activity metadata
+   */
+  private extractPeopleFromActivity(
+    activity: Format7Activity,
+    rawToolData: Map<MCPToolType, any>
+  ): { collaborators: any[]; reviewers: any[] } {
+    const collaborators: any[] = [];
+    const reviewers: any[] = [];
+
+    // GitHub
+    if (activity.source === 'github') {
+      if (activity.metadata?.author) {
+        collaborators.push({ name: activity.metadata.author });
+      }
+      if (activity.metadata?.reviewers) {
+        activity.metadata.reviewers.forEach((r: string) => reviewers.push({ name: r }));
+      }
+      if (activity.metadata?.assignees) {
+        activity.metadata.assignees.forEach((a: string) => collaborators.push({ name: a }));
+      }
+    }
+
+    // Jira
+    if (activity.source === 'jira') {
+      if (activity.metadata?.assignee) {
+        collaborators.push({ name: activity.metadata.assignee });
+      }
+      if (activity.metadata?.reporter) {
+        collaborators.push({ name: activity.metadata.reporter });
+      }
+    }
+
+    // Slack/Teams
+    if (activity.source === 'slack' || activity.source === 'teams') {
+      if (activity.metadata?.from) {
+        collaborators.push({ name: activity.metadata.from });
+      }
+      if (activity.metadata?.participants) {
+        activity.metadata.participants.forEach((p: string) => collaborators.push({ name: p }));
+      }
+    }
+
+    return { collaborators, reviewers };
+  }
+
+  /**
+   * Create collaborator object with display properties
+   */
+  private createCollaborator(person: any): Collaborator {
+    return {
+      id: this.generatePersonId(person.name),
+      name: person.name,
+      initials: this.extractInitials(person.name),
+      avatar: person.avatar || null,
+      color: this.assignConsistentColor(person.name),
+      role: person.role || '',
+      department: person.department || ''
+    };
+  }
+
+  /**
+   * Generate consistent ID from name
+   */
+  private generatePersonId(name: string): string {
+    return name.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  /**
+   * Extract initials from name
+   */
+  private extractInitials(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) {
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  /**
+   * Assign consistent color gradient to user
+   */
+  private assignConsistentColor(name: string): string {
+    const gradients = [
+      'from-purple-400 to-pink-400',
+      'from-blue-400 to-cyan-400',
+      'from-green-400 to-teal-400',
+      'from-orange-400 to-red-400',
+      'from-indigo-400 to-purple-400',
+      'from-yellow-400 to-orange-400',
+      'from-pink-400 to-rose-400',
+      'from-teal-400 to-cyan-400'
+    ];
+
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return gradients[hash % gradients.length];
+  }
+
+  /**
+   * Calculate time span in hours
+   */
+  private calculateTimeSpan(activities: Format7Activity[]): number {
+    if (activities.length === 0) return 0;
+
+    const timestamps = activities
+      .map(a => new Date(a.timestamp).getTime())
+      .filter(t => !isNaN(t));
+
+    if (timestamps.length === 0) return 0;
+
+    const earliest = Math.min(...timestamps);
+    const latest = Math.max(...timestamps);
+
+    return Math.round((latest - earliest) / (1000 * 60 * 60)); // hours
+  }
+
+  /**
+   * Aggregate activities by type
+   */
+  private aggregateByType(activities: Format7Activity[]): Record<string, number> {
+    const byType: Record<string, number> = {};
+
+    activities.forEach(activity => {
+      byType[activity.type] = (byType[activity.type] || 0) + 1;
+    });
+
+    return byType;
+  }
+
+  /**
+   * Aggregate activities by source
+   */
+  private aggregateBySource(activities: Format7Activity[]): Record<string, number> {
+    const bySource: Record<string, number> = {};
+
+    activities.forEach(activity => {
+      bySource[activity.source] = (bySource[activity.source] || 0) + 1;
+    });
+
+    return bySource;
+  }
+
+  /**
+   * Filter technical skills from all skills
+   */
+  private filterTechnicalSkills(skills: string[]): string[] {
+    const softSkills = [
+      'communication',
+      'collaboration',
+      'leadership',
+      'teamwork',
+      'problem solving',
+      'critical thinking',
+      'time management',
+      'adaptability'
+    ];
+
+    return skills.filter(skill =>
+      !softSkills.some(soft => skill.toLowerCase().includes(soft.toLowerCase()))
+    );
+  }
+
+  /**
+   * Map correlations to Format7 structure
+   */
+  private mapCorrelations(correlations: any[]): any[] {
+    return correlations.map(corr => ({
+      id: corr.id,
+      type: corr.type,
+      activities: [corr.source1.id, corr.source2.id],
+      description: corr.reasoning,
+      confidence: corr.confidence,
+      evidence: corr.reasoning
+    }));
+  }
+}
+
+export const format7Transformer = new Format7TransformerService();

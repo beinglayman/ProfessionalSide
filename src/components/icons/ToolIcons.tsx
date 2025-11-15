@@ -191,6 +191,31 @@ export function ToolIcon({ tool, size = 24, disabled = false, className }: ToolI
   return icons[tool];
 }
 
+// Individual icon component exports for direct use
+export const GithubIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="github" className={className} />
+);
+
+export const JiraIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="jira" className={className} />
+);
+
+export const FigmaIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="figma" className={className} />
+);
+
+export const SlackIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="slack" className={className} />
+);
+
+export const TeamsIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="teams" className={className} />
+);
+
+export const ConfluenceIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="confluence" className={className} />
+);
+
 // Helper to get tool display name
 export function getToolDisplayName(tool: ToolType): string {
   const names: Record<ToolType, string> = {

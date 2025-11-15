@@ -213,6 +213,29 @@ export class GitHubTool {
    * @param endDate End date
    * @returns Array of pull requests
    */
+  /**
+   * Fetch detailed PR information including stats
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param prNumber PR number
+   * @returns PR details with stats or null
+   */
+  private async fetchPRDetails(owner: string, repo: string, prNumber: number): Promise<any> {
+    try {
+      const response = await this.githubApi.get(`/repos/${owner}/${repo}/pulls/${prNumber}`);
+      return {
+        additions: response.data.additions || 0,
+        deletions: response.data.deletions || 0,
+        changed_files: response.data.changed_files || 0,
+        commits: response.data.commits || 0,
+        reviewers: response.data.requested_reviewers?.map((r: any) => r.login) || []
+      };
+    } catch (error) {
+      console.error(`[GitHub Tool] Error fetching PR details for ${owner}/${repo}#${prNumber}:`, error);
+      return null;
+    }
+  }
+
   private async fetchPullRequests(startDate: Date, endDate: Date): Promise<any[]> {
     try {
       const dateRangeStr = `updated:${startDate.toISOString().split('T')[0]}..${endDate.toISOString().split('T')[0]}`;
@@ -245,22 +268,38 @@ export class GitHubTool {
         new Map(allPRs.map(pr => [pr.id, pr])).values()
       );
 
-      // Map PRs with comment counts
-      return uniquePRs.map((pr: any) => ({
-        id: pr.number,
-        title: pr.title,
-        state: pr.state,
-        author: pr.user.login,
-        createdAt: new Date(pr.created_at),
-        updatedAt: new Date(pr.updated_at),
-        url: pr.html_url,
-        repository: pr.repository_url.split('/').slice(-2).join('/'),
-        labels: pr.labels.map((l: any) => l.name),
-        isDraft: pr.draft || false,
-        reviewStatus: pr.pull_request?.merged_at ? 'merged' : pr.state,
-        commentsCount: pr.comments || 0, // Number of review comments
-        isReviewed: !authoredPRs.data.items.some((authored: any) => authored.id === pr.id) // True if only reviewed, not authored
-      }));
+      // Fetch detailed stats for each PR (limit to first 20 to avoid rate limits)
+      const prsWithDetails = await Promise.all(
+        uniquePRs.slice(0, 20).map(async (pr: any) => {
+          const repoPath = pr.repository_url.split('/').slice(-2);
+          const [owner, repo] = repoPath;
+          const details = await this.fetchPRDetails(owner, repo, pr.number);
+
+          return {
+            id: pr.number,
+            title: pr.title,
+            state: pr.state,
+            author: pr.user.login,
+            createdAt: new Date(pr.created_at),
+            updatedAt: new Date(pr.updated_at),
+            url: pr.html_url,
+            repository: repoPath.join('/'),
+            labels: pr.labels.map((l: any) => l.name),
+            isDraft: pr.draft || false,
+            reviewStatus: pr.pull_request?.merged_at ? 'merged' : pr.state,
+            commentsCount: pr.comments || 0,
+            isReviewed: !authoredPRs.data.items.some((authored: any) => authored.id === pr.id),
+            // Enhanced metadata for Format7
+            additions: details?.additions || 0,
+            deletions: details?.deletions || 0,
+            filesChanged: details?.changed_files || 0,
+            commits: details?.commits || 0,
+            reviewers: details?.reviewers || []
+          };
+        })
+      );
+
+      return prsWithDetails;
     } catch (error) {
       console.error('[GitHub Tool] Error fetching pull requests:', error);
       return [];
