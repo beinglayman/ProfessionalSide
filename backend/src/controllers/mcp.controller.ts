@@ -621,6 +621,7 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
       sessionId,
       sources: Array.from(sourcesMap.keys()),
       organized,
+      rawData: Object.fromEntries(sourcesMap),
       expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
       privacyNotice: 'All fetched data is stored in memory only and will automatically expire after 30 minutes. No external data is persisted to our database.',
       message: `Successfully organized activity from ${sourcesMap.size} tool(s) with AI`
