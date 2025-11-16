@@ -39,6 +39,7 @@ export function MCPFlowSidePanel({
   // Editable entry state
   const [editableTitle, setEditableTitle] = useState<string>('');
   const [editableDescription, setEditableDescription] = useState<string>('');
+  const [format7Entry, setFormat7Entry] = useState<any>(null);
 
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
@@ -214,23 +215,218 @@ export function MCPFlowSidePanel({
     return filtered;
   };
 
+  // Helper: Transform organized activities to Format7 activity structure
+  const transformToFormat7Activities = (
+    organizedData: any,
+    selectedIds: string[]
+  ): any[] => {
+    if (!organizedData?.categories) return [];
+
+    const format7Activities: any[] = [];
+
+    // Iterate through all categories
+    organizedData.categories.forEach((category: any) => {
+      category.items?.forEach((activity: any) => {
+        // Only include selected activities
+        if (!selectedIds.includes(activity.id)) return;
+
+        // Transform to Format7 activity structure
+        format7Activities.push({
+          id: activity.id,
+          source: activity.source,
+          action: activity.title, // title → action
+          description: activity.description,
+          timestamp: activity.timestamp,
+          importance: activity.importance || 'medium',
+          technologies: activity.skills || [], // skills → technologies
+          category: activity.category,
+          metadata: activity.metadata || {}
+        });
+      });
+    });
+
+    return format7Activities;
+  };
+
+  // Helper: Build Format7 summary statistics
+  const buildFormat7Summary = (activities: any[], organizedData: any): any => {
+    const summary = {
+      total_time_range_hours: 0,
+      activities_by_type: {} as Record<string, number>,
+      activities_by_source: {} as Record<string, number>,
+      unique_collaborators: [] as string[],
+      unique_reviewers: [] as string[],
+      technologies_used: organizedData?.extractedSkills || [],
+      skills_demonstrated: organizedData?.extractedSkills || []
+    };
+
+    const collaboratorsSet = new Set<string>();
+    const reviewersSet = new Set<string>();
+    let earliestTime: Date | null = null;
+    let latestTime: Date | null = null;
+
+    activities.forEach(activity => {
+      // Count by category/type
+      const type = activity.category || 'Other';
+      summary.activities_by_type[type] = (summary.activities_by_type[type] || 0) + 1;
+
+      // Count by source
+      const source = activity.source || 'Unknown';
+      summary.activities_by_source[source] = (summary.activities_by_source[source] || 0) + 1;
+
+      // Extract collaborators and reviewers from metadata
+      if (activity.metadata?.participants) {
+        activity.metadata.participants.forEach((person: string) => {
+          collaboratorsSet.add(person);
+        });
+      }
+
+      if (activity.metadata?.reviewers) {
+        activity.metadata.reviewers.forEach((person: string) => {
+          reviewersSet.add(person);
+        });
+      }
+
+      // Calculate time range
+      if (activity.timestamp) {
+        const activityTime = new Date(activity.timestamp);
+        if (!earliestTime || activityTime < earliestTime) {
+          earliestTime = activityTime;
+        }
+        if (!latestTime || activityTime > latestTime) {
+          latestTime = activityTime;
+        }
+      }
+    });
+
+    summary.unique_collaborators = Array.from(collaboratorsSet);
+    summary.unique_reviewers = Array.from(reviewersSet);
+
+    // Calculate total time range in hours
+    if (earliestTime && latestTime) {
+      summary.total_time_range_hours = Math.round(
+        (latestTime.getTime() - earliestTime.getTime()) / (1000 * 60 * 60)
+      );
+    }
+
+    return summary;
+  };
+
+  // Helper: Extract artifacts (URLs, files, documents) from activities
+  const extractArtifacts = (activities: any[]): any[] => {
+    const artifacts: any[] = [];
+    const seenUrls = new Set<string>();
+
+    activities.forEach(activity => {
+      // Extract URL from metadata
+      if (activity.metadata?.url && !seenUrls.has(activity.metadata.url)) {
+        artifacts.push({
+          type: 'link',
+          title: activity.action || activity.title || 'Link',
+          url: activity.metadata.url,
+          source: activity.source
+        });
+        seenUrls.add(activity.metadata.url);
+      }
+
+      // Extract files from metadata
+      if (activity.metadata?.files) {
+        activity.metadata.files.forEach((file: any) => {
+          if (file.url && !seenUrls.has(file.url)) {
+            artifacts.push({
+              type: 'file',
+              title: file.name || file.title || 'File',
+              url: file.url,
+              source: activity.source
+            });
+            seenUrls.add(file.url);
+          }
+        });
+      }
+    });
+
+    return artifacts;
+  };
+
   // Step 4: Generate Format7 preview
   const generateFormat7Preview = async () => {
     try {
       console.log('[MCPFlow] Generating Format7 preview from AI-processed data');
 
-      // TODO: Need to implement client-side Format7 transformation
-      // For now, call the Format7 endpoint with the AI-processed data
-      // This is a temporary solution - ideally we'd transform client-side
-
-      // Use the generated content from AI
-      const title = mcpMultiSource.generatedContent?.workspaceEntry?.title || 'Untitled Entry';
-      const description = mcpMultiSource.generatedContent?.workspaceEntry?.description || '';
+      // Extract AI-generated title and description
+      const title = mcpMultiSource.generatedContent?.workspaceEntry?.title ||
+                    mcpMultiSource.organizedData?.suggestedTitle ||
+                    'Untitled Entry';
+      const description = mcpMultiSource.generatedContent?.workspaceEntry?.description ||
+                         mcpMultiSource.organizedData?.contextSummary ||
+                         '';
 
       setEditableTitle(title);
       setEditableDescription(description);
 
-      console.log('[MCPFlow] Preview ready with title:', title);
+      // Transform organized activities to Format7 structure
+      const format7Activities = transformToFormat7Activities(
+        mcpMultiSource.organizedData,
+        selectedActivityIds
+      );
+
+      console.log('[MCPFlow] Transformed activities:', format7Activities.length);
+
+      // Build summary statistics
+      const summary = buildFormat7Summary(format7Activities, mcpMultiSource.organizedData);
+
+      // Extract artifacts
+      const artifacts = extractArtifacts(format7Activities);
+
+      // Calculate time range from activities
+      let timeRange = { start: '', end: '' };
+      if (format7Activities.length > 0) {
+        const timestamps = format7Activities
+          .map(a => new Date(a.timestamp))
+          .filter(d => !isNaN(d.getTime()));
+
+        if (timestamps.length > 0) {
+          const earliest = new Date(Math.min(...timestamps.map(d => d.getTime())));
+          const latest = new Date(Math.max(...timestamps.map(d => d.getTime())));
+          timeRange = {
+            start: earliest.toISOString().split('T')[0],
+            end: latest.toISOString().split('T')[0]
+          };
+        }
+      }
+
+      // Build complete Format7 entry
+      const completeFormat7Entry = {
+        entry_metadata: {
+          title: title,
+          date: timeRange.end || new Date().toISOString().split('T')[0],
+          type: 'learning', // Could be determined by AI or activity types
+          workspace: workspaceName,
+          privacy: 'team',
+          isAutomated: true,
+          created_at: new Date().toISOString()
+        },
+        context: {
+          date_range: timeRange,
+          sources_included: mcpMultiSource.sources || [],
+          total_activities: format7Activities.length,
+          primary_focus: description
+        },
+        activities: format7Activities,
+        summary: summary,
+        correlations: mcpMultiSource.correlations || [],
+        artifacts: artifacts
+      };
+
+      // Store the complete entry
+      setFormat7Entry(completeFormat7Entry);
+
+      console.log('[MCPFlow] Format7 entry generated:', {
+        activities: format7Activities.length,
+        collaborators: summary.unique_collaborators.length,
+        technologies: summary.technologies_used.length,
+        artifacts: artifacts.length
+      });
 
       // Move to preview step
       setStep('preview');
@@ -245,13 +441,26 @@ export function MCPFlowSidePanel({
   const handleConfirmAndCreate = () => {
     console.log('[MCPFlow] Creating entry with edited data');
 
+    // Update Format7 entry with final edited values
+    const finalFormat7Entry = format7Entry ? {
+      ...format7Entry,
+      entry_metadata: {
+        ...format7Entry.entry_metadata,
+        title: editableTitle
+      },
+      context: {
+        ...format7Entry.context,
+        primary_focus: editableDescription
+      }
+    } : null;
+
     // Create entry data with user edits
     onComplete({
       title: editableTitle,
       description: editableDescription,
       skills: mcpMultiSource.organizedData?.extractedSkills || [],
       activities: mcpMultiSource.organizedData,
-      format7Entry: mcpMultiSource.format7Entry,
+      format7Entry: finalFormat7Entry,
       workspaceEntry: {
         title: editableTitle,
         description: editableDescription
@@ -267,6 +476,7 @@ export function MCPFlowSidePanel({
     setSelectedActivityIds([]);
     setEditableTitle('');
     setEditableDescription('');
+    setFormat7Entry(null);
     mcpMultiSource.reset();
     onOpenChange(false);
   };
@@ -384,40 +594,22 @@ export function MCPFlowSidePanel({
         );
 
       case 'preview':
-        // Create a mock Format7 entry from the generated content
-        const mockFormat7Entry = mcpMultiSource.format7Entry || {
+        // Use the stored Format7 entry with live updates for title and description
+        const previewEntry = format7Entry ? {
+          ...format7Entry,
           entry_metadata: {
-            title: editableTitle,
-            date: new Date().toISOString().split('T')[0],
-            type: 'learning',
-            workspace: workspaceName,
-            privacy: 'team',
-            isAutomated: true,
-            created_at: new Date().toISOString()
+            ...format7Entry.entry_metadata,
+            title: editableTitle
           },
           context: {
-            date_range: { start: '', end: '' },
-            sources_included: mcpMultiSource.sources || [],
-            total_activities: selectedActivityIds.length,
+            ...format7Entry.context,
             primary_focus: editableDescription
-          },
-          activities: [],
-          summary: {
-            total_time_range_hours: 0,
-            activities_by_type: {},
-            activities_by_source: {},
-            unique_collaborators: [],
-            unique_reviewers: [],
-            technologies_used: mcpMultiSource.organizedData?.extractedSkills || [],
-            skills_demonstrated: mcpMultiSource.organizedData?.extractedSkills || []
-          },
-          correlations: mcpMultiSource.correlations || [],
-          artifacts: []
-        };
+          }
+        } : null;
 
         return (
           <Format7EntryEditor
-            initialEntry={mockFormat7Entry}
+            initialEntry={previewEntry}
             onTitleChange={setEditableTitle}
             onDescriptionChange={setEditableDescription}
             editableTitle={editableTitle}
