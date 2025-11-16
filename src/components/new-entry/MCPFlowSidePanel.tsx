@@ -6,8 +6,8 @@ import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useMCPMultiSource } from '../../hooks/useMCPMultiSource';
 import { MCPSourceSelector } from '../mcp/MCPSourceSelector';
 import { MCPActivityReview } from '../mcp/MCPActivityReview';
-import { JournalHybrid } from '../format7/journal-hybrid';
-import { JournalAchievement } from '../format7/journal-achievement';
+import JournalHybrid from '../format7/journal-hybrid';
+import JournalAchievement from '../format7/journal-achievement';
 
 interface MCPFlowSidePanelProps {
   open: boolean;
