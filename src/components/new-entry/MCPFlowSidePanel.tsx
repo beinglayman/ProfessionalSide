@@ -5,9 +5,9 @@ import { cn } from '../../lib/utils';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useMCPMultiSource } from '../../hooks/useMCPMultiSource';
 import { MCPSourceSelector } from '../mcp/MCPSourceSelector';
+import { MCPRawActivityReview } from '../mcp/MCPRawActivityReview';
 import { MCPActivityReview } from '../mcp/MCPActivityReview';
-import JournalHybrid from '../format7/journal-hybrid';
-import JournalAchievement from '../format7/journal-achievement';
+import { Format7EntryEditor } from './Format7EntryEditor';
 
 interface MCPFlowSidePanelProps {
   open: boolean;
@@ -17,6 +17,7 @@ interface MCPFlowSidePanelProps {
     description: string;
     skills: string[];
     activities: any;
+    format7Entry?: any;
     workspaceEntry: any;
     networkEntry: any;
   }) => void;
@@ -29,102 +30,259 @@ export function MCPFlowSidePanel({
   onComplete,
   workspaceName = 'Professional Work'
 }: MCPFlowSidePanelProps) {
-  const [step, setStep] = useState<'select' | 'review' | 'preview'>('select');
+  // 4-step flow state
+  const [step, setStep] = useState<'select' | 'rawReview' | 'correlations' | 'preview'>('select');
+
+  // Activity selection state
+  const [selectedActivityIds, setSelectedActivityIds] = useState<string[]>([]);
+
+  // Editable entry state
+  const [editableTitle, setEditableTitle] = useState<string>('');
+  const [editableDescription, setEditableDescription] = useState<string>('');
+
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
 
   const connectedTools = integrations?.integrations?.filter((i: any) => i.isConnected) || [];
 
-  // Handle MCP data fetch - Format7 version
+  // Step 1: Fetch raw activities (no AI processing)
   const handleFetchActivities = async (toolTypes: string[], dateRange: { start: Date; end: Date }) => {
     try {
-      console.log('[MCPFlow] Starting Format7 fetch with:', { toolTypes, dateRange });
+      console.log('[MCPFlow] Step 1: Fetching raw activities from:', toolTypes);
 
-      const format7Entry = await mcpMultiSource.fetchAndProcessFormat7(toolTypes, dateRange, {
-        quality: 'balanced',
-        privacy: 'team',
-        workspaceName
+      // Use fetchActivities to get raw data only
+      const result = await mcpMultiSource.fetchActivities(toolTypes, dateRange);
+
+      console.log('[MCPFlow] Raw data fetched:', {
+        sources: result.sources,
+        rawData: result.rawData
       });
 
-      console.log('[MCPFlow] Format7 fetch completed, entry:', format7Entry);
+      // Auto-select all activity IDs
+      const allIds = extractAllActivityIds(result.rawData, result.sources);
+      setSelectedActivityIds(allIds);
 
-      // Check if we have activities
-      const hasActivities = format7Entry?.activities && format7Entry.activities.length > 0;
+      console.log('[MCPFlow] Auto-selected all activities:', allIds.length);
 
-      console.log('[MCPFlow] Activity check:', {
-        hasActivities,
-        totalActivities: format7Entry?.activities?.length || 0,
-        entryType: format7Entry?.entry_metadata?.type
-      });
-
-      // Move directly to preview with Format7 entry (skip review)
-      if (hasActivities) {
-        console.log('[MCPFlow] ✅ Moving to preview with Format7 entry');
-        setStep('preview');
+      // Move to raw review step
+      if (allIds.length > 0) {
+        setStep('rawReview');
       } else {
-        console.warn('[MCPFlow] ❌ No activities found - staying on selection step');
         alert('No activities found for the selected date range and tools. Try expanding your date range or selecting different tools.');
       }
     } catch (error: any) {
-      console.error('[MCPFlow] Failed to fetch Format7 entry:', error);
-      console.error('[MCPFlow] Error details:', error.response?.data || error.message);
-
-      // Show user-friendly error message
-      const errorMsg = error.response?.data?.error || error.message || 'Failed to generate journal entry';
-      alert(`Error generating journal entry: ${errorMsg}\n\nPlease try again or check your internet connection.`);
+      console.error('[MCPFlow] Failed to fetch activities:', error);
+      alert(`Error fetching activities: ${error.message}\n\nPlease try again or check your internet connection.`);
     }
   };
 
-  // Handle activity selection and continuation
-  const handleContinueWithSelection = async (selectedData: any) => {
-    // fetchAndProcess already generated content in handleFetchActivities
-    // No need to call processStage again since it was done during fetch
-    console.log('[MCPFlowSidePanel] Moving to preview with generated content');
-    console.log('[MCPFlowSidePanel] Current mcpMultiSource state:', {
-      hasGeneratedContent: !!mcpMultiSource.generatedContent,
-      hasOrganizedData: !!mcpMultiSource.organizedData,
-      generatedContent: mcpMultiSource.generatedContent,
-      organizedData: mcpMultiSource.organizedData,
-      stage: mcpMultiSource.stage
+  // Helper: Extract all activity IDs from raw data
+  const extractAllActivityIds = (rawData: Record<string, any>, sources: string[]): string[] => {
+    const ids: string[] = [];
+
+    sources.forEach(toolType => {
+      const data = rawData[toolType];
+      if (!data) return;
+
+      switch (toolType) {
+        case 'github':
+          data.pullRequests?.forEach((pr: any) => ids.push(`github-pr-${pr.id}`));
+          data.issues?.forEach((issue: any) => ids.push(`github-issue-${issue.id}`));
+          data.commits?.forEach((commit: any) => ids.push(`github-commit-${commit.sha}`));
+          break;
+        case 'jira':
+          data.issues?.forEach((issue: any) => ids.push(`jira-${issue.key}`));
+          break;
+        case 'slack':
+          data.messages?.forEach((msg: any, idx: number) => ids.push(`slack-msg-${idx}`));
+          break;
+        case 'figma':
+          data.files?.forEach((file: any) => ids.push(`figma-${file.key}`));
+          break;
+        case 'outlook':
+        case 'teams':
+          data.meetings?.forEach((meeting: any, idx: number) => ids.push(`${toolType}-meeting-${idx}`));
+          break;
+        default:
+          // Generic handling
+          if (Array.isArray(data)) {
+            data.forEach((item: any, idx: number) => ids.push(`${toolType}-${idx}`));
+          }
+      }
     });
-    setStep('preview');
+
+    return ids;
   };
 
-  // Handle final confirmation - Format7 version
-  const handleConfirmAndUse = () => {
-    if (mcpMultiSource.format7Entry) {
-      onComplete({
-        title: mcpMultiSource.format7Entry.entry_metadata.title,
-        description: mcpMultiSource.format7Entry.context.primary_focus,
-        skills: mcpMultiSource.format7Entry.summary.skills_demonstrated || [],
-        activities: mcpMultiSource.format7Entry.activities,
-        format7Entry: mcpMultiSource.format7Entry, // Pass complete Format7 entry
-        workspaceEntry: {
-          title: mcpMultiSource.format7Entry.entry_metadata.title,
-          description: mcpMultiSource.format7Entry.context.primary_focus
-        },
-        networkEntry: null // Format7 handles privacy differently
+  // Step 2: Continue from raw review
+  const handleContinueFromRawReview = () => {
+    console.log('[MCPFlow] Step 2: User selected', selectedActivityIds.length, 'activities');
+    setStep('correlations');
+  };
+
+  // Step 3: Process selected activities with AI
+  const handleProcessSelectedActivities = async () => {
+    try {
+      console.log('[MCPFlow] Step 3: Processing selected activities with AI');
+
+      // Filter raw data to only include selected activities
+      const filteredData = filterDataBySelectedIds(
+        mcpMultiSource.rawActivities,
+        mcpMultiSource.sources,
+        selectedActivityIds
+      );
+
+      console.log('[MCPFlow] Filtered data:', filteredData);
+
+      // Process with AI agents progressively
+      console.log('[MCPFlow] Running analyze stage...');
+      await mcpMultiSource.processStage('analyze', filteredData, { quality: 'balanced' });
+
+      console.log('[MCPFlow] Running correlate stage...');
+      await mcpMultiSource.processStage('correlate');
+
+      console.log('[MCPFlow] Running generate stage...');
+      await mcpMultiSource.processStage('generate', null, {
+        generateContent: true,
+        workspaceName
       });
-      handleClose();
+
+      console.log('[MCPFlow] AI processing complete, moving to preview');
+
+      // Generate Format7 entry from AI-processed data
+      await generateFormat7Preview();
+
+    } catch (error: any) {
+      console.error('[MCPFlow] Failed to process activities:', error);
+      alert(`Error processing activities: ${error.message}\n\nPlease try again.`);
     }
+  };
+
+  // Helper: Filter raw data by selected IDs
+  const filterDataBySelectedIds = (
+    rawData: Record<string, any>,
+    sources: string[],
+    selectedIds: string[]
+  ): Record<string, any> => {
+    const filtered: Record<string, any> = {};
+
+    sources.forEach(toolType => {
+      const data = rawData[toolType];
+      if (!data) return;
+
+      switch (toolType) {
+        case 'github':
+          filtered[toolType] = {
+            pullRequests: data.pullRequests?.filter((pr: any) =>
+              selectedIds.includes(`github-pr-${pr.id}`)
+            ) || [],
+            issues: data.issues?.filter((issue: any) =>
+              selectedIds.includes(`github-issue-${issue.id}`)
+            ) || [],
+            commits: data.commits?.filter((commit: any) =>
+              selectedIds.includes(`github-commit-${commit.sha}`)
+            ) || []
+          };
+          break;
+        case 'jira':
+          filtered[toolType] = {
+            issues: data.issues?.filter((issue: any) =>
+              selectedIds.includes(`jira-${issue.key}`)
+            ) || []
+          };
+          break;
+        case 'slack':
+          filtered[toolType] = {
+            messages: data.messages?.filter((msg: any, idx: number) =>
+              selectedIds.includes(`slack-msg-${idx}`)
+            ) || []
+          };
+          break;
+        case 'figma':
+          filtered[toolType] = {
+            files: data.files?.filter((file: any) =>
+              selectedIds.includes(`figma-${file.key}`)
+            ) || []
+          };
+          break;
+        default:
+          // Pass through other tool data
+          filtered[toolType] = data;
+      }
+    });
+
+    return filtered;
+  };
+
+  // Step 4: Generate Format7 preview
+  const generateFormat7Preview = async () => {
+    try {
+      console.log('[MCPFlow] Generating Format7 preview from AI-processed data');
+
+      // TODO: Need to implement client-side Format7 transformation
+      // For now, call the Format7 endpoint with the AI-processed data
+      // This is a temporary solution - ideally we'd transform client-side
+
+      // Use the generated content from AI
+      const title = mcpMultiSource.generatedContent?.workspaceEntry?.title || 'Untitled Entry';
+      const description = mcpMultiSource.generatedContent?.workspaceEntry?.description || '';
+
+      setEditableTitle(title);
+      setEditableDescription(description);
+
+      console.log('[MCPFlow] Preview ready with title:', title);
+
+      // Move to preview step
+      setStep('preview');
+
+    } catch (error: any) {
+      console.error('[MCPFlow] Failed to generate preview:', error);
+      alert(`Error generating preview: ${error.message}`);
+    }
+  };
+
+  // Handle final confirmation with edited data
+  const handleConfirmAndCreate = () => {
+    console.log('[MCPFlow] Creating entry with edited data');
+
+    // Create entry data with user edits
+    onComplete({
+      title: editableTitle,
+      description: editableDescription,
+      skills: mcpMultiSource.organizedData?.extractedSkills || [],
+      activities: mcpMultiSource.organizedData,
+      format7Entry: mcpMultiSource.format7Entry,
+      workspaceEntry: {
+        title: editableTitle,
+        description: editableDescription
+      },
+      networkEntry: mcpMultiSource.generatedContent?.networkEntry || null
+    });
+
+    handleClose();
   };
 
   const handleClose = () => {
     setStep('select');
+    setSelectedActivityIds([]);
+    setEditableTitle('');
+    setEditableDescription('');
     mcpMultiSource.reset();
     onOpenChange(false);
   };
 
   const handleBack = () => {
-    if (step === 'review') setStep('select');
-    else if (step === 'preview') setStep('review');
+    if (step === 'rawReview') setStep('select');
+    else if (step === 'correlations') setStep('rawReview');
+    else if (step === 'preview') setStep('correlations');
   };
 
   const getStepInfo = () => {
     const steps = {
-      select: { number: 1, total: 3, title: 'Select Data Sources' },
-      review: { number: 2, total: 3, title: 'Review Activities' },
-      preview: { number: 3, total: 3, title: 'Preview Entry' }
+      select: { number: 1, total: 4, title: 'Select Data Sources' },
+      rawReview: { number: 2, total: 4, title: 'Review Activities' },
+      correlations: { number: 3, total: 4, title: 'AI Analysis & Correlations' },
+      preview: { number: 4, total: 4, title: 'Preview & Edit Entry' }
     };
     return steps[step];
   };
@@ -167,80 +325,104 @@ export function MCPFlowSidePanel({
           </div>
         );
 
-      case 'review':
-        console.log('[MCPFlowSidePanel] ========== RENDERING REVIEW STEP ==========');
-        console.log('[MCPFlowSidePanel] Organized data:', mcpMultiSource.organizedData);
-        console.log('[MCPFlowSidePanel] Sources:', mcpMultiSource.sources);
+      case 'rawReview':
+        return (
+          <MCPRawActivityReview
+            rawData={mcpMultiSource.rawActivities || {}}
+            sources={mcpMultiSource.sources || []}
+            selectedIds={selectedActivityIds}
+            onSelectionChange={setSelectedActivityIds}
+            onContinue={handleContinueFromRawReview}
+          />
+        );
 
-        // Log detailed category breakdown
-        if (mcpMultiSource.organizedData) {
-          Object.entries(mcpMultiSource.organizedData).forEach(([category, data]: [string, any]) => {
-            console.log(`[MCPFlowSidePanel] Category "${category}":`, {
-              itemCount: data.items?.length || 0,
-              items: data.items?.map((item: any) => ({
-                title: item.title,
-                source: item.source,
-                category: item.category
-              }))
-            });
-          });
-        }
-
+      case 'correlations':
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Review Your Activities</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Analysis & Correlations</h3>
               <p className="text-sm text-gray-600">
-                AI has organized your work. Select which activities to include in your journal entry
+                AI is analyzing your {selectedActivityIds.length} selected activities to find patterns and connections
               </p>
             </div>
 
-            {mcpMultiSource.organizedData && (
+            {mcpMultiSource.organizedData ? (
+              // Show AI-organized results
               <MCPActivityReview
                 activities={mcpMultiSource.organizedData}
                 onSelectionChange={(selectedIds) => {
-                  console.log('Selected activities:', selectedIds);
+                  console.log('Correlation view - activities:', selectedIds);
                 }}
-                onContinue={handleContinueWithSelection}
+                onContinue={generateFormat7Preview}
                 isProcessing={mcpMultiSource.isProcessing}
               />
+            ) : (
+              // Initial state - trigger processing
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <Sparkles className="h-12 w-12 text-purple-600 mx-auto mb-4 animate-pulse" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Analyze</h3>
+                <p className="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
+                  Click below to have AI analyze your selected activities and identify patterns, correlations, and key achievements
+                </p>
+                <Button
+                  onClick={handleProcessSelectedActivities}
+                  disabled={mcpMultiSource.isProcessing}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                >
+                  {mcpMultiSource.isProcessing ? (
+                    'Processing...'
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Analyze with AI
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         );
 
       case 'preview':
-        // Debug logging for Format7
-        console.log('[MCPFlowSidePanel] Preview step - format7Entry:', mcpMultiSource.format7Entry);
-        console.log('[MCPFlowSidePanel] Preview step - hasFormat7Entry:', mcpMultiSource.hasFormat7Entry);
-
-        const format7Entry = mcpMultiSource.format7Entry;
-        const entryType = format7Entry?.entry_metadata?.type;
+        // Create a mock Format7 entry from the generated content
+        const mockFormat7Entry = mcpMultiSource.format7Entry || {
+          entry_metadata: {
+            title: editableTitle,
+            date: new Date().toISOString().split('T')[0],
+            type: 'learning',
+            workspace: workspaceName,
+            privacy: 'team',
+            isAutomated: true,
+            created_at: new Date().toISOString()
+          },
+          context: {
+            date_range: { start: '', end: '' },
+            sources_included: mcpMultiSource.sources || [],
+            total_activities: selectedActivityIds.length,
+            primary_focus: editableDescription
+          },
+          activities: [],
+          summary: {
+            total_time_range_hours: 0,
+            activities_by_type: {},
+            activities_by_source: {},
+            unique_collaborators: [],
+            unique_reviewers: [],
+            technologies_used: mcpMultiSource.organizedData?.extractedSkills || [],
+            skills_demonstrated: mcpMultiSource.organizedData?.extractedSkills || []
+          },
+          correlations: mcpMultiSource.correlations || [],
+          artifacts: []
+        };
 
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Preview Your Entry</h3>
-              <p className="text-sm text-gray-600">
-                Review the AI-generated journal entry before creating
-              </p>
-            </div>
-
-            {format7Entry ? (
-              <div className="max-w-3xl mx-auto">
-                {entryType === 'achievement' ? (
-                  <JournalAchievement entry={format7Entry} />
-                ) : (
-                  <JournalHybrid entry={format7Entry} />
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
-                  No journal entry generated. Check console for debugging information.
-                </p>
-              </div>
-            )}
-          </div>
+          <Format7EntryEditor
+            initialEntry={mockFormat7Entry}
+            onTitleChange={setEditableTitle}
+            onDescriptionChange={setEditableDescription}
+            editableTitle={editableTitle}
+            editableDescription={editableDescription}
+          />
         );
 
       default:
@@ -277,7 +459,7 @@ export function MCPFlowSidePanel({
           <button
             onClick={handleClose}
             className="p-2 rounded-full hover:bg-white/80 transition-colors"
-            disabled={mcpMultiSource.isFetching}
+            disabled={mcpMultiSource.isFetching || mcpMultiSource.isProcessing}
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -316,8 +498,8 @@ export function MCPFlowSidePanel({
           <div className="flex items-center gap-2">
             {step === 'preview' && (
               <Button
-                onClick={handleConfirmAndUse}
-                disabled={!mcpMultiSource.generatedContent || mcpMultiSource.isProcessing}
+                onClick={handleConfirmAndCreate}
+                disabled={!editableTitle || mcpMultiSource.isProcessing}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 Create Entry
