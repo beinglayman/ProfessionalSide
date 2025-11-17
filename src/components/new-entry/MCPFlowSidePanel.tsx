@@ -164,9 +164,11 @@ export function MCPFlowSidePanel({
   };
 
   // Step 2: Continue from raw review
-  const handleContinueFromRawReview = () => {
+  const handleContinueFromRawReview = async () => {
     console.log('[MCPFlow] Step 2: User selected', selectedActivityIds.length, 'activities');
     setStep('correlations');
+    // Automatically trigger AI processing when moving to Step 3
+    await handleProcessSelectedActivities();
   };
 
   // Step 3: Process selected activities with AI
