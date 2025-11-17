@@ -496,6 +496,8 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
     const { OneDriveTool } = await import('../services/mcp/tools/onedrive.tool');
     const { OneNoteTool } = await import('../services/mcp/tools/onenote.tool');
     const { SharePointTool } = await import('../services/mcp/tools/sharepoint.tool');
+    const { ZoomTool } = await import('../services/mcp/tools/zoom.tool');
+    const { GoogleWorkspaceTool } = await import('../services/mcp/tools/google-workspace.tool');
     const { MCPMultiSourceOrganizer } = await import('../services/mcp/mcp-multi-source-organizer.service');
     const { MCPSessionService } = await import('../services/mcp/mcp-session.service');
 
@@ -565,15 +567,33 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
             result = await tool.fetchActivity(userId, parsedDateRange);
             break;
 
+          case 'zoom':
+            tool = new ZoomTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
+          case 'google_workspace':
+            tool = new GoogleWorkspaceTool();
+            result = await tool.fetchActivity(userId, parsedDateRange);
+            break;
+
           default:
             console.log(`[MCP Multi-Source] Unknown tool type: ${toolType}`);
             return null;
         }
 
         if (result && result.success && result.data) {
+          // Log success with data summary
+          const dataKeys = Object.keys(result.data);
+          const activityCounts = dataKeys.map(key => {
+            const value = result.data[key];
+            return `${key}:${Array.isArray(value) ? value.length : '?'}`;
+          }).join(', ');
+          console.log(`[MCP Multi-Source] ✓ ${toolType} returned data: {${activityCounts}}`);
           return { toolType, data: result.data };
         }
 
+        console.log(`[MCP Multi-Source] ✗ ${toolType} returned no data or failed`);
         return null;
       } catch (error: any) {
         console.error(`[MCP Multi-Source] Error fetching from ${toolType}:`, error);
@@ -590,6 +610,15 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
         sourcesMap.set(result.toolType, result.data);
       }
     });
+
+    // Log summary of results
+    const successfulTools = Array.from(sourcesMap.keys());
+    const failedTools = toolTypes.filter(t => !successfulTools.includes(t));
+    console.log(`[MCP Multi-Source] Summary: ${successfulTools.length}/${toolTypes.length} tools succeeded`);
+    console.log(`[MCP Multi-Source] Successful: [${successfulTools.join(', ')}]`);
+    if (failedTools.length > 0) {
+      console.log(`[MCP Multi-Source] Failed/Empty: [${failedTools.join(', ')}]`);
+    }
 
     if (sourcesMap.size === 0) {
       sendError(res, 'Failed to fetch data from any connected tools. Please ensure at least one tool is properly connected.', 400);
