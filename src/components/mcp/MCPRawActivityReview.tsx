@@ -98,6 +98,11 @@ export function MCPRawActivityReview({
   const extractActivities = (toolType: string, data: any): RawActivity[] => {
     const activities: RawActivity[] = [];
 
+    // Debug: Log what data we received
+    console.log(`[MCPRawActivityReview] === Extracting ${toolType} ===`);
+    console.log(`[MCPRawActivityReview] ${toolType} - Data keys:`, data ? Object.keys(data) : 'NO DATA');
+    console.log(`[MCPRawActivityReview] ${toolType} - Full data:`, data);
+
     switch (toolType) {
       case 'github':
         // GitHub PRs
@@ -162,6 +167,9 @@ export function MCPRawActivityReview({
         break;
 
       case 'jira':
+        console.log('[MCPRawActivityReview] Jira - issues:', data.issues?.length || 0);
+        console.log('[MCPRawActivityReview] Jira - projects:', data.projects?.length || 0);
+        console.log('[MCPRawActivityReview] Jira - sprints:', data.sprints?.length || 0);
         data.issues?.forEach((issue: any) => {
           activities.push({
             id: `jira-${issue.key}`,
@@ -393,6 +401,10 @@ export function MCPRawActivityReview({
         break;
 
       case 'confluence':
+        console.log('[MCPRawActivityReview] Confluence - pages:', data.pages?.length || 0);
+        console.log('[MCPRawActivityReview] Confluence - blogPosts:', data.blogPosts?.length || 0);
+        console.log('[MCPRawActivityReview] Confluence - comments:', data.comments?.length || 0);
+        console.log('[MCPRawActivityReview] Confluence - spaces:', data.spaces?.length || 0);
         data.pages?.forEach((page: any) => {
           activities.push({
             id: `confluence-page-${page.id}`,
@@ -490,6 +502,11 @@ export function MCPRawActivityReview({
         break;
 
       case 'google_workspace':
+        console.log('[MCPRawActivityReview] Google Workspace - driveFiles:', data.driveFiles?.length || 0);
+        console.log('[MCPRawActivityReview] Google Workspace - docs:', data.docs?.length || 0);
+        console.log('[MCPRawActivityReview] Google Workspace - sheets:', data.sheets?.length || 0);
+        console.log('[MCPRawActivityReview] Google Workspace - slides:', data.slides?.length || 0);
+        console.log('[MCPRawActivityReview] Google Workspace - meetRecordings:', data.meetRecordings?.length || 0);
         data.driveFiles?.forEach((file: any) => {
           activities.push({
             id: `google-drive-${file.id}`,
@@ -698,6 +715,7 @@ export function MCPRawActivityReview({
         }
     }
 
+    console.log(`[MCPRawActivityReview] ${toolType} - Total activities extracted: ${activities.length}`);
     return activities;
   };
 
@@ -705,13 +723,24 @@ export function MCPRawActivityReview({
   const toolActivities: Record<string, RawActivity[]> = {};
   let totalActivities = 0;
 
+  console.log('[MCPRawActivityReview] ========== PROCESSING RAW DATA ==========');
+  console.log('[MCPRawActivityReview] Sources to process:', sources);
+  console.log('[MCPRawActivityReview] Raw data keys:', Object.keys(rawData || {}));
+
   sources.forEach(toolType => {
     const data = rawData[toolType];
+    console.log(`[MCPRawActivityReview] Processing ${toolType}, has data:`, !!data);
     if (data) {
       toolActivities[toolType] = extractActivities(toolType, data);
+      console.log(`[MCPRawActivityReview] ${toolType} extracted ${toolActivities[toolType].length} activities`);
       totalActivities += toolActivities[toolType].length;
+    } else {
+      console.log(`[MCPRawActivityReview] ${toolType} has NO DATA`);
     }
   });
+
+  console.log('[MCPRawActivityReview] ========== EXTRACTION COMPLETE ==========');
+  console.log('[MCPRawActivityReview] Total activities across all tools:', totalActivities);
 
   // Toggle tool expansion
   const toggleTool = (toolType: string) => {
