@@ -78,7 +78,9 @@ export class AnalyzerAgent {
     const result = await this.modelSelector.executeTask('analyze', messages, 'quick');
 
     try {
-      const parsed = JSON.parse(result.content);
+      // Strip markdown code blocks if present (AI sometimes wraps JSON in ```json ... ```)
+      const cleanedContent = this.stripMarkdownCodeBlocks(result.content);
+      const parsed = JSON.parse(cleanedContent);
       // Convert timestamp strings to Date objects
       if (parsed.activities && Array.isArray(parsed.activities)) {
         parsed.activities = parsed.activities.map((act: any) => ({
@@ -89,6 +91,7 @@ export class AnalyzerAgent {
       return parsed;
     } catch (error) {
       console.error('Failed to parse analysis result:', error);
+      console.error('Raw content (first 500 chars):', result.content.substring(0, 500));
       // Return a basic structure if parsing fails
       return this.getFallbackAnalysis(activities);
     }
