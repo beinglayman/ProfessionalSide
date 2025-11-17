@@ -90,19 +90,67 @@ export function MCPFlowSidePanel({
           data.pullRequests?.forEach((pr: any) => ids.push(`github-pr-${pr.id}`));
           data.issues?.forEach((issue: any) => ids.push(`github-issue-${issue.id}`));
           data.commits?.forEach((commit: any) => ids.push(`github-commit-${commit.sha}`));
+          data.repositories?.forEach((repo: any) => ids.push(`github-repo-${repo.name}`));
           break;
         case 'jira':
           data.issues?.forEach((issue: any) => ids.push(`jira-${issue.key}`));
+          data.projects?.forEach((project: any) => ids.push(`jira-project-${project.key}`));
+          data.sprints?.forEach((sprint: any) => ids.push(`jira-sprint-${sprint.id}`));
           break;
         case 'slack':
           data.messages?.forEach((msg: any, idx: number) => ids.push(`slack-msg-${idx}`));
+          data.threads?.forEach((thread: any) => ids.push(`slack-thread-${thread.id}`));
+          data.channels?.forEach((channel: any) => ids.push(`slack-channel-${channel.id}`));
           break;
         case 'figma':
           data.files?.forEach((file: any) => ids.push(`figma-${file.key}`));
+          data.components?.forEach((component: any) => ids.push(`figma-component-${component.key}`));
+          data.comments?.forEach((comment: any) => ids.push(`figma-comment-${comment.id}`));
           break;
         case 'outlook':
+          data.meetings?.forEach((meeting: any, idx: number) => ids.push(`outlook-meeting-${idx}`));
+          data.emails?.forEach((email: any) => ids.push(`outlook-email-${email.id}`));
+          break;
         case 'teams':
-          data.meetings?.forEach((meeting: any, idx: number) => ids.push(`${toolType}-meeting-${idx}`));
+          data.meetings?.forEach((meeting: any, idx: number) => ids.push(`teams-meeting-${idx}`));
+          data.teams?.forEach((team: any) => ids.push(`teams-team-${team.id}`));
+          data.channels?.forEach((channel: any) => ids.push(`teams-channel-${channel.id}`));
+          data.chats?.forEach((chat: any) => ids.push(`teams-chat-${chat.id}`));
+          data.chatMessages?.forEach((message: any) => ids.push(`teams-chatmsg-${message.id}`));
+          data.channelMessages?.forEach((message: any) => ids.push(`teams-channelmsg-${message.id}`));
+          break;
+        case 'confluence':
+          data.pages?.forEach((page: any) => ids.push(`confluence-page-${page.id}`));
+          data.blogPosts?.forEach((post: any) => ids.push(`confluence-blog-${post.id}`));
+          data.comments?.forEach((comment: any) => ids.push(`confluence-comment-${comment.id}`));
+          data.spaces?.forEach((space: any) => ids.push(`confluence-space-${space.id}`));
+          break;
+        case 'onenote':
+          data.notebooks?.forEach((notebook: any) => ids.push(`onenote-notebook-${notebook.id}`));
+          data.sections?.forEach((section: any) => ids.push(`onenote-section-${section.id}`));
+          data.pages?.forEach((page: any) => ids.push(`onenote-page-${page.id}`));
+          break;
+        case 'google_workspace':
+          data.driveFiles?.forEach((file: any) => ids.push(`google-drive-${file.id}`));
+          data.docs?.forEach((doc: any) => ids.push(`google-doc-${doc.id}`));
+          data.sheets?.forEach((sheet: any) => ids.push(`google-sheet-${sheet.id}`));
+          data.slides?.forEach((slide: any) => ids.push(`google-slide-${slide.id}`));
+          data.meetRecordings?.forEach((recording: any) => ids.push(`google-meet-${recording.id}`));
+          break;
+        case 'zoom':
+          data.meetings?.forEach((meeting: any) => ids.push(`zoom-meeting-${meeting.id}`));
+          data.upcomingMeetings?.forEach((meeting: any) => ids.push(`zoom-upcoming-${meeting.id}`));
+          data.recordings?.forEach((recording: any) => ids.push(`zoom-recording-${recording.id}`));
+          break;
+        case 'sharepoint':
+          data.sites?.forEach((site: any) => ids.push(`sharepoint-site-${site.id}`));
+          data.recentFiles?.forEach((file: any) => ids.push(`sharepoint-file-${file.id}`));
+          data.lists?.forEach((list: any) => ids.push(`sharepoint-list-${list.id}`));
+          break;
+        case 'onedrive':
+          data.recentFiles?.forEach((file: any) => ids.push(`onedrive-recent-${file.id}`));
+          data.sharedFiles?.forEach((file: any) => ids.push(`onedrive-shared-${file.id}`));
+          data.folders?.forEach((folder: any) => ids.push(`onedrive-folder-${folder.id}`));
           break;
         default:
           // Generic handling
@@ -135,15 +183,15 @@ export function MCPFlowSidePanel({
 
       console.log('[MCPFlow] Filtered data:', filteredData);
 
-      // Process with AI agents progressively
-      console.log('[MCPFlow] Running analyze stage...');
-      await mcpMultiSource.processStage('analyze', filteredData, { quality: 'balanced' });
+      // Process with AI agents progressively - pass filtered data through all stages
+      console.log('[MCPFlow] Running analyze stage with filtered data...');
+      const analyzeResult = await mcpMultiSource.processStage('analyze', filteredData, { quality: 'balanced' });
 
-      console.log('[MCPFlow] Running correlate stage...');
-      await mcpMultiSource.processStage('correlate');
+      console.log('[MCPFlow] Running correlate stage with analyzed data...');
+      const correlateResult = await mcpMultiSource.processStage('correlate', analyzeResult.result);
 
-      console.log('[MCPFlow] Running generate stage...');
-      await mcpMultiSource.processStage('generate', null, {
+      console.log('[MCPFlow] Running generate stage with correlated data...');
+      await mcpMultiSource.processStage('generate', correlateResult.result, {
         generateContent: true,
         workspaceName
       });

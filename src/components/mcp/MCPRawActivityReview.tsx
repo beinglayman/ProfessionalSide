@@ -134,6 +134,19 @@ export function MCPRawActivityReview({
             }
           });
         });
+        // GitHub Repositories
+        data.repositories?.forEach((repo: any) => {
+          activities.push({
+            id: `github-repo-${repo.name}`,
+            type: 'Repository',
+            title: repo.name,
+            timestamp: repo.lastActivity,
+            metadata: {
+              language: repo.language,
+              description: repo.description
+            }
+          });
+        });
         break;
 
       case 'jira':
@@ -149,6 +162,31 @@ export function MCPRawActivityReview({
               assignee: issue.assignee,
               priority: issue.priority,
               labels: issue.labels
+            }
+          });
+        });
+        data.projects?.forEach((project: any) => {
+          activities.push({
+            id: `jira-project-${project.key}`,
+            type: 'Project',
+            title: project.name,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              key: project.key,
+              lead: project.lead
+            }
+          });
+        });
+        data.sprints?.forEach((sprint: any) => {
+          activities.push({
+            id: `jira-sprint-${sprint.id}`,
+            type: 'Sprint',
+            title: sprint.name,
+            timestamp: sprint.startDate || sprint.endDate || new Date().toISOString(),
+            metadata: {
+              state: sprint.state,
+              startDate: sprint.startDate,
+              endDate: sprint.endDate
             }
           });
         });
@@ -168,6 +206,36 @@ export function MCPRawActivityReview({
             }
           });
         });
+        data.threads?.forEach((thread: any) => {
+          activities.push({
+            id: `slack-thread-${thread.id}`,
+            type: 'Thread',
+            title: thread.originalMessage?.substring(0, 100) || 'Thread',
+            timestamp: thread.timestamp,
+            metadata: {
+              channel: thread.channelName,
+              channelId: thread.channelId,
+              replyCount: thread.replyCount,
+              participants: thread.participants,
+              lastReply: thread.lastReply
+            }
+          });
+        });
+        data.channels?.forEach((channel: any) => {
+          activities.push({
+            id: `slack-channel-${channel.id}`,
+            type: 'Channel',
+            title: channel.name,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              isPrivate: channel.isPrivate,
+              isMember: channel.isMember,
+              topic: channel.topic,
+              purpose: channel.purpose,
+              memberCount: channel.memberCount
+            }
+          });
+        });
         break;
 
       case 'figma':
@@ -183,19 +251,419 @@ export function MCPRawActivityReview({
             }
           });
         });
+        data.components?.forEach((component: any) => {
+          activities.push({
+            id: `figma-component-${component.key}`,
+            type: 'Component',
+            title: component.name,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              description: component.description
+            }
+          });
+        });
+        data.comments?.forEach((comment: any) => {
+          activities.push({
+            id: `figma-comment-${comment.id}`,
+            type: 'Comment',
+            title: comment.message?.substring(0, 100) || 'Comment',
+            timestamp: comment.createdAt,
+            metadata: {
+              fileKey: comment.fileKey
+            }
+          });
+        });
         break;
 
       case 'outlook':
-      case 'teams':
         data.meetings?.forEach((meeting: any, idx: number) => {
           activities.push({
-            id: `${toolType}-meeting-${idx}`,
+            id: `outlook-meeting-${idx}`,
             type: 'Meeting',
             title: meeting.subject || meeting.title,
             timestamp: meeting.startTime || meeting.start,
             metadata: {
               duration: meeting.duration,
               participants: meeting.participants || meeting.attendees
+            }
+          });
+        });
+        data.emails?.forEach((email: any) => {
+          activities.push({
+            id: `outlook-email-${email.id}`,
+            type: 'Email',
+            title: email.subject,
+            timestamp: email.receivedDateTime || email.sentDateTime,
+            metadata: {
+              from: email.from,
+              to: email.toRecipients,
+              hasAttachments: email.hasAttachments,
+              importance: email.importance,
+              isRead: email.isRead
+            }
+          });
+        });
+        break;
+
+      case 'teams':
+        data.meetings?.forEach((meeting: any, idx: number) => {
+          activities.push({
+            id: `teams-meeting-${idx}`,
+            type: 'Meeting',
+            title: meeting.subject || meeting.title,
+            timestamp: meeting.startTime || meeting.start,
+            metadata: {
+              duration: meeting.duration,
+              participants: meeting.participants || meeting.attendees
+            }
+          });
+        });
+        data.teams?.forEach((team: any) => {
+          activities.push({
+            id: `teams-team-${team.id}`,
+            type: 'Team',
+            title: team.displayName,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              description: team.description,
+              visibility: team.visibility
+            }
+          });
+        });
+        data.channels?.forEach((channel: any) => {
+          activities.push({
+            id: `teams-channel-${channel.id}`,
+            type: 'Channel',
+            title: channel.displayName,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              teamId: channel.teamId,
+              description: channel.description
+            }
+          });
+        });
+        data.chats?.forEach((chat: any) => {
+          activities.push({
+            id: `teams-chat-${chat.id}`,
+            type: 'Chat',
+            title: chat.topic || 'Chat',
+            timestamp: chat.lastUpdatedDateTime,
+            metadata: {
+              chatType: chat.chatType,
+              members: chat.members
+            }
+          });
+        });
+        data.chatMessages?.forEach((message: any) => {
+          activities.push({
+            id: `teams-chatmsg-${message.id}`,
+            type: 'Chat Message',
+            title: message.body?.content?.substring(0, 100) || 'Message',
+            timestamp: message.createdDateTime,
+            metadata: {
+              chatId: message.chatId,
+              from: message.from
+            }
+          });
+        });
+        data.channelMessages?.forEach((message: any) => {
+          activities.push({
+            id: `teams-channelmsg-${message.id}`,
+            type: 'Channel Message',
+            title: message.body?.content?.substring(0, 100) || 'Message',
+            timestamp: message.createdDateTime,
+            metadata: {
+              channelId: message.channelId,
+              from: message.from
+            }
+          });
+        });
+        break;
+
+      case 'confluence':
+        data.pages?.forEach((page: any) => {
+          activities.push({
+            id: `confluence-page-${page.id}`,
+            type: 'Page',
+            title: page.title,
+            timestamp: page.lastModified || page.createdDate,
+            url: page.url,
+            metadata: {
+              spaceKey: page.spaceKey,
+              spaceName: page.spaceName,
+              author: page.authorDisplayName,
+              version: page.version
+            }
+          });
+        });
+        data.blogPosts?.forEach((post: any) => {
+          activities.push({
+            id: `confluence-blog-${post.id}`,
+            type: 'Blog Post',
+            title: post.title,
+            timestamp: post.lastModified || post.createdDate,
+            url: post.url,
+            metadata: {
+              spaceKey: post.spaceKey,
+              spaceName: post.spaceName,
+              author: post.authorDisplayName
+            }
+          });
+        });
+        data.comments?.forEach((comment: any) => {
+          activities.push({
+            id: `confluence-comment-${comment.id}`,
+            type: 'Comment',
+            title: comment.body?.substring(0, 100) || 'Comment',
+            timestamp: comment.createdDate,
+            metadata: {
+              pageId: comment.pageId,
+              author: comment.authorDisplayName
+            }
+          });
+        });
+        data.spaces?.forEach((space: any) => {
+          activities.push({
+            id: `confluence-space-${space.id}`,
+            type: 'Space',
+            title: space.name,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              key: space.key,
+              type: space.type,
+              description: space.description
+            }
+          });
+        });
+        break;
+
+      case 'onenote':
+        data.notebooks?.forEach((notebook: any) => {
+          activities.push({
+            id: `onenote-notebook-${notebook.id}`,
+            type: 'Notebook',
+            title: notebook.displayName,
+            timestamp: notebook.lastModifiedDateTime || new Date().toISOString(),
+            metadata: {
+              isDefault: notebook.isDefault,
+              sectionsCount: notebook.sections?.length || 0
+            }
+          });
+        });
+        data.sections?.forEach((section: any) => {
+          activities.push({
+            id: `onenote-section-${section.id}`,
+            type: 'Section',
+            title: section.displayName,
+            timestamp: section.lastModifiedDateTime || new Date().toISOString(),
+            metadata: {
+              notebookId: section.parentNotebook?.id,
+              pagesCount: section.pages?.length || 0
+            }
+          });
+        });
+        data.pages?.forEach((page: any) => {
+          activities.push({
+            id: `onenote-page-${page.id}`,
+            type: 'Page',
+            title: page.title,
+            timestamp: page.lastModifiedDateTime,
+            url: page.webUrl,
+            metadata: {
+              sectionId: page.parentSection?.id,
+              level: page.level
+            }
+          });
+        });
+        break;
+
+      case 'google_workspace':
+        data.driveFiles?.forEach((file: any) => {
+          activities.push({
+            id: `google-drive-${file.id}`,
+            type: 'Drive File',
+            title: file.name,
+            timestamp: file.modifiedTime,
+            url: file.webViewLink,
+            metadata: {
+              mimeType: file.mimeType,
+              size: file.size,
+              owners: file.owners
+            }
+          });
+        });
+        data.docs?.forEach((doc: any) => {
+          activities.push({
+            id: `google-doc-${doc.id}`,
+            type: 'Google Doc',
+            title: doc.title,
+            timestamp: doc.modifiedTime,
+            url: doc.webViewLink,
+            metadata: {
+              author: doc.lastModifyingUser
+            }
+          });
+        });
+        data.sheets?.forEach((sheet: any) => {
+          activities.push({
+            id: `google-sheet-${sheet.id}`,
+            type: 'Google Sheet',
+            title: sheet.title,
+            timestamp: sheet.modifiedTime,
+            url: sheet.webViewLink,
+            metadata: {
+              sheetCount: sheet.sheets?.length || 0
+            }
+          });
+        });
+        data.slides?.forEach((slide: any) => {
+          activities.push({
+            id: `google-slide-${slide.id}`,
+            type: 'Google Slides',
+            title: slide.title,
+            timestamp: slide.modifiedTime,
+            url: slide.webViewLink,
+            metadata: {
+              slideCount: slide.slides?.length || 0
+            }
+          });
+        });
+        data.meetRecordings?.forEach((recording: any) => {
+          activities.push({
+            id: `google-meet-${recording.id}`,
+            type: 'Meet Recording',
+            title: recording.name,
+            timestamp: recording.createdTime,
+            url: recording.driveFile?.webViewLink,
+            metadata: {
+              duration: recording.duration,
+              participants: recording.participants
+            }
+          });
+        });
+        break;
+
+      case 'zoom':
+        data.meetings?.forEach((meeting: any) => {
+          activities.push({
+            id: `zoom-meeting-${meeting.id}`,
+            type: 'Meeting',
+            title: meeting.topic,
+            timestamp: meeting.start_time,
+            url: meeting.join_url,
+            metadata: {
+              duration: meeting.duration,
+              participants: meeting.participants_count,
+              host: meeting.host_email
+            }
+          });
+        });
+        data.upcomingMeetings?.forEach((meeting: any) => {
+          activities.push({
+            id: `zoom-upcoming-${meeting.id}`,
+            type: 'Upcoming Meeting',
+            title: meeting.topic,
+            timestamp: meeting.start_time,
+            url: meeting.join_url,
+            metadata: {
+              duration: meeting.duration,
+              host: meeting.host_email
+            }
+          });
+        });
+        data.recordings?.forEach((recording: any) => {
+          activities.push({
+            id: `zoom-recording-${recording.id}`,
+            type: 'Recording',
+            title: recording.topic,
+            timestamp: recording.start_time,
+            url: recording.share_url,
+            metadata: {
+              duration: recording.duration,
+              fileSize: recording.total_size
+            }
+          });
+        });
+        break;
+
+      case 'sharepoint':
+        data.sites?.forEach((site: any) => {
+          activities.push({
+            id: `sharepoint-site-${site.id}`,
+            type: 'Site',
+            title: site.displayName || site.name,
+            timestamp: site.lastModifiedDateTime || new Date().toISOString(),
+            url: site.webUrl,
+            metadata: {
+              description: site.description,
+              siteUrl: site.siteUrl
+            }
+          });
+        });
+        data.recentFiles?.forEach((file: any) => {
+          activities.push({
+            id: `sharepoint-file-${file.id}`,
+            type: 'File',
+            title: file.name,
+            timestamp: file.lastModifiedDateTime,
+            url: file.webUrl,
+            metadata: {
+              size: file.size,
+              modifiedBy: file.lastModifiedBy
+            }
+          });
+        });
+        data.lists?.forEach((list: any) => {
+          activities.push({
+            id: `sharepoint-list-${list.id}`,
+            type: 'List',
+            title: list.displayName,
+            timestamp: list.lastModifiedDateTime || new Date().toISOString(),
+            url: list.webUrl,
+            metadata: {
+              description: list.description,
+              itemCount: list.itemCount
+            }
+          });
+        });
+        break;
+
+      case 'onedrive':
+        data.recentFiles?.forEach((file: any) => {
+          activities.push({
+            id: `onedrive-recent-${file.id}`,
+            type: 'Recent File',
+            title: file.name,
+            timestamp: file.lastModifiedDateTime,
+            url: file.webUrl,
+            metadata: {
+              size: file.size,
+              modifiedBy: file.lastModifiedBy
+            }
+          });
+        });
+        data.sharedFiles?.forEach((file: any) => {
+          activities.push({
+            id: `onedrive-shared-${file.id}`,
+            type: 'Shared File',
+            title: file.name,
+            timestamp: file.lastModifiedDateTime,
+            url: file.webUrl,
+            metadata: {
+              size: file.size,
+              sharedBy: file.sharedBy
+            }
+          });
+        });
+        data.folders?.forEach((folder: any) => {
+          activities.push({
+            id: `onedrive-folder-${folder.id}`,
+            type: 'Folder',
+            title: folder.name,
+            timestamp: folder.lastModifiedDateTime || new Date().toISOString(),
+            url: folder.webUrl,
+            metadata: {
+              itemCount: folder.folder?.childCount || 0
             }
           });
         });
