@@ -765,6 +765,9 @@ export const processWithAgents = asyncHandler(async (req: Request, res: Response
     }
 
     console.log(`[MCP Agents] Processing stage: ${stage} for user ${userId}`);
+    console.log(`[MCP Agents] Incoming data type:`, typeof data);
+    console.log(`[MCP Agents] Data has activities?`, !!data?.activities);
+    console.log(`[MCP Agents] Data keys:`, data ? Object.keys(data).slice(0, 10) : 'no data');
 
     // Normalize data: Convert plain object to Map if needed
     let processData = data || sessionData?.tempData;

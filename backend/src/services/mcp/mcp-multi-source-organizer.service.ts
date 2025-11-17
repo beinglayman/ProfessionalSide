@@ -820,6 +820,9 @@ Return ONLY valid JSON, no additional text.
         const analysis = options.quality === 'deep'
           ? await this.agents.analyzer.deepAnalyze(data)
           : await this.agents.analyzer.quickAnalyze(data);
+        console.log('[MCP Organizer] Analyze stage complete - analysis has activities?', !!analysis?.activities);
+        console.log('[MCP Organizer] Analyze stage complete - activities count:', analysis?.activities?.length || 0);
+        console.log('[MCP Organizer] Analyze stage complete - analysis keys:', Object.keys(analysis || {}));
         return {
           result: analysis,
           nextStage: 'correlate',
