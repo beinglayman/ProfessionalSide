@@ -769,10 +769,12 @@ export const processWithAgents = asyncHandler(async (req: Request, res: Response
     console.log(`[MCP Agents] Data has activities?`, !!data?.activities);
     console.log(`[MCP Agents] Data keys:`, data ? Object.keys(data).slice(0, 10) : 'no data');
 
-    // Normalize data: Convert plain object to Map if needed
+    // Normalize data: Convert plain object to Map only for analyze stage (raw activities)
+    // For correlate/generate stages, pass AnalysisResult object as-is
     let processData = data || sessionData?.tempData;
-    if (processData && !(processData instanceof Map) && typeof processData === 'object') {
-      console.log('[MCP Agents] Converting plain object to Map for processing');
+    if (stage === 'analyze' && processData && !(processData instanceof Map) && typeof processData === 'object') {
+      // Only convert to Map for analyze stage (raw tool data)
+      console.log('[MCP Agents] Converting plain object to Map for analyze stage');
       processData = new Map(Object.entries(processData));
     }
 
