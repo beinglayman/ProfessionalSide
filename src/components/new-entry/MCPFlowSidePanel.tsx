@@ -588,6 +588,7 @@ export function MCPFlowSidePanel({
           <MCPRawActivityReview
             rawData={mcpMultiSource.rawActivities || {}}
             sources={mcpMultiSource.sources || []}
+            errors={mcpMultiSource.errors || undefined}
             selectedIds={selectedActivityIds}
             onSelectionChange={setSelectedActivityIds}
             onContinue={handleContinueFromRawReview}

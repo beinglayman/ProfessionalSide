@@ -16,6 +16,7 @@ interface MCPMultiSourceState {
   sessionId: string | null;
   sources: string[];
   rawActivities: any;
+  errors: Record<string, string> | null;
   analyzedActivities: any;
   correlations: any;
   generatedContent: any;
@@ -39,6 +40,7 @@ export function useMCPMultiSource() {
     sessionId: null,
     sources: [],
     rawActivities: null,
+    errors: null,
     analyzedActivities: null,
     correlations: null,
     generatedContent: null,
@@ -56,6 +58,7 @@ export function useMCPMultiSource() {
       sessionId: null,
       sources: [],
       rawActivities: null,
+      errors: null,
       analyzedActivities: null,
       correlations: null,
       generatedContent: null,
@@ -112,6 +115,7 @@ export function useMCPMultiSource() {
         sessionId: result.data.sessionId,
         sources: result.data.sources,
         rawActivities: result.data.rawData,
+        errors: result.data.errors || null,
         analyzedActivities: result.data.analysis,
         correlations: result.data.correlations,
         generatedContent: result.data.content,
@@ -175,6 +179,7 @@ export function useMCPMultiSource() {
         sessionId: result.data.sessionId,
         sources: result.data.sources,
         rawActivities: result.data.rawData,
+        errors: result.data.errors || null,
         organizedData: result.data.organized
       }));
 
@@ -318,6 +323,7 @@ export function useMCPMultiSource() {
         sessionId: null, // Format7 endpoint doesn't use sessions
         sources: format7Entry?.context?.sources_included || [],
         rawActivities: null,
+        errors: null,
         analyzedActivities: null,
         correlations: format7Entry?.correlations || [],
         generatedContent: null,

@@ -590,38 +590,48 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
             return `${key}:${Array.isArray(value) ? value.length : '?'}`;
           }).join(', ');
           console.log(`[MCP Multi-Source] ✓ ${toolType} returned data: {${activityCounts}}`);
-          return { toolType, data: result.data };
+          return { toolType, success: true, data: result.data };
         }
 
-        console.log(`[MCP Multi-Source] ✗ ${toolType} returned no data or failed`);
-        return null;
+        // Tool failed or returned no data - include error message
+        const errorMessage = result?.error || 'Failed to fetch data';
+        console.log(`[MCP Multi-Source] ✗ ${toolType} failed: ${errorMessage}`);
+        return { toolType, success: false, error: errorMessage };
       } catch (error: any) {
         console.error(`[MCP Multi-Source] Error fetching from ${toolType}:`, error);
-        return null;
+        return { toolType, success: false, error: error.message || 'Unexpected error occurred' };
       }
     });
 
     const results = await Promise.all(fetchPromises);
 
-    // Filter out failed fetches and create source map
+    // Separate successful and failed tools
     const sourcesMap = new Map<string, any>();
+    const errors: Record<string, string> = {};
+
     results.forEach(result => {
-      if (result && result.data) {
+      if (!result) return;
+
+      if (result.success && result.data) {
         sourcesMap.set(result.toolType, result.data);
+      } else if (result.error) {
+        errors[result.toolType] = result.error;
       }
     });
 
     // Log summary of results
     const successfulTools = Array.from(sourcesMap.keys());
-    const failedTools = toolTypes.filter(t => !successfulTools.includes(t));
+    const failedTools = Object.keys(errors);
     console.log(`[MCP Multi-Source] Summary: ${successfulTools.length}/${toolTypes.length} tools succeeded`);
     console.log(`[MCP Multi-Source] Successful: [${successfulTools.join(', ')}]`);
     if (failedTools.length > 0) {
-      console.log(`[MCP Multi-Source] Failed/Empty: [${failedTools.join(', ')}]`);
+      console.log(`[MCP Multi-Source] Failed: [${failedTools.map(t => `${t}: ${errors[t]}`).join(', ')}]`);
     }
 
     if (sourcesMap.size === 0) {
-      sendError(res, 'Failed to fetch data from any connected tools. Please ensure at least one tool is properly connected.', 400);
+      // All tools failed - return specific error messages
+      const errorDetails = Object.entries(errors).map(([tool, error]) => `${tool}: ${error}`).join('; ');
+      sendError(res, `Failed to fetch data from any connected tools. ${errorDetails}`, 400);
       return;
     }
 
@@ -651,9 +661,10 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
       sources: Array.from(sourcesMap.keys()),
       organized,
       rawData: Object.fromEntries(sourcesMap),
+      errors: Object.keys(errors).length > 0 ? errors : undefined,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
       privacyNotice: 'All fetched data is stored in memory only and will automatically expire after 30 minutes. No external data is persisted to our database.',
-      message: `Successfully organized activity from ${sourcesMap.size} tool(s) with AI`
+      message: `Successfully organized activity from ${sourcesMap.size} tool(s) with AI${Object.keys(errors).length > 0 ? ` (${Object.keys(errors).length} tool(s) failed)` : ''}`
     });
   } catch (error: any) {
     console.error('[MCP Multi-Source] Error:', error);
