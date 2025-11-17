@@ -158,6 +158,49 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
 });
 
 /**
+ * Validate OAuth tokens for all integrations
+ * Returns validation status for each connected tool
+ */
+export const validateIntegrations = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
+    const oauthService = new MCPOAuthService();
+
+    console.log(`[MCP Controller] Validating integrations for user ${userId}`);
+
+    // Validate all integrations
+    const validationResults = await oauthService.validateAllIntegrations(userId);
+
+    // Count results
+    const validCount = Object.values(validationResults).filter(r => r.status === 'valid').length;
+    const expiredCount = Object.values(validationResults).filter(r => r.status === 'expired').length;
+    const invalidCount = Object.values(validationResults).filter(r => r.status === 'invalid').length;
+
+    console.log(`[MCP Controller] Validation complete: ${validCount} valid, ${expiredCount} expired, ${invalidCount} invalid`);
+
+    sendSuccess(res, {
+      validations: validationResults,
+      summary: {
+        valid: validCount,
+        expired: expiredCount,
+        invalid: invalidCount,
+        total: Object.keys(validationResults).length
+      }
+    });
+  } catch (error) {
+    console.error('[MCP Controller] Error validating integrations:', error);
+    sendError(res, 'Failed to validate integrations');
+  }
+});
+
+/**
  * Initiate OAuth flow for a tool
  */
 export const initiateOAuth = asyncHandler(async (req: Request, res: Response): Promise<void> => {

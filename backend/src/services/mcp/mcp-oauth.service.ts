@@ -776,6 +776,98 @@ export class MCPOAuthService {
   }
 
   /**
+   * Validate OAuth token for a tool integration
+   * @param userId User ID
+   * @param toolType Tool type
+   * @returns Validation status
+   */
+  public async validateIntegration(
+    userId: string,
+    toolType: MCPToolType
+  ): Promise<{ status: 'valid' | 'expired' | 'invalid'; error?: string }> {
+    try {
+      const integration = await this.prisma.mCPIntegration.findUnique({
+        where: {
+          userId_toolType: {
+            userId,
+            toolType
+          }
+        }
+      });
+
+      if (!integration || !integration.isActive) {
+        return { status: 'invalid', error: 'Integration not found or inactive' };
+      }
+
+      // Check token expiration
+      if (integration.expiresAt && integration.expiresAt < new Date()) {
+        console.log(`[MCP OAuth] Token expired for ${toolType}, attempting refresh`);
+
+        // Attempt to refresh the token
+        const newToken = await this.refreshAccessToken(userId, toolType);
+
+        if (newToken) {
+          return { status: 'valid' };
+        } else {
+          return { status: 'expired', error: 'Token expired and refresh failed' };
+        }
+      }
+
+      // Token is not expired, return valid
+      return { status: 'valid' };
+    } catch (error: any) {
+      console.error(`[MCP OAuth] Error validating ${toolType}:`, error);
+      return { status: 'invalid', error: error.message || 'Validation failed' };
+    }
+  }
+
+  /**
+   * Validate all integrations for a user
+   * @param userId User ID
+   * @returns Map of tool type to validation status
+   */
+  public async validateAllIntegrations(
+    userId: string
+  ): Promise<Record<string, { status: 'valid' | 'expired' | 'invalid'; error?: string }>> {
+    try {
+      // Get all active integrations for the user
+      const integrations = await this.prisma.mCPIntegration.findMany({
+        where: {
+          userId,
+          isActive: true
+        },
+        select: {
+          toolType: true
+        }
+      });
+
+      // Validate each integration in parallel
+      const validationPromises = integrations.map(async (integration) => {
+        const result = await this.validateIntegration(userId, integration.toolType);
+        return { toolType: integration.toolType, ...result };
+      });
+
+      const validationResults = await Promise.all(validationPromises);
+
+      // Convert array to record
+      const resultMap: Record<string, { status: 'valid' | 'expired' | 'invalid'; error?: string }> = {};
+      validationResults.forEach(result => {
+        resultMap[result.toolType] = {
+          status: result.status,
+          error: result.error
+        };
+      });
+
+      console.log(`[MCP OAuth] Validated ${validationResults.length} integrations for user ${userId}`);
+
+      return resultMap;
+    } catch (error: any) {
+      console.error(`[MCP OAuth] Error validating all integrations:`, error);
+      return {};
+    }
+  }
+
+  /**
    * Check if a tool is available (configured)
    * @param toolType Tool type
    * @returns Whether tool is configured

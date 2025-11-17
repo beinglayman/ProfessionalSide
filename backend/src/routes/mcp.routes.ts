@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getAvailableTools,
   getIntegrationStatus,
+  validateIntegrations,
   initiateOAuth,
   initiateGroupOAuth,
   handleOAuthCallback,
@@ -47,6 +48,13 @@ router.get('/tools', authMiddleware, getAvailableTools);
  * Get user's integration status for all tools
  */
 router.get('/integrations', authMiddleware, getIntegrationStatus);
+
+/**
+ * GET /api/v1/mcp/integrations/validate
+ * Validate OAuth tokens for all connected integrations
+ * Returns validation status (valid, expired, invalid) for each tool
+ */
+router.get('/integrations/validate', authMiddleware, validateIntegrations);
 
 // ============================================================================
 // OAuth Flow

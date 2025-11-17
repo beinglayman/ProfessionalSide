@@ -12,6 +12,18 @@ export function useMCPIntegrations() {
   });
 }
 
+export function useMCPIntegrationValidation() {
+  return useQuery({
+    queryKey: ['mcp', 'integrations', 'validation'],
+    queryFn: () => mcpService.validateIntegrations(),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    retry: 1, // Only retry once on failure
+    // Don't fail the query if validation fails - gracefully degrade
+    // This allows the UI to still show tools even if validation is unavailable
+    useErrorBoundary: false
+  });
+}
+
 export function useMCPOAuth() {
   const queryClient = useQueryClient();
   const toast = useToast();

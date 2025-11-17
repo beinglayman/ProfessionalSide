@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { cn } from '../../lib/utils';
 import { format, subDays, startOfDay, endOfDay, set } from 'date-fns';
-import { useMCPIntegrations } from '../../hooks/useMCP';
+import { useMCPIntegrations, useMCPIntegrationValidation } from '../../hooks/useMCP';
 import { ToolIcon, getToolDisplayName, getToolDescription, type ToolType } from '../icons/ToolIcons';
 
 interface MCPTool {
@@ -32,6 +32,9 @@ export function MCPSourceSelector({
   // Use the proper hook instead of manual fetch
   const { data: integrationsData, isLoading: fetchingTools } = useMCPIntegrations();
 
+  // Validate OAuth tokens for connected integrations
+  const { data: validationData, isLoading: isValidating } = useMCPIntegrationValidation();
+
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(defaultSelected));
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dateRangeType, setDateRangeType] = useState<'auto' | 'yesterday' | 'today' | 'custom'>('auto');
@@ -53,27 +56,44 @@ export function MCPSourceSelector({
     [integrationsData]
   );
 
+  // Helper function to get validation status for a tool
+  const getToolValidationStatus = (toolType: string): { status: 'valid' | 'expired' | 'invalid'; error?: string } => {
+    return validationData?.validations?.[toolType] || { status: 'valid' };
+  };
+
   // DEBUG: Log the data to understand what's happening
   // Comprehensive logging added to track tool selection and fetch flow
   console.log('[MCPSourceSelector] Raw integrations data:', integrationsData);
   console.log('[MCPSourceSelector] Mapped tools:', tools);
   console.log('[MCPSourceSelector] Connected tools:', tools.filter(t => t.isConnected));
+  console.log('[MCPSourceSelector] Validation data:', validationData);
 
-  // Auto-select connected tools when data loads (only once on initial load)
+  // Auto-select connected tools with VALID tokens when data loads (only once on initial load)
   useEffect(() => {
     // Only auto-select on initial mount when no tools are selected yet
     if (tools.length > 0 && defaultSelected.length === 0 && selectedTools.size === 0) {
-      const connectedTools = tools
-        .filter((t: MCPTool) => t.isConnected)
+      const validConnectedTools = tools
+        .filter((t: MCPTool) => {
+          if (!t.isConnected) return false;
+          const validation = getToolValidationStatus(t.type);
+          return validation.status === 'valid';
+        })
         .map((t: MCPTool) => t.type);
-      if (connectedTools.length > 0) {
-        setSelectedTools(new Set(connectedTools));
+      if (validConnectedTools.length > 0) {
+        setSelectedTools(new Set(validConnectedTools));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tools]);
+  }, [tools, validationData]);
 
   const toggleTool = (toolType: string) => {
+    // Prevent toggling tools with expired/invalid tokens
+    const validation = getToolValidationStatus(toolType);
+    if (validation.status !== 'valid') {
+      console.log('[MCPSourceSelector] Cannot toggle tool with invalid token:', toolType, validation);
+      return;
+    }
+
     const newSelected = new Set(selectedTools);
     if (newSelected.has(toolType)) {
       newSelected.delete(toolType);
@@ -85,11 +105,17 @@ export function MCPSourceSelector({
   };
 
   const toggleAll = () => {
-    const connectedTools = tools.filter(t => t.isConnected);
-    if (selectedTools.size === connectedTools.length) {
+    // Only toggle tools that are connected AND have valid tokens
+    const validConnectedTools = tools.filter(t => {
+      if (!t.isConnected) return false;
+      const validation = getToolValidationStatus(t.type);
+      return validation.status === 'valid';
+    });
+
+    if (selectedTools.size === validConnectedTools.length) {
       setSelectedTools(new Set());
     } else {
-      setSelectedTools(new Set(connectedTools.map(t => t.type)));
+      setSelectedTools(new Set(validConnectedTools.map(t => t.type)));
     }
   };
 
@@ -195,8 +221,20 @@ export function MCPSourceSelector({
     );
   }
 
+  // Separate tools by connection status and validation status
   const connectedTools = tools.filter(t => t.isConnected);
   const disconnectedTools = tools.filter(t => !t.isConnected);
+
+  // Further categorize connected tools by validation status
+  const validTools = connectedTools.filter(t => {
+    const validation = getToolValidationStatus(t.type);
+    return validation.status === 'valid';
+  });
+
+  const invalidTools = connectedTools.filter(t => {
+    const validation = getToolValidationStatus(t.type);
+    return validation.status !== 'valid';
+  });
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -336,59 +374,95 @@ export function MCPSourceSelector({
       {connectedTools.length > 0 ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-gray-700">Connected Tools</h4>
+            <h4 className="text-sm font-medium text-gray-700">
+              Connected Tools
+              {isValidating && (
+                <span className="ml-2 text-xs text-gray-500">
+                  <Loader2 className="inline h-3 w-3 animate-spin" /> Validating...
+                </span>
+              )}
+            </h4>
             <button
               onClick={toggleAll}
               className="text-xs text-primary-600 hover:text-primary-700"
             >
-              {selectedTools.size === connectedTools.length ? 'Deselect all' : 'Select all'}
+              {selectedTools.size === validTools.length ? 'Deselect all' : 'Select all'}
             </button>
           </div>
 
           <div className="space-y-2">
-            {connectedTools.map((tool) => (
-              <div
-                key={tool.type}
-                className={cn(
-                  'flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer',
-                  selectedTools.has(tool.type)
-                    ? 'border-primary-300 bg-primary-50'
-                    : 'border-gray-200 bg-white hover:bg-gray-50'
-                )}
-                onClick={() => toggleTool(tool.type)}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="flex-shrink-0">
-                    <ToolIcon tool={tool.type as ToolType} size={28} />
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">{tool.name}</span>
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {(() => {
-                        if (!tool.lastSyncAt) return 'Connected, never synced';
-                        try {
-                          const syncDate = new Date(tool.lastSyncAt);
-                          if (isNaN(syncDate.getTime())) return 'Connected, never synced';
-                          return `Last synced ${format(syncDate, 'MMM d, h:mm a')}`;
-                        } catch {
-                          return 'Connected, never synced';
-                        }
-                      })()}
-                    </p>
-                  </div>
-                </div>
+            {connectedTools.map((tool) => {
+              const validation = getToolValidationStatus(tool.type);
+              const isToolValid = validation.status === 'valid';
+              const isDisabled = !isToolValid;
 
-                <Checkbox
-                  checked={selectedTools.has(tool.type)}
-                  onCheckedChange={() => {}}
-                  onClick={(e) => e.stopPropagation()}
-                  className="pointer-events-none"
-                />
-              </div>
-            ))}
+              return (
+                <div
+                  key={tool.type}
+                  className={cn(
+                    'flex items-center justify-between p-3 rounded-lg border transition-all',
+                    isDisabled
+                      ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                      : 'cursor-pointer',
+                    !isDisabled && selectedTools.has(tool.type)
+                      ? 'border-primary-300 bg-primary-50'
+                      : !isDisabled && 'border-gray-200 bg-white hover:bg-gray-50'
+                  )}
+                  onClick={() => !isDisabled && toggleTool(tool.type)}
+                  title={isDisabled ? validation.error || 'This tool is currently unavailable' : ''}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <ToolIcon tool={tool.type as ToolType} size={28} disabled={isDisabled} />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className={cn(
+                          'font-medium',
+                          isDisabled ? 'text-gray-600' : 'text-gray-900'
+                        )}>
+                          {tool.name}
+                        </span>
+                        {isValidating && !validationData ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                        ) : validation.status === 'valid' ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        ) : validation.status === 'expired' ? (
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                      <p className={cn(
+                        'text-xs',
+                        isDisabled ? 'text-red-600 font-medium' : 'text-gray-500'
+                      )}>
+                        {isDisabled ? (
+                          validation.error || 'Token expired - Please reconnect'
+                        ) : (() => {
+                          if (!tool.lastSyncAt) return 'Connected, never synced';
+                          try {
+                            const syncDate = new Date(tool.lastSyncAt);
+                            if (isNaN(syncDate.getTime())) return 'Connected, never synced';
+                            return `Last synced ${format(syncDate, 'MMM d, h:mm a')}`;
+                          } catch {
+                            return 'Connected, never synced';
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Checkbox
+                    checked={selectedTools.has(tool.type)}
+                    disabled={isDisabled}
+                    onCheckedChange={() => {}}
+                    onClick={(e) => e.stopPropagation()}
+                    className="pointer-events-none"
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -397,6 +471,24 @@ export function MCPSourceSelector({
           <p className="text-sm text-yellow-800">
             No tools are connected yet. Please connect at least one tool from Settings → Integrations.
           </p>
+        </div>
+      )}
+
+      {/* Warning Banner for Invalid/Expired Tokens */}
+      {invalidTools.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800 mb-1">
+              {invalidTools.length} tool{invalidTools.length !== 1 ? 's have' : ' has'} expired or invalid tokens
+            </p>
+            <p className="text-xs text-red-700">
+              Please reconnect: {invalidTools.map(t => t.name).join(', ')}
+            </p>
+            <p className="text-xs text-red-600 mt-2">
+              Go to Settings → Integrations to reconnect these tools.
+            </p>
+          </div>
         </div>
       )}
 
@@ -428,11 +520,18 @@ export function MCPSourceSelector({
 
       {/* Action Buttons */}
       <div className="flex items-center justify-between pt-4">
-        <p className="text-sm text-gray-500">
-          {selectedTools.size === 0
-            ? 'Select at least one tool'
-            : `${selectedTools.size} tool${selectedTools.size !== 1 ? 's' : ''} selected`}
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-gray-500">
+            {selectedTools.size === 0
+              ? 'Select at least one tool'
+              : `${selectedTools.size} tool${selectedTools.size !== 1 ? 's' : ''} selected`}
+          </p>
+          {validTools.length < connectedTools.length && (
+            <p className="text-xs text-red-600">
+              {invalidTools.length} tool{invalidTools.length !== 1 ? 's' : ''} unavailable (expired tokens)
+            </p>
+          )}
+        </div>
 
         <Button
           onClick={handleFetch}

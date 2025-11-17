@@ -89,6 +89,22 @@ class MCPService {
   }
 
   /**
+   * Validate OAuth tokens for all connected integrations
+   */
+  async validateIntegrations(): Promise<{
+    validations: Record<string, { status: 'valid' | 'expired' | 'invalid'; error?: string }>;
+    summary: {
+      valid: number;
+      expired: number;
+      invalid: number;
+      total: number;
+    };
+  }> {
+    const response = await api.get('/mcp/integrations/validate');
+    return response.data.data;
+  }
+
+  /**
    * Initiate OAuth flow for a tool
    */
   async initiateOAuth(toolType: MCPToolType): Promise<{
