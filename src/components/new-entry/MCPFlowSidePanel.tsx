@@ -32,6 +32,7 @@ export function MCPFlowSidePanel({
 }: MCPFlowSidePanelProps) {
   // 4-step flow state
   const [step, setStep] = useState<'select' | 'rawReview' | 'correlations' | 'preview'>('select');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Activity selection state
   const [selectedActivityIds, setSelectedActivityIds] = useState<string[]>([]);
@@ -166,9 +167,21 @@ export function MCPFlowSidePanel({
   // Step 2: Continue from raw review
   const handleContinueFromRawReview = async () => {
     console.log('[MCPFlow] Step 2: User selected', selectedActivityIds.length, 'activities');
-    setStep('correlations');
-    // Automatically trigger AI processing when moving to Step 3
-    await handleProcessSelectedActivities();
+
+    setIsProcessing(true);
+
+    try {
+      // Run AI processing FIRST (this takes 10-30 seconds)
+      await handleProcessSelectedActivities();
+
+      // ONLY after AI completes, move to Step 3
+      setStep('correlations');
+    } catch (error) {
+      console.error('[MCPFlow] AI processing failed:', error);
+      // Don't change step if processing fails
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Step 3: Process selected activities with AI
@@ -775,6 +788,7 @@ export function MCPFlowSidePanel({
             selectedIds={selectedActivityIds}
             onSelectionChange={setSelectedActivityIds}
             onContinue={handleContinueFromRawReview}
+            isProcessing={isProcessing}
           />
         );
 
