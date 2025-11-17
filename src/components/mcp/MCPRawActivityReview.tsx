@@ -165,7 +165,7 @@ export function MCPRawActivityReview({
         data.issues?.forEach((issue: any) => {
           activities.push({
             id: `jira-${issue.key}`,
-            type: issue.type || 'Issue',
+            type: issue.issueType || 'Issue',
             title: `[${issue.key}] ${issue.summary}`,
             timestamp: issue.updated,
             url: issue.url,
@@ -173,7 +173,7 @@ export function MCPRawActivityReview({
               status: issue.status,
               assignee: issue.assignee,
               priority: issue.priority,
-              labels: issue.labels
+              labels: issue.labels || []
             }
           });
         });
@@ -398,12 +398,12 @@ export function MCPRawActivityReview({
             id: `confluence-page-${page.id}`,
             type: 'Page',
             title: page.title,
-            timestamp: page.lastModified || page.createdDate,
+            timestamp: page.lastModified || page.created,
             url: page.url,
             metadata: {
-              spaceKey: page.spaceKey,
-              spaceName: page.spaceName,
-              author: page.authorDisplayName,
+              spaceKey: page.space?.key || '',
+              spaceName: page.space?.name || '',
+              author: page.lastModifiedBy || '',
               version: page.version
             }
           });
@@ -413,12 +413,12 @@ export function MCPRawActivityReview({
             id: `confluence-blog-${post.id}`,
             type: 'Blog Post',
             title: post.title,
-            timestamp: post.lastModified || post.createdDate,
+            timestamp: post.publishedDate || post.created,
             url: post.url,
             metadata: {
-              spaceKey: post.spaceKey,
-              spaceName: post.spaceName,
-              author: post.authorDisplayName
+              spaceKey: post.space?.key || '',
+              spaceName: post.space?.name || '',
+              author: post.author || ''
             }
           });
         });
@@ -426,11 +426,11 @@ export function MCPRawActivityReview({
           activities.push({
             id: `confluence-comment-${comment.id}`,
             type: 'Comment',
-            title: comment.body?.substring(0, 100) || 'Comment',
-            timestamp: comment.createdDate,
+            title: comment.content?.substring(0, 100) || 'Comment',
+            timestamp: comment.createdAt,
             metadata: {
               pageId: comment.pageId,
-              author: comment.authorDisplayName
+              author: comment.author || ''
             }
           });
         });
@@ -512,7 +512,7 @@ export function MCPRawActivityReview({
             timestamp: doc.modifiedTime,
             url: doc.webViewLink,
             metadata: {
-              author: doc.lastModifyingUser
+              author: doc.lastModifiedBy || ''
             }
           });
         });
@@ -524,7 +524,8 @@ export function MCPRawActivityReview({
             timestamp: sheet.modifiedTime,
             url: sheet.webViewLink,
             metadata: {
-              sheetCount: sheet.sheets?.length || 0
+              sheetCount: sheet.sheets?.length || 0,
+              author: sheet.lastModifiedBy || ''
             }
           });
         });
@@ -536,7 +537,8 @@ export function MCPRawActivityReview({
             timestamp: slide.modifiedTime,
             url: slide.webViewLink,
             metadata: {
-              slideCount: slide.slides?.length || 0
+              slideCount: slide.slides?.length || 0,
+              author: slide.lastModifiedBy || ''
             }
           });
         });
@@ -546,7 +548,7 @@ export function MCPRawActivityReview({
             type: 'Meet Recording',
             title: recording.name,
             timestamp: recording.createdTime,
-            url: recording.driveFile?.webViewLink,
+            url: recording.webViewLink,
             metadata: {
               duration: recording.duration,
               participants: recording.participants
