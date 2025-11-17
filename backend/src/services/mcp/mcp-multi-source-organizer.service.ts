@@ -709,6 +709,23 @@ Return ONLY valid JSON, no additional text.
     const { quality = 'balanced', generateContent = false, workspaceName = 'Default', userContext } = options;
     console.log(`🚀 Starting agent-based organization with ${quality} quality`);
 
+    // Log which tools have data and how much
+    console.log('========== BACKEND: AI PROCESSING STARTING ==========');
+    console.log(`[Organizer] Tools received (${sources.size}):`);
+    sources.forEach((data, toolType) => {
+      const itemCounts: any = {};
+      if (data && typeof data === 'object') {
+        Object.keys(data).forEach(key => {
+          if (Array.isArray(data[key])) {
+            itemCounts[key] = data[key].length;
+          }
+        });
+        console.log(`  - ${toolType}:`, itemCounts);
+      } else {
+        console.log(`  - ${toolType}: ${data ? 'has data' : 'NO DATA'}`);
+      }
+    });
+
     try {
       // Stage 1: Analyze activities
       const analysis = quality === 'quick'

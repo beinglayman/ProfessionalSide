@@ -172,7 +172,26 @@ export function MCPFlowSidePanel({
   // Step 3: Process selected activities with AI
   const handleProcessSelectedActivities = async () => {
     try {
-      console.log('[MCPFlow] Step 3: Processing selected activities with AI');
+      console.log('[MCPFlow] ==================== STEP 3: AI PROCESSING ====================');
+      console.log('[MCPFlow] Selected tools:', mcpMultiSource.sources);
+      console.log('[MCPFlow] Selected activity IDs:', selectedActivityIds);
+
+      // Log raw data summary before filtering
+      console.log('[MCPFlow] Raw data BEFORE filtering:');
+      mcpMultiSource.sources.forEach(toolType => {
+        const data = mcpMultiSource.rawActivities[toolType];
+        if (data) {
+          const itemCounts: any = {};
+          Object.keys(data).forEach(key => {
+            if (Array.isArray(data[key])) {
+              itemCounts[key] = data[key].length;
+            }
+          });
+          console.log(`  - ${toolType}:`, itemCounts);
+        } else {
+          console.log(`  - ${toolType}: NO DATA`);
+        }
+      });
 
       // Filter raw data to only include selected activities
       const filteredData = filterDataBySelectedIds(
@@ -181,7 +200,20 @@ export function MCPFlowSidePanel({
         selectedActivityIds
       );
 
-      console.log('[MCPFlow] Filtered data:', filteredData);
+      // Log filtered data summary
+      console.log('[MCPFlow] Filtered data AFTER filtering:');
+      Object.keys(filteredData).forEach(toolType => {
+        const data = filteredData[toolType];
+        const itemCounts: any = {};
+        Object.keys(data).forEach(key => {
+          if (Array.isArray(data[key])) {
+            itemCounts[key] = data[key].length;
+          }
+        });
+        console.log(`  - ${toolType}:`, itemCounts);
+      });
+
+      console.log('[MCPFlow] Full filtered data object:', filteredData);
 
       // Process with AI agents progressively - pass filtered data through all stages
       console.log('[MCPFlow] Running analyze stage with filtered data...');
@@ -230,6 +262,9 @@ export function MCPFlowSidePanel({
             ) || [],
             commits: data.commits?.filter((commit: any) =>
               selectedIds.includes(`github-commit-${commit.sha}`)
+            ) || [],
+            repositories: data.repositories?.filter((repo: any) =>
+              selectedIds.includes(`github-repo-${repo.name}`)
             ) || []
           };
           break;
@@ -237,6 +272,12 @@ export function MCPFlowSidePanel({
           filtered[toolType] = {
             issues: data.issues?.filter((issue: any) =>
               selectedIds.includes(`jira-${issue.key}`)
+            ) || [],
+            projects: data.projects?.filter((project: any) =>
+              selectedIds.includes(`jira-project-${project.key}`)
+            ) || [],
+            sprints: data.sprints?.filter((sprint: any) =>
+              selectedIds.includes(`jira-sprint-${sprint.id}`)
             ) || []
           };
           break;
@@ -244,6 +285,12 @@ export function MCPFlowSidePanel({
           filtered[toolType] = {
             messages: data.messages?.filter((msg: any, idx: number) =>
               selectedIds.includes(`slack-msg-${idx}`)
+            ) || [],
+            threads: data.threads?.filter((thread: any) =>
+              selectedIds.includes(`slack-thread-${thread.id}`)
+            ) || [],
+            channels: data.channels?.filter((channel: any) =>
+              selectedIds.includes(`slack-channel-${channel.id}`)
             ) || []
           };
           break;
@@ -251,12 +298,146 @@ export function MCPFlowSidePanel({
           filtered[toolType] = {
             files: data.files?.filter((file: any) =>
               selectedIds.includes(`figma-${file.key}`)
+            ) || [],
+            components: data.components?.filter((component: any) =>
+              selectedIds.includes(`figma-component-${component.key}`)
+            ) || [],
+            comments: data.comments?.filter((comment: any) =>
+              selectedIds.includes(`figma-comment-${comment.id}`)
+            ) || []
+          };
+          break;
+        case 'outlook':
+          filtered[toolType] = {
+            meetings: data.meetings?.filter((meeting: any, idx: number) =>
+              selectedIds.includes(`outlook-meeting-${idx}`)
+            ) || [],
+            emails: data.emails?.filter((email: any) =>
+              selectedIds.includes(`outlook-email-${email.id}`)
+            ) || []
+          };
+          break;
+        case 'teams':
+          filtered[toolType] = {
+            meetings: data.meetings?.filter((meeting: any, idx: number) =>
+              selectedIds.includes(`teams-meeting-${idx}`)
+            ) || [],
+            teams: data.teams?.filter((team: any) =>
+              selectedIds.includes(`teams-team-${team.id}`)
+            ) || [],
+            channels: data.channels?.filter((channel: any) =>
+              selectedIds.includes(`teams-channel-${channel.id}`)
+            ) || [],
+            chats: data.chats?.filter((chat: any) =>
+              selectedIds.includes(`teams-chat-${chat.id}`)
+            ) || [],
+            chatMessages: data.chatMessages?.filter((message: any) =>
+              selectedIds.includes(`teams-chatmsg-${message.id}`)
+            ) || [],
+            channelMessages: data.channelMessages?.filter((message: any) =>
+              selectedIds.includes(`teams-channelmsg-${message.id}`)
+            ) || []
+          };
+          break;
+        case 'confluence':
+          filtered[toolType] = {
+            pages: data.pages?.filter((page: any) =>
+              selectedIds.includes(`confluence-page-${page.id}`)
+            ) || [],
+            blogPosts: data.blogPosts?.filter((post: any) =>
+              selectedIds.includes(`confluence-blog-${post.id}`)
+            ) || [],
+            comments: data.comments?.filter((comment: any) =>
+              selectedIds.includes(`confluence-comment-${comment.id}`)
+            ) || [],
+            spaces: data.spaces?.filter((space: any) =>
+              selectedIds.includes(`confluence-space-${space.id}`)
+            ) || []
+          };
+          break;
+        case 'onenote':
+          filtered[toolType] = {
+            notebooks: data.notebooks?.filter((notebook: any) =>
+              selectedIds.includes(`onenote-notebook-${notebook.id}`)
+            ) || [],
+            sections: data.sections?.filter((section: any) =>
+              selectedIds.includes(`onenote-section-${section.id}`)
+            ) || [],
+            pages: data.pages?.filter((page: any) =>
+              selectedIds.includes(`onenote-page-${page.id}`)
+            ) || []
+          };
+          break;
+        case 'google_workspace':
+          filtered[toolType] = {
+            driveFiles: data.driveFiles?.filter((file: any) =>
+              selectedIds.includes(`google-drive-${file.id}`)
+            ) || [],
+            docs: data.docs?.filter((doc: any) =>
+              selectedIds.includes(`google-doc-${doc.id}`)
+            ) || [],
+            sheets: data.sheets?.filter((sheet: any) =>
+              selectedIds.includes(`google-sheet-${sheet.id}`)
+            ) || [],
+            slides: data.slides?.filter((slide: any) =>
+              selectedIds.includes(`google-slide-${slide.id}`)
+            ) || [],
+            meetRecordings: data.meetRecordings?.filter((recording: any) =>
+              selectedIds.includes(`google-meet-${recording.id}`)
+            ) || []
+          };
+          break;
+        case 'zoom':
+          filtered[toolType] = {
+            meetings: data.meetings?.filter((meeting: any) =>
+              selectedIds.includes(`zoom-meeting-${meeting.id}`)
+            ) || [],
+            upcomingMeetings: data.upcomingMeetings?.filter((meeting: any) =>
+              selectedIds.includes(`zoom-upcoming-${meeting.id}`)
+            ) || [],
+            recordings: data.recordings?.filter((recording: any) =>
+              selectedIds.includes(`zoom-recording-${recording.id}`)
+            ) || []
+          };
+          break;
+        case 'sharepoint':
+          filtered[toolType] = {
+            sites: data.sites?.filter((site: any) =>
+              selectedIds.includes(`sharepoint-site-${site.id}`)
+            ) || [],
+            recentFiles: data.recentFiles?.filter((file: any) =>
+              selectedIds.includes(`sharepoint-file-${file.id}`)
+            ) || [],
+            lists: data.lists?.filter((list: any) =>
+              selectedIds.includes(`sharepoint-list-${list.id}`)
+            ) || []
+          };
+          break;
+        case 'onedrive':
+          filtered[toolType] = {
+            recentFiles: data.recentFiles?.filter((file: any) =>
+              selectedIds.includes(`onedrive-recent-${file.id}`)
+            ) || [],
+            sharedFiles: data.sharedFiles?.filter((file: any) =>
+              selectedIds.includes(`onedrive-shared-${file.id}`)
+            ) || [],
+            folders: data.folders?.filter((folder: any) =>
+              selectedIds.includes(`onedrive-folder-${folder.id}`)
             ) || []
           };
           break;
         default:
-          // Pass through other tool data
-          filtered[toolType] = data;
+          // For any unknown tools, filter generic array data
+          console.warn(`[MCPFlow] Unknown tool type '${toolType}' - attempting generic filtering`);
+          if (Array.isArray(data)) {
+            filtered[toolType] = data.filter((_: any, idx: number) =>
+              selectedIds.includes(`${toolType}-${idx}`)
+            );
+          } else {
+            // If it's an object with array properties, pass through as-is
+            // This maintains backward compatibility but won't filter
+            filtered[toolType] = data;
+          }
       }
     });
 
