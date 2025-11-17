@@ -82,6 +82,18 @@ export function MCPRawActivityReview({
 }: MCPRawActivityReviewProps) {
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set(sources));
 
+  // Helper: Safely format timestamp
+  const formatTimestamp = (timestamp: Date | string | undefined | null): string => {
+    if (!timestamp) return 'No date';
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return format(date, 'MMM d, h:mm a');
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
   // Extract all activities from raw data
   const extractActivities = (toolType: string, data: any): RawActivity[] => {
     const activities: RawActivity[] = [];
@@ -901,7 +913,7 @@ export function MCPRawActivityReview({
                               )}
                             </div>
                             <div className="text-xs text-gray-500 whitespace-nowrap">
-                              {format(new Date(activity.timestamp), 'MMM d, h:mm a')}
+                              {formatTimestamp(activity.timestamp)}
                             </div>
                           </div>
                         </div>
