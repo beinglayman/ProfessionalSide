@@ -44,6 +44,10 @@ export class AnalyzerAgent {
    * Quick analysis using GPT-4o-mini for fast categorization
    */
   async quickAnalyze(activities: Map<MCPToolType, any>): Promise<AnalysisResult> {
+    // Normalize to Map if plain object was passed
+    if (!(activities instanceof Map)) {
+      activities = new Map(Object.entries(activities as any));
+    }
     console.log('🔍 Quick analyzing activities from', activities.size, 'sources');
 
     // Check if there are any real activities
@@ -94,6 +98,10 @@ export class AnalyzerAgent {
    * Deep analysis using GPT-4o for nuanced understanding
    */
   async deepAnalyze(activities: Map<MCPToolType, any>): Promise<AnalysisResult> {
+    // Normalize to Map if plain object was passed
+    if (!(activities instanceof Map)) {
+      activities = new Map(Object.entries(activities as any));
+    }
     console.log('🔬 Deep analyzing activities from', activities.size, 'sources');
 
     // Check if there are any real activities

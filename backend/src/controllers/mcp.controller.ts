@@ -766,8 +766,15 @@ export const processWithAgents = asyncHandler(async (req: Request, res: Response
 
     console.log(`[MCP Agents] Processing stage: ${stage} for user ${userId}`);
 
+    // Normalize data: Convert plain object to Map if needed
+    let processData = data || sessionData?.tempData;
+    if (processData && !(processData instanceof Map) && typeof processData === 'object') {
+      console.log('[MCP Agents] Converting plain object to Map for processing');
+      processData = new Map(Object.entries(processData));
+    }
+
     // Process the stage
-    const result = await organizer.processStage(stage as any, data || sessionData?.tempData, options);
+    const result = await organizer.processStage(stage as any, processData, options);
 
     // Store result in session for next stages
     if (result.nextStage) {
