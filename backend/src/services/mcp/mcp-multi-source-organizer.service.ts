@@ -827,6 +827,21 @@ Return ONLY valid JSON, no additional text.
         };
 
       case 'correlate':
+        console.log('[MCP Organizer] Correlate stage - incoming data type:', typeof data);
+        console.log('[MCP Organizer] Correlate stage - has activities?', !!data?.activities);
+        console.log('[MCP Organizer] Correlate stage - activities count:', data?.activities?.length || 0);
+
+        // Extract activities from AnalysisResult
+        if (!data || !data.activities || !Array.isArray(data.activities)) {
+          console.error('[MCP Organizer] Invalid data structure for correlate stage:', {
+            hasData: !!data,
+            hasActivities: !!data?.activities,
+            activitiesType: data?.activities ? typeof data.activities : 'undefined',
+            isArray: data?.activities ? Array.isArray(data.activities) : false
+          });
+          throw new Error('Invalid data structure for correlate stage: missing or invalid activities array');
+        }
+
         const correlations = await this.agents.correlator.detectCorrelations(data.activities);
         return {
           result: { ...data, correlations },
