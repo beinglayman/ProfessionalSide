@@ -1590,8 +1590,17 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
     console.log('[MCP Controller] Reviewers:', format7Entry.summary?.unique_reviewers?.length || 0);
 
     sendSuccess(res, format7Entry);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[MCP Controller] Format7 transform error:', error);
-    sendError(res, 'Failed to transform to Format7');
+    console.error('[MCP Controller] Error stack:', error.stack);
+    console.error('[MCP Controller] Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack?.split('\n').slice(0, 5).join('\n')
+    });
+    sendError(res, `Failed to transform to Format7: ${error.message}`, 500, {
+      error: error.message,
+      type: error.name
+    });
   }
 });
