@@ -12,6 +12,7 @@ import {
   processWithAgents,
   fetchAndProcessWithAgents,
   generateFormat7Entry,
+  transformFormat7,
   getSession,
   clearSession,
   clearAllSessions,
@@ -127,6 +128,14 @@ router.post('/fetch-and-process', authMiddleware, fetchAndProcessWithAgents);
  * Returns: Complete Format7JournalEntry ready for display
  */
 router.post('/generate-format7-entry', authMiddleware, generateFormat7Entry);
+
+/**
+ * POST /api/v1/mcp/transform-format7
+ * Transform organized MCP data to Format7 journal entry
+ * Body: { activities, organizedData, correlations, generatedContent, selectedActivityIds, options }
+ * Returns: Complete Format7JournalEntry with rich collaborator/reviewer data
+ */
+router.post('/transform-format7', authMiddleware, transformFormat7);
 
 /**
  * POST /api/v1/mcp/test-activities

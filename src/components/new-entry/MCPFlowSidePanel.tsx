@@ -459,6 +459,47 @@ export function MCPFlowSidePanel({
     return filtered;
   };
 
+  // Helper: Generate consistent person ID from name
+  const generatePersonId = (name: string): string => {
+    return name.toLowerCase().replace(/\s+/g, '-');
+  };
+
+  // Helper: Extract initials from name
+  const extractInitials = (name: string): string => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  // Helper: Assign consistent color gradient
+  const assignConsistentColor = (name: string): string => {
+    const gradients = [
+      'from-purple-400 to-pink-400',
+      'from-blue-400 to-cyan-400',
+      'from-green-400 to-teal-400',
+      'from-orange-400 to-red-400',
+      'from-indigo-400 to-purple-400',
+      'from-yellow-400 to-orange-400',
+      'from-pink-400 to-rose-400',
+      'from-teal-400 to-cyan-400'
+    ];
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return gradients[hash % gradients.length];
+  };
+
+  // Helper: Create rich Collaborator object
+  const createCollaborator = (name: string): any => {
+    return {
+      id: generatePersonId(name),
+      name: name,
+      initials: extractInitials(name),
+      avatar: null,
+      color: assignConsistentColor(name),
+      role: '',
+      department: ''
+    };
+  };
+
   // Helper: Transform organized activities to Format7 activity structure
   const transformToFormat7Activities = (
     organizedData: any,
@@ -498,14 +539,14 @@ export function MCPFlowSidePanel({
       total_time_range_hours: 0,
       activities_by_type: {} as Record<string, number>,
       activities_by_source: {} as Record<string, number>,
-      unique_collaborators: [] as string[],
-      unique_reviewers: [] as string[],
+      unique_collaborators: [] as any[],
+      unique_reviewers: [] as any[],
       technologies_used: organizedData?.extractedSkills || [],
       skills_demonstrated: organizedData?.extractedSkills || []
     };
 
-    const collaboratorsSet = new Set<string>();
-    const reviewersSet = new Set<string>();
+    const collaboratorsMap = new Map<string, any>();
+    const reviewersMap = new Map<string, any>();
     let earliestTime: Date | null = null;
     let latestTime: Date | null = null;
 
@@ -518,17 +559,75 @@ export function MCPFlowSidePanel({
       const source = activity.source || 'Unknown';
       summary.activities_by_source[source] = (summary.activities_by_source[source] || 0) + 1;
 
-      // Extract collaborators and reviewers from metadata
-      if (activity.metadata?.participants) {
-        activity.metadata.participants.forEach((person: string) => {
-          collaboratorsSet.add(person);
-        });
-      }
-
-      if (activity.metadata?.reviewers) {
-        activity.metadata.reviewers.forEach((person: string) => {
-          reviewersSet.add(person);
-        });
+      // Extract collaborators and reviewers based on source
+      if (activity.source === 'github') {
+        // GitHub: extract author, reviewers, assignees
+        if (activity.metadata?.author) {
+          const name = activity.metadata.author;
+          if (!collaboratorsMap.has(name)) {
+            collaboratorsMap.set(name, createCollaborator(name));
+          }
+        }
+        if (activity.metadata?.reviewers) {
+          activity.metadata.reviewers.forEach((name: string) => {
+            if (!reviewersMap.has(name)) {
+              reviewersMap.set(name, createCollaborator(name));
+            }
+          });
+        }
+        if (activity.metadata?.assignees) {
+          activity.metadata.assignees.forEach((name: string) => {
+            if (!collaboratorsMap.has(name)) {
+              collaboratorsMap.set(name, createCollaborator(name));
+            }
+          });
+        }
+      } else if (activity.source === 'jira') {
+        // Jira: extract assignee, reporter
+        if (activity.metadata?.assignee) {
+          const name = activity.metadata.assignee;
+          if (!collaboratorsMap.has(name)) {
+            collaboratorsMap.set(name, createCollaborator(name));
+          }
+        }
+        if (activity.metadata?.reporter) {
+          const name = activity.metadata.reporter;
+          if (!collaboratorsMap.has(name)) {
+            collaboratorsMap.set(name, createCollaborator(name));
+          }
+        }
+      } else if (activity.source === 'teams' || activity.source === 'slack') {
+        // Teams/Slack: extract sender and participants
+        if (activity.metadata?.from) {
+          const name = activity.metadata.from;
+          if (!collaboratorsMap.has(name)) {
+            collaboratorsMap.set(name, createCollaborator(name));
+          }
+        }
+        if (activity.metadata?.participants) {
+          activity.metadata.participants.forEach((name: string) => {
+            if (!collaboratorsMap.has(name)) {
+              collaboratorsMap.set(name, createCollaborator(name));
+            }
+          });
+        }
+      } else if (activity.source === 'outlook') {
+        // Outlook: extract meeting attendees
+        if (activity.metadata?.attendees) {
+          activity.metadata.attendees.forEach((name: string) => {
+            if (!collaboratorsMap.has(name)) {
+              collaboratorsMap.set(name, createCollaborator(name));
+            }
+          });
+        }
+      } else if (activity.source === 'confluence') {
+        // Confluence: extract author
+        if (activity.metadata?.author) {
+          const name = activity.metadata.author;
+          if (!collaboratorsMap.has(name)) {
+            collaboratorsMap.set(name, createCollaborator(name));
+          }
+        }
       }
 
       // Calculate time range
@@ -543,8 +642,8 @@ export function MCPFlowSidePanel({
       }
     });
 
-    summary.unique_collaborators = Array.from(collaboratorsSet);
-    summary.unique_reviewers = Array.from(reviewersSet);
+    summary.unique_collaborators = Array.from(collaboratorsMap.values());
+    summary.unique_reviewers = Array.from(reviewersMap.values());
 
     // Calculate total time range in hours
     if (earliestTime && latestTime) {
@@ -595,89 +694,58 @@ export function MCPFlowSidePanel({
   // Step 4: Generate Format7 preview
   const generateFormat7Preview = async () => {
     try {
-      console.log('[MCPFlow] Generating Format7 preview from AI-processed data');
+      console.log('[MCPFlow] Generating Format7 preview using backend transformer...');
 
-      // Extract AI-generated title and description
-      const title = mcpMultiSource.generatedContent?.workspaceEntry?.title ||
-                    mcpMultiSource.organizedData?.suggestedTitle ||
-                    'Untitled Entry';
-      const description = mcpMultiSource.generatedContent?.workspaceEntry?.description ||
-                         mcpMultiSource.organizedData?.contextSummary ||
-                         '';
+      // Call backend transformer service
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/mcp/transform-format7`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
+        },
+        body: JSON.stringify({
+          activities: mcpMultiSource.rawActivities,
+          organizedData: mcpMultiSource.organizedData,
+          correlations: mcpMultiSource.correlations,
+          generatedContent: mcpMultiSource.generatedContent,
+          selectedActivityIds: selectedActivityIds,
+          options: {
+            workspaceName,
+            privacy: 'team',
+            dateRange: {
+              start: mcpMultiSource.organizedData?.context?.dateRange?.start,
+              end: mcpMultiSource.organizedData?.context?.dateRange?.end
+            }
+          }
+        })
+      });
 
-      setEditableTitle(title);
-      setEditableDescription(description);
-
-      // Transform organized activities to Format7 structure
-      const format7Activities = transformToFormat7Activities(
-        mcpMultiSource.organizedData,
-        selectedActivityIds
-      );
-
-      console.log('[MCPFlow] Transformed activities:', format7Activities.length);
-
-      // Build summary statistics
-      const summary = buildFormat7Summary(format7Activities, mcpMultiSource.organizedData);
-
-      // Extract artifacts
-      const artifacts = extractArtifacts(format7Activities);
-
-      // Calculate time range from activities
-      let timeRange = { start: '', end: '' };
-      if (format7Activities.length > 0) {
-        const timestamps = format7Activities
-          .map(a => new Date(a.timestamp))
-          .filter(d => !isNaN(d.getTime()));
-
-        if (timestamps.length > 0) {
-          const earliest = new Date(Math.min(...timestamps.map(d => d.getTime())));
-          const latest = new Date(Math.max(...timestamps.map(d => d.getTime())));
-          timeRange = {
-            start: earliest.toISOString().split('T')[0],
-            end: latest.toISOString().split('T')[0]
-          };
-        }
+      if (!response.ok) {
+        throw new Error(`Backend transform failed: ${response.statusText}`);
       }
 
-      // Build complete Format7 entry
-      const completeFormat7Entry = {
-        entry_metadata: {
-          title: title,
-          date: timeRange.end || new Date().toISOString().split('T')[0],
-          type: 'learning', // Could be determined by AI or activity types
-          workspace: workspaceName,
-          privacy: 'team',
-          isAutomated: true,
-          created_at: new Date().toISOString()
-        },
-        context: {
-          date_range: timeRange,
-          sources_included: mcpMultiSource.sources || [],
-          total_activities: format7Activities.length,
-          primary_focus: description
-        },
-        activities: format7Activities,
-        summary: summary,
-        correlations: mcpMultiSource.correlations || [],
-        artifacts: artifacts
-      };
+      const result = await response.json();
+      const format7Entry = result.data || result;
 
-      // Store the complete entry
-      setFormat7Entry(completeFormat7Entry);
-
-      console.log('[MCPFlow] Format7 entry generated:', {
-        activities: format7Activities.length,
-        collaborators: summary.unique_collaborators.length,
-        technologies: summary.technologies_used.length,
-        artifacts: artifacts.length
+      console.log('[MCPFlow] Format7 entry received from backend:', {
+        activities: format7Entry.activities?.length || 0,
+        collaborators: format7Entry.summary?.unique_collaborators?.length || 0,
+        reviewers: format7Entry.summary?.unique_reviewers?.length || 0,
+        correlations: format7Entry.correlations?.length || 0,
+        categories: format7Entry.categories?.length || 0
       });
+
+      // Set editable fields from AI-generated content
+      setEditableTitle(format7Entry.entry_metadata.title);
+      setEditableDescription(format7Entry.context.primary_focus);
+      setFormat7Entry(format7Entry);
 
       // Move to preview step
       setStep('preview');
 
     } catch (error: any) {
-      console.error('[MCPFlow] Failed to generate preview:', error);
-      alert(`Error generating preview: ${error.message}`);
+      console.error('[MCPFlow] Failed to generate Format7 preview:', error);
+      alert(`Error generating preview: ${error.message}\n\nPlease try again or check your connection.`);
     }
   };
 

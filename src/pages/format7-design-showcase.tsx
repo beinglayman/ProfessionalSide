@@ -15,6 +15,9 @@ import FeedHybrid from '../components/format7/feed-hybrid';
 import JournalHybrid from '../components/format7/journal-hybrid';
 import FeedAchievement from '../components/format7/feed-achievement';
 import JournalAchievement from '../components/format7/journal-achievement';
+import FeedEnhanced from '../components/format7/feed-enhanced';
+import JournalEnhanced from '../components/format7/journal-enhanced';
+import { sampleCorrelations, sampleCategories } from '../components/format7/sample-enhanced-data';
 
 const Format7DesignShowcase: React.FC = () => {
   return (
@@ -131,6 +134,42 @@ const Format7DesignShowcase: React.FC = () => {
             <FeedAchievement entry={sampleFormat7Entry} />
             <div className="border-t-2 border-gray-200"></div>
             <JournalAchievement entry={sampleFormat7Entry} />
+          </div>
+        </section>
+
+        <div className="border-t-4 border-gray-300"></div>
+
+        {/* Section 7: Pair 6 - Enhanced with AI Insights */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Pair 6: Enhanced with AI Insights</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              Pair 4 (Hybrid) enhanced with Step 3 AI processing: AI-detected correlations between activities and AI-grouped categories (Achievement, Learning, Collaboration, Problem Solving)
+            </p>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-purple-900 mb-2">✨ AI-Powered Features:</h3>
+              <ul className="text-xs text-purple-800 space-y-1 list-disc list-inside">
+                <li><strong>Cross-tool correlations:</strong> AI detects connections between GitHub PRs, Jira tickets, meetings, and designs</li>
+                <li><strong>Intelligent categorization:</strong> Activities automatically grouped by type (achievement, learning, collaboration, documentation, problem solving)</li>
+                <li><strong>Confidence scoring:</strong> Each correlation shows match confidence percentage</li>
+                <li><strong>Smart insights:</strong> AI reasoning explains why activities are connected</li>
+                <li><strong>Expandable sections:</strong> Click pills to reveal correlations and categories on demand</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <FeedEnhanced
+              entry={sampleFormat7Entry}
+              correlations={sampleCorrelations}
+              categories={sampleCategories}
+            />
+            <div className="border-t-2 border-gray-200"></div>
+            <JournalEnhanced
+              entry={sampleFormat7Entry}
+              correlations={sampleCorrelations}
+              categories={sampleCategories}
+            />
           </div>
         </section>
 

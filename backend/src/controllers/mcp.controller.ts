@@ -1522,3 +1522,51 @@ export const deleteAllMCPData = asyncHandler(async (req: Request, res: Response)
     sendError(res, 'Failed to delete MCP data');
   }
 });
+
+/**
+ * Transform MCP data to Format7 journal entry
+ */
+export const transformFormat7 = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    const {
+      activities,
+      organizedData,
+      correlations,
+      generatedContent,
+      selectedActivityIds,
+      options
+    } = req.body;
+
+    console.log('[MCP Controller] Transforming to Format7 entry...');
+    console.log('[MCP Controller] Selected activities:', selectedActivityIds?.length || 0);
+    console.log('[MCP Controller] Correlations:', correlations?.length || 0);
+    console.log('[MCP Controller] Categories:', organizedData?.categories?.length || 0);
+
+    // Transform to Format7 using the backend service
+    const format7Entry = await format7Transformer.transform({
+      activities,
+      organizedData,
+      correlations,
+      generatedContent,
+      selectedActivityIds,
+      userId,
+      ...options
+    });
+
+    console.log('[MCP Controller] Format7 transformation complete');
+    console.log('[MCP Controller] Collaborators:', format7Entry.summary?.unique_collaborators?.length || 0);
+    console.log('[MCP Controller] Reviewers:', format7Entry.summary?.unique_reviewers?.length || 0);
+
+    sendSuccess(res, format7Entry);
+  } catch (error) {
+    console.error('[MCP Controller] Format7 transform error:', error);
+    sendError(res, 'Failed to transform to Format7');
+  }
+});

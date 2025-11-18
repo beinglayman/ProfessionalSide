@@ -8,6 +8,7 @@ export interface Format7JournalEntry {
     workspace: string;
     privacy: 'private' | 'team' | 'network' | 'public';
     isAutomated?: boolean;
+    created_at?: string;
   };
   context: {
     date_range: {
@@ -20,8 +21,24 @@ export interface Format7JournalEntry {
   };
   activities: Activity[];
   correlations: Correlation[];
+  categories?: EnhancedCategory[];
   summary: Summary;
   artifacts: Artifact[];
+}
+
+export interface EnhancedCategory {
+  type: 'achievement' | 'learning' | 'collaboration' | 'documentation' | 'problem_solving';
+  label: string;
+  summary: string;
+  items: Array<{
+    id: string;
+    source: string;
+    type: string;
+    title: string;
+    description: string;
+    url: string;
+    importance: 'high' | 'medium' | 'low';
+  }>;
 }
 
 export interface Activity {
