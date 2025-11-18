@@ -1561,8 +1561,12 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
     };
 
     // Convert activities to Map if it's an object
-    let rawToolData = activities;
-    if (activities && !(activities instanceof Map)) {
+    let rawToolData: Map<string, any>;
+    if (!activities) {
+      rawToolData = new Map();
+    } else if (activities instanceof Map) {
+      rawToolData = activities;
+    } else {
       rawToolData = new Map(Object.entries(activities));
     }
 
