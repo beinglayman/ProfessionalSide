@@ -1545,9 +1545,12 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
     } = req.body;
 
     console.log('[MCP Controller] Transforming to Format7 entry...');
+    console.log('[MCP Controller] Request body keys:', Object.keys(req.body));
     console.log('[MCP Controller] Selected activities:', selectedActivityIds?.length || 0);
     console.log('[MCP Controller] Correlations:', correlations?.length || 0);
     console.log('[MCP Controller] Categories:', organizedData?.categories?.length || 0);
+    console.log('[MCP Controller] Activities type:', activities ? (activities instanceof Map ? 'Map' : typeof activities) : 'null/undefined');
+    console.log('[MCP Controller] Activities keys:', activities ? Object.keys(activities).join(', ') : 'none');
 
     // Build organized activity structure expected by transformToFormat7
     const organizedActivity = {
@@ -1571,6 +1574,15 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
     }
 
     // Transform to Format7 using the backend service
+    console.log('[MCP Controller] Calling transformToFormat7...');
+    console.log('[MCP Controller] organizedActivity:', {
+      suggestedEntryType: organizedActivity.suggestedEntryType,
+      suggestedTitle: organizedActivity.suggestedTitle,
+      categoriesCount: organizedActivity.categories?.length || 0,
+      correlationsCount: organizedActivity.correlations?.length || 0
+    });
+    console.log('[MCP Controller] rawToolData size:', rawToolData.size);
+
     const format7Entry = format7Transformer.transformToFormat7(
       organizedActivity,
       rawToolData,
@@ -1584,6 +1596,8 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
         }
       }
     );
+
+    console.log('[MCP Controller] transformToFormat7 completed successfully');
 
     console.log('[MCP Controller] Format7 transformation complete');
     console.log('[MCP Controller] Collaborators:', format7Entry.summary?.unique_collaborators?.length || 0);
