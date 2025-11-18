@@ -1582,6 +1582,30 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
       correlationsCount: organizedActivity.correlations?.length || 0
     });
     console.log('[MCP Controller] rawToolData size:', rawToolData.size);
+    console.log('[MCP Controller] options.dateRange:', options?.dateRange);
+
+    // Ensure dateRange has proper Date objects
+    let dateRange: { start: Date; end: Date };
+    if (options?.dateRange?.start && options?.dateRange?.end) {
+      // Convert string dates to Date objects if needed
+      dateRange = {
+        start: typeof options.dateRange.start === 'string'
+          ? new Date(options.dateRange.start)
+          : options.dateRange.start,
+        end: typeof options.dateRange.end === 'string'
+          ? new Date(options.dateRange.end)
+          : options.dateRange.end
+      };
+    } else {
+      // Fallback to current date
+      const now = new Date();
+      dateRange = { start: now, end: now };
+    }
+
+    console.log('[MCP Controller] Using dateRange:', {
+      start: dateRange.start.toISOString(),
+      end: dateRange.end.toISOString()
+    });
 
     const format7Entry = format7Transformer.transformToFormat7(
       organizedActivity,
@@ -1590,10 +1614,7 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
         userId,
         workspaceName: options?.workspaceName || 'Professional Work',
         privacy: options?.privacy || 'team',
-        dateRange: options?.dateRange || {
-          start: new Date(),
-          end: new Date()
-        }
+        dateRange
       }
     );
 
