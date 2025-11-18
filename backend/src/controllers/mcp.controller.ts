@@ -1549,16 +1549,37 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
     console.log('[MCP Controller] Correlations:', correlations?.length || 0);
     console.log('[MCP Controller] Categories:', organizedData?.categories?.length || 0);
 
+    // Build organized activity structure expected by transformToFormat7
+    const organizedActivity = {
+      suggestedEntryType: organizedData?.suggestedEntryType || 'achievement',
+      suggestedTitle: generatedContent?.workspaceEntry?.title || organizedData?.suggestedTitle || 'Activity Summary',
+      contextSummary: generatedContent?.workspaceEntry?.description || organizedData?.contextSummary || '',
+      extractedSkills: organizedData?.extractedSkills || [],
+      categories: organizedData?.categories || [],
+      correlations: correlations || [],
+      artifacts: organizedData?.artifacts || []
+    };
+
+    // Convert activities to Map if it's an object
+    let rawToolData = activities;
+    if (activities && !(activities instanceof Map)) {
+      rawToolData = new Map(Object.entries(activities));
+    }
+
     // Transform to Format7 using the backend service
-    const format7Entry = await format7Transformer.transform({
-      activities,
-      organizedData,
-      correlations,
-      generatedContent,
-      selectedActivityIds,
-      userId,
-      ...options
-    });
+    const format7Entry = format7Transformer.transformToFormat7(
+      organizedActivity,
+      rawToolData,
+      {
+        userId,
+        workspaceName: options?.workspaceName || 'Professional Work',
+        privacy: options?.privacy || 'team',
+        dateRange: options?.dateRange || {
+          start: new Date(),
+          end: new Date()
+        }
+      }
+    );
 
     console.log('[MCP Controller] Format7 transformation complete');
     console.log('[MCP Controller] Collaborators:', format7Entry.summary?.unique_collaborators?.length || 0);
