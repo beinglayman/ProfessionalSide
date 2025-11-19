@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import * as Label from '@radix-ui/react-label';
 import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, RepeatIcon, Sparkles, Mail, ArrowRight, PenTool} from 'lucide-react';
 import { Button } from '../ui/button';
@@ -15,7 +14,6 @@ import { TagInput } from '../ui/tag-input';
 import { useGenerateAIEntries } from '../../hooks/useAIGeneration';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { MCPFlowModal } from './new-entry-modal-enhanced';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface NewEntryModalProps {
   open: boolean;
@@ -63,8 +61,6 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const generateAIMutation = useGenerateAIEntries();
   const { user: currentUser } = useAuth();
   const { data: integrations } = useMCPIntegrations();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     // Step 1: Primary Focus Area (Persona)
@@ -2776,111 +2772,25 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               onOpenChange(true);
             }
           }}
-          onComplete={async (data) => {
-            try {
-              console.log('[NewEntryModal] Creating journal entry from MCP flow data');
+          onComplete={(data) => {
+            // Pre-fill the form with MCP data
+            setFormData(prevData => ({
+              ...prevData,
+              title: data.title,
+              description: data.workspaceEntry.description,
+              // Map skills if they have IDs, otherwise keep as names for later resolution
+              skillsApplied: data.skills?.filter(s => typeof s === 'string') || [],
+              // Store the full MCP data for reference
+              mcpImportData: data
+            }));
 
-              // Create journal entry immediately with Format7 data
-              await createJournalMutation.mutateAsync({
-                title: data.title,
-                description: data.description,
-                fullContent: data.description,
-                abstractContent: data.description.substring(0, 200),
+            // Close MCP flow and switch to manual mode at step 4 (Work Details)
+            setShowMCPFlow(false);
+            setEntryMethod('manual');
+            setStep(4); // Jump to step 4 where title/description are entered
 
-                // Use workspace ID from MCP flow
-                workspaceId: data.workspaceEntry?.workspaceId || data.workspaceId,
-
-                // Map visibility from Format7 privacy
-                visibility: data.format7Entry?.entry_metadata?.privacy === 'private'
-                  ? 'private'
-                  : data.format7Entry?.entry_metadata?.privacy === 'team'
-                  ? 'workspace'
-                  : 'network',
-
-                category: data.format7Entry?.entry_metadata?.category || undefined,
-                tags: data.format7Entry?.summary?.technologies_used || [],
-                skills: data.skills || [],
-
-                // Map artifacts from Format7 with URL validation
-                artifacts: data.format7Entry?.artifacts
-                  ?.filter((a: any) => {
-                    // Validate URL before including artifact
-                    try {
-                      new URL(a.url);
-                      return true;
-                    } catch {
-                      console.warn('[NewEntryModal] Skipping artifact with invalid URL:', a.title, a.url);
-                      return false;
-                    }
-                  })
-                  .map((a: any) => {
-                    const validTypes = ['code', 'document', 'design', 'video', 'link'];
-                    const artifactType = validTypes.includes(a.type) ? a.type : 'document';
-
-                    return {
-                      name: a.title,
-                      type: artifactType,
-                      url: a.url,
-                      size: undefined,
-                      metadata: JSON.stringify(a)
-                    };
-                  }) || [],
-
-                // Map outcomes from Format7 correlations
-                outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
-                  category: 'technical',
-                  title: `${c.source1.title} ↔ ${c.source2.title}`,
-                  description: c.reasoning,
-                  highlight: undefined,
-                  metrics: JSON.stringify({
-                    confidence: c.confidence,
-                    type: c.type,
-                    before: c.metrics?.before,
-                    after: c.metrics?.after,
-                    improvement: c.metrics?.improvement,
-                    trend: c.metrics?.trend
-                  })
-                })) || [],
-
-                // Achievement fields
-                achievementType: data.format7Entry?.entry_metadata?.type === 'achievement'
-                  ? 'milestone'
-                  : undefined,
-                achievementTitle: data.format7Entry?.entry_metadata?.type === 'achievement'
-                  ? data.title
-                  : undefined,
-                achievementDescription: data.format7Entry?.entry_metadata?.type === 'achievement'
-                  ? data.description
-                  : undefined,
-
-                // Collaborators/Reviewers - Empty arrays (MCP data only has names, not user IDs)
-                // Backend expects { userId: string }, but we only have names from tools
-                // TODO: Future enhancement - implement user lookup service to match names to IDs
-                collaborators: [],
-                reviewers: []
-              });
-
-              console.log('[NewEntryModal] Journal entry created successfully');
-
-              // Refresh the journal entries list
-              queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
-              queryClient.invalidateQueries({ queryKey: ['userFeed'] });
-
-              // Navigate to My Journal page to show the new entry
-              navigate('/journal');
-
-              // Close MCP flow and modal
-              setShowMCPFlow(false);
-              onOpenChange(false);
-
-              // Reset state
-              setStep(0);
-              setEntryMethod(null);
-              setValidationError('');
-            } catch (error: any) {
-              console.error('[NewEntryModal] Failed to create journal entry:', error);
-              setValidationError(`Failed to create entry: ${error.message || 'Unknown error'}`);
-            }
+            // Optionally show a success message
+            setValidationError(''); // Clear any errors
           }}
           workspaceName={workspaces.find(w => w.id === formData.workspaceId)?.name || 'Professional Work'}
         />

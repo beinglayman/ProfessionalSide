@@ -76,31 +76,14 @@ export default function JournalPage() {
       tags: data.format7Entry?.summary?.technologies_used || [],
       skills: data.skills || [],
 
-      // Map artifacts from Format7 with URL validation
-      artifacts: data.format7Entry?.artifacts
-        ?.filter((a: any) => {
-          // Validate URL before including artifact
-          try {
-            new URL(a.url);
-            return true;
-          } catch {
-            console.warn('[list-new] Skipping artifact with invalid URL:', a.title, a.url);
-            return false;
-          }
-        })
-        .map((a: any) => {
-          // Validate artifact type against allowed values
-          const validTypes = ['code', 'document', 'design', 'video', 'link'];
-          const artifactType = validTypes.includes(a.type) ? a.type : 'document';
-
-          return {
-            name: a.title,
-            type: artifactType,
-            url: a.url,
-            size: undefined,
-            metadata: JSON.stringify(a)
-          };
-        }) || [],
+      // Map artifacts from Format7
+      artifacts: data.format7Entry?.artifacts?.map((a: any) => ({
+        name: a.title,
+        type: a.type === 'link' ? 'link' : 'document',
+        url: a.url,
+        size: undefined,
+        metadata: JSON.stringify(a)
+      })) || [],
 
       // Map outcomes from Format7 correlations
       outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
@@ -110,11 +93,7 @@ export default function JournalPage() {
         highlight: undefined,
         metrics: JSON.stringify({
           confidence: c.confidence,
-          type: c.type,
-          before: c.metrics?.before,
-          after: c.metrics?.after,
-          improvement: c.metrics?.improvement,
-          trend: c.metrics?.trend
+          type: c.type
         })
       })) || [],
 
@@ -129,9 +108,7 @@ export default function JournalPage() {
         ? data.description
         : undefined,
 
-      // Collaborators/Reviewers - Empty arrays (MCP data only has names, not user IDs)
-      // Backend expects { userId: string }, but we only have names from tools
-      // TODO: Future enhancement - implement user lookup service to match names to IDs
+      // Collaborators/Reviewers - empty for now (requires user mapping service)
       collaborators: [],
       reviewers: []
     });
