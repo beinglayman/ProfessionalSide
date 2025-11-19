@@ -186,10 +186,12 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
 
   return (
     <div className="w-full">
-      {/* Entry Title */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-500 mb-2">Journal View: Enhanced (Hybrid + AI Correlations + Grouped Activities)</h3>
-      </div>
+      {/* Entry Title - Hidden in preview mode */}
+      {!isPreview && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-500 mb-2">Journal View: Enhanced (Hybrid + AI Correlations + Grouped Activities)</h3>
+        </div>
+      )}
 
       {/* Card with hover shadow */}
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">

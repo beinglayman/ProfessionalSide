@@ -834,7 +834,7 @@ export function MCPFlowSidePanel({
       select: { number: 1, total: 4, title: 'Select Data Sources' },
       rawReview: { number: 2, total: 4, title: 'Review Activities' },
       correlations: { number: 3, total: 4, title: 'AI Analysis & Correlations' },
-      preview: { number: 4, total: 4, title: 'Preview & Edit Entry' }
+      preview: { number: 4, total: 4, title: 'Preview Entry' }
     };
     return steps[step];
   };
