@@ -77,13 +77,19 @@ export default function JournalPage() {
       skills: data.skills || [],
 
       // Map artifacts from Format7
-      artifacts: data.format7Entry?.artifacts?.map((a: any) => ({
-        name: a.title,
-        type: a.type === 'link' ? 'link' : 'document',
-        url: a.url,
-        size: undefined,
-        metadata: JSON.stringify(a)
-      })) || [],
+      artifacts: data.format7Entry?.artifacts?.map((a: any) => {
+        // Validate artifact type against allowed values
+        const validTypes = ['code', 'document', 'design', 'video', 'link'];
+        const artifactType = validTypes.includes(a.type) ? a.type : 'document';
+
+        return {
+          name: a.title,
+          type: artifactType,
+          url: a.url,
+          size: undefined,
+          metadata: JSON.stringify(a)
+        };
+      }) || [],
 
       // Map outcomes from Format7 correlations
       outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
@@ -93,7 +99,11 @@ export default function JournalPage() {
         highlight: undefined,
         metrics: JSON.stringify({
           confidence: c.confidence,
-          type: c.type
+          type: c.type,
+          before: c.metrics?.before,
+          after: c.metrics?.after,
+          improvement: c.metrics?.improvement,
+          trend: c.metrics?.trend
         })
       })) || [],
 
@@ -108,9 +118,17 @@ export default function JournalPage() {
         ? data.description
         : undefined,
 
-      // Collaborators/Reviewers - empty for now (requires user mapping service)
-      collaborators: [],
-      reviewers: []
+      // Collaborators/Reviewers - Extract from Format7 data
+      collaborators: data.format7Entry?.summary?.unique_collaborators?.map((name: string) => ({
+        name,
+        // Note: userId would need to be resolved via user mapping service
+        // For now, store just the name from the tools
+      })) || [],
+      reviewers: data.format7Entry?.summary?.unique_reviewers?.map((name: string) => ({
+        name,
+        // Note: userId would need to be resolved via user mapping service
+        // For now, store just the name from the tools
+      })) || []
     });
 
     // Refresh the journal entries list
