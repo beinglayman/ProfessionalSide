@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useMCPMultiSource } from '../../hooks/useMCPMultiSource';
+import { useWorkspaces } from '../../hooks/useWorkspace';
 import { MCPSourceSelector } from '../mcp/MCPSourceSelector';
 import { MCPRawActivityReview } from '../mcp/MCPRawActivityReview';
 import { MCPActivityReview } from '../mcp/MCPActivityReview';
@@ -42,10 +43,37 @@ export function MCPFlowSidePanel({
   const [editableDescription, setEditableDescription] = useState<string>('');
   const [format7Entry, setFormat7Entry] = useState<any>(null);
 
+  // Workspace selection state
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
+  const [selectedWorkspaceName, setSelectedWorkspaceName] = useState<string>(workspaceName);
+
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
+  const { data: workspaces = [] } = useWorkspaces();
 
   const connectedTools = integrations?.integrations?.filter((i: any) => i.isConnected) || [];
+
+  // Initialize workspace based on workspaceName prop
+  useEffect(() => {
+    if (workspaces.length > 0 && !selectedWorkspaceId) {
+      // Try to find workspace by name
+      const workspace = workspaces.find(w => w.name === workspaceName);
+      if (workspace) {
+        setSelectedWorkspaceId(workspace.id);
+        setSelectedWorkspaceName(workspace.name);
+      } else {
+        // Default to first workspace (typically "My Workspace")
+        setSelectedWorkspaceId(workspaces[0].id);
+        setSelectedWorkspaceName(workspaces[0].name);
+      }
+    }
+  }, [workspaces, workspaceName, selectedWorkspaceId]);
+
+  // Handle workspace change
+  const handleWorkspaceChange = (workspaceId: string, workspaceName: string) => {
+    setSelectedWorkspaceId(workspaceId);
+    setSelectedWorkspaceName(workspaceName);
+  };
 
   // Step 1: Fetch raw activities (no AI processing)
   const handleFetchActivities = async (toolTypes: string[], dateRange: { start: Date; end: Date }) => {
@@ -775,9 +803,11 @@ export function MCPFlowSidePanel({
       format7Entry: finalFormat7Entry,
       workspaceEntry: {
         title: editableTitle,
-        description: editableDescription
+        description: editableDescription,
+        workspaceId: selectedWorkspaceId,
+        workspaceName: selectedWorkspaceName
       },
-      networkEntry: mcpMultiSource.generatedContent?.networkEntry || null
+      networkEntry: mcpMultiSource.generatedData?.networkEntry || null
     });
 
     handleClose();
@@ -928,6 +958,9 @@ export function MCPFlowSidePanel({
             onDescriptionChange={setEditableDescription}
             editableTitle={editableTitle}
             editableDescription={editableDescription}
+            isPreview={true}
+            selectedWorkspaceId={selectedWorkspaceId}
+            onWorkspaceChange={handleWorkspaceChange}
           />
         );
 

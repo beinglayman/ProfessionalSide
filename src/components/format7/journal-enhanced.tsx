@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Format7JournalEntry } from './sample-data';
+import { WorkspaceSelector } from '../new-entry/WorkspaceSelector';
 import {
   GithubIcon,
   JiraIcon,
@@ -9,6 +10,12 @@ import {
   TeamsIcon,
   FigmaIcon,
   ConfluenceIcon,
+  OutlookIcon,
+  OneDriveIcon,
+  OneNoteIcon,
+  SharePointIcon,
+  ZoomIcon,
+  GoogleWorkspaceIcon,
 } from '../icons/ToolIcons';
 import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X } from 'lucide-react';
 
@@ -16,6 +23,9 @@ interface JournalEnhancedProps {
   entry: Format7JournalEntry;
   showUserProfile?: boolean;
   editMode?: boolean;
+  isPreview?: boolean;
+  selectedWorkspaceId?: string;
+  onWorkspaceChange?: (workspaceId: string, workspaceName: string) => void;
   onTitleChange?: (title: string) => void;
   onDescriptionChange?: (description: string) => void;
   correlations?: Array<{
@@ -50,6 +60,12 @@ const getToolIcon = (source: string, size = 'w-4 h-4') => {
     case 'teams': return <TeamsIcon className={size} />;
     case 'figma': return <FigmaIcon className={size} />;
     case 'confluence': return <ConfluenceIcon className={size} />;
+    case 'outlook': return <OutlookIcon className={size} />;
+    case 'onedrive': return <OneDriveIcon className={size} />;
+    case 'onenote': return <OneNoteIcon className={size} />;
+    case 'sharepoint': return <SharePointIcon className={size} />;
+    case 'zoom': return <ZoomIcon className={size} />;
+    case 'google_workspace': return <GoogleWorkspaceIcon className={size} />;
     default: return null;
   }
 };
@@ -80,12 +96,16 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   entry,
   showUserProfile = false,
   editMode = false,
+  isPreview = false,
+  selectedWorkspaceId,
+  onWorkspaceChange,
   onTitleChange,
   onDescriptionChange,
   correlations = [],
   categories = []
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // In preview mode, always show expanded view
+  const [isExpanded, setIsExpanded] = useState(isPreview);
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [showRelativeTime, setShowRelativeTime] = useState(true);
   const [showCorrelations, setShowCorrelations] = useState(false);
@@ -96,6 +116,13 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [localTitle, setLocalTitle] = useState(entry.entry_metadata.title);
   const [localDescription, setLocalDescription] = useState(entry.context.primary_focus);
+
+  // Keep expanded in preview mode
+  useEffect(() => {
+    if (isPreview) {
+      setIsExpanded(true);
+    }
+  }, [isPreview]);
 
   const toggleActivity = (activityId: string) => {
     const newExpanded = new Set(expandedActivities);
@@ -591,35 +618,49 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             </>
           )}
 
-          {/* Show More/Less Link */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
-          >
-            {isExpanded ? 'Show Less' : 'Show More'}
-          </button>
+          {/* Show More/Less Link - hidden in preview mode */}
+          {!isPreview && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              {isExpanded ? 'Show Less' : 'Show More'}
+            </button>
+          )}
         </div>
 
         {/* Footer Actions */}
         <div className="border-t border-gray-100 px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
-              <Heart className="w-4 h-4 mr-1" />
-              <span className="text-xs">Appreciate</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
-              <MessageSquare className="w-4 h-4 mr-1" />
-              <span className="text-xs">Discuss</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
-              <Repeat2 className="w-4 h-4 mr-1" />
-              <span className="text-xs">ReChronicle</span>
-            </Button>
-          </div>
-          <div>
-            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
-              Workspace: {entry.entry_metadata.workspace}
-            </Badge>
+          {/* Hide social actions in preview mode */}
+          {!isPreview && (
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
+                <Heart className="w-4 h-4 mr-1" />
+                <span className="text-xs">Appreciate</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
+                <MessageSquare className="w-4 h-4 mr-1" />
+                <span className="text-xs">Discuss</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
+                <Repeat2 className="w-4 h-4 mr-1" />
+                <span className="text-xs">ReChronicle</span>
+              </Button>
+            </div>
+          )}
+
+          {/* Workspace selector or badge */}
+          <div className={isPreview ? 'ml-auto' : ''}>
+            {isPreview && onWorkspaceChange ? (
+              <WorkspaceSelector
+                selectedWorkspaceId={selectedWorkspaceId}
+                onWorkspaceChange={onWorkspaceChange}
+              />
+            ) : (
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
+                Workspace: {entry.entry_metadata.workspace}
+              </Badge>
+            )}
           </div>
         </div>
       </div>

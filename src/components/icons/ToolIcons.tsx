@@ -216,6 +216,30 @@ export const ConfluenceIcon: React.FC<{ className?: string }> = ({ className }) 
   <ToolIcon tool="confluence" className={className} />
 );
 
+export const OutlookIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="outlook" className={className} />
+);
+
+export const OneDriveIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="onedrive" className={className} />
+);
+
+export const OneNoteIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="onenote" className={className} />
+);
+
+export const SharePointIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="sharepoint" className={className} />
+);
+
+export const ZoomIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="zoom" className={className} />
+);
+
+export const GoogleWorkspaceIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <ToolIcon tool="google_workspace" className={className} />
+);
+
 // Helper to get tool display name
 export function getToolDisplayName(tool: ToolType): string {
   const names: Record<ToolType, string> = {

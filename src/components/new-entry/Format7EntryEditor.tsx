@@ -9,6 +9,9 @@ interface Format7EntryEditorProps {
   onDescriptionChange: (description: string) => void;
   editableTitle: string;
   editableDescription: string;
+  isPreview?: boolean;
+  selectedWorkspaceId?: string;
+  onWorkspaceChange?: (workspaceId: string, workspaceName: string) => void;
   className?: string;
 }
 
@@ -18,6 +21,9 @@ export function Format7EntryEditor({
   onDescriptionChange,
   editableTitle,
   editableDescription,
+  isPreview = false,
+  selectedWorkspaceId,
+  onWorkspaceChange,
   className
 }: Format7EntryEditorProps) {
   // Create preview entry with edited values
@@ -61,6 +67,9 @@ export function Format7EntryEditor({
               correlations={initialEntry?.correlations || []}
               categories={initialEntry?.categories || []}
               editMode={true}
+              isPreview={isPreview}
+              selectedWorkspaceId={selectedWorkspaceId}
+              onWorkspaceChange={onWorkspaceChange}
               onTitleChange={onTitleChange}
               onDescriptionChange={onDescriptionChange}
             />
