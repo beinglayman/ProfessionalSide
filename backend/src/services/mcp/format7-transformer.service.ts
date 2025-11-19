@@ -257,6 +257,11 @@ export class Format7TransformerService {
   private findRelatedActivities(activityId: string, correlations: any[]): string[] {
     const related: string[] = [];
 
+    // Ensure correlations is an array
+    if (!Array.isArray(correlations)) {
+      return related;
+    }
+
     correlations.forEach(corr => {
       if (corr.source1.id === activityId) {
         related.push(corr.source2.id);
@@ -525,6 +530,11 @@ export class Format7TransformerService {
    * Map correlations to Format7 structure
    */
   private mapCorrelations(correlations: any[]): any[] {
+    // Ensure correlations is an array
+    if (!Array.isArray(correlations)) {
+      return [];
+    }
+
     return correlations.map(corr => ({
       id: corr.id,
       type: corr.type,
