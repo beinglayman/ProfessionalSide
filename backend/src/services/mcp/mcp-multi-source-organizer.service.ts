@@ -350,6 +350,11 @@ Return ONLY valid JSON, no additional text.
       summary += `Top Pull Requests:\n`;
       activity.pullRequests.slice(0, 5).forEach((pr, idx) => {
         summary += `  ${idx + 1}. [${pr.state}] ${pr.title}\n`;
+        summary += `     Author: ${pr.author || 'unknown'}`;
+        if (pr.reviewers && pr.reviewers.length > 0) {
+          summary += `, Reviewers: ${pr.reviewers.join(', ')}`;
+        }
+        summary += `\n`;
         summary += `     URL: ${pr.url}\n`;
         summary += `     Labels: ${pr.labels?.join(', ') || 'none'}\n`;
       });

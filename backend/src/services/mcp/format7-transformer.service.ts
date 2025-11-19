@@ -374,36 +374,108 @@ export class Format7TransformerService {
     const collaborators: any[] = [];
     const reviewers: any[] = [];
 
-    // GitHub
+    // GitHub - Use raw data as primary source
     if (activity.source === 'github') {
-      if (activity.metadata?.author) {
-        collaborators.push({ name: activity.metadata.author });
+      const githubData = rawToolData.get('github');
+
+      // Try to find the PR/issue in raw data by matching URL
+      let found = false;
+      if (githubData?.pullRequests) {
+        const pr = githubData.pullRequests.find((p: any) =>
+          p.url === activity.evidence?.url ||
+          activity.description?.includes(p.title)
+        );
+
+        if (pr) {
+          found = true;
+          // Extract author as collaborator
+          if (pr.author) {
+            collaborators.push({ name: pr.author });
+          }
+          // Extract reviewers
+          if (Array.isArray(pr.reviewers)) {
+            pr.reviewers.forEach((r: string) => reviewers.push({ name: r }));
+          }
+        }
       }
-      if (activity.metadata?.reviewers) {
-        activity.metadata.reviewers.forEach((r: string) => reviewers.push({ name: r }));
-      }
-      if (activity.metadata?.assignees) {
-        activity.metadata.assignees.forEach((a: string) => collaborators.push({ name: a }));
+
+      // Fallback to metadata if not found in raw data
+      if (!found && activity.metadata) {
+        if (activity.metadata.author) {
+          collaborators.push({ name: activity.metadata.author });
+        }
+        if (activity.metadata.reviewers) {
+          activity.metadata.reviewers.forEach((r: string) => reviewers.push({ name: r }));
+        }
+        if (activity.metadata.assignees) {
+          activity.metadata.assignees.forEach((a: string) => collaborators.push({ name: a }));
+        }
       }
     }
 
-    // Jira
+    // Jira - Use raw data as primary source
     if (activity.source === 'jira') {
-      if (activity.metadata?.assignee) {
-        collaborators.push({ name: activity.metadata.assignee });
+      const jiraData = rawToolData.get('jira');
+
+      let found = false;
+      if (jiraData?.issues) {
+        const issue = jiraData.issues.find((i: any) =>
+          i.url === activity.evidence?.url ||
+          activity.description?.includes(i.key)
+        );
+
+        if (issue) {
+          found = true;
+          if (issue.assignee) {
+            collaborators.push({ name: issue.assignee });
+          }
+          if (issue.reporter) {
+            collaborators.push({ name: issue.reporter });
+          }
+        }
       }
-      if (activity.metadata?.reporter) {
-        collaborators.push({ name: activity.metadata.reporter });
+
+      // Fallback to metadata
+      if (!found && activity.metadata) {
+        if (activity.metadata.assignee) {
+          collaborators.push({ name: activity.metadata.assignee });
+        }
+        if (activity.metadata.reporter) {
+          collaborators.push({ name: activity.metadata.reporter });
+        }
       }
     }
 
-    // Slack/Teams
+    // Slack/Teams - Use raw data as primary source
     if (activity.source === 'slack' || activity.source === 'teams') {
-      if (activity.metadata?.from) {
-        collaborators.push({ name: activity.metadata.from });
+      const toolData = rawToolData.get(activity.source);
+
+      let found = false;
+      if (toolData?.messages) {
+        const message = toolData.messages.find((m: any) =>
+          activity.description?.includes(m.text?.substring(0, 50)) ||
+          m.timestamp === activity.timestamp
+        );
+
+        if (message) {
+          found = true;
+          if (message.from) {
+            collaborators.push({ name: message.from });
+          }
+          if (Array.isArray(message.participants)) {
+            message.participants.forEach((p: string) => collaborators.push({ name: p }));
+          }
+        }
       }
-      if (activity.metadata?.participants) {
-        activity.metadata.participants.forEach((p: string) => collaborators.push({ name: p }));
+
+      // Fallback to metadata
+      if (!found && activity.metadata) {
+        if (activity.metadata.from) {
+          collaborators.push({ name: activity.metadata.from });
+        }
+        if (activity.metadata.participants) {
+          activity.metadata.participants.forEach((p: string) => collaborators.push({ name: p }));
+        }
       }
     }
 
