@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as Label from '@radix-ui/react-label';
 import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, RepeatIcon, Sparkles, Mail, ArrowRight, PenTool} from 'lucide-react';
 import { Button } from '../ui/button';
@@ -63,6 +64,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const { user: currentUser } = useAuth();
   const { data: integrations } = useMCPIntegrations();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     // Step 1: Primary Focus Area (Persona)
@@ -2854,6 +2856,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               // Refresh the journal entries list
               queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
               queryClient.invalidateQueries({ queryKey: ['userFeed'] });
+
+              // Navigate to My Journal page to show the new entry
+              navigate('/journal');
 
               // Close MCP flow and modal
               setShowMCPFlow(false);

@@ -11,9 +11,10 @@ export interface MCPFlowModalProps {
     description: string;
     skills: string[];
     activities: any;
+    format7Entry?: any;
     workspaceEntry: any;
     networkEntry: any;
-  }) => void;
+  }) => Promise<void>;
   workspaceName?: string;
 }
 
