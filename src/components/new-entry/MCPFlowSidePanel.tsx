@@ -21,7 +21,7 @@ interface MCPFlowSidePanelProps {
     format7Entry?: any;
     workspaceEntry: any;
     networkEntry: any;
-  }) => void;
+  }) => Promise<void>;
   workspaceName?: string;
 }
 
@@ -46,6 +46,10 @@ export function MCPFlowSidePanel({
   // Workspace selection state
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
   const [selectedWorkspaceName, setSelectedWorkspaceName] = useState<string>(workspaceName);
+
+  // Entry creation state
+  const [isCreating, setIsCreating] = useState(false);
+  const [creationError, setCreationError] = useState<string | null>(null);
 
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
@@ -196,11 +200,10 @@ export function MCPFlowSidePanel({
   const handleContinueFromRawReview = async () => {
     console.log('[MCPFlow] Step 2: User selected', selectedActivityIds.length, 'activities');
 
-    // Move to Step 3 immediately for better UX
-    setStep('correlations');
-
-    // Then start AI processing
+    // Set loading state FIRST, then move to Step 3
+    // This ensures React batches the updates and Step 3 renders with loading state immediately
     setIsProcessing(true);
+    setStep('correlations');
 
     try {
       // Run AI processing (this takes 10-30 seconds)
@@ -779,39 +782,49 @@ export function MCPFlowSidePanel({
   };
 
   // Handle final confirmation with edited data
-  const handleConfirmAndCreate = () => {
+  const handleConfirmAndCreate = async () => {
     console.log('[MCPFlow] Creating entry with edited data');
+    setIsCreating(true);
+    setCreationError(null);
 
-    // Update Format7 entry with final edited values
-    const finalFormat7Entry = format7Entry ? {
-      ...format7Entry,
-      entry_metadata: {
-        ...format7Entry.entry_metadata,
-        title: editableTitle
-      },
-      context: {
-        ...format7Entry.context,
-        primary_focus: editableDescription
-      }
-    } : null;
+    try {
+      // Update Format7 entry with final edited values
+      const finalFormat7Entry = format7Entry ? {
+        ...format7Entry,
+        entry_metadata: {
+          ...format7Entry.entry_metadata,
+          title: editableTitle
+        },
+        context: {
+          ...format7Entry.context,
+          primary_focus: editableDescription
+        }
+      } : null;
 
-    // Create entry data with user edits
-    onComplete({
-      title: editableTitle,
-      description: editableDescription,
-      skills: mcpMultiSource.organizedData?.extractedSkills || [],
-      activities: mcpMultiSource.organizedData,
-      format7Entry: finalFormat7Entry,
-      workspaceEntry: {
+      // Create entry data with user edits
+      await onComplete({
         title: editableTitle,
         description: editableDescription,
-        workspaceId: selectedWorkspaceId,
-        workspaceName: selectedWorkspaceName
-      },
-      networkEntry: mcpMultiSource.generatedData?.networkEntry || null
-    });
+        skills: mcpMultiSource.organizedData?.extractedSkills || [],
+        activities: mcpMultiSource.organizedData,
+        format7Entry: finalFormat7Entry,
+        workspaceEntry: {
+          title: editableTitle,
+          description: editableDescription,
+          workspaceId: selectedWorkspaceId,
+          workspaceName: selectedWorkspaceName
+        },
+        networkEntry: mcpMultiSource.generatedData?.networkEntry || null
+      });
 
-    handleClose();
+      console.log('[MCPFlow] Entry created successfully');
+      handleClose();
+    } catch (error: any) {
+      console.error('[MCPFlow] Failed to create entry:', error);
+      setCreationError(error.message || 'Failed to create entry. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleClose = () => {
@@ -820,6 +833,8 @@ export function MCPFlowSidePanel({
     setEditableTitle('');
     setEditableDescription('');
     setFormat7Entry(null);
+    setIsCreating(false);
+    setCreationError(null);
     mcpMultiSource.reset();
     onOpenChange(false);
   };
@@ -1019,33 +1034,53 @@ export function MCPFlowSidePanel({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
-          <Button
-            variant="outline"
-            onClick={step === 'select' ? handleClose : handleBack}
-            disabled={mcpMultiSource.isFetching || mcpMultiSource.isProcessing}
-          >
-            {step === 'select' ? (
-              'Cancel'
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back
-              </>
-            )}
-          </Button>
+        <div className="border-t bg-gray-50 flex-shrink-0">
+          {/* Error Message Display */}
+          {creationError && step === 'preview' && (
+            <div className="px-6 pt-4">
+              <div className="rounded-md bg-red-50 p-3 border border-red-200">
+                <p className="text-sm text-red-800">{creationError}</p>
+              </div>
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            {step === 'preview' && (
-              <Button
-                onClick={handleConfirmAndCreate}
-                disabled={!editableTitle || mcpMultiSource.isProcessing}
-                className="bg-primary-600 hover:bg-primary-700"
-              >
-                Create Entry
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
+          <div className="flex items-center justify-between p-6">
+            <Button
+              variant="outline"
+              onClick={step === 'select' ? handleClose : handleBack}
+              disabled={mcpMultiSource.isFetching || mcpMultiSource.isProcessing || isCreating}
+            >
+              {step === 'select' ? (
+                'Cancel'
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back
+                </>
+              )}
+            </Button>
+
+            <div className="flex items-center gap-2">
+              {step === 'preview' && (
+                <Button
+                  onClick={handleConfirmAndCreate}
+                  disabled={!editableTitle || mcpMultiSource.isProcessing || isCreating}
+                  className="bg-primary-600 hover:bg-primary-700"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating Entry...
+                    </>
+                  ) : (
+                    <>
+                      Create Entry
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

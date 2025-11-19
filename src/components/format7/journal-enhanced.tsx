@@ -632,7 +632,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-gray-100 px-6 py-3 flex items-center justify-between">
+        <div className="border-t border-gray-100 px-6 py-3 flex items-center justify-between overflow-visible">
           {/* Hide social actions in preview mode */}
           {!isPreview && (
             <div className="flex items-center gap-2">
@@ -652,11 +652,12 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
           )}
 
           {/* Workspace selector or badge */}
-          <div className={isPreview ? 'ml-auto' : ''}>
+          <div className={isPreview ? 'ml-auto overflow-visible' : ''}>
             {isPreview && onWorkspaceChange ? (
               <WorkspaceSelector
                 selectedWorkspaceId={selectedWorkspaceId}
                 onWorkspaceChange={onWorkspaceChange}
+                openUpward={true}
               />
             ) : (
               <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">

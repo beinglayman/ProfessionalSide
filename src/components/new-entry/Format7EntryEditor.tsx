@@ -44,6 +44,15 @@ export function Format7EntryEditor({
   const entryType = previewEntry?.entry_metadata?.type || 'learning';
   const isAchievement = entryType === 'achievement';
 
+  // Debug logging for correlations and categories
+  console.log('[Format7EntryEditor] Data check:', {
+    hasInitialEntry: !!initialEntry,
+    correlationsCount: initialEntry?.correlations?.length || 0,
+    categoriesCount: initialEntry?.categories?.length || 0,
+    correlations: initialEntry?.correlations,
+    categories: initialEntry?.categories
+  });
+
   // Achievement confetti state
   const [lastConfettiTime, setLastConfettiTime] = useState(0);
   const previewCardRef = useRef<HTMLDivElement>(null);
@@ -88,7 +97,7 @@ export function Format7EntryEditor({
           ref={previewCardRef}
           onMouseEnter={handleAchievementHover}
           className={cn(
-            'rounded-lg border bg-white shadow-sm transition-all hover:shadow-md overflow-hidden',
+            'rounded-lg border bg-white shadow-sm transition-all hover:shadow-md overflow-visible',
             isAchievement
               ? 'border-purple-300 shadow-purple-100'
               : 'border-gray-200'

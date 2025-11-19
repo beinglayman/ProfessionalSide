@@ -847,7 +847,8 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 onClick={() => {
                   if (connectedToolsCount > 0) {
                     setEntryMethod('mcp');
-                    setShowMCPFlow(true);
+                    onOpenChange(false); // Close the modal
+                    setShowMCPFlow(true); // Then open MCP flow
                   }
                 }}
                 disabled={connectedToolsCount === 0}
@@ -2767,6 +2768,8 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               // Reset to step 0 if MCP flow is cancelled
               setStep(0);
               setEntryMethod(null);
+              // Reopen the New Entry Modal if MCP flow was cancelled
+              onOpenChange(true);
             }
           }}
           onComplete={(data) => {

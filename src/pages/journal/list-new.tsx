@@ -55,76 +55,71 @@ export default function JournalPage() {
   const handleMCPComplete = async (data: any) => {
     console.log('MCP flow completed with Format7 data:', data);
 
-    try {
-      // Create journal entry with Format7 data mapped to journal entry structure
-      await createJournalEntryMutation.mutateAsync({
-        title: data.title,
-        description: data.description,
-        fullContent: data.description,
-        abstractContent: data.description.substring(0, 200),
+    // Create journal entry with Format7 data mapped to journal entry structure
+    await createJournalEntryMutation.mutateAsync({
+      title: data.title,
+      description: data.description,
+      fullContent: data.description,
+      abstractContent: data.description.substring(0, 200),
 
-        // Fix: Use workspace ID from MCP flow
-        workspaceId: data.workspaceEntry?.workspaceId || data.workspaceId,
+      // Fix: Use workspace ID from MCP flow
+      workspaceId: data.workspaceEntry?.workspaceId || data.workspaceId,
 
-        // Map visibility from Format7 privacy
-        visibility: data.format7Entry?.entry_metadata?.privacy === 'private'
-          ? 'private'
-          : data.format7Entry?.entry_metadata?.privacy === 'team'
-          ? 'workspace'
-          : 'network',
+      // Map visibility from Format7 privacy
+      visibility: data.format7Entry?.entry_metadata?.privacy === 'private'
+        ? 'private'
+        : data.format7Entry?.entry_metadata?.privacy === 'team'
+        ? 'workspace'
+        : 'network',
 
-        category: data.format7Entry?.entry_metadata?.category || undefined,
-        tags: data.format7Entry?.summary?.technologies_used || [],
-        skills: data.skills || [],
+      category: data.format7Entry?.entry_metadata?.category || undefined,
+      tags: data.format7Entry?.summary?.technologies_used || [],
+      skills: data.skills || [],
 
-        // Map artifacts from Format7
-        artifacts: data.format7Entry?.artifacts?.map((a: any) => ({
-          name: a.title,
-          type: a.type === 'link' ? 'link' : 'document',
-          url: a.url,
-          size: undefined,
-          metadata: JSON.stringify(a)
-        })) || [],
+      // Map artifacts from Format7
+      artifacts: data.format7Entry?.artifacts?.map((a: any) => ({
+        name: a.title,
+        type: a.type === 'link' ? 'link' : 'document',
+        url: a.url,
+        size: undefined,
+        metadata: JSON.stringify(a)
+      })) || [],
 
-        // Map outcomes from Format7 correlations
-        outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
-          category: 'technical',
-          title: `${c.source1.title} ↔ ${c.source2.title}`,
-          description: c.reasoning,
-          highlight: undefined,
-          metrics: JSON.stringify({
-            confidence: c.confidence,
-            type: c.type
-          })
-        })) || [],
+      // Map outcomes from Format7 correlations
+      outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
+        category: 'technical',
+        title: `${c.source1.title} ↔ ${c.source2.title}`,
+        description: c.reasoning,
+        highlight: undefined,
+        metrics: JSON.stringify({
+          confidence: c.confidence,
+          type: c.type
+        })
+      })) || [],
 
-        // Achievement fields
-        achievementType: data.format7Entry?.entry_metadata?.type === 'achievement'
-          ? 'milestone'
-          : undefined,
-        achievementTitle: data.format7Entry?.entry_metadata?.type === 'achievement'
-          ? data.title
-          : undefined,
-        achievementDescription: data.format7Entry?.entry_metadata?.type === 'achievement'
-          ? data.description
-          : undefined,
+      // Achievement fields
+      achievementType: data.format7Entry?.entry_metadata?.type === 'achievement'
+        ? 'milestone'
+        : undefined,
+      achievementTitle: data.format7Entry?.entry_metadata?.type === 'achievement'
+        ? data.title
+        : undefined,
+      achievementDescription: data.format7Entry?.entry_metadata?.type === 'achievement'
+        ? data.description
+        : undefined,
 
-        // Collaborators/Reviewers - empty for now (requires user mapping service)
-        collaborators: [],
-        reviewers: []
-      });
+      // Collaborators/Reviewers - empty for now (requires user mapping service)
+      collaborators: [],
+      reviewers: []
+    });
 
-      // Refresh the journal entries list
-      queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
+    // Refresh the journal entries list
+    queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
 
-      // Close the panel
-      setShowMCPPanel(false);
+    // Close the panel
+    setShowMCPPanel(false);
 
-      console.log('Journal entry created successfully');
-    } catch (error: any) {
-      console.error('Failed to create journal entry:', error);
-      alert(`Failed to create entry: ${error.message || 'Unknown error'}`);
-    }
+    console.log('Journal entry created successfully');
   };
 
   // Loading state
