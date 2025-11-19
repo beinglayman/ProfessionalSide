@@ -76,20 +76,31 @@ export default function JournalPage() {
       tags: data.format7Entry?.summary?.technologies_used || [],
       skills: data.skills || [],
 
-      // Map artifacts from Format7
-      artifacts: data.format7Entry?.artifacts?.map((a: any) => {
-        // Validate artifact type against allowed values
-        const validTypes = ['code', 'document', 'design', 'video', 'link'];
-        const artifactType = validTypes.includes(a.type) ? a.type : 'document';
+      // Map artifacts from Format7 with URL validation
+      artifacts: data.format7Entry?.artifacts
+        ?.filter((a: any) => {
+          // Validate URL before including artifact
+          try {
+            new URL(a.url);
+            return true;
+          } catch {
+            console.warn('[list-new] Skipping artifact with invalid URL:', a.title, a.url);
+            return false;
+          }
+        })
+        .map((a: any) => {
+          // Validate artifact type against allowed values
+          const validTypes = ['code', 'document', 'design', 'video', 'link'];
+          const artifactType = validTypes.includes(a.type) ? a.type : 'document';
 
-        return {
-          name: a.title,
-          type: artifactType,
-          url: a.url,
-          size: undefined,
-          metadata: JSON.stringify(a)
-        };
-      }) || [],
+          return {
+            name: a.title,
+            type: artifactType,
+            url: a.url,
+            size: undefined,
+            metadata: JSON.stringify(a)
+          };
+        }) || [],
 
       // Map outcomes from Format7 correlations
       outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
@@ -118,17 +129,11 @@ export default function JournalPage() {
         ? data.description
         : undefined,
 
-      // Collaborators/Reviewers - Extract from Format7 data
-      collaborators: data.format7Entry?.summary?.unique_collaborators?.map((name: string) => ({
-        name,
-        // Note: userId would need to be resolved via user mapping service
-        // For now, store just the name from the tools
-      })) || [],
-      reviewers: data.format7Entry?.summary?.unique_reviewers?.map((name: string) => ({
-        name,
-        // Note: userId would need to be resolved via user mapping service
-        // For now, store just the name from the tools
-      })) || []
+      // Collaborators/Reviewers - Empty arrays (MCP data only has names, not user IDs)
+      // Backend expects { userId: string }, but we only have names from tools
+      // TODO: Future enhancement - implement user lookup service to match names to IDs
+      collaborators: [],
+      reviewers: []
     });
 
     // Refresh the journal entries list
