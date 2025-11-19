@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations } from '../../hooks/useMCP';
@@ -196,17 +196,18 @@ export function MCPFlowSidePanel({
   const handleContinueFromRawReview = async () => {
     console.log('[MCPFlow] Step 2: User selected', selectedActivityIds.length, 'activities');
 
+    // Move to Step 3 immediately for better UX
+    setStep('correlations');
+
+    // Then start AI processing
     setIsProcessing(true);
 
     try {
-      // Run AI processing FIRST (this takes 10-30 seconds)
+      // Run AI processing (this takes 10-30 seconds)
+      // User will see loading state on Step 3
       await handleProcessSelectedActivities();
-
-      // ONLY after AI completes, move to Step 3
-      setStep('correlations');
     } catch (error) {
       console.error('[MCPFlow] AI processing failed:', error);
-      // Don't change step if processing fails
     } finally {
       setIsProcessing(false);
     }
@@ -891,12 +892,28 @@ export function MCPFlowSidePanel({
         );
 
       case 'correlations':
+        // Show loading state while processing
+        if (isProcessing) {
+          return (
+            <div className="flex flex-col items-center justify-center py-16 bg-gray-50 rounded-lg">
+              <Loader2 className="h-12 w-12 text-primary-600 animate-spin mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Analyzing Your Activities
+              </h3>
+              <p className="text-sm text-gray-600 max-w-md text-center">
+                AI is processing {selectedActivityIds.length} selected activities and
+                detecting correlations... This may take 10-30 seconds.
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Analysis & Correlations</h3>
               <p className="text-sm text-gray-600">
-                AI is analyzing your {selectedActivityIds.length} selected activities to find patterns and connections
+                AI has analyzed your {selectedActivityIds.length} selected activities
               </p>
             </div>
 
@@ -911,27 +928,11 @@ export function MCPFlowSidePanel({
                 isProcessing={mcpMultiSource.isProcessing}
               />
             ) : (
-              // Initial state - trigger processing
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <Sparkles className="h-12 w-12 text-purple-600 mx-auto mb-4 animate-pulse" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Analyze</h3>
-                <p className="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
-                  Click below to have AI analyze your selected activities and identify patterns, correlations, and key achievements
+              // Error state - shouldn't reach here with new flow
+              <div className="text-center py-12 bg-red-50 rounded-lg">
+                <p className="text-sm text-red-600">
+                  No data available. Please go back and try again.
                 </p>
-                <Button
-                  onClick={handleProcessSelectedActivities}
-                  disabled={mcpMultiSource.isProcessing}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                >
-                  {mcpMultiSource.isProcessing ? (
-                    'Processing...'
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Analyze with AI
-                    </>
-                  )}
-                </Button>
               </div>
             )}
           </div>
@@ -1039,7 +1040,7 @@ export function MCPFlowSidePanel({
               <Button
                 onClick={handleConfirmAndCreate}
                 disabled={!editableTitle || mcpMultiSource.isProcessing}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                className="bg-primary-600 hover:bg-primary-700"
               >
                 Create Entry
                 <ChevronRight className="h-4 w-4 ml-2" />
