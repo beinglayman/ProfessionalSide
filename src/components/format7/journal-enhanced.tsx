@@ -121,8 +121,15 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   useEffect(() => {
     if (isPreview) {
       setIsExpanded(true);
+      // Auto-expand correlations and categories in preview mode if they exist
+      if (correlations.length > 0) {
+        setShowCorrelations(true);
+      }
+      if (categories.length > 0) {
+        setShowCategories(true);
+      }
     }
-  }, [isPreview]);
+  }, [isPreview, correlations.length, categories.length]);
 
   const toggleActivity = (activityId: string) => {
     const newExpanded = new Set(expandedActivities);
@@ -632,7 +639,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-gray-100 px-6 py-3 flex items-center justify-between overflow-visible">
+        <div className="border-t border-gray-100 px-6 py-3 flex items-center justify-between">
           {/* Hide social actions in preview mode */}
           {!isPreview && (
             <div className="flex items-center gap-2">
@@ -652,12 +659,11 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
           )}
 
           {/* Workspace selector or badge */}
-          <div className={isPreview ? 'ml-auto overflow-visible' : ''}>
+          <div className={isPreview ? 'ml-auto' : ''}>
             {isPreview && onWorkspaceChange ? (
               <WorkspaceSelector
                 selectedWorkspaceId={selectedWorkspaceId}
                 onWorkspaceChange={onWorkspaceChange}
-                openUpward={true}
               />
             ) : (
               <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">

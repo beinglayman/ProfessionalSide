@@ -15,6 +15,9 @@ interface Format7EntryEditorProps {
   selectedWorkspaceId?: string;
   onWorkspaceChange?: (workspaceId: string, workspaceName: string) => void;
   className?: string;
+  // Explicit correlations and categories props to override entry data
+  correlations?: any[];
+  categories?: any[];
 }
 
 export function Format7EntryEditor({
@@ -26,7 +29,9 @@ export function Format7EntryEditor({
   isPreview = false,
   selectedWorkspaceId,
   onWorkspaceChange,
-  className
+  className,
+  correlations,
+  categories
 }: Format7EntryEditorProps) {
   // Create preview entry with edited values
   const previewEntry = {
@@ -43,15 +48,6 @@ export function Format7EntryEditor({
 
   const entryType = previewEntry?.entry_metadata?.type || 'learning';
   const isAchievement = entryType === 'achievement';
-
-  // Debug logging for correlations and categories
-  console.log('[Format7EntryEditor] Data check:', {
-    hasInitialEntry: !!initialEntry,
-    correlationsCount: initialEntry?.correlations?.length || 0,
-    categoriesCount: initialEntry?.categories?.length || 0,
-    correlations: initialEntry?.correlations,
-    categories: initialEntry?.categories
-  });
 
   // Achievement confetti state
   const [lastConfettiTime, setLastConfettiTime] = useState(0);
@@ -97,7 +93,7 @@ export function Format7EntryEditor({
           ref={previewCardRef}
           onMouseEnter={handleAchievementHover}
           className={cn(
-            'rounded-lg border bg-white shadow-sm transition-all hover:shadow-md overflow-visible',
+            'rounded-lg border bg-white shadow-sm transition-all hover:shadow-md overflow-hidden',
             isAchievement
               ? 'border-purple-300 shadow-purple-100'
               : 'border-gray-200'
@@ -119,8 +115,8 @@ export function Format7EntryEditor({
           {/* Journal Entry Preview */}
           <JournalEnhanced
             entry={previewEntry}
-            correlations={initialEntry?.correlations || []}
-            categories={initialEntry?.categories || []}
+            correlations={correlations || initialEntry?.correlations || []}
+            categories={categories || initialEntry?.categories || []}
             editMode={true}
             isPreview={isPreview}
             selectedWorkspaceId={selectedWorkspaceId}
