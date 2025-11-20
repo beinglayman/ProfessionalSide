@@ -524,6 +524,17 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 {entry.activities.map((activity) => {
                   const isActivityExpanded = expandedActivities.has(activity.id);
 
+                  // Log activity technologies to console
+                  console.log('[JournalEnhanced] Rendering activity:', {
+                    id: activity.id,
+                    action: activity.action,
+                    hasTechnologies: !!activity.technologies,
+                    technologiesType: typeof activity.technologies,
+                    isArray: Array.isArray(activity.technologies),
+                    technologiesLength: activity.technologies?.length || 0,
+                    technologies: activity.technologies
+                  });
+
                   return (
                     <div key={activity.id} className="border border-gray-200 rounded-lg overflow-hidden">
                       <div

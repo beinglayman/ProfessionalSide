@@ -147,11 +147,24 @@ export class Format7TransformerService {
     rawToolData: Map<MCPToolType, any>,
     correlations: any[]
   ): Format7Activity {
+    console.log('[Format7Transformer] Building activity for item:', {
+      id: item.id,
+      title: item.title,
+      source: item.source,
+      type: item.type
+    });
+
     const evidence = this.buildEvidence(item, rawToolData.get(item.source));
     const relatedActivities = this.findRelatedActivities(item.id, correlations);
     const technologies = this.extractActivityTechnologies(item);
 
-    return {
+    console.log('[Format7Transformer] Built activity with technologies:', {
+      id: item.id,
+      technologiesCount: technologies.length,
+      technologies: technologies
+    });
+
+    const activity = {
       id: item.id,
       source: item.source,
       type: item.type,
@@ -165,6 +178,15 @@ export class Format7TransformerService {
       reviewers: [], // Will be populated by extractCollaborators
       importance: item.importance
     };
+
+    console.log('[Format7Transformer] Final activity object:', {
+      id: activity.id,
+      hasTechnologies: !!activity.technologies,
+      technologiesLength: activity.technologies?.length || 0,
+      technologies: activity.technologies
+    });
+
+    return activity;
   }
 
   /**
@@ -279,29 +301,49 @@ export class Format7TransformerService {
    * Extract technologies for specific activity
    */
   private extractActivityTechnologies(item: any): string[] {
+    console.log('[Format7Transformer] Extracting technologies for item:', {
+      id: item.id,
+      title: item.title,
+      source: item.source,
+      hasSkills: !!item.skills,
+      skillsArray: item.skills,
+      hasMetadataTechs: !!item.metadata?.technologies,
+      metadataTechs: item.metadata?.technologies,
+      hasLanguage: !!item.metadata?.language,
+      language: item.metadata?.language,
+      hasLabels: !!item.metadata?.labels,
+      labels: item.metadata?.labels
+    });
+
     const techs: string[] = [];
 
     // From AI-detected skills (from analyzer agent)
     if (item.skills && Array.isArray(item.skills)) {
+      console.log('[Format7Transformer] Adding skills from item.skills:', item.skills);
       techs.push(...item.skills);
     }
 
     // From metadata
     if (item.metadata?.technologies) {
+      console.log('[Format7Transformer] Adding technologies from metadata:', item.metadata.technologies);
       techs.push(...item.metadata.technologies);
     }
 
     // From GitHub repo language
     if (item.source === 'github' && item.metadata?.language) {
+      console.log('[Format7Transformer] Adding language from GitHub:', item.metadata.language);
       techs.push(item.metadata.language);
     }
 
     // From Jira labels
     if (item.source === 'jira' && item.metadata?.labels) {
+      console.log('[Format7Transformer] Adding labels from Jira:', item.metadata.labels);
       techs.push(...item.metadata.labels);
     }
 
-    return [...new Set(techs)]; // Deduplicate
+    const deduped = [...new Set(techs)];
+    console.log('[Format7Transformer] Extracted technologies (deduplicated):', deduped);
+    return deduped;
   }
 
   /**
