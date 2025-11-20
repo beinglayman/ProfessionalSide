@@ -725,6 +725,12 @@ export function MCPFlowSidePanel({
       console.log('[MCPFlow] Generating Format7 preview using backend transformer...');
 
       // Call backend transformer service
+      // Debug: Log correlations being sent to backend
+      console.log('[MCPFlow] Correlations being sent to backend:', {
+        count: mcpMultiSource.correlations?.length || 0,
+        data: mcpMultiSource.correlations
+      });
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/mcp/transform-format7`, {
         method: 'POST',
         headers: {

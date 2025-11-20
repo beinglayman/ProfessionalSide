@@ -244,6 +244,11 @@ export function useMCPMultiSource() {
         } else if (stage === 'correlate') {
           // Extract just the correlations array from CorrelationResult object
           updates.correlations = result.data.result?.correlations || [];
+          console.log('[useMCPMultiSource] Correlations extracted from correlate stage:', {
+            rawResult: result.data.result,
+            extractedCount: updates.correlations?.length || 0,
+            extractedData: updates.correlations
+          });
         } else if (stage === 'generate') {
           updates.generatedContent = result.data.result;
           updates.stage = 'complete';
