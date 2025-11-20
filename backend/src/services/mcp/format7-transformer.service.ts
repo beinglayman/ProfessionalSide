@@ -281,6 +281,11 @@ export class Format7TransformerService {
   private extractActivityTechnologies(item: any): string[] {
     const techs: string[] = [];
 
+    // From AI-detected skills (from analyzer agent)
+    if (item.skills && Array.isArray(item.skills)) {
+      techs.push(...item.skills);
+    }
+
     // From metadata
     if (item.metadata?.technologies) {
       techs.push(...item.metadata.technologies);
