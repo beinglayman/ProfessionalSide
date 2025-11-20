@@ -1559,7 +1559,10 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
       contextSummary: generatedContent?.workspaceEntry?.description || organizedData?.contextSummary || '',
       extractedSkills: organizedData?.extractedSkills || [],
       categories: organizedData?.categories || [],
-      correlations: correlations || [],
+      // Extract correlations array if wrapped in CorrelationResult object
+      correlations: Array.isArray(correlations)
+        ? correlations
+        : (correlations?.correlations || []),
       artifacts: organizedData?.artifacts || []
     };
 

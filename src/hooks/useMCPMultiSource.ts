@@ -242,7 +242,8 @@ export function useMCPMultiSource() {
         if (stage === 'analyze') {
           updates.analyzedActivities = result.data.result;
         } else if (stage === 'correlate') {
-          updates.correlations = result.data.result;
+          // Extract just the correlations array from CorrelationResult object
+          updates.correlations = result.data.result?.correlations || [];
         } else if (stage === 'generate') {
           updates.generatedContent = result.data.result;
           updates.stage = 'complete';
