@@ -274,7 +274,8 @@ export function MCPFlowSidePanel({
       console.log('[MCPFlow] AI processing complete, moving to preview');
 
       // Generate Format7 entry from AI-processed data
-      await generateFormat7Preview();
+      // Pass correlateResult directly to avoid race condition with state updates
+      await generateFormat7Preview(correlateResult.result);
 
     } catch (error: any) {
       console.error('[MCPFlow] Failed to process activities:', error);
@@ -720,15 +721,20 @@ export function MCPFlowSidePanel({
   };
 
   // Step 4: Generate Format7 preview
-  const generateFormat7Preview = async () => {
+  const generateFormat7Preview = async (correlateResultData?: any) => {
     try {
       console.log('[MCPFlow] Generating Format7 preview using backend transformer...');
+
+      // Extract correlations array from CorrelationResult if provided directly
+      // This avoids race condition where state hasn't updated yet
+      const correlationsToSend = correlateResultData?.correlations || mcpMultiSource.correlations || [];
 
       // Call backend transformer service
       // Debug: Log correlations being sent to backend
       console.log('[MCPFlow] Correlations being sent to backend:', {
-        count: mcpMultiSource.correlations?.length || 0,
-        data: mcpMultiSource.correlations
+        count: correlationsToSend?.length || 0,
+        data: correlationsToSend,
+        source: correlateResultData ? 'direct from correlateResult' : 'from hook state'
       });
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/mcp/transform-format7`, {
@@ -740,7 +746,7 @@ export function MCPFlowSidePanel({
         body: JSON.stringify({
           activities: mcpMultiSource.rawActivities,
           organizedData: mcpMultiSource.organizedData,
-          correlations: mcpMultiSource.correlations,
+          correlations: correlationsToSend,
           generatedContent: mcpMultiSource.generatedContent,
           selectedActivityIds: selectedActivityIds,
           options: {
