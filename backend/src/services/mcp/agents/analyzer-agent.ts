@@ -81,6 +81,19 @@ export class AnalyzerAgent {
       // Strip markdown code blocks if present (AI sometimes wraps JSON in ```json ... ```)
       const cleanedContent = this.stripMarkdownCodeBlocks(result.content);
       const parsed = JSON.parse(cleanedContent);
+
+      console.log('[AnalyzerAgent] Raw AI response parsed:', {
+        activitiesCount: parsed.activities?.length || 0,
+        extractedSkillsCount: parsed.extractedSkills?.length || 0,
+        extractedSkills: parsed.extractedSkills,
+        firstActivitySample: parsed.activities?.[0] ? {
+          id: parsed.activities[0].id,
+          title: parsed.activities[0].title,
+          hasSkills: !!parsed.activities[0].skills,
+          skills: parsed.activities[0].skills
+        } : null
+      });
+
       // Convert timestamp strings to Date objects
       if (parsed.activities && Array.isArray(parsed.activities)) {
         parsed.activities = parsed.activities.map((act: any) => ({
@@ -88,6 +101,8 @@ export class AnalyzerAgent {
           timestamp: act.timestamp ? new Date(act.timestamp) : new Date()
         }));
       }
+
+      console.log('[AnalyzerAgent] Returning analysis result with', parsed.activities?.length || 0, 'activities');
       return parsed;
     } catch (error) {
       console.error('Failed to parse analysis result:', error);
