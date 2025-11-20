@@ -116,6 +116,8 @@ export class Format7TransformerService {
 
       correlations,
 
+      categories: organizedActivity.categories || [],
+
       artifacts: organizedActivity.artifacts || []
     };
   }
@@ -607,13 +609,14 @@ export class Format7TransformerService {
       return [];
     }
 
+    // Map to format expected by JournalEnhanced component
     return correlations.map(corr => ({
       id: corr.id,
       type: corr.type,
-      activities: [corr.source1.id, corr.source2.id],
-      description: corr.reasoning,
+      source1: corr.source1,  // Keep original { tool, id, title, url } structure
+      source2: corr.source2,  // Keep original { tool, id, title, url } structure
       confidence: corr.confidence,
-      evidence: corr.reasoning
+      reasoning: corr.reasoning  // Use "reasoning" field, not "description"
     }));
   }
 }
