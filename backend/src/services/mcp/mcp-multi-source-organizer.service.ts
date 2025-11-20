@@ -897,7 +897,8 @@ Return ONLY valid JSON, no additional text.
         url: activity.metadata?.url || '',
         importance: activity.importance,
         selected: activity.importance === 'high',
-        metadata: activity.metadata
+        metadata: activity.metadata,
+        skills: activity.skills  // Preserve AI-detected skills for tech tags
       });
     });
 
