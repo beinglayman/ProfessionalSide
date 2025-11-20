@@ -911,6 +911,20 @@ Return ONLY valid JSON, no additional text.
       items
     }));
 
+    // Log sample category item to trace skills preservation
+    if (categories.length > 0 && categories[0].items.length > 0) {
+      const sampleItem = categories[0].items[0];
+      console.log('[Organizer] Sample category item after conversion:', {
+        id: sampleItem.id,
+        title: sampleItem.title,
+        hasSkills: !!sampleItem.skills,
+        skillsType: typeof sampleItem.skills,
+        skillsIsArray: Array.isArray(sampleItem.skills),
+        skillsLength: sampleItem.skills?.length || 0,
+        skills: sampleItem.skills
+      });
+    }
+
     // Extract top artifacts
     const artifacts = analysis.activities
       .filter(a => a.importance === 'high' && a.metadata?.url)

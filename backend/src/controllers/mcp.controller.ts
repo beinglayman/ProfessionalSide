@@ -1566,6 +1566,29 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
       artifacts: organizedData?.artifacts || []
     };
 
+    // SAFETY NET: Ensure all category items have skills property
+    // Copy from global extractedSkills if individual items are missing them
+    if (organizedActivity.categories && organizedActivity.categories.length > 0) {
+      console.log('[MCP Controller] Applying skills safety net to category items...');
+      let itemsFixed = 0;
+
+      organizedActivity.categories.forEach(category => {
+        if (category.items && Array.isArray(category.items)) {
+          category.items.forEach(item => {
+            // Check if item is missing skills
+            if (!item.skills || !Array.isArray(item.skills) || item.skills.length === 0) {
+              // Copy from global extractedSkills as fallback
+              item.skills = organizedActivity.extractedSkills || [];
+              itemsFixed++;
+              console.log(`[MCP Controller] Item ${item.id} missing skills, applied ${item.skills.length} global skills`);
+            }
+          });
+        }
+      });
+
+      console.log(`[MCP Controller] Skills safety net: Fixed ${itemsFixed} items`);
+    }
+
     // Convert activities to Map if it's an object
     let rawToolData: Map<string, any>;
     if (!activities) {
