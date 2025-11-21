@@ -7,6 +7,7 @@ import { Plus, Filter, Search, Grid, List } from 'lucide-react';
 import { MCPFlowSidePanel } from '../../components/new-entry/MCPFlowSidePanel';
 import { useQueryClient } from '@tanstack/react-query';
 
+// Version: 2024-11-21-v2
 export default function JournalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('');
