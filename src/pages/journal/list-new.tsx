@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useJournalEntries, useToggleLike, useToggleAppreciate, useCreateJournalEntry } from '../../hooks/useJournal';
 import { JournalCard } from '../../components/journal/journal-card';
+import { JournalEnhanced } from '../../components/format7/journal-enhanced';
 import { Button } from '../../components/ui/button';
 import { Plus, Filter, Search, Grid, List } from 'lucide-react';
 import { MCPFlowSidePanel } from '../../components/new-entry/MCPFlowSidePanel';
@@ -55,71 +56,34 @@ export default function JournalPage() {
   const handleMCPComplete = async (data: any) => {
     console.log('MCP flow completed with Format7 data:', data);
 
-    // Create journal entry with Format7 data mapped to journal entry structure
-    await createJournalEntryMutation.mutateAsync({
-      title: data.title,
-      description: data.description,
-      fullContent: data.description,
-      abstractContent: data.description.substring(0, 200),
+    try {
+      // Create journal entry with Format7 data
+      const result = await createJournalEntryMutation.mutateAsync({
+        title: data.title,
+        description: data.description,
+        fullContent: data.description, // Use description as full content for now
+        abstractContent: data.description.substring(0, 500), // First 500 chars as abstract
+        workspaceId: data.workspaceEntry?.workspaceId || '', // From MCP flow
+        visibility: 'workspace', // Default to workspace visibility
+        tags: [],
+        skills: data.skills || [],
+        // Store the complete Format7 structure for rich display
+        format7Data: data.format7Entry
+      });
 
-      // Fix: Use workspace ID from MCP flow
-      workspaceId: data.workspaceEntry?.workspaceId || data.workspaceId,
+      console.log('Journal entry created:', result);
 
-      // Map visibility from Format7 privacy
-      visibility: data.format7Entry?.entry_metadata?.privacy === 'private'
-        ? 'private'
-        : data.format7Entry?.entry_metadata?.privacy === 'team'
-        ? 'workspace'
-        : 'network',
+      // Refresh the journal entries list
+      queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
 
-      category: data.format7Entry?.entry_metadata?.category || undefined,
-      tags: data.format7Entry?.summary?.technologies_used || [],
-      skills: data.skills || [],
+      // Close the panel
+      setShowMCPPanel(false);
 
-      // Map artifacts from Format7
-      artifacts: data.format7Entry?.artifacts?.map((a: any) => ({
-        name: a.title,
-        type: a.type === 'link' ? 'link' : 'document',
-        url: a.url,
-        size: undefined,
-        metadata: JSON.stringify(a)
-      })) || [],
-
-      // Map outcomes from Format7 correlations
-      outcomes: data.format7Entry?.correlations?.slice(0, 5).map((c: any) => ({
-        category: 'technical',
-        title: `${c.source1.title} ↔ ${c.source2.title}`,
-        description: c.reasoning,
-        highlight: undefined,
-        metrics: JSON.stringify({
-          confidence: c.confidence,
-          type: c.type
-        })
-      })) || [],
-
-      // Achievement fields
-      achievementType: data.format7Entry?.entry_metadata?.type === 'achievement'
-        ? 'milestone'
-        : undefined,
-      achievementTitle: data.format7Entry?.entry_metadata?.type === 'achievement'
-        ? data.title
-        : undefined,
-      achievementDescription: data.format7Entry?.entry_metadata?.type === 'achievement'
-        ? data.description
-        : undefined,
-
-      // Collaborators/Reviewers - empty for now (requires user mapping service)
-      collaborators: [],
-      reviewers: []
-    });
-
-    // Refresh the journal entries list
-    queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
-
-    // Close the panel
-    setShowMCPPanel(false);
-
-    console.log('Journal entry created successfully');
+      console.log('Journal entry created successfully');
+    } catch (error: any) {
+      console.error('Failed to create journal entry:', error);
+      alert(`Failed to create entry: ${error.message || 'Unknown error'}`);
+    }
   };
 
   // Loading state
@@ -242,18 +206,34 @@ export default function JournalPage() {
               )}
             </div>
           ) : (
-            entries.map((entry) => (
-              <JournalCard
-                key={entry.id}
-                journal={entry}
-                viewMode="workspace"
-                showMenuButton={true}
-                showAnalyticsButton={true}
-                showUserProfile={true}
-                onLike={() => handleLike(entry.id)}
-                onAppreciate={() => handleAppreciate(entry.id)}
-              />
-            ))
+            entries.map((entry) => {
+              // Check if entry has Format7 data
+              if (entry.format7Data) {
+                return (
+                  <JournalEnhanced
+                    key={entry.id}
+                    entry={entry.format7Data}
+                    mode="expanded"
+                    onLike={() => handleLike(entry.id)}
+                    onAppreciate={() => handleAppreciate(entry.id)}
+                  />
+                );
+              }
+
+              // Fallback to regular JournalCard for non-Format7 entries
+              return (
+                <JournalCard
+                  key={entry.id}
+                  journal={entry}
+                  viewMode="workspace"
+                  showMenuButton={true}
+                  showAnalyticsButton={true}
+                  showUserProfile={true}
+                  onLike={() => handleLike(entry.id)}
+                  onAppreciate={() => handleAppreciate(entry.id)}
+                />
+              );
+            })
           )}
         </div>
 

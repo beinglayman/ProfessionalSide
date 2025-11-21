@@ -385,6 +385,9 @@ model JournalEntry {
   tags            String[]  @default([])
   skills          String[]  @default([])
 
+  // Format7 storage for rich journal entries
+  format7Data     Json?     // Complete Format7 structure with activities, correlations, etc.
+
   // Achievement fields for achievement entries
   achievementType        String?   // certification, award, milestone, recognition
   achievementTitle       String?

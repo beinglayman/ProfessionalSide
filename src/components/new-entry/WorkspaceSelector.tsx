@@ -6,14 +6,12 @@ interface WorkspaceSelectorProps {
   selectedWorkspaceId?: string;
   onWorkspaceChange: (workspaceId: string, workspaceName: string) => void;
   className?: string;
-  openUpward?: boolean;
 }
 
 export const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
   selectedWorkspaceId,
   onWorkspaceChange,
   className = '',
-  openUpward = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -63,9 +61,7 @@ export const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
       </button>
 
       {isOpen && (
-        <div className={`absolute right-0 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[100] max-h-64 overflow-y-auto ${
-          openUpward ? 'bottom-full mb-2' : 'top-full mt-2'
-        }`}>
+        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
           {workspaces.length === 0 ? (
             <div className="px-3 py-2 text-sm text-gray-500">No workspaces available</div>
           ) : (

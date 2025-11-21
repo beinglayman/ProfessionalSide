@@ -28,6 +28,8 @@ export const createJournalEntrySchema = z.object({
   skills: z.array(z.string().max(100))
     .max(20, 'Maximum 20 skills allowed')
     .default([]),
+  // Format7 data for rich journal entries
+  format7Data: z.any().optional(), // JSON data with Format7 structure
   // Collaborators and reviewers
   collaborators: z.array(z.object({
     userId: z.string().min(1, 'User ID is required'),

@@ -37,6 +37,7 @@ export interface CreateJournalEntryRequest {
   achievementType?: 'certification' | 'award' | 'milestone' | 'recognition'; // For achievement entries
   achievementTitle?: string; // Achievement title
   achievementDescription?: string; // Achievement description
+  format7Data?: any; // Format7 structure for rich journal entries
 }
 
 export interface UpdateJournalEntryRequest {
@@ -83,6 +84,7 @@ export interface ApiJournalEntry {
   category?: string;
   tags: string[];
   skills: string[];
+  format7Data?: any; // Format7 structure for rich journal entries
   createdAt: string;
   updatedAt: string;
   lastModified: string;

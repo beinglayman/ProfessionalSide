@@ -46,6 +46,8 @@ export class JournalService {
         category: data.category,
         tags: data.tags,
         skills: data.skills,
+        // Format7 data
+        format7Data: data.format7Data,
         // Achievement fields
         achievementType: data.achievementType,
         achievementTitle: data.achievementTitle,
