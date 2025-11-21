@@ -54,16 +54,35 @@ export default function JournalPage() {
 
   // Handle MCP flow completion - Format7 version
   const handleMCPComplete = async (data: any) => {
-    console.log('MCP flow completed with Format7 data:', data);
+    console.log('[Journal] MCP flow completed with Format7 data:', data);
+    console.log('[Journal] Workspace info:', {
+      workspaceId: data.workspaceEntry?.workspaceId,
+      workspaceName: data.workspaceEntry?.workspaceName,
+      hasWorkspaceEntry: !!data.workspaceEntry
+    });
+
+    // Validate required fields before API call
+    if (!data.workspaceEntry?.workspaceId) {
+      console.error('[Journal] Missing workspaceId in data:', data.workspaceEntry);
+      alert('Failed to create entry: Please select a workspace for this entry. If you see a workspace dropdown in the preview, make sure to select a workspace before creating the entry.');
+      return;
+    }
 
     try {
+      console.log('[Journal] Creating journal entry with data:', {
+        title: data.title,
+        workspaceId: data.workspaceEntry.workspaceId,
+        skillsCount: data.skills?.length || 0,
+        hasFormat7Data: !!data.format7Entry
+      });
+
       // Create journal entry with Format7 data
       const result = await createJournalEntryMutation.mutateAsync({
         title: data.title,
         description: data.description,
         fullContent: data.description, // Use description as full content for now
         abstractContent: data.description.substring(0, 500), // First 500 chars as abstract
-        workspaceId: data.workspaceEntry?.workspaceId || '', // From MCP flow
+        workspaceId: data.workspaceEntry.workspaceId, // From MCP flow - validated above
         visibility: 'workspace', // Default to workspace visibility
         tags: [],
         skills: data.skills || [],
@@ -71,18 +90,19 @@ export default function JournalPage() {
         format7Data: data.format7Entry
       });
 
-      console.log('Journal entry created:', result);
+      console.log('[Journal] Journal entry created successfully:', result);
 
       // Refresh the journal entries list
       queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
 
-      // Close the panel
+      // Close the panel only after successful creation
       setShowMCPPanel(false);
 
-      console.log('Journal entry created successfully');
+      console.log('[Journal] Panel closed, entry creation complete');
     } catch (error: any) {
-      console.error('Failed to create journal entry:', error);
-      alert(`Failed to create entry: ${error.message || 'Unknown error'}`);
+      console.error('[Journal] Failed to create journal entry:', error);
+      alert(`Failed to create entry: ${error.message || 'Unknown error'}. Please check the console for details.`);
+      // Don't close panel on error so user can retry
     }
   };
 

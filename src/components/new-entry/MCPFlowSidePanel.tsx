@@ -799,6 +799,11 @@ export function MCPFlowSidePanel({
   // Handle final confirmation with edited data
   const handleConfirmAndCreate = () => {
     console.log('[MCPFlow] Creating entry with edited data');
+    console.log('[MCPFlow] Selected workspace:', {
+      selectedWorkspaceId,
+      selectedWorkspaceName,
+      hasWorkspace: !!selectedWorkspaceId
+    });
 
     // Update Format7 entry with final edited values
     const finalFormat7Entry = format7Entry ? {
@@ -814,7 +819,7 @@ export function MCPFlowSidePanel({
     } : null;
 
     // Create entry data with user edits
-    onComplete({
+    const entryData = {
       title: editableTitle,
       description: editableDescription,
       skills: mcpMultiSource.organizedData?.extractedSkills || [],
@@ -827,9 +832,19 @@ export function MCPFlowSidePanel({
         workspaceName: selectedWorkspaceName
       },
       networkEntry: mcpMultiSource.generatedData?.networkEntry || null
+    };
+
+    console.log('[MCPFlow] Sending data to parent:', {
+      hasWorkspaceId: !!entryData.workspaceEntry.workspaceId,
+      workspaceId: entryData.workspaceEntry.workspaceId,
+      title: entryData.title
     });
 
-    handleClose();
+    // Pass data to parent - parent will close panel after successful creation
+    onComplete(entryData);
+
+    // Don't close immediately - let parent handle closing after API success
+    // This prevents losing user data if API call fails
   };
 
   const handleClose = () => {
