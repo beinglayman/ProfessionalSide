@@ -49,25 +49,45 @@ export function MCPFlowSidePanel({
 
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
-  const { data: workspaces = [] } = useWorkspaces();
+  const { data: workspaces = [], isLoading: workspacesLoading, isError: workspacesError } = useWorkspaces();
 
   const connectedTools = integrations?.integrations?.filter((i: any) => i.isConnected) || [];
 
   // Initialize workspace based on workspaceName prop
+  // Force re-initialization when panel opens to ensure clean state
   useEffect(() => {
-    if (workspaces.length > 0 && !selectedWorkspaceId) {
+    console.log('[MCPFlow] Workspace initialization check:', {
+      open,
+      workspacesLength: workspaces.length,
+      workspacesLoading,
+      workspacesError,
+      selectedWorkspaceId,
+      workspaceName
+    });
+
+    if (open && workspaces.length > 0 && !workspacesLoading) {
       // Try to find workspace by name
       const workspace = workspaces.find(w => w.name === workspaceName);
       if (workspace) {
+        console.log('[MCPFlow] Setting workspace by name:', workspace.name);
         setSelectedWorkspaceId(workspace.id);
         setSelectedWorkspaceName(workspace.name);
       } else {
+        console.log('[MCPFlow] Setting default workspace:', workspaces[0].name);
         // Default to first workspace (typically "My Workspace")
         setSelectedWorkspaceId(workspaces[0].id);
         setSelectedWorkspaceName(workspaces[0].name);
       }
     }
-  }, [workspaces, workspaceName]); // Removed selectedWorkspaceId to fix race condition - allows re-run when workspaces load
+  }, [open, workspaces, workspacesLoading, workspaceName]); // Trigger on panel open and workspace data changes
+
+  // Show error if workspaces failed to load
+  useEffect(() => {
+    if (workspacesError) {
+      console.error('[MCPFlow] Failed to load workspaces:', workspacesError);
+      alert('Failed to load workspaces. Please refresh the page and try again.');
+    }
+  }, [workspacesError]);
 
   // Handle workspace change
   const handleWorkspaceChange = (workspaceId: string, workspaceName: string) => {
@@ -848,11 +868,14 @@ export function MCPFlowSidePanel({
   };
 
   const handleClose = () => {
+    console.log('[MCPFlow] Closing panel and resetting state');
     setStep('select');
     setSelectedActivityIds([]);
     setEditableTitle('');
     setEditableDescription('');
     setFormat7Entry(null);
+    setSelectedWorkspaceId(''); // Reset workspace state for clean reopen
+    setSelectedWorkspaceName(workspaceName); // Reset to default workspace name
     mcpMultiSource.reset();
     onOpenChange(false);
   };
@@ -1073,8 +1096,17 @@ export function MCPFlowSidePanel({
           <div className="flex items-center gap-2">
             {step === 'preview' && (
               <Button
-                onClick={handleConfirmAndCreate}
-                disabled={!editableTitle || mcpMultiSource.isProcessing}
+                onClick={() => {
+                  console.log('[MCPFlow] Create Entry button clicked', {
+                    editableTitle,
+                    selectedWorkspaceId,
+                    selectedWorkspaceName,
+                    isProcessing: mcpMultiSource.isProcessing,
+                    buttonEnabled: !(!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId)
+                  });
+                  handleConfirmAndCreate();
+                }}
+                disabled={!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 Create Entry
