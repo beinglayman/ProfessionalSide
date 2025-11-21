@@ -67,7 +67,7 @@ export function MCPFlowSidePanel({
         setSelectedWorkspaceName(workspaces[0].name);
       }
     }
-  }, [workspaces, workspaceName, selectedWorkspaceId]);
+  }, [workspaces, workspaceName]); // Removed selectedWorkspaceId to fix race condition - allows re-run when workspaces load
 
   // Handle workspace change
   const handleWorkspaceChange = (workspaceId: string, workspaceName: string) => {
