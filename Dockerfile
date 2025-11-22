@@ -11,16 +11,18 @@ COPY .npmrc ./
 # Install all dependencies (including dev deps for build)
 RUN npm ci --include=optional
 
-# Copy source code
+# Accept build arguments - must be BEFORE COPY to invalidate cache
+ARG BUILD_TIMESTAMP
+ARG VITE_API_URL
+
+# Force cache invalidation - this changes every build and invalidates subsequent layers
+RUN echo "Build timestamp: ${BUILD_TIMESTAMP}" > /tmp/build_timestamp
+
+# Copy source code (cache invalidated by BUILD_TIMESTAMP above)
 COPY . .
 
-# Accept build arguments for API URL and cache busting
-ARG VITE_API_URL
-ARG BUILD_TIMESTAMP
+# Set environment variable for Vite build
 ENV VITE_API_URL=$VITE_API_URL
-
-# Force cache invalidation - this changes every build
-RUN echo "Build timestamp: ${BUILD_TIMESTAMP}"
 
 # Build the application
 # If rollup binary issues occur, install platform-specific binary first
