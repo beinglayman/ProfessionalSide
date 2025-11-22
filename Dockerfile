@@ -14,9 +14,13 @@ RUN npm ci --include=optional
 # Copy source code
 COPY . .
 
-# Accept build argument for API URL
+# Accept build arguments for API URL and cache busting
 ARG VITE_API_URL
+ARG BUILD_TIMESTAMP
 ENV VITE_API_URL=$VITE_API_URL
+
+# Force cache invalidation - this changes every build
+RUN echo "Build timestamp: ${BUILD_TIMESTAMP}"
 
 # Build the application
 # If rollup binary issues occur, install platform-specific binary first
