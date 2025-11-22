@@ -33,6 +33,7 @@ jobs:
           echo "Building frontend with API URL: ${VITE_API_URL}"
           az acr build --registry "${{ secrets.ACR_NAME }}" \
             --build-arg VITE_API_URL="${VITE_API_URL}" \
+            --no-cache \
             --image inchronicle-frontend:latest .
 
       - name: Update Web App container image
