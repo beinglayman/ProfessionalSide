@@ -11,18 +11,12 @@ COPY .npmrc ./
 # Install all dependencies (including dev deps for build)
 RUN npm ci --include=optional
 
-# Accept build arguments
-ARG BUILD_TIMESTAMP
+# Accept build argument for API URL
 ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
 # Copy source code
 COPY . .
-
-# Write build timestamp into the source tree to bust Vite's cache
-RUN echo "${BUILD_TIMESTAMP}" > /app/src/.build_timestamp
-
-# Set environment variable for Vite build
-ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application
 # If rollup binary issues occur, install platform-specific binary first
