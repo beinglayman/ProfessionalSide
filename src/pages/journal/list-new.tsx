@@ -7,7 +7,10 @@ import { Plus, Filter, Search, Grid, List } from 'lucide-react';
 import { MCPFlowSidePanel } from '../../components/new-entry/MCPFlowSidePanel';
 import { useQueryClient } from '@tanstack/react-query';
 
-// Version: 2024-11-21-v2
+// Build timestamp for cache busting - DO NOT REMOVE
+const BUILD_TIMESTAMP = '2025-11-21T14:10:00Z';
+const BUILD_VERSION = 'v3-journal-fix';
+
 export default function JournalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('');
@@ -139,8 +142,9 @@ export default function JournalPage() {
   const pagination = data?.pagination;
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="min-h-screen bg-gray-50 pt-20" data-build={BUILD_TIMESTAMP} data-version={BUILD_VERSION}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Build: 2025-11-21T14:10 - v3-journal-fix */}
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">

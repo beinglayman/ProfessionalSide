@@ -10,6 +10,9 @@ import { MCPRawActivityReview } from '../mcp/MCPRawActivityReview';
 import { MCPActivityReview } from '../mcp/MCPActivityReview';
 import { Format7EntryEditor } from './Format7EntryEditor';
 
+// Build marker for cache busting - DO NOT REMOVE
+const MCP_PANEL_VERSION = 'v3-2025-11-21T14:10:00Z';
+
 interface MCPFlowSidePanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
