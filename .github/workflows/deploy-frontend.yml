@@ -33,6 +33,8 @@ jobs:
           BUILD_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           echo "Building frontend with API URL: ${VITE_API_URL}"
           echo "Build timestamp: ${BUILD_TS}"
+          # Write timestamp to a file that will be copied, busting Docker cache
+          echo "${BUILD_TS}" > .build_timestamp
           az acr build --registry "${{ secrets.ACR_NAME }}" \
             --build-arg VITE_API_URL="${VITE_API_URL}" \
             --build-arg BUILD_TIMESTAMP="${BUILD_TS}" \

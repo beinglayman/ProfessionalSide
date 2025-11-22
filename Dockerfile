@@ -11,15 +11,15 @@ COPY .npmrc ./
 # Install all dependencies (including dev deps for build)
 RUN npm ci --include=optional
 
-# Accept build arguments - must be BEFORE COPY to invalidate cache
+# Accept build arguments
 ARG BUILD_TIMESTAMP
 ARG VITE_API_URL
 
-# Force cache invalidation - this changes every build and invalidates subsequent layers
-RUN echo "Build timestamp: ${BUILD_TIMESTAMP}" > /tmp/build_timestamp
-
-# Copy source code (cache invalidated by BUILD_TIMESTAMP above)
+# Copy source code
 COPY . .
+
+# Write build timestamp into the source tree to bust Vite's cache
+RUN echo "${BUILD_TIMESTAMP}" > /app/src/.build_timestamp
 
 # Set environment variable for Vite build
 ENV VITE_API_URL=$VITE_API_URL
