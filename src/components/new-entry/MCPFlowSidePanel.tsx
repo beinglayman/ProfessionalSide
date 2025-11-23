@@ -864,7 +864,13 @@ export function MCPFlowSidePanel({
     });
 
     // Pass data to parent - parent will close panel after successful creation
-    onComplete(entryData);
+    console.log('[MCPFlow] About to call onComplete callback, typeof:', typeof onComplete);
+    try {
+      onComplete(entryData);
+      console.log('[MCPFlow] onComplete callback returned successfully');
+    } catch (error) {
+      console.error('[MCPFlow] Error in onComplete callback:', error);
+    }
 
     // Don't close immediately - let parent handle closing after API success
     // This prevents losing user data if API call fails
