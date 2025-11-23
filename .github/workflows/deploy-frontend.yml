@@ -38,10 +38,12 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
-          BUILD_TS=$(date -u +"%Y%m%d%H%M%S")
+          CACHEBUST=$(date -u +"%Y%m%d%H%M%S")
           echo "Building frontend with API URL: ${VITE_API_URL}"
+          echo "Cache bust value: ${CACHEBUST}"
           az acr build --registry "${{ secrets.ACR_NAME }}" \
             --build-arg VITE_API_URL="${VITE_API_URL}" \
+            --build-arg CACHEBUST="${CACHEBUST}" \
             --image inchronicle-frontend:latest .
 
       - name: Update Web App container image

@@ -15,7 +15,11 @@ RUN npm ci --include=optional
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
-# Copy source code
+# Cache bust - this ARG invalidates all layers after it
+ARG CACHEBUST=1
+RUN echo "Cache bust: ${CACHEBUST}"
+
+# Copy source code (this will now always be fresh due to CACHEBUST)
 COPY . .
 
 # Build the application
