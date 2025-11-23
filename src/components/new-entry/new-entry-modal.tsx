@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Label from '@radix-ui/react-label';
 import { X, ChevronRight, ChevronLeft, Save, Plus, Minus, Check, Eye, FileText, Globe, Lock, Settings, Trophy, Award, Badge, Star, Users, UserCheck, Briefcase, Shield, Upload, Link, Trash2, Github, Figma, File, Cloud, ExternalLink, Smartphone, MonitorSpeaker, Database, BarChart3, Palette, Zap, Layers, BookOpen, Calendar, Search, TestTube, Wrench, Building2, UserCog, Target, TrendingUp, MessageSquare, GitBranch, RepeatIcon, Sparkles, Mail, ArrowRight, PenTool} from 'lucide-react';
 import { Button } from '../ui/button';
@@ -131,7 +132,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
   const { data: workspaceMembers = [], isLoading: loadingWorkspaceMembers, error: workspaceMembersError } = useWorkspaceMembers(formData.workspaceId || '');
   const { data: workspaceGoals = [], isLoading: loadingGoals, error: goalsError } = useWorkspaceGoals(formData.workspaceId || '');
   const updateGoalMutation = useUpdateGoal();
-  
+  const createJournalEntryMutation = useCreateJournalEntry();
+  const queryClient = useQueryClient();
+
   // Handle pre-selection when modal opens and reset to Step 0
   useEffect(() => {
     if (open) {
@@ -2770,25 +2773,52 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               setEntryMethod(null);
             }
           }}
-          onComplete={(data) => {
-            // Pre-fill the form with MCP data
-            setFormData(prevData => ({
-              ...prevData,
-              title: data.title,
-              description: data.workspaceEntry.description,
-              // Map skills if they have IDs, otherwise keep as names for later resolution
-              skillsApplied: data.skills?.filter(s => typeof s === 'string') || [],
-              // Store the full MCP data for reference
-              mcpImportData: data
-            }));
+          onComplete={async (data) => {
+            console.log('[NewEntryModal] MCP flow completed with data:', data);
 
-            // Close MCP flow and switch to manual mode at step 4 (Work Details)
-            setShowMCPFlow(false);
-            setEntryMethod('manual');
-            setStep(4); // Jump to step 4 where title/description are entered
+            // Validate workspace ID
+            if (!data.workspaceEntry?.workspaceId) {
+              console.error('[NewEntryModal] Missing workspaceId in data:', data.workspaceEntry);
+              alert('Failed to create entry: Please select a workspace for this entry.');
+              return;
+            }
 
-            // Optionally show a success message
-            setValidationError(''); // Clear any errors
+            try {
+              console.log('[NewEntryModal] Creating journal entry with data:', {
+                title: data.title,
+                workspaceId: data.workspaceEntry.workspaceId,
+                skillsCount: data.skills?.length || 0,
+                hasFormat7Data: !!data.format7Entry
+              });
+
+              // Create journal entry with Format7 data
+              const result = await createJournalEntryMutation.mutateAsync({
+                title: data.title,
+                description: data.description,
+                fullContent: data.description,
+                abstractContent: data.description.substring(0, 500),
+                workspaceId: data.workspaceEntry.workspaceId,
+                visibility: 'workspace',
+                tags: [],
+                skills: data.skills || [],
+                format7Data: data.format7Entry
+              });
+
+              console.log('[NewEntryModal] Journal entry created successfully:', result);
+
+              // Refresh the journal entries list
+              queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
+              queryClient.invalidateQueries({ queryKey: ['userFeed'] });
+
+              // Close the modal and MCP flow
+              setShowMCPFlow(false);
+              onOpenChange(false);
+
+              console.log('[NewEntryModal] Entry creation complete');
+            } catch (error: any) {
+              console.error('[NewEntryModal] Failed to create journal entry:', error);
+              alert(`Failed to create entry: ${error.message || 'Unknown error'}. Please check the console for details.`);
+            }
           }}
           workspaceName={workspaces.find(w => w.id === formData.workspaceId)?.name || 'Professional Work'}
         />
