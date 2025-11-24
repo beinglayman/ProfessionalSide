@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useJournalEntries, useToggleLike, useToggleAppreciate, useCreateJournalEntry } from '../../hooks/useJournal';
 import { JournalCard } from '../../components/journal/journal-card';
-import { JournalEnhanced } from '../../components/format7/journal-enhanced';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { Button } from '../../components/ui/button';
 import { Plus, Filter, Search, Grid, List } from 'lucide-react';
 import { MCPFlowSidePanel } from '../../components/new-entry/MCPFlowSidePanel';
