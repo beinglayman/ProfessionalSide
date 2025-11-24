@@ -241,6 +241,8 @@ export default function JournalPage() {
                     mode="expanded"
                     onLike={() => handleLike(entry.id)}
                     onAppreciate={() => handleAppreciate(entry.id)}
+                    correlations={entry.format7Data?.correlations}
+                    categories={entry.format7Data?.categories}
                   />
                 );
               }
