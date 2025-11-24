@@ -114,4 +114,7 @@ export interface JournalEntry {
     position: string;
   };
   originalEntry?: JournalEntry; // For nested original entry data when this is a rechronicle
+
+  // Format7 rich journal entry data
+  format7Data?: any; // Complete Format7 structure with activities, correlations, etc.
 }

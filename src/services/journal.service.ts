@@ -245,6 +245,8 @@ export class JournalService {
       achievementType: apiEntry.achievementType,
       achievementTitle: apiEntry.achievementTitle,
       achievementDescription: apiEntry.achievementDescription,
+      // Format7 rich journal entry data
+      format7Data: apiEntry.format7Data,
     };
   }
 
