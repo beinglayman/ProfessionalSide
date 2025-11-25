@@ -147,11 +147,6 @@ const FeedEnhanced: React.FC<FeedEnhancedProps> = ({
 
   return (
     <div className="w-full">
-      {/* Entry Title */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-500 mb-2">Feed View: Enhanced (Hybrid + AI Correlations + Grouped Activities)</h3>
-      </div>
-
       {/* Card with hover shadow */}
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
         {/* Compact Author Header */}
