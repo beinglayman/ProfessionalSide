@@ -13,7 +13,7 @@ import { TermsOfServicePage } from './pages/terms';
 import { LoginPage } from './pages/auth/login';
 import { RegisterPage } from './pages/auth/register';
 import { OnboardingPage } from './pages/onboarding';
-import JournalListPage  from './pages/journal/list-new';
+import JournalListPage  from './pages/journal/list';
 import { ActivityFeedPage } from './pages/activity/feed';
 import { ProfileViewPage } from './pages/profile/view';
 import { PublicProfilePage } from './pages/profile/public-view';

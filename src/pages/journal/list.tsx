@@ -57,8 +57,9 @@ import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { JournalCard } from '../../components/journal/journal-card';
 import { RechronicleCard } from '../../components/journal/rechronicle-card';
 import { RechronicleSidePanel } from '../../components/journal/rechronicle-side-panel';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
-import { useJournalEntries, useUserFeed, useToggleAppreciate, useRechronicleEntry } from '../../hooks/useJournal';
+import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry } from '../../hooks/useJournal';
 import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -99,6 +100,7 @@ export default function JournalPage() {
 
   const { data, isLoading, isError, error } = useUserFeed(baseQueryParams);
   const toggleAppreciateMutation = useToggleAppreciate();
+  const toggleLikeMutation = useToggleLike();
   const rechronicleMutation = useRechronicleEntry();
 
   // Load profile image from profile service
@@ -145,7 +147,7 @@ export default function JournalPage() {
       isError: toggleAppreciateMutation.isError,
       error: toggleAppreciateMutation.error
     });
-    
+
     try {
       console.log('🤍 Calling toggleAppreciateMutation.mutateAsync...');
       const result = await toggleAppreciateMutation.mutateAsync(entryId);
@@ -155,6 +157,21 @@ export default function JournalPage() {
       // Show user-friendly error
       if (error instanceof Error) {
         alert(`Failed to appreciate entry: ${error.message}`);
+      }
+    }
+  };
+
+  // Handle like toggle
+  const handleLike = async (entryId: string) => {
+    console.log('❤️ handleLike called for entry:', entryId);
+
+    try {
+      const result = await toggleLikeMutation.mutateAsync(entryId);
+      console.log('✅ Like toggled successfully, result:', result);
+    } catch (error) {
+      console.error('❌ Failed to toggle like:', error);
+      if (error instanceof Error) {
+        alert(`Failed to like entry: ${error.message}`);
       }
     }
   };
@@ -538,29 +555,72 @@ export default function JournalPage() {
 
   // Render journal card or rechronicle card based on entry type
   const renderJournalCard = (journal: JournalEntry) => {
-    const CardComponent = journal.isRechronicle ? RechronicleCard : JournalCard;
-    
+    // If it's a rechronicle, render RechronicleCard
+    if (journal.isRechronicle) {
+      return (
+        <div key={journal.id}>
+          <RechronicleCard
+            entry={journal}
+            viewMode={viewMode}
+            showPublishMenu={openPublishMenus.has(journal.id)}
+            onPublishToggle={handlePublishToggle}
+            onDeleteEntry={handleDeleteEntry}
+            onAppreciate={() => handleAppreciate(journal.id)}
+            onReChronicle={handleReChronicle}
+            onToggleAnalytics={toggleAnalytics}
+            onTogglePublishMenu={togglePublishMenu}
+            isAnalyticsOpen={openAnalytics.has(journal.id)}
+            showUserProfile={false}
+            isRechronicleLoading={rechronicleMutation.isPending}
+          />
+
+          {openPublishMenus.has(journal.id) && (
+            <div
+              className="fixed inset-0 z-5"
+              onClick={() => togglePublishMenu(journal.id)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // If it has format7Data, render JournalEnhanced
+    if (journal.format7Data) {
+      return (
+        <div key={journal.id}>
+          <JournalEnhanced
+            entry={journal.format7Data}
+            mode="expanded"
+            onLike={() => handleLike(journal.id)}
+            onAppreciate={() => handleAppreciate(journal.id)}
+            correlations={journal.format7Data?.correlations}
+            categories={journal.format7Data?.categories}
+          />
+        </div>
+      );
+    }
+
+    // Otherwise, render regular JournalCard
     return (
       <div key={journal.id}>
-        <CardComponent
-          {...(journal.isRechronicle ? { entry: journal } : { journal })}
+        <JournalCard
+          journal={journal}
           viewMode={viewMode}
           showPublishMenu={openPublishMenus.has(journal.id)}
           onPublishToggle={handlePublishToggle}
           onDeleteEntry={handleDeleteEntry}
           onAppreciate={() => handleAppreciate(journal.id)}
-          onReChronicle={journal.isRechronicle ? handleReChronicle : () => handleOpenReChronicle(journal)}
+          onReChronicle={() => handleOpenReChronicle(journal)}
           onToggleAnalytics={toggleAnalytics}
           onTogglePublishMenu={togglePublishMenu}
           isAnalyticsOpen={openAnalytics.has(journal.id)}
-          showUserProfile={false} // Hide user profile since all entries are from logged-in user
+          showUserProfile={false}
           isRechronicleLoading={rechronicleMutation.isPending}
         />
-        
-        {/* Handle publish menu clicks outside the component */}
+
         {openPublishMenus.has(journal.id) && (
-          <div 
-            className="fixed inset-0 z-5" 
+          <div
+            className="fixed inset-0 z-5"
             onClick={() => togglePublishMenu(journal.id)}
           />
         )}
