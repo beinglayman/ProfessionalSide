@@ -71,7 +71,6 @@ interface MCPRawActivityReviewProps {
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
   onContinue: () => void;
-  isProcessing?: boolean;
   className?: string;
 }
 
@@ -82,7 +81,6 @@ export function MCPRawActivityReview({
   selectedIds,
   onSelectionChange,
   onContinue,
-  isProcessing = false,
   className
 }: MCPRawActivityReviewProps) {
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set(sources));
@@ -790,21 +788,6 @@ export function MCPRawActivityReview({
 
   return (
     <div className={cn('space-y-6 relative', className)}>
-      {/* Loading Overlay */}
-      {isProcessing && (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
-          <div className="text-center space-y-4">
-            <Loader2 className="h-12 w-12 text-primary-600 animate-spin mx-auto" />
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-gray-900">Processing with AI</h3>
-              <p className="text-sm text-gray-600 max-w-sm">
-                Analyzing and correlating your activities... This may take 10-30 seconds.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -1025,20 +1008,11 @@ export function MCPRawActivityReview({
 
         <Button
           onClick={onContinue}
-          disabled={selectedCount === 0 || isProcessing}
+          disabled={selectedCount === 0}
           className="bg-primary-600 hover:bg-primary-700"
         >
-          {isProcessing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              Continue
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </>
-          )}
+          Continue
+          <ChevronRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
     </div>

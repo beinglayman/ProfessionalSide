@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations } from '../../hooks/useMCP';
@@ -219,17 +219,17 @@ export function MCPFlowSidePanel({
   const handleContinueFromRawReview = async () => {
     console.log('[MCPFlow] Step 2: User selected', selectedActivityIds.length, 'activities');
 
+    // Move to Step 3 IMMEDIATELY (before processing starts)
+    setStep('correlations');
+
+    // THEN start processing
     setIsProcessing(true);
 
     try {
-      // Run AI processing FIRST (this takes 10-30 seconds)
+      // Run AI processing (this takes 10-30 seconds)
       await handleProcessSelectedActivities();
-
-      // ONLY after AI completes, move to Step 3
-      setStep('correlations');
     } catch (error) {
       console.error('[MCPFlow] AI processing failed:', error);
-      // Don't change step if processing fails
     } finally {
       setIsProcessing(false);
     }
@@ -952,13 +952,27 @@ export function MCPFlowSidePanel({
             selectedIds={selectedActivityIds}
             onSelectionChange={setSelectedActivityIds}
             onContinue={handleContinueFromRawReview}
-            isProcessing={isProcessing}
           />
         );
 
       case 'correlations':
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            {/* Loading Overlay during AI processing */}
+            {isProcessing && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg min-h-[400px]">
+                <div className="text-center space-y-4">
+                  <Loader2 className="h-12 w-12 text-primary-600 animate-spin mx-auto" />
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-gray-900">Processing with AI</h3>
+                    <p className="text-sm text-gray-600 max-w-sm">
+                      Analyzing and correlating your {selectedActivityIds.length} activities... This may take 10-30 seconds.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="text-center">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Analysis & Correlations</h3>
               <p className="text-sm text-gray-600">
