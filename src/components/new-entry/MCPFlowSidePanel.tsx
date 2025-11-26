@@ -960,8 +960,8 @@ export function MCPFlowSidePanel({
           <div className="space-y-6 relative">
             {/* Loading Overlay during AI processing */}
             {isProcessing && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg min-h-[400px]">
-                <div className="text-center space-y-4">
+              <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-[60] flex items-start justify-center pt-32 rounded-lg">
+                <div className="text-center space-y-4 bg-white p-8 rounded-xl shadow-lg">
                   <Loader2 className="h-12 w-12 text-primary-600 animate-spin mx-auto" />
                   <div className="space-y-2">
                     <h3 className="text-lg font-semibold text-gray-900">Processing with AI</h3>
