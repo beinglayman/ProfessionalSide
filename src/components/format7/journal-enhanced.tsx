@@ -295,7 +295,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             </div>
           </div>
 
-          {/* Achievement Widget - Only for achievement entries */}
+          {/* Achievement Widget - Only for achievement entries (v2) */}
           {entry.entry_metadata.type === 'achievement' && (
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
               <div className="flex items-center gap-2 mb-2">
