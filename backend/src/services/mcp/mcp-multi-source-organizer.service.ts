@@ -739,6 +739,12 @@ Return ONLY valid JSON, no additional text.
 
       console.log(`✅ Analysis complete: ${analysis.activities.length} activities identified`);
 
+      // Diagnostic: Log skills per activity from analyzer
+      console.log(`[Organizer] Skills per activity from analyzer:`);
+      analysis.activities.forEach((activity, idx) => {
+        console.log(`  [${idx}] ${activity.title}: [${activity.skills.join(', ')}]`);
+      });
+
       // Validate and filter activities to only include sources that were actually requested
       const requestedSources = Array.from(sources.keys());
       console.log(`[Organizer] Requested sources:`, requestedSources);
@@ -910,6 +916,15 @@ Return ONLY valid JSON, no additional text.
       suggestedEntryType: this.getSuggestedEntryType(type),
       items
     }));
+
+    // Diagnostic: Log skills per activity in organized categories
+    console.log(`[Organizer] Skills per activity in organized categories:`);
+    categories.forEach(category => {
+      console.log(`  Category: ${category.type}`);
+      category.items.forEach((item, idx) => {
+        console.log(`    [${idx}] ${item.title}: [${item.skills.join(', ')}]`);
+      });
+    });
 
     // Log sample category item to trace skills preservation
     if (categories.length > 0 && categories[0].items.length > 0) {

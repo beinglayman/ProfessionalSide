@@ -242,6 +242,15 @@ ${activitiesSummary}
 
 **CRITICAL INSTRUCTION: Only analyze activities that are actually listed above. DO NOT create, invent, or generate fake/example activities. If no activities are provided, return an empty activities array.**
 
+**IMPORTANT FOR SKILLS EXTRACTION:**
+- Each activity's "skills" array MUST contain ONLY the skills used in THAT SPECIFIC activity
+- DO NOT copy the same skills to all activities
+- Extract skills from each activity's title, description, and metadata
+- For GitHub PRs: extract from file changes, languages, and technologies mentioned in that specific PR
+- For Jira tickets: extract from labels, issue types, and description of that specific ticket
+- For meetings: extract discussed technologies from that meeting's subject/title
+- Each activity should have a DIFFERENT set of skills based on its unique content
+
 **Return JSON with this EXACT structure:**
 {
   "activities": [
@@ -298,6 +307,16 @@ ${activitiesSummary}
 - Technical depth vs. breadth balance
 
 **CRITICAL INSTRUCTION: Only analyze activities that are actually listed above. DO NOT create, invent, or generate fake/example activities. If no activities are provided, return an empty activities array.**
+
+**IMPORTANT FOR SKILLS EXTRACTION:**
+- Each activity's "skills" array MUST contain ONLY the skills used in THAT SPECIFIC activity
+- DO NOT copy the same skills to all activities
+- Extract skills from each activity's title, description, and metadata
+- For GitHub PRs: extract from file changes, languages, and technologies mentioned in that specific PR
+- For Jira tickets: extract from labels, issue types, and description of that specific ticket
+- For meetings: extract discussed technologies from that meeting's subject/title
+- Each activity should have a DIFFERENT set of skills based on its unique content
+- The "extractedSkills" field at the root level should be the UNION of all unique skills across all activities
 
 **Return comprehensive JSON analysis following the structure from quick analysis, but with richer insights in descriptions and additional metadata.**
 
