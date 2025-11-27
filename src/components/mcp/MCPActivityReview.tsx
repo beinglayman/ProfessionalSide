@@ -499,7 +499,7 @@ export function MCPActivityReview({
         <Button
           onClick={handleContinue}
           disabled={selectedCount === 0 || isProcessing}
-          className="min-w-[140px]"
+          className="min-w-[140px] bg-primary-600 hover:bg-primary-700"
         >
           {isProcessing ? (
             'Processing...'

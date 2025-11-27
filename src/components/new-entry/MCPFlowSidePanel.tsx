@@ -1130,7 +1130,7 @@ export function MCPFlowSidePanel({
                   handleConfirmAndCreate();
                 }}
                 disabled={!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                className="bg-primary-600 hover:bg-primary-700"
               >
                 Create Entry
                 <ChevronRight className="h-4 w-4 ml-2" />
