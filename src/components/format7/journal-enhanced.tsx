@@ -17,7 +17,7 @@ import {
   ZoomIcon,
   GoogleWorkspaceIcon,
 } from '../icons/ToolIcons';
-import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy } from 'lucide-react';
 
 interface JournalEnhancedProps {
   entry: Format7JournalEntry;
@@ -294,6 +294,19 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
               <span>{entry.summary.total_time_range_hours}h span</span>
             </div>
           </div>
+
+          {/* Achievement Widget - Only for achievement entries */}
+          {entry.entry_metadata.type === 'achievement' && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy className="w-5 h-5 text-purple-600" />
+                <span className="text-sm font-semibold text-purple-900">Achievement Unlocked</span>
+              </div>
+              <p className="text-sm text-purple-700">
+                {entry.entry_metadata.title || 'Achievement description'}
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           {editMode && !isEditingDescription ? (

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Eye, Trophy } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import JournalEnhanced from '../format7/journal-enhanced';
 import { Badge } from '../ui/badge';
@@ -99,19 +99,6 @@ export function Format7EntryEditor({
               : 'border-gray-200'
           )}
         >
-          {/* Achievement Banner - Only for achievement entries */}
-          {isAchievement && (
-            <div className="bg-purple-50 border-b border-purple-200 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Trophy className="w-5 h-5 text-purple-600" />
-                <span className="text-sm font-semibold text-purple-900">Achievement Unlocked</span>
-              </div>
-              <p className="text-sm text-purple-700">
-                {editableTitle || previewEntry?.entry_metadata?.title || 'Achievement description'}
-              </p>
-            </div>
-          )}
-
           {/* Journal Entry Preview */}
           <JournalEnhanced
             entry={previewEntry}
