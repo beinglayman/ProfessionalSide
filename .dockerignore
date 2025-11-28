@@ -8,6 +8,12 @@ npm-debug.log
 .nyc_output
 .env
 dist
+dist/
+./dist
+**/dist
+.vite
+.vite/
+node_modules/.vite
 coverage
 .env.local
 .env.development.local

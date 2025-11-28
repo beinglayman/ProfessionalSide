@@ -22,6 +22,9 @@ RUN echo "Cache bust: ${CACHEBUST}"
 # Copy source code (this will now always be fresh due to CACHEBUST)
 COPY . .
 
+# Explicitly clean any old build artifacts to prevent serving stale bundles
+RUN rm -rf dist/ node_modules/.vite
+
 # Build the application
 # If rollup binary issues occur, install platform-specific binary first
 RUN npm run build || (npm install @rollup/rollup-linux-x64-gnu --save-dev && npm run build)
