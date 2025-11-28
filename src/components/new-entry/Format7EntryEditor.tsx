@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye, Trophy } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import JournalEnhanced from '../format7/journal-enhanced';
 import { Badge } from '../ui/badge';
