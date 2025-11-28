@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Eye, Trophy } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import JournalEnhanced from '../format7/journal-enhanced';
-import { Badge } from '../ui/badge';
 import { useContainedConfetti } from '../../hooks/useContainedConfetti';
 
 interface Format7EntryEditorProps {
@@ -77,17 +75,6 @@ export function Format7EntryEditor({
     <div className={cn('space-y-6', className)}>
       {/* Preview Section with Inline Editing */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Eye className="h-5 w-5 text-gray-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Preview Entry</h3>
-          {isAchievement && (
-            <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-xs px-2 py-0.5">
-              <Trophy className="w-3 h-3 mr-1" />
-              Achievement
-            </Badge>
-          )}
-        </div>
-
         {/* Enhanced Format7 Preview with Achievement UI */}
         <div
           ref={previewCardRef}
