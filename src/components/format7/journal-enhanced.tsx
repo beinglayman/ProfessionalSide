@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Format7JournalEntry } from './sample-data';
@@ -18,6 +18,7 @@ import {
   GoogleWorkspaceIcon,
 } from '../icons/ToolIcons';
 import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy } from 'lucide-react';
+import { useContainedConfetti } from '../../hooks/useContainedConfetti';
 
 interface JournalEnhancedProps {
   entry: Format7JournalEntry;
@@ -117,6 +118,11 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   const [localTitle, setLocalTitle] = useState(entry.entry_metadata.title);
   const [localDescription, setLocalDescription] = useState(entry.context.primary_focus);
 
+  // Confetti effect for achievement entries
+  const [lastConfettiTime, setLastConfettiTime] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { triggerContainedConfetti } = useContainedConfetti();
+
   // Keep expanded in preview mode
   useEffect(() => {
     if (isPreview) {
@@ -130,6 +136,24 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
       }
     }
   }, [isPreview, correlations.length, categories.length]);
+
+  // Handle confetti effect on achievement entry hover
+  const handleAchievementHover = () => {
+    if (entry.entry_metadata.type === 'achievement' && cardRef.current) {
+      const now = Date.now();
+      // 3-second cooldown between confetti bursts
+      if (now - lastConfettiTime > 3000) {
+        triggerContainedConfetti(cardRef, {
+          particleCount: 40,
+          spread: 60,
+          colors: ['#5D259F', '#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE'],
+          duration: 2000,
+          origin: { x: { min: 0.2, max: 0.8 }, y: 0.85 }
+        });
+        setLastConfettiTime(now);
+      }
+    }
+  };
 
   const toggleActivity = (activityId: string) => {
     const newExpanded = new Set(expandedActivities);
@@ -194,7 +218,11 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   return (
     <div className="w-full">
       {/* Card with hover shadow */}
-      <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div
+        ref={cardRef}
+        onMouseEnter={handleAchievementHover}
+        className="rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+      >
         {/* Compact Author Header */}
         {showUserProfile && (
           <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-2">
