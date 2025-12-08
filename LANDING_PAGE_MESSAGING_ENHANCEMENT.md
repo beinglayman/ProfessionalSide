@@ -7,11 +7,11 @@
 
 ## Executive Summary
 
-InChronicle has significant competitive advantages (11-tool integration, privacy-first architecture, BRAC export) that are completely absent from the current landing page. This document provides a comprehensive analysis and actionable recommendations for improving landing page messaging to highlight these differentiators.
+InChronicle has significant competitive advantages (11-tool integration, privacy-first architecture, BRAG export) that are completely absent from the current landing page. This document provides a comprehensive analysis and actionable recommendations for improving landing page messaging to highlight these differentiators.
 
 ### Key Findings
 - **Biggest Gap:** MCP integration (11 tools) not mentioned at all on landing page
-- **Second Gap:** BRAC/performance review export capability hidden
+- **Second Gap:** BRAG/performance review export capability hidden
 - **Third Gap:** Privacy-first architecture (30-min sessions, zero persistence) under-communicated
 - **Opportunity:** Transform from "professional journaling" to "professional work operating system"
 
@@ -77,7 +77,7 @@ InChronicle has significant competitive advantages (11-tool integration, privacy
    - Reality: 11-tool integration with AI organization (GitHub, Jira, Slack, Confluence, Figma, Teams, Outlook, OneDrive, OneNote, Zoom, Google Workspace)
    - Impact: This is the MASSIVE differentiator being completely hidden
 
-2. **BRAC/Performance Review Export**
+2. **BRAG/Performance Review Export**
    - Current: Not mentioned
    - Reality: Full PDF/CSV/JSON export with professional formatting, date range filtering, workspace filtering
    - Impact: Solves major pain point for professionals doing annual reviews
@@ -183,7 +183,7 @@ InChronicle has significant competitive advantages (11-tool integration, privacy
 - Goals scorecard with completion rates
 - Network statistics (total connections, core/extended breakdown)
 
-### G. Data Export & Portability (BRAC CAPABILITY)
+### G. Data Export & Portability (BRAG CAPABILITY)
 
 **Export Types:**
 - All data (comprehensive export)
@@ -198,7 +198,7 @@ InChronicle has significant competitive advantages (11-tool integration, privacy
 - **CSV** (separate files for each data type)
 - **PDF** (formatted document with sections)
 
-**PDF Export Structure (Perfect for BRAC/Performance Reviews):**
+**PDF Export Structure (Perfect for BRAG/Performance Reviews):**
 1. **Title Page:** User name, export date, total items
 2. **Profile Section:** Bio, skills with experience levels, experience, education
 3. **Journal Entries:** Chronological listing with titles, dates, descriptions
@@ -237,7 +237,7 @@ InChronicle has significant competitive advantages (11-tool integration, privacy
 2. Let AI create organized, professional journal entries of your work.
 3. Create workspaces and organize your work.
 4. export your profile using selected journal entries.
-5. To export BRAC documents for your contribution to Each workspace"
+5. To export BRAG documents for your contribution to Each workspace"
 ```
 
 ### What You Got RIGHT ✅
@@ -254,9 +254,9 @@ InChronicle has significant competitive advantages (11-tool integration, privacy
 
 3. **"Export your profile using selected journal entries"** - GOOD
    - Addresses a real use case
-   - Could be stronger (specify BRAC, performance reviews)
+   - Could be stronger (specify BRAG, performance reviews)
 
-4. **"Export BRAC documents for your contribution to Each workspace"** - EXCELLENT
+4. **"Export BRAG documents for your contribution to Each workspace"** - EXCELLENT
    - Addresses major pain point (performance reviews)
    - Feature exists but completely absent from landing page
    - Huge practical value for professionals
@@ -327,9 +327,9 @@ InChronicle has significant competitive advantages (11-tool integration, privacy
 **Issues:** Lowercase, undersells capability, vague
 
 **Improved:**
-- "Export for any career milestone - Generate BRAC documents for performance reviews, create portfolio PDFs for job applications, or export full career data"
+- "Export for any career milestone - Generate BRAG documents for performance reviews, create portfolio PDFs for job applications, or export full career data"
 
-#### Original: "To export BRAC documents for your contribution to Each workspace"
+#### Original: "To export BRAG documents for your contribution to Each workspace"
 **Issues:** Incomplete sentence, redundant with #4, random capitalization
 
 **Replace With:**
@@ -368,7 +368,7 @@ BADGE/PILLS:
 
 **3. Export for any career milestone**
 - Icon: Download/FileText icon
-- Body: "Generate BRAC documents for performance reviews, create portfolio PDFs for job applications, or export full career data in JSON/CSV. Filter by date range, project, or workspace."
+- Body: "Generate BRAG documents for performance reviews, create portfolio PDFs for job applications, or export full career data in JSON/CSV. Filter by date range, project, or workspace."
 - Subtext: "Performance review-ready in minutes, not hours."
 
 **4. Build credibility through verified work**
@@ -426,7 +426,7 @@ SUBTEXT:
 ### Key Differentiators to Emphasize (Rank Order)
 1. **11-tool integration with AI organization** (nobody else does this)
 2. **Privacy-first architecture** (30-min sessions, zero persistence)
-3. **BRAC/performance review export** (solves specific pain point)
+3. **BRAG/performance review export** (solves specific pain point)
 4. **Verified achievements** (vs. self-reported LinkedIn)
 5. **Individual-owned** (vs. company-controlled review tools)
 
@@ -435,7 +435,7 @@ SUBTEXT:
 **vs. LinkedIn:**
 - InChronicle advantage: Actual work tracking vs. self-reported claims
 - InChronicle advantage: Privacy-first vs. data harvesting
-- InChronicle advantage: BRAC export vs. static profile
+- InChronicle advantage: BRAG export vs. static profile
 
 **vs. Notion/Coda (Personal workspace tools):**
 - InChronicle advantage: Professional context, auto-import from tools
@@ -521,7 +521,7 @@ for reviews, portfolios, or networking.</p>
 **Content:**
 ```tsx
 <h3>Export for any career milestone</h3>
-<p>Generate BRAC documents for performance reviews, create portfolio PDFs for
+<p>Generate BRAG documents for performance reviews, create portfolio PDFs for
 job applications, or export full career data in JSON/CSV. Filter by date range,
 project, or workspace.</p>
 <p className="subtext">Performance review-ready in minutes, not hours.</p>

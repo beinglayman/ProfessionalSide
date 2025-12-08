@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { ArrowRight, Megaphone, BadgeCheck, DoorOpen, CalendarCheck, Users, Shield, Award, Verified } from 'lucide-react';
+import { ArrowRight, Megaphone, BadgeCheck, DoorOpen, CalendarCheck, Users, Plug, Sparkles, ShieldCheck, Brain, Download } from 'lucide-react';
 import { ToolIcon } from '../components/icons/ToolIcons';
 
 export function HomePage() {
@@ -159,64 +159,79 @@ export function HomePage() {
                     Remember that project you crushed six months ago? Your reviewer might not. That's recency bias - what happened last month weighs heavier than what you delivered all year. Don't leave your performance review to chance. InChronicle always keeps you review-ready, capturing every win, kudos, and milestone as you work - so you can focus on your work.
                   </p>
                   <p className="text-gray-500">
-                    You do the work. We build the BRAC.
+                    You do the work. We build the BRAG.
                   </p>
                 </div>
               </div>
             </div>
 
             {/* VP5: Your professional network, curated by work */}
-            <div className="bg-primary-500 rounded-2xl overflow-hidden">
-              {/* Title spanning full width */}
-              <div className="p-12 lg:px-16 lg:pt-16 lg:pb-8 text-center">
-                <div className="flex items-center justify-center gap-3 mb-6">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <Users className="h-6 w-6 text-white" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-white">Your professional network, curated by work</h2>
-                </div>
-              </div>
-
-              <div className="grid lg:grid-cols-2 gap-0 items-start">
-                {/* Left Content */}
-                <div className="px-12 lg:px-16 pb-12 lg:pb-16">
-                  <p className="text-lg text-white/90 leading-relaxed mb-6">
-                    5,000+ connections. Zero relevance. A feed that distracts rather than inspires - cluttered with updates from people you connected with because declining a connection request felt rude. InChronicle helps you get noticed based on shared work. With a 300-connection limit, every connection is intentional and mindful.
-                  </p>
-                  <p className="text-white/70 mb-8">
-                    Connections that compound, not clutter.
-                  </p>
-
-                  {/* Feature highlights */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 text-white/90">
-                      <div className="p-1 bg-white/20 rounded">
-                        <Shield className="h-4 w-4" />
-                      </div>
-                      <span className="text-sm font-medium">300-connection limit for quality over quantity</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-white/90">
-                      <div className="p-1 bg-white/20 rounded">
-                        <Award className="h-4 w-4" />
-                      </div>
-                      <span className="text-sm font-medium">Discover professionals through shared work</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-white/90">
-                      <div className="p-1 bg-white/20 rounded">
-                        <Verified className="h-4 w-4" />
-                      </div>
-                      <span className="text-sm font-medium">Feed curated by relevance, not algorithms</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Visual */}
-                <div className="relative h-full min-h-96">
+            <div className="mb-24">
+              <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+                <div className="order-2 lg:order-1 relative">
                   <img
                     src="/screenshots/credible-identity.png"
                     alt="InChronicle professional network curated by shared work and meaningful connections"
-                    className="rounded-xl shadow-lg w-full h-96 object-cover"
+                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
                   />
+                </div>
+                <div className="order-1 lg:order-2">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <Users className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-900">Your professional network, curated by work</h2>
+                  </div>
+                  <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                    5,000+ connections. Zero relevance. A feed that distracts rather than inspires - cluttered with updates from people you connected with because declining a connection request felt rude. InChronicle helps you get noticed based on shared work. With a 300-connection limit, every connection is intentional and mindful.
+                  </p>
+                  <p className="text-gray-500">
+                    Connections that compound, not clutter.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Why professionals love InChronicle */}
+            <div className="bg-primary-500 rounded-2xl overflow-hidden">
+              <div className="p-12 lg:px-16 lg:py-16 text-center">
+                <h2 className="text-3xl font-bold text-white mb-12">Why professionals love InChronicle</h2>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-white/20 rounded-xl mb-4">
+                      <Plug className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-white/90">Integrations with work tools you already use</span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-white/20 rounded-xl mb-4">
+                      <Sparkles className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-white/90">Auto-generated journal drafts, ready for review when you are</span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-white/20 rounded-xl mb-4">
+                      <ShieldCheck className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-white/90">Privacy by design - data from your work tools is never stored</span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-white/20 rounded-xl mb-4">
+                      <Brain className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-white/90">AI finds patterns to correlate activities, projects, and achievements across tools</span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center col-span-2 md:col-span-1">
+                    <div className="p-3 bg-white/20 rounded-xl mb-4">
+                      <Download className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-white/90">Export to BRAG, PDF, CSV, JSON anytime</span>
+                  </div>
                 </div>
               </div>
             </div>
