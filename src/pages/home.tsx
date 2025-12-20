@@ -65,7 +65,7 @@ export function HomePage() {
                     <div className="p-2 bg-primary-100 rounded-lg">
                       <CalendarCheck className="h-6 w-6 text-primary-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Avoid recency bias in your performance review</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Avoid recency bias</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
                   What happened last month shouldn’t outweigh a year of real impact. InChronicle captures every win, milestone, and kudos as you work - so your performance review is never left to chance.
@@ -76,9 +76,9 @@ export function HomePage() {
                 </div>
                 <div className="relative">
                   <img
-                    src="/screenshots/never-lose-work.png"
+                    src="/screenshots/stay-in-sync.png"
                     alt="InChronicle keeps you review-ready with a complete record of your contributions"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover"
+                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
                   />
                 </div>
               </div>
@@ -89,9 +89,9 @@ export function HomePage() {
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div className="order-2 lg:order-1 relative">
                   <img
-                    src="/screenshots/stay-in-sync.png"
+                    src="/screenshots/work-log-evidence.png"
                     alt="InChronicle grounds your professional story in real work activities"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
+                    className="rounded-xl shadow-lg w-full h-80 object-cover object-top"
                   />
                 </div>
                 <div className="order-1 lg:order-2">
