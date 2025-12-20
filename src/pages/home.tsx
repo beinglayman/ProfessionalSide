@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { ArrowRight, Megaphone, BadgeCheck, DoorOpen, CalendarCheck, Users, Plug, Sparkles, ShieldCheck, Brain, Download } from 'lucide-react';
+import { ArrowRight, BadgeCheck, DoorOpen, CalendarCheck, Users, Plug, Sparkles, ShieldCheck, Brain, Download } from 'lucide-react';
 import { ToolIcon } from '../components/icons/ToolIcons';
 
 export function HomePage() {
@@ -20,10 +20,10 @@ export function HomePage() {
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl mt-16 mb-10">
               Let your work do the talking.
               <br />
-              <span className="text-primary-600">We will make sure it's heard.</span>
+              <span className="text-primary-600">We make sure it's heard.</span>
             </h1>
-            <p className="text-xl text-gray-600 max-w-3xl text-center mx-auto leading-relaxed mt-4 mb-12">
-              From conversations to commits to completed projects - InChronicle automatically captures your work wherever it happens and shapes it into your career story.
+            <p className="text-xl text-gray-600 max-w-4xl text-center mx-auto leading-relaxed mt-4 mb-12">
+            In a world that rewards noise, quiet excellence often goes unnoticed. InChronicle connects to your daily work tools and transforms everyday contributions into a clear, credible career narrative you can use for performance reviews or job applications.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
               <span className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 font-medium text-primary-700 border border-primary-200">
@@ -57,34 +57,34 @@ export function HomePage() {
         <div className="border-t border-primary-200">
           <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8">
             
-            {/* VP1: Let your work tell the story */}
+            {/* VP1: Your career happens when you're busy working */}
             <div className="mb-24">
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-primary-100 rounded-lg">
-                      <Megaphone className="h-6 w-6 text-primary-600" />
+                      <CalendarCheck className="h-6 w-6 text-primary-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Let your work tell the story</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Avoid recency bias in your performance review</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                    Noise gets rewarded. Quiet excellence gets overlooked. It's no longer enough to do great work - you have to market it too. But self-promotion diverts you from your core focus. It's the second job you didn't sign up for. InChronicle changes this - effortlessly capturing your work through connected workspace tools. You do the work, we'll make sure it's seen.
+                  What happened last month shouldn’t outweigh a year of real impact. InChronicle captures every win, milestone, and kudos as you work - so your performance review is never left to chance.
                   </p>
                   <p className="text-gray-500">
-                    Back to doing what you were hired for.
+                    You do the work. We build the BRAG.
                   </p>
                 </div>
                 <div className="relative">
                   <img
                     src="/screenshots/never-lose-work.png"
-                    alt="InChronicle automatically captures your work so you can focus on what matters"
+                    alt="InChronicle keeps you review-ready with a complete record of your contributions"
                     className="rounded-xl shadow-lg w-full h-80 object-cover"
                   />
                 </div>
               </div>
             </div>
 
-            {/* VP2: Built on evidence, not claims */}
+            {/* VP2: Show your work log, not stories */}
             <div className="mb-24">
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div className="order-2 lg:order-1 relative">
@@ -99,10 +99,10 @@ export function HomePage() {
                     <div className="p-2 bg-green-100 rounded-lg">
                       <BadgeCheck className="h-6 w-6 text-green-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Built on evidence, not claims</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Show your work log, not stories</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                    "Led cross-functional initiatives." "Drove 143% growth." Every profile claims this. How many have you seen actually deliver? InChronicle grounds your story in real work: conversations, collaborations, commits, documentation, completed projects, kudos, achievements, professional celebrations - validated by professionals you work with. Your professional narrative builds itself from what you actually do, not what you claim.
+                    "Led cross-functional initiatives." Everyone claims this. Few can prove. InChronicle builds your professional story from real work—commits, completed projects, peer recognition. Validated by the people who were there.
                   </p>
                   <p className="text-gray-500">
                     Credible by design.
@@ -111,7 +111,7 @@ export function HomePage() {
               </div>
             </div>
 
-            {/* VP3: Your work opens doors */}
+            {/* VP3: Let your work open doors */}
             <div className="mb-24">
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div>
@@ -119,118 +119,71 @@ export function HomePage() {
                     <div className="p-2 bg-orange-100 rounded-lg">
                       <DoorOpen className="h-6 w-6 text-orange-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Your work opens doors</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Let your work open doors</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                    Has getting shortlisted become impossible lately? That's because each job posting drowns in hundreds of AI-crafted applications - optimized for the ATS, tailored to the job description. The irony: professionals doing great work don't have time to customize applications for every role. The system is rigged against the right candidates because they're busy doing the work, while it rewards full-time job seekers. InChronicle flips this - matching you to jobs and connections based on your work, not your profile-crafting skills.
+                    Does storytelling, self-promotion seem like the second job you didn't sign up for? InChronicle helps you build a track record that speaks for itself—making it easier for the right roles and connections to find you.
                   </p>
                   <p className="text-gray-500">
-                    No more application games.
+                    Be discovered for what you do.
                   </p>
                 </div>
                 <div className="relative">
                   <img
                     src="/screenshots/lead-with-insight.png"
-                    alt="InChronicle matches you to opportunities based on your actual work"
+                    alt="InChronicle helps the right opportunities find you based on your actual work"
                     className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
                   />
                 </div>
               </div>
             </div>
 
-            {/* VP4: Don't leave reviews to chance */}
-            <div className="mb-24">
-              <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-                <div className="order-2 lg:order-1 relative">
-                  <img
-                    src="/screenshots/build-relationships.png"
-                    alt="InChronicle keeps you review-ready with a complete record of your contributions"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
-                  />
-                </div>
-                <div className="order-1 lg:order-2">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <CalendarCheck className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Don't leave reviews to chance</h2>
-                  </div>
-                  <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                    Remember that project you crushed six months ago? Your reviewer might not. That's recency bias - what happened last month weighs heavier than what you delivered all year. Don't leave your performance review to chance. InChronicle always keeps you review-ready, capturing every win, kudos, and milestone as you work - so you can focus on your work.
-                  </p>
-                  <p className="text-gray-500">
-                    You do the work. We build the BRAG.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* VP5: Your professional network, curated by work */}
-            <div className="mb-24">
-              <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-                <div className="order-2 lg:order-1 relative">
-                  <img
-                    src="/screenshots/credible-identity.png"
-                    alt="InChronicle professional network curated by shared work and meaningful connections"
-                    className="rounded-xl shadow-lg w-full h-80 object-cover object-left"
-                  />
-                </div>
-                <div className="order-1 lg:order-2">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <Users className="h-6 w-6 text-indigo-600" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Your professional network, curated by work</h2>
-                  </div>
-                  <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                    5,000+ connections. Zero relevance. A feed that distracts rather than inspires - cluttered with updates from people you connected with because declining a connection request felt rude. InChronicle helps you get noticed based on shared work. With a 300-connection limit, every connection is intentional and mindful.
-                  </p>
-                  <p className="text-gray-500">
-                    Connections that compound, not clutter.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Why professionals love InChronicle */}
+            {/* Why professionals choose InChronicle */}
             <div className="bg-primary-500 rounded-2xl overflow-hidden">
               <div className="p-12 lg:px-16 lg:py-16 text-center">
-                <h2 className="text-3xl font-bold text-white mb-12">Why professionals love InChronicle</h2>
+                <h2 className="text-3xl font-bold text-white mb-12">Why professionals choose InChronicle</h2>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
                   <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-white/20 rounded-xl mb-4">
                       <Plug className="h-6 w-6 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-white/90">Integrations with work tools you already use</span>
+                    <span className="text-sm font-medium text-white/90">Connects to tools you already use</span>
                   </div>
 
                   <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-white/20 rounded-xl mb-4">
                       <Sparkles className="h-6 w-6 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-white/90">Auto-generated journal drafts, ready for review when you are</span>
+                    <span className="text-sm font-medium text-white/90">AI drafts entries — review and publish when ready</span>
                   </div>
 
                   <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-white/20 rounded-xl mb-4">
                       <ShieldCheck className="h-6 w-6 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-white/90">Privacy by design - data from your work tools is never stored</span>
+                    <span className="text-sm font-medium text-white/90">Privacy-first — we process activity, not store it</span>
                   </div>
 
                   <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-white/20 rounded-xl mb-4">
                       <Brain className="h-6 w-6 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-white/90">AI finds patterns to correlate activities, projects, and achievements across tools</span>
+                    <span className="text-sm font-medium text-white/90">Finds patterns across your tools automatically</span>
                   </div>
 
-                  <div className="flex flex-col items-center text-center col-span-2 md:col-span-1">
+                  <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-white/20 rounded-xl mb-4">
                       <Download className="h-6 w-6 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-white/90">Export to BRAG, PDF, CSV, JSON anytime</span>
+                    <span className="text-sm font-medium text-white/90">Export your BRAG or Profile anytime</span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-white/20 rounded-xl mb-4">
+                      <Users className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-white/90">Meaningful network with intentional connections</span>
                   </div>
                 </div>
               </div>
