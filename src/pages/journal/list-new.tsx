@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useJournalEntries, useToggleLike, useToggleAppreciate, useCreateJournalEntry } from '../../hooks/useJournal';
+import { useLinkJournalEntry, useUpdateGoal } from '../../hooks/useGoals';
 import { JournalCard } from '../../components/journal/journal-card';
 import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { Button } from '../../components/ui/button';
@@ -36,6 +37,8 @@ export default function JournalPage() {
   const toggleLikeMutation = useToggleLike();
   const toggleAppreciateMutation = useToggleAppreciate();
   const createJournalEntryMutation = useCreateJournalEntry();
+  const linkJournalEntryMutation = useLinkJournalEntry();
+  const updateGoalMutation = useUpdateGoal();
   const queryClient = useQueryClient();
 
   // Handle like toggle
@@ -64,6 +67,7 @@ export default function JournalPage() {
       workspaceName: data.workspaceEntry?.workspaceName,
       hasWorkspaceEntry: !!data.workspaceEntry
     });
+    console.log('[Journal] Goal linking info:', data.goalLinking);
 
     // Validate required fields before API call
     if (!data.workspaceEntry?.workspaceId) {
@@ -77,7 +81,8 @@ export default function JournalPage() {
         title: data.title,
         workspaceId: data.workspaceEntry.workspaceId,
         skillsCount: data.skills?.length || 0,
-        hasFormat7Data: !!data.format7Entry
+        hasFormat7Data: !!data.format7Entry,
+        goalLinking: data.goalLinking
       });
 
       // Create journal entry with Format7 data
@@ -95,6 +100,41 @@ export default function JournalPage() {
       });
 
       console.log('[Journal] Journal entry created successfully:', result);
+
+      // Handle goal linking if specified
+      if (data.goalLinking?.linkedGoalId && result?.id) {
+        console.log('[Journal] Linking entry to goal:', data.goalLinking.linkedGoalId);
+
+        try {
+          // Link the journal entry to the goal
+          await linkJournalEntryMutation.mutateAsync({
+            goalId: data.goalLinking.linkedGoalId,
+            entryId: result.id,
+            contributionType: 'progress', // Default contribution type
+            progressContribution: 0, // No automatic progress contribution
+            notes: `Linked from Pull from Tools entry: ${data.title}`
+          });
+
+          console.log('[Journal] Entry linked to goal successfully');
+
+          // If user requested to mark goal as complete
+          if (data.goalLinking.markGoalAsComplete) {
+            console.log('[Journal] Marking goal as complete');
+            await updateGoalMutation.mutateAsync({
+              goalId: data.goalLinking.linkedGoalId,
+              data: { status: 'achieved' }
+            });
+            console.log('[Journal] Goal marked as complete');
+          }
+
+          // Refresh goals list
+          queryClient.invalidateQueries({ queryKey: ['goals'] });
+        } catch (goalError: any) {
+          console.error('[Journal] Failed to link entry to goal:', goalError);
+          // Don't fail the whole operation, just log the error
+          // Entry was created successfully
+        }
+      }
 
       // Refresh the journal entries list
       queryClient.invalidateQueries({ queryKey: ['journalEntries'] });

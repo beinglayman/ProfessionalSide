@@ -25,6 +25,10 @@ interface MCPFlowSidePanelProps {
     format7Entry?: any;
     workspaceEntry: any;
     networkEntry: any;
+    goalLinking?: {
+      linkedGoalId: string | null;
+      markGoalAsComplete: boolean;
+    };
   }) => void;
   workspaceName?: string;
 }
@@ -51,6 +55,10 @@ export function MCPFlowSidePanel({
   // Workspace selection state
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
   const [selectedWorkspaceName, setSelectedWorkspaceName] = useState<string>(workspaceName);
+
+  // Goal linking state
+  const [linkedGoalId, setLinkedGoalId] = useState<string | null>(null);
+  const [markGoalAsComplete, setMarkGoalAsComplete] = useState(false);
 
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
@@ -101,9 +109,27 @@ export function MCPFlowSidePanel({
   };
 
   // Step 1: Fetch raw activities (no AI processing)
-  const handleFetchActivities = async (toolTypes: string[], dateRange: { start: Date; end: Date }) => {
+  const handleFetchActivities = async (
+    toolTypes: string[],
+    dateRange: { start: Date; end: Date },
+    workspaceInfo: { workspaceId: string; workspaceName: string },
+    goalInfo: { linkedGoalId: string | null; markGoalAsComplete: boolean }
+  ) => {
     // Store the selected date range for later use in transform API
     setSelectedDateRange(dateRange);
+
+    // Store workspace and goal info from Step 1
+    setSelectedWorkspaceId(workspaceInfo.workspaceId);
+    setSelectedWorkspaceName(workspaceInfo.workspaceName);
+    setLinkedGoalId(goalInfo.linkedGoalId);
+    setMarkGoalAsComplete(goalInfo.markGoalAsComplete);
+
+    console.log('[MCPFlow] Step 1 - Workspace/Goal selection:', {
+      workspaceId: workspaceInfo.workspaceId,
+      workspaceName: workspaceInfo.workspaceName,
+      linkedGoalId: goalInfo.linkedGoalId,
+      markGoalAsComplete: goalInfo.markGoalAsComplete
+    });
 
     try {
       console.log('[MCPFlow] Step 1: Fetching raw activities from:', toolTypes);
@@ -824,6 +850,10 @@ export function MCPFlowSidePanel({
       selectedWorkspaceName,
       hasWorkspace: !!selectedWorkspaceId
     });
+    console.log('[MCPFlow] Goal linking:', {
+      linkedGoalId,
+      markGoalAsComplete
+    });
 
     // Update Format7 entry with final edited values
     const finalFormat7Entry = format7Entry ? {
@@ -851,7 +881,11 @@ export function MCPFlowSidePanel({
         workspaceId: selectedWorkspaceId,
         workspaceName: selectedWorkspaceName
       },
-      networkEntry: mcpMultiSource.generatedData?.networkEntry || null
+      networkEntry: mcpMultiSource.generatedData?.networkEntry || null,
+      goalLinking: linkedGoalId ? {
+        linkedGoalId,
+        markGoalAsComplete
+      } : undefined
     };
 
     console.log('[MCPFlow] Sending data to parent:', {
@@ -882,6 +916,8 @@ export function MCPFlowSidePanel({
     setFormat7Entry(null);
     setSelectedWorkspaceId(''); // Reset workspace state for clean reopen
     setSelectedWorkspaceName(workspaceName); // Reset to default workspace name
+    setLinkedGoalId(null); // Reset goal linking
+    setMarkGoalAsComplete(false);
     mcpMultiSource.reset();
     onOpenChange(false);
   };
@@ -920,6 +956,7 @@ export function MCPFlowSidePanel({
               <MCPSourceSelector
                 onFetch={handleFetchActivities}
                 isLoading={mcpMultiSource.isFetching}
+                defaultWorkspaceId={selectedWorkspaceId}
               />
             ) : (
               <div className="text-center py-12 bg-gray-50 rounded-lg">

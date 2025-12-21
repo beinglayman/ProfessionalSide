@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
+import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp, XCircle, Building2, Target } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { cn } from '../../lib/utils';
 import { format, subDays, startOfDay, endOfDay, set } from 'date-fns';
 import { useMCPIntegrations, useMCPIntegrationValidation } from '../../hooks/useMCP';
+import { useWorkspaces } from '../../hooks/useWorkspace';
+import { useWorkspaceGoals, Goal } from '../../hooks/useGoals';
 import { ToolIcon, getToolDisplayName, getToolDescription, type ToolType } from '../icons/ToolIcons';
 
 interface MCPTool {
@@ -17,9 +19,15 @@ interface MCPTool {
 }
 
 interface MCPSourceSelectorProps {
-  onFetch: (selectedTools: string[], dateRange: { start: Date; end: Date }) => Promise<void>;
+  onFetch: (
+    selectedTools: string[],
+    dateRange: { start: Date; end: Date },
+    workspaceInfo: { workspaceId: string; workspaceName: string },
+    goalInfo: { linkedGoalId: string | null; markGoalAsComplete: boolean }
+  ) => Promise<void>;
   isLoading?: boolean;
   defaultSelected?: string[];
+  defaultWorkspaceId?: string;
   className?: string;
 }
 
@@ -27,6 +35,7 @@ export function MCPSourceSelector({
   onFetch,
   isLoading = false,
   defaultSelected = [],
+  defaultWorkspaceId,
   className
 }: MCPSourceSelectorProps) {
   // Use the proper hook instead of manual fetch
@@ -35,6 +44,9 @@ export function MCPSourceSelector({
   // Validate OAuth tokens for connected integrations
   const { data: validationData, isLoading: isValidating } = useMCPIntegrationValidation();
 
+  // Fetch workspaces for tagging
+  const { data: workspaces = [], isLoading: loadingWorkspaces } = useWorkspaces();
+
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(defaultSelected));
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dateRangeType, setDateRangeType] = useState<'auto' | 'yesterday' | 'today' | 'custom'>('auto');
@@ -42,6 +54,42 @@ export function MCPSourceSelector({
     start: subDays(new Date(), 1),
     end: new Date()
   });
+
+  // Workspace and goal selection state
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(defaultWorkspaceId || '');
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [markGoalComplete, setMarkGoalComplete] = useState(false);
+  const [showWorkspaceDropdown, setShowWorkspaceDropdown] = useState(false);
+  const [showGoalDropdown, setShowGoalDropdown] = useState(false);
+
+  // Fetch goals for selected workspace
+  const { data: workspaceGoals = [], isLoading: loadingGoals } = useWorkspaceGoals(selectedWorkspaceId);
+
+  // Filter to only show actionable goals (not achieved/cancelled)
+  const selectableGoals = useMemo(() =>
+    workspaceGoals.filter(g =>
+      g.status === 'in-progress' || g.status === 'yet-to-start' || g.status === 'blocked'
+    ),
+    [workspaceGoals]
+  );
+
+  // Auto-select first workspace if none selected
+  useEffect(() => {
+    if (!selectedWorkspaceId && workspaces.length > 0) {
+      const firstWorkspace = workspaces[0];
+      setSelectedWorkspaceId(firstWorkspace.id);
+    }
+  }, [workspaces, selectedWorkspaceId]);
+
+  // Reset goal selection when workspace changes
+  useEffect(() => {
+    setSelectedGoalId(null);
+    setMarkGoalComplete(false);
+  }, [selectedWorkspaceId]);
+
+  // Get selected workspace name
+  const selectedWorkspace = workspaces.find(w => w.id === selectedWorkspaceId);
+  const selectedGoal = selectableGoals.find(g => g.id === selectedGoalId);
 
   // Convert integrations data to tools format (memoized to prevent unnecessary re-renders)
   const tools: MCPTool[] = useMemo(() =>
@@ -171,13 +219,25 @@ export function MCPSourceSelector({
     console.log('[MCPSourceSelector] Selected tools:', selectedToolTypes);
     console.log('[MCPSourceSelector] Date range:', dateRange);
     console.log('[MCPSourceSelector] Date range type:', dateRangeType);
+    console.log('[MCPSourceSelector] Workspace:', selectedWorkspaceId, selectedWorkspace?.name);
+    console.log('[MCPSourceSelector] Goal:', selectedGoalId, selectedGoal?.title, 'Mark complete:', markGoalComplete);
 
     if (selectedToolTypes.length === 0) {
       console.log('[MCPSourceSelector] No tools selected, aborting fetch');
       return;
     }
 
-    await onFetch(selectedToolTypes, dateRange);
+    if (!selectedWorkspaceId || !selectedWorkspace) {
+      console.log('[MCPSourceSelector] No workspace selected, aborting fetch');
+      return;
+    }
+
+    await onFetch(
+      selectedToolTypes,
+      dateRange,
+      { workspaceId: selectedWorkspaceId, workspaceName: selectedWorkspace.name },
+      { linkedGoalId: selectedGoalId, markGoalAsComplete: markGoalComplete }
+    );
   };
 
   const getDateRangeLabel = () => {
@@ -370,6 +430,200 @@ export function MCPSourceSelector({
         </div>
       </div>
 
+      {/* Workspace & Goal Selection */}
+      <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+        <div className="flex items-center space-x-2">
+          <Building2 className="h-4 w-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-700">Tag Entry To</span>
+        </div>
+
+        {/* Workspace Dropdown */}
+        <div className="space-y-2">
+          <label className="text-sm text-gray-600">
+            Workspace <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowWorkspaceDropdown(!showWorkspaceDropdown);
+                setShowGoalDropdown(false);
+              }}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white',
+                'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500',
+                !selectedWorkspaceId && 'text-gray-400'
+              )}
+            >
+              <span className="truncate">
+                {loadingWorkspaces ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </span>
+                ) : selectedWorkspace ? (
+                  <span className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary-600" />
+                    {selectedWorkspace.name}
+                    <span className="text-xs text-gray-400">
+                      ({selectedWorkspace.organization?.name})
+                    </span>
+                  </span>
+                ) : (
+                  'Select workspace...'
+                )}
+              </span>
+              <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', showWorkspaceDropdown && 'rotate-180')} />
+            </button>
+
+            {showWorkspaceDropdown && workspaces.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
+                {workspaces.map((workspace) => (
+                  <button
+                    key={workspace.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedWorkspaceId(workspace.id);
+                      setShowWorkspaceDropdown(false);
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50',
+                      selectedWorkspaceId === workspace.id && 'bg-primary-50 text-primary-700'
+                    )}
+                  >
+                    <Building2 className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{workspace.name}</span>
+                    <span className="text-xs text-gray-400 truncate">
+                      ({workspace.organization?.name})
+                    </span>
+                    {selectedWorkspaceId === workspace.id && (
+                      <CheckCircle2 className="h-4 w-4 ml-auto text-primary-600 flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Goal Dropdown (optional) */}
+        <div className="space-y-2">
+          <label className="text-sm text-gray-600">
+            Link to Goal <span className="text-gray-400">(optional)</span>
+          </label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedWorkspaceId) {
+                  setShowGoalDropdown(!showGoalDropdown);
+                  setShowWorkspaceDropdown(false);
+                }
+              }}
+              disabled={!selectedWorkspaceId}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white',
+                'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500',
+                !selectedWorkspaceId && 'opacity-50 cursor-not-allowed',
+                !selectedGoalId && 'text-gray-400'
+              )}
+            >
+              <span className="truncate">
+                {loadingGoals ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading goals...
+                  </span>
+                ) : selectedGoal ? (
+                  <span className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary-600" />
+                    {selectedGoal.title}
+                  </span>
+                ) : (
+                  'None'
+                )}
+              </span>
+              <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', showGoalDropdown && 'rotate-180')} />
+            </button>
+
+            {showGoalDropdown && selectedWorkspaceId && (
+              <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
+                {/* None option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGoalId(null);
+                    setMarkGoalComplete(false);
+                    setShowGoalDropdown(false);
+                  }}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50',
+                    !selectedGoalId && 'bg-primary-50 text-primary-700'
+                  )}
+                >
+                  <Circle className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                  <span>None</span>
+                </button>
+
+                {selectableGoals.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">
+                    No active goals in this workspace
+                  </div>
+                ) : (
+                  selectableGoals.map((goal) => (
+                    <button
+                      key={goal.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGoalId(goal.id);
+                        setShowGoalDropdown(false);
+                      }}
+                      className={cn(
+                        'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50',
+                        selectedGoalId === goal.id && 'bg-primary-50 text-primary-700'
+                      )}
+                    >
+                      <Target className="h-4 w-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="truncate block">{goal.title}</span>
+                        <span className={cn(
+                          'text-xs',
+                          goal.status === 'in-progress' && 'text-blue-600',
+                          goal.status === 'yet-to-start' && 'text-gray-500',
+                          goal.status === 'blocked' && 'text-red-600'
+                        )}>
+                          {goal.status.replace('-', ' ')} · {goal.progressPercentage || 0}%
+                        </span>
+                      </div>
+                      {selectedGoalId === goal.id && (
+                        <CheckCircle2 className="h-4 w-4 ml-auto text-primary-600 flex-shrink-0" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mark Goal as Complete Checkbox */}
+        {selectedGoalId && (
+          <div className="flex items-center space-x-2 pt-2 border-t border-gray-200">
+            <Checkbox
+              id="markGoalComplete"
+              checked={markGoalComplete}
+              onCheckedChange={(checked) => setMarkGoalComplete(checked === true)}
+            />
+            <label
+              htmlFor="markGoalComplete"
+              className="text-sm text-gray-700 cursor-pointer"
+            >
+              Mark goal as completed
+            </label>
+          </div>
+        )}
+      </div>
+
       {/* Connected Tools */}
       {connectedTools.length > 0 ? (
         <div className="space-y-3">
@@ -524,6 +778,8 @@ export function MCPSourceSelector({
           <p className="text-sm text-gray-500">
             {selectedTools.size === 0
               ? 'Select at least one tool'
+              : !selectedWorkspaceId
+              ? 'Select a workspace'
               : `${selectedTools.size} tool${selectedTools.size !== 1 ? 's' : ''} selected`}
           </p>
           {validTools.length < connectedTools.length && (
@@ -535,7 +791,7 @@ export function MCPSourceSelector({
 
         <Button
           onClick={handleFetch}
-          disabled={selectedTools.size === 0 || isLoading}
+          disabled={selectedTools.size === 0 || !selectedWorkspaceId || isLoading}
           className="min-w-[120px]"
         >
           {isLoading ? (
