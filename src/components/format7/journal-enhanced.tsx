@@ -204,6 +204,28 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
     });
   };
 
+  const formatDateRange = (startDate: string, endDate: string): string => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const sameDay = start.toDateString() === end.toDateString();
+    const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+    const sameYear = start.getFullYear() === end.getFullYear();
+
+    const dayMonth = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const dayMonthYear = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    if (sameDay) {
+      return dayMonthYear(start);
+    } else if (sameMonth) {
+      return `${start.getDate()} - ${dayMonthYear(end)}`;
+    } else if (sameYear) {
+      return `${dayMonth(start)} - ${dayMonthYear(end)}`;
+    } else {
+      return `${dayMonthYear(start)} - ${dayMonthYear(end)}`;
+    }
+  };
+
   const excerpt = entry.context.primary_focus.slice(0, 112) + '...';
 
   // Mock author data
@@ -319,7 +341,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             )}
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <Clock className="w-3.5 h-3.5" />
-              <span>{entry.summary.total_time_range_hours}h span</span>
+              <span>{formatDateRange(entry.context.date_range.start, entry.context.date_range.end)}</span>
             </div>
           </div>
 
