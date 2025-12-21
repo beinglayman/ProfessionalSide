@@ -41,6 +41,7 @@ export function MCPFlowSidePanel({
 
   // Activity selection state
   const [selectedActivityIds, setSelectedActivityIds] = useState<string[]>([]);
+  const [selectedDateRange, setSelectedDateRange] = useState<{ start: Date; end: Date } | null>(null);
 
   // Editable entry state
   const [editableTitle, setEditableTitle] = useState<string>('');
@@ -101,6 +102,9 @@ export function MCPFlowSidePanel({
 
   // Step 1: Fetch raw activities (no AI processing)
   const handleFetchActivities = async (toolTypes: string[], dateRange: { start: Date; end: Date }) => {
+    // Store the selected date range for later use in transform API
+    setSelectedDateRange(dateRange);
+
     try {
       console.log('[MCPFlow] Step 1: Fetching raw activities from:', toolTypes);
 
@@ -770,9 +774,12 @@ export function MCPFlowSidePanel({
         options: {
           workspaceName,
           privacy: 'team',
-          dateRange: {
-            start: mcpMultiSource.organizedData?.context?.dateRange?.start,
-            end: mcpMultiSource.organizedData?.context?.dateRange?.end
+          dateRange: selectedDateRange ? {
+            start: selectedDateRange.start.toISOString(),
+            end: selectedDateRange.end.toISOString()
+          } : {
+            start: new Date().toISOString(),
+            end: new Date().toISOString()
           }
         }
       });
