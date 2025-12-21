@@ -62,6 +62,7 @@ export interface OrganizedActivity {
       importance: 'high' | 'medium' | 'low';
       selected: boolean;
       metadata?: any;
+      skills?: string[];  // Per-activity skills from analyzer
     }>;
   }>;
 

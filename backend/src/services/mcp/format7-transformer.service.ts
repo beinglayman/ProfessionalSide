@@ -21,6 +21,7 @@ interface OrganizedActivity {
       importance: 'high' | 'medium' | 'low';
       selected: boolean;
       metadata: any;
+      skills?: string[];  // Per-activity skills from analyzer
     }>;
   }>;
   correlations?: Array<{
@@ -299,6 +300,7 @@ export class Format7TransformerService {
 
   /**
    * Extract technologies for specific activity
+   * Falls back to deriving from title/description if AI skills are missing
    */
   private extractActivityTechnologies(item: any): string[] {
     console.log('[Format7Transformer] Extracting technologies for item:', {
@@ -318,7 +320,7 @@ export class Format7TransformerService {
     const techs: string[] = [];
 
     // From AI-detected skills (from analyzer agent)
-    if (item.skills && Array.isArray(item.skills)) {
+    if (item.skills && Array.isArray(item.skills) && item.skills.length > 0) {
       console.log('[Format7Transformer] Adding skills from item.skills:', item.skills);
       techs.push(...item.skills);
     }
@@ -341,9 +343,103 @@ export class Format7TransformerService {
       techs.push(...item.metadata.labels);
     }
 
+    // Fallback: Extract from title and description if no techs found
+    if (techs.length === 0) {
+      const derivedTechs = this.deriveSkillsFromContent(item);
+      if (derivedTechs.length > 0) {
+        console.log('[Format7Transformer] Derived technologies from content:', derivedTechs);
+        techs.push(...derivedTechs);
+      }
+    }
+
     const deduped = [...new Set(techs)];
     console.log('[Format7Transformer] Extracted technologies (deduplicated):', deduped);
     return deduped;
+  }
+
+  /**
+   * Derive skills/technologies from activity title and description
+   */
+  private deriveSkillsFromContent(item: any): string[] {
+    const derived: string[] = [];
+    const combinedText = `${item.title || ''} ${item.description || ''}`.toLowerCase();
+
+    // Common technology keywords to detect
+    const techKeywords: Record<string, string> = {
+      'react': 'React',
+      'typescript': 'TypeScript',
+      'javascript': 'JavaScript',
+      'node': 'Node.js',
+      'python': 'Python',
+      'java': 'Java',
+      'api': 'API Development',
+      'rest': 'REST API',
+      'graphql': 'GraphQL',
+      'database': 'Database',
+      'sql': 'SQL',
+      'mongodb': 'MongoDB',
+      'postgres': 'PostgreSQL',
+      'redis': 'Redis',
+      'docker': 'Docker',
+      'kubernetes': 'Kubernetes',
+      'aws': 'AWS',
+      'azure': 'Azure',
+      'gcp': 'Google Cloud',
+      'ci/cd': 'CI/CD',
+      'pipeline': 'CI/CD',
+      'testing': 'Testing',
+      'unit test': 'Unit Testing',
+      'integration': 'Integration',
+      'frontend': 'Frontend',
+      'backend': 'Backend',
+      'css': 'CSS',
+      'html': 'HTML',
+      'security': 'Security',
+      'authentication': 'Authentication',
+      'oauth': 'OAuth',
+      'performance': 'Performance',
+      'optimization': 'Optimization',
+      'bug': 'Bug Fixing',
+      'fix': 'Bug Fixing',
+      'feature': 'Feature Development',
+      'refactor': 'Refactoring',
+      'documentation': 'Documentation',
+      'design': 'Design',
+      'architecture': 'Architecture',
+      'review': 'Code Review',
+      'meeting': 'Collaboration',
+      'confluence': 'Documentation',
+      'jira': 'Project Management'
+    };
+
+    // Check for technology matches
+    for (const [keyword, tech] of Object.entries(techKeywords)) {
+      if (combinedText.includes(keyword) && !derived.includes(tech)) {
+        derived.push(tech);
+        if (derived.length >= 3) break; // Limit to 3 derived skills
+      }
+    }
+
+    // Add source-based skill if still empty
+    if (derived.length === 0) {
+      const sourceSkills: Record<string, string> = {
+        'github': 'Code Development',
+        'jira': 'Project Management',
+        'confluence': 'Documentation',
+        'slack': 'Team Collaboration',
+        'teams': 'Team Collaboration',
+        'outlook': 'Communication',
+        'figma': 'Design',
+        'sharepoint': 'Document Management',
+        'onedrive': 'File Management',
+        'onenote': 'Note Taking'
+      };
+      if (sourceSkills[item.source]) {
+        derived.push(sourceSkills[item.source]);
+      }
+    }
+
+    return derived;
   }
 
   /**
