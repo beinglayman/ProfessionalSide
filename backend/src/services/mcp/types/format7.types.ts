@@ -85,4 +85,23 @@ export interface Format7JournalEntry {
     importance: 'high' | 'medium' | 'low';
     description: string;
   }>;
+
+  categories?: Array<{
+    type: string;
+    label: string;
+    summary: string;
+    suggestedEntryType: string;
+    items: Array<{
+      id: string;
+      source: MCPToolType;
+      type: string;
+      title: string;
+      description: string;
+      url: string;
+      importance: 'high' | 'medium' | 'low';
+      selected: boolean;
+      metadata: any;
+      skills?: string[];
+    }>;
+  }>;
 }

@@ -300,7 +300,8 @@ export class Format7TransformerService {
 
   /**
    * Extract technologies for specific activity
-   * Falls back to deriving from title/description if AI skills are missing
+   * Always derives from content to ensure unique, relevant skills per activity
+   * (AI skills are often duplicated across all activities)
    */
   private extractActivityTechnologies(item: any): string[] {
     console.log('[Format7Transformer] Extracting technologies for item:', {
@@ -319,40 +320,33 @@ export class Format7TransformerService {
 
     const techs: string[] = [];
 
-    // From AI-detected skills (from analyzer agent)
-    if (item.skills && Array.isArray(item.skills) && item.skills.length > 0) {
-      console.log('[Format7Transformer] Adding skills from item.skills:', item.skills);
-      techs.push(...item.skills);
+    // ALWAYS derive from content first - gives unique, relevant skills per activity
+    // (AI skills are often the same for all activities, not useful for differentiation)
+    const derivedTechs = this.deriveSkillsFromContent(item);
+    if (derivedTechs.length > 0) {
+      console.log('[Format7Transformer] Derived technologies from content:', derivedTechs);
+      techs.push(...derivedTechs);
     }
 
-    // From metadata
-    if (item.metadata?.technologies) {
+    // From metadata technologies (if available and not already covered)
+    if (item.metadata?.technologies && techs.length < 3) {
       console.log('[Format7Transformer] Adding technologies from metadata:', item.metadata.technologies);
       techs.push(...item.metadata.technologies);
     }
 
-    // From GitHub repo language
-    if (item.source === 'github' && item.metadata?.language) {
+    // From GitHub repo language (if available and not already covered)
+    if (item.source === 'github' && item.metadata?.language && techs.length < 3) {
       console.log('[Format7Transformer] Adding language from GitHub:', item.metadata.language);
       techs.push(item.metadata.language);
     }
 
-    // From Jira labels
-    if (item.source === 'jira' && item.metadata?.labels) {
+    // From Jira labels (if available and not already covered)
+    if (item.source === 'jira' && item.metadata?.labels && techs.length < 3) {
       console.log('[Format7Transformer] Adding labels from Jira:', item.metadata.labels);
       techs.push(...item.metadata.labels);
     }
 
-    // Fallback: Extract from title and description if no techs found
-    if (techs.length === 0) {
-      const derivedTechs = this.deriveSkillsFromContent(item);
-      if (derivedTechs.length > 0) {
-        console.log('[Format7Transformer] Derived technologies from content:', derivedTechs);
-        techs.push(...derivedTechs);
-      }
-    }
-
-    const deduped = [...new Set(techs)];
+    const deduped = [...new Set(techs)].slice(0, 3);
     console.log('[Format7Transformer] Extracted technologies (deduplicated):', deduped);
     return deduped;
   }
@@ -521,7 +515,7 @@ export class Format7TransformerService {
 
     // GitHub - Use raw data as primary source
     if (activity.source === 'github') {
-      const githubData = rawToolData.get('github');
+      const githubData = rawToolData.get(MCPToolType.GITHUB);
 
       // Try to find the PR/issue in raw data by matching URL
       let found = false;
@@ -560,7 +554,7 @@ export class Format7TransformerService {
 
     // Jira - Use raw data as primary source
     if (activity.source === 'jira') {
-      const jiraData = rawToolData.get('jira');
+      const jiraData = rawToolData.get(MCPToolType.JIRA);
 
       let found = false;
       if (jiraData?.issues) {
