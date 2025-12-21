@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { api } from '../../lib/api';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useMCPMultiSource } from '../../hooks/useMCPMultiSource';
 import { useWorkspaces } from '../../hooks/useWorkspace';
@@ -760,34 +761,23 @@ export function MCPFlowSidePanel({
         source: correlateResultData ? 'direct from correlateResult' : 'from hook state'
       });
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/mcp/transform-format7`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-        },
-        body: JSON.stringify({
-          activities: mcpMultiSource.rawActivities,
-          organizedData: mcpMultiSource.organizedData,
-          correlations: correlationsToSend,
-          generatedContent: mcpMultiSource.generatedContent,
-          selectedActivityIds: selectedActivityIds,
-          options: {
-            workspaceName,
-            privacy: 'team',
-            dateRange: {
-              start: mcpMultiSource.organizedData?.context?.dateRange?.start,
-              end: mcpMultiSource.organizedData?.context?.dateRange?.end
-            }
+      const response = await api.post('/mcp/transform-format7', {
+        activities: mcpMultiSource.rawActivities,
+        organizedData: mcpMultiSource.organizedData,
+        correlations: correlationsToSend,
+        generatedContent: mcpMultiSource.generatedContent,
+        selectedActivityIds: selectedActivityIds,
+        options: {
+          workspaceName,
+          privacy: 'team',
+          dateRange: {
+            start: mcpMultiSource.organizedData?.context?.dateRange?.start,
+            end: mcpMultiSource.organizedData?.context?.dateRange?.end
           }
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Backend transform failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       const format7Entry = result.data || result;
 
       console.log('[MCPFlow] Format7 entry received from backend:', {
