@@ -68,8 +68,8 @@ export class Format7TransformerService {
     // Extract collaborators and reviewers
     const { collaborators, reviewers } = this.extractCollaborators(activities, rawToolData);
 
-    // Calculate time metrics
-    const timeSpanHours = this.calculateTimeSpan(activities);
+    // Calculate time metrics from user-selected date range
+    const timeSpanHours = this.calculateTimeSpan(options.dateRange);
 
     // Build aggregations
     const activitiesByType = this.aggregateByType(activities);
@@ -584,21 +584,11 @@ export class Format7TransformerService {
   }
 
   /**
-   * Calculate time span in hours
+   * Calculate time span in hours from the user-selected date range
    */
-  private calculateTimeSpan(activities: Format7Activity[]): number {
-    if (activities.length === 0) return 0;
-
-    const timestamps = activities
-      .map(a => new Date(a.timestamp).getTime())
-      .filter(t => !isNaN(t));
-
-    if (timestamps.length === 0) return 0;
-
-    const earliest = Math.min(...timestamps);
-    const latest = Math.max(...timestamps);
-
-    return Math.round((latest - earliest) / (1000 * 60 * 60)); // hours
+  private calculateTimeSpan(dateRange: { start: Date; end: Date }): number {
+    const diffMs = dateRange.end.getTime() - dateRange.start.getTime();
+    return Math.round(diffMs / (1000 * 60 * 60)); // hours
   }
 
   /**
