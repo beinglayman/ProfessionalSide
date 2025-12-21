@@ -102,7 +102,7 @@ export class CorrelatorAgent {
     );
 
     try {
-      const parsed = typeof result.content === 'string'
+      let parsed = typeof result.content === 'string'
         ? JSON.parse(result.content)
         : result.content;
 
@@ -110,7 +110,17 @@ export class CorrelatorAgent {
       if (parsed.avgConfidence < 0.7 && !result.upgraded) {
         console.log('🔄 Low correlation confidence, upgrading to GPT-4o for better detection');
         const premiumResult = await this.modelSelector.executeTask('correlate', messages, 'high');
-        return JSON.parse(premiumResult.content);
+        parsed = JSON.parse(premiumResult.content);
+      }
+
+      // If AI found no correlations, try pattern-based fallback
+      if (!parsed.correlations || parsed.correlations.length === 0) {
+        console.log('⚠️ AI found 0 correlations, running pattern-based fallback');
+        const fallbackResult = this.getFallbackCorrelations(activities);
+        if (fallbackResult.correlations.length > 0) {
+          console.log(`✓ Fallback found ${fallbackResult.correlations.length} correlations`);
+          return fallbackResult;
+        }
       }
 
       return parsed;
@@ -226,62 +236,91 @@ Focus on finding meaningful connections that tell a coherent story about the wor
   }
 
   private getFallbackCorrelations(activities: AnalyzedActivity[]): CorrelationResult {
-    // Basic pattern matching without AI
+    // Enhanced pattern matching without AI
     const correlations: Correlation[] = [];
     const jiraPattern = /\b[A-Z]+-\d+\b/g;
+    const meetingTools = [MCPToolType.OUTLOOK, MCPToolType.TEAMS];
+    const codeTools = [MCPToolType.GITHUB];
+    const docTools = [MCPToolType.CONFLUENCE, MCPToolType.ONENOTE];
 
-    // Look for simple patterns
+    console.log(`🔍 Running fallback correlation on ${activities.length} activities`);
+
+    // Look for patterns
     activities.forEach((act1, idx1) => {
       activities.slice(idx1 + 1).forEach(act2 => {
-        // Check for JIRA references in GitHub activities
+        // Skip if already found enough correlations
+        if (correlations.length >= 10) return;
+
+        // 1. Check for JIRA references in GitHub activities
         if (act1.source === MCPToolType.GITHUB && act2.source === MCPToolType.JIRA) {
           const matches = act1.title.match(jiraPattern);
           if (matches && act2.title.includes(matches[0])) {
             correlations.push({
               id: `corr-${correlations.length + 1}`,
               type: 'pr_to_jira',
-              source1: {
-                tool: act1.source,
-                id: act1.id,
-                title: act1.title
-              },
-              source2: {
-                tool: act2.source,
-                id: act2.id,
-                title: act2.title
-              },
+              source1: { tool: act1.source, id: act1.id, title: act1.title },
+              source2: { tool: act2.source, id: act2.id, title: act2.title },
               confidence: 0.9,
               reasoning: `Direct JIRA reference found: ${matches[0]}`,
               impact: act1.importance === 'high' || act2.importance === 'high' ? 'high' : 'medium'
             });
+            return;
           }
         }
 
-        // Check temporal proximity (within 2 hours)
-        // Handle both Date objects and string timestamps
+        // 2. Meeting to code connection (same day)
+        if (meetingTools.includes(act1.source) && codeTools.includes(act2.source)) {
+          const ts1 = act1.timestamp instanceof Date ? act1.timestamp : new Date(act1.timestamp);
+          const ts2 = act2.timestamp instanceof Date ? act2.timestamp : new Date(act2.timestamp);
+          const sameDay = ts1.toDateString() === ts2.toDateString();
+          if (sameDay) {
+            correlations.push({
+              id: `corr-${correlations.length + 1}`,
+              type: 'meeting_to_code',
+              source1: { tool: act1.source, id: act1.id, title: act1.title },
+              source2: { tool: act2.source, id: act2.id, title: act2.title },
+              confidence: 0.75,
+              reasoning: `Meeting and code activity on same day`,
+              impact: 'medium'
+            });
+            return;
+          }
+        }
+
+        // 3. Documentation to other activities (keyword match)
+        if (docTools.includes(act1.source) || docTools.includes(act2.source)) {
+          const keywords1 = act1.title.toLowerCase().split(/\s+/).filter(k => k.length > 4);
+          const keywords2 = act2.title.toLowerCase().split(/\s+/).filter(k => k.length > 4);
+          const common = keywords1.filter(k => keywords2.includes(k));
+          if (common.length >= 1) {
+            correlations.push({
+              id: `corr-${correlations.length + 1}`,
+              type: 'discussion_to_doc',
+              source1: { tool: act1.source, id: act1.id, title: act1.title },
+              source2: { tool: act2.source, id: act2.id, title: act2.title },
+              confidence: 0.7,
+              reasoning: `Documentation related to activity: ${common.join(', ')}`,
+              impact: 'medium'
+            });
+            return;
+          }
+        }
+
+        // 4. General temporal + keyword proximity (relaxed)
         const ts1 = act1.timestamp instanceof Date ? act1.timestamp : new Date(act1.timestamp);
         const ts2 = act2.timestamp instanceof Date ? act2.timestamp : new Date(act2.timestamp);
         const timeDiff = Math.abs(ts1.getTime() - ts2.getTime());
-        if (timeDiff < 2 * 60 * 60 * 1000 && act1.source !== act2.source) {
-          // Check for keyword similarity
+        if (timeDiff < 4 * 60 * 60 * 1000 && act1.source !== act2.source) {
           const keywords1 = act1.title.toLowerCase().split(/\s+/);
           const keywords2 = act2.title.toLowerCase().split(/\s+/);
-          const common = keywords1.filter(k => keywords2.includes(k) && k.length > 3);
+          const common = keywords1.filter(k => keywords2.includes(k) && k.length > 4);
 
-          if (common.length >= 2) {
+          if (common.length >= 1) {
             correlations.push({
               id: `corr-${correlations.length + 1}`,
               type: 'general',
-              source1: {
-                tool: act1.source,
-                id: act1.id,
-                title: act1.title
-              },
-              source2: {
-                tool: act2.source,
-                id: act2.id,
-                title: act2.title
-              },
+              source1: { tool: act1.source, id: act1.id, title: act1.title },
+              source2: { tool: act2.source, id: act2.id, title: act2.title },
               confidence: 0.7,
               reasoning: `Temporal proximity and shared keywords: ${common.join(', ')}`,
               impact: 'medium'
@@ -290,6 +329,8 @@ Focus on finding meaningful connections that tell a coherent story about the wor
         }
       });
     });
+
+    console.log(`✓ Fallback found ${correlations.length} correlations`);
 
     const avgConfidence = correlations.length > 0
       ? correlations.reduce((sum, c) => sum + c.confidence, 0) / correlations.length
