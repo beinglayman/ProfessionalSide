@@ -236,7 +236,7 @@ const FeedEnhanced: React.FC<FeedEnhancedProps> = ({
             <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <h4 className="text-sm font-bold text-purple-900 mb-3 flex items-center gap-2">
                 <Link2 className="w-4 h-4" />
-                AI-Detected Connections
+                AI-Detected Correlations
               </h4>
               <div className="space-y-3">
                 {strongCorrelations.map((correlation) => (
