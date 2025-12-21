@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { ArrowRight, BadgeCheck, DoorOpen, CalendarCheck, Users, Plug, Sparkles, ShieldCheck, Brain, Download } from 'lucide-react';
@@ -213,12 +212,12 @@ export function HomePage() {
 
       {/* Footer */}
       <footer className="bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8 text-xs">
           <div className="flex justify-center space-x-6 md:order-2">
-            <Link to="/privacy" className="text-gray-400 hover:text-gray-500">
+            <Link to="/privacy" className="text-gray-500 hover:text-primary-600">
               Privacy Policy
             </Link>
-            <Link to="/terms" className="text-gray-400 hover:text-gray-500">
+            <Link to="/terms" className="text-gray-500 hover:text-primary-600">
               Terms of Service
             </Link>
           </div>
