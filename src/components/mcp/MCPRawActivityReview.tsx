@@ -83,7 +83,7 @@ export function MCPRawActivityReview({
   onContinue,
   className
 }: MCPRawActivityReviewProps) {
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set(sources));
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
 
   // Helper: Safely format timestamp
   const formatTimestamp = (timestamp: Date | string | undefined | null): string => {
