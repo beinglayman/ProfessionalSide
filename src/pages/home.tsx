@@ -23,7 +23,7 @@ export function HomePage() {
               <span className="text-primary-600">We make sure it's heard.</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-4xl text-center mx-auto leading-relaxed mt-4 mb-12">
-            In a world that rewards noise, quiet excellence often goes unnoticed. InChronicle connects to your daily work tools and transforms everyday contributions into a clear, credible career narrative you can use for performance reviews or job applications.
+            In a world that rewards noise, quiet excellence often goes unnoticed. InChronicle connects to your daily work tools and transforms everyday contributions into a credible career story you can use across performance reviews and job applications.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
               <span className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 font-medium text-primary-700 border border-primary-200">
@@ -57,7 +57,7 @@ export function HomePage() {
         <div className="border-t border-primary-200">
           <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8">
             
-            {/* VP1: Your career happens when you're busy working */}
+            {/* VP1: Career happens when you're busy working */}
             <div className="mb-24">
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 <div>
@@ -65,7 +65,7 @@ export function HomePage() {
                     <div className="p-2 bg-primary-100 rounded-lg">
                       <CalendarCheck className="h-6 w-6 text-primary-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Avoid recency bias</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Every milestone counts</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
                   What happened last month shouldn’t outweigh a year of real impact. InChronicle captures every win, milestone, and kudos as you work - so your performance review is never left to chance.
@@ -99,7 +99,7 @@ export function HomePage() {
                     <div className="p-2 bg-green-100 rounded-lg">
                       <BadgeCheck className="h-6 w-6 text-green-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Show your work log, not stories</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Show your work, not stories</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
                     "Led cross-functional initiatives." Everyone claims this. Few can prove. InChronicle builds your professional story from real work—commits, completed projects, peer recognition. Validated by the people who were there.
@@ -122,7 +122,7 @@ export function HomePage() {
                     <h2 className="text-3xl font-bold text-gray-900">Let your work open doors</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                    Does storytelling, self-promotion seem like the second job you didn't sign up for? InChronicle helps you build a track record that speaks for itself—making it easier for the right roles and connections to find you.
+                    Does self-promotion seem like a second job you didn't sign up for? InChronicle helps you build a track record that speaks for itself—making it easier for the right roles and connections to find you.
                   </p>
                   <p className="text-gray-500">
                     Be discovered for what you do.
@@ -196,7 +196,7 @@ export function HomePage() {
         <div className="bg-primary-50 py-24 border-t border-primary-100">
           <div className="mx-auto max-w-4xl text-center px-6">
             <h2 className="text-3xl font-bold text-gray-900 mb-6">
-              Ready to secure your professional legacy?
+            Ready to build your career story?
             </h2>
             <p className="text-lg text-primary-700 mb-8 font-medium">
               Join professionals who are already building validated, meaningful career stories.
