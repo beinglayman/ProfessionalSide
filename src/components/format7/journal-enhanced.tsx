@@ -554,7 +554,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             >
               <span className="text-xs text-gray-500 font-medium">Team:</span>
               <div className="flex gap-2 flex-1 items-center">
-                {entry.summary.unique_collaborators.slice(0, 2).map(collaborator => (
+                {(entry.summary?.unique_collaborators || []).slice(0, 2).map(collaborator => (
                   <div key={collaborator.id} className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-md border border-gray-100">
                     <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
                       {collaborator.avatar ? (
@@ -570,9 +570,9 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                     </div>
                   </div>
                 ))}
-                {entry.summary.unique_collaborators.length > 2 && (
+                {(entry.summary?.unique_collaborators?.length || 0) > 2 && (
                   <div className="px-2 py-1 bg-gray-200 rounded-full text-xs text-gray-700 font-semibold">
-                    +{entry.summary.unique_collaborators.length - 2}
+                    +{(entry.summary?.unique_collaborators?.length || 0) - 2}
                   </div>
                 )}
               </div>
@@ -622,7 +622,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                             )}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {activity.technologies.slice(0, 3).map(tech => (
+                            {(activity.technologies || []).slice(0, 3).map(tech => (
                               <Badge key={tech} variant="outline" className="text-xs px-1.5 py-0.5 font-normal text-gray-600">
                                 {tech}
                               </Badge>
@@ -653,7 +653,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 <div>
                   <h4 className="text-sm font-bold text-gray-700 mb-3">Collaborators</h4>
                   <div className="space-y-2">
-                    {entry.summary.unique_collaborators.map(collaborator => (
+                    {(entry.summary?.unique_collaborators || []).map(collaborator => (
                       <div key={collaborator.id} className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-md">
                         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                           {collaborator.avatar ? (
@@ -677,7 +677,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 <div>
                   <h4 className="text-sm font-bold text-gray-700 mb-3">Reviewers</h4>
                   <div className="space-y-2">
-                    {entry.summary.unique_reviewers.map(reviewer => (
+                    {(entry.summary?.unique_reviewers || []).map(reviewer => (
                       <div key={reviewer.id} className="flex items-center gap-2 p-2 bg-green-50 border border-green-100 rounded-md">
                         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                           {reviewer.avatar ? (
