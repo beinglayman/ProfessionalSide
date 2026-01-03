@@ -465,9 +465,11 @@ export function MCPSourceSelector({
                   <span className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-primary-600" />
                     {selectedWorkspace.name}
-                    <span className="text-xs text-gray-400">
-                      ({selectedWorkspace.organization?.name})
-                    </span>
+                    {selectedWorkspace.organization?.name && (
+                      <span className="text-xs text-gray-400">
+                        ({selectedWorkspace.organization.name})
+                      </span>
+                    )}
                   </span>
                 ) : (
                   'Select workspace...'
@@ -493,9 +495,11 @@ export function MCPSourceSelector({
                   >
                     <Building2 className="h-4 w-4 flex-shrink-0" />
                     <span className="truncate">{workspace.name}</span>
-                    <span className="text-xs text-gray-400 truncate">
-                      ({workspace.organization?.name})
-                    </span>
+                    {workspace.organization?.name && (
+                      <span className="text-xs text-gray-400 truncate">
+                        ({workspace.organization.name})
+                      </span>
+                    )}
                     {selectedWorkspaceId === workspace.id && (
                       <CheckCircle2 className="h-4 w-4 ml-auto text-primary-600 flex-shrink-0" />
                     )}
@@ -506,71 +510,67 @@ export function MCPSourceSelector({
           </div>
         </div>
 
-        {/* Goal Dropdown (optional) */}
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600">
-            Link to Goal <span className="text-gray-400">(optional)</span>
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                if (selectedWorkspaceId) {
-                  setShowGoalDropdown(!showGoalDropdown);
-                  setShowWorkspaceDropdown(false);
-                }
-              }}
-              disabled={!selectedWorkspaceId}
-              className={cn(
-                'w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white',
-                'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500',
-                !selectedWorkspaceId && 'opacity-50 cursor-not-allowed',
-                !selectedGoalId && 'text-gray-400'
-              )}
-            >
-              <span className="truncate">
-                {loadingGoals ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading goals...
-                  </span>
-                ) : selectedGoal ? (
-                  <span className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary-600" />
-                    {selectedGoal.title}
-                  </span>
-                ) : (
-                  'None'
+        {/* Goal Dropdown (optional) - only show if workspace has goals */}
+        {selectableGoals.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm text-gray-600">
+              Link to Goal <span className="text-gray-400">(optional)</span>
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedWorkspaceId) {
+                    setShowGoalDropdown(!showGoalDropdown);
+                    setShowWorkspaceDropdown(false);
+                  }
+                }}
+                disabled={!selectedWorkspaceId}
+                className={cn(
+                  'w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white',
+                  'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500',
+                  !selectedWorkspaceId && 'opacity-50 cursor-not-allowed',
+                  !selectedGoalId && 'text-gray-400'
                 )}
-              </span>
-              <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', showGoalDropdown && 'rotate-180')} />
-            </button>
-
-            {showGoalDropdown && selectedWorkspaceId && (
-              <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
-                {/* None option */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedGoalId(null);
-                    setMarkGoalComplete(false);
-                    setShowGoalDropdown(false);
-                  }}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50',
-                    !selectedGoalId && 'bg-primary-50 text-primary-700'
+              >
+                <span className="truncate">
+                  {loadingGoals ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading goals...
+                    </span>
+                  ) : selectedGoal ? (
+                    <span className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-primary-600" />
+                      {selectedGoal.title}
+                    </span>
+                  ) : (
+                    'None'
                   )}
-                >
-                  <Circle className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                  <span>None</span>
-                </button>
+                </span>
+                <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', showGoalDropdown && 'rotate-180')} />
+              </button>
 
-                {selectableGoals.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-gray-400">
-                    No active goals in this workspace
-                  </div>
-                ) : (
-                  selectableGoals.map((goal) => (
+              {showGoalDropdown && selectedWorkspaceId && (
+                <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
+                  {/* None option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedGoalId(null);
+                      setMarkGoalComplete(false);
+                      setShowGoalDropdown(false);
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50',
+                      !selectedGoalId && 'bg-primary-50 text-primary-700'
+                    )}
+                  >
+                    <Circle className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                    <span>None</span>
+                  </button>
+
+                  {selectableGoals.map((goal) => (
                     <button
                       key={goal.id}
                       type="button"
@@ -599,12 +599,12 @@ export function MCPSourceSelector({
                         <CheckCircle2 className="h-4 w-4 ml-auto text-primary-600 flex-shrink-0" />
                       )}
                     </button>
-                  ))
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Mark Goal as Complete Checkbox */}
         {selectedGoalId && (
