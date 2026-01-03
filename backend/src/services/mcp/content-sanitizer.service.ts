@@ -3,12 +3,12 @@ import { AzureOpenAI } from 'openai';
 /**
  * ContentSanitizerService
  *
- * Responsible for generating network-safe versions of journal entries by:
- * 1. Stripping project/client names
- * 2. Removing repository URLs and ticket IDs
- * 3. Anonymizing channel names
- * 4. Generalizing specific metrics
- * 5. Preserving the professional achievement story
+ * Responsible for generating publicly-shareable versions of journal entries by:
+ * 1. Generalizing project/client names
+ * 2. Replacing repository URLs and ticket IDs with placeholders
+ * 3. Anonymizing channel names and @mentions
+ * 4. Generalizing specific metrics (percentages, dollar amounts)
+ * 5. Preserving the professional achievement narrative
  */
 
 interface SanitizationInput {
@@ -114,15 +114,15 @@ export class ContentSanitizerService {
     console.log('📝 Sanitizing text content...');
 
     const prompt = `
-You are a professional content sanitizer. Your job is to create a network-safe version of professional work entries by removing confidential information while preserving the professional achievement story.
+You are a professional content editor. Your job is to create a publicly-shareable version of professional work entries by generalizing specific details while preserving the professional achievement narrative.
 
-SANITIZATION RULES:
+GENERALIZATION RULES:
 1. **Project names** → Replace with "a project" or "an initiative"
 2. **Client/company names** → Replace with "a client" or "an enterprise client" or "a Fortune 500 company"
-3. **Repository URLs** (github.com/*, gitlab.com/*) → Remove entirely
-4. **Ticket IDs** (JIRA-123, PROJ-456, #1234) → Remove
+3. **Repository URLs** (github.com/*, gitlab.com/*) → Replace with "[repository link]"
+4. **Ticket IDs** (JIRA-123, PROJ-456, #1234) → Omit these references
 5. **Internal channel names** (#team-xyz, @channel) → Replace with "team channel"
-6. **Specific metrics** (increased by 47%, $1.2M revenue) → Use ranges ("improved significantly", "notable revenue impact")
+6. **Specific metrics** (increased by 47%, $1.2M revenue) → Generalize ("improved significantly", "notable revenue impact")
 7. **Internal tool names** → Replace with generic terms ("internal dashboard", "team tools")
 8. **Colleague names** → Replace with "team member" or "the team"
 
@@ -140,12 +140,12 @@ Full Content: ${fullContent}
 
 OUTPUT FORMAT: Return a valid JSON object:
 {
-  "title": "Sanitized title (keep engaging but remove any confidential refs)",
-  "content": "Sanitized full content in first person (preserve the story, remove sensitive details)",
-  "strippedItems": ["list", "of", "items", "that", "were", "sanitized"]
+  "title": "Edited title (keep engaging but generalize any specific refs)",
+  "content": "Edited full content in first person (preserve the story, generalize sensitive details)",
+  "generalizedItems": ["list", "of", "items", "that", "were", "generalized"]
 }
 
-Create the sanitized version:`;
+Create the publicly-shareable version:`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -153,7 +153,7 @@ Create the sanitized version:`;
         messages: [
           {
             role: 'system',
-            content: 'You are a professional content sanitizer that removes confidential information while preserving the professional achievement story. Always return valid JSON.'
+            content: 'You are a professional content editor that creates publicly-shareable versions of work entries by generalizing specific details while preserving the professional achievement narrative. Always return valid JSON.'
           },
           {
             role: 'user',
@@ -171,7 +171,13 @@ Create the sanitized version:`;
         // Try to parse JSON from the response
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
+          const parsed = JSON.parse(jsonMatch[0]);
+          // Handle both old and new key names for backwards compatibility
+          return {
+            title: parsed.title,
+            content: parsed.content,
+            strippedItems: parsed.generalizedItems || parsed.strippedItems || []
+          };
         }
         throw new Error('No JSON found in response');
       } catch (parseError) {
@@ -382,21 +388,63 @@ Create the sanitized version:`;
     const sanitize = (text: string): string => {
       let result = text;
 
-      // Remove URLs
+      // GitHub/GitLab URLs specifically
+      const repoMatches = result.match(/https?:\/\/(github|gitlab)\.com\/[\w./-]+/gi) || [];
+      repoMatches.forEach(url => strippedItems.push(`Repository: ${url.substring(0, 40)}...`));
+      result = result.replace(/https?:\/\/(github|gitlab)\.com\/[\w./-]+/gi, '[repository]');
+
+      // Other URLs
       const urlMatches = result.match(/https?:\/\/[^\s]+/g) || [];
       urlMatches.forEach(url => strippedItems.push(`URL: ${url.substring(0, 30)}...`));
       result = result.replace(/https?:\/\/[^\s]+/g, '[link]');
 
-      // Remove ticket IDs
+      // Remove ticket IDs (JIRA-123, PROJ-456)
       const ticketMatches = result.match(/\b[A-Z]{2,10}-\d+\b/g) || [];
       ticketMatches.forEach(id => strippedItems.push(`Ticket: ${id}`));
       result = result.replace(/\b[A-Z]{2,10}-\d+\b/g, '');
 
+      // PR/Issue/MR numbers (PR #123, Issue #456, MR !789)
+      const prMatches = result.match(/\b(PR|MR|Issue)\s*[#!]?\d+\b/gi) || [];
+      prMatches.forEach(pr => strippedItems.push(`PR/Issue: ${pr}`));
+      result = result.replace(/\b(PR|MR|Issue)\s*[#!]?\d+\b/gi, 'a code review');
+
+      // Standalone issue numbers (#123, #4567)
+      result = result.replace(/#\d{3,}/g, '');
+
+      // @mentions → "a team member"
+      const mentionMatches = result.match(/@[\w.-]+/g) || [];
+      mentionMatches.forEach(m => strippedItems.push(`Mention: ${m}`));
+      result = result.replace(/@[\w.-]+/g, 'a team member');
+
+      // Slack/Teams channel names (#channel-name)
+      const channelMatches = result.match(/#[\w-]+/g) || [];
+      channelMatches.forEach(c => strippedItems.push(`Channel: ${c}`));
+      result = result.replace(/#[\w-]+/g, 'a team channel');
+
+      // Email addresses
+      const emailMatches = result.match(/[\w.-]+@[\w.-]+\.\w+/g) || [];
+      emailMatches.forEach(e => strippedItems.push(`Email: ${e}`));
+      result = result.replace(/[\w.-]+@[\w.-]+\.\w+/g, '[email]');
+
+      // Branch names (feature/*, bugfix/*, hotfix/*, release/*)
+      const branchMatches = result.match(/\b(feature|bugfix|hotfix|release)\/[\w-]+/gi) || [];
+      branchMatches.forEach(b => strippedItems.push(`Branch: ${b}`));
+      result = result.replace(/\b(feature|bugfix|hotfix|release)\/[\w-]+/gi, 'a feature branch');
+
+      // Common internal tool patterns
+      const toolMatches = result.match(/\b(Confluence|Notion|Linear|Asana|Monday|Shortcut)\b/gi) || [];
+      toolMatches.forEach(t => strippedItems.push(`Tool: ${t}`));
+      result = result.replace(/\b(Confluence|Notion|Linear|Asana|Monday|Shortcut)\b/gi, 'internal docs');
+
       // Generalize percentages
+      const pctMatches = result.match(/\b\d+(\.\d+)?%/g) || [];
+      pctMatches.forEach(p => strippedItems.push(`Metric: ${p}`));
       result = result.replace(/\b\d+(\.\d+)?%/g, 'a significant improvement');
 
       // Generalize dollar amounts
-      result = result.replace(/\$[\d,]+(\.\d{2})?/g, 'notable financial impact');
+      const dollarMatches = result.match(/\$[\d,]+(\.\d{2})?(M|K|million|thousand)?/gi) || [];
+      dollarMatches.forEach(d => strippedItems.push(`Amount: ${d}`));
+      result = result.replace(/\$[\d,]+(\.\d{2})?(M|K|million|thousand)?/gi, 'notable financial impact');
 
       return result.replace(/\s+/g, ' ').trim();
     };
