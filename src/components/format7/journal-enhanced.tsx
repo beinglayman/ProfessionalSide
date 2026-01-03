@@ -539,7 +539,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             >
               <span className="text-xs text-gray-500 font-medium">Tech:</span>
               <div className="flex gap-1.5 flex-1 flex-wrap">
-                {entry.summary.technologies_used.slice(0, 2).map(tech => (
+                {(entry.summary?.technologies_used || []).slice(0, 2).map(tech => (
                   <Badge key={tech} className="bg-purple-50 text-purple-700 hover:bg-purple-50 text-xs rounded-full px-2 py-0.5">
                     {tech}
                   </Badge>
