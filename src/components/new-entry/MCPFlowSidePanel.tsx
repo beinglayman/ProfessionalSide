@@ -1230,7 +1230,7 @@ export function MCPFlowSidePanel({
                           <EyeOff className="h-4 w-4 text-purple-600" />
                           <span>
                             <strong>{totalItemsStripped}</strong> confidential items hidden in this view
-                            {Object.keys(sanitizationStats).length > 0 && (
+                            {Object.entries(sanitizationStats).some(([, items]) => (items as string[]).length > 0) && (
                               <span className="text-gray-500">
                                 {' '}(
                                 {Object.entries(sanitizationStats)

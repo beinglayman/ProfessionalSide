@@ -470,11 +470,21 @@ Create the publicly-shareable version:`;
     const specificMetrics: string[] = [];
     const colleagueNames: string[] = [];
 
-    // Extract from strippedItems
+    // Extract from strippedItems - match all fallback prefixes
     sanitizedText.strippedItems.forEach(item => {
-      if (item.startsWith('URL:')) repositoryUrls.push(item);
-      else if (item.startsWith('Ticket:')) ticketIds.push(item);
-      else if (item.includes('%') || item.includes('$')) specificMetrics.push(item);
+      if (item.startsWith('Repository:') || item.startsWith('URL:') || item.startsWith('Branch:')) {
+        repositoryUrls.push(item);
+      } else if (item.startsWith('Ticket:') || item.startsWith('PR/Issue:')) {
+        ticketIds.push(item);
+      } else if (item.startsWith('Mention:') || item.startsWith('Email:')) {
+        colleagueNames.push(item);
+      } else if (item.startsWith('Channel:')) {
+        channelNames.push(item);
+      } else if (item.startsWith('Metric:') || item.startsWith('Amount:')) {
+        specificMetrics.push(item);
+      } else if (item.startsWith('Tool:')) {
+        projectNames.push(item);
+      }
     });
 
     return {
