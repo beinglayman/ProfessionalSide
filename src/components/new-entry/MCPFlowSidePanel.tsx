@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2, Globe, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sparkles, Database, ArrowRight, Loader2, Globe, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -71,6 +71,7 @@ export function MCPFlowSidePanel({
   } | null>(null);
   const [isSanitizing, setIsSanitizing] = useState(false);
   const [sanitizationError, setSanitizationError] = useState<string | null>(null);
+  const [sanitizationExpanded, setSanitizationExpanded] = useState(false);
 
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
@@ -1224,23 +1225,47 @@ export function MCPFlowSidePanel({
                     </div>
                   ) : networkPreviewEntry ? (
                     <>
-                      {/* Sanitization summary */}
+                      {/* Sanitization summary - expandable */}
                       {totalItemsStripped > 0 && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-purple-50 rounded-lg px-3 py-2">
-                          <EyeOff className="h-4 w-4 text-purple-600" />
-                          <span>
-                            <strong>{totalItemsStripped}</strong> confidential items hidden in this view
-                            {Object.entries(sanitizationStats).some(([, items]) => (items as string[]).length > 0) && (
-                              <span className="text-gray-500">
-                                {' '}(
-                                {Object.entries(sanitizationStats)
-                                  .filter(([, items]) => (items as string[]).length > 0)
-                                  .map(([key, items]) => `${(items as string[]).length} ${key.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`)
-                                  .join(', ')}
-                                )
+                        <div className="bg-purple-50 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => setSanitizationExpanded(!sanitizationExpanded)}
+                            className="w-full flex items-center justify-between gap-2 text-sm text-gray-600 px-3 py-2 hover:bg-purple-100 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <EyeOff className="h-4 w-4 text-purple-600" />
+                              <span>
+                                <strong>{totalItemsStripped}</strong> confidential items hidden in this view
+                                {Object.entries(sanitizationStats).some(([, items]) => (items as string[]).length > 0) && (
+                                  <span className="text-gray-500">
+                                    {' '}(
+                                    {Object.entries(sanitizationStats)
+                                      .filter(([, items]) => (items as string[]).length > 0)
+                                      .map(([key, items]) => `${(items as string[]).length} ${key.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`)
+                                      .join(', ')}
+                                    )
+                                  </span>
+                                )}
                               </span>
+                            </div>
+                            {sanitizationExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-purple-600" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-purple-600" />
                             )}
-                          </span>
+                          </button>
+                          {sanitizationExpanded && networkEntryData?.sanitizationLog?.items?.length > 0 && (
+                            <div className="px-3 pb-3 border-t border-purple-100">
+                              <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                                {networkEntryData.sanitizationLog.items.map((item: string, index: number) => (
+                                  <li key={index} className="flex items-start gap-2">
+                                    <span className="text-purple-400">•</span>
+                                    <span className="break-all">{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                       <Format7EntryEditor

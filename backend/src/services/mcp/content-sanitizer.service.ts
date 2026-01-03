@@ -20,6 +20,7 @@ interface SanitizationInput {
 
 interface SanitizationLog {
   itemsStripped: number;
+  items: string[]; // Raw list of all stripped items for display
   categories: {
     projectNames: string[];
     clientNames: string[];
@@ -489,6 +490,7 @@ Create the publicly-shareable version:`;
 
     return {
       itemsStripped: sanitizedText.strippedItems.length,
+      items: sanitizedText.strippedItems, // Raw list for expandable display
       categories: {
         projectNames,
         clientNames,
