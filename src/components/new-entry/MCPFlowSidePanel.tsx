@@ -837,12 +837,12 @@ export function MCPFlowSidePanel({
       setEditableDescription(format7Entry.context.primary_focus);
       setFormat7Entry(format7Entry);
 
-      // Generate network entry if toggle is ON
+      // Generate network entry if toggle is ON - await to ensure data is ready before transitioning
       if (generateNetworkEntry) {
-        generateNetworkEntryContent(format7Entry);  // Function handles its own state
+        await generateNetworkEntryContent(format7Entry);
       }
 
-      // Move to preview step
+      // Move to preview step - now network data is ready
       setStep('preview');
 
     } catch (error: any) {
