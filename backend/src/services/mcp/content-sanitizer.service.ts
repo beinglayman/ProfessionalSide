@@ -301,6 +301,12 @@ Create the sanitized version:`;
   private sanitizeString(text: string): string {
     if (!text) return text;
 
+    // Handle non-string types gracefully (objects, arrays, numbers)
+    if (typeof text !== 'string') {
+      console.warn('sanitizeString received non-string:', typeof text);
+      return String(text);
+    }
+
     let sanitized = text;
 
     // Remove URLs (except public documentation sites)
