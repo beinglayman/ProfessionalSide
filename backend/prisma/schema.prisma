@@ -371,21 +371,32 @@ model JournalEntry {
   title           String
   description     String
   fullContent     String    // Full content for workspace view
-  abstractContent String?   // Sanitized content for network view
-  
+  abstractContent String?   // Short summary/preview (legacy, kept for compatibility)
+
+  // Network content (sanitized/IPR-stripped version for public profile)
+  networkContent       String?   // Sanitized description for network view
+  networkTitle         String?   // Optionally different title for network (if needed)
+  format7DataNetwork   Json?     // Sanitized Format7 structure for network view
+
+  // Network generation settings
+  generateNetworkEntry Boolean   @default(true)   // User toggle from Step 4
+  networkGenerated     Boolean   @default(false)  // Was network version created?
+  networkGeneratedAt   DateTime?                  // When was it generated?
+  sanitizationLog      Json?                      // What was stripped and why (for debugging)
+
   // Metadata
   authorId        String
   workspaceId     String
   visibility      String    @default("workspace") // private, workspace, network
   isPublished     Boolean   @default(false)
   publishedAt     DateTime?
-  
+
   // Content organization
   category        String?
   tags            String[]  @default([])
   skills          String[]  @default([])
 
-  // Format7 storage for rich journal entries
+  // Format7 storage for rich journal entries (workspace version)
   format7Data     Json?     // Complete Format7 structure with activities, correlations, etc.
 
   // Achievement fields for achievement entries

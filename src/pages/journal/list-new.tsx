@@ -85,8 +85,8 @@ export default function JournalPage() {
         goalLinking: data.goalLinking
       });
 
-      // Create journal entry with Format7 data
-      const result = await createJournalEntryMutation.mutateAsync({
+      // Create journal entry with Format7 data (workspace + optional network views)
+      const journalData: any = {
         title: data.title,
         description: data.description,
         fullContent: data.description, // Use description as full content for now
@@ -96,8 +96,26 @@ export default function JournalPage() {
         tags: [],
         skills: data.skills || [],
         // Store the complete Format7 structure for rich display
-        format7Data: data.format7Entry
+        format7Data: data.format7Entry,
+        // Network entry fields (dual-view system)
+        generateNetworkEntry: data.networkEntry?.generateNetworkEntry ?? true
+      };
+
+      // Add network entry data if generated
+      if (data.networkEntry?.generateNetworkEntry && data.networkEntry?.networkTitle) {
+        journalData.networkTitle = data.networkEntry.networkTitle;
+        journalData.networkContent = data.networkEntry.networkContent;
+        journalData.format7DataNetwork = data.networkEntry.format7DataNetwork;
+        journalData.sanitizationLog = data.networkEntry.sanitizationLog;
+      }
+
+      console.log('[Journal] Creating entry with network data:', {
+        generateNetworkEntry: journalData.generateNetworkEntry,
+        hasNetworkTitle: !!journalData.networkTitle,
+        hasNetworkContent: !!journalData.networkContent
       });
+
+      const result = await createJournalEntryMutation.mutateAsync(journalData);
 
       console.log('[Journal] Journal entry created successfully:', result);
 

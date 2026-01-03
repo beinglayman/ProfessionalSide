@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import * as crypto from 'crypto';
 import { format7Transformer } from '../services/mcp/format7-transformer.service';
+import { getContentSanitizerService } from '../services/mcp/content-sanitizer.service';
 
 const prisma = new PrismaClient();
 
@@ -1663,5 +1664,57 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
       error: error.message,
       type: error.name
     });
+  }
+});
+
+/**
+ * Sanitize content for network view
+ * Creates an IPR-stripped version of workspace content suitable for public profile
+ * POST /api/v1/mcp/sanitize-for-network
+ */
+export const sanitizeForNetwork = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { title, description, fullContent, format7Data } = req.body;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    // Validate required fields
+    if (!title || !fullContent) {
+      sendError(res, 'Title and fullContent are required', 400);
+      return;
+    }
+
+    console.log('[MCP Controller] Sanitizing content for network view...');
+    console.log('[MCP Controller] Title:', title);
+    console.log('[MCP Controller] Has Format7 data:', !!format7Data);
+
+    // Get sanitizer service
+    const sanitizer = getContentSanitizerService();
+
+    // Sanitize content
+    const result = await sanitizer.sanitizeForNetwork({
+      title,
+      description: description || '',
+      fullContent,
+      format7Data
+    });
+
+    console.log('[MCP Controller] Sanitization complete');
+    console.log('[MCP Controller] Items stripped:', result.sanitizationLog.itemsStripped);
+
+    sendSuccess(res, {
+      networkTitle: result.networkTitle,
+      networkContent: result.networkContent,
+      format7DataNetwork: result.format7DataNetwork,
+      sanitizationLog: result.sanitizationLog,
+      message: 'Content sanitized for network view'
+    });
+  } catch (error: any) {
+    console.error('[MCP Controller] Sanitization error:', error);
+    sendError(res, `Failed to sanitize content: ${error.message}`, 500);
   }
 });

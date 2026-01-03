@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2, Globe, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -59,6 +59,18 @@ export function MCPFlowSidePanel({
   // Goal linking state
   const [linkedGoalId, setLinkedGoalId] = useState<string | null>(null);
   const [markGoalAsComplete, setMarkGoalAsComplete] = useState(false);
+
+  // Network entry state (dual-view system)
+  const [generateNetworkEntry, setGenerateNetworkEntry] = useState(true);
+  const [activePreviewTab, setActivePreviewTab] = useState<'workspace' | 'network'>('workspace');
+  const [networkEntryData, setNetworkEntryData] = useState<{
+    networkTitle: string;
+    networkContent: string;
+    format7DataNetwork: any;
+    sanitizationLog: any;
+  } | null>(null);
+  const [isSanitizing, setIsSanitizing] = useState(false);
+  const [sanitizationError, setSanitizationError] = useState<string | null>(null);
 
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
@@ -836,9 +848,54 @@ export function MCPFlowSidePanel({
       // Move to preview step
       setStep('preview');
 
+      // Generate network entry if toggle is ON
+      if (generateNetworkEntry) {
+        generateNetworkEntryContent(format7Entry);
+      }
+
     } catch (error: any) {
       console.error('[MCPFlow] Failed to generate Format7 preview:', error);
       alert(`Error generating preview: ${error.message}\n\nPlease try again or check your connection.`);
+    }
+  };
+
+  // Generate sanitized network entry content
+  const generateNetworkEntryContent = async (entry: any) => {
+    if (!entry) return;
+
+    console.log('[MCPFlow] Generating network entry (sanitized version)...');
+    setIsSanitizing(true);
+    setSanitizationError(null);
+
+    try {
+      const response = await api.post('/mcp/sanitize-for-network', {
+        title: entry.entry_metadata?.title || editableTitle,
+        description: entry.context?.primary_focus || editableDescription,
+        fullContent: entry.context?.primary_focus || editableDescription,
+        format7Data: entry
+      });
+
+      const result = response.data?.data || response.data;
+
+      console.log('[MCPFlow] Network entry generated:', {
+        hasNetworkTitle: !!result.networkTitle,
+        hasNetworkContent: !!result.networkContent,
+        hasFormat7DataNetwork: !!result.format7DataNetwork,
+        itemsStripped: result.sanitizationLog?.itemsStripped || 0
+      });
+
+      setNetworkEntryData({
+        networkTitle: result.networkTitle,
+        networkContent: result.networkContent,
+        format7DataNetwork: result.format7DataNetwork,
+        sanitizationLog: result.sanitizationLog
+      });
+
+    } catch (error: any) {
+      console.error('[MCPFlow] Failed to generate network entry:', error);
+      setSanitizationError(error.message || 'Failed to generate network version');
+    } finally {
+      setIsSanitizing(false);
     }
   };
 
@@ -881,7 +938,15 @@ export function MCPFlowSidePanel({
         workspaceId: selectedWorkspaceId,
         workspaceName: selectedWorkspaceName
       },
-      networkEntry: mcpMultiSource.generatedData?.networkEntry || null,
+      networkEntry: generateNetworkEntry && networkEntryData ? {
+        networkTitle: networkEntryData.networkTitle,
+        networkContent: networkEntryData.networkContent,
+        format7DataNetwork: networkEntryData.format7DataNetwork,
+        sanitizationLog: networkEntryData.sanitizationLog,
+        generateNetworkEntry: true
+      } : {
+        generateNetworkEntry: false
+      },
       goalLinking: linkedGoalId ? {
         linkedGoalId,
         markGoalAsComplete
@@ -918,6 +983,12 @@ export function MCPFlowSidePanel({
     setSelectedWorkspaceName(workspaceName); // Reset to default workspace name
     setLinkedGoalId(null); // Reset goal linking
     setMarkGoalAsComplete(false);
+    // Reset network entry state
+    setGenerateNetworkEntry(true);
+    setActivePreviewTab('workspace');
+    setNetworkEntryData(null);
+    setIsSanitizing(false);
+    setSanitizationError(null);
     mcpMultiSource.reset();
     onOpenChange(false);
   };
@@ -1065,19 +1136,188 @@ export function MCPFlowSidePanel({
           }
         } : null;
 
+        // Network view entry (sanitized version)
+        const networkPreviewEntry = networkEntryData?.format7DataNetwork ? {
+          ...networkEntryData.format7DataNetwork,
+          entry_metadata: {
+            ...networkEntryData.format7DataNetwork.entry_metadata,
+            title: networkEntryData.networkTitle
+          },
+          context: {
+            ...networkEntryData.format7DataNetwork.context,
+            primary_focus: networkEntryData.networkContent
+          }
+        } : null;
+
+        // Calculate sanitization stats
+        const sanitizationStats = networkEntryData?.sanitizationLog?.categories || {};
+        const totalItemsStripped = networkEntryData?.sanitizationLog?.itemsStripped || 0;
+
         return (
-          <Format7EntryEditor
-            initialEntry={previewEntry}
-            onTitleChange={setEditableTitle}
-            onDescriptionChange={setEditableDescription}
-            editableTitle={editableTitle}
-            editableDescription={editableDescription}
-            isPreview={true}
-            selectedWorkspaceId={selectedWorkspaceId}
-            onWorkspaceChange={handleWorkspaceChange}
-            correlations={format7Entry?.correlations}
-            categories={format7Entry?.categories}
-          />
+          <div className="space-y-6">
+            {/* Network Entry Toggle */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => {
+                    const newValue = !generateNetworkEntry;
+                    setGenerateNetworkEntry(newValue);
+                    // If turning ON and no network data yet, generate it
+                    if (newValue && !networkEntryData && format7Entry) {
+                      generateNetworkEntryContent(format7Entry);
+                    }
+                    // Reset to workspace tab if turning off
+                    if (!newValue) {
+                      setActivePreviewTab('workspace');
+                    }
+                  }}
+                  className={cn(
+                    'mt-0.5 w-10 h-6 rounded-full transition-colors relative flex-shrink-0',
+                    generateNetworkEntry ? 'bg-purple-600' : 'bg-gray-300'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                      generateNetworkEntry ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </button>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-purple-600" />
+                    <span className="font-medium text-gray-900">Generate Network Entry</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your network entry will be visible on your profile to people outside your workspace.
+                    Confidential details are automatically removed.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Preview Tabs */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b">
+                <button
+                  onClick={() => setActivePreviewTab('workspace')}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                    activePreviewTab === 'workspace'
+                      ? 'border-purple-600 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  )}
+                >
+                  <Lock className="h-4 w-4" />
+                  Workspace View
+                </button>
+                {generateNetworkEntry && (
+                  <button
+                    onClick={() => setActivePreviewTab('network')}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                      activePreviewTab === 'network'
+                        ? 'border-purple-600 text-purple-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    <Globe className="h-4 w-4" />
+                    Network View
+                    {isSanitizing && (
+                      <Loader2 className="h-3 w-3 animate-spin text-purple-600" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Tab Content */}
+              {activePreviewTab === 'workspace' ? (
+                <Format7EntryEditor
+                  initialEntry={previewEntry}
+                  onTitleChange={setEditableTitle}
+                  onDescriptionChange={setEditableDescription}
+                  editableTitle={editableTitle}
+                  editableDescription={editableDescription}
+                  isPreview={true}
+                  selectedWorkspaceId={selectedWorkspaceId}
+                  onWorkspaceChange={handleWorkspaceChange}
+                  correlations={format7Entry?.correlations}
+                  categories={format7Entry?.categories}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {isSanitizing ? (
+                    <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
+                      <div className="text-center space-y-3">
+                        <Loader2 className="h-8 w-8 text-purple-600 animate-spin mx-auto" />
+                        <p className="text-sm text-gray-600">Generating network-safe version...</p>
+                      </div>
+                    </div>
+                  ) : sanitizationError ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-sm text-red-600">
+                        Failed to generate network version: {sanitizationError}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => generateNetworkEntryContent(format7Entry)}
+                        className="mt-2"
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ) : networkPreviewEntry ? (
+                    <>
+                      {/* Sanitization summary */}
+                      {totalItemsStripped > 0 && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-purple-50 rounded-lg px-3 py-2">
+                          <EyeOff className="h-4 w-4 text-purple-600" />
+                          <span>
+                            <strong>{totalItemsStripped}</strong> confidential items hidden in this view
+                            {Object.keys(sanitizationStats).length > 0 && (
+                              <span className="text-gray-500">
+                                {' '}(
+                                {Object.entries(sanitizationStats)
+                                  .filter(([, items]) => (items as string[]).length > 0)
+                                  .map(([key, items]) => `${(items as string[]).length} ${key.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`)
+                                  .join(', ')}
+                                )
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      <Format7EntryEditor
+                        initialEntry={networkPreviewEntry}
+                        onTitleChange={() => {}} // Read-only for network view
+                        onDescriptionChange={() => {}} // Read-only for network view
+                        editableTitle={networkEntryData?.networkTitle || ''}
+                        editableDescription={networkEntryData?.networkContent || ''}
+                        isPreview={true}
+                        selectedWorkspaceId={selectedWorkspaceId}
+                        correlations={networkPreviewEntry?.correlations}
+                        categories={networkPreviewEntry?.categories}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
+                      <div className="text-center space-y-3">
+                        <Globe className="h-8 w-8 text-gray-400 mx-auto" />
+                        <p className="text-sm text-gray-500">Network view not generated yet</p>
+                        <Button
+                          size="sm"
+                          onClick={() => generateNetworkEntryContent(format7Entry)}
+                        >
+                          Generate Network View
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         );
 
       default:

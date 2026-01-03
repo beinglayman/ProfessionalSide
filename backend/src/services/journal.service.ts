@@ -46,8 +46,16 @@ export class JournalService {
         category: data.category,
         tags: data.tags,
         skills: data.skills,
-        // Format7 data
+        // Format7 data (workspace view)
         format7Data: data.format7Data,
+        // Network entry fields (dual-view system)
+        networkTitle: data.networkTitle,
+        networkContent: data.networkContent,
+        format7DataNetwork: data.format7DataNetwork,
+        generateNetworkEntry: data.generateNetworkEntry ?? true,
+        networkGenerated: !!data.networkContent,
+        networkGeneratedAt: data.networkContent ? new Date() : null,
+        sanitizationLog: data.sanitizationLog,
         // Achievement fields
         achievementType: data.achievementType,
         achievementTitle: data.achievementTitle,

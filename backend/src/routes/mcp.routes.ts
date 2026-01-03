@@ -13,6 +13,7 @@ import {
   fetchAndProcessWithAgents,
   generateFormat7Entry,
   transformFormat7,
+  sanitizeForNetwork,
   getSession,
   clearSession,
   clearAllSessions,
@@ -136,6 +137,14 @@ router.post('/generate-format7-entry', authMiddleware, generateFormat7Entry);
  * Returns: Complete Format7JournalEntry with rich collaborator/reviewer data
  */
 router.post('/transform-format7', authMiddleware, transformFormat7);
+
+/**
+ * POST /api/v1/mcp/sanitize-for-network
+ * Sanitize workspace content for network/public view (IPR stripping)
+ * Body: { title: string, description: string, fullContent: string, format7Data: object }
+ * Returns: { networkTitle, networkContent, format7DataNetwork, sanitizationLog }
+ */
+router.post('/sanitize-for-network', authMiddleware, sanitizeForNetwork);
 
 /**
  * POST /api/v1/mcp/test-activities

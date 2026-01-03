@@ -59,7 +59,18 @@ export const createJournalEntrySchema = z.object({
   achievementType: z.enum(['certification', 'award', 'milestone', 'recognition']).optional(),
   achievementTitle: z.string().min(1).max(200).optional(),
   achievementDescription: z.string().max(1000).optional(),
-  linkedGoalId: z.string().optional() // Optional goal linking
+  linkedGoalId: z.string().optional(), // Optional goal linking
+
+  // Network entry fields (dual-view system)
+  networkContent: z.string()
+    .max(50000, 'Network content must be less than 50,000 characters')
+    .optional(),
+  networkTitle: z.string()
+    .max(200, 'Network title must be less than 200 characters')
+    .optional(),
+  format7DataNetwork: z.any().optional(), // Sanitized Format7 structure for network view
+  generateNetworkEntry: z.boolean().default(true), // Toggle from Step 4
+  sanitizationLog: z.any().optional() // What was stripped and why (for debugging)
 });
 
 // Update journal entry schema
@@ -94,7 +105,17 @@ export const updateJournalEntrySchema = z.object({
   // Achievement fields (optional - for achievement entries)
   achievementType: z.enum(['certification', 'award', 'milestone', 'recognition']).optional(),
   achievementTitle: z.string().min(1).max(200).optional(),
-  achievementDescription: z.string().max(1000).optional()
+  achievementDescription: z.string().max(1000).optional(),
+
+  // Network entry fields (dual-view system)
+  networkContent: z.string()
+    .max(50000, 'Network content must be less than 50,000 characters')
+    .optional(),
+  networkTitle: z.string()
+    .max(200, 'Network title must be less than 200 characters')
+    .optional(),
+  format7DataNetwork: z.any().optional(),
+  generateNetworkEntry: z.boolean().optional()
 });
 
 // Get journal entries schema (query parameters)
