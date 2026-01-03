@@ -1691,6 +1691,10 @@ export const sanitizeForNetwork = asyncHandler(async (req: Request, res: Respons
     console.log('[MCP Controller] Sanitizing content for network view...');
     console.log('[MCP Controller] Title:', title);
     console.log('[MCP Controller] Has Format7 data:', !!format7Data);
+    console.log('[MCP Controller] format7Data type:', typeof format7Data);
+    if (format7Data) {
+      console.log('[MCP Controller] format7Data keys:', Object.keys(format7Data).slice(0, 10));
+    }
 
     // Get sanitizer service
     const sanitizer = getContentSanitizerService();

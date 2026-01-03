@@ -78,7 +78,14 @@ export class ContentSanitizerService {
       );
 
       // Step 2: Sanitize Format7 data structure
-      const sanitizedFormat7 = await this.sanitizeFormat7Data(input.format7Data);
+      let sanitizedFormat7 = null;
+      try {
+        sanitizedFormat7 = await this.sanitizeFormat7Data(input.format7Data);
+      } catch (format7Error: any) {
+        console.error('❌ Format7 sanitization failed:', format7Error.message);
+        // Continue with null - the text sanitization still worked
+        // The error details are already logged in sanitizeFormat7Data
+      }
 
       // Step 3: Build sanitization log
       const sanitizationLog = this.buildSanitizationLog(
@@ -178,13 +185,25 @@ Create the sanitized version:`;
   }
 
   private async sanitizeFormat7Data(format7Data: any): Promise<any> {
-    if (!format7Data) return null;
-
     console.log('📊 Sanitizing Format7 data structure...');
+    console.log('📊 format7Data type:', typeof format7Data);
+    console.log('📊 format7Data keys:', format7Data ? Object.keys(format7Data) : 'null/undefined');
+
+    if (!format7Data) {
+      console.error('❌ format7Data is falsy:', format7Data);
+      throw new Error('Format7 data is required for sanitization');
+    }
 
     try {
-      // Deep clone to avoid mutating original
-      const sanitized = JSON.parse(JSON.stringify(format7Data));
+      // Deep clone to avoid mutating original - with explicit error handling
+      let sanitized;
+      try {
+        sanitized = JSON.parse(JSON.stringify(format7Data));
+      } catch (serializeError: any) {
+        console.error('❌ Failed to serialize format7Data:', serializeError);
+        console.error('❌ format7Data structure:', Object.keys(format7Data));
+        throw new Error(`Failed to serialize format7Data: ${serializeError.message}`);
+      }
 
       // Sanitize activities
       if (sanitized.activities && Array.isArray(sanitized.activities)) {
@@ -233,7 +252,7 @@ Create the sanitized version:`;
       return sanitized;
     } catch (error) {
       console.error('❌ Error sanitizing Format7 data:', error);
-      return null; // Return null if sanitization fails
+      throw error; // Propagate error instead of returning null
     }
   }
 
