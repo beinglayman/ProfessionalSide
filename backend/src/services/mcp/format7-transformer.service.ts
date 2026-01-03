@@ -497,6 +497,12 @@ export class Format7TransformerService {
       });
     });
 
+    // Log extraction summary
+    console.log(`[Format7] Extracted ${collaboratorMap.size} unique collaborators and ${reviewerMap.size} unique reviewers from ${activities.length} activities`);
+    if (collaboratorMap.size === 0 && reviewerMap.size === 0) {
+      console.warn('[Format7] No collaborators or reviewers found - check raw data structure and metadata extraction');
+    }
+
     return {
       collaborators: Array.from(collaboratorMap.values()),
       reviewers: Array.from(reviewerMap.values())
@@ -616,6 +622,79 @@ export class Format7TransformerService {
           activity.metadata.participants.forEach((p: string) => collaborators.push({ name: p }));
         }
       }
+    }
+
+    // Outlook - Extract meeting attendees and organizers
+    if (activity.source === 'outlook') {
+      const outlookData = rawToolData.get(MCPToolType.OUTLOOK);
+
+      let found = false;
+      if (outlookData?.meetings) {
+        const meeting = outlookData.meetings.find((m: any) =>
+          m.url === activity.evidence?.url ||
+          activity.description?.includes(m.subject)
+        );
+
+        if (meeting) {
+          found = true;
+          // Extract organizer as collaborator
+          if (meeting.organizer) {
+            collaborators.push({ name: meeting.organizer });
+          }
+          // Extract all attendees as collaborators
+          if (Array.isArray(meeting.attendees)) {
+            meeting.attendees.forEach((a: string) => collaborators.push({ name: a }));
+          }
+        }
+      }
+
+      // Fallback to metadata
+      if (!found && activity.metadata) {
+        if (activity.metadata.organizer) {
+          collaborators.push({ name: activity.metadata.organizer });
+        }
+        if (activity.metadata.attendees) {
+          activity.metadata.attendees.forEach((a: string) => collaborators.push({ name: a }));
+        }
+      }
+    }
+
+    // Confluence - Extract page authors and contributors
+    if (activity.source === 'confluence') {
+      const confluenceData = rawToolData.get(MCPToolType.CONFLUENCE);
+
+      let found = false;
+      if (confluenceData?.pages) {
+        const page = confluenceData.pages.find((p: any) =>
+          p.url === activity.evidence?.url ||
+          activity.description?.includes(p.title)
+        );
+
+        if (page) {
+          found = true;
+          if (page.author) {
+            collaborators.push({ name: page.author });
+          }
+          if (page.lastModifiedBy && page.lastModifiedBy !== page.author) {
+            collaborators.push({ name: page.lastModifiedBy });
+          }
+        }
+      }
+
+      // Fallback to metadata
+      if (!found && activity.metadata) {
+        if (activity.metadata.author) {
+          collaborators.push({ name: activity.metadata.author });
+        }
+        if (activity.metadata.lastModifiedBy) {
+          collaborators.push({ name: activity.metadata.lastModifiedBy });
+        }
+      }
+    }
+
+    // Log extraction results for debugging
+    if (collaborators.length === 0 && reviewers.length === 0) {
+      console.log(`[Format7] No people extracted from ${activity.source} activity: ${activity.description?.substring(0, 50)}`);
     }
 
     return { collaborators, reviewers };

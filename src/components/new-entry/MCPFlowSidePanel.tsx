@@ -114,12 +114,6 @@ export function MCPFlowSidePanel({
     }
   }, [workspacesError]);
 
-  // Handle workspace change
-  const handleWorkspaceChange = (workspaceId: string, workspaceName: string) => {
-    setSelectedWorkspaceId(workspaceId);
-    setSelectedWorkspaceName(workspaceName);
-  };
-
   // Step 1: Fetch raw activities (no AI processing)
   const handleFetchActivities = async (
     toolTypes: string[],
@@ -845,13 +839,14 @@ export function MCPFlowSidePanel({
       setEditableDescription(format7Entry.context.primary_focus);
       setFormat7Entry(format7Entry);
 
-      // Move to preview step
-      setStep('preview');
-
-      // Generate network entry if toggle is ON
+      // Generate network entry if toggle is ON (start before showing preview to avoid race condition)
       if (generateNetworkEntry) {
+        setIsSanitizing(true);  // Show loading state immediately when preview loads
         generateNetworkEntryContent(format7Entry);
       }
+
+      // Move to preview step
+      setStep('preview');
 
     } catch (error: any) {
       console.error('[MCPFlow] Failed to generate Format7 preview:', error);
@@ -1155,47 +1150,6 @@ export function MCPFlowSidePanel({
 
         return (
           <div className="space-y-6">
-            {/* Network Entry Toggle */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <button
-                  onClick={() => {
-                    const newValue = !generateNetworkEntry;
-                    setGenerateNetworkEntry(newValue);
-                    // If turning ON and no network data yet, generate it
-                    if (newValue && !networkEntryData && format7Entry) {
-                      generateNetworkEntryContent(format7Entry);
-                    }
-                    // Reset to workspace tab if turning off
-                    if (!newValue) {
-                      setActivePreviewTab('workspace');
-                    }
-                  }}
-                  className={cn(
-                    'mt-0.5 w-10 h-6 rounded-full transition-colors relative flex-shrink-0',
-                    generateNetworkEntry ? 'bg-purple-600' : 'bg-gray-300'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform',
-                      generateNetworkEntry ? 'left-5' : 'left-1'
-                    )}
-                  />
-                </button>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-purple-600" />
-                    <span className="font-medium text-gray-900">Generate Network Entry</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Your network entry will be visible on your profile to people outside your workspace.
-                    Confidential details are automatically removed.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Preview Tabs */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b">
@@ -1240,7 +1194,7 @@ export function MCPFlowSidePanel({
                   editableDescription={editableDescription}
                   isPreview={true}
                   selectedWorkspaceId={selectedWorkspaceId}
-                  onWorkspaceChange={handleWorkspaceChange}
+                  workspaceName={selectedWorkspaceName}
                   correlations={format7Entry?.correlations}
                   categories={format7Entry?.categories}
                 />
@@ -1296,6 +1250,7 @@ export function MCPFlowSidePanel({
                         editableDescription={networkEntryData?.networkContent || ''}
                         isPreview={true}
                         selectedWorkspaceId={selectedWorkspaceId}
+                        workspaceName={selectedWorkspaceName}
                         correlations={networkPreviewEntry?.correlations}
                         categories={networkPreviewEntry?.categories}
                       />
@@ -1303,14 +1258,8 @@ export function MCPFlowSidePanel({
                   ) : (
                     <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
                       <div className="text-center space-y-3">
-                        <Globe className="h-8 w-8 text-gray-400 mx-auto" />
-                        <p className="text-sm text-gray-500">Network view not generated yet</p>
-                        <Button
-                          size="sm"
-                          onClick={() => generateNetworkEntryContent(format7Entry)}
-                        >
-                          Generate Network View
-                        </Button>
+                        <Loader2 className="h-8 w-8 text-purple-600 animate-spin mx-auto" />
+                        <p className="text-sm text-gray-600">Generating network-safe version...</p>
                       </div>
                     </div>
                   )}
@@ -1374,42 +1323,83 @@ export function MCPFlowSidePanel({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
-          <Button
-            variant="outline"
-            onClick={step === 'select' ? handleClose : handleBack}
-            disabled={mcpMultiSource.isFetching || mcpMultiSource.isProcessing}
-          >
-            {step === 'select' ? (
-              'Cancel'
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back
-              </>
-            )}
-          </Button>
+        <div className="border-t bg-gray-50 flex-shrink-0">
+          {/* Network Entry Toggle - shown only in preview step */}
+          {step === 'preview' && (
+            <div className="px-6 py-3 border-b border-gray-200 bg-gradient-to-r from-purple-50/50 to-blue-50/50">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    const newValue = !generateNetworkEntry;
+                    setGenerateNetworkEntry(newValue);
+                    // If turning ON and no network data yet, generate it
+                    if (newValue && !networkEntryData && format7Entry && !isSanitizing) {
+                      generateNetworkEntryContent(format7Entry);
+                    }
+                    // Reset to workspace tab if turning off
+                    if (!newValue) {
+                      setActivePreviewTab('workspace');
+                    }
+                  }}
+                  className={cn(
+                    'w-9 h-5 rounded-full transition-colors relative flex-shrink-0',
+                    generateNetworkEntry ? 'bg-purple-600' : 'bg-gray-300'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                      generateNetworkEntry ? 'left-4' : 'left-0.5'
+                    )}
+                  />
+                </button>
+                <div className="flex items-center gap-2 text-sm">
+                  <Globe className="h-4 w-4 text-purple-600" />
+                  <span className="font-medium text-gray-700">Generate Network Entry</span>
+                  <span className="text-gray-500">(visible on your profile)</span>
+                </div>
+              </div>
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            {step === 'preview' && (
-              <Button
-                onClick={() => {
-                  console.log('[MCPFlow] Create Entry button clicked', {
-                    editableTitle,
-                    selectedWorkspaceId,
-                    selectedWorkspaceName,
-                    isProcessing: mcpMultiSource.isProcessing,
-                    buttonEnabled: !(!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId)
-                  });
-                  handleConfirmAndCreate();
-                }}
-                disabled={!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId}
-                className="bg-primary-600 hover:bg-primary-700"
-              >
-                Create Entry
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
+          {/* Buttons Row */}
+          <div className="flex items-center justify-between p-6">
+            <Button
+              variant="outline"
+              onClick={step === 'select' ? handleClose : handleBack}
+              disabled={mcpMultiSource.isFetching || mcpMultiSource.isProcessing}
+            >
+              {step === 'select' ? (
+                'Cancel'
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back
+                </>
+              )}
+            </Button>
+
+            <div className="flex items-center gap-2">
+              {step === 'preview' && (
+                <Button
+                  onClick={() => {
+                    console.log('[MCPFlow] Create Entry button clicked', {
+                      editableTitle,
+                      selectedWorkspaceId,
+                      selectedWorkspaceName,
+                      isProcessing: mcpMultiSource.isProcessing,
+                      buttonEnabled: !(!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId)
+                    });
+                    handleConfirmAndCreate();
+                  }}
+                  disabled={!editableTitle || mcpMultiSource.isProcessing || workspacesLoading || !selectedWorkspaceId}
+                  className="bg-primary-600 hover:bg-primary-700"
+                >
+                  Create Entry
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

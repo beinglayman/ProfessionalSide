@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Format7JournalEntry } from './sample-data';
-import { WorkspaceSelector } from '../new-entry/WorkspaceSelector';
 import {
   GithubIcon,
   JiraIcon,
@@ -17,7 +16,7 @@ import {
   ZoomIcon,
   GoogleWorkspaceIcon,
 } from '../icons/ToolIcons';
-import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy, Building } from 'lucide-react';
 import { useContainedConfetti } from '../../hooks/useContainedConfetti';
 
 interface JournalEnhancedProps {
@@ -26,7 +25,7 @@ interface JournalEnhancedProps {
   editMode?: boolean;
   isPreview?: boolean;
   selectedWorkspaceId?: string;
-  onWorkspaceChange?: (workspaceId: string, workspaceName: string) => void;
+  workspaceName?: string; // Display-only workspace name (selected in Step 1)
   onTitleChange?: (title: string) => void;
   onDescriptionChange?: (description: string) => void;
   correlations?: Array<{
@@ -99,7 +98,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   editMode = false,
   isPreview = false,
   selectedWorkspaceId,
-  onWorkspaceChange,
+  workspaceName,
   onTitleChange,
   onDescriptionChange,
   correlations = [],
@@ -412,9 +411,16 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             </p>
           )}
 
-          {/* AI Insights Pills */}
-          {(correlations.length > 0 || categories.length > 0) && (
-            <div className="flex gap-2 mb-4">
+          {/* Metadata Tags - Workspace, Categories, Correlations */}
+          {(workspaceName || correlations.length > 0 || categories.length > 0) && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {/* Workspace Tag (read-only, selected in Step 1) */}
+              {workspaceName && (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-xs text-blue-700">
+                  <Building className="w-3.5 h-3.5" />
+                  <span>{workspaceName}</span>
+                </span>
+              )}
               {strongCorrelations.length > 0 && (
                 <button
                   onClick={() => setShowCorrelations(!showCorrelations)}
@@ -427,7 +433,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
               {categories.length > 0 && (
                 <button
                   onClick={() => setShowCategories(!showCategories)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-xs text-blue-700 hover:bg-blue-100 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full text-xs text-green-700 hover:bg-green-100 transition-colors"
                 >
                   <Lightbulb className="w-3.5 h-3.5" />
                   <span>{categories.length} AI-grouped categor{categories.length > 1 ? 'ies' : 'y'}</span>
@@ -725,19 +731,12 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             </div>
           )}
 
-          {/* Workspace selector or badge */}
-          <div className={isPreview ? 'ml-auto' : ''}>
-            {isPreview && onWorkspaceChange ? (
-              <WorkspaceSelector
-                selectedWorkspaceId={selectedWorkspaceId}
-                onWorkspaceChange={onWorkspaceChange}
-              />
-            ) : (
-              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
-                Workspace: {entry.entry_metadata.workspace}
-              </Badge>
-            )}
-          </div>
+          {/* Workspace badge - only shown in non-preview mode (preview shows it in metadata tags) */}
+          {!isPreview && (
+            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
+              Workspace: {workspaceName || entry.entry_metadata.workspace}
+            </Badge>
+          )}
         </div>
       </div>
     </div>

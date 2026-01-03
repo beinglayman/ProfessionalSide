@@ -11,7 +11,7 @@ interface Format7EntryEditorProps {
   editableDescription: string;
   isPreview?: boolean;
   selectedWorkspaceId?: string;
-  onWorkspaceChange?: (workspaceId: string, workspaceName: string) => void;
+  workspaceName?: string; // Display-only workspace name (selected in Step 1)
   className?: string;
   // Explicit correlations and categories props to override entry data
   correlations?: any[];
@@ -26,7 +26,7 @@ export function Format7EntryEditor({
   editableDescription,
   isPreview = false,
   selectedWorkspaceId,
-  onWorkspaceChange,
+  workspaceName,
   className,
   correlations,
   categories
@@ -94,7 +94,7 @@ export function Format7EntryEditor({
             editMode={true}
             isPreview={isPreview}
             selectedWorkspaceId={selectedWorkspaceId}
-            onWorkspaceChange={onWorkspaceChange}
+            workspaceName={workspaceName}
             onTitleChange={onTitleChange}
             onDescriptionChange={onDescriptionChange}
           />
