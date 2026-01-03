@@ -287,12 +287,14 @@ Create the sanitized version:`;
       // Keep skills (public knowledge)
       skills: activity.skills,
       techTags: activity.techTags,
-      // Sanitize evidence
-      evidence: activity.evidence?.map((e: any) => ({
-        ...e,
-        content: this.sanitizeString(e.content || ''),
-        url: this.isPublicUrl(e.url) ? e.url : null
-      })) || []
+      // Sanitize evidence - use Array.isArray() to handle non-array evidence types
+      evidence: Array.isArray(activity.evidence)
+        ? activity.evidence.map((e: any) => ({
+            ...e,
+            content: this.sanitizeString(e.content || ''),
+            url: this.isPublicUrl(e.url) ? e.url : null
+          }))
+        : []
     };
   }
 
