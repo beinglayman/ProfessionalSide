@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2, Globe, Lock, Eye, EyeOff } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Sparkles, Database, ArrowRight, Loader2, Globe, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -331,11 +331,9 @@ export function MCPFlowSidePanel({
         workspaceName
       });
 
-      console.log('[MCPFlow] AI processing complete, moving to preview');
-
-      // Generate Format7 entry from AI-processed data
-      // Pass correlateResult directly to avoid race condition with state updates
-      await generateFormat7Preview(correlateResult.result);
+      console.log('[MCPFlow] AI processing complete, Step 3 will display results');
+      // User will click "Continue" in Step 3 to trigger generateFormat7Preview()
+      // The MCPActivityReview component has onContinue={generateFormat7Preview} wired up
 
     } catch (error: any) {
       console.error('[MCPFlow] Failed to process activities:', error);
@@ -839,10 +837,9 @@ export function MCPFlowSidePanel({
       setEditableDescription(format7Entry.context.primary_focus);
       setFormat7Entry(format7Entry);
 
-      // Generate network entry if toggle is ON (start before showing preview to avoid race condition)
+      // Generate network entry if toggle is ON
       if (generateNetworkEntry) {
-        setIsSanitizing(true);  // Show loading state immediately when preview loads
-        generateNetworkEntryContent(format7Entry);
+        generateNetworkEntryContent(format7Entry);  // Function handles its own state
       }
 
       // Move to preview step
@@ -856,11 +853,15 @@ export function MCPFlowSidePanel({
 
   // Generate sanitized network entry content
   const generateNetworkEntryContent = async (entry: any) => {
-    if (!entry) return;
-
     console.log('[MCPFlow] Generating network entry (sanitized version)...');
     setIsSanitizing(true);
     setSanitizationError(null);
+
+    if (!entry) {
+      console.warn('[MCPFlow] No entry provided for network generation');
+      setIsSanitizing(false);
+      return;
+    }
 
     try {
       const response = await api.post('/mcp/sanitize-for-network', {
@@ -1258,8 +1259,15 @@ export function MCPFlowSidePanel({
                   ) : (
                     <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
                       <div className="text-center space-y-3">
-                        <Loader2 className="h-8 w-8 text-purple-600 animate-spin mx-auto" />
-                        <p className="text-sm text-gray-600">Generating network-safe version...</p>
+                        <AlertCircle className="h-8 w-8 text-amber-500 mx-auto" />
+                        <p className="text-sm text-gray-600">Network view not available</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => generateNetworkEntryContent(format7Entry)}
+                        >
+                          Generate Now
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -1356,7 +1364,7 @@ export function MCPFlowSidePanel({
                 <div className="flex items-center gap-2 text-sm">
                   <Globe className="h-4 w-4 text-purple-600" />
                   <span className="font-medium text-gray-700">Generate Network Entry</span>
-                  <span className="text-gray-500">(visible on your profile)</span>
+                  <span className="text-gray-500">(visible to your network)</span>
                 </div>
               </div>
             </div>
