@@ -247,8 +247,14 @@ Create the publicly-shareable version:`;
         );
       }
 
-      // Sanitize summary
-      if (sanitized.summary) {
+      // Sanitize summary - preserve object structure (technologies_used, collaborators are public/display data)
+      if (sanitized.summary && typeof sanitized.summary === 'object') {
+        // technologies_used - KEEP as-is (public knowledge like React, Python, AWS)
+        // unique_collaborators - KEEP (display names, not confidential)
+        // unique_reviewers - KEEP (same as collaborators)
+        // Don't modify - these are core to the network entry display
+      } else if (sanitized.summary && typeof sanitized.summary === 'string') {
+        // Only sanitize if summary is a string (legacy format)
         sanitized.summary = this.sanitizeString(sanitized.summary);
       }
 
