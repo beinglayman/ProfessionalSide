@@ -47,6 +47,7 @@ interface TransformOptions {
   workspaceName: string;
   privacy?: 'private' | 'team' | 'network' | 'public';
   dateRange: { start: Date; end: Date };
+  currentUserIdentifiers?: string[]; // Names/usernames to filter from collaborators (e.g., GitHub username, Jira displayName)
 }
 
 export class Format7TransformerService {
@@ -66,8 +67,8 @@ export class Format7TransformerService {
       this.buildActivity(item, rawToolData, organizedActivity.correlations || [])
     );
 
-    // Extract collaborators and reviewers
-    const { collaborators, reviewers } = this.extractCollaborators(activities, rawToolData);
+    // Extract collaborators and reviewers (filtering out current user)
+    const { collaborators, reviewers } = this.extractCollaborators(activities, rawToolData, options.currentUserIdentifiers);
 
     // Calculate time metrics from user-selected date range
     const timeSpanHours = this.calculateTimeSpan(options.dateRange);
@@ -471,26 +472,50 @@ export class Format7TransformerService {
   }
 
   /**
-   * Extract and deduplicate collaborators
+   * Extract and deduplicate collaborators, filtering out current user
    */
   private extractCollaborators(
     activities: Format7Activity[],
-    rawToolData: Map<MCPToolType, any>
+    rawToolData: Map<MCPToolType, any>,
+    currentUserIdentifiers?: string[]
   ): { collaborators: Collaborator[]; reviewers: Collaborator[] } {
     const collaboratorMap = new Map<string, Collaborator>();
     const reviewerMap = new Map<string, Collaborator>();
+
+    // Normalize current user identifiers for case-insensitive matching
+    const currentUserLower = (currentUserIdentifiers || []).map(id => id.toLowerCase().trim());
+
+    // Helper to check if a name belongs to the current user
+    // IMPORTANT: Uses EXACT match only (case-insensitive) to avoid false positives
+    // Partial matching was filtering out legitimate collaborators
+    const isCurrentUser = (name: string): boolean => {
+      if (!name || currentUserLower.length === 0) return false;
+      const nameLower = name.toLowerCase().trim();
+      // Exact match only - no partial matching to avoid filtering out other users
+      return currentUserLower.includes(nameLower);
+    };
 
     activities.forEach(activity => {
       // Extract people from metadata
       const people = this.extractPeopleFromActivity(activity, rawToolData);
 
       people.collaborators.forEach(person => {
+        // Skip if this is the current user
+        if (isCurrentUser(person.name)) {
+          console.log(`[Format7] Filtering out current user from collaborators: ${person.name}`);
+          return;
+        }
         if (!collaboratorMap.has(person.name)) {
           collaboratorMap.set(person.name, this.createCollaborator(person));
         }
       });
 
       people.reviewers.forEach(person => {
+        // Skip if this is the current user
+        if (isCurrentUser(person.name)) {
+          console.log(`[Format7] Filtering out current user from reviewers: ${person.name}`);
+          return;
+        }
         if (!reviewerMap.has(person.name)) {
           reviewerMap.set(person.name, this.createCollaborator(person));
         }
@@ -499,6 +524,9 @@ export class Format7TransformerService {
 
     // Log extraction summary
     console.log(`[Format7] Extracted ${collaboratorMap.size} unique collaborators and ${reviewerMap.size} unique reviewers from ${activities.length} activities`);
+    if (currentUserLower.length > 0) {
+      console.log(`[Format7] Filtered out current user identifiers: ${currentUserLower.join(', ')}`);
+    }
     if (collaboratorMap.size === 0 && reviewerMap.size === 0) {
       console.warn('[Format7] No collaborators or reviewers found - check raw data structure and metadata extraction');
     }

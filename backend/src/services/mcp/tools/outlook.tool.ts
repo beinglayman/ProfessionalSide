@@ -57,10 +57,11 @@ export class OutlookTool {
       const endDate = dateRange?.end || new Date();
       const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      // Fetch meetings and emails
-      const [meetings, emails] = await Promise.all([
+      // Fetch meetings, emails, and user info
+      const [meetings, emails, userInfo] = await Promise.all([
         this.fetchMeetings(startDate, endDate),
-        this.fetchEmails(startDate, endDate)
+        this.fetchEmails(startDate, endDate),
+        this.fetchUserInfo()
       ]);
 
       // Compile activity data
@@ -93,7 +94,13 @@ export class OutlookTool {
         success: true,
         data: activity,
         sessionId,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        currentUser: {
+          id: userInfo?.id,
+          displayName: userInfo?.displayName,
+          email: userInfo?.mail,
+          userPrincipalName: userInfo?.userPrincipalName
+        }
       };
     } catch (error: any) {
       console.error('[Outlook Tool] Error fetching activity:', error);
@@ -172,6 +179,19 @@ export class OutlookTool {
     } catch (error) {
       console.error('[Outlook Tool] Error fetching emails:', error);
       return [];
+    }
+  }
+
+  /**
+   * Fetch user information
+   */
+  private async fetchUserInfo(): Promise<any> {
+    try {
+      const response = await this.graphApi.get('/me');
+      return response.data;
+    } catch (error) {
+      console.error('[Outlook Tool] Error fetching user info:', error);
+      return null;
     }
   }
 

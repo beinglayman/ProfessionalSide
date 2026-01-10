@@ -146,7 +146,12 @@ export class JiraTool {
         success: true,
         data: activity,
         sessionId,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+        currentUser: {
+          accountId: currentUser?.accountId,
+          displayName: currentUser?.displayName,
+          email: currentUser?.emailAddress
+        }
       };
     } catch (error: any) {
       console.error('[Jira Tool] Error fetching activity:', error);

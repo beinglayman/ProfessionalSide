@@ -556,6 +556,15 @@ export interface MCPServiceResponse<T = any> {
   error?: string;
   sessionId?: string;
   expiresAt?: Date;
+  currentUser?: {
+    id?: string | number;
+    login?: string;          // GitHub username
+    displayName?: string;    // Display name
+    email?: string;          // Email
+    accountId?: string;      // Jira/Confluence account ID
+    userPrincipalName?: string; // Microsoft UPN
+    mail?: string;           // Microsoft mail
+  };
 }
 
 export interface MCPFetchResponse {

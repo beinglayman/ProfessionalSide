@@ -13,7 +13,8 @@ import {
   Link2,
   Sparkles,
   AlertCircle,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -502,7 +503,10 @@ export function MCPActivityReview({
           className="min-w-[140px] bg-primary-600 hover:bg-primary-700"
         >
           {isProcessing ? (
-            'Processing...'
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating...
+            </>
           ) : (
             <>
               Generate Entry

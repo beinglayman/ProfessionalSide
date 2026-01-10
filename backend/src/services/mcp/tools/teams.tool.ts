@@ -114,7 +114,13 @@ export class TeamsTool {
         success: true,
         data: activity,
         sessionId,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        currentUser: {
+          id: userInfo?.id,
+          displayName: userInfo?.displayName,
+          email: userInfo?.mail,
+          userPrincipalName: userInfo?.userPrincipalName
+        }
       };
     } catch (error: any) {
       console.error('[Teams Tool] Error fetching activity:', error);

@@ -19,11 +19,45 @@ export class ConfluenceTool {
   private privacyService: MCPPrivacyService;
   private confluenceApi: AxiosInstance | null = null;
   private cloudId: string | null = null;
+  private userDisplayNameCache = new Map<string, string>(); // accountId -> displayName
 
   constructor() {
     this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
+  }
+
+  /**
+   * Resolve Atlassian account ID to display name
+   * Uses cache to avoid repeated API calls
+   */
+  private async resolveUserDisplayName(accountId: string): Promise<string> {
+    if (!accountId || accountId === 'Unknown') return accountId;
+
+    // Check cache first
+    if (this.userDisplayNameCache.has(accountId)) {
+      return this.userDisplayNameCache.get(accountId)!;
+    }
+
+    try {
+      // Use Confluence REST API v1 - works with our existing OAuth scopes
+      // Reference: https://developer.atlassian.com/cloud/confluence/rest/v1/api-group-users/
+      const response = await this.confluenceApi!.get('/wiki/rest/api/user', {
+        params: { accountId }
+      });
+
+      const displayName = response.data.displayName || response.data.publicName || 'Confluence User';
+      this.userDisplayNameCache.set(accountId, displayName);
+      console.log(`[Confluence Tool] Resolved user ${accountId} -> ${displayName}`);
+      return displayName;
+    } catch (error: any) {
+      console.log(`[Confluence Tool] Could not resolve user ${accountId}: ${error.message}`);
+
+      // For unresolvable IDs (deleted users, system accounts), use fallback
+      const fallbackName = 'Confluence User';
+      this.userDisplayNameCache.set(accountId, fallbackName);
+      return fallbackName;
+    }
   }
 
   /**
@@ -199,7 +233,12 @@ export class ConfluenceTool {
         success: true,
         data: activity,
         sessionId,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        currentUser: {
+          accountId: currentUser.accountId,
+          displayName: currentUser.displayName,
+          email: currentUser.email
+        }
       };
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching activity:', error);
@@ -249,6 +288,11 @@ export class ConfluenceTool {
         email: response.data.email
       });
       console.log('[Confluence Tool] ====================================');
+
+      // Cache current user's display name for later resolution
+      if (response.data.account_id && response.data.name) {
+        this.userDisplayNameCache.set(response.data.account_id, response.data.name);
+      }
 
       // Return in format expected by the rest of the code
       return {
@@ -365,21 +409,31 @@ export class ConfluenceTool {
 
       console.log('[Confluence Tool] ====================================');
 
-      // Map v2 API response to our expected format
-      return filteredPages.map((page: any) => ({
-        id: page.id,
-        title: page.title,
-        space: {
-          key: page.spaceId || '',
-          name: page.spaceId || ''
-        },
-        version: page.version?.number || 1,
-        created: page.createdAt,
-        lastModified: page.version?.createdAt || page.createdAt,
-        lastModifiedBy: page.version?.authorId || page.authorId || 'Unknown',
-        url: page._links?.webui ? `https://${this.cloudId}.atlassian.net${page._links.webui}` : '',
-        excerpt: page.body?.storage?.value ? this.extractExcerpt(page.body.storage.value) : ''
-      }));
+      // Map v2 API response to our expected format and resolve author names
+      const pagesWithResolvedNames = await Promise.all(
+        filteredPages.map(async (page: any) => {
+          const authorId = page.version?.authorId || page.authorId;
+          const authorName = await this.resolveUserDisplayName(authorId);
+
+          return {
+            id: page.id,
+            title: page.title,
+            space: {
+              key: page.spaceId || '',
+              name: page.spaceId || ''
+            },
+            version: page.version?.number || 1,
+            created: page.createdAt,
+            lastModified: page.version?.createdAt || page.createdAt,
+            lastModifiedBy: authorName,
+            author: authorName,
+            url: page._links?.webui ? `https://${this.cloudId}.atlassian.net${page._links.webui}` : '',
+            excerpt: page.body?.storage?.value ? this.extractExcerpt(page.body.storage.value) : ''
+          };
+        })
+      );
+
+      return pagesWithResolvedNames;
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching pages:', error);
       console.error('[Confluence Tool] Pages error details:', {
@@ -446,21 +500,30 @@ export class ConfluenceTool {
       console.log(`[Confluence Tool] Filtered to ${filteredPosts.length} blog posts for current user in date range`);
       console.log('[Confluence Tool] ====================================');
 
-      // Map v2 API response to our expected format
-      return filteredPosts.map((post: any) => ({
-        id: post.id,
-        title: post.title,
-        space: {
-          key: post.spaceId || '',
-          name: post.spaceId || ''
-        },
-        version: post.version?.number || 1,
-        created: post.createdAt,
-        publishedDate: post.version?.createdAt || post.createdAt,
-        author: post.version?.authorId || post.authorId || 'Unknown',
-        url: post._links?.webui ? `https://${this.cloudId}.atlassian.net${post._links.webui}` : '',
-        excerpt: post.body?.storage?.value ? this.extractExcerpt(post.body.storage.value) : ''
-      }));
+      // Map v2 API response to our expected format and resolve author names
+      const postsWithResolvedNames = await Promise.all(
+        filteredPosts.map(async (post: any) => {
+          const authorId = post.version?.authorId || post.authorId;
+          const authorName = await this.resolveUserDisplayName(authorId);
+
+          return {
+            id: post.id,
+            title: post.title,
+            space: {
+              key: post.spaceId || '',
+              name: post.spaceId || ''
+            },
+            version: post.version?.number || 1,
+            created: post.createdAt,
+            publishedDate: post.version?.createdAt || post.createdAt,
+            author: authorName,
+            url: post._links?.webui ? `https://${this.cloudId}.atlassian.net${post._links.webui}` : '',
+            excerpt: post.body?.storage?.value ? this.extractExcerpt(post.body.storage.value) : ''
+          };
+        })
+      );
+
+      return postsWithResolvedNames;
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching blog posts:', error);
       console.error('[Confluence Tool] Blog posts error details:', {
@@ -528,24 +591,28 @@ export class ConfluenceTool {
           });
         }
 
-        allPageComments.forEach((comment: any) => {
+        // Process comments and resolve author names
+        for (const comment of allPageComments) {
           const commentDate = new Date(comment.createdAt);
           const inDateRange = commentDate >= startDate && commentDate <= endDate;
 
           console.log(`[Confluence Tool] Comment ${comment.id}: created ${comment.createdAt}, in range: ${inDateRange}`);
 
           if (inDateRange) {
+            const authorId = comment.version?.authorId || comment.authorId;
+            const authorName = await this.resolveUserDisplayName(authorId);
+
             allComments.push({
               id: comment.id,
               pageId: page.id,
               pageTitle: page.title,
-              author: comment.version?.authorId || comment.authorId || 'Unknown',
+              author: authorName,
               createdAt: comment.createdAt,
               content: this.extractExcerpt(comment.body?.storage?.value || comment.body?.atlas_doc_format?.value),
               type: footerComments.includes(comment) ? 'footer' : 'inline'
             });
           }
-        });
+        }
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));

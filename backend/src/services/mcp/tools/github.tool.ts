@@ -107,7 +107,13 @@ export class GitHubTool {
         success: true,
         data: activity,
         sessionId,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+        currentUser: {
+          id: userInfo?.id,
+          login: userInfo?.login,
+          displayName: userInfo?.name,
+          email: userInfo?.email
+        }
       };
     } catch (error: any) {
       console.error('[GitHub Tool] Error fetching activity:', error);
@@ -222,13 +228,33 @@ export class GitHubTool {
    */
   private async fetchPRDetails(owner: string, repo: string, prNumber: number): Promise<any> {
     try {
-      const response = await this.githubApi.get(`/repos/${owner}/${repo}/pulls/${prNumber}`);
+      // Fetch PR details and actual reviews in parallel
+      const [prResponse, reviewsResponse] = await Promise.all([
+        this.githubApi.get(`/repos/${owner}/${repo}/pulls/${prNumber}`),
+        this.githubApi.get(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`).catch(() => ({ data: [] }))
+      ]);
+
+      // Get unique reviewers who actually submitted reviews (not pending)
+      const actualReviewers = [...new Set(
+        (reviewsResponse.data || [])
+          .filter((r: any) => r.state !== 'PENDING' && r.user?.login)
+          .map((r: any) => r.user.login)
+      )];
+
+      // Also include requested reviewers who haven't reviewed yet
+      const requestedReviewers = prResponse.data.requested_reviewers?.map((r: any) => r.login) || [];
+
+      // Combine both (actual reviewers take precedence)
+      const allReviewers = [...new Set([...actualReviewers, ...requestedReviewers])];
+
+      console.log(`[GitHub Tool] PR #${prNumber}: ${actualReviewers.length} actual reviewers, ${requestedReviewers.length} requested`);
+
       return {
-        additions: response.data.additions || 0,
-        deletions: response.data.deletions || 0,
-        changed_files: response.data.changed_files || 0,
-        commits: response.data.commits || 0,
-        reviewers: response.data.requested_reviewers?.map((r: any) => r.login) || []
+        additions: prResponse.data.additions || 0,
+        deletions: prResponse.data.deletions || 0,
+        changed_files: prResponse.data.changed_files || 0,
+        commits: prResponse.data.commits || 0,
+        reviewers: allReviewers
       };
     } catch (error) {
       console.error(`[GitHub Tool] Error fetching PR details for ${owner}/${repo}#${prNumber}:`, error);

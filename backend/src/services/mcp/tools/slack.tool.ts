@@ -102,7 +102,12 @@ export class SlackTool {
         success: true,
         data: activity,
         sessionId,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        currentUser: {
+          id: userInfo?.id,
+          displayName: userInfo?.name,
+          email: userInfo?.email
+        }
       };
     } catch (error: any) {
       console.error('[Slack Tool] Error fetching activity:', error);
