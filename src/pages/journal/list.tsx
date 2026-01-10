@@ -60,6 +60,8 @@ import { RechronicleSidePanel } from '../../components/journal/rechronicle-side-
 import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
 import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry } from '../../hooks/useJournal';
+import { useQueryClient } from '@tanstack/react-query';
+import { JournalService } from '../../services/journal.service';
 import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -68,6 +70,7 @@ interface JournalPageProps {}
 
 export default function JournalPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<'workspace' | 'network'>('workspace');
   const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -440,13 +443,30 @@ export default function JournalPage() {
   };
 
   // Handle publish/unpublish
-  const handlePublishToggle = (journal: JournalEntry) => {
-    // In a real app, this would make an API call
-    console.log(`${journal.isPublished ? 'Unpublishing' : 'Publishing'} journal:`, journal.id);
-    
-    // Show toast message
-    setToastMessage(journal.isPublished ? 'Entry unpublished successfully' : 'Entry published successfully');
-    
+  const handlePublishToggle = async (journal: JournalEntry) => {
+    try {
+      if (journal.isPublished || journal.visibility === 'network') {
+        // Unpublish - set visibility back to workspace
+        await JournalService.publishJournalEntry(journal.id, {
+          visibility: 'workspace'
+        });
+        setToastMessage('Entry unpublished successfully');
+      } else {
+        // Publish - set visibility to network
+        await JournalService.publishJournalEntry(journal.id, {
+          visibility: 'network',
+          abstractContent: journal.abstractContent || journal.description
+        });
+        setToastMessage('Entry published to network successfully');
+      }
+
+      // Refetch entries to update UI
+      queryClient.invalidateQueries({ queryKey: ['journal', 'feed'] });
+    } catch (error) {
+      setToastMessage('Failed to update entry');
+      console.error('Publish toggle error:', error);
+    }
+
     // Close the menu
     setOpenPublishMenus(prev => {
       const newSet = new Set(prev);
