@@ -728,7 +728,7 @@ export function MCPSourceSelector({
               No tools are connected yet. Connect your work tools to import activities.
             </p>
             <Link
-              to="/settings/integrations"
+              to="/settings?tab=integrations"
               className="inline-flex items-center gap-1 text-sm font-medium text-yellow-900 hover:text-yellow-700 underline"
             >
               Go to Integrations
@@ -750,7 +750,7 @@ export function MCPSourceSelector({
               Please reconnect: {invalidTools.map(t => t.name).join(', ')}
             </p>
             <Link
-              to="/settings/integrations"
+              to="/settings?tab=integrations"
               className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:text-red-600 underline mt-2"
             >
               Reconnect in Settings
@@ -766,7 +766,7 @@ export function MCPSourceSelector({
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-gray-500">Not Connected</h4>
             <Link
-              to="/settings/integrations"
+              to="/settings?tab=integrations"
               className="text-xs text-primary-600 hover:text-primary-700 font-medium"
             >
               Connect more tools →

@@ -89,7 +89,7 @@ export function Step7MCPIntegration({
               {/* Connect Button */}
               <div className="pt-2">
                 <Button
-                  onClick={() => window.location.href = '/settings/integrations'}
+                  onClick={() => window.location.href = '/settings?tab=integrations'}
                   size="lg"
                   variant="outline"
                   className="gap-2"

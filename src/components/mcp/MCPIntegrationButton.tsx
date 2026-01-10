@@ -259,7 +259,7 @@ export const MCPIntegrationButton: React.FC<MCPIntegrationButtonProps> = ({
             <div className="px-2 py-4 text-sm text-gray-500 text-center">
               No tools connected yet.
               <br />
-              <a href="/settings/integrations" className="text-blue-600 hover:underline">
+              <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
                 Connect tools
               </a>
             </div>

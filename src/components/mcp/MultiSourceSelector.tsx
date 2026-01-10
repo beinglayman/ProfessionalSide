@@ -248,7 +248,7 @@ export const MultiSourceSelector: React.FC<MultiSourceSelectorProps> = ({
             <p className="text-sm text-yellow-700 mt-1">
               Connect at least one tool in{' '}
               <a
-                href="/settings/integrations"
+                href="/settings?tab=integrations"
                 className="underline hover:text-yellow-800"
               >
                 Settings → Integrations

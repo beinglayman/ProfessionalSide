@@ -7,7 +7,7 @@ import NotificationSettings from '../../components/settings/notification-setting
 import PrivacySettings from '../../components/settings/privacy-settings';
 import ProfileVisibility from '../../components/settings/profile-visibility';
 import IntegrationsSettings from '../../components/settings/integrations-settings';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 
 type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy' | 'integrations';
 
@@ -147,8 +147,19 @@ const settingsTabs = [
 ];
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as SettingsTab | null;
+  const validTabs: SettingsTab[] = ['profile', 'network', 'notifications', 'privacy', 'integrations'];
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'profile'
+  );
   const navigate = useNavigate();
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: SettingsTab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -247,7 +258,7 @@ export function SettingsPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabChange(tab.id)}
                     className={cn(
                       'w-full text-left p-4 rounded-lg transition-all duration-200',
                       isActive

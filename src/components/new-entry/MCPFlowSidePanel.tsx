@@ -1045,7 +1045,7 @@ export function MCPFlowSidePanel({
                   Connect your work tools to automatically import and organize your activities
                 </p>
                 <Button asChild className="gap-2">
-                  <Link to="/settings/integrations">
+                  <Link to="/settings?tab=integrations">
                     Connect Tools
                     <ArrowRight className="h-4 w-4" />
                   </Link>
