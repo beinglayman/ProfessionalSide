@@ -78,3 +78,7 @@ credentials.json
 # Claude Code and Bolt directories
 .claude/
 .bolt/
+
+# Local documentation and diagrams
+Documents/
+diagrams/
