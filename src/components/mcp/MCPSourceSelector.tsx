@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp, XCircle, Building2, Target } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, Circle, AlertCircle, Calendar, Loader2, ChevronDown, ChevronUp, XCircle, Building2, Target, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { cn } from '../../lib/utils';
@@ -722,9 +723,18 @@ export function MCPSourceSelector({
       ) : (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-800">
-            No tools are connected yet. Please connect at least one tool from Settings → Integrations.
-          </p>
+          <div className="flex-1">
+            <p className="text-sm text-yellow-800 mb-2">
+              No tools are connected yet. Connect your work tools to import activities.
+            </p>
+            <Link
+              to="/settings/integrations"
+              className="inline-flex items-center gap-1 text-sm font-medium text-yellow-900 hover:text-yellow-700 underline"
+            >
+              Go to Integrations
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
       )}
 
@@ -739,9 +749,13 @@ export function MCPSourceSelector({
             <p className="text-xs text-red-700">
               Please reconnect: {invalidTools.map(t => t.name).join(', ')}
             </p>
-            <p className="text-xs text-red-600 mt-2">
-              Go to Settings → Integrations to reconnect these tools.
-            </p>
+            <Link
+              to="/settings/integrations"
+              className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:text-red-600 underline mt-2"
+            >
+              Reconnect in Settings
+              <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
         </div>
       )}
@@ -749,7 +763,15 @@ export function MCPSourceSelector({
       {/* Disconnected Tools (Show as disabled) */}
       {disconnectedTools.length > 0 && connectedTools.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-500">Not Connected</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-500">Not Connected</h4>
+            <Link
+              to="/settings/integrations"
+              className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Connect more tools →
+            </Link>
+          </div>
           <div className="space-y-2 opacity-60">
             {disconnectedTools.map((tool) => (
               <div

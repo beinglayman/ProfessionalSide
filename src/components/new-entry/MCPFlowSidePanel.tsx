@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sparkles, Database, ArrowRight, Loader2, Globe, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -73,6 +74,9 @@ export function MCPFlowSidePanel({
   const [sanitizationError, setSanitizationError] = useState<string | null>(null);
   const [sanitizationExpanded, setSanitizationExpanded] = useState(false);
 
+  // Ref for scroll container
+  const contentRef = useRef<HTMLDivElement>(null);
+
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
   const { data: workspaces = [], isLoading: workspacesLoading, isError: workspacesError } = useWorkspaces();
@@ -106,6 +110,13 @@ export function MCPFlowSidePanel({
       }
     }
   }, [open, workspaces, workspacesLoading, workspaceName]); // Trigger on panel open and workspace data changes
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [step]);
 
   // Show error if workspaces failed to load
   useEffect(() => {
@@ -1033,12 +1044,11 @@ export function MCPFlowSidePanel({
                 <p className="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
                   Connect your work tools to automatically import and organize your activities
                 </p>
-                <Button
-                  onClick={() => window.location.href = '/settings/integrations'}
-                  className="gap-2"
-                >
-                  Go to Integrations
-                  <ArrowRight className="h-4 w-4" />
+                <Button asChild className="gap-2">
+                  <Link to="/settings/integrations">
+                    Connect Tools
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </Button>
               </div>
             )}
@@ -1351,7 +1361,7 @@ export function MCPFlowSidePanel({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div ref={contentRef} className="flex-1 overflow-y-auto p-6">
           {renderStepContent()}
         </div>
 

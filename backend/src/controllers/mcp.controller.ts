@@ -634,6 +634,18 @@ export const fetchMultiSource = asyncHandler(async (req: Request, res: Response)
             return `${key}:${Array.isArray(value) ? value.length : '?'}`;
           }).join(', ');
           console.log(`[MCP Multi-Source] ✓ ${toolType} returned data: {${activityCounts}}`);
+
+          // Update lastSyncAt timestamp for this tool
+          try {
+            await prisma.mCPIntegration.update({
+              where: { userId_toolType: { userId, toolType } },
+              data: { lastSyncAt: new Date() }
+            });
+            console.log(`[MCP Multi-Source] Updated lastSyncAt for ${toolType}`);
+          } catch (e) {
+            console.error(`[MCP Multi-Source] Failed to update lastSyncAt for ${toolType}:`, e);
+          }
+
           return { toolType, success: true, data: result.data };
         }
 
@@ -996,6 +1008,18 @@ export const fetchAndProcessWithAgents = asyncHandler(async (req: Request, res: 
 
         if (result && result.success && result.data) {
           console.log(`[MCP Agents] ✅ Successfully fetched from ${toolType}: ${getCountSummary(toolType, result.data)}`);
+
+          // Update lastSyncAt timestamp for this tool
+          try {
+            await prisma.mCPIntegration.update({
+              where: { userId_toolType: { userId, toolType } },
+              data: { lastSyncAt: new Date() }
+            });
+            console.log(`[MCP Agents] Updated lastSyncAt for ${toolType}`);
+          } catch (e) {
+            console.error(`[MCP Agents] Failed to update lastSyncAt for ${toolType}:`, e);
+          }
+
           return { toolType, data: result.data };
         }
         console.log(`[MCP Agents] ❌ No valid data from ${toolType} (success: ${result?.success})`);
@@ -1215,7 +1239,19 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
 
         if (result && result.success && result.data) {
           console.log(`[Format7] ✅ Successfully fetched from ${toolType}: ${itemCount} items`);
-          return { toolType, data: result.data };
+
+          // Update lastSyncAt timestamp for this tool
+          try {
+            await prisma.mCPIntegration.update({
+              where: { userId_toolType: { userId, toolType } },
+              data: { lastSyncAt: new Date() }
+            });
+            console.log(`[Format7] Updated lastSyncAt for ${toolType}`);
+          } catch (e) {
+            console.error(`[Format7] Failed to update lastSyncAt for ${toolType}:`, e);
+          }
+
+          return { toolType, data: result.data, currentUser: result.currentUser };
         }
         console.log(`[Format7] ❌ No valid data from ${toolType}`);
         return null;
@@ -1228,14 +1264,20 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
     const results = await Promise.all(fetchPromises);
 
     // Filter out failed fetches and create source map
+    // Also collect currentUser identifiers from all tools
     const sourcesMap = new Map<string, any>();
+    const toolCurrentUsers: any[] = [];
     results.forEach(result => {
       if (result && result.data) {
         sourcesMap.set(result.toolType, result.data);
+        if (result.currentUser) {
+          toolCurrentUsers.push(result.currentUser);
+        }
       }
     });
 
     console.log(`[Format7] Successfully fetched from ${sourcesMap.size} tools: [${Array.from(sourcesMap.keys()).join(', ')}]`);
+    console.log(`[Format7] Collected currentUser from ${toolCurrentUsers.length} tools`);
 
     if (sourcesMap.size === 0) {
       console.error(`[Format7] No data fetched from any tool`);
@@ -1263,6 +1305,37 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
     console.log(`[Format7] Transforming to Format7 structure...`);
     const { format7Transformer } = await import('../services/mcp/format7-transformer.service');
 
+    // Collect current user identifiers to filter from collaborators
+    // Include name, email username, and any names found from tool data
+    const currentUserIdentifiers: string[] = [];
+    if (req.user?.name) currentUserIdentifiers.push(req.user.name);
+    if (req.user?.email) {
+      currentUserIdentifiers.push(req.user.email);
+      // Also add email username (before @)
+      const emailUsername = req.user.email.split('@')[0];
+      if (emailUsername) currentUserIdentifiers.push(emailUsername);
+    }
+
+    // Collect identifiers from all connected tools' currentUser responses
+    toolCurrentUsers.forEach(cu => {
+      if (cu.login) currentUserIdentifiers.push(cu.login);           // GitHub username
+      if (cu.displayName) currentUserIdentifiers.push(cu.displayName); // Display name
+      if (cu.email) currentUserIdentifiers.push(cu.email);           // Email
+      if (cu.accountId) currentUserIdentifiers.push(cu.accountId);   // Jira/Confluence account ID
+      if (cu.id) currentUserIdentifiers.push(String(cu.id));         // User ID
+      if (cu.userPrincipalName) currentUserIdentifiers.push(cu.userPrincipalName); // Microsoft UPN
+      if (cu.mail) currentUserIdentifiers.push(cu.mail);             // Microsoft mail
+    });
+
+    // Dedupe and normalize (lowercase)
+    const uniqueIdentifiers = [...new Set(
+      currentUserIdentifiers
+        .filter(Boolean)
+        .map(id => id.toLowerCase().trim())
+    )];
+
+    console.log(`[Format7] Current user identifiers for filtering: [${uniqueIdentifiers.slice(0, 5).join(', ')}${uniqueIdentifiers.length > 5 ? '...' : ''}]`);
+
     const format7Entry = format7Transformer.transformToFormat7(
       agentResults.organized,
       sourcesMap,
@@ -1278,7 +1351,8 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
         suggestedEntryType: agentResults.analysis?.suggestedEntryType as 'achievement' | 'learning' | 'challenge' | 'reflection',
         extractedSkills: agentResults.organized?.extractedSkills || [],
         correlations: agentResults.correlations || [],
-        artifacts: agentResults.organized?.artifacts || []
+        artifacts: agentResults.organized?.artifacts || [],
+        currentUserIdentifiers: uniqueIdentifiers
       }
     );
 
@@ -1634,6 +1708,15 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
       end: dateRange.end.toISOString()
     });
 
+    // Collect current user identifiers to filter from collaborators
+    const currentUserIdentifiers: string[] = [];
+    if (req.user?.name) currentUserIdentifiers.push(req.user.name);
+    if (req.user?.email) {
+      currentUserIdentifiers.push(req.user.email);
+      const emailUsername = req.user.email.split('@')[0];
+      if (emailUsername) currentUserIdentifiers.push(emailUsername);
+    }
+
     const format7Entry = format7Transformer.transformToFormat7(
       organizedActivity,
       rawToolData,
@@ -1641,7 +1724,8 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
         userId,
         workspaceName: options?.workspaceName || 'Professional Work',
         privacy: options?.privacy || 'team',
-        dateRange
+        dateRange,
+        currentUserIdentifiers
       }
     );
 
