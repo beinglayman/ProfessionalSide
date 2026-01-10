@@ -1025,7 +1025,7 @@ export function MCPFlowSidePanel({
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Pull Work from Connected Tools</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Fetch activities from your work</h3>
               <p className="text-sm text-gray-600">
                 Select which tools to import activities from and choose the time period
               </p>

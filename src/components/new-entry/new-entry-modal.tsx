@@ -845,7 +845,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 </div>
               </button>
 
-              {/* Pull from Tools Card */}
+              {/* Fetch from Work Card */}
               <button
                 onClick={() => {
                   if (connectedToolsCount > 0) {
@@ -874,7 +874,7 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                       connectedToolsCount > 0 ? "text-blue-600" : "text-gray-400"
                     )} />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Pull from Tools</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Fetch from Your Work</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">
                   Import your recent work from GitHub, Jira, Figma, and more with AI assistance

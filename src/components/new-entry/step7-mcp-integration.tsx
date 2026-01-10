@@ -46,7 +46,7 @@ export function Step7MCPIntegration({
               </div>
               <div className="max-w-md mx-auto">
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  Pull your recent work from connected tools and let AI organize it into journal entries
+                  Fetch your recent work and let AI organize it into journal entries
                 </p>
               </div>
             </div>
@@ -59,7 +59,7 @@ export function Step7MCPIntegration({
                 className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
                 <Database className="h-4 w-4" />
-                Pull Work from Tools
+                Fetch from Your Work
                 <Sparkles className="h-4 w-4" />
               </Button>
 
