@@ -69,7 +69,16 @@ interface JournalPageProps {}
 export default function JournalPage() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'workspace' | 'network'>('workspace');
+  const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Toggle view mode for individual entry
+  const toggleEntryViewMode = (entryId: string) => {
+    setEntryViewModes(prev => ({
+      ...prev,
+      [entryId]: prev[entryId] === 'workspace' ? 'network' : 'workspace'
+    }));
+  };
   const [selectedWorkspace, setSelectedWorkspace] = useState('all');
   const [showViewToggleTooltip, setShowViewToggleTooltip] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -601,11 +610,17 @@ export default function JournalPage() {
     }
 
     // Otherwise, render regular JournalCard
+    // Check if entry has both workspace and network views (published to network)
+    const hasMultipleVisibilities = !!(journal.abstractContent && journal.visibility === 'network');
+    const currentViewMode = entryViewModes[journal.id] || 'workspace';
+
     return (
       <div key={journal.id}>
         <JournalCard
           journal={journal}
-          viewMode={viewMode}
+          viewMode={currentViewMode}
+          hasMultipleVisibilities={hasMultipleVisibilities}
+          onToggleViewMode={hasMultipleVisibilities ? () => toggleEntryViewMode(journal.id) : undefined}
           showPublishMenu={openPublishMenus.has(journal.id)}
           onPublishToggle={handlePublishToggle}
           onDeleteEntry={handleDeleteEntry}
