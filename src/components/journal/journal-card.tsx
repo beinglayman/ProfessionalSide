@@ -96,6 +96,7 @@ export function JournalCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const isWorkspaceView = viewMode === 'workspace';
   const [showComments, setShowComments] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [onboardingProfileImage, setOnboardingProfileImage] = useState<string | null>(null);
   
   // Load profile image from onboarding data as fallback for current user
@@ -250,96 +251,6 @@ export function JournalCard({
       )}
       onMouseEnter={handleAchievementHover}
     >
-      {/* Workspace and Publication Status Tags - Top Right */}
-      <div className="absolute top-4 right-4 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 z-10">
-        {/* Workspace tag */}
-        <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-          <Briefcase className="h-3 w-3" />
-          <span className="hidden sm:inline">{journal.workspaceName}</span>
-          <span className="sm:hidden">{journal.workspaceName && journal.workspaceName.length > 15 ? journal.workspaceName.substring(0, 15) + '...' : journal.workspaceName}</span>
-        </span>
-        {hasMultipleVisibilities ? (
-          <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full whitespace-nowrap">
-            <Globe className="h-3 w-3" />
-            Published
-          </div>
-        ) : journal.visibility === 'network' ? (
-          <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full whitespace-nowrap">
-            <Globe className="h-3 w-3" />
-            Published
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
-            <Shield className="h-3 w-3" />
-            Workspace Only
-          </div>
-        )}
-        {/* View mode toggle - only show if entry has multiple visibilities */}
-        {hasMultipleVisibilities && onToggleViewMode && (
-          <button
-            onClick={onToggleViewMode}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-white/80 hover:bg-white border border-gray-200 hover:border-gray-300 px-2 py-1 rounded-full font-medium transition-all duration-200 backdrop-blur-sm"
-            title={`Switch to ${viewMode === 'workspace' ? 'network' : 'workspace'} view`}
-          >
-            <Eye className="h-3 w-3" />
-            <span className="hidden sm:inline">
-              {viewMode === 'workspace' ? 'Workspace' : 'Network'}
-            </span>
-          </button>
-        )}
-        {/* Publish/Unpublish Menu */}
-        {showMenuButton && (
-          <div className="relative" data-publish-menu>
-            <button
-              className="p-1 rounded-full hover:bg-gray-100 transition-all duration-200 group opacity-60 hover:opacity-100"
-              title={journal.visibility === 'network' ? "Unpublish entry" : "Publish entry"}
-              onClick={() => onTogglePublishMenu?.(journal.id)}
-            >
-              <MoreVertical className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" />
-            </button>
-            
-            {showPublishMenu && (
-              <div className="absolute right-0 top-6 z-10 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200 animate-in fade-in-0 zoom-in-95 duration-100">
-                <div className="py-1">
-                  <button
-                    onClick={() => onPublishToggle?.(journal)}
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    {journal.visibility === 'network' ? (
-                      <>
-                        <Download className="h-4 w-4 text-gray-500" />
-                        Unpublish Entry
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 text-gray-500" />
-                        Publish Entry
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteEntry?.(journal.id);
-                    }}
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete Entry
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Date display under workspace/publication tags */}
-      <div className="absolute top-16 right-4 z-10">
-        <div className="text-xs text-gray-400 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md">
-          {format(journal.createdAt, 'MMM d, yyyy')}
-        </div>
-      </div>
 
       {/* User Profile Outline (Both Views) */}
       {showUserProfile && (
@@ -362,7 +273,7 @@ export function JournalCard({
                 )}
               </Link>
             </div>
-            <div className="flex-1 min-w-0 pr-24 sm:pr-32 lg:pr-36">
+            <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
                 <Link 
                   to={`/profile/${journal.author.id || journal.author.name.replace(/\s+/g, '').toLowerCase()}`}
@@ -420,10 +331,15 @@ export function JournalCard({
       
       {/* Header */}
       <div className={cn("px-6 pb-4", showUserProfile ? "pt-0" : "pt-6")}>
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-24 sm:pr-32 lg:pr-36">
+        {/* Title with date range - matching JournalEnhanced style */}
+        <div className="flex items-start justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex-1">
             {journal.title}
           </h3>
+          <div className="flex items-center gap-2 text-xs text-gray-500 flex-shrink-0 ml-4">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{format(journal.createdAt, 'MMM d, yyyy')}</span>
+          </div>
         </div>
 
         {/* Achievement Box */}
@@ -486,6 +402,93 @@ export function JournalCard({
           </p>
         </div>
 
+        {/* Tools/Tech/Team Cards - Matching JournalEnhanced style */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {/* Tools Card - from artifacts */}
+          <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
+            <span className="text-xs text-gray-500 font-medium">Tools:</span>
+            <div className="flex gap-1.5 flex-1 flex-wrap items-center">
+              {journal.artifacts && journal.artifacts.length > 0 ? (
+                <>
+                  {journal.artifacts.slice(0, 3).map((artifact) => (
+                    <div key={artifact.id} className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
+                      <Paperclip className="w-3.5 h-3.5 text-gray-600" />
+                      <span className="text-xs text-gray-700 truncate max-w-[60px]">{artifact.name}</span>
+                    </div>
+                  ))}
+                  {journal.artifacts.length > 3 && (
+                    <div className="px-2 py-1 bg-gray-200 rounded-full text-xs text-gray-700 font-semibold">
+                      +{journal.artifacts.length - 3}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-gray-400">None</span>
+              )}
+            </div>
+          </div>
+
+          {/* Tech Card - from skills */}
+          <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
+            <span className="text-xs text-gray-500 font-medium">Tech:</span>
+            <div className="flex gap-1.5 flex-1 flex-wrap">
+              {journal.skills && journal.skills.length > 0 ? (
+                <>
+                  {journal.skills.slice(0, 2).map((skill) => (
+                    <span key={skill} className="bg-purple-50 text-purple-700 text-xs rounded-full px-2 py-0.5">
+                      {skill}
+                    </span>
+                  ))}
+                  {journal.skills.length > 2 && (
+                    <span className="px-2 py-0.5 bg-gray-200 rounded-full text-xs text-gray-700 font-semibold">
+                      +{journal.skills.length - 2}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-gray-400">None</span>
+              )}
+            </div>
+          </div>
+
+          {/* Team Card - from collaborators */}
+          <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
+            <span className="text-xs text-gray-500 font-medium">Team:</span>
+            <div className="flex gap-2 flex-1 items-center">
+              {journal.collaborators && journal.collaborators.length > 0 ? (
+                <>
+                  {journal.collaborators.slice(0, 2).map((collaborator) => (
+                    <div key={collaborator.id} className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-md border border-gray-100">
+                      <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                        {collaborator.avatar ? (
+                          <img src={collaborator.avatar} alt={collaborator.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-white bg-gradient-to-br from-blue-400 to-blue-600">
+                            {collaborator.name ? collaborator.name.charAt(0).toUpperCase() : 'C'}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-medium text-gray-900 truncate max-w-[60px]">
+                        {collaborator.name?.split(' ')[0] || 'Unknown'}
+                      </span>
+                    </div>
+                  ))}
+                  {journal.collaborators.length > 2 && (
+                    <div className="px-2 py-1 bg-gray-200 rounded-full text-xs text-gray-700 font-semibold">
+                      +{journal.collaborators.length - 2}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-gray-400">None</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded Section - Collaborators, Reviewers, Artifacts, Outcomes */}
+        {isExpanded && (
+          <>
         {/* Collaborators & Reviewers - Visible in both workspace and network views */}
         {((journal.collaborators && journal.collaborators.length > 0) || (journal.reviewers && journal.reviewers.length > 0)) && (
           <div className="mb-4 space-y-4">
@@ -624,20 +627,6 @@ export function JournalCard({
           </div>
         )}
 
-        {/* Skills */}
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2">
-            {journal.skills?.map((skill) => (
-              <span
-                key={skill}
-                className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-        </div>
-
         {/* Outcomes & Results */}
         {journal.outcomes && journal.outcomes.length > 0 && (
           <div className="mb-4">
@@ -710,6 +699,16 @@ export function JournalCard({
             </div>
           </div>
         )}
+          </>
+        )}
+
+        {/* Show More/Less Toggle - Matching JournalEnhanced style */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+        >
+          {isExpanded ? 'Show Less' : 'Show More'}
+        </button>
       </div>
 
       {/* Footer */}
@@ -759,19 +758,88 @@ export function JournalCard({
           </div>
           
           <div className="flex items-center gap-2">
-            {showAnalyticsButton && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onToggleAnalytics?.(journal.id)}
-                className={cn(
-                  "transition-colors",
-                  isAnalyticsOpen && "bg-gray-100"
-                )}
+            {/* Workspace Badge - matching JournalEnhanced style */}
+            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+              <Briefcase className="h-3 w-3" />
+              {journal.workspaceName}
+            </span>
+
+            {/* Publication Status */}
+            {journal.visibility === 'network' ? (
+              <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                Published
+              </span>
+            ) : (
+              <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
+                Unpublished
+              </span>
+            )}
+
+            {/* View Toggle for entries with multiple visibilities */}
+            {hasMultipleVisibilities && onToggleViewMode && (
+              <button
+                onClick={onToggleViewMode}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-white border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-full font-medium transition-all duration-200"
+                title={`Switch to ${viewMode === 'workspace' ? 'network' : 'workspace'} view`}
               >
-                <BarChart className="h-3.5 w-3.5 mr-1" />
-                Analytics
-              </Button>
+                <Eye className="h-3 w-3" />
+                {viewMode === 'workspace' ? 'Workspace' : 'Network'}
+              </button>
+            )}
+
+            {/* Menu Button */}
+            {showMenuButton && (
+              <div className="relative" data-publish-menu>
+                <button
+                  className="p-1 rounded-full hover:bg-gray-100 transition-all duration-200"
+                  title="More options"
+                  onClick={() => onTogglePublishMenu?.(journal.id)}
+                >
+                  <MoreVertical className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" />
+                </button>
+
+                {showPublishMenu && (
+                  <div className="absolute right-0 bottom-8 z-10 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200 animate-in fade-in-0 zoom-in-95 duration-100">
+                    <div className="py-1">
+                      <button
+                        onClick={() => onPublishToggle?.(journal)}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        {journal.visibility === 'network' ? (
+                          <>
+                            <Download className="h-4 w-4 text-gray-500" />
+                            Unpublish Entry
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 text-gray-500" />
+                            Publish Entry
+                          </>
+                        )}
+                      </button>
+                      {showAnalyticsButton && (
+                        <button
+                          onClick={() => onToggleAnalytics?.(journal.id)}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <BarChart className="h-4 w-4 text-gray-500" />
+                          View Analytics
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteEntry?.(journal.id);
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Entry
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {customActions}
           </div>
