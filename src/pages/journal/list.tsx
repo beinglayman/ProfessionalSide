@@ -352,9 +352,9 @@ export default function JournalPage() {
     console.log(`🔍 Filtering ${journals.length} journals for viewMode: ${viewMode}`);
     
     const filtered = journals.filter(journal => {
-      // In network view, only show published entries (check either visibility OR isPublished)
-      if (viewMode === 'network' && journal.visibility !== 'network' && !journal.isPublished) {
-        console.log(`❌ Excluding "${journal.title}" from network view (visibility: ${journal.visibility}, isPublished: ${journal.isPublished})`);
+      // In network view, show entries that have: generateNetworkEntry=true OR visibility='network' OR isPublished=true
+      if (viewMode === 'network' && !journal.generateNetworkEntry && journal.visibility !== 'network' && !journal.isPublished) {
+        console.log(`❌ Excluding "${journal.title}" from network view (visibility: ${journal.visibility}, isPublished: ${journal.isPublished}, generateNetworkEntry: ${journal.generateNetworkEntry})`);
         return false;
       }
       // Search filter

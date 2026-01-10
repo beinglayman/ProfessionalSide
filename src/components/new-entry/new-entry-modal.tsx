@@ -2792,16 +2792,19 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               });
 
               // Create journal entry with Format7 data
+              // Set visibility based on generateNetworkEntry toggle
+              const hasNetworkEntry = data.networkEntry?.generateNetworkEntry ?? false;
               const result = await createJournalEntryMutation.mutateAsync({
                 title: data.title,
                 description: data.description,
                 fullContent: data.description,
-                abstractContent: data.description.substring(0, 500),
+                abstractContent: data.networkEntry?.networkContent || data.description.substring(0, 500),
                 workspaceId: data.workspaceEntry.workspaceId,
-                visibility: 'workspace',
+                visibility: hasNetworkEntry ? 'network' : 'workspace',
                 tags: [],
                 skills: data.skills || [],
-                format7Data: data.format7Entry
+                format7Data: data.format7Entry,
+                generateNetworkEntry: hasNetworkEntry
               });
 
               console.log('[NewEntryModal] Journal entry created successfully:', result);

@@ -38,6 +38,7 @@ export interface CreateJournalEntryRequest {
   achievementTitle?: string; // Achievement title
   achievementDescription?: string; // Achievement description
   format7Data?: any; // Format7 structure for rich journal entries
+  generateNetworkEntry?: boolean; // Whether network version was generated
 }
 
 export interface UpdateJournalEntryRequest {
@@ -160,6 +161,8 @@ export interface ApiJournalEntry {
   achievementType?: 'certification' | 'award' | 'milestone' | 'recognition';
   achievementTitle?: string;
   achievementDescription?: string;
+  // Network entry toggle
+  generateNetworkEntry?: boolean;
 }
 
 export class JournalService {
@@ -247,6 +250,8 @@ export class JournalService {
       achievementDescription: apiEntry.achievementDescription,
       // Format7 rich journal entry data
       format7Data: apiEntry.format7Data,
+      // Network entry toggle
+      generateNetworkEntry: apiEntry.generateNetworkEntry,
     };
   }
 
