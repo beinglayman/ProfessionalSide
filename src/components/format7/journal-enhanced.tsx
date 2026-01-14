@@ -492,7 +492,22 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                     {category.items.slice(0, 3).map((item) => (
                       <div key={item.id} className="flex items-center gap-2 text-xs bg-white/60 px-2 py-1.5 rounded">
                         {getToolIcon(item.source, 'w-3 h-3')}
-                        <span className="flex-1 font-medium truncate">{item.title}</span>
+                        {item.url ? (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 font-medium truncate text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.title}
+                          </a>
+                        ) : (
+                          <span className="flex-1 font-medium truncate">{item.title}</span>
+                        )}
+                        {item.url && (
+                          <Link2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        )}
                         {item.importance === 'high' && (
                           <Badge variant="destructive" className="text-[10px] px-1.5 py-0">High</Badge>
                         )}
@@ -616,7 +631,22 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-semibold text-gray-900">{activity.action}</span>
+                            {activity.evidence?.url ? (
+                              <a
+                                href={activity.evidence.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {activity.action}
+                              </a>
+                            ) : (
+                              <span className="text-sm font-semibold text-gray-900">{activity.action}</span>
+                            )}
+                            {activity.evidence?.url && (
+                              <Link2 className="w-3.5 h-3.5 text-gray-400" />
+                            )}
                             {activity.importance === 'high' && (
                               <Badge variant="destructive" className="text-xs">High</Badge>
                             )}
