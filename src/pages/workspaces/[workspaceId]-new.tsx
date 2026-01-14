@@ -583,6 +583,7 @@ export default function WorkspacePage() {
                       key={entry.id}
                       entry={entry.format7Data}
                       mode="expanded"
+                      workspaceName={entry.workspaceName}
                       correlations={entry.format7Data?.correlations}
                       categories={entry.format7Data?.categories}
                     />

@@ -1035,6 +1035,7 @@ export function ActivityFeedPage() {
           key={activity.id}
           entry={journalEntry.format7Data}
           mode="expanded"
+          workspaceName={journalEntry.workspaceName}
           correlations={journalEntry.format7Data?.correlations}
           categories={journalEntry.format7Data?.categories}
         />

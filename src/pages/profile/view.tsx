@@ -819,6 +819,7 @@ export function ProfileViewPage() {
                           <JournalEnhanced
                             entry={entry.format7Data}
                             mode="expanded"
+                            workspaceName={entry.workspaceName}
                             correlations={entry.format7Data?.correlations}
                             categories={entry.format7Data?.categories}
                           />
@@ -848,6 +849,7 @@ export function ProfileViewPage() {
                         <JournalEnhanced
                           entry={entry.format7Data}
                           mode="expanded"
+                          workspaceName={entry.workspaceName}
                           correlations={entry.format7Data?.correlations}
                           categories={entry.format7Data?.categories}
                         />

@@ -620,6 +620,7 @@ export default function JournalPage() {
           <JournalEnhanced
             entry={journal.format7Data}
             mode="expanded"
+            workspaceName={journal.workspaceName}
             onLike={() => handleLike(journal.id)}
             onAppreciate={() => handleAppreciate(journal.id)}
             correlations={journal.format7Data?.correlations}
