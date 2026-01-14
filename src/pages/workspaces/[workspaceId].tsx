@@ -73,6 +73,7 @@ import MilestoneGroup from '../../components/MilestoneGroup';
 import NetworkPolicySettings from '../../components/workspace/network-policy-settings';
 import WorkspaceSettingsPanel from '../../components/workspace/workspace-settings-panel';
 import { JournalCard } from '../../components/journal/journal-card';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
 import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -2539,7 +2540,7 @@ const convertWorkspaceEntryToJournal = (entry: any): JournalEntry => {
       position: entry.author.position
     },
     collaborators: entry.collaborators || [],
-    reviewers: [], // Workspace entries don't have reviewers
+    reviewers: entry.reviewers || [],
     artifacts: entry.artifacts || [],
     skills: entry.skills || [],
     outcomes: entry.outcomes || [],
@@ -2563,7 +2564,8 @@ const convertWorkspaceEntryToJournal = (entry: any): JournalEntry => {
       engagementTrend: ['up', 'down', 'stable'][Math.floor(Math.random() * 3)] as 'up' | 'down' | 'stable',
       trendPercentage: Math.floor(Math.random() * 50) - 25 // -25 to +25
     },
-    linkedGoals: entry.linkedGoals || []
+    linkedGoals: entry.linkedGoals || [],
+    format7Data: entry.format7Data
   };
 };
 
@@ -5602,8 +5604,23 @@ export default function WorkspaceDetailPage() {
               {actualJournalEntries.length > 0 ? (
                 actualJournalEntries.map(entry => {
                   // If using mock data, convert it to JournalEntry format
-                  const journalEntry = entry.workspaceId === workspaceId && !entry.author?.id ? 
+                  const journalEntry = entry.workspaceId === workspaceId && !entry.author?.id ?
                     convertWorkspaceEntryToJournal(entry) : entry;
+
+                  // Render JournalEnhanced for Format7 entries with AI-grouped categories
+                  if (journalEntry.format7Data) {
+                    return (
+                      <JournalEnhanced
+                        key={entry.id}
+                        entry={journalEntry.format7Data}
+                        mode="expanded"
+                        correlations={journalEntry.format7Data?.correlations}
+                        categories={journalEntry.format7Data?.categories}
+                      />
+                    );
+                  }
+
+                  // Regular JournalCard for non-Format7 entries
                   return (
                     <JournalCard
                       key={entry.id}
