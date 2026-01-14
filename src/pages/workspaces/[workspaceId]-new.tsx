@@ -42,6 +42,7 @@ import {
   useUploadFile 
 } from '../../hooks/useWorkspace';
 import { JournalCard } from '../../components/journal/journal-card';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface InviteUserModalProps {
@@ -577,14 +578,24 @@ export default function WorkspacePage() {
               {/* Journal Entries */}
               <div className="space-y-6">
                 {journalEntries.map((entry) => (
-                  <JournalCard
-                    key={entry.id}
-                    journal={entry}
-                    viewMode="workspace"
-                    showMenuButton={true}
-                    showAnalyticsButton={true}
-                    showUserProfile={true}
-                  />
+                  entry.format7Data ? (
+                    <JournalEnhanced
+                      key={entry.id}
+                      entry={entry.format7Data}
+                      mode="expanded"
+                      correlations={entry.format7Data?.correlations}
+                      categories={entry.format7Data?.categories}
+                    />
+                  ) : (
+                    <JournalCard
+                      key={entry.id}
+                      journal={entry}
+                      viewMode="workspace"
+                      showMenuButton={true}
+                      showAnalyticsButton={true}
+                      showUserProfile={true}
+                    />
+                  )
                 ))}
                 {journalEntries.length === 0 && (
                   <div className="text-center py-12">

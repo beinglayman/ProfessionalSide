@@ -4,6 +4,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { Button } from '../../components/ui/button';
 import { AchievementCard } from '../../components/profile/achievement-card';
 import { JournalCard } from '../../components/journal/journal-card';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry as JournalEntryType } from '../../types/journal';
 import { SkillCard } from '../../components/profile/skill-card';
 import { SkillSummary } from '../../components/profile/skill-summary';
@@ -814,15 +815,24 @@ export function ProfileViewPage() {
                         key={entry.id}
                         className="transform transition-all duration-300 ease-in-out"
                       >
-                        <JournalCard
-                          journal={entry}
-                          viewMode={entry.currentViewMode}
-                          showMenuButton={false}
-                          showAnalyticsButton={true}
-                          showUserProfile={false}
-                          hasMultipleVisibilities={entry.hasMultipleVisibilities}
-                          onToggleViewMode={() => toggleEntryViewMode(entry.id)}
-                        />
+                        {entry.format7Data ? (
+                          <JournalEnhanced
+                            entry={entry.format7Data}
+                            mode="expanded"
+                            correlations={entry.format7Data?.correlations}
+                            categories={entry.format7Data?.categories}
+                          />
+                        ) : (
+                          <JournalCard
+                            journal={entry}
+                            viewMode={entry.currentViewMode}
+                            showMenuButton={false}
+                            showAnalyticsButton={true}
+                            showUserProfile={false}
+                            hasMultipleVisibilities={entry.hasMultipleVisibilities}
+                            onToggleViewMode={() => toggleEntryViewMode(entry.id)}
+                          />
+                        )}
                       </div>
                     ));
                   })()}
@@ -834,15 +844,24 @@ export function ProfileViewPage() {
                       key={entry.id}
                       className="transform transition-all duration-300 ease-in-out"
                     >
-                      <JournalCard
-                        journal={entry}
-                        viewMode={entry.currentViewMode}
-                        showMenuButton={false}
-                        showAnalyticsButton={true}
-                        showUserProfile={false}
-                        hasMultipleVisibilities={entry.hasMultipleVisibilities}
-                        onToggleViewMode={() => toggleEntryViewMode(entry.id)}
-                      />
+                      {entry.format7Data ? (
+                        <JournalEnhanced
+                          entry={entry.format7Data}
+                          mode="expanded"
+                          correlations={entry.format7Data?.correlations}
+                          categories={entry.format7Data?.categories}
+                        />
+                      ) : (
+                        <JournalCard
+                          journal={entry}
+                          viewMode={entry.currentViewMode}
+                          showMenuButton={false}
+                          showAnalyticsButton={true}
+                          showUserProfile={false}
+                          hasMultipleVisibilities={entry.hasMultipleVisibilities}
+                          onToggleViewMode={() => toggleEntryViewMode(entry.id)}
+                        />
+                      )}
                     </div>
                   ))}
                   {filteredJournalEntries.length === 0 && (

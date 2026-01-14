@@ -42,6 +42,7 @@ import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { JournalCard } from '../../components/journal/journal-card';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
 import { useJournalEntries } from '../../hooks/useJournal';
 
@@ -130,6 +131,13 @@ interface ActivityEntry {
   achievementType?: 'certification' | 'award' | 'milestone' | 'recognition'; // For achievement entries
   achievementTitle?: string; // Achievement title
   achievementDescription?: string; // Achievement description
+  format7Data?: any; // Format7 structure for rich journal entries
+  reviewers?: Array<{
+    id: string;
+    name: string;
+    avatar: string;
+    department: string;
+  }>;
 }
 
 interface TierMarker {
@@ -181,7 +189,7 @@ const convertActivityToJournal = (
       connectionReason: activity.author.connectionReason
     },
     collaborators: activity.collaborators,
-    reviewers: [], // ActivityEntry doesn't have reviewers
+    reviewers: activity.reviewers || [],
     artifacts: activity.artifacts,
     skills: activity.skills,
     outcomes: activity.outcomes,
@@ -208,7 +216,8 @@ const convertActivityToJournal = (
     },
     achievementType: activity.achievementType,
     achievementTitle: activity.achievementTitle,
-    achievementDescription: activity.achievementDescription
+    achievementDescription: activity.achievementDescription,
+    format7Data: activity.format7Data
   };
 };
 
@@ -425,7 +434,9 @@ export function ActivityFeedPage() {
     source: entry.visibility === 'network' ? 'network' : 'workspace',
     achievementType: entry.achievementType,
     achievementTitle: entry.achievementTitle,
-    achievementDescription: entry.achievementDescription
+    achievementDescription: entry.achievementDescription,
+    format7Data: entry.format7Data,
+    reviewers: entry.reviewers
   });
 
   // Get activities from API - no dummy data fallback
@@ -1016,7 +1027,21 @@ export function ActivityFeedPage() {
   // Render activity card
   const renderActivityCard = (activity: ActivityEntry) => {
     const journalEntry = convertActivityToJournal(activity, appreciatedEntries, rechronicledEntries);
-    
+
+    // Render JournalEnhanced for Format7 entries with AI-grouped categories
+    if (journalEntry.format7Data) {
+      return (
+        <JournalEnhanced
+          key={activity.id}
+          entry={journalEntry.format7Data}
+          mode="expanded"
+          correlations={journalEntry.format7Data?.correlations}
+          categories={journalEntry.format7Data?.categories}
+        />
+      );
+    }
+
+    // Regular JournalCard for non-Format7 entries
     return (
       <JournalCard
         key={activity.id}

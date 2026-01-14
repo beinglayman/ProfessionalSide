@@ -13,6 +13,7 @@ import {
 } from '../../hooks/useProfile';
 import { useJournalEntries } from '../../hooks/useJournal';
 import { JournalCard } from '../../components/journal/journal-card';
+import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { SkillCard } from '../../components/profile/skill-card';
 import { AchievementCard } from '../../components/profile/achievement-card';
 import { Edit, MapPin, Building2, Mail, Calendar, Users, FileText, Award, BookOpen, Target } from 'lucide-react';
@@ -241,14 +242,24 @@ export function ProfilePage() {
           <Tabs.Content value="journal">
             <div className="space-y-6">
               {journalEntries.map((entry) => (
-                <JournalCard
-                  key={entry.id}
-                  journal={entry}
-                  viewMode="network"
-                  showMenuButton={false}
-                  showAnalyticsButton={false}
-                  showUserProfile={false}
-                />
+                entry.format7Data ? (
+                  <JournalEnhanced
+                    key={entry.id}
+                    entry={entry.format7Data}
+                    mode="expanded"
+                    correlations={entry.format7Data?.correlations}
+                    categories={entry.format7Data?.categories}
+                  />
+                ) : (
+                  <JournalCard
+                    key={entry.id}
+                    journal={entry}
+                    viewMode="network"
+                    showMenuButton={false}
+                    showAnalyticsButton={false}
+                    showUserProfile={false}
+                  />
+                )
               ))}
               {journalEntries.length === 0 && (
                 <div className="text-center py-12">
