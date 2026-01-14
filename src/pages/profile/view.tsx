@@ -816,13 +816,19 @@ export function ProfileViewPage() {
                         className="transform transition-all duration-300 ease-in-out"
                       >
                         {entry.format7Data ? (
-                          <JournalEnhanced
-                            entry={entry.format7Data}
-                            mode="expanded"
-                            workspaceName={entry.workspaceName}
-                            correlations={entry.format7Data?.correlations}
-                            categories={entry.format7Data?.categories}
-                          />
+                          // Profile is public-facing, use network view when available
+                          (() => {
+                            const entryData = entry.format7DataNetwork || entry.format7Data;
+                            return (
+                              <JournalEnhanced
+                                entry={entryData}
+                                mode="expanded"
+                                workspaceName={entry.workspaceName}
+                                correlations={entryData?.correlations}
+                                categories={entryData?.categories}
+                              />
+                            );
+                          })()
                         ) : (
                           <JournalCard
                             journal={entry}
@@ -846,13 +852,19 @@ export function ProfileViewPage() {
                       className="transform transition-all duration-300 ease-in-out"
                     >
                       {entry.format7Data ? (
-                        <JournalEnhanced
-                          entry={entry.format7Data}
-                          mode="expanded"
-                          workspaceName={entry.workspaceName}
-                          correlations={entry.format7Data?.correlations}
-                          categories={entry.format7Data?.categories}
-                        />
+                        // Profile is public-facing, use network view when available
+                        (() => {
+                          const entryData = entry.format7DataNetwork || entry.format7Data;
+                          return (
+                            <JournalEnhanced
+                              entry={entryData}
+                              mode="expanded"
+                              workspaceName={entry.workspaceName}
+                              correlations={entryData?.correlations}
+                              categories={entryData?.categories}
+                            />
+                          );
+                        })()
                       ) : (
                         <JournalCard
                           journal={entry}

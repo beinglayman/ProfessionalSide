@@ -615,16 +615,20 @@ export default function JournalPage() {
 
     // If it has format7Data, render JournalEnhanced
     if (journal.format7Data) {
+      // Use network view data when in network mode, fallback to workspace view
+      const entryData = viewMode === 'network' && journal.format7DataNetwork
+        ? journal.format7DataNetwork
+        : journal.format7Data;
       return (
         <div key={journal.id}>
           <JournalEnhanced
-            entry={journal.format7Data}
+            entry={entryData}
             mode="expanded"
             workspaceName={journal.workspaceName}
             onLike={() => handleLike(journal.id)}
             onAppreciate={() => handleAppreciate(journal.id)}
-            correlations={journal.format7Data?.correlations}
-            categories={journal.format7Data?.categories}
+            correlations={entryData?.correlations}
+            categories={entryData?.categories}
           />
         </div>
       );

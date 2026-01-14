@@ -241,17 +241,22 @@ export function ProfilePage() {
           {/* Journal Tab */}
           <Tabs.Content value="journal">
             <div className="space-y-6">
-              {journalEntries.map((entry) => (
-                entry.format7Data ? (
-                  <JournalEnhanced
-                    key={entry.id}
-                    entry={entry.format7Data}
-                    mode="expanded"
-                    workspaceName={entry.workspaceName}
-                    correlations={entry.format7Data?.correlations}
-                    categories={entry.format7Data?.categories}
-                  />
-                ) : (
+              {journalEntries.map((entry) => {
+                // Profile is public-facing, use network view when available
+                if (entry.format7Data) {
+                  const entryData = entry.format7DataNetwork || entry.format7Data;
+                  return (
+                    <JournalEnhanced
+                      key={entry.id}
+                      entry={entryData}
+                      mode="expanded"
+                      workspaceName={entry.workspaceName}
+                      correlations={entryData?.correlations}
+                      categories={entryData?.categories}
+                    />
+                  );
+                }
+                return (
                   <JournalCard
                     key={entry.id}
                     journal={entry}
@@ -260,8 +265,8 @@ export function ProfilePage() {
                     showAnalyticsButton={false}
                     showUserProfile={false}
                   />
-                )
-              ))}
+                );
+              })}
               {journalEntries.length === 0 && (
                 <div className="text-center py-12">
                   <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />

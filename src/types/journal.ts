@@ -117,6 +117,7 @@ export interface JournalEntry {
 
   // Format7 rich journal entry data
   format7Data?: any; // Complete Format7 structure with activities, correlations, etc.
+  format7DataNetwork?: any; // Sanitized Format7 structure for network view
 
   // Network entry toggle - indicates if network version was generated
   generateNetworkEntry?: boolean;

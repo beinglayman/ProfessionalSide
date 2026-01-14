@@ -132,6 +132,7 @@ interface ActivityEntry {
   achievementTitle?: string; // Achievement title
   achievementDescription?: string; // Achievement description
   format7Data?: any; // Format7 structure for rich journal entries
+  format7DataNetwork?: any; // Sanitized Format7 structure for network view
   reviewers?: Array<{
     id: string;
     name: string;
@@ -217,7 +218,8 @@ const convertActivityToJournal = (
     achievementType: activity.achievementType,
     achievementTitle: activity.achievementTitle,
     achievementDescription: activity.achievementDescription,
-    format7Data: activity.format7Data
+    format7Data: activity.format7Data,
+    format7DataNetwork: activity.format7DataNetwork
   };
 };
 
@@ -436,6 +438,7 @@ export function ActivityFeedPage() {
     achievementTitle: entry.achievementTitle,
     achievementDescription: entry.achievementDescription,
     format7Data: entry.format7Data,
+    format7DataNetwork: entry.format7DataNetwork,
     reviewers: entry.reviewers
   });
 
@@ -1029,15 +1032,17 @@ export function ActivityFeedPage() {
     const journalEntry = convertActivityToJournal(activity, appreciatedEntries, rechronicledEntries);
 
     // Render JournalEnhanced for Format7 entries with AI-grouped categories
+    // Activity feed is public-facing, so use network view when available
     if (journalEntry.format7Data) {
+      const entryData = journalEntry.format7DataNetwork || journalEntry.format7Data;
       return (
         <JournalEnhanced
           key={activity.id}
-          entry={journalEntry.format7Data}
+          entry={entryData}
           mode="expanded"
           workspaceName={journalEntry.workspaceName}
-          correlations={journalEntry.format7Data?.correlations}
-          categories={journalEntry.format7Data?.categories}
+          correlations={entryData?.correlations}
+          categories={entryData?.categories}
         />
       );
     }
