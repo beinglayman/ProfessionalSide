@@ -156,7 +156,9 @@ export class OneNoteTool {
       return notebooks.map((notebook: any) => ({
         id: notebook.id,
         displayName: notebook.displayName,
-        webUrl: notebook.links?.oneNoteWebUrl?.href || '',
+        webUrl: notebook.links?.oneNoteWebUrl?.href ||
+                notebook.links?.oneNoteClientUrl?.href ||
+                `https://onedrive.live.com/view.aspx?resid=${notebook.id}`,
         createdDateTime: notebook.createdDateTime,
         lastModifiedDateTime: notebook.lastModifiedDateTime,
         isDefault: notebook.isDefault || false,
@@ -196,7 +198,9 @@ export class OneNoteTool {
         .map((section: any) => ({
           id: section.id,
           displayName: section.displayName,
-          webUrl: section.links?.oneNoteWebUrl?.href || '',
+          webUrl: section.links?.oneNoteWebUrl?.href ||
+                  section.links?.oneNoteClientUrl?.href ||
+                  `https://onedrive.live.com/view.aspx?resid=${section.id}`,
           notebookName: section.parentNotebook?.displayName || 'Unknown',
           createdDateTime: section.createdDateTime,
           lastModifiedDateTime: section.lastModifiedDateTime,
@@ -267,7 +271,9 @@ export class OneNoteTool {
           return {
             id: page.id,
             title: page.title,
-            webUrl: page.links?.oneNoteWebUrl?.href || '',
+            webUrl: page.links?.oneNoteWebUrl?.href ||
+                    page.links?.oneNoteClientUrl?.href ||
+                    `https://onedrive.live.com/view.aspx?resid=${page.id}`,
             createdDateTime: page.createdDateTime,
             lastModifiedDateTime: page.lastModifiedDateTime,
             sectionName: page.parentSection?.displayName || 'Unknown',
@@ -281,7 +287,9 @@ export class OneNoteTool {
       const remainingPages = filteredPages.slice(10).map((page: any) => ({
         id: page.id,
         title: page.title,
-        webUrl: page.links?.oneNoteWebUrl?.href || '',
+        webUrl: page.links?.oneNoteWebUrl?.href ||
+                page.links?.oneNoteClientUrl?.href ||
+                `https://onedrive.live.com/view.aspx?resid=${page.id}`,
         createdDateTime: page.createdDateTime,
         lastModifiedDateTime: page.lastModifiedDateTime,
         sectionName: page.parentSection?.displayName || 'Unknown',

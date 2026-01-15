@@ -19,6 +19,7 @@ export class JiraTool {
   private privacyService: MCPPrivacyService;
   private jiraApi: AxiosInstance | null = null;
   private cloudId: string | null = null;
+  private siteUrl: string | null = null;  // Actual domain for browse URLs
 
   constructor() {
     this.oauthService = new MCPOAuthService();
@@ -47,6 +48,7 @@ export class JiraTool {
 
     // Use the first accessible site
     this.cloudId = resourcesResponse.data[0].id;
+    this.siteUrl = resourcesResponse.data[0].url;  // e.g., "https://your-company.atlassian.net"
     const baseUrl = `https://api.atlassian.com/ex/jira/${this.cloudId}`;
 
     // Initialize Jira API client
@@ -225,7 +227,7 @@ export class JiraTool {
         timeEstimate: issue.fields.timeestimate,
         description: issue.fields.description?.content?.[0]?.content?.[0]?.text || '',
         commentCount: issue.fields.comment?.total || 0,
-        url: `https://${this.cloudId}.atlassian.net/browse/${issue.key}`
+        url: `${this.siteUrl}/browse/${issue.key}`
       }));
     } catch (error: any) {
       console.error('[Jira Tool] Error fetching issues:', {
@@ -260,7 +262,7 @@ export class JiraTool {
         name: project.name,
         projectType: project.projectTypeKey,
         lead: project.lead?.displayName,
-        url: `https://${this.cloudId}.atlassian.net/browse/${project.key}`
+        url: `${this.siteUrl}/browse/${project.key}`
       }));
     } catch (error: any) {
       console.error('[Jira Tool] Error fetching projects:', {
