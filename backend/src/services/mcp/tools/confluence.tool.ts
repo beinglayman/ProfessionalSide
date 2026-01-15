@@ -19,6 +19,7 @@ export class ConfluenceTool {
   private privacyService: MCPPrivacyService;
   private confluenceApi: AxiosInstance | null = null;
   private cloudId: string | null = null;
+  private siteUrl: string | null = null;  // Actual domain for user-facing URLs
   private userDisplayNameCache = new Map<string, string>(); // accountId -> displayName
 
   constructor() {
@@ -99,14 +100,14 @@ export class ConfluenceTool {
 
     // Use the Confluence-enabled resource
     this.cloudId = confluenceResource.id;
-    const siteUrl = confluenceResource.url;
+    this.siteUrl = confluenceResource.url;  // Store for user-facing URLs
     const siteName = confluenceResource.name;
     const baseUrl = `https://api.atlassian.com/ex/confluence/${this.cloudId}`;
 
     console.log('[Confluence Tool] Using Confluence site:', {
       cloudId: this.cloudId,
       siteName,
-      siteUrl,
+      siteUrl: this.siteUrl,
       baseUrl,
       scopes: confluenceResource.scopes || 'not provided'
     });
@@ -335,7 +336,7 @@ export class ConfluenceTool {
         type: space.type,
         description: space.description || '',
         homepageId: space.homepageId,
-        url: `https://${this.cloudId}.atlassian.net/wiki/spaces/${space.key}`
+        url: `${this.siteUrl}/wiki/spaces/${space.key}`
       }));
     } catch (error: any) {
       console.error('[Confluence Tool] Error fetching spaces:', error);
@@ -427,7 +428,7 @@ export class ConfluenceTool {
             lastModified: page.version?.createdAt || page.createdAt,
             lastModifiedBy: authorName,
             author: authorName,
-            url: page._links?.webui ? `https://${this.cloudId}.atlassian.net${page._links.webui}` : '',
+            url: page._links?.webui ? `${this.siteUrl}${page._links.webui}` : '',
             excerpt: page.body?.storage?.value ? this.extractExcerpt(page.body.storage.value) : ''
           };
         })
@@ -517,7 +518,7 @@ export class ConfluenceTool {
             created: post.createdAt,
             publishedDate: post.version?.createdAt || post.createdAt,
             author: authorName,
-            url: post._links?.webui ? `https://${this.cloudId}.atlassian.net${post._links.webui}` : '',
+            url: post._links?.webui ? `${this.siteUrl}${post._links.webui}` : '',
             excerpt: post.body?.storage?.value ? this.extractExcerpt(post.body.storage.value) : ''
           };
         })
