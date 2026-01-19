@@ -339,7 +339,7 @@ export function MCPSourceSelector({
                 className="text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm">
-                <span className="font-medium">Auto-detect</span>
+                <span className="font-medium text-gray-900">Auto-detect</span>
                 <span className="text-gray-500 ml-1">({getDateRangeLabel()})</span>
               </span>
             </label>
@@ -465,9 +465,9 @@ export function MCPSourceSelector({
                 ) : selectedWorkspace ? (
                   <span className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-primary-600" />
-                    {selectedWorkspace.name}
+                    <span className="text-gray-900">{selectedWorkspace.name}</span>
                     {selectedWorkspace.organization?.name && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500">
                         ({selectedWorkspace.organization.name})
                       </span>
                     )}
@@ -490,14 +490,14 @@ export function MCPSourceSelector({
                       setShowWorkspaceDropdown(false);
                     }}
                     className={cn(
-                      'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50',
+                      'w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-gray-900 hover:bg-gray-50',
                       selectedWorkspaceId === workspace.id && 'bg-primary-50 text-primary-700'
                     )}
                   >
                     <Building2 className="h-4 w-4 flex-shrink-0" />
                     <span className="truncate">{workspace.name}</span>
                     {workspace.organization?.name && (
-                      <span className="text-xs text-gray-400 truncate">
+                      <span className="text-xs text-gray-500 truncate">
                         ({workspace.organization.name})
                       </span>
                     )}

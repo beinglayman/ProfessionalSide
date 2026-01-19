@@ -178,7 +178,8 @@ export class Format7TransformerService {
       technologies,
       collaborators: [], // Will be populated by extractCollaborators
       reviewers: [], // Will be populated by extractCollaborators
-      importance: item.importance
+      importance: item.importance,
+      metadata: item.metadata
     };
 
     console.log('[Format7Transformer] Final activity object:', {
