@@ -70,6 +70,8 @@ export function MCPFlowSidePanel({
     format7DataNetwork: any;
     sanitizationLog: any;
   } | null>(null);
+  const [editableNetworkTitle, setEditableNetworkTitle] = useState<string>('');
+  const [editableNetworkContent, setEditableNetworkContent] = useState<string>('');
   const [isSanitizing, setIsSanitizing] = useState(false);
   const [sanitizationError, setSanitizationError] = useState<string | null>(null);
   const [sanitizationExpanded, setSanitizationExpanded] = useState(false);
@@ -898,6 +900,9 @@ export function MCPFlowSidePanel({
         format7DataNetwork: result.format7DataNetwork,
         sanitizationLog: result.sanitizationLog
       });
+      // Initialize editable state for network view
+      setEditableNetworkTitle(result.networkTitle);
+      setEditableNetworkContent(result.networkContent);
 
     } catch (error: any) {
       console.error('[MCPFlow] Failed to generate network entry:', error);
@@ -947,8 +952,8 @@ export function MCPFlowSidePanel({
         workspaceName: selectedWorkspaceName
       },
       networkEntry: generateNetworkEntry && networkEntryData ? {
-        networkTitle: networkEntryData.networkTitle,
-        networkContent: networkEntryData.networkContent,
+        networkTitle: editableNetworkTitle,
+        networkContent: editableNetworkContent,
         format7DataNetwork: networkEntryData.format7DataNetwork,
         sanitizationLog: networkEntryData.sanitizationLog,
         generateNetworkEntry: true
@@ -1148,11 +1153,11 @@ export function MCPFlowSidePanel({
           ...networkEntryData.format7DataNetwork,
           entry_metadata: {
             ...networkEntryData.format7DataNetwork.entry_metadata,
-            title: networkEntryData.networkTitle
+            title: editableNetworkTitle
           },
           context: {
             ...networkEntryData.format7DataNetwork.context,
-            primary_focus: networkEntryData.networkContent
+            primary_focus: editableNetworkContent
           }
         } : null;
 
@@ -1280,10 +1285,10 @@ export function MCPFlowSidePanel({
                       )}
                       <Format7EntryEditor
                         initialEntry={networkPreviewEntry}
-                        onTitleChange={() => {}} // Read-only for network view
-                        onDescriptionChange={() => {}} // Read-only for network view
-                        editableTitle={networkEntryData?.networkTitle || ''}
-                        editableDescription={networkEntryData?.networkContent || ''}
+                        onTitleChange={setEditableNetworkTitle}
+                        onDescriptionChange={setEditableNetworkContent}
+                        editableTitle={editableNetworkTitle}
+                        editableDescription={editableNetworkContent}
                         isPreview={true}
                         selectedWorkspaceId={selectedWorkspaceId}
                         workspaceName={selectedWorkspaceName}
