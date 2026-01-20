@@ -108,9 +108,13 @@ export function ProfileViewPage() {
     }));
   };
 
-  // Normalize skill name for consistent matching (case-insensitive, trimmed)
+  // Normalize skill name for consistent matching (case-insensitive, trimmed, hyphens/underscores to spaces)
   const normalizeSkillName = (name: string): string => {
-    return name.toLowerCase().trim();
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[-_]/g, ' ')  // Normalize hyphens and underscores to spaces
+      .replace(/\s+/g, ' ');  // Collapse multiple spaces
   };
 
   // Find matching skill key - checks if skill is a component of existing or vice versa
@@ -137,6 +141,32 @@ export function ProfileViewPage() {
       }
     }
     return false;
+  };
+
+  // Helper to check if a skill is in known categories (prominent skills)
+  const isKnownSkill = (skillName: string): boolean => {
+    const normalized = normalizeSkillName(skillName);
+    const knownSkills = [
+      // Programming Languages
+      'javascript', 'typescript', 'python', 'java', 'c#', 'c++', 'go', 'rust', 'php', 'ruby', 'swift', 'kotlin',
+      // Frontend
+      'react', 'angular', 'vue', 'next.js', 'svelte', 'html', 'css', 'tailwind', 'material ui', 'bootstrap',
+      // Backend
+      'node.js', 'express', 'django', 'flask', 'spring boot', 'asp.net', 'laravel', 'ruby on rails',
+      // Databases
+      'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'sql', 'oracle', 'sqlite',
+      // Cloud & DevOps
+      'aws', 'azure', 'google cloud', 'gcp', 'docker', 'kubernetes', 'jenkins', 'terraform', 'ci/cd',
+      // Tools
+      'git', 'github', 'gitlab', 'jira', 'confluence', 'figma', 'slack',
+      // Product/Project Management
+      'agile', 'scrum', 'kanban', 'product management', 'project management',
+      // Soft Skills (prominent ones only)
+      'leadership', 'team management', 'communication', 'problem solving', 'strategic thinking', 'mentoring'
+    ];
+    return knownSkills.some(known =>
+      normalized.includes(known) || known.includes(normalized)
+    );
   };
 
   // Create dynamic skills from profile skills and topSkills combined with journal entries
@@ -212,8 +242,23 @@ export function ProfileViewPage() {
       });
     });
     
-    // Convert map to array and sort by journal count (most used first), then by name
-    return Array.from(skillMap.values()).sort((a, b) => {
+    // Filter to only show prominent skills
+    // A skill is prominent if it:
+    // 1. From profile onboarding (isFromProfile: true)
+    // 2. High frequency (journalCount >= 2)
+    // 3. Matches a known skill category
+    const prominentSkills = Array.from(skillMap.values()).filter((skill: any) => {
+      // Keep if from profile onboarding
+      if (skill.isFromProfile) return true;
+      // Keep if mentioned in multiple journal entries
+      if (skill.journalCount >= 2) return true;
+      // Keep if it matches a known skill category
+      if (isKnownSkill(skill.name)) return true;
+      return false;
+    });
+
+    // Sort by journal count (most used first), then by name
+    return prominentSkills.sort((a, b) => {
       if (b.journalCount !== a.journalCount) {
         return b.journalCount - a.journalCount; // Sort by journal count desc
       }
