@@ -12,7 +12,7 @@ import { SkillsGrowth } from '../../components/dashboard/skills-growth';
 import { Edit, MapPin, Building2, Mail, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Eye, Clock, UserX, Briefcase, Award, Target, Heart, Sparkles, TrendingUp, Users, Code2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useProfile } from '../../hooks/useProfile';
-import { useJournalEntries } from '../../hooks/useJournal';
+import { useJournalEntries, useToggleAppreciate } from '../../hooks/useJournal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import { OnboardingOverlay, ONBOARDING_STEPS } from '../../components/onboarding';
@@ -82,6 +82,17 @@ export function ProfileViewPage() {
     sortOrder: 'desc',
     limit: 100
   });
+
+  // Appreciate mutation for journal entries
+  const toggleAppreciateMutation = useToggleAppreciate();
+
+  const handleAppreciate = async (entryId: string) => {
+    try {
+      await toggleAppreciateMutation.mutateAsync(entryId);
+    } catch (error) {
+      console.error('Failed to toggle appreciate:', error);
+    }
+  };
 
   const toggleSkill = (skillName: string) => {
     // Normalize the skill name to ensure consistent selection
@@ -915,6 +926,7 @@ export function ProfileViewPage() {
                                 workspaceName={entry.workspaceName}
                                 correlations={entryData?.correlations}
                                 categories={entryData?.categories}
+                                onAppreciate={() => handleAppreciate(entry.id)}
                               />
                             );
                           })()
@@ -927,6 +939,7 @@ export function ProfileViewPage() {
                             showUserProfile={false}
                             hasMultipleVisibilities={entry.hasMultipleVisibilities}
                             onToggleViewMode={() => toggleEntryViewMode(entry.id)}
+                            onAppreciate={() => handleAppreciate(entry.id)}
                           />
                         )}
                       </div>
@@ -951,6 +964,7 @@ export function ProfileViewPage() {
                               workspaceName={entry.workspaceName}
                               correlations={entryData?.correlations}
                               categories={entryData?.categories}
+                              onAppreciate={() => handleAppreciate(entry.id)}
                             />
                           );
                         })()
@@ -963,6 +977,7 @@ export function ProfileViewPage() {
                           showUserProfile={false}
                           hasMultipleVisibilities={entry.hasMultipleVisibilities}
                           onToggleViewMode={() => toggleEntryViewMode(entry.id)}
+                          onAppreciate={() => handleAppreciate(entry.id)}
                         />
                       )}
                     </div>

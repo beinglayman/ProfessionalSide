@@ -44,7 +44,7 @@ import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { JournalCard } from '../../components/journal/journal-card';
 import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
-import { useJournalEntries } from '../../hooks/useJournal';
+import { useJournalEntries, useToggleAppreciate } from '../../hooks/useJournal';
 
 // Types
 interface Author {
@@ -914,17 +914,37 @@ export function ActivityFeedPage() {
     }]);
   };
 
+  // Appreciate mutation
+  const toggleAppreciateMutation = useToggleAppreciate();
+
   // Interaction handlers
-  const handleAppreciate = (entryId: string) => {
-    setAppreciatedEntries(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(entryId)) {
-        newSet.delete(entryId);
-      } else {
-        newSet.add(entryId);
-      }
-      return newSet;
-    });
+  const handleAppreciate = async (entryId: string) => {
+    try {
+      // Optimistically update UI
+      setAppreciatedEntries(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(entryId)) {
+          newSet.delete(entryId);
+        } else {
+          newSet.add(entryId);
+        }
+        return newSet;
+      });
+      // Persist to database
+      await toggleAppreciateMutation.mutateAsync(entryId);
+    } catch (error) {
+      // Revert on error
+      setAppreciatedEntries(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(entryId)) {
+          newSet.delete(entryId);
+        } else {
+          newSet.add(entryId);
+        }
+        return newSet;
+      });
+      console.error('Failed to toggle appreciate:', error);
+    }
   };
 
   const handleDiscuss = (entryId: string) => {
@@ -1043,6 +1063,7 @@ export function ActivityFeedPage() {
           workspaceName={journalEntry.workspaceName}
           correlations={entryData?.correlations}
           categories={entryData?.categories}
+          onAppreciate={() => handleAppreciate(activity.id)}
         />
       );
     }

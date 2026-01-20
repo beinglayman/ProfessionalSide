@@ -64,7 +64,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import confetti from 'canvas-confetti';
 import { useWorkspace, useWorkspaceMembers, useWorkspaceFiles, useUploadFile, useDeleteFile, useUpdateFile, useWorkspaceCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../../hooks/useWorkspace';
 import { useToast } from '../../contexts/ToastContext';
-import { useJournalEntries } from '../../hooks/useJournal';
+import { useJournalEntries, useToggleAppreciate } from '../../hooks/useJournal';
 import { useWorkspaceGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useToggleMilestone, useLinkJournalEntry, Goal, TeamMember as GoalTeamMember, getEffectiveProgress, shouldShowCompletionDialog, useCreateTask, useUpdateTask, useDeleteTask, useCompleteMilestone, useWorkspaceLabels } from '../../hooks/useGoals';
 import { migrateStatus, isGoalOverdue } from '../../utils/statusMigration';
 import { useQueryClient } from '@tanstack/react-query';
@@ -4467,7 +4467,18 @@ export default function WorkspaceDetailPage() {
   const { data: journalData, isLoading: journalLoading, error: journalError } = useJournalEntries({
     limit: 100 // Get all entries without workspace filter to avoid CUID validation issues
   }, true); // Always enabled - don't wait for workspace to load
-  
+
+  // Appreciate mutation for journal entries
+  const toggleAppreciateMutation = useToggleAppreciate();
+
+  const handleAppreciate = async (entryId: string) => {
+    try {
+      await toggleAppreciateMutation.mutateAsync(entryId);
+    } catch (error) {
+      console.error('Failed to toggle appreciate:', error);
+    }
+  };
+
   // We no longer need fallback calls since we're doing client-side filtering
   const [goalStatusFilter, setGoalStatusFilter] = useState<string>('all');
   const [goalPriorityFilter, setGoalPriorityFilter] = useState<string>('all');
@@ -5617,6 +5628,7 @@ export default function WorkspaceDetailPage() {
                         workspaceName={journalEntry.workspaceName}
                         correlations={journalEntry.format7Data?.correlations}
                         categories={journalEntry.format7Data?.categories}
+                        onAppreciate={() => handleAppreciate(entry.id)}
                       />
                     );
                   }
@@ -5630,6 +5642,7 @@ export default function WorkspaceDetailPage() {
                       showMenuButton={false}
                       showAnalyticsButton={true}
                       showUserProfile={true}
+                      onAppreciate={() => handleAppreciate(entry.id)}
                       customActions={
                         <Button
                           variant="outline"

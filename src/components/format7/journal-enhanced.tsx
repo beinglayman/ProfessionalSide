@@ -28,6 +28,7 @@ interface JournalEnhancedProps {
   workspaceName?: string; // Display-only workspace name (selected in Step 1)
   onTitleChange?: (title: string) => void;
   onDescriptionChange?: (description: string) => void;
+  onAppreciate?: () => void;
   correlations?: Array<{
     id: string;
     type: 'pr_to_jira' | 'meeting_to_code' | 'design_to_code' | 'discussion_to_doc' | 'general';
@@ -101,6 +102,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   workspaceName,
   onTitleChange,
   onDescriptionChange,
+  onAppreciate,
   correlations = [],
   categories = []
 }) => {
@@ -746,7 +748,12 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
           {/* Hide social actions in preview mode */}
           {!isPreview && (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-purple-600 transition-colors"
+                onClick={onAppreciate}
+              >
                 <Heart className="w-4 h-4 mr-1" />
                 <span className="text-xs">Appreciate</span>
               </Button>
