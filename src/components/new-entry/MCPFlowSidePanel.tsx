@@ -954,7 +954,18 @@ export function MCPFlowSidePanel({
       networkEntry: generateNetworkEntry && networkEntryData ? {
         networkTitle: editableNetworkTitle,
         networkContent: editableNetworkContent,
-        format7DataNetwork: networkEntryData.format7DataNetwork,
+        // Apply user edits to format7DataNetwork so they persist when displayed
+        format7DataNetwork: {
+          ...networkEntryData.format7DataNetwork,
+          entry_metadata: {
+            ...networkEntryData.format7DataNetwork?.entry_metadata,
+            title: editableNetworkTitle
+          },
+          context: {
+            ...networkEntryData.format7DataNetwork?.context,
+            primary_focus: editableNetworkContent
+          }
+        },
         sanitizationLog: networkEntryData.sanitizationLog,
         generateNetworkEntry: true
       } : {

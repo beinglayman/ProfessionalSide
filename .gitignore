@@ -82,3 +82,6 @@ credentials.json
 # Local documentation and diagrams
 Documents/
 diagrams/
+
+# Actuarial Knowledge Base (large reference files)
+ActuarialKnowledge/

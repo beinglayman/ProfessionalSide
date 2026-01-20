@@ -84,12 +84,14 @@ export function ProfileViewPage() {
   });
 
   const toggleSkill = (skillName: string) => {
+    // Normalize the skill name to ensure consistent selection
+    const normalizedName = skillName.toLowerCase().trim();
     setSelectedSkills(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(skillName)) {
-        newSet.delete(skillName);
+      if (newSet.has(normalizedName)) {
+        newSet.delete(normalizedName);
       } else {
-        newSet.add(skillName);
+        newSet.add(normalizedName);
       }
       return newSet;
     });
@@ -104,6 +106,37 @@ export function ProfileViewPage() {
       ...prev,
       [entryId]: prev[entryId] === 'workspace' ? 'network' : 'workspace'
     }));
+  };
+
+  // Normalize skill name for consistent matching (case-insensitive, trimmed)
+  const normalizeSkillName = (name: string): string => {
+    return name.toLowerCase().trim();
+  };
+
+  // Find matching skill key - checks if skill is a component of existing or vice versa
+  // Returns existing key if match found, null otherwise
+  const findMatchingSkillKey = (skillName: string, skillMap: Map<string, any>): string | null => {
+    const normalizedNew = normalizeSkillName(skillName);
+
+    for (const [key, skill] of skillMap.entries()) {
+      const normalizedExisting = normalizeSkillName(skill.name);
+      // Check if one is contained within the other
+      if (normalizedNew.includes(normalizedExisting) || normalizedExisting.includes(normalizedNew)) {
+        return key;
+      }
+    }
+    return null;
+  };
+
+  // Helper to check if a skill matches any selected skill (smart match)
+  const skillMatchesSelected = (skillName: string, selectedSkills: Set<string>): boolean => {
+    const normalizedSkill = normalizeSkillName(skillName);
+    for (const selected of selectedSkills) {
+      if (normalizedSkill.includes(selected) || selected.includes(normalizedSkill)) {
+        return true;
+      }
+    }
+    return false;
   };
 
   // Create dynamic skills from profile skills and topSkills combined with journal entries
@@ -133,29 +166,40 @@ export function ProfileViewPage() {
     
     // Combine both data sources, prioritizing full skills data over topSkills
     const profileSkills = fullSkillsData.length > 0 ? fullSkillsData : topSkillsData;
-    
+
     // Create a map to count skill occurrences and merge with profile skills
+    // Use normalized names as keys for consistent matching
     const skillMap = new Map();
-    
+
     // Start with profile skills (if they exist)
     profileSkills.forEach((skill: Skill) => {
-      skillMap.set(skill.name, {
+      const normalizedName = normalizeSkillName(skill.name);
+      skillMap.set(normalizedName, {
         ...skill,
+        normalizedName: normalizedName,
         journalCount: 0, // Will be updated from journal entries
       });
     });
-    
-    // Count skills from journal entries and add new ones
+
+    // Count skills from journal entries - use smart matching
     realJournalEntries.forEach((entry: JournalEntryType) => {
       entry.skills.forEach((skillName: string) => {
-        if (skillMap.has(skillName)) {
-          // Increment count for existing skill
-          const existingSkill = skillMap.get(skillName);
+        const matchingKey = findMatchingSkillKey(skillName, skillMap);
+
+        if (matchingKey) {
+          // Found a match - increment count, keep longer/more specific name as display
+          const existingSkill = skillMap.get(matchingKey);
           existingSkill.journalCount = (existingSkill.journalCount || 0) + 1;
+          // If new name is longer (more specific), update display name
+          if (skillName.length > existingSkill.name.length) {
+            existingSkill.name = skillName;
+          }
         } else {
-          // Add new skill from journal entry
-          skillMap.set(skillName, {
+          // No match - add as new skill
+          const normalizedName = normalizeSkillName(skillName);
+          skillMap.set(normalizedName, {
             name: skillName,
+            normalizedName: normalizedName,
             level: 'beginner' as const, // Default level for journal-only skills
             endorsements: Math.floor(Math.random() * 20) + 5,
             projects: Math.floor(Math.random() * 5) + 1,
@@ -202,18 +246,18 @@ export function ProfileViewPage() {
   }, [journalEntriesData, entryViewModes]);
 
   const selectAllSkills = () => {
-    setSelectedSkills(new Set(combinedSkills.map((skill: Skill) => skill.name)));
+    setSelectedSkills(new Set(combinedSkills.map((skill: any) => skill.normalizedName)));
   };
 
-  const selectedSkillsData = useMemo(() => 
-    combinedSkills.filter((skill: Skill) => selectedSkills.has(skill.name)),
+  const selectedSkillsData = useMemo(() =>
+    combinedSkills.filter((skill: any) => selectedSkills.has(skill.normalizedName)),
     [selectedSkills, combinedSkills]
   );
 
   const filteredJournalEntries = useMemo(() => {
     if (selectedSkills.size === 0) return enhancedJournalEntries;
     return enhancedJournalEntries.filter((entry) =>
-      entry.skills.some((skill: string) => selectedSkills.has(skill))
+      entry.skills.some((skill: string) => skillMatchesSelected(skill, selectedSkills))
     );
   }, [selectedSkills, enhancedJournalEntries]);
 
@@ -254,7 +298,7 @@ export function ProfileViewPage() {
     if (selectedSkills.size === 0) return dynamicSkillsGrowthData;
     return dynamicSkillsGrowthData.map(period => ({
       ...period,
-      skills: period.skills.filter(skill => selectedSkills.has(skill.name))
+      skills: period.skills.filter(skill => skillMatchesSelected(skill.name, selectedSkills))
     }));
   }, [selectedSkills, dynamicSkillsGrowthData]);
 
@@ -734,9 +778,9 @@ export function ProfileViewPage() {
               <div className="space-y-2">
                 {combinedSkills.map((skill) => (
                   <SkillCard
-                    key={skill.name}
+                    key={skill.normalizedName}
                     skill={skill}
-                    selected={selectedSkills.has(skill.name)}
+                    selected={selectedSkills.has(skill.normalizedName)}
                     onClick={() => toggleSkill(skill.name)}
                   />
                 ))}  
