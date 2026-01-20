@@ -2804,6 +2804,11 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 tags: [],
                 skills: data.skills || [],
                 format7Data: data.format7Entry,
+                // Network entry data for dual-view system
+                format7DataNetwork: data.networkEntry?.format7DataNetwork,
+                networkTitle: data.networkEntry?.networkTitle,
+                networkContent: data.networkEntry?.networkContent,
+                sanitizationLog: data.networkEntry?.sanitizationLog,
                 generateNetworkEntry: hasNetworkEntry
               });
 

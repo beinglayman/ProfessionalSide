@@ -38,6 +38,10 @@ export interface CreateJournalEntryRequest {
   achievementTitle?: string; // Achievement title
   achievementDescription?: string; // Achievement description
   format7Data?: any; // Format7 structure for rich journal entries
+  format7DataNetwork?: any; // Sanitized Format7 structure for network view
+  networkTitle?: string; // Sanitized title for network view
+  networkContent?: string; // Sanitized content for network view
+  sanitizationLog?: any; // Log of what was sanitized
   generateNetworkEntry?: boolean; // Whether network version was generated
 }
 
