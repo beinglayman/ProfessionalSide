@@ -44,7 +44,7 @@ import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { JournalCard } from '../../components/journal/journal-card';
 import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
-import { useJournalEntries, useToggleAppreciate } from '../../hooks/useJournal';
+import { useJournalEntries, useToggleAppreciate, useRechronicleEntry } from '../../hooks/useJournal';
 
 // Types
 interface Author {
@@ -917,6 +917,9 @@ export function ActivityFeedPage() {
   // Appreciate mutation
   const toggleAppreciateMutation = useToggleAppreciate();
 
+  // ReChronicle mutation
+  const rechronicleMutation = useRechronicleEntry();
+
   // Interaction handlers
   const handleAppreciate = async (entryId: string) => {
     try {
@@ -960,7 +963,9 @@ export function ActivityFeedPage() {
     });
   };
 
-  const handleRechronicle = (entryId: string) => {
+  const handleRechronicle = async (entryId: string) => {
+    // Optimistic UI update
+    const wasRechronicled = rechronicledEntries.has(entryId);
     setRechronicledEntries(prev => {
       const newSet = new Set(prev);
       if (newSet.has(entryId)) {
@@ -970,6 +975,22 @@ export function ActivityFeedPage() {
       }
       return newSet;
     });
+
+    try {
+      await rechronicleMutation.mutateAsync({ id: entryId });
+    } catch (error) {
+      // Revert on error
+      setRechronicledEntries(prev => {
+        const newSet = new Set(prev);
+        if (wasRechronicled) {
+          newSet.add(entryId);
+        } else {
+          newSet.delete(entryId);
+        }
+        return newSet;
+      });
+      console.error('Failed to rechronicle:', error);
+    }
   };
 
   const handleCommentInputChange = (entryId: string, value: string) => {
@@ -1064,6 +1085,8 @@ export function ActivityFeedPage() {
           correlations={entryData?.correlations}
           categories={entryData?.categories}
           onAppreciate={() => handleAppreciate(activity.id)}
+          onDiscuss={() => handleDiscuss(activity.id)}
+          onReChronicle={() => handleRechronicle(activity.id)}
         />
       );
     }

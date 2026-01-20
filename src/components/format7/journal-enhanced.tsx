@@ -29,6 +29,8 @@ interface JournalEnhancedProps {
   onTitleChange?: (title: string) => void;
   onDescriptionChange?: (description: string) => void;
   onAppreciate?: () => void;
+  onDiscuss?: () => void;
+  onReChronicle?: () => void;
   correlations?: Array<{
     id: string;
     type: 'pr_to_jira' | 'meeting_to_code' | 'design_to_code' | 'discussion_to_doc' | 'general';
@@ -103,6 +105,8 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   onTitleChange,
   onDescriptionChange,
   onAppreciate,
+  onDiscuss,
+  onReChronicle,
   correlations = [],
   categories = []
 }) => {
@@ -757,11 +761,21 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 <Heart className="w-4 h-4 mr-1" />
                 <span className="text-xs">Appreciate</span>
               </Button>
-              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-purple-600 transition-colors"
+                onClick={onDiscuss}
+              >
                 <MessageSquare className="w-4 h-4 mr-1" />
                 <span className="text-xs">Discuss</span>
               </Button>
-              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-purple-600 transition-colors">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-purple-600 transition-colors"
+                onClick={onReChronicle}
+              >
                 <Repeat2 className="w-4 h-4 mr-1" />
                 <span className="text-xs">ReChronicle</span>
               </Button>

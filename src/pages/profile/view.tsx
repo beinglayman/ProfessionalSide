@@ -12,7 +12,7 @@ import { SkillsGrowth } from '../../components/dashboard/skills-growth';
 import { Edit, MapPin, Building2, Mail, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Eye, Clock, UserX, Briefcase, Award, Target, Heart, Sparkles, TrendingUp, Users, Code2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useProfile } from '../../hooks/useProfile';
-import { useJournalEntries, useToggleAppreciate } from '../../hooks/useJournal';
+import { useJournalEntries, useToggleAppreciate, useRechronicleEntry } from '../../hooks/useJournal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import { OnboardingOverlay, ONBOARDING_STEPS } from '../../components/onboarding';
@@ -91,6 +91,17 @@ export function ProfileViewPage() {
       await toggleAppreciateMutation.mutateAsync(entryId);
     } catch (error) {
       console.error('Failed to toggle appreciate:', error);
+    }
+  };
+
+  // ReChronicle mutation for journal entries
+  const rechronicleMutation = useRechronicleEntry();
+
+  const handleRechronicle = async (entryId: string) => {
+    try {
+      await rechronicleMutation.mutateAsync({ id: entryId });
+    } catch (error) {
+      console.error('Failed to rechronicle:', error);
     }
   };
 
@@ -927,6 +938,7 @@ export function ProfileViewPage() {
                                 correlations={entryData?.correlations}
                                 categories={entryData?.categories}
                                 onAppreciate={() => handleAppreciate(entry.id)}
+                                onReChronicle={() => handleRechronicle(entry.id)}
                               />
                             );
                           })()
@@ -940,6 +952,7 @@ export function ProfileViewPage() {
                             hasMultipleVisibilities={entry.hasMultipleVisibilities}
                             onToggleViewMode={() => toggleEntryViewMode(entry.id)}
                             onAppreciate={() => handleAppreciate(entry.id)}
+                            onReChronicle={() => handleRechronicle(entry.id)}
                           />
                         )}
                       </div>
@@ -965,6 +978,7 @@ export function ProfileViewPage() {
                               correlations={entryData?.correlations}
                               categories={entryData?.categories}
                               onAppreciate={() => handleAppreciate(entry.id)}
+                              onReChronicle={() => handleRechronicle(entry.id)}
                             />
                           );
                         })()
@@ -978,6 +992,7 @@ export function ProfileViewPage() {
                           hasMultipleVisibilities={entry.hasMultipleVisibilities}
                           onToggleViewMode={() => toggleEntryViewMode(entry.id)}
                           onAppreciate={() => handleAppreciate(entry.id)}
+                          onReChronicle={() => handleRechronicle(entry.id)}
                         />
                       )}
                     </div>
