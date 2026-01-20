@@ -2794,6 +2794,18 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
               // Create journal entry with Format7 data
               // Set visibility based on generateNetworkEntry toggle
               const hasNetworkEntry = data.networkEntry?.generateNetworkEntry ?? false;
+
+              // Use collaborators/reviewers matched from format7 data to workspace members
+              const collaborators = data.workspaceEntry.collaborators || [];
+              const reviewers = data.workspaceEntry.reviewers || [];
+
+              console.log('[NewEntryModal] Using matched collaborators from MCP flow:', {
+                collaboratorsCount: collaborators.length,
+                reviewersCount: reviewers.length,
+                collaborators,
+                reviewers
+              });
+
               const result = await createJournalEntryMutation.mutateAsync({
                 title: data.title,
                 description: data.description,
@@ -2804,6 +2816,9 @@ export const NewEntryModal: React.FC<NewEntryModalProps> = ({ open, onOpenChange
                 tags: [],
                 skills: data.skills || [],
                 format7Data: data.format7Entry,
+                // Collaborators/reviewers matched from format7 data to workspace members
+                collaborators,
+                reviewers,
                 // Network entry data for dual-view system
                 format7DataNetwork: data.networkEntry?.format7DataNetwork,
                 networkTitle: data.networkEntry?.networkTitle,

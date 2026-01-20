@@ -6,7 +6,7 @@ import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useMCPMultiSource } from '../../hooks/useMCPMultiSource';
-import { useWorkspaces } from '../../hooks/useWorkspace';
+import { useWorkspaces, useWorkspaceMembers, WorkspaceMember } from '../../hooks/useWorkspace';
 import { MCPSourceSelector } from '../mcp/MCPSourceSelector';
 import { MCPRawActivityReview } from '../mcp/MCPRawActivityReview';
 import { MCPActivityReview } from '../mcp/MCPActivityReview';
@@ -82,8 +82,44 @@ export function MCPFlowSidePanel({
   const { data: integrations } = useMCPIntegrations();
   const mcpMultiSource = useMCPMultiSource();
   const { data: workspaces = [], isLoading: workspacesLoading, isError: workspacesError } = useWorkspaces();
+  const { data: workspaceMembers = [] } = useWorkspaceMembers(selectedWorkspaceId || '');
 
   const connectedTools = integrations?.integrations?.filter((i: any) => i.isConnected) || [];
+
+  // Helper function to match format7 collaborators to workspace members by name
+  const matchCollaboratorsToMembers = (
+    format7Collaborators: Array<{ id: string; name: string; role?: string }> | undefined,
+    members: WorkspaceMember[]
+  ): Array<{ userId: string; role: string }> => {
+    if (!format7Collaborators || !members || members.length === 0) return [];
+
+    const matched: Array<{ userId: string; role: string }> = [];
+    const matchedUserIds = new Set<string>();
+
+    for (const collab of format7Collaborators) {
+      const normalizedName = collab.name.toLowerCase().trim();
+
+      // Find matching workspace member by name (case-insensitive)
+      const member = members.find(m => {
+        const memberName = m.user.name.toLowerCase().trim();
+        // Exact match first
+        if (memberName === normalizedName) return true;
+        // Then try partial matches
+        if (memberName.includes(normalizedName) || normalizedName.includes(memberName)) return true;
+        return false;
+      });
+
+      if (member && !matchedUserIds.has(member.userId)) {
+        matchedUserIds.add(member.userId);
+        matched.push({
+          userId: member.userId,
+          role: collab.role || 'collaborator'
+        });
+      }
+    }
+
+    return matched;
+  };
 
   // Initialize workspace based on workspaceName prop
   // Force re-initialization when panel opens to ensure clean state
@@ -938,6 +974,26 @@ export function MCPFlowSidePanel({
       }
     } : null;
 
+    // Match format7 collaborators and reviewers to workspace members
+    const matchedCollaborators = matchCollaboratorsToMembers(
+      finalFormat7Entry?.summary?.unique_collaborators,
+      workspaceMembers
+    );
+    const matchedReviewers = matchCollaboratorsToMembers(
+      finalFormat7Entry?.summary?.unique_reviewers,
+      workspaceMembers
+    );
+
+    console.log('[MCPFlow] Matched collaborators:', {
+      format7CollaboratorsCount: finalFormat7Entry?.summary?.unique_collaborators?.length || 0,
+      format7ReviewersCount: finalFormat7Entry?.summary?.unique_reviewers?.length || 0,
+      workspaceMembersCount: workspaceMembers.length,
+      matchedCollaboratorsCount: matchedCollaborators.length,
+      matchedReviewersCount: matchedReviewers.length,
+      matchedCollaborators,
+      matchedReviewers
+    });
+
     // Create entry data with user edits
     const entryData = {
       title: editableTitle,
@@ -949,7 +1005,9 @@ export function MCPFlowSidePanel({
         title: editableTitle,
         description: editableDescription,
         workspaceId: selectedWorkspaceId,
-        workspaceName: selectedWorkspaceName
+        workspaceName: selectedWorkspaceName,
+        collaborators: matchedCollaborators,
+        reviewers: matchedReviewers.map(r => ({ userId: r.userId, department: '' }))
       },
       networkEntry: generateNetworkEntry && networkEntryData ? {
         networkTitle: editableNetworkTitle,
