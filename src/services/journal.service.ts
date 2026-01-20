@@ -86,6 +86,7 @@ export interface ApiJournalEntry {
   tags: string[];
   skills: string[];
   format7Data?: any; // Format7 structure for rich journal entries
+  format7DataNetwork?: any; // Sanitized Format7 structure for network view
   createdAt: string;
   updatedAt: string;
   lastModified: string;
@@ -250,6 +251,7 @@ export class JournalService {
       achievementDescription: apiEntry.achievementDescription,
       // Format7 rich journal entry data
       format7Data: apiEntry.format7Data,
+      format7DataNetwork: apiEntry.format7DataNetwork,
       // Network entry toggle
       generateNetworkEntry: apiEntry.generateNetworkEntry,
     };
