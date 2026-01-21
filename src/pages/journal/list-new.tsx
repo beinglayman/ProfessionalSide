@@ -292,15 +292,15 @@ export default function JournalPage() {
             entries.map((entry) => {
               // Check if entry has valid Format7 data with entry_metadata
               if (entry.format7Data?.entry_metadata?.title) {
+                const isDraft = !entry.isPublished && entry.visibility !== 'network';
                 return (
                   <JournalEnhanced
                     key={entry.id}
                     entry={entry.format7Data}
-                    mode="expanded"
-                    onLike={() => handleLike(entry.id)}
                     onAppreciate={() => handleAppreciate(entry.id)}
                     correlations={entry.format7Data?.correlations}
                     categories={entry.format7Data?.categories}
+                    isDraft={isDraft}
                   />
                 );
               }

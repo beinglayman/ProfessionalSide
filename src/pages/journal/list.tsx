@@ -619,16 +619,18 @@ export default function JournalPage() {
       const entryData = viewMode === 'network' && journal.format7DataNetwork
         ? journal.format7DataNetwork
         : journal.format7Data;
+      const isDraft = !journal.isPublished && journal.visibility !== 'network';
+      const isOwner = user && journal.author.id === user.id;
       return (
         <div key={journal.id}>
           <JournalEnhanced
             entry={entryData}
-            mode="expanded"
             workspaceName={journal.workspaceName}
-            onLike={() => handleLike(journal.id)}
             onAppreciate={() => handleAppreciate(journal.id)}
             correlations={entryData?.correlations}
             categories={entryData?.categories}
+            isDraft={isDraft}
+            onPublish={isDraft && isOwner ? () => handlePublishToggle(journal) : undefined}
           />
         </div>
       );

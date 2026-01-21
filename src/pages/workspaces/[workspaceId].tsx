@@ -5631,16 +5631,17 @@ export default function WorkspaceDetailPage() {
 
                   // Render JournalEnhanced for Format7 entries with AI-grouped categories
                   if (journalEntry.format7Data?.entry_metadata?.title) {
+                    const isDraft = !journalEntry.isPublished && journalEntry.visibility !== 'network';
                     return (
                       <JournalEnhanced
                         key={entry.id}
                         entry={journalEntry.format7Data}
-                        mode="expanded"
                         workspaceName={journalEntry.workspaceName}
                         correlations={journalEntry.format7Data?.correlations}
                         categories={journalEntry.format7Data?.categories}
                         onAppreciate={() => handleAppreciate(entry.id)}
                         onReChronicle={() => handleRechronicle(entry.id)}
+                        isDraft={isDraft}
                       />
                     );
                   }

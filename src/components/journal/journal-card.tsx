@@ -755,6 +755,18 @@ export function JournalCard({
               {journal.rechronicles}
               <span className="ml-1">ReChronicle</span>
             </button>
+
+            {/* Publish Button - shown for draft entries owned by current user */}
+            {!journal.isPublished && journal.visibility !== 'network' && currentUser && journal.author.id === currentUser.id && onPublishToggle && (
+              <button
+                className="flex items-center gap-1.5 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-full transition-colors"
+                onClick={() => onPublishToggle(journal)}
+                title="Publish this entry"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Publish
+              </button>
+            )}
           </div>
           
           <div className="flex items-center gap-2">
@@ -765,13 +777,14 @@ export function JournalCard({
             </span>
 
             {/* Publication Status */}
-            {journal.visibility === 'network' ? (
+            {journal.isPublished || journal.visibility === 'network' ? (
               <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
                 Published
               </span>
             ) : (
-              <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
-                Unpublished
+              <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                Draft
               </span>
             )}
 

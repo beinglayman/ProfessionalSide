@@ -16,7 +16,7 @@ import {
   ZoomIcon,
   GoogleWorkspaceIcon,
 } from '../icons/ToolIcons';
-import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy, Building } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy, Building, Upload } from 'lucide-react';
 import { useContainedConfetti } from '../../hooks/useContainedConfetti';
 
 interface JournalEnhancedProps {
@@ -31,6 +31,8 @@ interface JournalEnhancedProps {
   onAppreciate?: () => void;
   onDiscuss?: () => void;
   onReChronicle?: () => void;
+  isDraft?: boolean; // Whether this entry is a draft (unpublished)
+  onPublish?: () => void; // Handler for publishing the entry
   correlations?: Array<{
     id: string;
     type: 'pr_to_jira' | 'meeting_to_code' | 'design_to_code' | 'discussion_to_doc' | 'general';
@@ -108,7 +110,9 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   onDiscuss,
   onReChronicle,
   correlations = [],
-  categories = []
+  categories = [],
+  isDraft = false,
+  onPublish
 }) => {
   // In preview mode, always show expanded view
   const [isExpanded, setIsExpanded] = useState(isPreview);
@@ -779,14 +783,35 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 <Repeat2 className="w-4 h-4 mr-1" />
                 <span className="text-xs">ReChronicle</span>
               </Button>
+
+              {/* Publish button for draft entries */}
+              {isDraft && onPublish && (
+                <Button
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white transition-colors ml-2"
+                  onClick={onPublish}
+                >
+                  <Upload className="w-4 h-4 mr-1" />
+                  <span className="text-xs">Publish</span>
+                </Button>
+              )}
             </div>
           )}
 
-          {/* Workspace badge - only shown in non-preview mode (preview shows it in metadata tags) */}
+          {/* Workspace and status badges - only shown in non-preview mode */}
           {!isPreview && (
-            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
-              Workspace: {workspaceName || entry.entry_metadata.workspace}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {/* Draft badge */}
+              {isDraft && (
+                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs px-2 py-0.5 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Draft
+                </Badge>
+              )}
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
+                Workspace: {workspaceName || entry.entry_metadata.workspace}
+              </Badge>
+            </div>
           )}
         </div>
       </div>

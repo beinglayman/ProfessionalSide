@@ -104,7 +104,7 @@ export class JournalAutoGeneratorService {
         fullContent: entryData.fullContent,
         workspaceId,
         visibility: 'private', // Always create as private draft
-        tags: [...(defaultTags || []), 'auto-generated'],
+        tags: [...(defaultTags || []), 'auto-generated', 'draft'],
         skills: [], // Auto-generated entries don't auto-detect skills
         category: defaultCategory || entryData.category,
         format7Data: entryData.format7Data,

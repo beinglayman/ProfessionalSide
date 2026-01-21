@@ -245,14 +245,15 @@ export function ProfilePage() {
                 // Profile is public-facing, use network view when available
                 if (entry.format7Data?.entry_metadata?.title) {
                   const entryData = entry.format7DataNetwork || entry.format7Data;
+                  const isDraft = !entry.isPublished && entry.visibility !== 'network';
                   return (
                     <JournalEnhanced
                       key={entry.id}
                       entry={entryData}
-                      mode="expanded"
                       workspaceName={entry.workspaceName}
                       correlations={entryData?.correlations}
                       categories={entryData?.categories}
+                      isDraft={isDraft}
                     />
                   );
                 }
