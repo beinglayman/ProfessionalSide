@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import fs from 'fs';
 import path from 'path';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Admin migration endpoint - execute benchmark data migration
 router.post('/execute-benchmark-migration', async (req: Request, res: Response): Promise<void> => {

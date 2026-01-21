@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { sendError } from '../utils/response.utils';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 // Admin user configuration
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(email => email.trim()).filter(Boolean);

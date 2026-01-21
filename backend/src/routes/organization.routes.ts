@@ -1,11 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // All organization routes require authentication
 router.use(authenticate);

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as csv from 'csv-writer';
@@ -15,8 +15,6 @@ import {
   GoalExport,
   WorkspaceExport
 } from '../types/export.types';
-
-const prisma = new PrismaClient();
 
 export class ExportService {
   private exportDirectory = path.join(process.cwd(), 'exports');

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import {
   CreateJournalEntryInput,
   UpdateJournalEntryInput,
@@ -11,8 +11,6 @@ import {
   RecordAnalyticsInput,
   RechronicleInput
 } from '../types/journal.types';
-
-const prisma = new PrismaClient();
 
 export class JournalService {
   /**

@@ -1,8 +1,6 @@
 import { EmailService } from './email.service';
 import { EmailNotificationEvent, DigestEmailData } from '../types/email.types';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 interface QueuedNotification {
   id: string;

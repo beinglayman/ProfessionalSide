@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import * as os from 'os';
 import * as fs from 'fs';
-
-const prisma = new PrismaClient();
 
 export interface SystemMetrics {
   server: {

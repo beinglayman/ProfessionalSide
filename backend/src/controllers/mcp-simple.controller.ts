@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
 import { PrismaClient } from '@prisma/client';
 import {
   MCPToolType,
@@ -22,7 +23,7 @@ export class MCPSimpleController {
   private privacyService: MCPPrivacyService;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
     this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();

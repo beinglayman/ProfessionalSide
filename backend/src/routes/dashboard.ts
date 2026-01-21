@@ -1,10 +1,9 @@
 import express, { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { authenticate as auth } from '../middleware/auth.middleware';
 import { format, subDays, subMonths, startOfWeek, endOfWeek, isToday } from 'date-fns';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Get dashboard stats
 router.get('/stats', auth, async (req: Request, res: Response) => {

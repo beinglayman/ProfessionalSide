@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import {
   CreateOnboardingDataInput,
   UpdateOnboardingDataInput,
@@ -6,8 +6,6 @@ import {
   CompleteOnboardingInput,
   OnboardingDataResponse
 } from '../types/onboarding.types';
-
-const prisma = new PrismaClient();
 
 export class OnboardingService {
   /**

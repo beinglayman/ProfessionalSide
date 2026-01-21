@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import {
   EmailConfig,
   EmailData,
@@ -9,8 +9,6 @@ import {
   EmailTemplateVariables
 } from '../types/email.types';
 import { EmailTemplateService } from './email-template.service';
-
-const prisma = new PrismaClient();
 
 export class EmailService {
   private transporter: nodemailer.Transporter;

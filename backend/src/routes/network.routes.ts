@@ -1,10 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // In-memory storage for connection type preferences (for demo purposes)
 // In production, this would be stored in a database table

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
 import { SkillsBenchmarkService } from '../services/skills-benchmark.service';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 
@@ -39,9 +40,6 @@ export const getUserSkillBenchmarks = asyncHandler(async (req: Request, res: Res
 
   try {
     // Get user's skills from their profile
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
     const userSkills = await prisma.userSkill.findMany({
       where: { userId },
       include: { skill: true },
@@ -132,9 +130,7 @@ export const getTrendingSkillBenchmarks = asyncHandler(async (req: Request, res:
  * Populate benchmarks for ALL skills in the database (production mass operation)
  */
 export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const { PrismaClient } = require('@prisma/client');
   const nodemailer = require('nodemailer');
-  const prisma = new PrismaClient();
 
   const processStats = {
     startTime: new Date(),
@@ -280,8 +276,6 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
     console.error('💥 Critical error in mass benchmark population:', error);
     processStats.errorCount++;
     processStats.errors.push({ error: (error as any).message });
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
@@ -300,9 +294,6 @@ export const getBulkSkillBenchmarks = asyncHandler(async (req: Request, res: Res
   }
 
   try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
     // Fetch benchmarks from the database
     const benchmarks = await prisma.skillBenchmark.findMany({
       where: {
@@ -321,9 +312,7 @@ export const getBulkSkillBenchmarks = asyncHandler(async (req: Request, res: Res
         description: true
       }
     });
-    
-    await prisma.$disconnect();
-    
+
     sendSuccess(res, benchmarks, 'Bulk skill benchmarks retrieved successfully');
   } catch (error: any) {
     console.error('❌ Error fetching bulk skill benchmarks:', error);

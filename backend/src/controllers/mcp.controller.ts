@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import * as crypto from 'crypto';
 import { format7Transformer } from '../services/mcp/format7-transformer.service';
 import { getContentSanitizerService } from '../services/mcp/content-sanitizer.service';
-
-const prisma = new PrismaClient();
 
 // Mock data store for development
 const mockIntegrations = new Map<string, any>();

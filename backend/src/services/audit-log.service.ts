@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { Request } from 'express';
-
-const prisma = new PrismaClient();
 
 export interface AuditLogEntry {
   action: string;

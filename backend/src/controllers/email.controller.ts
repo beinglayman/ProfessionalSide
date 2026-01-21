@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { EmailService } from '../services/email.service';
 import { NotificationQueueService } from '../services/notification-queue.service';
 import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 
 const emailService = new EmailService();
 const notificationQueue = new NotificationQueueService();

@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/prisma';
 
 // Load environment variables
 dotenv.config();
@@ -69,15 +69,8 @@ import { CronService } from './services/cron.service';
 const app = express();
 const port = process.env.PORT || process.env.API_PORT || 8080;
 
-// Initialize Prisma client with optimized settings
-export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-});
+// Re-export prisma singleton for backward compatibility
+export { prisma };
 
 // Initialize services
 const cronService = new CronService();

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
 import { EmailService } from '../services/email.service';
@@ -21,7 +21,6 @@ if (!global.goalsStorage) {
 const goalsStorage = global.goalsStorage;
 
 const router = Router();
-const prisma = new PrismaClient();
 const emailService = new EmailService();
 
 // Helper functions for goal transformation

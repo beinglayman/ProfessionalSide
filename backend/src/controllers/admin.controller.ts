@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { AdminDashboardService } from '../services/admin-dashboard.service';
 import { sendSuccess, sendError, sendPaginated, asyncHandler } from '../utils/response.utils';
 import { hasAdminPermission } from '../middleware/admin.middleware';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 const adminDashboardService = new AdminDashboardService();
 
 // Validation schemas

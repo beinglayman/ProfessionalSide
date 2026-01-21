@@ -1,19 +1,17 @@
-import { PrismaClient } from '@prisma/client';
-import { 
-  SearchParams, 
-  SearchResponse, 
+import { prisma } from '../lib/prisma';
+import {
+  SearchParams,
+  SearchResponse,
   SearchResult,
   PeopleSearchResult,
   WorkspaceSearchResult,
   ContentSearchResult,
   SkillSearchResult,
   SearchSuggestion,
-  SearchHistory, 
+  SearchHistory,
   SaveSearchInput,
   SearchInteractionInput
 } from '../types/search.types';
-
-const prisma = new PrismaClient();
 
 export class SearchService {
   
