@@ -187,24 +187,24 @@ export class JournalService {
       createdAt: new Date(apiEntry.createdAt),
       lastModified: new Date(apiEntry.lastModified),
       author: {
-        id: apiEntry.author.id,
-        name: apiEntry.author.name,
-        avatar: apiEntry.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-        position: apiEntry.author.title || 'Professional',
+        id: apiEntry.author?.id || '',
+        name: apiEntry.author?.name || 'Unknown',
+        avatar: apiEntry.author?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+        position: apiEntry.author?.title || 'Professional',
       },
-      collaborators: apiEntry.collaborators.map(collab => ({
+      collaborators: (apiEntry.collaborators || []).map(collab => ({
         id: collab.id,
-        name: collab.user.name,
-        avatar: collab.user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+        name: collab.user?.name || 'Unknown',
+        avatar: collab.user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
         role: collab.role,
       })),
-      reviewers: apiEntry.reviewers.map(reviewer => ({
+      reviewers: (apiEntry.reviewers || []).map(reviewer => ({
         id: reviewer.id,
-        name: reviewer.user.name,
-        avatar: reviewer.user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+        name: reviewer.user?.name || 'Unknown',
+        avatar: reviewer.user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
         department: reviewer.department || 'Unknown Department',
       })),
-      artifacts: apiEntry.artifacts.map(artifact => ({
+      artifacts: (apiEntry.artifacts || []).map(artifact => ({
         id: artifact.id,
         name: artifact.name,
         type: artifact.type as 'document' | 'code' | 'design' | 'data' | 'presentation',
@@ -212,8 +212,8 @@ export class JournalService {
         size: artifact.size,
         isConfidential: false,
       })),
-      skills: apiEntry.skills,
-      outcomes: apiEntry.outcomes.map(outcome => {
+      skills: apiEntry.skills || [],
+      outcomes: (apiEntry.outcomes || []).map(outcome => {
         let parsedMetrics = undefined;
         if (outcome.metrics) {
           try {
@@ -233,19 +233,19 @@ export class JournalService {
       visibility: apiEntry.visibility,
       isPublished: apiEntry.isPublished,
       publishedAt: apiEntry.publishedAt ? new Date(apiEntry.publishedAt) : undefined,
-      likes: apiEntry._count.likes,
-      comments: apiEntry._count.comments,
-      hasLiked: apiEntry.hasLiked,
-      tags: apiEntry.tags,
+      likes: apiEntry._count?.likes || 0,
+      comments: apiEntry._count?.comments || 0,
+      hasLiked: apiEntry.hasLiked || false,
+      tags: apiEntry.tags || [],
       category: apiEntry.category || 'General',
-      appreciates: apiEntry._count.appreciates,
-      hasAppreciated: apiEntry.hasAppreciated,
-      discussCount: apiEntry._count.comments,
+      appreciates: apiEntry._count?.appreciates || 0,
+      hasAppreciated: apiEntry.hasAppreciated || false,
+      discussCount: apiEntry._count?.comments || 0,
       discussions: [], // TODO: Load separately if needed
-      rechronicles: apiEntry._count.rechronicles,
-      hasReChronicled: apiEntry.hasRechronicled,
+      rechronicles: apiEntry._count?.rechronicles || 0,
+      hasReChronicled: apiEntry.hasRechronicled || false,
       analytics: {
-        viewCount: apiEntry._count.analytics,
+        viewCount: apiEntry._count?.analytics || 0,
         averageReadTime: 120, // Default to 2 minutes
         engagementTrend: 'stable' as const,
         trendPercentage: 0,
