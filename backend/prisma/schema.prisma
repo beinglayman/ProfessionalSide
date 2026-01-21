@@ -96,6 +96,9 @@ model User {
   mcpAuditLogs          MCPAuditLog[]
   mcpDailySummaryPreference MCPDailySummaryPreference?
 
+  // Workspace journal subscriptions
+  workspaceJournalSubscriptions WorkspaceJournalSubscription[]
+
   @@map("users")
 }
 
@@ -250,7 +253,8 @@ model Workspace {
   files          WorkspaceFile[]
   categories     WorkspaceCategory[]
   labels         WorkspaceLabel[]
-  
+  journalSubscriptions WorkspaceJournalSubscription[]
+
   @@map("workspaces")
 }
 
@@ -1155,4 +1159,43 @@ model MCPDailySummaryPreference {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("mcp_daily_summary_preferences")
+}
+
+// ============================================================================
+// WORKSPACE JOURNAL SUBSCRIPTION - AUTO-CREATION FEATURE
+// ============================================================================
+
+model WorkspaceJournalSubscription {
+  id              String   @id @default(cuid())
+  userId          String
+  workspaceId     String
+  isActive        Boolean  @default(true)
+
+  // Schedule
+  frequency       String   // 'daily' | 'alternate' | 'weekdays' | 'weekly' | 'fortnightly' | 'monthly' | 'custom'
+  selectedDays    String[] @default([]) // ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] - used when frequency is 'custom'
+  generationTime  String   // HH:mm format (e.g., '18:00')
+  timezone        String   // IANA timezone (e.g., 'America/New_York')
+
+  // Tool selection
+  selectedTools   String[] @default([]) // ['github', 'jira', 'figma', ...] - subset of user's connected tools
+
+  // Customization
+  customPrompt    String?  // Optional AI guidance (e.g., 'Focus on learning outcomes')
+  defaultCategory String?  // Auto-apply to generated entries
+  defaultTags     String[] @default([]) // Auto-apply to generated entries
+
+  // Tracking
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId]) // One subscription per user per workspace
+  @@index([nextRunAt, isActive])  // For cron job queries
+  @@map("workspace_journal_subscriptions")
 }

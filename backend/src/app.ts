@@ -45,6 +45,7 @@ import onboardingRoutes from './routes/onboarding.routes';
 import aiEntriesRoutes from './routes/ai-entries.routes';
 import migrationRoutes from './routes/migration.routes';
 import debugRoutes from './routes/debug.routes';
+import journalSubscriptionRoutes from './routes/journal-subscription.routes';
 
 // Conditionally import MCP routes (only in production to avoid tsx issues)
 let mcpRoutes: any = null;
@@ -697,6 +698,7 @@ app.use('/api/v1/onboarding', onboardingRoutes);
 app.use('/api/v1/ai-entries', aiEntriesRoutes);
 app.use('/api/v1/skills-benchmark', skillsBenchmarkRoutes);
 app.use('/api/v1/migration', migrationRoutes);
+app.use('/api/v1', journalSubscriptionRoutes);
 
 // MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
 if (mcpRoutes) {

@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Settings, 
-  Info, 
-  Archive, 
-  Shield, 
-  Users, 
-  Eye, 
-  Edit, 
+import {
+  X,
+  Settings,
+  Info,
+  Archive,
+  Shield,
+  Users,
+  Eye,
+  Edit,
   UserCheck,
   Globe,
   Bell,
   ChevronRight,
   AlertTriangle,
-  Trash2
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import NetworkPolicySettings from './network-policy-settings';
+import JournalAutoCreationSettings from './journal-auto-creation-settings';
 
 interface WorkspaceSettingsPanelProps {
   isOpen: boolean;
@@ -489,6 +491,12 @@ export function WorkspaceSettingsPanel({
                 {activeSection === 'workspace-info' && renderWorkspaceInformation()}
                 {activeSection === 'archive' && renderArchiveWorkspace()}
                 {activeSection === 'permissions' && renderManagePermissions()}
+                {activeSection === 'journal-auto-creation' && (
+                  <JournalAutoCreationSettings
+                    workspaceId={workspace.id}
+                    onBack={() => setActiveSection(null)}
+                  />
+                )}
               </div>
             ) : (
               <div className="p-6 space-y-8">
@@ -543,6 +551,22 @@ export function WorkspaceSettingsPanel({
                           <div className="text-left">
                             <div className="text-sm font-medium text-gray-900">Manage Permissions</div>
                             <div className="text-xs text-gray-500">Configure rights for Member / Editor / Admin</div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      </button>
+
+                      <button
+                        onClick={() => setActiveSection('journal-auto-creation')}
+                        className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-indigo-100 rounded-lg">
+                            <Sparkles className="h-4 w-4 text-indigo-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-gray-900">Journal Auto-Creation</div>
+                            <div className="text-xs text-gray-500">Auto-generate entries from connected tools</div>
                           </div>
                         </div>
                         <ChevronRight className="h-4 w-4 text-gray-400" />

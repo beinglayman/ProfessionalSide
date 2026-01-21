@@ -1,6 +1,7 @@
 import * as cron from 'node-cron';
 import { NotificationQueueService } from './notification-queue.service';
 import { ExportService } from './export.service';
+import { journalAutoGeneratorService } from './journal-auto-generator.service';
 
 export class CronService {
   private notificationQueue: NotificationQueueService;
@@ -62,6 +63,17 @@ export class CronService {
       });
     }
 
+    // Journal auto-generation - every 30 minutes
+    this.scheduleJob('journal-auto-generation', '*/30 * * * *', async () => {
+      console.log('Triggering journal auto-generation...');
+      try {
+        await journalAutoGeneratorService.processDueSubscriptions();
+        console.log('Journal auto-generation completed successfully');
+      } catch (error) {
+        console.error('Error in journal auto-generation:', error);
+      }
+    });
+
     console.log(`Scheduled ${this.jobs.size} jobs`);
   }
 
@@ -114,11 +126,12 @@ export class CronService {
 
     this.jobs.forEach((job, name) => {
       // Note: node-cron doesn't expose schedule info easily, so we'll use predefined schedules
-      const schedules = {
+      const schedules: Record<string, string> = {
         'daily-digest': '0 8 * * *',
         'weekly-digest': '0 9 * * 1',
         'cleanup-exports': '0 2 * * *',
-        'health-check': '*/5 * * * *'
+        'health-check': '*/5 * * * *',
+        'journal-auto-generation': '*/30 * * * *'
       };
 
       status.push({
@@ -145,6 +158,9 @@ export class CronService {
           return true;
         case 'cleanup-exports':
           await this.exportService.cleanupExpiredExports();
+          return true;
+        case 'journal-auto-generation':
+          await journalAutoGeneratorService.processDueSubscriptions();
           return true;
         default:
           console.error(`Unknown job: ${jobName}`);
