@@ -6,6 +6,10 @@ import {
   LOOKBACK_DAYS
 } from '../types/journal-subscription.types';
 
+// TEMPORARY: Set to true to test entry generation every 2 minutes
+// MUST BE SET TO FALSE AFTER TESTING
+const TESTING_MODE = true;
+
 export class JournalSubscriptionService {
   /**
    * Get subscription for a user in a workspace
@@ -321,28 +325,58 @@ export class JournalSubscriptionService {
 
   /**
    * Calculate the next run time based on subscription settings
-   * Simply finds the next occurrence of any selected day at the specified time.
-   * Note: Uses UTC internally. Timezone is stored for display purposes.
+   * Properly converts user's local time to UTC for storage.
    */
   calculateNextRunAt(
     selectedDays: DayOfWeek[],
     generationTime: string,
-    _timezone: string // Timezone stored for reference, calculations done in UTC
+    timezone: string
   ): Date {
+    // TESTING MODE: Return 2 minutes from now for quick testing
+    if (TESTING_MODE) {
+      console.log('📝 TESTING MODE: Setting nextRunAt to 2 minutes from now');
+      return new Date(Date.now() + 2 * 60 * 1000);
+    }
+
     const [hour, minute] = generationTime.split(':').map(Number);
     const now = new Date();
 
-    // Create a date for today at the generation time (UTC)
-    let nextRun = new Date(now);
-    nextRun.setUTCHours(hour, minute, 0, 0);
+    // Get current date in user's timezone
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const todayInUserTz = formatter.format(now); // YYYY-MM-DD
 
-    // If the time has already passed today, start from tomorrow
+    // Create a datetime string in ISO format for the user's timezone
+    // Then parse it to get the actual UTC time
+    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+
+    // Use a trick: Create the date as if it's in the user's timezone
+    // by using the timezone in toLocaleString and comparing
+    let nextRun = this.createDateInTimezone(todayInUserTz, timeStr, timezone);
+
+    // If the time has already passed in user's timezone, start from tomorrow
     if (nextRun <= now) {
-      nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+      // Add one day
+      const tomorrow = new Date(nextRun);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      nextRun = tomorrow;
     }
 
-    // Helper to get day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
-    const getWeekday = (date: Date) => date.getUTCDay();
+    // Helper to get day of week in user's timezone
+    const getWeekdayInTz = (date: Date) => {
+      const dayStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        weekday: 'short'
+      }).format(date);
+      const dayMap: Record<string, number> = {
+        'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+      };
+      return dayMap[dayStr] ?? 0;
+    };
 
     // Helper to add days
     const addDays = (date: Date, days: number) => {
@@ -359,12 +393,58 @@ export class JournalSubscriptionService {
       });
 
       // Keep advancing until we find a selected day
-      while (!targetWeekdays.includes(getWeekday(nextRun))) {
+      let maxIterations = 7;
+      while (!targetWeekdays.includes(getWeekdayInTz(nextRun)) && maxIterations > 0) {
         nextRun = addDays(nextRun, 1);
+        maxIterations--;
       }
     }
 
     return nextRun;
+  }
+
+  /**
+   * Create a Date object for a specific time in a specific timezone
+   */
+  private createDateInTimezone(dateStr: string, timeStr: string, timezone: string): Date {
+    // Parse the target local time components
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hour, minute, second] = timeStr.split(':').map(Number);
+
+    // Create a date and find the UTC offset for this timezone at this time
+    // Use a binary search approach to find the correct UTC time
+    const targetLocal = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+
+    // Get what time it would be in the target timezone if targetLocal was UTC
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+
+    // Estimate the offset by comparing
+    const parts = formatter.formatToParts(targetLocal);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '0';
+
+    const tzHour = parseInt(getPart('hour'));
+    const tzMinute = parseInt(getPart('minute'));
+
+    // Calculate offset in minutes
+    const targetMinutes = hour * 60 + minute;
+    const actualMinutes = tzHour * 60 + tzMinute;
+    let offsetMinutes = actualMinutes - targetMinutes;
+
+    // Handle day boundary
+    if (offsetMinutes > 12 * 60) offsetMinutes -= 24 * 60;
+    if (offsetMinutes < -12 * 60) offsetMinutes += 24 * 60;
+
+    // Adjust the time by the offset
+    return new Date(targetLocal.getTime() - offsetMinutes * 60 * 1000);
   }
 
   /**
