@@ -613,8 +613,8 @@ export default function JournalPage() {
       );
     }
 
-    // If it has format7Data, render JournalEnhanced
-    if (journal.format7Data) {
+    // If it has valid format7Data with entry_metadata, render JournalEnhanced
+    if (journal.format7Data?.entry_metadata?.title) {
       // Use network view data when in network mode, fallback to workspace view
       const entryData = viewMode === 'network' && journal.format7DataNetwork
         ? journal.format7DataNetwork

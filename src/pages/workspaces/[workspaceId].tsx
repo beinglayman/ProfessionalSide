@@ -5630,7 +5630,7 @@ export default function WorkspaceDetailPage() {
                     convertWorkspaceEntryToJournal(entry) : entry;
 
                   // Render JournalEnhanced for Format7 entries with AI-grouped categories
-                  if (journalEntry.format7Data) {
+                  if (journalEntry.format7Data?.entry_metadata?.title) {
                     return (
                       <JournalEnhanced
                         key={entry.id}

@@ -290,8 +290,8 @@ export default function JournalPage() {
             </div>
           ) : (
             entries.map((entry) => {
-              // Check if entry has Format7 data
-              if (entry.format7Data) {
+              // Check if entry has valid Format7 data with entry_metadata
+              if (entry.format7Data?.entry_metadata?.title) {
                 return (
                   <JournalEnhanced
                     key={entry.id}

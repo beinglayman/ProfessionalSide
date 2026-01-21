@@ -243,7 +243,7 @@ export function ProfilePage() {
             <div className="space-y-6">
               {journalEntries.map((entry) => {
                 // Profile is public-facing, use network view when available
-                if (entry.format7Data) {
+                if (entry.format7Data?.entry_metadata?.title) {
                   const entryData = entry.format7DataNetwork || entry.format7Data;
                   return (
                     <JournalEnhanced

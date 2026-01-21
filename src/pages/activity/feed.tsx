@@ -1074,7 +1074,7 @@ export function ActivityFeedPage() {
 
     // Render JournalEnhanced for Format7 entries with AI-grouped categories
     // Activity feed is public-facing, so use network view when available
-    if (journalEntry.format7Data) {
+    if (journalEntry.format7Data?.entry_metadata?.title) {
       const entryData = journalEntry.format7DataNetwork || journalEntry.format7Data;
       return (
         <JournalEnhanced
