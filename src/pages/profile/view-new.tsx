@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Button } from '../../components/ui/button';
@@ -65,7 +65,17 @@ export function ProfilePage() {
     );
   }
 
-  const journalEntries = journalData?.entries || [];
+  // Filter out auto-generated drafts - they should only appear on workspace page
+  const journalEntries = useMemo(() => {
+    const entries = journalData?.entries || [];
+    return entries.filter(entry => {
+      // Exclude auto-generated drafts from profile view
+      if (!entry.isPublished && entry.tags?.includes('auto-generated')) {
+        return false;
+      }
+      return true;
+    });
+  }, [journalData?.entries]);
   const isOwnProfile = !userId; // If no userId in params, it's the current user's profile
 
   return (

@@ -75,6 +75,7 @@ import WorkspaceSettingsPanel from '../../components/workspace/workspace-setting
 import { JournalCard } from '../../components/journal/journal-card';
 import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
+import { JournalService } from '../../services/journal.service';
 import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_BASE_URL, getAuthToken } from '../../lib/api';
@@ -4490,6 +4491,19 @@ export default function WorkspaceDetailPage() {
     }
   };
 
+  // Publish handler for draft journal entries
+  const handlePublishToggle = async (journal: JournalEntry) => {
+    try {
+      await JournalService.publishJournalEntry(journal.id, {
+        visibility: 'network',
+        abstractContent: journal.abstractContent || journal.description
+      });
+      queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
+    } catch (error) {
+      console.error('Failed to publish entry:', error);
+    }
+  };
+
   // We no longer need fallback calls since we're doing client-side filtering
   const [goalStatusFilter, setGoalStatusFilter] = useState<string>('all');
   const [goalPriorityFilter, setGoalPriorityFilter] = useState<string>('all');
@@ -5642,6 +5656,7 @@ export default function WorkspaceDetailPage() {
                         onAppreciate={() => handleAppreciate(entry.id)}
                         onReChronicle={() => handleRechronicle(entry.id)}
                         isDraft={isDraft}
+                        onPublish={isDraft ? () => handlePublishToggle(journalEntry) : undefined}
                       />
                     );
                   }
@@ -5657,6 +5672,7 @@ export default function WorkspaceDetailPage() {
                       showUserProfile={true}
                       onAppreciate={() => handleAppreciate(entry.id)}
                       onReChronicle={() => handleRechronicle(entry.id)}
+                      onPublishToggle={handlePublishToggle}
                       customActions={
                         <Button
                           variant="outline"

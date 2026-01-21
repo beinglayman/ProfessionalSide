@@ -350,8 +350,13 @@ export default function JournalPage() {
   // Filter journals
   const filteredJournals = useMemo(() => {
     console.log(`🔍 Filtering ${journals.length} journals for viewMode: ${viewMode}`);
-    
+
     const filtered = journals.filter(journal => {
+      // Exclude auto-generated drafts - they should only appear on workspace page
+      if (!journal.isPublished && journal.tags?.includes('auto-generated')) {
+        console.log(`❌ Excluding "${journal.title}" from journal list (auto-generated draft)`);
+        return false;
+      }
       // In network view, show entries that have: generateNetworkEntry=true OR visibility='network' OR isPublished=true
       if (viewMode === 'network' && !journal.generateNetworkEntry && journal.visibility !== 'network' && !journal.isPublished) {
         console.log(`❌ Excluding "${journal.title}" from network view (visibility: ${journal.visibility}, isPublished: ${journal.isPublished}, generateNetworkEntry: ${journal.generateNetworkEntry})`);
