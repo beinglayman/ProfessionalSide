@@ -5,8 +5,6 @@ import {
   Globe,
   Wrench,
   Sparkles,
-  Tag,
-  FolderOpen,
   Check,
   AlertCircle,
   Loader2,
@@ -90,23 +88,8 @@ export function JournalAutoCreationSettings({
   const [timezone, setTimezone] = useState(getUserTimezone());
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState('');
-  const [defaultCategory, setDefaultCategory] = useState('');
-  const [defaultTags, setDefaultTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
-
-  // Category options
-  const categoryOptions = [
-    'Daily Summary',
-    'Engineering',
-    'Design',
-    'Product',
-    'Marketing',
-    'Operations',
-    'Research',
-    'Learning'
-  ];
 
   // Load subscription data into form
   useEffect(() => {
@@ -117,8 +100,6 @@ export function JournalAutoCreationSettings({
       setTimezone(subscription.timezone);
       setSelectedTools(subscription.selectedTools);
       setCustomPrompt(subscription.customPrompt || '');
-      setDefaultCategory(subscription.defaultCategory || '');
-      setDefaultTags(subscription.defaultTags || []);
     }
   }, [subscription]);
 
@@ -135,9 +116,7 @@ export function JournalAutoCreationSettings({
       generationTime !== subscription.generationTime ||
       timezone !== subscription.timezone ||
       JSON.stringify(selectedTools) !== JSON.stringify(subscription.selectedTools) ||
-      customPrompt !== (subscription.customPrompt || '') ||
-      defaultCategory !== (subscription.defaultCategory || '') ||
-      JSON.stringify(defaultTags) !== JSON.stringify(subscription.defaultTags || []);
+      customPrompt !== (subscription.customPrompt || '');
 
     setHasChanges(changed);
   }, [
@@ -147,9 +126,7 @@ export function JournalAutoCreationSettings({
     generationTime,
     timezone,
     selectedTools,
-    customPrompt,
-    defaultCategory,
-    defaultTags
+    customPrompt
   ]);
 
   const handleDayToggle = (day: DayOfWeek) => {
@@ -167,17 +144,6 @@ export function JournalAutoCreationSettings({
         ? prev.filter(t => t !== toolId)
         : [...prev, toolId]
     );
-  };
-
-  const handleAddTag = () => {
-    if (newTag.trim() && !defaultTags.includes(newTag.trim())) {
-      setDefaultTags(prev => [...prev, newTag.trim()]);
-      setNewTag('');
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setDefaultTags(prev => prev.filter(t => t !== tag));
   };
 
   const handleSave = async () => {
@@ -200,9 +166,7 @@ export function JournalAutoCreationSettings({
         generationTime,
         timezone,
         selectedTools,
-        customPrompt: customPrompt || null,
-        defaultCategory: defaultCategory || null,
-        defaultTags
+        customPrompt: customPrompt || null
       };
 
       if (subscription) {
@@ -280,7 +244,7 @@ export function JournalAutoCreationSettings({
 
         {subscription && (
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 flex items-center">
               {subscription.isActive ? (
                 <>
                   <span className="inline-flex items-center text-green-600">
@@ -296,7 +260,7 @@ export function JournalAutoCreationSettings({
               ) : (
                 <span className="text-gray-500">Paused</span>
               )}
-            </p>
+            </div>
           </div>
         )}
       </div>
@@ -482,68 +446,6 @@ export function JournalAutoCreationSettings({
                 <p className="mt-1 text-xs text-gray-400">
                   Guide how the AI summarizes your activities
                 </p>
-              </div>
-
-              {/* Default Category */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <FolderOpen className="h-4 w-4 inline mr-1" />
-                  Default Category
-                </label>
-                <select
-                  value={defaultCategory}
-                  onChange={e => setDefaultCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                >
-                  <option value="">None</option>
-                  {categoryOptions.map(cat => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Default Tags */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Tag className="h-4 w-4 inline mr-1" />
-                  Default Tags
-                </label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {defaultTags.map(tag => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
-                    >
-                      {tag}
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-1 hover:text-purple-900"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={e => setNewTag(e.target.value)}
-                    onKeyPress={e => e.key === 'Enter' && handleAddTag()}
-                    placeholder="Add a tag"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    maxLength={50}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={handleAddTag}
-                    disabled={!newTag.trim()}
-                  >
-                    Add
-                  </Button>
-                </div>
               </div>
             </div>
           </div>
