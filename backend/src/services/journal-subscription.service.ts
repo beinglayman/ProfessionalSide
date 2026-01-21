@@ -2,9 +2,8 @@ import { prisma } from '../lib/prisma';
 import {
   CreateSubscriptionInput,
   UpdateSubscriptionInput,
-  Frequency,
   DayOfWeek,
-  LOOKBACK_PERIODS
+  LOOKBACK_DAYS
 } from '../types/journal-subscription.types';
 
 export class JournalSubscriptionService {
@@ -68,7 +67,6 @@ export class JournalSubscriptionService {
 
     // Calculate next run time
     const nextRunAt = this.calculateNextRunAt(
-      data.frequency,
       data.selectedDays as DayOfWeek[],
       data.generationTime,
       data.timezone
@@ -79,7 +77,7 @@ export class JournalSubscriptionService {
         userId,
         workspaceId,
         isActive: true,
-        frequency: data.frequency,
+        frequency: 'custom', // Always custom for backward compatibility
         selectedDays: data.selectedDays,
         generationTime: data.generationTime,
         timezone: data.timezone,
@@ -122,7 +120,6 @@ export class JournalSubscriptionService {
     const updateData: any = {};
 
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    if (data.frequency !== undefined) updateData.frequency = data.frequency;
     if (data.selectedDays !== undefined) updateData.selectedDays = data.selectedDays;
     if (data.generationTime !== undefined) updateData.generationTime = data.generationTime;
     if (data.timezone !== undefined) updateData.timezone = data.timezone;
@@ -132,7 +129,6 @@ export class JournalSubscriptionService {
     if (data.defaultTags !== undefined) updateData.defaultTags = data.defaultTags;
 
     // Recalculate next run time if schedule changed
-    const frequency = data.frequency ?? existing.frequency;
     const selectedDays = data.selectedDays ?? existing.selectedDays;
     const generationTime = data.generationTime ?? existing.generationTime;
     const timezone = data.timezone ?? existing.timezone;
@@ -140,7 +136,6 @@ export class JournalSubscriptionService {
 
     if (isActive) {
       updateData.nextRunAt = this.calculateNextRunAt(
-        frequency as Frequency,
         selectedDays as DayOfWeek[],
         generationTime,
         timezone
@@ -212,7 +207,6 @@ export class JournalSubscriptionService {
     if (isActive) {
       // Recalculate next run time when activating
       updateData.nextRunAt = this.calculateNextRunAt(
-        existing.frequency as Frequency,
         existing.selectedDays as DayOfWeek[],
         existing.generationTime,
         existing.timezone
@@ -311,7 +305,6 @@ export class JournalSubscriptionService {
     }
 
     const nextRunAt = this.calculateNextRunAt(
-      subscription.frequency as Frequency,
       subscription.selectedDays as DayOfWeek[],
       subscription.generationTime,
       subscription.timezone
@@ -328,10 +321,10 @@ export class JournalSubscriptionService {
 
   /**
    * Calculate the next run time based on subscription settings
+   * Simply finds the next occurrence of any selected day at the specified time.
    * Note: Uses UTC internally. Timezone is stored for display purposes.
    */
   calculateNextRunAt(
-    frequency: Frequency,
     selectedDays: DayOfWeek[],
     generationTime: string,
     _timezone: string // Timezone stored for reference, calculations done in UTC
@@ -358,84 +351,27 @@ export class JournalSubscriptionService {
       return result;
     };
 
-    // Find the next valid day based on frequency
-    switch (frequency) {
-      case 'daily':
-        // nextRun is already set correctly
-        break;
+    // Find the next occurrence of any selected day
+    if (selectedDays.length > 0) {
+      const targetWeekdays = selectedDays.map(d => {
+        const day = this.dayToWeekday(d);
+        return day === 7 ? 0 : day; // Convert to JS day format (0=Sun, 1=Mon, etc.)
+      });
 
-      case 'alternate':
-        // Every other day - use days since epoch
-        const daysSinceEpoch = Math.floor(now.getTime() / (24 * 60 * 60 * 1000));
-        if (daysSinceEpoch % 2 !== 0) {
-          nextRun = addDays(nextRun, 1);
-        }
-        break;
-
-      case 'weekdays':
-        // Skip weekends (0=Sunday, 6=Saturday)
-        while (getWeekday(nextRun) === 0 || getWeekday(nextRun) === 6) {
-          nextRun = addDays(nextRun, 1);
-        }
-        break;
-
-      case 'weekly':
-      case 'fortnightly':
-      case 'monthly':
-        // Find the next occurrence of the selected day
-        if (selectedDays.length > 0) {
-          const targetDay = this.dayToWeekday(selectedDays[0]);
-          // Convert from 1-7 (Mon-Sun) to 0-6 (Sun-Sat)
-          const targetJsDay = targetDay === 7 ? 0 : targetDay;
-
-          while (getWeekday(nextRun) !== targetJsDay) {
-            nextRun = addDays(nextRun, 1);
-          }
-
-          // For fortnightly, skip every other week
-          if (frequency === 'fortnightly') {
-            const weeksSinceEpoch = Math.floor(now.getTime() / (7 * 24 * 60 * 60 * 1000));
-            if (weeksSinceEpoch % 2 !== 0) {
-              nextRun = addDays(nextRun, 7);
-            }
-          } else if (frequency === 'monthly') {
-            // For monthly, ensure we're in a future month if needed
-            if (nextRun.getUTCMonth() === now.getUTCMonth() && nextRun.getUTCDate() <= now.getUTCDate()) {
-              // Move to next month, first day
-              nextRun.setUTCMonth(nextRun.getUTCMonth() + 1);
-              nextRun.setUTCDate(1);
-              nextRun.setUTCHours(hour, minute, 0, 0);
-              // Find the first occurrence of target day in the new month
-              while (getWeekday(nextRun) !== targetJsDay) {
-                nextRun = addDays(nextRun, 1);
-              }
-            }
-          }
-        }
-        break;
-
-      case 'custom':
-        // Find the next occurrence of any selected day
-        if (selectedDays.length > 0) {
-          const targetWeekdays = selectedDays.map(d => {
-            const day = this.dayToWeekday(d);
-            return day === 7 ? 0 : day; // Convert to JS day format
-          });
-          while (!targetWeekdays.includes(getWeekday(nextRun))) {
-            nextRun = addDays(nextRun, 1);
-          }
-        }
-        break;
+      // Keep advancing until we find a selected day
+      while (!targetWeekdays.includes(getWeekday(nextRun))) {
+        nextRun = addDays(nextRun, 1);
+      }
     }
 
     return nextRun;
   }
 
   /**
-   * Calculate lookback period in days
+   * Get lookback period in days (always 1 day since last run)
    */
-  getLookbackDays(frequency: Frequency): number {
-    return LOOKBACK_PERIODS[frequency];
+  getLookbackDays(): number {
+    return LOOKBACK_DAYS;
   }
 
   /**

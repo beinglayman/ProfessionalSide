@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { journalSubscriptionService } from './journal-subscription.service';
 import { JournalService } from './journal.service';
-import { Frequency, LOOKBACK_PERIODS } from '../types/journal-subscription.types';
+import { LOOKBACK_DAYS } from '../types/journal-subscription.types';
 
 interface ToolActivityData {
   toolType: string;
@@ -46,7 +46,7 @@ export class JournalAutoGeneratorService {
    * Process a single subscription
    */
   private async processSubscription(subscription: any): Promise<void> {
-    const { id, userId, workspaceId, selectedTools, customPrompt, defaultCategory, defaultTags, frequency } = subscription;
+    const { id, userId, workspaceId, selectedTools, customPrompt, defaultCategory, defaultTags } = subscription;
     const workspaceName = subscription.workspace?.name || 'your workspace';
 
     console.log(`📝 Processing subscription ${id} for user ${userId} in workspace ${workspaceId}`);
@@ -58,9 +58,8 @@ export class JournalAutoGeneratorService {
       return;
     }
 
-    // Calculate lookback period
-    const lookbackDays = LOOKBACK_PERIODS[frequency as Frequency];
-    const lookbackStart = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+    // Calculate lookback period (always 1 day since last run)
+    const lookbackStart = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
     // Fetch activity data from connected tools
     const { activityData, missingTools } = await this.fetchToolActivityData(

@@ -1172,8 +1172,8 @@ model WorkspaceJournalSubscription {
   isActive        Boolean  @default(true)
 
   // Schedule
-  frequency       String   // 'daily' | 'alternate' | 'weekdays' | 'weekly' | 'fortnightly' | 'monthly' | 'custom'
-  selectedDays    String[] @default([]) // ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] - used when frequency is 'custom'
+  frequency       String   @default("custom") // Kept for backward compatibility, always 'custom'
+  selectedDays    String[] @default([]) // ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] - primary schedule driver
   generationTime  String   // HH:mm format (e.g., '18:00')
   timezone        String   // IANA timezone (e.g., 'America/New_York')
 

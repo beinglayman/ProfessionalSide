@@ -16,17 +16,13 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useJournalSubscriptionManager } from '../../hooks/useJournalSubscription';
 import {
-  Frequency,
   DayOfWeek,
-  FREQUENCY_LABELS,
   DAY_LABELS,
   DAY_SHORT_LABELS,
   SUPPORTED_TOOLS,
   GENERATION_TIME_OPTIONS,
   TIMEZONE_OPTIONS,
   getUserTimezone,
-  requiresDaySelection,
-  requiresSingleDay,
   CreateSubscriptionInput
 } from '../../types/journal-subscription';
 
@@ -56,8 +52,7 @@ export function JournalAutoCreationSettings({
 
   // Form state
   const [isEnabled, setIsEnabled] = useState(false);
-  const [frequency, setFrequency] = useState<Frequency>('daily');
-  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([]);
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>(['mon', 'tue', 'wed', 'thu', 'fri']); // Default to weekdays
   const [generationTime, setGenerationTime] = useState('18:00');
   const [timezone, setTimezone] = useState(getUserTimezone());
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
@@ -84,7 +79,6 @@ export function JournalAutoCreationSettings({
   useEffect(() => {
     if (subscription) {
       setIsEnabled(subscription.isActive);
-      setFrequency(subscription.frequency);
       setSelectedDays(subscription.selectedDays);
       setGenerationTime(subscription.generationTime);
       setTimezone(subscription.timezone);
@@ -104,7 +98,6 @@ export function JournalAutoCreationSettings({
 
     const changed =
       isEnabled !== subscription.isActive ||
-      frequency !== subscription.frequency ||
       JSON.stringify(selectedDays) !== JSON.stringify(subscription.selectedDays) ||
       generationTime !== subscription.generationTime ||
       timezone !== subscription.timezone ||
@@ -117,7 +110,6 @@ export function JournalAutoCreationSettings({
   }, [
     subscription,
     isEnabled,
-    frequency,
     selectedDays,
     generationTime,
     timezone,
@@ -127,31 +119,13 @@ export function JournalAutoCreationSettings({
     defaultTags
   ]);
 
-  const handleFrequencyChange = (newFrequency: Frequency) => {
-    setFrequency(newFrequency);
-
-    // Reset selected days based on frequency
-    if (newFrequency === 'daily' || newFrequency === 'alternate') {
-      setSelectedDays([]);
-    } else if (newFrequency === 'weekdays') {
-      setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri']);
-    } else if (requiresSingleDay(newFrequency) && selectedDays.length !== 1) {
-      setSelectedDays(['mon']); // Default to Monday
-    }
-  };
-
   const handleDayToggle = (day: DayOfWeek) => {
-    if (requiresSingleDay(frequency)) {
-      // Single selection mode
-      setSelectedDays([day]);
-    } else {
-      // Multi-selection mode (custom)
-      setSelectedDays(prev =>
-        prev.includes(day)
-          ? prev.filter(d => d !== day)
-          : [...prev, day]
-      );
-    }
+    // Always multi-select mode
+    setSelectedDays(prev =>
+      prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
   };
 
   const handleToolToggle = (toolId: string) => {
@@ -182,14 +156,13 @@ export function JournalAutoCreationSettings({
       return;
     }
 
-    if (requiresDaySelection(frequency) && selectedDays.length === 0) {
+    if (selectedDays.length === 0) {
       setError('Please select at least one day');
       return;
     }
 
     try {
       const data: CreateSubscriptionInput = {
-        frequency,
         selectedDays,
         generationTime,
         timezone,
@@ -313,55 +286,35 @@ export function JournalAutoCreationSettings({
               <h5 className="font-medium text-gray-900">Schedule</h5>
             </div>
 
-            {/* Frequency Selection */}
             <div className="space-y-4">
+              {/* Day Selection - Always shown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Frequency
+                  Select days to generate journal entries
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map(freq => (
+                <div className="flex gap-2">
+                  {ALL_DAYS.map(day => (
                     <button
-                      key={freq}
-                      onClick={() => handleFrequencyChange(freq)}
+                      key={day}
+                      onClick={() => handleDayToggle(day)}
                       className={cn(
-                        'px-3 py-2 text-sm rounded-lg border transition-colors',
-                        frequency === freq
-                          ? 'border-purple-500 bg-purple-50 text-purple-700'
-                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                        'w-10 h-10 rounded-full text-sm font-medium transition-colors',
+                        selectedDays.includes(day)
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       )}
+                      title={DAY_LABELS[day]}
                     >
-                      {FREQUENCY_LABELS[freq]}
+                      {DAY_SHORT_LABELS[day]}
                     </button>
                   ))}
                 </div>
+                {selectedDays.length === 0 && (
+                  <p className="mt-2 text-sm text-amber-600">
+                    Please select at least one day
+                  </p>
+                )}
               </div>
-
-              {/* Day Selection (for custom, weekly, fortnightly, monthly) */}
-              {requiresDaySelection(frequency) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {requiresSingleDay(frequency) ? 'Select day' : 'Select days'}
-                  </label>
-                  <div className="flex gap-2">
-                    {ALL_DAYS.map(day => (
-                      <button
-                        key={day}
-                        onClick={() => handleDayToggle(day)}
-                        className={cn(
-                          'w-10 h-10 rounded-full text-sm font-medium transition-colors',
-                          selectedDays.includes(day)
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        )}
-                        title={DAY_LABELS[day]}
-                      >
-                        {DAY_SHORT_LABELS[day]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Time and Timezone */}
               <div className="grid grid-cols-2 gap-4">

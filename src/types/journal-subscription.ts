@@ -1,7 +1,5 @@
 // Types for Workspace Journal Auto-Creation Subscription
 
-export type Frequency = 'daily' | 'alternate' | 'weekdays' | 'weekly' | 'fortnightly' | 'monthly' | 'custom';
-
 export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
 export interface JournalSubscription {
@@ -11,7 +9,6 @@ export interface JournalSubscription {
   isActive: boolean;
 
   // Schedule
-  frequency: Frequency;
   selectedDays: DayOfWeek[];
   generationTime: string; // HH:mm format
   timezone: string; // IANA timezone
@@ -38,7 +35,6 @@ export interface JournalSubscription {
 }
 
 export interface CreateSubscriptionInput {
-  frequency: Frequency;
   selectedDays: DayOfWeek[];
   generationTime: string;
   timezone: string;
@@ -50,7 +46,6 @@ export interface CreateSubscriptionInput {
 
 export interface UpdateSubscriptionInput {
   isActive?: boolean;
-  frequency?: Frequency;
   selectedDays?: DayOfWeek[];
   generationTime?: string;
   timezone?: string;
@@ -75,17 +70,6 @@ export interface ConnectedToolsResponse {
   tools: ConnectedTool[];
 }
 
-// Frequency display labels
-export const FREQUENCY_LABELS: Record<Frequency, string> = {
-  daily: 'Daily',
-  alternate: 'Alternate days',
-  weekdays: 'Weekdays (Mon-Fri)',
-  weekly: 'Weekly',
-  fortnightly: 'Fortnightly',
-  monthly: 'Monthly',
-  custom: 'Custom'
-};
-
 // Day of week display labels
 export const DAY_LABELS: Record<DayOfWeek, string> = {
   mon: 'Monday',
@@ -108,7 +92,7 @@ export const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {
   sun: 'S'
 };
 
-// Supported tools with display names and icons
+// Supported tools with display names and icons - synced with integrations page
 export const SUPPORTED_TOOLS: { id: string; name: string; icon: string }[] = [
   { id: 'github', name: 'GitHub', icon: 'github' },
   { id: 'jira', name: 'Jira', icon: 'jira' },
@@ -118,10 +102,10 @@ export const SUPPORTED_TOOLS: { id: string; name: string; icon: string }[] = [
   { id: 'teams', name: 'Microsoft Teams', icon: 'teams' },
   { id: 'outlook', name: 'Outlook', icon: 'outlook' },
   { id: 'zoom', name: 'Zoom', icon: 'zoom' },
-  { id: 'linear', name: 'Linear', icon: 'linear' },
-  { id: 'notion', name: 'Notion', icon: 'notion' },
-  { id: 'asana', name: 'Asana', icon: 'asana' },
-  { id: 'trello', name: 'Trello', icon: 'trello' }
+  { id: 'onedrive', name: 'OneDrive', icon: 'onedrive' },
+  { id: 'onenote', name: 'OneNote', icon: 'onenote' },
+  { id: 'sharepoint', name: 'SharePoint', icon: 'sharepoint' },
+  { id: 'google_workspace', name: 'Google Workspace', icon: 'google_workspace' }
 ];
 
 // Common time options for generation time dropdown
@@ -160,14 +144,4 @@ export const TIMEZONE_OPTIONS = [
 // Helper to get user's timezone
 export function getUserTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
-
-// Helper to check if frequency requires day selection
-export function requiresDaySelection(frequency: Frequency): boolean {
-  return ['weekly', 'fortnightly', 'monthly', 'custom'].includes(frequency);
-}
-
-// Helper to check if frequency requires single day selection
-export function requiresSingleDay(frequency: Frequency): boolean {
-  return ['weekly', 'fortnightly', 'monthly'].includes(frequency);
 }

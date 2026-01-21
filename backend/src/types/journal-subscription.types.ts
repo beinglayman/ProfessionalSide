@@ -1,16 +1,5 @@
 import { z } from 'zod';
 
-// Frequency options
-export const frequencyEnum = z.enum([
-  'daily',
-  'alternate',
-  'weekdays',
-  'weekly',
-  'fortnightly',
-  'monthly',
-  'custom'
-]);
-
 // Day of week options
 export const dayOfWeekEnum = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
@@ -20,13 +9,9 @@ const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 // Create subscription schema
 export const createSubscriptionSchema = z.object({
   // Schedule
-  frequency: frequencyEnum,
   selectedDays: z.array(dayOfWeekEnum)
-    .default([])
-    .refine(
-      (days) => days.length <= 7,
-      'Maximum 7 days can be selected'
-    ),
+    .min(1, 'At least one day must be selected')
+    .max(7, 'Maximum 7 days can be selected'),
   generationTime: z.string()
     .regex(timeRegex, 'Time must be in HH:mm format (e.g., 18:00)'),
   timezone: z.string()
@@ -50,41 +35,15 @@ export const createSubscriptionSchema = z.object({
   defaultTags: z.array(z.string().max(50))
     .max(20, 'Maximum 20 tags allowed')
     .default([])
-}).refine(
-  (data) => {
-    // Custom frequency requires at least one selected day
-    if (data.frequency === 'custom' && data.selectedDays.length === 0) {
-      return false;
-    }
-    return true;
-  },
-  {
-    message: 'Custom frequency requires at least one selected day',
-    path: ['selectedDays']
-  }
-).refine(
-  (data) => {
-    // Weekly/Fortnightly/Monthly require exactly one selected day
-    if (['weekly', 'fortnightly', 'monthly'].includes(data.frequency)) {
-      if (data.selectedDays.length !== 1) {
-        return false;
-      }
-    }
-    return true;
-  },
-  {
-    message: 'Weekly, fortnightly, and monthly frequencies require exactly one selected day',
-    path: ['selectedDays']
-  }
-);
+});
 
-// Update subscription schema (all fields optional except for refinements)
+// Update subscription schema (all fields optional)
 export const updateSubscriptionSchema = z.object({
   isActive: z.boolean().optional(),
 
   // Schedule
-  frequency: frequencyEnum.optional(),
   selectedDays: z.array(dayOfWeekEnum)
+    .min(1, 'At least one day must be selected')
     .max(7, 'Maximum 7 days can be selected')
     .optional(),
   generationTime: z.string()
@@ -126,7 +85,6 @@ export const subscriptionResponseSchema = z.object({
   userId: z.string(),
   workspaceId: z.string(),
   isActive: z.boolean(),
-  frequency: frequencyEnum,
   selectedDays: z.array(dayOfWeekEnum),
   generationTime: z.string(),
   timezone: z.string(),
@@ -151,7 +109,6 @@ export const connectedToolsResponseSchema = z.object({
 });
 
 // Type exports
-export type Frequency = z.infer<typeof frequencyEnum>;
 export type DayOfWeek = z.infer<typeof dayOfWeekEnum>;
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;
 export type UpdateSubscriptionInput = z.infer<typeof updateSubscriptionSchema>;
@@ -159,18 +116,10 @@ export type ToggleSubscriptionInput = z.infer<typeof toggleSubscriptionSchema>;
 export type SubscriptionResponse = z.infer<typeof subscriptionResponseSchema>;
 export type ConnectedToolsResponse = z.infer<typeof connectedToolsResponseSchema>;
 
-// Lookback period mapping (in days)
-export const LOOKBACK_PERIODS: Record<Frequency, number> = {
-  daily: 1,
-  alternate: 2,
-  weekdays: 1,
-  weekly: 7,
-  fortnightly: 14,
-  monthly: 30,
-  custom: 1 // Per selected day
-};
+// Lookback period is always 1 day (since last run)
+export const LOOKBACK_DAYS = 1;
 
-// Supported tools list
+// Supported tools list - synced with integrations page
 export const SUPPORTED_TOOLS = [
   'github',
   'jira',
@@ -180,10 +129,10 @@ export const SUPPORTED_TOOLS = [
   'teams',
   'outlook',
   'zoom',
-  'linear',
-  'notion',
-  'asana',
-  'trello'
+  'onedrive',
+  'onenote',
+  'sharepoint',
+  'google_workspace'
 ] as const;
 
 export type SupportedTool = typeof SUPPORTED_TOOLS[number];
