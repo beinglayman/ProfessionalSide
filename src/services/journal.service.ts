@@ -187,6 +187,7 @@ export class JournalService {
       createdAt: new Date(apiEntry.createdAt),
       lastModified: new Date(apiEntry.lastModified),
       author: {
+        id: apiEntry.author.id,
         name: apiEntry.author.name,
         avatar: apiEntry.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
         position: apiEntry.author.title || 'Professional',
