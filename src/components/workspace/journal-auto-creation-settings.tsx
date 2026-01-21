@@ -33,6 +33,39 @@ interface JournalAutoCreationSettingsProps {
 
 const ALL_DAYS: DayOfWeek[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
+// Format relative time like "in 4 hours 27 minutes"
+function formatRelativeTime(dateString: string): string {
+  const targetDate = new Date(dateString);
+  const now = new Date();
+  const diffMs = targetDate.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    return 'soon';
+  }
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const remainingHours = diffHours % 24;
+  const remainingMinutes = diffMinutes % 60;
+
+  if (diffDays > 0) {
+    if (remainingHours > 0) {
+      return `in ${diffDays} day${diffDays > 1 ? 's' : ''} ${remainingHours} hour${remainingHours > 1 ? 's' : ''}`;
+    }
+    return `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+  }
+
+  if (diffHours > 0) {
+    if (remainingMinutes > 0) {
+      return `in ${diffHours} hour${diffHours > 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}`;
+    }
+    return `in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+  }
+
+  return `in ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}`;
+}
+
 export function JournalAutoCreationSettings({
   workspaceId,
   onBack
@@ -256,7 +289,7 @@ export function JournalAutoCreationSettings({
                   </span>
                   {subscription.nextRunAt && (
                     <span className="ml-2">
-                      — Next run: {new Date(subscription.nextRunAt).toLocaleString()}
+                      — Next sync scheduled {formatRelativeTime(subscription.nextRunAt)}
                     </span>
                   )}
                 </>
