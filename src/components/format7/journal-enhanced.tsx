@@ -124,8 +124,8 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   // Inline editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [localTitle, setLocalTitle] = useState(entry.entry_metadata.title);
-  const [localDescription, setLocalDescription] = useState(entry.context.primary_focus);
+  const [localTitle, setLocalTitle] = useState(entry.entry_metadata?.title || '');
+  const [localDescription, setLocalDescription] = useState(entry.context?.primary_focus || '');
 
   // Confetti effect for achievement entries
   const [lastConfettiTime, setLastConfettiTime] = useState(0);
@@ -235,7 +235,8 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
     }
   };
 
-  const excerpt = entry.context.primary_focus.slice(0, 112) + '...';
+  const primaryFocus = entry.context?.primary_focus || '';
+  const excerpt = primaryFocus.length > 112 ? primaryFocus.slice(0, 112) + '...' : primaryFocus;
 
   // Mock author data
   const author = {
@@ -348,14 +349,16 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             ) : (
               <h2 className="text-lg font-semibold text-gray-900 flex-1">{entry.entry_metadata.title}</h2>
             )}
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{formatDateRange(entry.context.date_range.start, entry.context.date_range.end)}</span>
-            </div>
+            {entry.context?.date_range && (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{formatDateRange(entry.context.date_range.start, entry.context.date_range.end)}</span>
+              </div>
+            )}
           </div>
 
           {/* Achievement Widget - Only for achievement entries (v2) */}
-          {entry.entry_metadata.type === 'achievement' && (
+          {entry.entry_metadata?.type === 'achievement' && (
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <Trophy className="w-5 h-5 text-purple-600" />
@@ -405,7 +408,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    setLocalDescription(entry.context.primary_focus);
+                    setLocalDescription(entry.context?.primary_focus || '');
                     setIsEditingDescription(false);
                   }}
                   className="text-red-600 hover:text-red-700 transition-colors"
@@ -417,7 +420,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             </div>
           ) : (
             <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-              {isExpanded ? entry.context.primary_focus : excerpt}
+              {isExpanded ? (entry.context?.primary_focus || '') : excerpt}
             </p>
           )}
 
