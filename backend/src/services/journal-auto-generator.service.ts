@@ -3,6 +3,10 @@ import { journalSubscriptionService } from './journal-subscription.service';
 import { JournalService } from './journal.service';
 import { LOOKBACK_DAYS } from '../types/journal-subscription.types';
 
+// TEMPORARY: Set to true to bypass activity check for testing
+// MUST BE SET TO FALSE AFTER TESTING
+const TESTING_MODE = true;
+
 interface ToolActivityData {
   toolType: string;
   activities: any[];
@@ -71,12 +75,16 @@ export class JournalAutoGeneratorService {
     // Check if we have any activity data
     const hasActivity = activityData.some(tool => tool.hasData);
 
-    if (!hasActivity) {
-      // No activity found - send notification
+    if (!hasActivity && !TESTING_MODE) {
+      // No activity found - send notification (skip in testing mode)
       console.log(`📝 No activity found for subscription ${id}`);
       await this.sendNoActivityNotification(userId, workspaceId, workspaceName);
       await journalSubscriptionService.markSubscriptionProcessed(id);
       return;
+    }
+
+    if (TESTING_MODE && !hasActivity) {
+      console.log(`📝 TESTING MODE: Bypassing activity check for subscription ${id}`);
     }
 
     // Generate journal entry using AI
