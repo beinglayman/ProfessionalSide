@@ -256,11 +256,11 @@ export function JournalAutoCreationSettings({
           </div>
           <button
             onClick={handleToggle}
-            disabled={isToggling || (!subscription && !isEnabled)}
+            disabled={isToggling}
             className={cn(
               'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2',
               isEnabled ? 'bg-purple-600' : 'bg-gray-200',
-              (isToggling || (!subscription && !isEnabled)) && 'opacity-50 cursor-not-allowed'
+              isToggling && 'opacity-50 cursor-not-allowed'
             )}
           >
             <span
