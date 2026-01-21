@@ -290,6 +290,17 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
               {entry.entry_metadata?.isAutomated && (
                 <Badge variant="outline" className="text-xs">Auto generated</Badge>
               )}
+              {/* Publish button for draft entries */}
+              {isDraft && onPublish && (
+                <Button
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+                  onClick={onPublish}
+                >
+                  <Upload className="w-4 h-4 mr-1" />
+                  <span className="text-xs">Publish</span>
+                </Button>
+              )}
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                 <MoreVertical className="w-4 h-4 text-gray-500" />
               </Button>
@@ -786,18 +797,6 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 <Repeat2 className="w-4 h-4 mr-1" />
                 <span className="text-xs">ReChronicle</span>
               </Button>
-
-              {/* Publish button for draft entries */}
-              {isDraft && onPublish && (
-                <Button
-                  size="sm"
-                  className="bg-purple-600 hover:bg-purple-700 text-white transition-colors ml-2"
-                  onClick={onPublish}
-                >
-                  <Upload className="w-4 h-4 mr-1" />
-                  <span className="text-xs">Publish</span>
-                </Button>
-              )}
             </div>
           )}
 
