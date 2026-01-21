@@ -148,7 +148,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
 
   // Handle confetti effect on achievement entry hover
   const handleAchievementHover = () => {
-    if (entry.entry_metadata.type === 'achievement' && cardRef.current) {
+    if (entry.entry_metadata?.type === 'achievement' && cardRef.current) {
       const now = Date.now();
       // 3-second cooldown between confetti bursts
       if (now - lastConfettiTime > 3000) {
@@ -272,13 +272,13 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                   className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
                 >
                   {showRelativeTime
-                    ? getRelativeTime(entry.entry_metadata.created_at || new Date().toISOString())
-                    : getAbsoluteTime(entry.entry_metadata.created_at || new Date().toISOString())}
+                    ? getRelativeTime(entry.entry_metadata?.created_at || new Date().toISOString())
+                    : getAbsoluteTime(entry.entry_metadata?.created_at || new Date().toISOString())}
                 </button>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {(entry.entry_metadata.privacy === 'network' || entry.entry_metadata.privacy === 'public') ? (
+              {(entry.entry_metadata?.privacy === 'network' || entry.entry_metadata?.privacy === 'public') ? (
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs px-2 py-0.5">
                   Published to network
                 </Badge>
@@ -287,7 +287,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                   Unpublished
                 </Badge>
               )}
-              {entry.entry_metadata.isAutomated && (
+              {entry.entry_metadata?.isAutomated && (
                 <Badge variant="outline" className="text-xs">Auto generated</Badge>
               )}
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -336,7 +336,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      setLocalTitle(entry.entry_metadata.title);
+                      setLocalTitle(entry.entry_metadata?.title || '');
                       setIsEditingTitle(false);
                     }}
                     className="text-red-600 hover:text-red-700 transition-colors"
@@ -347,7 +347,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 </div>
               </div>
             ) : (
-              <h2 className="text-lg font-semibold text-gray-900 flex-1">{entry.entry_metadata.title}</h2>
+              <h2 className="text-lg font-semibold text-gray-900 flex-1">{entry.entry_metadata?.title || ''}</h2>
             )}
             {entry.context?.date_range && (
               <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -365,7 +365,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 <span className="text-sm font-semibold text-purple-900">Achievement Unlocked</span>
               </div>
               <p className="text-sm text-purple-700">
-                {entry.entry_metadata.title || 'Achievement description'}
+                {entry.entry_metadata?.title || 'Achievement description'}
               </p>
             </div>
           )}
@@ -546,15 +546,15 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             >
               <span className="text-xs text-gray-500 font-medium">Tools:</span>
               <div className="flex gap-1.5 flex-1 flex-wrap items-center">
-                {Array.from(new Set(entry.activities.map(a => a.source))).slice(0, 3).map(source => (
+                {Array.from(new Set((entry.activities || []).map(a => a.source))).slice(0, 3).map(source => (
                   <div key={source} className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
                     {getToolIcon(source, 'w-3.5 h-3.5')}
                     <span className="text-xs text-gray-700 capitalize">{source}</span>
                   </div>
                 ))}
-                {Array.from(new Set(entry.activities.map(a => a.source))).length > 3 && (
+                {Array.from(new Set((entry.activities || []).map(a => a.source))).length > 3 && (
                   <div className="px-2 py-1 bg-gray-200 rounded-full text-xs text-gray-700 font-semibold">
-                    +{Array.from(new Set(entry.activities.map(a => a.source))).length - 3}
+                    +{Array.from(new Set((entry.activities || []).map(a => a.source))).length - 3}
                   </div>
                 )}
               </div>
@@ -611,7 +611,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
           {isExpanded && (
             <>
               <div className="space-y-3 mb-4">
-                {entry.activities.map((activity) => {
+                {(entry.activities || []).map((activity) => {
                   const isActivityExpanded = expandedActivities.has(activity.id);
 
                   // Log activity technologies to console
@@ -812,7 +812,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 </Badge>
               )}
               <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
-                Workspace: {workspaceName || entry.entry_metadata.workspace}
+                Workspace: {workspaceName || entry.entry_metadata?.workspace || 'Unknown'}
               </Badge>
             </div>
           )}
