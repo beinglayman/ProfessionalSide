@@ -16,7 +16,7 @@ import {
   ZoomIcon,
   GoogleWorkspaceIcon,
 } from '../icons/ToolIcons';
-import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy, Building, Upload } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Heart, MessageSquare, Repeat2, MoreVertical, Lightbulb, Link2, TrendingUp, Users, FileText, Code, Pencil, Check, X, Trophy, Building, Upload, Trash2 } from 'lucide-react';
 import { useContainedConfetti } from '../../hooks/useContainedConfetti';
 
 interface JournalEnhancedProps {
@@ -33,6 +33,7 @@ interface JournalEnhancedProps {
   onReChronicle?: () => void;
   isDraft?: boolean; // Whether this entry is a draft (unpublished)
   onPublish?: () => void; // Handler for publishing the entry
+  onDiscard?: () => void; // Handler for discarding the draft entry
   correlations?: Array<{
     id: string;
     type: 'pr_to_jira' | 'meeting_to_code' | 'design_to_code' | 'discussion_to_doc' | 'general';
@@ -112,7 +113,8 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   correlations = [],
   categories = [],
   isDraft = false,
-  onPublish
+  onPublish,
+  onDiscard
 }) => {
   // In preview mode, always show expanded view
   const [isExpanded, setIsExpanded] = useState(isPreview);
@@ -290,17 +292,6 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
               {entry.entry_metadata?.isAutomated && (
                 <Badge variant="outline" className="text-xs">Auto generated</Badge>
               )}
-              {/* Publish button for draft entries */}
-              {isDraft && onPublish && (
-                <Button
-                  size="sm"
-                  className="bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-                  onClick={onPublish}
-                >
-                  <Upload className="w-4 h-4 mr-1" />
-                  <span className="text-xs">Publish</span>
-                </Button>
-              )}
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                 <MoreVertical className="w-4 h-4 text-gray-500" />
               </Button>
@@ -310,6 +301,29 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
 
         {/* Main Content */}
         <div className="p-6">
+          {/* Draft actions - minimal buttons for publish/discard */}
+          {isDraft && (onPublish || onDiscard) && (
+            <div className="flex justify-end gap-1 mb-2">
+              {onDiscard && (
+                <button
+                  onClick={onDiscard}
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  title="Discard draft"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onPublish && (
+                <button
+                  onClick={onPublish}
+                  className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                  title="Publish"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
           {/* Title with time span */}
           <div className="flex items-start justify-between mb-3">
             {editMode && !isEditingTitle ? (

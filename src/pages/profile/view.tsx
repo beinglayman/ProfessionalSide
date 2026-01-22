@@ -292,7 +292,15 @@ export function ProfileViewPage() {
   const enhancedJournalEntries = useMemo(() => {
     const realJournalEntries = journalEntriesData?.entries || [];
 
-    return realJournalEntries.map((entry: JournalEntryType) => {
+    // Filter out auto-generated drafts - they should only appear on workspace page
+    const filteredEntries = realJournalEntries.filter((entry: JournalEntryType) => {
+      if (!entry.isPublished && entry.tags?.includes('auto-generated')) {
+        return false;
+      }
+      return true;
+    });
+
+    return filteredEntries.map((entry: JournalEntryType) => {
       // Check if entry supports dual views (has abstractContent and is published)
       const hasMultipleVisibilities = !!(entry.abstractContent && entry.visibility === 'network');
 

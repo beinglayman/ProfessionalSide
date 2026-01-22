@@ -509,6 +509,12 @@ export function ActivityFeedPage() {
     console.log(`🔍 Total activities before filtering: ${activities.length}`);
     
     const filtered = activities.filter(activity => {
+      // Exclude auto-generated drafts - they should only appear on workspace page
+      if (!activity.isPublished && activity.tags?.includes('auto-generated')) {
+        console.log(`❌ Excluding activity "${activity.title}" (auto-generated draft)`);
+        return false;
+      }
+
       // Filter by view mode
       if (viewMode === 'network') {
         // Network view: only show entries with network visibility
