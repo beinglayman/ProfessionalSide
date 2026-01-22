@@ -5,7 +5,7 @@ import { LOOKBACK_DAYS } from '../types/journal-subscription.types';
 
 // TEMPORARY: Set to true to bypass activity check for testing
 // MUST BE SET TO FALSE AFTER TESTING
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 
 interface ToolActivityData {
   toolType: string;

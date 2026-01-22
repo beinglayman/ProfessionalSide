@@ -63,8 +63,8 @@ export class CronService {
       });
     }
 
-    // Journal auto-generation - every 2 minutes (TEMPORARY FOR TESTING - change back to */30)
-    this.scheduleJob('journal-auto-generation', '*/2 * * * *', async () => {
+    // Journal auto-generation - every 30 minutes
+    this.scheduleJob('journal-auto-generation', '*/30 * * * *', async () => {
       console.log('Triggering journal auto-generation...');
       try {
         await journalAutoGeneratorService.processDueSubscriptions();
@@ -131,7 +131,7 @@ export class CronService {
         'weekly-digest': '0 9 * * 1',
         'cleanup-exports': '0 2 * * *',
         'health-check': '*/5 * * * *',
-        'journal-auto-generation': '*/2 * * * *' // TEMPORARY FOR TESTING - change back to */30
+        'journal-auto-generation': '*/30 * * * *'
       };
 
       status.push({

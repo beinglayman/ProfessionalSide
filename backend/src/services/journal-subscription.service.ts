@@ -8,7 +8,7 @@ import {
 
 // TEMPORARY: Set to true to test entry generation every 2 minutes
 // MUST BE SET TO FALSE AFTER TESTING
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 
 export class JournalSubscriptionService {
   /**
