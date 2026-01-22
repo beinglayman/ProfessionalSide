@@ -4771,14 +4771,32 @@ export default function WorkspaceDetailPage() {
   // Get journal entries from API and filter client-side by workspaceId
   const actualJournalEntries = useMemo(() => {
     let entries = journalData?.entries || [];
-    
+
+    // DEBUG: Log all entries and their workspaceIds
+    console.log('🔍 Workspace page debug:', {
+      urlWorkspaceId: workspaceId,
+      apiWorkspaceId: workspace?.id,
+      totalEntriesFromAPI: entries.length,
+      entriesSummary: entries.map(e => ({
+        id: e.id,
+        title: e.title?.substring(0, 30),
+        workspaceId: e.workspaceId,
+        isPublished: e.isPublished,
+        visibility: e.visibility,
+        matchesUrl: e.workspaceId === workspaceId,
+        matchesApi: e.workspaceId === workspace?.id
+      }))
+    });
+
     // Always filter client-side since we're fetching all entries now
     if (entries.length > 0) {
-      entries = entries.filter(entry => 
-        entry.workspaceId === workspace?.id || 
+      entries = entries.filter(entry =>
+        entry.workspaceId === workspace?.id ||
         entry.workspaceId === workspaceId
       );
     }
+
+    console.log('🔍 After filter:', entries.length, 'entries');
     
     // If no entries from API and there's an error, entries will remain empty
     // and we'll fall back to mock data in the logic below
