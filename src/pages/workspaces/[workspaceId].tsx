@@ -4504,6 +4504,19 @@ export default function WorkspaceDetailPage() {
     }
   };
 
+  // Discard handler for draft journal entries
+  const handleDiscardDraft = async (journal: JournalEntry) => {
+    if (!confirm('Are you sure you want to discard this draft? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await JournalService.deleteJournalEntry(journal.id);
+      queryClient.invalidateQueries({ queryKey: ['journalEntries'] });
+    } catch (error) {
+      console.error('Failed to discard draft:', error);
+    }
+  };
+
   // We no longer need fallback calls since we're doing client-side filtering
   const [goalStatusFilter, setGoalStatusFilter] = useState<string>('all');
   const [goalPriorityFilter, setGoalPriorityFilter] = useState<string>('all');
@@ -5657,6 +5670,7 @@ export default function WorkspaceDetailPage() {
                         onReChronicle={() => handleRechronicle(entry.id)}
                         isDraft={isDraft}
                         onPublish={isDraft ? () => handlePublishToggle(journalEntry) : undefined}
+                        onDiscard={isDraft ? () => handleDiscardDraft(journalEntry) : undefined}
                       />
                     );
                   }
