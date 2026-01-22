@@ -301,26 +301,34 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
 
         {/* Main Content */}
         <div className="p-6">
-          {/* Draft actions - minimal buttons for publish/discard */}
-          {isDraft && (onPublish || onDiscard) && (
-            <div className="flex justify-end gap-1 mb-2">
-              {onDiscard && (
-                <button
-                  onClick={onDiscard}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  title="Discard draft"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {onPublish && (
-                <button
-                  onClick={onPublish}
-                  className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                  title="Publish"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                </button>
+          {/* Draft indicator and actions */}
+          {isDraft && (
+            <div className="flex items-center justify-between mb-2">
+              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs px-2 py-0.5 flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                Draft
+              </Badge>
+              {(onPublish || onDiscard) && (
+                <div className="flex gap-1">
+                  {onDiscard && (
+                    <button
+                      onClick={onDiscard}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Discard draft"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {onPublish && (
+                    <button
+                      onClick={onPublish}
+                      className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                      title="Publish"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -814,16 +822,9 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
             </div>
           )}
 
-          {/* Workspace and status badges - only shown in non-preview mode */}
+          {/* Workspace badge - only shown in non-preview mode */}
           {!isPreview && (
             <div className="flex items-center gap-2">
-              {/* Draft badge */}
-              {isDraft && (
-                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs px-2 py-0.5 flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
-                  Draft
-                </Badge>
-              )}
               <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs px-2 py-0.5">
                 Workspace: {workspaceName || entry.entry_metadata?.workspace || 'Unknown'}
               </Badge>
