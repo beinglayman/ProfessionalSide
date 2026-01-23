@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup, act } from '@testing-library/react';
 import React from 'react';
 import { ErrorConsole } from './ErrorConsole';
 import { ErrorConsoleProvider, useErrorConsole } from '../../contexts/ErrorConsoleContext';
@@ -16,8 +16,13 @@ const TestHarness: React.FC<{
   addTraces?: number;
 }> = ({ autoOpen = true, addErrors = 0, addTraces = 0 }) => {
   const { openConsole, captureError, startTrace, endTrace, failTrace } = useErrorConsole();
+  const initialized = React.useRef(false);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    // Prevent double-initialization in StrictMode
+    if (initialized.current) return;
+    initialized.current = true;
+
     if (autoOpen) {
       openConsole();
     }

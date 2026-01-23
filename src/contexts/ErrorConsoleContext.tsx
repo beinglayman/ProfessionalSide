@@ -346,6 +346,12 @@ export const ErrorConsoleProvider: React.FC<{ children: React.ReactNode }> = ({ 
         typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
       ).join(' ');
 
+      // Skip React internal warnings (act() warnings, etc.) to avoid recursive state updates during tests
+      if (message.includes('act(...)') || message.includes('Warning: An update to')) {
+        originalConsoleError.current?.apply(console, args);
+        return;
+      }
+
       setErrors(prev => {
         const newError: CapturedError = {
           id: `err_${generateId()}`,

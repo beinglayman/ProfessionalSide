@@ -1,17 +1,35 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle, Loader2, LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-interface Toast {
+// Toast type definitions
+export type ToastType = 'success' | 'error' | 'info' | 'warning' | 'loading';
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface Toast {
   id: string;
-  type: 'success' | 'error' | 'info' | 'warning';
+  type: ToastType;
   title: string;
   message?: string;
   duration?: number;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  action?: ToastAction;
+  /** Custom icon component (overrides default) */
+  icon?: LucideIcon;
+  /** Whether toast requires manual dismissal (ignores duration) */
+  persistent?: boolean;
+}
+
+// Options for creating toasts
+export interface ToastOptions {
+  message?: string;
+  duration?: number;
+  action?: ToastAction;
+  icon?: LucideIcon;
+  persistent?: boolean;
 }
 
 // Toast helper type for passing to child components
@@ -26,10 +44,29 @@ interface ToastContextType {
   toasts: Toast[];
   addToast: (toast: Omit<Toast, 'id'>) => string;
   removeToast: (id: string) => void;
-  success: (title: string, message?: string, options?: Partial<Toast>) => string;
-  error: (title: string, message?: string, options?: Partial<Toast>) => string;
-  info: (title: string, message?: string, options?: Partial<Toast>) => string;
-  warning: (title: string, message?: string, options?: Partial<Toast>) => string;
+  /** Update an existing toast (useful for loading → success/error transitions) */
+  updateToast: (id: string, updates: Partial<Omit<Toast, 'id'>>) => void;
+  success: (title: string, message?: string, options?: ToastOptions) => string;
+  error: (title: string, message?: string, options?: ToastOptions) => string;
+  info: (title: string, message?: string, options?: ToastOptions) => string;
+  warning: (title: string, message?: string, options?: ToastOptions) => string;
+  /** Show loading toast, returns functions to resolve/reject */
+  loading: (title: string, message?: string) => {
+    id: string;
+    success: (title: string, message?: string) => void;
+    error: (title: string, message?: string) => void;
+  };
+  /** Wrap a promise with loading → success/error toasts */
+  promise: <T>(
+    promise: Promise<T>,
+    options: {
+      loading: string;
+      success: string | ((data: T) => string);
+      error: string | ((err: unknown) => string);
+    }
+  ) => Promise<T>;
+  /** Return the toast object for passing to child components */
+  toast: ToastActions;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -56,13 +93,21 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
   };
 
   React.useEffect(() => {
-    if (toast.duration !== 0) {
-      const timer = setTimeout(handleRemove, toast.duration || 5000);
-      return () => clearTimeout(timer);
+    // Don't auto-dismiss persistent or loading toasts
+    if (toast.persistent || toast.type === 'loading' || toast.duration === 0) {
+      return;
     }
-  }, [toast.duration, toast.id]);
+    const timer = setTimeout(handleRemove, toast.duration || 5000);
+    return () => clearTimeout(timer);
+  }, [toast.duration, toast.id, toast.persistent, toast.type]);
 
   const getIcon = () => {
+    // Use custom icon if provided
+    if (toast.icon) {
+      const CustomIcon = toast.icon;
+      return <CustomIcon className="h-5 w-5 text-gray-500" />;
+    }
+
     switch (toast.type) {
       case 'success':
         return <CheckCircle className="h-5 w-5 text-green-400" />;
@@ -70,6 +115,8 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         return <AlertCircle className="h-5 w-5 text-red-400" />;
       case 'warning':
         return <AlertTriangle className="h-5 w-5 text-yellow-400" />;
+      case 'loading':
+        return <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />;
       case 'info':
       default:
         return <Info className="h-5 w-5 text-blue-400" />;
@@ -84,6 +131,8 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         return 'bg-red-50 border-red-200';
       case 'warning':
         return 'bg-yellow-50 border-yellow-200';
+      case 'loading':
+        return 'bg-gray-50 border-gray-200';
       case 'info':
       default:
         return 'bg-blue-50 border-blue-200';
@@ -153,30 +202,92 @@ export function ToastProvider({ children }: ToastProviderProps) {
     return id;
   }, []);
 
-  const success = useCallback((title: string, message?: string, options?: Partial<Toast>) => {
+  const updateToast = useCallback((id: string, updates: Partial<Omit<Toast, 'id'>>) => {
+    setToasts(prev => prev.map(toast =>
+      toast.id === id ? { ...toast, ...updates } : toast
+    ));
+  }, []);
+
+  const success = useCallback((title: string, message?: string, options?: ToastOptions) => {
     return addToast({ type: 'success', title, message, ...options });
   }, [addToast]);
 
-  const error = useCallback((title: string, message?: string, options?: Partial<Toast>) => {
+  const error = useCallback((title: string, message?: string, options?: ToastOptions) => {
     return addToast({ type: 'error', title, message, ...options });
   }, [addToast]);
 
-  const info = useCallback((title: string, message?: string, options?: Partial<Toast>) => {
+  const info = useCallback((title: string, message?: string, options?: ToastOptions) => {
     return addToast({ type: 'info', title, message, ...options });
   }, [addToast]);
 
-  const warning = useCallback((title: string, message?: string, options?: Partial<Toast>) => {
+  const warning = useCallback((title: string, message?: string, options?: ToastOptions) => {
     return addToast({ type: 'warning', title, message, ...options });
   }, [addToast]);
+
+  const loading = useCallback((title: string, message?: string) => {
+    const id = addToast({ type: 'loading', title, message });
+    return {
+      id,
+      success: (successTitle: string, successMessage?: string) => {
+        updateToast(id, { type: 'success', title: successTitle, message: successMessage });
+        // Auto-dismiss after success
+        setTimeout(() => removeToast(id), 3000);
+      },
+      error: (errorTitle: string, errorMessage?: string) => {
+        updateToast(id, { type: 'error', title: errorTitle, message: errorMessage });
+        // Auto-dismiss after error
+        setTimeout(() => removeToast(id), 5000);
+      },
+    };
+  }, [addToast, updateToast, removeToast]);
+
+  const promiseToast = useCallback(<T,>(
+    promise: Promise<T>,
+    options: {
+      loading: string;
+      success: string | ((data: T) => string);
+      error: string | ((err: unknown) => string);
+    }
+  ): Promise<T> => {
+    const { id, success: resolveSuccess, error: resolveError } = loading(options.loading);
+
+    return promise
+      .then((data) => {
+        const successMessage = typeof options.success === 'function'
+          ? options.success(data)
+          : options.success;
+        resolveSuccess(successMessage);
+        return data;
+      })
+      .catch((err) => {
+        const errorMessage = typeof options.error === 'function'
+          ? options.error(err)
+          : options.error;
+        resolveError(errorMessage);
+        throw err;
+      });
+  }, [loading]);
+
+  // Create toast object for passing to child components
+  const toast: ToastActions = {
+    success,
+    error,
+    info,
+    warning,
+  };
 
   const value: ToastContextType = {
     toasts,
     addToast,
     removeToast,
+    updateToast,
     success,
     error,
     info,
     warning,
+    loading,
+    promise: promiseToast,
+    toast,
   };
 
   return (
