@@ -319,19 +319,27 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 
 export function NotificationsDropdown() {
   const { toast } = useToast();
-  
-  const { data: unreadCount } = useUnreadNotificationCount();
-  const { data: notificationsData, isLoading } = useNotifications({
+
+  const { data: unreadCount, isError: countError } = useUnreadNotificationCount();
+  const { data: notificationsData, isLoading, isError: listError } = useNotifications({
     limit: 10,
   });
 
-  
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllAsReadMutation = useMarkAllNotificationsAsRead();
   const deleteMutation = useDeleteNotification();
 
   const notifications = notificationsData?.notifications || [];
-  const hasUnread = (unreadCount?.count || 0) > 0;
+
+  // Derive unread count from notifications list when available for consistency
+  // This ensures badge and list are always in sync
+  const derivedUnreadCount = notifications.filter(n => !n.isRead).length;
+  const hasUnread = notificationsData
+    ? derivedUnreadCount > 0
+    : (unreadCount?.count || 0) > 0;
+  const displayCount = notificationsData
+    ? derivedUnreadCount
+    : (unreadCount?.count || 0);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
@@ -371,7 +379,7 @@ export function NotificationsDropdown() {
           )}
           {hasUnread && (
             <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-              {unreadCount!.count > 9 ? '9+' : unreadCount!.count}
+              {displayCount > 9 ? '9+' : displayCount}
             </span>
           )}
         </Button>
@@ -404,7 +412,7 @@ export function NotificationsDropdown() {
             </div>
             {hasUnread && (
               <p className="text-xs text-gray-500 mt-1">
-                {unreadCount!.count} unread notification{unreadCount!.count !== 1 ? 's' : ''}
+                {displayCount} unread notification{displayCount !== 1 ? 's' : ''}
               </p>
             )}
           </div>
@@ -415,6 +423,12 @@ export function NotificationsDropdown() {
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
                 <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
+              </div>
+            ) : listError ? (
+              <div className="p-8 text-center">
+                <Bell className="h-8 w-8 text-red-400 mx-auto mb-2" />
+                <p className="text-sm text-red-500">Failed to load notifications</p>
+                <p className="text-xs text-gray-400 mt-1">Please try again later</p>
               </div>
             ) : notifications.length > 0 ? (
               <div className="divide-y divide-gray-100">

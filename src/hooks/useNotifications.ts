@@ -58,29 +58,24 @@ export function useNotifications(params: {
   return useQuery({
     queryKey: ['notifications', params],
     queryFn: async () => {
-      try {
-        const queryParams = new URLSearchParams();
-        if (params.page) queryParams.append('page', params.page.toString());
-        if (params.limit) queryParams.append('limit', params.limit.toString());
-        if (params.type) queryParams.append('type', params.type);
-        if (params.isRead !== undefined && params.isRead !== null) {
-          queryParams.append('isRead', params.isRead.toString());
-        }
-
-        const endpoint = `/notifications?${queryParams}`;
-        console.log('🔔 Fetching notifications from:', `${api.defaults.baseURL}${endpoint}`);
-        const response = await api.get(endpoint);
-        console.log('🔔 Successfully connected to backend, received notifications:', response.data.data);
-        return response.data.data;
-      } catch (error) {
-        console.log('🔔 Backend connection failed:', error);
-        console.log('🔔 Returning empty notifications - no mock data fallback');
-        return { notifications: [], total: 0, page: 1, totalPages: 0 };
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.type) queryParams.append('type', params.type);
+      if (params.isRead !== undefined && params.isRead !== null) {
+        queryParams.append('isRead', params.isRead.toString());
       }
+
+      const endpoint = `/notifications?${queryParams}`;
+      console.log('🔔 Fetching notifications from:', `${api.defaults.baseURL}${endpoint}`);
+      const response = await api.get(endpoint);
+      console.log('🔔 Successfully received notifications:', response.data.data);
+      return response.data.data;
     },
     staleTime: 30 * 1000, // 30 seconds
     refetchInterval: 60 * 1000, // Refetch every minute for real-time feel
-    retry: false, // Don't retry when backend is down
+    retry: 2, // Retry twice on failure
+    retryDelay: 1000, // Wait 1 second between retries
   });
 }
 
