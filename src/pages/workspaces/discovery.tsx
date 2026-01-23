@@ -18,8 +18,11 @@ import {
   Archive,
   Loader2,
   X,
+  Plus,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { FilterSelect } from '../../components/ui/filter-select';
+import { EmptyState } from '../../components/ui/empty-state';
 import { cn } from '../../lib/utils';
 import { useWorkspaces, useCreateWorkspace } from '../../hooks/useWorkspace';
 import { Workspace as WorkspaceType } from '../../hooks/useWorkspace';
@@ -362,20 +365,25 @@ export default function WorkspaceDiscoveryPage() {
       </div>
 
       <div className="p-4">
-        <div className="mb-4">
-          <h3 className="text-base sm:text-lg font-medium text-gray-900">
+        <div className="mb-3">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
             {workspace.name}
           </h3>
-          <p className="text-sm text-gray-600">
-            {workspace.category}
-          </p>
+          {/* Only show category if it has meaningful info (not generic "Team/Personal Workspace") */}
+          {workspace.category && !workspace.category.includes('Workspace') && (
+            <p className="text-sm text-gray-500 mt-0.5">
+              {workspace.category}
+            </p>
+          )}
         </div>
 
-        <div className="mb-4">
-          <p className="text-sm text-gray-600 line-clamp-3">
-            {workspace.description}
-          </p>
-        </div>
+        {workspace.description && (
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 line-clamp-2">
+              {workspace.description}
+            </p>
+          </div>
+        )}
 
         <div className="mb-4 space-y-2">
           <div className="flex items-center space-x-2 text-sm text-gray-500">
@@ -661,16 +669,16 @@ export default function WorkspaceDiscoveryPage() {
               </span>
             </button>
           </div>
-          {/* Minimal + button */}
+          {/* Create Workspace button */}
           <div className="flex justify-end sm:justify-start">
-            {/* Optional: Plus button for new workspace */}
             <button
-                className="ml-2 px-2 py-2 text-primary-500 hover:bg-primary-50 rounded-full transition-colors"
-                title="Add Workspace"
-                style={{ outline: 'none', background: 'none', border: 'none' }}
+                className="ml-2 px-3 py-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                title="Create new workspace"
+                aria-label="Create new workspace"
                 onClick={() => setShowCreateSidebar(true)}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New Workspace</span>
               </button>
           </div>
         </div>
@@ -700,43 +708,29 @@ export default function WorkspaceDiscoveryPage() {
                 <Filter className="h-4 w-4 text-gray-500" />
                 <span className="text-sm font-medium text-gray-700">Filters:</span>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <select
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
+                <FilterSelect
+                  id="filter-type"
+                  label="Type"
                   value={filters.type}
-                  onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-                >
-                  {filterOptions.type.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
+                  options={filterOptions.type}
+                  onChange={(value) => setFilters({ ...filters, type: value })}
+                />
+                <FilterSelect
+                  id="filter-category"
+                  label="Category"
                   value={filters.category}
-                  onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                >
-                  {filterOptions.category.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
+                  options={filterOptions.category}
+                  onChange={(value) => setFilters({ ...filters, category: value })}
+                />
+                <FilterSelect
+                  id="filter-ownership"
+                  label="Ownership"
                   value={filters.ownership}
-                  onChange={(e) => setFilters({ ...filters, ownership: e.target.value })}
-                >
-                  {filterOptions.ownership.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                  options={filterOptions.ownership}
+                  onChange={(value) => setFilters({ ...filters, ownership: value })}
+                />
               </div>
             </div>
           </div>
@@ -821,31 +815,37 @@ export default function WorkspaceDiscoveryPage() {
               {filteredWorkspaces.map(workspace => renderWorkspaceCard(workspace))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-              <AlertCircle className="h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No workspaces found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {activeTab === 'active' ? 
-                  "No active workspaces match your filters" : 
-                  "No archived workspaces match your filters"
+            {areFiltersActive() ? (
+              <EmptyState
+                variant="no-results"
+                title="No workspaces found"
+                description={activeTab === 'active'
+                  ? "No active workspaces match your filters"
+                  : "No archived workspaces match your filters"
                 }
-              </p>
-              {areFiltersActive() && (
-                <Button
-                  className="mt-4"
-                  onClick={() => {
+                action={{
+                  label: "Clear all filters",
+                  onClick: () => {
                     setSearchQuery('');
-                    setFilters({
-                      type: 'All',
-                      category: 'All',
-                      ownership: 'All'
-                    });
-                  }}
-                >
-                  Clear all filters
-                </Button>
-              )}
-            </div>
+                    setFilters({ type: 'All', category: 'All', ownership: 'All' });
+                  }
+                }}
+              />
+            ) : (
+              <EmptyState
+                variant="no-workspaces"
+                title={activeTab === 'active' ? "Create your first workspace" : "No archived workspaces"}
+                description={activeTab === 'active'
+                  ? "Workspaces help you organize your journal entries, collaborate with teams, and track your professional growth."
+                  : "Workspaces you archive will appear here. You can archive workspaces you're no longer actively using."
+                }
+                action={activeTab === 'active' ? {
+                  label: "Create Workspace",
+                  onClick: () => setShowCreateSidebar(true),
+                  icon: Plus
+                } : undefined}
+              />
+            )}
           )
         )}
 
