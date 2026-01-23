@@ -30,6 +30,24 @@ import {
 
 // ===== ERROR SEVERITY CONFIG =====
 
+// ===== UTILITY FUNCTIONS =====
+
+const COPY_FEEDBACK_TIMEOUT_MS = 2000;
+
+/**
+ * Format a timestamp for display in the console (HH:MM:SS 24-hour format)
+ */
+const formatTime = (date: Date): string => {
+  return new Date(date).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+};
+
+// ===== SEVERITY CONFIG =====
+
 const severityConfig: Record<ErrorSeverity, { icon: typeof AlertCircle; color: string; bg: string }> = {
   error: { icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
   warn: { icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
@@ -52,20 +70,16 @@ const ErrorItem: React.FC<{ error: CapturedError }> = ({ error }) => {
   const config = severityConfig[error.severity];
   const Icon = config.icon;
 
-  const copyToClipboard = () => {
-    const text = JSON.stringify(error, null, 2);
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
+  const copyToClipboard = async () => {
+    try {
+      const text = JSON.stringify(error, null, 2);
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_TIMEOUT_MS);
+    } catch {
+      // Clipboard API may fail in some contexts (e.g., non-secure origins)
+      console.warn('Failed to copy to clipboard');
+    }
   };
 
   return (
@@ -151,20 +165,16 @@ const TraceItem: React.FC<{ trace: RequestTrace }> = ({ trace }) => {
   const config = traceStatusConfig[trace.status];
   const Icon = config.icon;
 
-  const copyToClipboard = () => {
-    const text = JSON.stringify(trace, null, 2);
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
+  const copyToClipboard = async () => {
+    try {
+      const text = JSON.stringify(trace, null, 2);
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_TIMEOUT_MS);
+    } catch {
+      // Clipboard API may fail in some contexts
+      console.warn('Failed to copy to clipboard');
+    }
   };
 
   const getMethodColor = (method: string) => {

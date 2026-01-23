@@ -1,9 +1,36 @@
+/**
+ * ErrorConsoleContext - Developer debug console for AI-assisted debugging
+ *
+ * Provides a global error and API trace capture system accessible via Cmd+E.
+ * Captures console.error, console.warn, unhandled exceptions, promise rejections,
+ * and all API requests/responses for export to AI debugging tools.
+ *
+ * @example
+ * // Wrap app with provider
+ * <ErrorConsoleProvider>
+ *   <App />
+ *   <ErrorConsole />
+ * </ErrorConsoleProvider>
+ *
+ * @example
+ * // Manual error capture
+ * const { captureError, captureOAuthError } = useErrorConsole();
+ * captureOAuthError('microsoft', 'admin_consent_required', 'Details...');
+ *
+ * @example
+ * // Access from non-React code (e.g., axios interceptors)
+ * import { getErrorConsole } from './ErrorConsoleContext';
+ * const { startTrace, endTrace, failTrace } = getErrorConsole();
+ */
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 
 export type ErrorSeverity = 'error' | 'warn' | 'info' | 'debug';
 export type TraceStatus = 'success' | 'error' | 'pending';
 
-// Structured request-response trace for AI debugging
+/**
+ * Structured request-response trace for AI debugging.
+ * Captures full request/response cycle with timing and context.
+ */
 export interface RequestTrace {
   id: string;
   timestamp: Date;
@@ -45,6 +72,10 @@ export interface RequestTrace {
   };
 }
 
+/**
+ * Captured error with full context for debugging.
+ * Includes source, message, stack trace, and optional trace link.
+ */
 export interface CapturedError {
   id: string;
   timestamp: Date;
@@ -88,16 +119,31 @@ interface ErrorConsoleContextType {
 
 const ErrorConsoleContext = createContext<ErrorConsoleContextType | undefined>(undefined);
 
-// Max items - oldest entries dropped when exceeded
+/**
+ * Maximum number of errors to retain in memory.
+ * When exceeded, oldest errors are dropped (FIFO).
+ */
 const MAX_ERRORS = 100;
+
+/**
+ * Maximum number of API request traces to retain.
+ * When exceeded, oldest traces are dropped (FIFO).
+ */
 const MAX_TRACES = 200;
 
-// Global reference for use in non-React code (like axios interceptors)
+/**
+ * Global references for use in non-React code (e.g., axios interceptors).
+ * These are set when ErrorConsoleProvider mounts and cleared on unmount.
+ */
 let globalCaptureError: ErrorConsoleContextType['captureError'] | null = null;
 let globalStartTrace: ErrorConsoleContextType['startTrace'] | null = null;
 let globalEndTrace: ErrorConsoleContextType['endTrace'] | null = null;
 let globalFailTrace: ErrorConsoleContextType['failTrace'] | null = null;
 
+/**
+ * Get error console functions for use outside React components.
+ * Returns null for each function if provider is not mounted.
+ */
 export const getErrorConsole = () => ({
   captureError: globalCaptureError,
   startTrace: globalStartTrace,
@@ -114,7 +160,7 @@ export const ErrorConsoleProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const originalConsoleWarn = useRef<typeof console.warn | null>(null);
   const pendingTraces = useRef<Map<string, { trace: RequestTrace; startTime: number }>>(new Map());
 
-  const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const generateId = () => `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
   // ===== ERROR CAPTURE =====
 
@@ -432,6 +478,10 @@ export const ErrorConsoleProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 };
 
+/**
+ * Hook to access error console functionality within React components.
+ * @throws Error if used outside ErrorConsoleProvider
+ */
 export const useErrorConsole = () => {
   const context = useContext(ErrorConsoleContext);
   if (context === undefined) {
