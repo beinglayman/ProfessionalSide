@@ -79,7 +79,7 @@ const upload = multer({
 const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
-  organizationId: z.string()
+  organizationId: z.string().optional()
 });
 
 const updateWorkspaceSchema = z.object({
@@ -594,22 +594,32 @@ router.post('/', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const validatedData = createWorkspaceSchema.parse(req.body);
 
-    // Check if organization exists
-    const organization = await prisma.organization.findUnique({
-      where: {
-        id: validatedData.organizationId
-      }
+    const isPersonalWorkspace = !validatedData.organizationId;
+    console.log(`📁 Creating ${isPersonalWorkspace ? 'personal' : 'organization'} workspace:`, {
+      name: validatedData.name,
+      organizationId: validatedData.organizationId || 'none',
+      userId
     });
 
-    if (!organization) {
-      return void sendError(res, 'Organization not found', 404);
+    // Check if organization exists (only if organizationId is provided)
+    if (validatedData.organizationId) {
+      const organization = await prisma.organization.findUnique({
+        where: {
+          id: validatedData.organizationId
+        }
+      });
+
+      if (!organization) {
+        return void sendError(res, 'Organization not found', 404);
+      }
     }
 
     const workspace = await prisma.workspace.create({
       data: {
         name: validatedData.name,
         description: validatedData.description,
-        organizationId: validatedData.organizationId,
+        organizationId: validatedData.organizationId || null,
+        isPersonal: !validatedData.organizationId,
         members: {
           create: {
             userId,
@@ -690,12 +700,19 @@ router.post('/', async (req: Request, res: Response) => {
       }
     };
 
+    console.log(`✅ Workspace created successfully:`, {
+      id: workspace.id,
+      name: workspace.name,
+      isPersonal: !validatedData.organizationId
+    });
+
     sendSuccess(res, workspaceWithStats, 'Workspace created successfully', 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.warn('⚠️ Workspace creation validation failed:', error.errors);
       return void sendError(res, 'Validation failed', 400, error.errors);
     }
-    console.error('Error creating workspace:', error);
+    console.error('❌ Error creating workspace:', error);
     sendError(res, 'Failed to create workspace', 500);
   }
 });

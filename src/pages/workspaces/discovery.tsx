@@ -25,6 +25,7 @@ import { useWorkspaces, useCreateWorkspace } from '../../hooks/useWorkspace';
 import { Workspace as WorkspaceType } from '../../hooks/useWorkspace';
 import { useOrganizations, useCreateOrganization } from '../../hooks/useOrganization';
 import { usePendingInvitations, useAcceptInvitation, useDeclineInvitation, WorkspaceInvitation } from '../../hooks/useWorkspaceInvitations';
+import { getErrorConsole } from '../../contexts/ErrorConsoleContext';
 
 // Types
 interface TeamMember {
@@ -272,10 +273,8 @@ export default function WorkspaceDiscoveryPage() {
           });
           organizationId = orgResponse.data.id;
         }
-      } else {
-        // Use TechCorp as default if no organization specified
-        organizationId = 'org-techcorp';
       }
+      // If no organization specified, organizationId remains undefined (personal workspace)
       
       const workspaceData = {
         name: newWorkspace.name,
@@ -296,7 +295,26 @@ export default function WorkspaceDiscoveryPage() {
       console.log('✅ Workspace created successfully!');
     } catch (error: any) {
       console.error('❌ Failed to create workspace:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create workspace';
+
+      // Capture detailed error context for debugging
+      const { captureError } = getErrorConsole();
+      captureError?.({
+        source: 'WorkspaceDiscovery:createWorkspace',
+        message: error?.response?.data?.error || error?.message || 'Failed to create workspace',
+        severity: 'error',
+        details: `Attempted to create workspace "${newWorkspace.name}"`,
+        context: {
+          workspaceName: newWorkspace.name,
+          workspaceType: newWorkspace.type,
+          organizationName: newWorkspace.organizationName || 'none (personal)',
+          organizationId: organizationId || 'none',
+          responseStatus: error?.response?.status,
+          responseData: error?.response?.data,
+        },
+        stack: error?.stack,
+      });
+
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to create workspace';
       setCreateError(errorMessage);
     }
   };
