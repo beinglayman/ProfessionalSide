@@ -11,19 +11,20 @@ import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// All journal subscription routes require authentication
-router.use(authenticate);
+// NOTE: Authentication is applied per-route (not router.use) because this router
+// is mounted at /api/v1 which overlaps with other routes like /api/v1/mcp.
+// Using router.use(authenticate) would intercept ALL /api/v1/* requests.
 
 // Get user's connected tools (for tool selection UI)
-router.get('/users/me/connected-tools', getConnectedTools);
+router.get('/users/me/connected-tools', authenticate, getConnectedTools);
 
 // Workspace subscription CRUD
-router.get('/workspaces/:workspaceId/journal-subscription', getSubscription);
-router.post('/workspaces/:workspaceId/journal-subscription', createSubscription);
-router.put('/workspaces/:workspaceId/journal-subscription', updateSubscription);
-router.delete('/workspaces/:workspaceId/journal-subscription', deleteSubscription);
+router.get('/workspaces/:workspaceId/journal-subscription', authenticate, getSubscription);
+router.post('/workspaces/:workspaceId/journal-subscription', authenticate, createSubscription);
+router.put('/workspaces/:workspaceId/journal-subscription', authenticate, updateSubscription);
+router.delete('/workspaces/:workspaceId/journal-subscription', authenticate, deleteSubscription);
 
 // Toggle subscription active status
-router.patch('/workspaces/:workspaceId/journal-subscription/toggle', toggleSubscription);
+router.patch('/workspaces/:workspaceId/journal-subscription/toggle', authenticate, toggleSubscription);
 
 export default router;
