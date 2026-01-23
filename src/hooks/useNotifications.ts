@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
+// Query configuration constants
+const NOTIFICATIONS_STALE_TIME = 30 * 1000; // 30 seconds
+const NOTIFICATIONS_REFETCH_INTERVAL = 60 * 1000; // 1 minute
+const NOTIFICATIONS_RETRY_COUNT = 2;
+const NOTIFICATIONS_RETRY_DELAY = 1000; // 1 second
+
+const UNREAD_COUNT_STALE_TIME = 15 * 1000; // 15 seconds
+const UNREAD_COUNT_REFETCH_INTERVAL = 30 * 1000; // 30 seconds
+
 export interface Notification {
   id: string;
   type: 'LIKE' | 'COMMENT' | 'MENTION' | 'WORKSPACE_INVITE' | 'CONNECTION_REQUEST' | 'CONNECTION_ACCEPTED' | 'CONNECTION_DECLINED' | 'ACHIEVEMENT' | 'SYSTEM';
@@ -58,48 +67,40 @@ export function useNotifications(params: {
   return useQuery({
     queryKey: ['notifications', params],
     queryFn: async () => {
-      try {
-        const queryParams = new URLSearchParams();
-        if (params.page) queryParams.append('page', params.page.toString());
-        if (params.limit) queryParams.append('limit', params.limit.toString());
-        if (params.type) queryParams.append('type', params.type);
-        if (params.isRead !== undefined && params.isRead !== null) {
-          queryParams.append('isRead', params.isRead.toString());
-        }
-
-        const endpoint = `/notifications?${queryParams}`;
-        console.log('🔔 Fetching notifications from:', `${api.defaults.baseURL}${endpoint}`);
-        const response = await api.get(endpoint);
-        console.log('🔔 Successfully connected to backend, received notifications:', response.data.data);
-        return response.data.data;
-      } catch (error) {
-        console.log('🔔 Backend connection failed:', error);
-        console.log('🔔 Returning empty notifications - no mock data fallback');
-        return { notifications: [], total: 0, page: 1, totalPages: 0 };
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.type) queryParams.append('type', params.type);
+      if (params.isRead !== undefined && params.isRead !== null) {
+        queryParams.append('isRead', params.isRead.toString());
       }
+
+      const endpoint = `/notifications?${queryParams}`;
+      console.log('🔔 Fetching notifications from:', `${api.defaults.baseURL}${endpoint}`);
+      const response = await api.get(endpoint);
+      console.log('🔔 Successfully received notifications:', response.data.data);
+      return response.data.data;
     },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute for real-time feel
-    retry: false, // Don't retry when backend is down
+    staleTime: NOTIFICATIONS_STALE_TIME,
+    refetchInterval: NOTIFICATIONS_REFETCH_INTERVAL,
+    retry: NOTIFICATIONS_RETRY_COUNT,
+    retryDelay: NOTIFICATIONS_RETRY_DELAY,
   });
 }
 
 // Get unread notification count
+// Note: This is a fallback - the dropdown derives count from the list when available
 export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: async (): Promise<{ count: number }> => {
-      try {
-        const response = await api.get('/notifications/unread-count');
-        return response.data.data;
-      } catch (error) {
-        console.log('🔔 Backend unavailable, returning 0 unread notifications');
-        return { count: 0 };
-      }
+      const response = await api.get('/notifications/unread-count');
+      return response.data.data;
     },
-    staleTime: 15 * 1000, // 15 seconds
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds
-    retry: false, // Don't retry when backend is down
+    staleTime: UNREAD_COUNT_STALE_TIME,
+    refetchInterval: UNREAD_COUNT_REFETCH_INTERVAL,
+    retry: NOTIFICATIONS_RETRY_COUNT,
+    retryDelay: NOTIFICATIONS_RETRY_DELAY,
   });
 }
 
