@@ -85,3 +85,6 @@ diagrams/
 
 # Actuarial Knowledge Base (large reference files)
 ActuarialKnowledge/
+
+# Internal documentation
+__docs/
