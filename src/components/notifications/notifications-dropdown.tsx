@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
   BellRing,
@@ -15,8 +16,6 @@ import {
   Info,
   UserPlus,
   FileText,
-  Trash2,
-  MoreVertical
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -29,7 +28,7 @@ import {
   useDeleteNotification,
   Notification
 } from '../../hooks/useNotifications';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast, ToastActions } from '../../contexts/ToastContext';
 
 // Constants
 const NOTIFICATIONS_DROPDOWN_LIMIT = 10;
@@ -38,11 +37,14 @@ interface NotificationItemProps {
   notification: Notification;
   onMarkAsRead: (id: string) => void;
   onDelete: (id: string) => void;
+  onActionComplete: () => void;
+  toast: ToastActions;
 }
 
-function NotificationItem({ notification, onMarkAsRead, onDelete }: NotificationItemProps) {
+function NotificationItem({ notification, onMarkAsRead, onDelete, onActionComplete, toast }: NotificationItemProps) {
   const [showActions, setShowActions] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const queryClient = useQueryClient();
 
   const getIcon = () => {
     switch (notification.type) {
@@ -97,17 +99,18 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 
       const result = await response.json();
       if (result.success) {
-        alert(`Successfully joined ${notification.data.workspaceName}!`);
+        toast.success(`Successfully joined ${notification.data.workspaceName}!`);
         onMarkAsRead(notification.id);
-        // Optionally reload page or update UI
-        window.location.reload();
+        // Invalidate workspace queries to reflect new membership
+        queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+        onActionComplete();
       } else {
-        alert(result.error || 'Failed to accept invitation');
+        toast.error(result.error || 'Failed to accept invitation');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
-      alert('Failed to accept invitation');
-    } finally {
+      toast.error('Failed to accept invitation');
       setIsProcessing(false);
     }
   };
@@ -127,15 +130,16 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 
       const result = await response.json();
       if (result.success) {
-        alert('Invitation declined');
+        toast.success('Invitation declined');
         onMarkAsRead(notification.id);
+        onActionComplete();
       } else {
-        alert(result.error || 'Failed to decline invitation');
+        toast.error(result.error || 'Failed to decline invitation');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error declining invitation:', error);
-      alert('Failed to decline invitation');
-    } finally {
+      toast.error('Failed to decline invitation');
       setIsProcessing(false);
     }
   };
@@ -155,15 +159,19 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 
       const result = await response.json();
       if (result.success) {
-        alert('Connection request accepted!');
+        toast.success('Connection request accepted!');
         onMarkAsRead(notification.id);
+        // Invalidate network queries to reflect new connection
+        queryClient.invalidateQueries({ queryKey: ['network'] });
+        queryClient.invalidateQueries({ queryKey: ['connections'] });
+        onActionComplete();
       } else {
-        alert(result.error || 'Failed to accept connection request');
+        toast.error(result.error || 'Failed to accept connection request');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error accepting connection request:', error);
-      alert('Failed to accept connection request');
-    } finally {
+      toast.error('Failed to accept connection request');
       setIsProcessing(false);
     }
   };
@@ -171,7 +179,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
   const handleDeclineConnection = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!notification.data?.connectionRequestId) return;
-    
+
     setIsProcessing(true);
     try {
       const response = await fetch(`${API_BASE_URL}/network/requests/${notification.data.connectionRequestId}/decline`, {
@@ -183,15 +191,16 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 
       const result = await response.json();
       if (result.success) {
-        alert('Connection request declined');
+        toast.success('Connection request declined');
         onMarkAsRead(notification.id);
+        onActionComplete();
       } else {
-        alert(result.error || 'Failed to decline connection request');
+        toast.error(result.error || 'Failed to decline connection request');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error declining connection request:', error);
-      alert('Failed to decline connection request');
-    } finally {
+      toast.error('Failed to decline connection request');
       setIsProcessing(false);
     }
   };
@@ -322,6 +331,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 
 export function NotificationsDropdown() {
   const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
 
   // Fetch unread count (used as fallback when list hasn't loaded)
   const { data: unreadCount } = useUnreadNotificationCount();
@@ -373,8 +383,13 @@ export function NotificationsDropdown() {
     }
   };
 
+  // Close dropdown after successful action (accept/decline invitation)
+  const handleActionComplete = () => {
+    setIsOpen(false);
+  };
+
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenu.Trigger asChild>
         <Button variant="ghost" className="relative p-2">
           {hasUnread ? (
@@ -443,6 +458,8 @@ export function NotificationsDropdown() {
                     notification={notification}
                     onMarkAsRead={handleMarkAsRead}
                     onDelete={handleDelete}
+                    onActionComplete={handleActionComplete}
+                    toast={toast}
                   />
                 ))}
               </div>

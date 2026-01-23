@@ -14,6 +14,14 @@ interface Toast {
   };
 }
 
+// Toast helper type for passing to child components
+export interface ToastActions {
+  success: (title: string, message?: string) => string;
+  error: (title: string, message?: string) => string;
+  info: (title: string, message?: string) => string;
+  warning: (title: string, message?: string) => string;
+}
+
 interface ToastContextType {
   toasts: Toast[];
   addToast: (toast: Omit<Toast, 'id'>) => string;
