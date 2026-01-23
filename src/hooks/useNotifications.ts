@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
+// Query configuration constants
+const NOTIFICATIONS_STALE_TIME = 30 * 1000; // 30 seconds
+const NOTIFICATIONS_REFETCH_INTERVAL = 60 * 1000; // 1 minute
+const NOTIFICATIONS_RETRY_COUNT = 2;
+const NOTIFICATIONS_RETRY_DELAY = 1000; // 1 second
+
+const UNREAD_COUNT_STALE_TIME = 15 * 1000; // 15 seconds
+const UNREAD_COUNT_REFETCH_INTERVAL = 30 * 1000; // 30 seconds
+
 export interface Notification {
   id: string;
   type: 'LIKE' | 'COMMENT' | 'MENTION' | 'WORKSPACE_INVITE' | 'CONNECTION_REQUEST' | 'CONNECTION_ACCEPTED' | 'CONNECTION_DECLINED' | 'ACHIEVEMENT' | 'SYSTEM';
@@ -72,29 +81,26 @@ export function useNotifications(params: {
       console.log('🔔 Successfully received notifications:', response.data.data);
       return response.data.data;
     },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute for real-time feel
-    retry: 2, // Retry twice on failure
-    retryDelay: 1000, // Wait 1 second between retries
+    staleTime: NOTIFICATIONS_STALE_TIME,
+    refetchInterval: NOTIFICATIONS_REFETCH_INTERVAL,
+    retry: NOTIFICATIONS_RETRY_COUNT,
+    retryDelay: NOTIFICATIONS_RETRY_DELAY,
   });
 }
 
 // Get unread notification count
+// Note: This is a fallback - the dropdown derives count from the list when available
 export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: async (): Promise<{ count: number }> => {
-      try {
-        const response = await api.get('/notifications/unread-count');
-        return response.data.data;
-      } catch (error) {
-        console.log('🔔 Backend unavailable, returning 0 unread notifications');
-        return { count: 0 };
-      }
+      const response = await api.get('/notifications/unread-count');
+      return response.data.data;
     },
-    staleTime: 15 * 1000, // 15 seconds
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds
-    retry: false, // Don't retry when backend is down
+    staleTime: UNREAD_COUNT_STALE_TIME,
+    refetchInterval: UNREAD_COUNT_REFETCH_INTERVAL,
+    retry: NOTIFICATIONS_RETRY_COUNT,
+    retryDelay: NOTIFICATIONS_RETRY_DELAY,
   });
 }
 

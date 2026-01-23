@@ -31,6 +31,9 @@ import {
 } from '../../hooks/useNotifications';
 import { useToast } from '../../contexts/ToastContext';
 
+// Constants
+const NOTIFICATIONS_DROPDOWN_LIMIT = 10;
+
 interface NotificationItemProps {
   notification: Notification;
   onMarkAsRead: (id: string) => void;
@@ -320,9 +323,11 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
 export function NotificationsDropdown() {
   const { toast } = useToast();
 
-  const { data: unreadCount, isError: countError } = useUnreadNotificationCount();
+  // Fetch unread count (used as fallback when list hasn't loaded)
+  const { data: unreadCount } = useUnreadNotificationCount();
+  // Fetch notifications list - this is the source of truth when available
   const { data: notificationsData, isLoading, isError: listError } = useNotifications({
-    limit: 10,
+    limit: NOTIFICATIONS_DROPDOWN_LIMIT,
   });
 
   const markAsReadMutation = useMarkNotificationAsRead();
