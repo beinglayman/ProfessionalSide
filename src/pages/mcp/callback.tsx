@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Terminal } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { useErrorConsole } from '../../contexts/ErrorConsoleContext';
 
 export function MCPCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { captureOAuthError, openConsole } = useErrorConsole();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Processing authorization...');
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -21,6 +24,7 @@ export function MCPCallbackPage() {
       // Check for errors from backend redirect
       if (error) {
         setStatus('error');
+        setErrorCode(error);
         const errorMessages: Record<string, string> = {
           'missing_params': 'Missing required authorization parameters',
           'invalid_state': 'Invalid authorization state',
@@ -28,9 +32,22 @@ export function MCPCallbackPage() {
           'invalid_callback': 'Invalid callback parameters',
           'invalid_tool': 'Invalid tool type',
           'state_mismatch': 'Authorization state mismatch',
-          'oauth_exchange_failed': 'Failed to exchange authorization code'
+          'oauth_exchange_failed': 'Failed to exchange authorization code',
+          'admin_consent_required': 'Your organization requires admin approval for this app',
+          'access_denied': 'Access was denied by the user or organization'
         };
-        setMessage(errorMessages[error] || `Authorization failed: ${error}`);
+        const errorMessage = errorMessages[error] || `Authorization failed: ${error}`;
+        setMessage(errorMessage);
+
+        // Capture to error console with full URL params for debugging
+        const provider = tool || tools?.split(',')[0] || 'unknown';
+        captureOAuthError(provider, error, JSON.stringify({
+          message: errorMessage,
+          tool,
+          tools,
+          allParams: Object.fromEntries(searchParams.entries()),
+          url: window.location.href
+        }));
         return;
       }
 
@@ -60,11 +77,19 @@ export function MCPCallbackPage() {
 
       // If neither success nor error, something went wrong
       setStatus('error');
+      setErrorCode('unknown');
       setMessage('Missing required authorization parameters');
+
+      // Capture unknown error state
+      captureOAuthError('unknown', 'missing_success_param', JSON.stringify({
+        message: 'Neither success nor error param present',
+        allParams: Object.fromEntries(searchParams.entries()),
+        url: window.location.href
+      }));
     };
 
     processCallback();
-  }, [searchParams, navigate, queryClient]);
+  }, [searchParams, navigate, queryClient, captureOAuthError]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -96,7 +121,12 @@ export function MCPCallbackPage() {
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
                 Connection Failed
               </h2>
-              <p className="text-gray-600 mb-6">{message}</p>
+              <p className="text-gray-600 mb-4">{message}</p>
+              {errorCode && (
+                <p className="text-xs text-gray-400 mb-4 font-mono bg-gray-100 px-2 py-1 rounded">
+                  Error code: {errorCode}
+                </p>
+              )}
               <div className="space-y-3">
                 <Button
                   onClick={() => navigate('/settings', { state: { tab: 'integrations' } })}
@@ -111,6 +141,13 @@ export function MCPCallbackPage() {
                 >
                   Try Again
                 </Button>
+                <button
+                  onClick={openConsole}
+                  className="w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-gray-700 py-2"
+                >
+                  <Terminal size={14} />
+                  View Error Details (Cmd+E)
+                </button>
               </div>
             </>
           )}

@@ -5,6 +5,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ErrorConsoleProvider } from './contexts/ErrorConsoleContext';
+import { ErrorConsole } from './components/dev/ErrorConsole';
 import { OnboardingProvider } from './components/onboarding';
 import { Header } from './components/layout/header';
 import { HomePage } from './pages/home';
@@ -205,16 +207,19 @@ const AppRoutes: React.FC = () => {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <OnboardingProvider>
-          <ToastProvider>
-            <Router>
-              <AppRoutes />
-            </Router>
-          </ToastProvider>
-        </OnboardingProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </AuthProvider>
+      <ErrorConsoleProvider>
+        <AuthProvider>
+          <OnboardingProvider>
+            <ToastProvider>
+              <Router>
+                <AppRoutes />
+              </Router>
+            </ToastProvider>
+          </OnboardingProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </AuthProvider>
+        <ErrorConsole />
+      </ErrorConsoleProvider>
     </QueryClientProvider>
   );
 }
