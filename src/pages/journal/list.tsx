@@ -64,6 +64,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { JournalService } from '../../services/journal.service';
 import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWorkspaces } from '../../hooks/useWorkspace';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -111,6 +112,7 @@ export default function JournalPage() {
   }), [searchQuery, selectedWorkspace, selectedCategory, sortBy]);
 
   const { data, isLoading, isError, error } = useUserFeed(baseQueryParams);
+  const { data: userWorkspaces, isLoading: workspacesLoading } = useWorkspaces();
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
   const rechronicleMutation = useRechronicleEntry();
@@ -275,31 +277,30 @@ export default function JournalPage() {
     };
   }, []);
 
-  // Get unique workspaces
+  // Get workspaces from user's actual memberships (not derived from journal entries)
+  // This prevents phantom workspaces from appearing when entries exist for workspaces
+  // the user is no longer a member of
   const workspaces = useMemo(() => {
-    const uniqueWorkspaces = new Map();
-    journals.forEach(journal => {
-      if (!uniqueWorkspaces.has(journal.workspaceId)) {
-        uniqueWorkspaces.set(journal.workspaceId, {
-          id: journal.workspaceId,
-          name: journal.workspaceName,
-          isPersonal: !journal.organizationName
-        });
-      }
-    });
-    return Array.from(uniqueWorkspaces.values());
-  }, [journals]);
+    if (!userWorkspaces || userWorkspaces.length === 0) {
+      return [];
+    }
+    return userWorkspaces.map(ws => ({
+      id: ws.id,
+      name: ws.name,
+      isPersonal: !ws.organization
+    }));
+  }, [userWorkspaces]);
 
   // Reset workspace filter if the selected workspace doesn't exist
   useEffect(() => {
-    if (selectedWorkspace !== 'all' && workspaces.length > 0 && !isLoading) {
+    if (selectedWorkspace !== 'all' && workspaces.length > 0 && !isLoading && !workspacesLoading) {
       const workspaceExists = workspaces.some(ws => ws.id === selectedWorkspace);
       if (!workspaceExists) {
         console.warn('⚠️ Selected workspace not found, resetting to "all":', selectedWorkspace);
         setSelectedWorkspace('all');
       }
     }
-  }, [selectedWorkspace, workspaces, isLoading]);
+  }, [selectedWorkspace, workspaces, isLoading, workspacesLoading]);
 
   // Debug: Log API data and filtering
   React.useEffect(() => {

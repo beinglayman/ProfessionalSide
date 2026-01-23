@@ -61,7 +61,7 @@ export interface WorkspaceFile {
 export interface CreateWorkspaceData {
   name: string;
   description?: string;
-  organizationId: string;
+  organizationId?: string;
 }
 
 export interface UpdateWorkspaceData {
