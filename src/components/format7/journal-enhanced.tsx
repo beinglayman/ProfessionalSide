@@ -285,23 +285,9 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {(entry.entry_metadata?.privacy === 'network' || entry.entry_metadata?.privacy === 'public') ? (
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs px-2 py-0.5">
-                  Published to network
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs px-2 py-0.5">
-                  Unpublished
-                </Badge>
-              )}
-              {entry.entry_metadata?.isAutomated && (
-                <Badge variant="outline" className="text-xs">Auto generated</Badge>
-              )}
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="w-4 h-4 text-gray-500" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreVertical className="w-4 h-4 text-gray-500" />
+            </Button>
           </div>
         )}
 
