@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createScreenshotHelper } from './utils/screenshot-helper';
+import { createScreenshotHelper, createRunLog } from './utils/screenshot-helper';
 import { login } from './utils/auth-helper';
 import { waitForContentLoaded } from './utils/wait-helper';
 
@@ -15,7 +15,9 @@ import { waitForContentLoaded } from './utils/wait-helper';
  * CD6 Design-UX: Screenshot Verification Protocol applies after tests pass.
  */
 
-const ENV = process.env.BASE_URL?.includes('inchronicle.com') ? 'prod' : 'local';
+// Detect environment from E2E_BASE_URL or BASE_URL (CLI override)
+const BASE_URL = process.env.BASE_URL || process.env.E2E_BASE_URL || '';
+const ENV = BASE_URL.includes('inchronicle.com') ? 'prod' : 'local';
 
 // Run authenticated tests sequentially to avoid login conflicts
 test.describe.configure({ mode: 'serial' });
@@ -151,5 +153,26 @@ test.describe('Authenticated Screenshots', () => {
       name: `settings-${ENV}`,
       fullPage: true,
     });
+  });
+
+  test.afterAll(() => {
+    // Log the run after all tests complete
+    const runLog = createRunLog({
+      type: 'feature',
+      slug: 'workspace-list-improvements',
+    });
+
+    const screenshotHelper = createScreenshotHelper({} as never, {
+      type: 'feature',
+      slug: 'workspace-list-improvements',
+    });
+
+    const unverified = screenshotHelper.listUnverified();
+    const verified = screenshotHelper.listVerified();
+    const allScreenshots = [...unverified, ...verified];
+
+    if (allScreenshots.length > 0) {
+      runLog.logRun(allScreenshots);
+    }
   });
 });

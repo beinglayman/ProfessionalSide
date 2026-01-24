@@ -22,8 +22,9 @@ import { createScreenshotHelper } from './utils/screenshot-helper';
  *   Custom: BASE_URL=https://staging.inchronicle.com npm run test:e2e
  */
 
-// Get environment info for screenshot naming
-const ENV = process.env.BASE_URL?.includes('inchronicle.com') ? 'prod' : 'local';
+// Detect environment from E2E_BASE_URL or BASE_URL (CLI override)
+const BASE_URL = process.env.BASE_URL || process.env.E2E_BASE_URL || '';
+const ENV = BASE_URL.includes('inchronicle.com') ? 'prod' : 'local';
 
 test.describe('Homepage Screenshots', () => {
   test('capture homepage sections', async ({ page }) => {

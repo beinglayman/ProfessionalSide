@@ -220,3 +220,79 @@ export function createScreenshotHelper(page: Page, config: ScreenshotConfig) {
 export function screenshotSection(name: string) {
   return { 'data-screenshot-section': name };
 }
+
+/**
+ * Run Log - creates timestamped log entries for screenshot runs
+ *
+ * Format: YYYY-MM-DD_HH-MM-SS | MODE | slug | screenshot-count
+ */
+export interface RunLogEntry {
+  timestamp: string;
+  mode: 'prod' | 'local';
+  slug: string;
+  screenshotCount: number;
+  screenshots: string[];
+}
+
+/**
+ * Creates a run log for tracking screenshot test executions
+ */
+export function createRunLog(config: ScreenshotConfig) {
+  const baseDir = path.join(
+    process.cwd(),
+    SCREENSHOTS_BASE_DIR,
+    config.type,
+    config.slug
+  );
+  const logPath = path.join(baseDir, 'run-log.txt');
+
+  // Detect mode from environment
+  const baseUrl = process.env.BASE_URL || process.env.E2E_BASE_URL || '';
+  const mode: 'prod' | 'local' = baseUrl.includes('inchronicle.com') ? 'prod' : 'local';
+
+  return {
+    /**
+     * Append a run entry to the log
+     */
+    logRun(screenshots: string[]): RunLogEntry {
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+      const entry: RunLogEntry = {
+        timestamp,
+        mode,
+        slug: config.slug,
+        screenshotCount: screenshots.length,
+        screenshots,
+      };
+
+      // Ensure directory exists
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+
+      // Format log line
+      const logLine = `${timestamp} | ${mode.padEnd(5)} | ${config.slug} | ${screenshots.length} screenshots: ${screenshots.join(', ')}\n`;
+
+      // Append to log file
+      fs.appendFileSync(logPath, logLine);
+
+      return entry;
+    },
+
+    /**
+     * Get the log file path
+     */
+    getLogPath(): string {
+      return logPath;
+    },
+
+    /**
+     * Read all log entries
+     */
+    readLog(): string {
+      if (!fs.existsSync(logPath)) return '';
+      return fs.readFileSync(logPath, 'utf-8');
+    },
+  };
+}
