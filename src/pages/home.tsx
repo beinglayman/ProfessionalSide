@@ -98,7 +98,7 @@ export function HomePage() {
                     <div className="p-2 bg-green-100 rounded-lg">
                       <BadgeCheck className="h-6 w-6 text-green-600" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Show your work, not stotytelling skills</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">Show your work, not storytelling skills</h2>
                   </div>
                   <p className="text-lg text-gray-600 leading-relaxed mb-6">
                     "Led cross-functional initiatives." Everyone claims this. Few can prove. InChronicle builds your professional story from real work—commits, completed projects, peer recognition. Validated by the people who were there.
