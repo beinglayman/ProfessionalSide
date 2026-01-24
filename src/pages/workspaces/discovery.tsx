@@ -815,7 +815,7 @@ export default function WorkspaceDiscoveryPage() {
               {filteredWorkspaces.map(workspace => renderWorkspaceCard(workspace))}
             </div>
           ) : (
-            {areFiltersActive() ? (
+            areFiltersActive() ? (
               <EmptyState
                 variant="no-results"
                 title="No workspaces found"
@@ -845,7 +845,7 @@ export default function WorkspaceDiscoveryPage() {
                   icon: Plus
                 } : undefined}
               />
-            )}
+            )
           )
         )}
 
