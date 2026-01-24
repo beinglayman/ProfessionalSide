@@ -1,73 +1,42 @@
 import React from 'react';
-import { CheckCircle, XCircle, Info, Github } from 'lucide-react';
+import { CheckCircle, XCircle, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { MCPToolType } from '../../types/mcp.types';
 import { Checkbox } from '../ui/checkbox';
-import {
-  JiraIcon,
-  ConfluenceIcon,
-  OutlookIcon,
-  TeamsIcon,
-  SlackIcon,
-  FigmaIcon
-} from '../icons/brand-icons';
+import { ToolIcon, ToolType } from '../icons/ToolIcons';
 
-// Tool configurations with icons and descriptions
+// Tool configurations with descriptions
 const toolConfigs: Record<MCPToolType, {
   name: string;
-  icon: React.FC<{ className?: string }>;
   description: string;
-  color: string;
-  bgColor: string;
 }> = {
   github: {
     name: 'GitHub',
-    icon: Github,
-    description: 'Code contributions, PRs, and issues',
-    color: 'text-gray-900',
-    bgColor: 'bg-gray-100'
+    description: 'Code contributions, PRs, and issues'
   },
   jira: {
     name: 'Jira',
-    icon: JiraIcon,
-    description: 'Tasks, story points, and sprints',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
+    description: 'Tasks, story points, and sprints'
   },
   figma: {
     name: 'Figma',
-    icon: FigmaIcon,
-    description: 'Design files, edits, and comments',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100'
+    description: 'Design files, edits, and comments'
   },
   outlook: {
     name: 'Outlook',
-    icon: OutlookIcon,
-    description: 'Meetings, emails, and calendar',
-    color: 'text-blue-700',
-    bgColor: 'bg-blue-100'
+    description: 'Meetings, emails, and calendar'
   },
   confluence: {
     name: 'Confluence',
-    icon: ConfluenceIcon,
-    description: 'Documentation and page updates',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
+    description: 'Documentation and page updates'
   },
   slack: {
     name: 'Slack',
-    icon: SlackIcon,
-    description: 'Messages, threads, and discussions',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-100'
+    description: 'Messages, threads, and discussions'
   },
   teams: {
     name: 'Microsoft Teams',
-    icon: TeamsIcon,
-    description: 'Meetings, chats, and collaboration',
-    color: 'text-indigo-700',
-    bgColor: 'bg-indigo-100'
+    description: 'Meetings, chats, and collaboration'
   }
 };
 
@@ -154,7 +123,6 @@ export const MultiSourceSelector: React.FC<MultiSourceSelectorProps> = ({
           const tool = availableTools.find(t => t.toolType === toolType);
           const isConnected = tool?.isConnected ?? false;
           const isSelected = selectedTools.includes(toolType);
-          const IconComponent = config.icon;
 
           return (
             <div
@@ -179,8 +147,8 @@ export const MultiSourceSelector: React.FC<MultiSourceSelectorProps> = ({
               />
 
               {/* Tool icon */}
-              <div className={cn('p-2 rounded-md flex-shrink-0', config.bgColor)}>
-                <IconComponent className={cn('h-5 w-5', config.color)} />
+              <div className="p-2 rounded-md flex-shrink-0 bg-gray-50">
+                <ToolIcon tool={toolType as ToolType} size={20} disabled={!isConnected} />
               </div>
 
               {/* Tool info */}

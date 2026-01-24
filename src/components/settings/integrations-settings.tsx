@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Github,
   Link2,
   CheckCircle,
   XCircle,
@@ -18,111 +17,60 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations, useMCPOAuth, useMCPGroupOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
 import { MCPToolType, MCPIntegrationGroup } from '../../types/mcp.types';
-import {
-  JiraIcon,
-  ConfluenceIcon,
-  OutlookIcon,
-  TeamsIcon,
-  SlackIcon,
-  FigmaIcon,
-  OneDriveIcon,
-  OneNoteIcon,
-  SharePointIcon,
-  ZoomIcon,
-  GoogleWorkspaceIcon
-} from '../icons/brand-icons';
+import { ToolIcon, ToolType } from '../icons/ToolIcons';
 
-// Tool configurations with icons and descriptions
+// Tool configurations with descriptions
 const toolConfigs: Record<MCPToolType, {
   name: string;
-  icon: React.FC<{ className?: string }>;
   description: string;
-  color: string;
-  bgColor: string;
 }> = {
   github: {
     name: 'GitHub',
-    icon: Github,
-    description: 'Connect your GitHub account to import code contributions, pull requests, and repository activity.',
-    color: 'text-gray-900',
-    bgColor: 'bg-gray-100'
+    description: 'Connect your GitHub account to import code contributions, pull requests, and repository activity.'
   },
   jira: {
     name: 'Jira',
-    icon: JiraIcon,
-    description: 'Import task completions, story points, and sprint activity from Jira.',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
+    description: 'Import task completions, story points, and sprint activity from Jira.'
   },
   figma: {
     name: 'Figma',
-    icon: FigmaIcon,
-    description: 'Sync design contributions, file edits, and comments from Figma projects.',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100'
+    description: 'Sync design contributions, file edits, and comments from Figma projects.'
   },
   outlook: {
     name: 'Outlook',
-    icon: OutlookIcon,
-    description: 'Import meeting notes, email summaries, and calendar events from Outlook.',
-    color: 'text-blue-700',
-    bgColor: 'bg-blue-100'
+    description: 'Import meeting notes, email summaries, and calendar events from Outlook.'
   },
   confluence: {
     name: 'Confluence',
-    icon: ConfluenceIcon,
-    description: 'Import documentation updates, page edits, and knowledge base contributions.',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
+    description: 'Import documentation updates, page edits, and knowledge base contributions.'
   },
   slack: {
     name: 'Slack',
-    icon: SlackIcon,
-    description: 'Import important messages, thread discussions, and team collaboration highlights.',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-100'
+    description: 'Import important messages, thread discussions, and team collaboration highlights.'
   },
   teams: {
     name: 'Microsoft Teams',
-    icon: TeamsIcon,
-    description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.',
-    color: 'text-indigo-700',
-    bgColor: 'bg-indigo-100'
+    description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.'
   },
   onedrive: {
     name: 'OneDrive',
-    icon: OneDriveIcon,
-    description: 'Import OneDrive file changes and collaboration activity.',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
+    description: 'Import OneDrive file changes and collaboration activity.'
   },
   onenote: {
     name: 'OneNote',
-    icon: OneNoteIcon,
-    description: 'Import OneNote pages, notebooks, and note-taking activity.',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-100'
+    description: 'Import OneNote pages, notebooks, and note-taking activity.'
   },
   sharepoint: {
     name: 'SharePoint',
-    icon: SharePointIcon,
-    description: 'Import SharePoint site activity, documents, and list updates.',
-    color: 'text-teal-700',
-    bgColor: 'bg-teal-100'
+    description: 'Import SharePoint site activity, documents, and list updates.'
   },
   zoom: {
     name: 'Zoom',
-    icon: ZoomIcon,
-    description: 'Import Zoom meeting recordings, transcripts, and participant data.',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100'
+    description: 'Import Zoom meeting recordings, transcripts, and participant data.'
   },
   google_workspace: {
     name: 'Google Workspace',
-    icon: GoogleWorkspaceIcon,
-    description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings.',
-    color: 'text-gray-700',
-    bgColor: 'bg-gray-100'
+    description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings.'
   }
 };
 
@@ -390,8 +338,6 @@ export function IntegrationsSettings() {
                       (connectingTool === toolType && isConnecting) ||
                       (disconnectingTool === toolType && isDisconnecting);
 
-                    const IconComponent = config.icon;
-
                     return (
                       <div
                         key={toolType}
@@ -402,8 +348,8 @@ export function IntegrationsSettings() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start space-x-4 flex-1">
-                            <div className={cn("p-3 rounded-lg", config.bgColor)}>
-                              <IconComponent className={cn("h-5 w-5", config.color)} />
+                            <div className="p-3 rounded-lg bg-gray-50">
+                              <ToolIcon tool={toolType as ToolType} size={20} />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
@@ -474,8 +420,6 @@ export function IntegrationsSettings() {
               (connectingTool === toolType && isConnecting) ||
               (disconnectingTool === toolType && isDisconnecting);
 
-            const IconComponent = config.icon;
-
             return (
               <div
                 key={toolType}
@@ -487,8 +431,8 @@ export function IntegrationsSettings() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
-                    <div className={cn("p-3 rounded-lg", config.bgColor)}>
-                      <IconComponent className={cn("h-6 w-6", config.color)} />
+                    <div className="p-3 rounded-lg bg-gray-50">
+                      <ToolIcon tool={toolType as ToolType} size={24} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
