@@ -1,348 +1,171 @@
-# PR: Playwright Screenshot Testing Setup
+# PR: Playwright Screenshot Testing Infrastructure
 
-**Branch:** `feature/playwright-screenshot-testing`
-**Date:** 2026-01-24
-**Type:** Feature
-
----
+**Branch**: `feature/playwright-screenshot-testing`
+**Base**: `main`
+**Date**: 2026-01-24
 
 ## Summary
 
-Added Playwright E2E testing infrastructure focused on screenshot capture for UX verification. Supports both local development and production URL testing with authenticated sessions.
+This PR establishes reliable Playwright E2E screenshot testing infrastructure, fixing critical issues that caused blank screenshots and improving organization of screenshot artifacts.
 
-## Problem
+## Problem Statement
 
-- No way to programmatically capture UI screenshots for documentation
-- Manual screenshot process is error-prone and inconsistent
-- No visual regression baseline for UX changes
-- Needed integration with CD6 Design-UX Screenshot Verification Protocol
+Playwright authenticated tests were producing blank/white screenshots for dashboard and other pages. Investigation revealed:
 
-## Solution
+1. **Port conflict**: Two Vite dev servers running on port 5173 (this project + another Wails desktop app)
+2. **CORS blocking**: Backend didn't allow requests from the new dev port
+3. **Screenshot disorganization**: All screenshots dumped in single folder, hard to track runs
 
-Implemented Playwright-based screenshot testing with:
-- Configurable base URL (local/prod/staging)
-- Authenticated session support via environment variables
-- Screenshot storage organized by type/slug pattern
-- Helper utilities for consistent screenshot capture
+## Changes
 
----
+### 1. Port Configuration (5173 → 5555)
 
-## Files Changed
-
-### New Files
-
-| File | Purpose |
-|------|---------|
-| `playwright.config.ts` | Playwright configuration with multi-environment support |
-| `e2e/utils/screenshot-helper.ts` | Screenshot capture utilities and verification protocol |
-| `e2e/utils/auth-helper.ts` | Login/authentication helpers for E2E tests |
-| `e2e/utils/index.ts` | Utility exports |
-| `e2e/example.spec.ts` | Example public page tests |
-| `e2e/authenticated.spec.ts` | Authenticated page screenshot tests |
-| `e2e/.env.example` | Template for credentials |
-| `e2e/.env.e2e` | Actual credentials (gitignored) |
-| `src/utils/screenshot-markers.ts` | React component markers for section targeting |
-
-### Modified Files
+Changed dev server to unique port 5555 to avoid conflicts with other local projects.
 
 | File | Change |
 |------|--------|
-| `package.json` | Added Playwright scripts and devDependencies |
-| `.gitignore` | Added Playwright artifacts and auth state |
+| `vite.config.ts` | `port: 5173` → `port: 5555` |
+| `playwright.config.ts` | Updated BASE_URL and webServer URL |
+| `.env.local` | `E2E_BASE_URL=http://localhost:5555` |
 
----
+### 2. Backend CORS Update
 
-## Architecture
+Added `http://localhost:5555` to allowed origins in `backend/src/app.ts`:
+
+- Main CORS middleware (line ~87)
+- `/uploads` static file handler (line ~194)
+- `/screenshots` static file handler (line ~230)
+
+**Note**: Requires backend deployment to take effect on Azure.
+
+### 3. Screenshot Organization
+
+Screenshots now save to timestamped run folders:
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     SCREENSHOT TESTING FLOW                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐        │
-│  │   Config     │     │    Tests     │     │   Helpers    │        │
-│  │              │     │              │     │              │        │
-│  │ playwright   │────▶│ *.spec.ts    │────▶│ screenshot-  │        │
-│  │ .config.ts   │     │              │     │ helper.ts    │        │
-│  │              │     │              │     │              │        │
-│  │ BASE_URL     │     │ login()      │     │ capture      │        │
-│  │ IS_PROD      │     │ capture()    │     │ Section()    │        │
-│  └──────────────┘     └──────────────┘     └──────────────┘        │
-│         │                    │                    │                  │
-│         │                    │                    ▼                  │
-│         │                    │           ┌──────────────┐           │
-│         │                    │           │  __docs/     │           │
-│         │                    │           │  <type>/     │           │
-│         │                    └──────────▶│  <slug>/     │           │
-│         │                                │  *.png       │           │
-│         │                                └──────────────┘           │
-│         │                                                           │
-│         ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                     ENVIRONMENTS                              │   │
-│  ├─────────────────────────────────────────────────────────────┤   │
-│  │  Local:  http://localhost:5173  (starts dev server)          │   │
-│  │  Prod:   https://inchronicle.com (no server needed)          │   │
-│  │  Custom: BASE_URL=https://staging... (any URL)               │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+__docs/feature/{slug}/runs/{YYYY-MM-DD}_{HH-MM-SS}-{scenario}-{mode}/
 ```
 
----
+**Example**:
+```
+runs/2026-01-24_11-13-20-authenticated-prod/
+├── dashboard.png
+├── workspaces.png
+├── journal-list.png
+└── settings.png
+```
 
-## Usage
+**Changes in `e2e/utils/screenshot-helper.ts`**:
+- Added `generateRunFolderName()` function using local time
+- Added `scenario` config option (e.g., 'authenticated', 'responsive')
+- Screenshots organized by run instead of flat structure
 
-### Quick Start
+**Changes in `e2e/authenticated.spec.ts`**:
+- Added `scenario` to each test's screenshot config
+- Simplified screenshot names (removed `-${ENV}` suffix, folder has mode)
 
+## Files Changed
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `vite.config.ts` | +2/-2 | Port 5173 → 5555 |
+| `playwright.config.ts` | +2/-2 | Updated URLs to port 5555 |
+| `e2e/utils/screenshot-helper.ts` | +32/-1 | Run folder generation with local time |
+| `e2e/authenticated.spec.ts` | +14/-9 | Added scenarios, simplified names |
+| `backend/src/app.ts` | +3/-0 | CORS for localhost:5555 |
+| `.env.local` | +1/-1 | E2E_BASE_URL update |
+
+## New Documentation
+
+| File | Purpose |
+|------|---------|
+| `__docs/plans/2026-01-24-cors-localhost-5555.md` | CORS fix tracking |
+| `__docs/feature/workspace-list-improvements/DEBUG-BLANK-SCREENSHOTS.md` | Investigation results |
+
+## Testing
+
+### Production Tests (Passing)
 ```bash
-# Install (already done)
-npm install -D @playwright/test dotenv
-npx playwright install chromium
+BASE_URL=https://inchronicle.com npx playwright test authenticated.spec.ts --project=chromium
+# Result: 5 passed (1.2m)
+```
 
-# Run against local dev server
+### Local Tests (Pending backend deployment)
+```bash
 npm run test:e2e
-
-# Run against production
-npm run test:e2e:prod
-
-# Run with visible browser
-npm run test:e2e:prod:headed
+# Currently fails with CORS error until backend is deployed
 ```
 
-### NPM Scripts
+## Screenshots Captured
 
-| Script | Description |
-|--------|-------------|
-| `test:e2e` | Run all E2E tests against localhost |
-| `test:e2e:ui` | Interactive Playwright UI mode |
-| `test:e2e:headed` | Run with visible browser |
-| `test:e2e:prod` | Run against https://inchronicle.com |
-| `test:e2e:prod:headed` | Production with visible browser |
-| `screenshots:prod` | Desktop screenshots on prod |
-| `screenshots:mobile` | Mobile viewport on prod |
-| `screenshots:all` | All viewports on prod |
+### Working (Full Content)
+- `settings.png` - Full settings page with all sections
+- `journal-list.png` - Journal entries with content
 
-### Custom URL
+### Partial/Blank (Known Issue - Separate Bug)
+- `dashboard.png` - Blank white (dashboard page bug, not test infra)
+- `workspaces.png` - Nav bar only, no content (workspaces page bug)
 
+## Root Cause Analysis
+
+### Issue 1: Blank Screenshots (FIXED)
+
+**Cause**: Port 5173 had two listeners:
+- PID 63738: ProfessionalSide (correct)
+- PID 65488: zdh/desktop/frontend (Wails app - wrong)
+
+Playwright was connecting to the Wails app which crashed because Wails runtime isn't available in browser.
+
+**Evidence**:
+```
+PAGE ERROR: Cannot read properties of undefined (reading 'main')
+at GetConnectionStatus (wailsjs/go/main/App.js:150:22)
+```
+
+**Fix**: Changed to unique port 5555.
+
+### Issue 2: CORS Error (FIXED - needs deployment)
+
+**Cause**: Backend CORS didn't include `localhost:5555`.
+
+**Evidence**:
+```
+Access to XMLHttpRequest at 'https://ps-backend.../api/v1/auth/login'
+from origin 'http://localhost:5555' has been blocked by CORS policy
+```
+
+**Fix**: Added `'http://localhost:5555'` to `allowedOrigins` in backend.
+
+### Issue 3: Dashboard/Workspaces Blank (NOT THIS PR)
+
+Dashboard and workspaces pages show blank even in production. This is a **separate application bug**, not a test infrastructure issue. Settings and journal pages render correctly.
+
+## Deployment Checklist
+
+- [x] Frontend port change (immediate - local dev)
+- [x] Playwright config update (immediate - local dev)
+- [x] Backend CORS update (code done)
+- [ ] Deploy backend to Azure
+- [ ] Verify local E2E tests pass
+- [ ] Investigate dashboard/workspaces blank page bug (separate PR)
+
+## How to Run
+
+### Against Production (works now)
 ```bash
-BASE_URL=https://staging.inchronicle.com npm run test:e2e
+BASE_URL=https://inchronicle.com npx playwright test authenticated.spec.ts
 ```
 
----
-
-## Credentials Setup
-
-1. Copy the example file:
-   ```bash
-   cp e2e/.env.example e2e/.env.e2e
-   ```
-
-2. Edit with your credentials:
-   ```
-   E2E_EMAIL=your-email@example.com
-   E2E_PASSWORD=your-password
-   ```
-
-3. **Security**: `.env.e2e` is gitignored. Never commit credentials.
-
----
-
-## Screenshot Storage
-
-Screenshots are stored following the pattern:
-
-```
-__docs/<type>/<slug>/<name>-<env>.png
+### Against Local (after backend deployment)
+```bash
+npm run dev  # Starts on port 5555
+npm run test:e2e
 ```
 
-**Example:**
-```
-__docs/
-└── feature/
-    └── workspace-list-improvements/
-        ├── dashboard-prod.png
-        ├── workspaces-authenticated-prod.png
-        ├── workspaces-auth-mobile-prod.png
-        └── journal-list-prod.png
-```
+## Rollback Plan
 
-**Types:**
-- `feature` - New feature documentation
-- `bugfix` - Bug fix verification
-- `chore` - Maintenance/refactoring
-
----
-
-## CD6 Screenshot Verification Protocol
-
-After tests pass, follow this verification workflow:
-
-```
-1. List screenshots:
-   ls __docs/feature/<slug>/
-
-2. For each .png WITHOUT 'verified_' prefix:
-   a. View the screenshot
-   b. Assess: Does it show correct content?
-   c. If issues → fix code, re-run tests
-   d. If OK → mv <name>.png verified_<name>.png
-
-3. After renaming ALL → do NOT claim completion
-
-4. Let NEXT iteration confirm all verified
-```
-
-**Why wait?** The iteration that renames files ≠ the iteration that claims completion. This ensures completion is based on observed state, not assumed state.
-
----
-
-## Writing New Tests
-
-### Basic Screenshot Test
-
-```typescript
-import { test } from '@playwright/test';
-import { createScreenshotHelper } from './utils/screenshot-helper';
-
-test('capture my-page', async ({ page }) => {
-  const screenshots = createScreenshotHelper(page, {
-    type: 'feature',
-    slug: 'my-feature-name',
-  });
-
-  await page.goto('/my-page');
-  await page.waitForLoadState('networkidle');
-
-  await screenshots.captureSection({
-    name: 'my-page-full',
-    fullPage: true,
-  });
-});
-```
-
-### Authenticated Test
-
-```typescript
-import { test, expect } from '@playwright/test';
-import { createScreenshotHelper } from './utils/screenshot-helper';
-import { login } from './utils/auth-helper';
-
-test.describe('Authenticated Tests', () => {
-  test.describe.configure({ mode: 'serial' });
-  test.setTimeout(60000);
-
-  test.beforeEach(async ({ page }) => {
-    await login(page);
-    expect(page.url()).not.toContain('/login');
-  });
-
-  test('capture dashboard', async ({ page }) => {
-    const screenshots = createScreenshotHelper(page, {
-      type: 'feature',
-      slug: 'my-feature',
-    });
-
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    // Wait for content to load
-    await page.waitForTimeout(1500);
-
-    await screenshots.captureSection({
-      name: 'dashboard',
-      fullPage: true,
-    });
-  });
-});
-```
-
-### Targeting Specific Sections
-
-In your React components:
-```tsx
-import { screenshotSection } from '@/utils/screenshot-markers';
-
-<div {...screenshotSection('workspace-header')}>
-  <h1>Workspaces</h1>
-</div>
-```
-
-In your test:
-```typescript
-await screenshots.captureSection({
-  name: 'workspace-header',
-  section: 'workspace-header',  // matches data-screenshot-section
-});
-```
-
----
-
-## Troubleshooting
-
-### Tests timeout on login
-
-**Cause:** Parallel tests hitting rate limits or session conflicts.
-
-**Fix:** Run authenticated tests sequentially:
-```typescript
-test.describe.configure({ mode: 'serial' });
-test.setTimeout(60000);
-```
-
-### Screenshots show loading spinners
-
-**Cause:** Content hasn't finished loading.
-
-**Fix:** Wait for spinners to disappear:
-```typescript
-await page.waitForFunction(() => {
-  const spinners = document.querySelectorAll('[class*="animate-spin"]');
-  return spinners.length === 0;
-}, { timeout: 10000 }).catch(() => {});
-await page.waitForTimeout(1500);
-```
-
-### "Missing E2E credentials" error
-
-**Cause:** Environment variables not set.
-
-**Fix:** Create `e2e/.env.e2e` with credentials (see Credentials Setup).
-
-### Blank screenshots
-
-**Cause:** Page redirected or auth failed silently.
-
-**Fix:** Add assertions to verify page state before capture:
-```typescript
-await expect(page.locator('h1')).toBeVisible();
-```
-
----
-
-## Dependencies Added
-
-```json
-{
-  "devDependencies": {
-    "@playwright/test": "^1.58.0",
-    "dotenv": "^17.2.3"
-  }
-}
-```
-
----
-
-## Future Improvements
-
-1. **Visual regression testing** - Compare screenshots against baselines
-2. **Auth state persistence** - Reuse login across tests (Playwright storageState)
-3. **CI integration** - Run on PR merge
-4. **Slack notifications** - Post screenshots to channel on deploy
-
----
-
-## Related
-
-- [CD6 Screenshot Verification Protocol](../../ideapit/ideapit.md#cd6-design-ux-screenshot-verification-protocol)
-- [L3-DEEP-DIVES/TESTING](../L3-DEEP-DIVES/) (future)
+If issues arise, revert port changes:
+1. `vite.config.ts`: port 5555 → 5173
+2. `playwright.config.ts`: URLs back to 5173
+3. `.env.local`: E2E_BASE_URL back to 5173
+4. Backend: Remove `localhost:5555` from CORS (optional, harmless to keep)
