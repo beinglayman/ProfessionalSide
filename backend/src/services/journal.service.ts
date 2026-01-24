@@ -256,13 +256,10 @@ export class JournalService {
       });
     }
 
-    // Only show published entries (except for own entries)
-    where.AND.push({
-      OR: [
-        { authorId: userId }, // Own entries (can see unpublished)
-        { isPublished: true } // Others' published entries
-      ]
-    });
+    // Note: isPublished filter removed - visibility alone controls access
+    // - private: only author sees
+    // - workspace: workspace members see
+    // - network: everyone in network sees
 
     // Build orderBy
     let orderBy: any;

@@ -65,12 +65,12 @@ export function ProfilePage() {
     );
   }
 
-  // Filter out auto-generated drafts - they should only appear on workspace page
+  // Filter out auto-generated entries - they should only appear on workspace page
   const journalEntries = useMemo(() => {
     const entries = journalData?.entries || [];
     return entries.filter(entry => {
-      // Exclude auto-generated drafts from profile view
-      if (!entry.isPublished && entry.tags?.includes('auto-generated')) {
+      // Exclude auto-generated entries from profile view
+      if (entry.tags?.includes('auto-generated')) {
         return false;
       }
       return true;
@@ -255,7 +255,7 @@ export function ProfilePage() {
                 // Profile is public-facing, use network view when available
                 if (entry.format7Data?.entry_metadata?.title) {
                   const entryData = entry.format7DataNetwork || entry.format7Data;
-                  const isDraft = !entry.isPublished && entry.visibility !== 'network';
+                  const isDraft = entry.visibility !== 'network'; // Not yet shared to network
                   return (
                     <JournalEnhanced
                       key={entry.id}

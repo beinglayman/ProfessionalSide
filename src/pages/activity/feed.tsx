@@ -509,18 +509,18 @@ export function ActivityFeedPage() {
     console.log(`🔍 Total activities before filtering: ${activities.length}`);
     
     const filtered = activities.filter(activity => {
-      // Exclude auto-generated drafts - they should only appear on workspace page
-      if (!activity.isPublished && activity.tags?.includes('auto-generated')) {
-        console.log(`❌ Excluding activity "${activity.title}" (auto-generated draft)`);
+      // Exclude auto-generated entries - they should only appear on workspace page
+      // (auto-generated entries have visibility: 'private', but this is a safety check)
+      if (activity.tags?.includes('auto-generated')) {
+        console.log(`❌ Excluding activity "${activity.title}" (auto-generated)`);
         return false;
       }
 
-      // Filter by view mode
+      // Filter by view mode - visibility alone controls access
       if (viewMode === 'network') {
         // Network view: only show entries with network visibility
-        // Note: entries with network visibility should be considered published by default
         if (activity.visibility !== 'network') {
-          console.log(`❌ Excluding activity "${activity.title}" from network view: visibility=${activity.visibility}, isPublished=${activity.isPublished}`);
+          console.log(`❌ Excluding activity "${activity.title}" from network view: visibility=${activity.visibility}`);
           return false;
         }
         // Skip entries without format7DataNetwork in network view (no fallback to workspace view)
@@ -528,7 +528,7 @@ export function ActivityFeedPage() {
           console.log(`❌ Excluding activity "${activity.title}" from network view: no format7DataNetwork available`);
           return false;
         }
-        console.log(`✅ Including activity "${activity.title}" in network view: visibility=${activity.visibility}, isPublished=${activity.isPublished}`);
+        console.log(`✅ Including activity "${activity.title}" in network view: visibility=${activity.visibility}`);
       } else {
         // Workspace view: only show entries with workspace visibility
         if (activity.visibility !== 'workspace') {
@@ -574,7 +574,6 @@ export function ActivityFeedPage() {
       id: a.id,
       title: a.title,
       visibility: a.visibility,
-      isPublished: a.isPublished,
       source: a.source
     })));
     

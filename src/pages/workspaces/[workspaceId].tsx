@@ -5658,7 +5658,7 @@ export default function WorkspaceDetailPage() {
 
                   // Render JournalEnhanced for Format7 entries with AI-grouped categories
                   if (journalEntry.format7Data?.entry_metadata?.title) {
-                    const isDraft = !journalEntry.isPublished && journalEntry.visibility !== 'network';
+                    const isDraft = journalEntry.visibility !== 'network'; // Not yet shared to network
                     return (
                       <JournalEnhanced
                         key={entry.id}

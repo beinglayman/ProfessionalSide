@@ -212,7 +212,7 @@ export class AdminDashboardService {
         newInteractions24h
       ] = await Promise.all([
         prisma.journalEntry.count(),
-        prisma.journalEntry.count({ where: { isPublished: true } }),
+        prisma.journalEntry.count({ where: { visibility: 'network' } }), // Entries shared to network
         prisma.journalEntry.count({ where: { createdAt: { gte: yesterday } } }),
         prisma.journalEntry.count({ where: { createdAt: { gte: weekAgo } } }),
         prisma.journalEntry.count({ where: { createdAt: { gte: monthAgo } } }),

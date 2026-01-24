@@ -756,8 +756,8 @@ export function JournalCard({
               <span className="ml-1">ReChronicle</span>
             </button>
 
-            {/* Publish Button - shown for draft entries owned by current user */}
-            {!journal.isPublished && journal.visibility !== 'network' && currentUser && journal.author.id === currentUser.id && onPublishToggle && (
+            {/* Publish Button - shown for entries not yet shared to network, owned by current user */}
+            {journal.visibility !== 'network' && currentUser && journal.author.id === currentUser.id && onPublishToggle && (
               <button
                 className="flex items-center gap-1.5 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-full transition-colors"
                 onClick={() => onPublishToggle(journal)}
@@ -776,8 +776,8 @@ export function JournalCard({
               {journal.workspaceName}
             </span>
 
-            {/* Publication Status */}
-            {journal.isPublished || journal.visibility === 'network' ? (
+            {/* Publication Status - based on visibility */}
+            {journal.visibility === 'network' ? (
               <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
                 Published
               </span>

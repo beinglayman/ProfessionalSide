@@ -353,14 +353,14 @@ export default function JournalPage() {
     console.log(`🔍 Filtering ${journals.length} journals for viewMode: ${viewMode}`);
 
     const filtered = journals.filter(journal => {
-      // Exclude auto-generated drafts - they should only appear on workspace page
-      if (!journal.isPublished && journal.tags?.includes('auto-generated')) {
-        console.log(`❌ Excluding "${journal.title}" from journal list (auto-generated draft)`);
+      // Exclude auto-generated entries - they should only appear on workspace page
+      if (journal.tags?.includes('auto-generated')) {
+        console.log(`❌ Excluding "${journal.title}" from journal list (auto-generated)`);
         return false;
       }
-      // In network view, show entries that have: generateNetworkEntry=true OR visibility='network' OR isPublished=true
-      if (viewMode === 'network' && !journal.generateNetworkEntry && journal.visibility !== 'network' && !journal.isPublished) {
-        console.log(`❌ Excluding "${journal.title}" from network view (visibility: ${journal.visibility}, isPublished: ${journal.isPublished}, generateNetworkEntry: ${journal.generateNetworkEntry})`);
+      // In network view, only show entries with visibility='network' or generateNetworkEntry=true
+      if (viewMode === 'network' && !journal.generateNetworkEntry && journal.visibility !== 'network') {
+        console.log(`❌ Excluding "${journal.title}" from network view (visibility: ${journal.visibility})`);
         return false;
       }
       // Search filter
@@ -448,11 +448,11 @@ export default function JournalPage() {
     });
   };
 
-  // Handle publish/unpublish
+  // Handle visibility toggle (share to network / unshare)
   const handlePublishToggle = async (journal: JournalEntry) => {
     try {
-      if (journal.isPublished || journal.visibility === 'network') {
-        // Unpublish - set visibility back to workspace
+      if (journal.visibility === 'network') {
+        // Unshare - set visibility back to workspace
         await JournalService.publishJournalEntry(journal.id, {
           visibility: 'workspace'
         });
@@ -625,7 +625,7 @@ export default function JournalPage() {
       const entryData = viewMode === 'network' && journal.format7DataNetwork
         ? journal.format7DataNetwork
         : journal.format7Data;
-      const isDraft = !journal.isPublished && journal.visibility !== 'network';
+      const isDraft = journal.visibility !== 'network'; // Not yet shared to network
       const isOwner = user && journal.author.id === user.id;
       return (
         <div key={journal.id}>

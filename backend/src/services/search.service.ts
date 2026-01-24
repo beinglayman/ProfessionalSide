@@ -289,9 +289,8 @@ export class SearchService {
                 } 
               } 
             },
-            { 
-              visibility: 'network',
-              isPublished: true
+            {
+              visibility: 'network'
             }
           ]
         }
@@ -461,8 +460,8 @@ export class SearchService {
     // User can access content in their workspaces
     if (entry.workspaceId && networkContext.workspaceIds.includes(entry.workspaceId)) return true;
     
-    // User can access published network content
-    if (entry.visibility === 'network' && entry.isPublished) return true;
+    // User can access network content (visibility controls access)
+    if (entry.visibility === 'network') return true;
     
     return false;
   }
