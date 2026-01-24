@@ -85,6 +85,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:5555', // E2E testing port
   'https://ps-frontend-1758551070.azurewebsites.net',
   /https:\/\/.*\.azurewebsites\.net$/
 ].filter(Boolean);
@@ -191,6 +192,7 @@ app.use('/uploads', (req, res, next) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
+    'http://localhost:5555', // E2E testing port
     'https://ps-frontend-1758551070.azurewebsites.net',
     'https://*.azurewebsites.net'
   ].filter(Boolean);
@@ -226,6 +228,7 @@ app.use('/screenshots', (req, res, next) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
+    'http://localhost:5555', // E2E testing port
     'https://ps-frontend-1758551070.azurewebsites.net',
     'https://*.azurewebsites.net'
   ].filter(Boolean);
