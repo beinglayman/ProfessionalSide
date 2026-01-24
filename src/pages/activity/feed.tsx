@@ -523,6 +523,11 @@ export function ActivityFeedPage() {
           console.log(`❌ Excluding activity "${activity.title}" from network view: visibility=${activity.visibility}, isPublished=${activity.isPublished}`);
           return false;
         }
+        // Skip entries without format7DataNetwork in network view (no fallback to workspace view)
+        if (activity.format7Data && !activity.format7DataNetwork) {
+          console.log(`❌ Excluding activity "${activity.title}" from network view: no format7DataNetwork available`);
+          return false;
+        }
         console.log(`✅ Including activity "${activity.title}" in network view: visibility=${activity.visibility}, isPublished=${activity.isPublished}`);
       } else {
         // Workspace view: only show entries with workspace visibility
@@ -1079,9 +1084,15 @@ export function ActivityFeedPage() {
     const journalEntry = convertActivityToJournal(activity, appreciatedEntries, rechronicledEntries);
 
     // Render JournalEnhanced for Format7 entries with AI-grouped categories
-    // Activity feed is public-facing, so use network view when available
+    // Use appropriate data based on viewMode: network view uses format7DataNetwork, workspace uses format7Data
     if (journalEntry.format7Data?.entry_metadata?.title) {
-      const entryData = journalEntry.format7DataNetwork || journalEntry.format7Data;
+      const entryData = viewMode === 'network'
+        ? journalEntry.format7DataNetwork
+        : journalEntry.format7Data;
+
+      // Skip if no data available for the current view mode
+      if (!entryData) return null;
+
       return (
         <JournalEnhanced
           key={activity.id}
@@ -1090,6 +1101,7 @@ export function ActivityFeedPage() {
           workspaceName={journalEntry.workspaceName}
           correlations={entryData?.correlations}
           categories={entryData?.categories}
+          showUserProfile={true}
           onAppreciate={() => handleAppreciate(activity.id)}
           onDiscuss={() => handleDiscuss(activity.id)}
           onReChronicle={() => handleRechronicle(activity.id)}
@@ -1105,6 +1117,7 @@ export function ActivityFeedPage() {
         viewMode={viewMode}
         showMenuButton={false}
         showAnalyticsButton={false}
+        showUserProfile={true}
         onAppreciate={() => handleAppreciate(activity.id)}
         onToggleDiscuss={() => handleDiscuss(activity.id)}
         onReChronicle={() => handleRechronicle(activity.id)}

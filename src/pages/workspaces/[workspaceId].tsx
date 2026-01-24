@@ -5666,6 +5666,7 @@ export default function WorkspaceDetailPage() {
                         workspaceName={journalEntry.workspaceName}
                         correlations={journalEntry.format7Data?.correlations}
                         categories={journalEntry.format7Data?.categories}
+                        showUserProfile={true}
                         onAppreciate={() => handleAppreciate(entry.id)}
                         onReChronicle={() => handleRechronicle(entry.id)}
                         isDraft={isDraft}
