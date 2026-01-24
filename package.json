@@ -10,7 +10,13 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "screenshots": "playwright test --project=chromium",
+    "screenshots:mobile": "playwright test --project=mobile",
+    "screenshots:all": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.0.4",
@@ -45,6 +51,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@playwright/test": "^1.58.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -54,6 +61,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.18",
+    "dotenv": "^17.2.3",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
