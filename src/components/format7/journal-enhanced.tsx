@@ -26,6 +26,11 @@ interface JournalEnhancedProps {
   isPreview?: boolean;
   selectedWorkspaceId?: string;
   workspaceName?: string; // Display-only workspace name (selected in Step 1)
+  author?: {
+    name: string;
+    title?: string;
+    avatar?: string;
+  };
   onTitleChange?: (title: string) => void;
   onDescriptionChange?: (description: string) => void;
   onAppreciate?: () => void;
@@ -105,6 +110,7 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   isPreview = false,
   selectedWorkspaceId,
   workspaceName,
+  author: authorProp,
   onTitleChange,
   onDescriptionChange,
   onAppreciate,
@@ -240,10 +246,10 @@ const JournalEnhanced: React.FC<JournalEnhancedProps> = ({
   const primaryFocus = entry.context?.primary_focus || '';
   const excerpt = primaryFocus.length > 112 ? primaryFocus.slice(0, 112) + '...' : primaryFocus;
 
-  // Mock author data
-  const author = {
-    name: "Sarah Johnson",
-    title: "Sr. Engineer",
+  // Use provided author prop or fallback to defaults
+  const author = authorProp || {
+    name: "Unknown Author",
+    title: "",
     avatar: "https://i.pravatar.cc/150?img=1"
   };
 

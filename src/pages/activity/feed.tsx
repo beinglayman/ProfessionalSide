@@ -1102,6 +1102,11 @@ export function ActivityFeedPage() {
           correlations={entryData?.correlations}
           categories={entryData?.categories}
           showUserProfile={true}
+          author={{
+            name: journalEntry.author?.name || "Unknown",
+            title: journalEntry.author?.position || "",
+            avatar: journalEntry.author?.avatar
+          }}
           onAppreciate={() => handleAppreciate(activity.id)}
           onDiscuss={() => handleDiscuss(activity.id)}
           onReChronicle={() => handleRechronicle(activity.id)}

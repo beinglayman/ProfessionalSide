@@ -5667,6 +5667,11 @@ export default function WorkspaceDetailPage() {
                         correlations={journalEntry.format7Data?.correlations}
                         categories={journalEntry.format7Data?.categories}
                         showUserProfile={true}
+                        author={{
+                          name: journalEntry.author?.name || "Unknown",
+                          title: journalEntry.author?.position || "",
+                          avatar: journalEntry.author?.avatar
+                        }}
                         onAppreciate={() => handleAppreciate(entry.id)}
                         onReChronicle={() => handleRechronicle(entry.id)}
                         isDraft={isDraft}
