@@ -32,7 +32,7 @@ dotenv.config({ path: path.resolve(__dirname, '.env.local') });
  */
 
 // Priority: CLI override (BASE_URL) > .env.local (E2E_BASE_URL) > default (localhost)
-const BASE_URL = process.env.BASE_URL || process.env.E2E_BASE_URL || 'http://localhost:5173';
+const BASE_URL = process.env.BASE_URL || process.env.E2E_BASE_URL || 'http://localhost:5555';
 const IS_PROD = BASE_URL.includes('inchronicle.com');
 
 export default defineConfig({
@@ -86,7 +86,7 @@ export default defineConfig({
     ? undefined
     : {
         command: 'npm run dev',
-        url: 'http://localhost:5173',
+        url: 'http://localhost:5555',
         reuseExistingServer: !process.env.CI,
       },
 });
