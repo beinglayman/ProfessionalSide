@@ -18,6 +18,19 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations, useMCPOAuth, useMCPGroupOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
 import { MCPToolType, MCPIntegrationGroup } from '../../types/mcp.types';
+import {
+  JiraIcon,
+  ConfluenceIcon,
+  OutlookIcon,
+  TeamsIcon,
+  SlackIcon,
+  FigmaIcon,
+  OneDriveIcon,
+  OneNoteIcon,
+  SharePointIcon,
+  ZoomIcon,
+  GoogleWorkspaceIcon
+} from '../icons/brand-icons';
 
 // Tool configurations with icons and descriptions
 const toolConfigs: Record<MCPToolType, {
@@ -36,131 +49,77 @@ const toolConfigs: Record<MCPToolType, {
   },
   jira: {
     name: 'Jira',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M11.571 11.429H0l5.232-5.232L11.571 0v11.429zM12.429 12.571V24l6.339-6.339L24 12.429H12.429z"/>
-      </svg>
-    ),
+    icon: JiraIcon,
     description: 'Import task completions, story points, and sprint activity from Jira.',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
   figma: {
     name: 'Figma',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M5 5.5A3.5 3.5 0 018.5 2H12v7H8.5A3.5 3.5 0 015 5.5z"/>
-        <path d="M12 2h3.5a3.5 3.5 0 110 7H12V2z"/>
-        <path d="M12 12.5a3.5 3.5 0 117 0 3.5 3.5 0 11-7 0z"/>
-        <path d="M5 19.5A3.5 3.5 0 018.5 16H12v3.5a3.5 3.5 0 11-7 0z"/>
-        <path d="M5 12.5A3.5 3.5 0 018.5 9H12v7H8.5A3.5 3.5 0 015 12.5z"/>
-      </svg>
-    ),
+    icon: FigmaIcon,
     description: 'Sync design contributions, file edits, and comments from Figma projects.',
     color: 'text-purple-600',
     bgColor: 'bg-purple-100'
   },
   outlook: {
     name: 'Outlook',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
-      </svg>
-    ),
+    icon: OutlookIcon,
     description: 'Import meeting notes, email summaries, and calendar events from Outlook.',
     color: 'text-blue-700',
     bgColor: 'bg-blue-100'
   },
   confluence: {
     name: 'Confluence',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M2 18.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3zM14 2.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3z"/>
-      </svg>
-    ),
+    icon: ConfluenceIcon,
     description: 'Import documentation updates, page edits, and knowledge base contributions.',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
   slack: {
     name: 'Slack',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 01-2.523 2.521 2.528 2.528 0 01-2.52-2.521V2.522A2.528 2.528 0 0115.165 0a2.528 2.528 0 012.522 2.522v6.312zm-2.523 10.122a2.528 2.528 0 012.523 2.522A2.528 2.528 0 0115.165 24a2.528 2.528 0 01-2.52-2.522v-2.522h2.52zm0-1.27a2.529 2.529 0 01-2.52-2.523 2.528 2.528 0 012.52-2.52h6.313A2.528 2.528 0 0124 15.165a2.528 2.528 0 01-2.522 2.521h-6.313z"/>
-      </svg>
-    ),
+    icon: SlackIcon,
     description: 'Import important messages, thread discussions, and team collaboration highlights.',
     color: 'text-purple-700',
     bgColor: 'bg-purple-100'
   },
   teams: {
     name: 'Microsoft Teams',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M19.5 11.5h-3v6h3c1.38 0 2.5-1.12 2.5-2.5v-1c0-1.38-1.12-2.5-2.5-2.5z"/>
-        <path d="M9.5 11.5v6c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5v-6h-5z"/>
-        <circle cx="14" cy="4.5" r="2"/>
-        <circle cx="19.5" cy="8" r="1.5"/>
-      </svg>
-    ),
+    icon: TeamsIcon,
     description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.',
     color: 'text-indigo-700',
     bgColor: 'bg-indigo-100'
   },
   onedrive: {
     name: 'OneDrive',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M4.876 12.504c0-2.832 2.296-5.128 5.128-5.128 2.222 0 4.113 1.417 4.82 3.392a4.38 4.38 0 011.388-.224c2.424 0 4.388 1.964 4.388 4.388 0 2.424-1.964 4.388-4.388 4.388H5.788c-2.218 0-4.013-1.796-4.013-4.013 0-2.055 1.551-3.75 3.544-3.976a5.108 5.108 0 01-.443-2.077z" fill="#0078D4"/>
-      </svg>
-    ),
+    icon: OneDriveIcon,
     description: 'Import OneDrive file changes and collaboration activity.',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
   onenote: {
     name: 'OneNote',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" fill="#7719AA"/>
-      </svg>
-    ),
+    icon: OneNoteIcon,
     description: 'Import OneNote pages, notebooks, and note-taking activity.',
     color: 'text-purple-700',
     bgColor: 'bg-purple-100'
   },
   sharepoint: {
     name: 'SharePoint',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M15.5 8.5c-2.5 0-4.5 2-4.5 4.5s2 4.5 4.5 4.5S20 15.5 20 13s-2-4.5-4.5-4.5zm0 7c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5zM7 5.5C7 3.6 8.6 2 10.5 2S14 3.6 14 5.5 12.4 9 10.5 9 7 7.4 7 5.5zm3 0c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5-.7 1.5-1.5 1.5S10 6.3 10 5.5zM4 13c0-1.9 1.6-3.5 3.5-3.5S11 11.1 11 13s-1.6 3.5-3.5 3.5S4 14.9 4 13zm3 0c0-.8.7-1.5 1.5-1.5S10 12.2 10 13s-.7 1.5-1.5 1.5S7 13.8 7 13z" fill="#036C70"/>
-      </svg>
-    ),
+    icon: SharePointIcon,
     description: 'Import SharePoint site activity, documents, and list updates.',
     color: 'text-teal-700',
     bgColor: 'bg-teal-100'
   },
   zoom: {
     name: 'Zoom',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M2 6a2 2 0 012-2h9a2 2 0 012 2v5.5l5-3v10l-5-3V18a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" fill="#2D8CFF"/>
-      </svg>
-    ),
+    icon: ZoomIcon,
     description: 'Import Zoom meeting recordings, transcripts, and participant data.',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
   google_workspace: {
     name: 'Google Workspace',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="none">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-      </svg>
-    ),
+    icon: GoogleWorkspaceIcon,
     description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings.',
     color: 'text-gray-700',
     bgColor: 'bg-gray-100'

@@ -1,9 +1,16 @@
 import React from 'react';
-import { CheckCircle, XCircle, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Info, Github } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { MCPToolType } from '../../types/mcp.types';
 import { Checkbox } from '../ui/checkbox';
-import { Github } from 'lucide-react';
+import {
+  JiraIcon,
+  ConfluenceIcon,
+  OutlookIcon,
+  TeamsIcon,
+  SlackIcon,
+  FigmaIcon
+} from '../icons/brand-icons';
 
 // Tool configurations with icons and descriptions
 const toolConfigs: Record<MCPToolType, {
@@ -22,73 +29,42 @@ const toolConfigs: Record<MCPToolType, {
   },
   jira: {
     name: 'Jira',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M11.571 11.429H0l5.232-5.232L11.571 0v11.429zM12.429 12.571V24l6.339-6.339L24 12.429H12.429z"/>
-      </svg>
-    ),
+    icon: JiraIcon,
     description: 'Tasks, story points, and sprints',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
   figma: {
     name: 'Figma',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M5 5.5A3.5 3.5 0 018.5 2H12v7H8.5A3.5 3.5 0 015 5.5z"/>
-        <path d="M12 2h3.5a3.5 3.5 0 110 7H12V2z"/>
-        <path d="M12 12.5a3.5 3.5 0 117 0 3.5 3.5 0 11-7 0z"/>
-        <path d="M5 19.5A3.5 3.5 0 018.5 16H12v3.5a3.5 3.5 0 11-7 0z"/>
-        <path d="M5 12.5A3.5 3.5 0 018.5 9H12v7H8.5A3.5 3.5 0 015 12.5z"/>
-      </svg>
-    ),
+    icon: FigmaIcon,
     description: 'Design files, edits, and comments',
     color: 'text-purple-600',
     bgColor: 'bg-purple-100'
   },
   outlook: {
     name: 'Outlook',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
-      </svg>
-    ),
+    icon: OutlookIcon,
     description: 'Meetings, emails, and calendar',
     color: 'text-blue-700',
     bgColor: 'bg-blue-100'
   },
   confluence: {
     name: 'Confluence',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M2 18.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3zM14 2.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3z"/>
-      </svg>
-    ),
+    icon: ConfluenceIcon,
     description: 'Documentation and page updates',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
   slack: {
     name: 'Slack',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 01-2.523 2.521 2.528 2.528 0 01-2.52-2.521V2.522A2.528 2.528 0 0115.165 0a2.528 2.528 0 012.522 2.522v6.312zm-2.523 10.122a2.528 2.528 0 012.523 2.522A2.528 2.528 0 0115.165 24a2.528 2.528 0 01-2.52-2.522v-2.522h2.52zm0-1.27a2.529 2.529 0 01-2.52-2.523 2.528 2.528 0 012.52-2.52h6.313A2.528 2.528 0 0124 15.165a2.528 2.528 0 01-2.522 2.521h-6.313z"/>
-      </svg>
-    ),
+    icon: SlackIcon,
     description: 'Messages, threads, and discussions',
     color: 'text-purple-700',
     bgColor: 'bg-purple-100'
   },
   teams: {
     name: 'Microsoft Teams',
-    icon: ({ className }) => (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M19.5 11.5h-3v6h3c1.38 0 2.5-1.12 2.5-2.5v-1c0-1.38-1.12-2.5-2.5-2.5z"/>
-        <path d="M9.5 11.5v6c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5v-6h-5z"/>
-        <circle cx="14" cy="4.5" r="2"/>
-        <circle cx="19.5" cy="8" r="1.5"/>
-      </svg>
-    ),
+    icon: TeamsIcon,
     description: 'Meetings, chats, and collaboration',
     color: 'text-indigo-700',
     bgColor: 'bg-indigo-100'
