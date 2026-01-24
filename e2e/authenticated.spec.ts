@@ -39,6 +39,7 @@ test.describe('Authenticated Screenshots', () => {
     const screenshots = createScreenshotHelper(page, {
       type: 'feature',
       slug: 'workspace-list-improvements',
+      scenario: 'authenticated',
     });
 
     // Navigate to dashboard (may already be there after login)
@@ -47,7 +48,7 @@ test.describe('Authenticated Screenshots', () => {
     await waitForContentLoaded(page);
 
     await screenshots.captureSection({
-      name: `dashboard-${ENV}`,
+      name: 'dashboard',
       fullPage: true,
     });
   });
@@ -56,6 +57,7 @@ test.describe('Authenticated Screenshots', () => {
     const screenshots = createScreenshotHelper(page, {
       type: 'feature',
       slug: 'workspace-list-improvements',
+      scenario: 'authenticated',
     });
 
     await page.goto('/workspaces');
@@ -64,7 +66,7 @@ test.describe('Authenticated Screenshots', () => {
 
     // Capture the workspace list
     await screenshots.captureSection({
-      name: `workspaces-authenticated-${ENV}`,
+      name: 'workspaces',
       fullPage: true,
     });
 
@@ -72,7 +74,7 @@ test.describe('Authenticated Screenshots', () => {
     const workspaceList = page.locator('[data-screenshot-section="workspace-list"]');
     if ((await workspaceList.count()) > 0) {
       await screenshots.captureSection({
-        name: `workspace-list-section-${ENV}`,
+        name: 'workspace-list-section',
         section: 'workspace-list',
       });
     }
@@ -81,7 +83,7 @@ test.describe('Authenticated Screenshots', () => {
     const filters = page.locator('[data-screenshot-section="workspace-filters"]');
     if ((await filters.count()) > 0) {
       await screenshots.captureSection({
-        name: `workspace-filters-${ENV}`,
+        name: 'workspace-filters',
         section: 'workspace-filters',
       });
     }
@@ -93,6 +95,7 @@ test.describe('Authenticated Screenshots', () => {
     const screenshots = createScreenshotHelper(page, {
       type: 'feature',
       slug: 'workspace-list-improvements',
+      scenario: 'responsive',
     });
 
     await page.goto('/workspaces');
@@ -102,7 +105,7 @@ test.describe('Authenticated Screenshots', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.waitForTimeout(500);
     await screenshots.captureSection({
-      name: `workspaces-auth-mobile-${ENV}`,
+      name: 'workspaces-mobile',
       fullPage: true,
     });
 
@@ -110,7 +113,7 @@ test.describe('Authenticated Screenshots', () => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.waitForTimeout(500);
     await screenshots.captureSection({
-      name: `workspaces-auth-tablet-${ENV}`,
+      name: 'workspaces-tablet',
       fullPage: true,
     });
 
@@ -118,7 +121,7 @@ test.describe('Authenticated Screenshots', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.waitForTimeout(500);
     await screenshots.captureSection({
-      name: `workspaces-auth-desktop-wide-${ENV}`,
+      name: 'workspaces-desktop-wide',
       fullPage: true,
     });
   });
@@ -127,6 +130,7 @@ test.describe('Authenticated Screenshots', () => {
     const screenshots = createScreenshotHelper(page, {
       type: 'feature',
       slug: 'workspace-list-improvements',
+      scenario: 'authenticated',
     });
 
     await page.goto('/journal');
@@ -134,7 +138,7 @@ test.describe('Authenticated Screenshots', () => {
     await waitForContentLoaded(page);
 
     await screenshots.captureSection({
-      name: `journal-list-${ENV}`,
+      name: 'journal-list',
       fullPage: true,
     });
   });
@@ -143,6 +147,7 @@ test.describe('Authenticated Screenshots', () => {
     const screenshots = createScreenshotHelper(page, {
       type: 'feature',
       slug: 'workspace-list-improvements',
+      scenario: 'authenticated',
     });
 
     await page.goto('/settings');
@@ -150,7 +155,7 @@ test.describe('Authenticated Screenshots', () => {
     await waitForContentLoaded(page);
 
     await screenshots.captureSection({
-      name: `settings-${ENV}`,
+      name: 'settings',
       fullPage: true,
     });
   });

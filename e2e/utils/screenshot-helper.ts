@@ -30,6 +30,8 @@ export type ScreenshotType = 'feature' | 'bugfix' | 'chore';
 export interface ScreenshotConfig {
   type: ScreenshotType;
   slug: string;
+  /** Optional scenario name for the run folder (e.g., 'authenticated', 'responsive') */
+  scenario?: string;
 }
 
 export interface SectionScreenshotOptions {
@@ -48,6 +50,31 @@ export interface SectionScreenshotOptions {
 }
 
 /**
+ * Generate a run folder name with format: YYYY-MM-DD_HH-MM-SS-{scenario}-{prod|local}
+ * Uses local time, not UTC
+ */
+function generateRunFolderName(scenario?: string): string {
+  const now = new Date();
+
+  // Format as local time: YYYY-MM-DD_HH-MM-SS
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+
+  const dateTime = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+
+  // Detect mode from environment
+  const baseUrl = process.env.BASE_URL || process.env.E2E_BASE_URL || '';
+  const mode = baseUrl.includes('inchronicle.com') ? 'prod' : 'local';
+
+  const scenarioSuffix = scenario ? `-${scenario}` : '';
+  return `${dateTime}${scenarioSuffix}-${mode}`;
+}
+
+/**
  * Creates a screenshot helper instance for a specific feature/bugfix/chore
  */
 export function createScreenshotHelper(page: Page, config: ScreenshotConfig) {
@@ -56,11 +83,15 @@ export function createScreenshotHelper(page: Page, config: ScreenshotConfig) {
     throw new Error('ScreenshotConfig.slug is required and cannot be empty');
   }
 
+  // Create run-specific folder: __docs/{type}/{slug}/runs/{datetime-scenario-mode}/
+  const runFolderName = generateRunFolderName(config.scenario);
   const baseDir = path.join(
     process.cwd(),
     SCREENSHOTS_BASE_DIR,
     config.type,
-    config.slug
+    config.slug,
+    'runs',
+    runFolderName
   );
 
   // Ensure directory exists
