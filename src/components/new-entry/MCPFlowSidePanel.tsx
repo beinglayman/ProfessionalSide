@@ -845,8 +845,15 @@ export function MCPFlowSidePanel({
         source: correlateResultData ? 'direct from correlateResult' : 'from hook state'
       });
 
+      // Filter activities to only include selected ones
+      const filteredActivities = filterDataBySelectedIds(
+        mcpMultiSource.rawActivities,
+        mcpMultiSource.sources,
+        selectedActivityIds
+      );
+
       const response = await api.post('/mcp/transform-format7', {
-        activities: mcpMultiSource.rawActivities,
+        activities: filteredActivities,
         organizedData: mcpMultiSource.organizedData,
         correlations: correlationsToSend,
         generatedContent: mcpMultiSource.generatedContent,
