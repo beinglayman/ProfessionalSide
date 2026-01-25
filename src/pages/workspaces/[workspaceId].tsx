@@ -4463,11 +4463,11 @@ export default function WorkspaceDetailPage() {
   };
 
   // Fetch journal entries for this workspace using the actual workspace ID from backend
-  // Only fetch when workspace is loaded and we have a valid workspace ID
-  // Enable API call now that workspace exists properly
+  // Pass workspaceId to get ALL entries in this workspace (including other members' entries)
   const { data: journalData, isLoading: journalLoading, error: journalError } = useJournalEntries({
-    limit: 100 // Get all entries without workspace filter to avoid CUID validation issues
-  }, true); // Always enabled - don't wait for workspace to load
+    workspaceId: workspaceId,
+    limit: 100
+  }, !!workspaceId); // Only fetch when workspaceId is available
 
   // Appreciate mutation for journal entries
   const toggleAppreciateMutation = useToggleAppreciate();
