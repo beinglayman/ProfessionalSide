@@ -905,11 +905,18 @@ export class ActivityPersistenceService {
 - [x] Create `RefExtractorService` for regex-based reference detection
 - [x] Create `ActivityPersistenceService` to save activities
 - [x] Create `ClusteringService` with connected components algorithm
-- [ ] Hook into existing MCP flow to persist on fetch
+- [x] Add mock data service for pipeline testing
 - [x] Add API endpoints (controller + routes registered in app.ts)
+- [x] Add mock data endpoints for development testing
+- [ ] Hook into existing MCP flow to persist on fetch
 - [ ] Test with real GitHub + Jira data
 
-**Success criteria:** 24 entries persisted with cross-tool refs extracted.
+**Mock Data Endpoints (Development Only):**
+- `POST /api/v1/career-stories/mock/seed` — Seed mock tool activities
+- `DELETE /api/v1/career-stories/mock/clear` — Clear all career stories data
+- `POST /api/v1/career-stories/mock/full-pipeline` — Seed + cluster + return results
+
+**Success criteria:** Mock data seeds 12 activities, clusters into 2 groups (Auth + Perf), leaves 3 unclustered.
 
 ---
 
