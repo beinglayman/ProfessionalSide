@@ -11,6 +11,7 @@ import {
   RecordAnalyticsInput,
   RechronicleInput
 } from '../types/journal.types';
+import { skillTrackingService } from './skill-tracking.service';
 
 export class JournalService {
   /**
@@ -144,6 +145,28 @@ export class JournalService {
         }
       }
     });
+
+    // Track skill usage from this journal entry (non-blocking)
+    if (data.skills && data.skills.length > 0) {
+      // Check if outcomes indicate positive results (metrics is a JSON string)
+      const hasPositiveOutcome = data.outcomes?.some(o => {
+        if (!o.metrics) return false;
+        try {
+          const metrics = typeof o.metrics === 'string' ? JSON.parse(o.metrics) : o.metrics;
+          return metrics?.trend === 'up';
+        } catch {
+          return false;
+        }
+      }) ?? false;
+
+      skillTrackingService.recordSkillUsage(
+        authorId,
+        data.skills,
+        hasPositiveOutcome
+      ).catch(err => {
+        console.error('Failed to record skill usage (non-blocking):', err);
+      });
+    }
 
     return entry;
   }
@@ -535,7 +558,7 @@ export class JournalService {
       throw new Error('Access denied: You can only edit your own entries');
     }
 
-    return prisma.journalEntry.update({
+    const updatedEntry = await prisma.journalEntry.update({
       where: { id: entryId },
       data: {
         ...data,
@@ -592,6 +615,19 @@ export class JournalService {
         }
       }
     });
+
+    // Track skill usage if skills were updated (non-blocking)
+    if (data.skills && data.skills.length > 0) {
+      skillTrackingService.recordSkillUsage(
+        userId,
+        data.skills,
+        false
+      ).catch(err => {
+        console.error('Failed to record skill usage on update (non-blocking):', err);
+      });
+    }
+
+    return updatedEntry;
   }
 
   /**

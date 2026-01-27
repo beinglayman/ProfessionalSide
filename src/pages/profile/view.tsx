@@ -19,6 +19,7 @@ import { OnboardingOverlay, ONBOARDING_STEPS } from '../../components/onboarding
 import { useOnboardingOverlay } from '../../hooks/useOnboardingOverlay';
 import { useQuery } from '@tanstack/react-query';
 import { benchmarksService } from '../../services/benchmarks.service';
+import { useSkillsGrowth } from '../../hooks/useDashboard';
 
 // Component interfaces for skills (dynamic from profile data)
 interface Skill {
@@ -341,14 +342,19 @@ export function ProfileViewPage() {
     return [];
   }, [selectedSkills]);
 
-  // Skills growth data - currently empty until real tracking is implemented
-  const dynamicSkillsGrowthData = useMemo(() => {
-    // TODO: Replace with real skill progression data from journal entries and activities
-    // For now, return empty array to show empty state
-    return [];
-  }, [combinedSkills]);
+  // Fetch skills growth data from API (same data used by dashboard)
+  const {
+    data: skillsGrowthData,
+    isLoading: skillsGrowthLoading,
+    error: skillsGrowthError
+  } = useSkillsGrowth();
 
-  // Fetch real benchmarks for combined skills
+  // Extract periods from API response
+  const dynamicSkillsGrowthData = useMemo(() => {
+    return skillsGrowthData?.periods || [];
+  }, [skillsGrowthData]);
+
+  // Use benchmarks from API response, with fallback to custom fetch for profile-specific skills
   const {
     data: realBenchmarks,
     isLoading: benchmarksLoading,
@@ -365,9 +371,12 @@ export function ProfileViewPage() {
     cacheTime: 30 * 60 * 1000, // 30 minutes
   });
 
+  // Merge API benchmarks with profile-specific benchmarks
   const dynamicSkillsBenchmarks = useMemo(() => {
-    return realBenchmarks || {};
-  }, [realBenchmarks]);
+    const apiBenchmarks = skillsGrowthData?.benchmarks || {};
+    const profileBenchmarks = realBenchmarks || {};
+    return { ...apiBenchmarks, ...profileBenchmarks };
+  }, [skillsGrowthData, realBenchmarks]);
 
   const filteredSkillsGrowthData = useMemo(() => {
     if (selectedSkills.size === 0) return dynamicSkillsGrowthData;

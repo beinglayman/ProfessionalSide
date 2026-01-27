@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticate as auth } from '../middleware/auth.middleware';
 import { format, subDays, subMonths, startOfWeek, endOfWeek, isToday } from 'date-fns';
+import { skillTrackingService } from '../services/skill-tracking.service';
 
 const router = express.Router();
 
@@ -336,63 +337,8 @@ router.get('/skills-growth', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
-    const skills = await prisma.userSkill.findMany({
-      where: { userId },
-      orderBy: { level: 'desc' },
-      select: {
-        skill: {
-          select: {
-            name: true,
-            category: true
-          }
-        },
-        level: true,
-      }
-    });
-
-    // Show only current skills data until historical tracking is implemented
-    const periods = [
-      {
-        label: format(new Date(), 'MMM yyyy'),
-        skills: skills.slice(0, 8).map(skill => ({
-          name: skill.skill.name,
-          value: skill.level,
-          category: skill.skill.category
-        }))
-      }
-    ];
-
-    // Get real benchmarks from SkillBenchmark table
-    const skillNames = skills.map(s => s.skill.name);
-    const skillBenchmarks = await prisma.skillBenchmark.findMany({
-      where: {
-        skillName: { in: skillNames },
-        industry: 'general' // Use general industry benchmarks for now
-      },
-      select: {
-        skillName: true,
-        industryAverage: true
-      }
-    });
-
-    const benchmarks = skills.reduce((acc, skill) => {
-      const benchmark = skillBenchmarks.find(b => b.skillName === skill.skill.name);
-      acc[skill.skill.name] = benchmark?.industryAverage || 65; // Fallback to 65 if no benchmark
-      return acc;
-    }, {} as Record<string, number>);
-
-    const trends = skills.slice(0, 5).map(skill => ({
-      skill: skill.skill.name,
-      trend: 'up' as const,
-      change: 7,
-      period: '3 months'
-    }));
-
-    const skillsGrowth = {
-      periods,
-      benchmarks,
-      trends
-    };
+    // Use skill tracking service for complete data with historical periods and real trends
+    const skillsGrowth = await skillTrackingService.getSkillsGrowthData(userId);
 
     res.json(skillsGrowth);
   } catch (error) {

@@ -2,6 +2,7 @@ import * as cron from 'node-cron';
 import { NotificationQueueService } from './notification-queue.service';
 import { ExportService } from './export.service';
 import { journalAutoGeneratorService } from './journal-auto-generator.service';
+import { skillTrackingService } from './skill-tracking.service';
 
 export class CronService {
   private notificationQueue: NotificationQueueService;
@@ -74,6 +75,17 @@ export class CronService {
       }
     });
 
+    // Monthly skill snapshots - 1st of each month at 1:00 AM
+    this.scheduleJob('skill-snapshots', '0 1 1 * *', async () => {
+      console.log('Creating monthly skill snapshots...');
+      try {
+        const result = await skillTrackingService.createMonthlySnapshots();
+        console.log(`Monthly skill snapshots completed: ${result.created} created, ${result.errors} errors`);
+      } catch (error) {
+        console.error('Error creating monthly skill snapshots:', error);
+      }
+    });
+
     console.log(`Scheduled ${this.jobs.size} jobs`);
   }
 
@@ -131,7 +143,8 @@ export class CronService {
         'weekly-digest': '0 9 * * 1',
         'cleanup-exports': '0 2 * * *',
         'health-check': '*/5 * * * *',
-        'journal-auto-generation': '*/30 * * * *'
+        'journal-auto-generation': '*/30 * * * *',
+        'skill-snapshots': '0 1 1 * *'
       };
 
       status.push({
@@ -161,6 +174,9 @@ export class CronService {
           return true;
         case 'journal-auto-generation':
           await journalAutoGeneratorService.processDueSubscriptions();
+          return true;
+        case 'skill-snapshots':
+          await skillTrackingService.createMonthlySnapshots();
           return true;
         default:
           console.error(`Unknown job: ${jobName}`);
