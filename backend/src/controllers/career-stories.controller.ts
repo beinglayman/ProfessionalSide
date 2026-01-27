@@ -10,6 +10,8 @@ import { prisma } from '../lib/prisma';
 import {
   ActivityPersistenceService,
   ClusteringService,
+  generateMockActivities,
+  getExpectedClusters,
 } from '../services/career-stories';
 
 const activityService = new ActivityPersistenceService(prisma);
@@ -352,4 +354,130 @@ export const getStats = asyncHandler(async (req: Request, res: Response): Promis
     clusters: clusterCount,
     stories: storyCount,
   });
+});
+
+// ============================================================================
+// MOCK DATA (Development/Testing)
+// ============================================================================
+
+/**
+ * POST /api/career-stories/mock/seed
+ * Seed mock tool activities for testing the pipeline
+ */
+export const seedMockData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  // Check if running in development
+  if (process.env.NODE_ENV === 'production') {
+    return void sendError(res, 'Mock data seeding not available in production', 403);
+  }
+
+  const mockActivities = generateMockActivities();
+  const count = await activityService.persistActivities(userId, mockActivities);
+
+  sendSuccess(res, {
+    activitiesCreated: count,
+    expectedClusters: getExpectedClusters(),
+    nextSteps: [
+      'GET /api/v1/career-stories/activities to see seeded activities',
+      'POST /api/v1/career-stories/clusters/generate to run clustering',
+      'GET /api/v1/career-stories/clusters to see resulting clusters',
+    ],
+  }, `Seeded ${count} mock activities`);
+});
+
+/**
+ * DELETE /api/career-stories/mock/clear
+ * Clear all activities and clusters for the user (testing reset)
+ */
+export const clearMockData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  // Check if running in development
+  if (process.env.NODE_ENV === 'production') {
+    return void sendError(res, 'Mock data clearing not available in production', 403);
+  }
+
+  // Delete in order: stories -> clusters -> activities
+  const deletedStories = await prisma.careerStory.deleteMany({
+    where: { cluster: { userId } },
+  });
+
+  const deletedClusters = await prisma.storyCluster.deleteMany({
+    where: { userId },
+  });
+
+  const deletedActivities = await prisma.toolActivity.deleteMany({
+    where: { userId },
+  });
+
+  sendSuccess(res, {
+    deleted: {
+      activities: deletedActivities.count,
+      clusters: deletedClusters.count,
+      stories: deletedStories.count,
+    },
+  }, 'All career stories data cleared');
+});
+
+/**
+ * POST /api/career-stories/mock/full-pipeline
+ * Run full pipeline: seed -> cluster -> return results
+ * Convenience endpoint for testing
+ */
+export const runFullPipeline = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  // Check if running in development
+  if (process.env.NODE_ENV === 'production') {
+    return void sendError(res, 'Pipeline test not available in production', 403);
+  }
+
+  // Step 1: Clear existing data
+  await prisma.careerStory.deleteMany({ where: { cluster: { userId } } });
+  await prisma.storyCluster.deleteMany({ where: { userId } });
+  await prisma.toolActivity.deleteMany({ where: { userId } });
+
+  // Step 2: Seed mock data
+  const mockActivities = generateMockActivities();
+  const seededCount = await activityService.persistActivities(userId, mockActivities);
+
+  // Step 3: Run clustering
+  const clusters = await clusteringService.clusterActivities(userId, { minClusterSize: 2 });
+
+  // Step 4: Get unclustered activities
+  const unclustered = await activityService.getUnclusteredActivities(userId);
+
+  sendSuccess(res, {
+    pipeline: {
+      step1_cleared: true,
+      step2_seeded: seededCount,
+      step3_clustered: clusters.length,
+      step4_unclustered: unclustered.length,
+    },
+    clusters: clusters.map(c => ({
+      id: c.cluster.id,
+      activityCount: c.activityCount,
+      activityIds: c.activityIds,
+    })),
+    unclusteredActivities: unclustered.map(a => ({
+      id: a.id,
+      source: a.source,
+      title: a.title,
+      refs: a.crossToolRefs,
+    })),
+    expected: getExpectedClusters(),
+  }, 'Full pipeline executed');
 });

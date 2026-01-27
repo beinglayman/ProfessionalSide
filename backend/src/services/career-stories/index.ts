@@ -22,3 +22,8 @@ export {
   DateRange,
   ClusterResult,
 } from './clustering.service';
+
+export {
+  generateMockActivities,
+  getExpectedClusters,
+} from './mock-data.service';
