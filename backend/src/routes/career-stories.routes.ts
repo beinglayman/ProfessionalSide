@@ -21,6 +21,10 @@ import {
   mergeClusters,
   // Stats
   getStats,
+  // Mock Data (Development)
+  seedMockData,
+  clearMockData,
+  runFullPipeline,
 } from '../controllers/career-stories.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -52,5 +56,12 @@ router.patch('/clusters/:id', updateCluster);
 router.delete('/clusters/:id', deleteCluster);
 router.post('/clusters/:id/activities', addActivityToCluster);
 router.delete('/clusters/:id/activities/:activityId', removeActivityFromCluster);
+
+// ============================================================================
+// MOCK DATA (Development/Testing Only)
+// ============================================================================
+router.post('/mock/seed', seedMockData);
+router.delete('/mock/clear', clearMockData);
+router.post('/mock/full-pipeline', runFullPipeline);
 
 export default router;
