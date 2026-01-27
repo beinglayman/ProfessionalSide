@@ -906,7 +906,7 @@ export class ActivityPersistenceService {
 - [x] Create `ActivityPersistenceService` to save activities
 - [x] Create `ClusteringService` with connected components algorithm
 - [ ] Hook into existing MCP flow to persist on fetch
-- [ ] Add API endpoint: `GET /api/tool-activities` — list user's activities
+- [x] Add API endpoints (controller + routes registered in app.ts)
 - [ ] Test with real GitHub + Jira data
 
 **Success criteria:** 24 entries persisted with cross-tool refs extracted.
@@ -1020,12 +1020,14 @@ export class ClusteringService {
 
 #### Phase 2 Deliverables
 
-- [ ] `ClusteringService` with connected components algorithm
-- [ ] API: `POST /api/clusters/generate` — run clustering
-- [ ] API: `GET /api/clusters` — list user's clusters with entry counts
-- [ ] API: `PATCH /api/clusters/:id` — rename cluster
-- [ ] API: `POST /api/clusters/:id/entries` — manually add entry
-- [ ] API: `DELETE /api/clusters/:id/entries/:entryId` — manually remove entry
+- [x] `ClusteringService` with connected components algorithm
+- [x] API: `POST /api/v1/career-stories/clusters/generate` — run clustering
+- [x] API: `GET /api/v1/career-stories/clusters` — list user's clusters with entry counts
+- [x] API: `PATCH /api/v1/career-stories/clusters/:id` — rename cluster
+- [x] API: `POST /api/v1/career-stories/clusters/:id/activities` — manually add activity
+- [x] API: `DELETE /api/v1/career-stories/clusters/:id/activities/:activityId` — manually remove activity
+- [x] API: `POST /api/v1/career-stories/clusters/merge` — merge clusters
+- [x] API: `DELETE /api/v1/career-stories/clusters/:id` — delete cluster
 
 **Success criteria:** 3 clusters generated from demo data, matching demo script.
 
