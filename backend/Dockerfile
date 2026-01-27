@@ -9,7 +9,8 @@ COPY package*.json ./
 COPY prisma ./prisma
 
 # Install all dependencies (including dev deps for build)
-RUN npm ci
+# Use public registry explicitly to avoid corporate proxy issues in ACR builds
+RUN npm ci --registry https://registry.npmjs.org
 
 # Copy source code
 COPY . .
