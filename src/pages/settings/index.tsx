@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit, Clock, Settings, Link2 } from 'lucide-react';
+import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit, Clock, Settings, Link2, CreditCard } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import NetworkSettings from '../../components/settings/network-settings';
@@ -7,9 +7,10 @@ import NotificationSettings from '../../components/settings/notification-setting
 import PrivacySettings from '../../components/settings/privacy-settings';
 import ProfileVisibility from '../../components/settings/profile-visibility';
 import IntegrationsSettings from '../../components/settings/integrations-settings';
+import BillingSettings from '../../components/settings/billing-settings';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 
-type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy' | 'integrations';
+type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy' | 'integrations' | 'billing';
 
 // Additional Settings Component
 function AdditionalSettings() {
@@ -143,13 +144,19 @@ const settingsTabs = [
     label: 'Integrations',
     icon: Link2,
     description: 'Connect external tools to import work activity'
+  },
+  {
+    id: 'billing' as SettingsTab,
+    label: 'Billing',
+    icon: CreditCard,
+    description: 'Manage your subscription, credits, and payments'
   }
 ];
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as SettingsTab | null;
-  const validTabs: SettingsTab[] = ['profile', 'network', 'notifications', 'privacy', 'integrations'];
+  const validTabs: SettingsTab[] = ['profile', 'network', 'notifications', 'privacy', 'integrations', 'billing'];
   const [activeTab, setActiveTab] = useState<SettingsTab>(
     tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'profile'
   );
@@ -220,6 +227,9 @@ export function SettingsPage() {
 
       case 'integrations':
         return <IntegrationsSettings />;
+
+      case 'billing':
+        return <BillingSettings />;
 
       default:
         return null;

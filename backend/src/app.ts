@@ -46,6 +46,8 @@ import aiEntriesRoutes from './routes/ai-entries.routes';
 import migrationRoutes from './routes/migration.routes';
 import debugRoutes from './routes/debug.routes';
 import journalSubscriptionRoutes from './routes/journal-subscription.routes';
+import billingRoutes from './routes/billing.routes';
+import walletRoutes from './routes/wallet.routes';
 
 // Conditionally import MCP routes (only in production to avoid tsx issues)
 let mcpRoutes: any = null;
@@ -116,6 +118,9 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 200,
 }));
+
+// Stripe webhook needs raw body for signature verification — must be before express.json()
+app.use('/api/v1/billing/webhook', express.raw({ type: 'application/json' }));
 
 // Body parsing with limits and error handling
 app.use(express.json({
@@ -702,6 +707,8 @@ app.use('/api/v1/ai-entries', aiEntriesRoutes);
 app.use('/api/v1/skills-benchmark', skillsBenchmarkRoutes);
 app.use('/api/v1/migration', migrationRoutes);
 app.use('/api/v1', journalSubscriptionRoutes);
+app.use('/api/v1/billing', billingRoutes);
+app.use('/api/v1/wallet', walletRoutes);
 
 // MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
 if (mcpRoutes) {

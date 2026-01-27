@@ -8,6 +8,7 @@ import type { NetworkType } from '../../App';
 import { NotificationsDropdown } from '../notifications/notifications-dropdown';
 import { SearchModal } from '../search/search-modal';
 import { useAuth } from '../../contexts/AuthContext';
+import { CreditBadge } from '../billing/CreditBadge';
 
 interface HeaderProps {
   networkType: NetworkType;
@@ -205,6 +206,9 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 <Search className="h-5 w-5" />
               </button>
             )}
+
+            {/* Credit Balance - Only show when authenticated */}
+            {isAuthenticated && <CreditBadge />}
 
             {/* Notifications - Only show when authenticated */}
             {isAuthenticated && <NotificationsDropdown />}

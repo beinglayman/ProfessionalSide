@@ -36,6 +36,7 @@ model User {
   // Profile relationships
   profile            UserProfile?
   skills             UserSkill[]
+  skillSnapshots     SkillSnapshot[]
   workspaceMemberships WorkspaceMember[]
   sentWorkspaceInvites WorkspaceInvitation[] @relation("WorkspaceInviter")
   workspaceFiles     WorkspaceFile[] @relation("WorkspaceFiles")
@@ -99,6 +100,10 @@ model User {
   // Workspace journal subscriptions
   workspaceJournalSubscriptions WorkspaceJournalSubscription[]
 
+  // Billing & wallet
+  subscription    UserSubscription?
+  wallet          Wallet?
+
   @@map("users")
 }
 
@@ -135,10 +140,11 @@ model Skill {
   category    String?     // Technical, Soft, Industry, etc.
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  
-  userSkills    UserSkill[]
+
+  userSkills     UserSkill[]
   workTypeSkills WorkTypeSkill[]
-  
+  snapshots      SkillSnapshot[]
+
   @@map("Skill")
 }
 
@@ -207,12 +213,34 @@ model UserSkill {
   startDate     DateTime?
   yearsOfExp    Int       @default(0)
   isVisible     Boolean   @default(true)
-  
+
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill         Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, skillId])
   @@map("user_skills")
+}
+
+// Skill snapshots for tracking skill growth over time
+model SkillSnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  skillId      String
+  skillName    String   // Denormalized for query efficiency
+  level        Int      // 0-100 numeric value (composite score)
+  rawLevel     String?  // Original level string (beginner, intermediate, etc.)
+  snapshotDate DateTime
+  source       String   @default("monthly") // 'monthly', 'journal', 'endorsement', 'manual'
+  metadata     Json?    // Additional context (endorsement count, projects, etc.)
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill        Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId, snapshotDate])
+  @@index([userId, snapshotDate])
+  @@index([skillId])
+  @@map("skill_snapshots")
 }
 
 // ============================================================================
@@ -1198,4 +1226,100 @@ model WorkspaceJournalSubscription {
   @@unique([userId, workspaceId]) // One subscription per user per workspace
   @@index([nextRunAt, isActive])  // For cron job queries
   @@map("workspace_journal_subscriptions")
+}
+
+// ============================================================================
+// BILLING & WALLET MODELS
+// ============================================================================
+
+model SubscriptionPlan {
+  id                String   @id @default(cuid())
+  name              String   @unique  // "free", "pro"
+  displayName       String              // "Free", "Pro"
+  monthlyCredits    Int                 // 0 for free, e.g. 500 for pro
+  stripePriceId     String?             // null for free tier
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  subscriptions     UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
+  stripeCustomerId     String?
+  stripeSubscriptionId String?  @unique
+  status               String   @default("active") // active, cancelled, past_due, trialing
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([stripeCustomerId])
+  @@map("user_subscriptions")
+}
+
+model Wallet {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionCredits Int      @default(0)  // expire at cycle end
+  purchasedCredits    Int      @default(0)  // never expire
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  transactions        WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id              String   @id @default(cuid())
+  walletId        String
+  wallet          Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type            String   // subscription_allocation, purchase, consumption, expiry, refund
+  amount          Int      // positive = credit, negative = debit
+  creditPool      String   // "subscription" or "purchased"
+  balanceAfter    Int      // running balance snapshot after this transaction
+  featureCode     String?  // e.g. "advanced_analytics", "export_pdf"
+  description     String
+  stripePaymentId String?
+  metadata        Json?    // additional context
+  createdAt       DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([walletId, type])
+  @@index([walletId, featureCode])
+  @@map("wallet_transactions")
+}
+
+model CreditProduct {
+  id            String   @id @default(cuid())
+  name          String              // "100 Credits"
+  credits       Int                 // 100
+  priceInCents  Int                 // 999
+  stripePriceId String   @unique
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("credit_products")
+}
+
+model FeatureCost {
+  id          String   @id @default(cuid())
+  featureCode String   @unique  // "advanced_analytics", "export_pdf"
+  displayName String
+  creditCost  Int               // credits per use
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_costs")
 }
