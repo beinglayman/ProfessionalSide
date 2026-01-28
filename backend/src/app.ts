@@ -620,6 +620,19 @@ app.post('/api/v1/run-migrations', async (req, res) => {
   }
 });
 
+// Temporary: Seed test credits endpoint
+app.post('/api/v1/seed-test-credits', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    const { stdout, stderr } = await execAsync('npx tsx prisma/seed-test-credits.ts', { timeout: 60000 });
+    res.json({ success: true, output: stdout, errors: stderr || null });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message, stdout: error.stdout, stderr: error.stderr });
+  }
+});
+
 // Debug endpoint to check user/profile data
 app.get('/api/v1/debug-profile', async (req, res) => {
   try {
