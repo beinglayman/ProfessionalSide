@@ -22,6 +22,10 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
+    if (!stripe) {
+      sendError(res, 'Stripe is not configured', 500);
+      return;
+    }
     const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     await BillingService.handleWebhook(event);
     res.json({ received: true });

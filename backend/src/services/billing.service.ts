@@ -6,6 +6,11 @@ import Stripe from 'stripe';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+function requireStripe(): Stripe {
+  if (!stripe) throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY.');
+  return stripe;
+}
+
 export class BillingService {
   /**
    * Create a Stripe Checkout Session for a subscription
@@ -19,7 +24,7 @@ export class BillingService {
     // Get or create Stripe customer
     const customerId = await this.getOrCreateStripeCustomer(userId);
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await requireStripe().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: plan.stripePriceId, quantity: 1 }],
@@ -42,7 +47,7 @@ export class BillingService {
 
     const customerId = await this.getOrCreateStripeCustomer(userId);
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await requireStripe().checkout.sessions.create({
       customer: customerId,
       mode: 'payment',
       line_items: [{ price: product.stripePriceId, quantity: 1 }],
@@ -122,7 +127,7 @@ export class BillingService {
       throw new Error('No Stripe customer found for this user');
     }
 
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await requireStripe().billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
       return_url: `${FRONTEND_URL}/settings?tab=billing`,
     });
@@ -157,7 +162,7 @@ export class BillingService {
 
     if (!user) throw new Error('User not found');
 
-    const customer = await stripe.customers.create({
+    const customer = await requireStripe().customers.create({
       email: user.email,
       name: user.name,
       metadata: { userId },
@@ -189,7 +194,7 @@ export class BillingService {
     if (!stripeSubscriptionId) return;
 
     // Get subscription details from Stripe for period dates
-    const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const stripeSub = await requireStripe().subscriptions.retrieve(stripeSubscriptionId);
 
     await SubscriptionService.assignPlan(userId, planId, {
       stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
@@ -220,7 +225,7 @@ export class BillingService {
       : invoice.subscription?.id;
     if (!subId) return;
 
-    const stripeSub = await stripe.subscriptions.retrieve(subId);
+    const stripeSub = await requireStripe().subscriptions.retrieve(subId);
 
     await SubscriptionService.handleRenewal(
       subId,
