@@ -1,22 +1,55 @@
 import React, { useState } from 'react';
 import { Coins, Loader2, Plus } from 'lucide-react';
+import { useRazorpay } from 'react-razorpay';
 import { billingService, CreditProduct } from '../../services/billing.service';
 import { Button } from '../ui/button';
 
 interface TopUpSelectorProps {
   products: CreditProduct[];
+  onPurchaseComplete?: () => void;
 }
 
-export function TopUpSelector({ products }: TopUpSelectorProps) {
+export function TopUpSelector({ products, onPurchaseComplete }: TopUpSelectorProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const { Razorpay } = useRazorpay();
 
   const handleBuy = async (productId: string) => {
     setLoadingId(productId);
     try {
       const res = await billingService.createTopUpCheckout(productId);
-      if (res.success && res.data?.url) {
-        window.location.href = res.data.url;
-      }
+      if (!res.success || !res.data) return;
+
+      const { orderId, amount, currency, keyId, userName, userEmail, productName, credits } = res.data;
+
+      const options = {
+        key: keyId,
+        amount,
+        currency,
+        order_id: orderId,
+        name: 'InChronicle',
+        description: `${productName} - ${credits} Credits`,
+        prefill: { name: userName, email: userEmail },
+        handler: async (response: any) => {
+          try {
+            await billingService.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              type: 'topup',
+              productId,
+            });
+            onPurchaseComplete?.();
+          } catch (err) {
+            console.error('Payment verification failed:', err);
+          }
+        },
+        modal: {
+          ondismiss: () => setLoadingId(null),
+        },
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
     } catch (err) {
       console.error('Top-up checkout error:', err);
     } finally {

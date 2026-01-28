@@ -1,43 +1,50 @@
-import { stripe } from '../lib/stripe';
+import crypto from 'crypto';
+import { razorpay, RAZORPAY_KEY_ID } from '../lib/razorpay';
 import { prisma } from '../lib/prisma';
 import { SubscriptionService } from './subscription.service';
 import { WalletService } from './wallet.service';
-import Stripe from 'stripe';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-function requireStripe(): Stripe {
-  if (!stripe) throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY.');
-  return stripe;
+function requireRazorpay() {
+  if (!razorpay) throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+  return razorpay;
 }
 
 export class BillingService {
   /**
-   * Create a Stripe Checkout Session for a subscription
+   * Create a Razorpay Subscription for upgrading to a paid plan
    */
   static async createSubscriptionCheckout(userId: string, planId: string) {
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
-    if (!plan || !plan.stripePriceId) {
-      throw new Error('Plan not found or has no Stripe price');
+    if (!plan || !plan.razorpayPlanId) {
+      throw new Error('Plan not found or has no Razorpay plan ID');
     }
 
-    // Get or create Stripe customer
-    const customerId = await this.getOrCreateStripeCustomer(userId);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (!user) throw new Error('User not found');
 
-    const session = await requireStripe().checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
-      success_url: `${FRONTEND_URL}/settings?tab=billing&checkout=success`,
-      cancel_url: `${FRONTEND_URL}/settings?tab=billing&checkout=cancel`,
-      metadata: { userId, planId },
+    const rz = requireRazorpay();
+    const subscription = await rz.subscriptions.create({
+      plan_id: plan.razorpayPlanId,
+      total_count: 12, // 12 billing cycles
+      notes: { userId, planId },
     });
 
-    return { url: session.url };
+    return {
+      subscriptionId: subscription.id,
+      keyId: RAZORPAY_KEY_ID,
+      userName: user.name,
+      userEmail: user.email,
+      planName: plan.displayName,
+    };
   }
 
   /**
-   * Create a Stripe Checkout Session for a one-time top-up purchase
+   * Create a Razorpay Order for a one-time top-up purchase
    */
   static async createTopUpCheckout(userId: string, productId: string) {
     const product = await prisma.creditProduct.findUnique({ where: { id: productId } });
@@ -45,70 +52,160 @@ export class BillingService {
       throw new Error('Credit product not found or inactive');
     }
 
-    const customerId = await this.getOrCreateStripeCustomer(userId);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (!user) throw new Error('User not found');
 
-    const session = await requireStripe().checkout.sessions.create({
-      customer: customerId,
-      mode: 'payment',
-      line_items: [{ price: product.stripePriceId, quantity: 1 }],
-      success_url: `${FRONTEND_URL}/settings?tab=billing&checkout=success`,
-      cancel_url: `${FRONTEND_URL}/settings?tab=billing&checkout=cancel`,
-      metadata: { userId, productId, credits: String(product.credits) },
+    const rz = requireRazorpay();
+    const order = await rz.orders.create({
+      amount: product.priceInCents, // Razorpay uses smallest currency unit (cents for USD)
+      currency: 'USD',
+      receipt: `topup_${userId}_${Date.now()}`,
+      notes: { userId, productId, credits: String(product.credits) },
     });
 
-    return { url: session.url };
+    return {
+      orderId: order.id,
+      amount: product.priceInCents,
+      currency: 'USD',
+      keyId: RAZORPAY_KEY_ID,
+      userName: user.name,
+      userEmail: user.email,
+      productName: product.name,
+      credits: product.credits,
+    };
   }
 
   /**
-   * Handle Stripe webhook events
+   * Verify Razorpay payment signature after frontend checkout
    */
-  static async handleWebhook(event: Stripe.Event) {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        if (session.mode === 'subscription') {
-          await this.handleSubscriptionCheckoutComplete(session);
-        } else if (session.mode === 'payment') {
-          await this.handleTopUpCheckoutComplete(session);
+  static async verifyPayment(
+    userId: string,
+    data: {
+      razorpay_order_id?: string;
+      razorpay_subscription_id?: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+      type: 'subscription' | 'topup';
+      planId?: string;
+      productId?: string;
+    }
+  ) {
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) throw new Error('Razorpay key secret not configured');
+
+    // Verify signature
+    let payload: string;
+    if (data.type === 'subscription') {
+      payload = `${data.razorpay_payment_id}|${data.razorpay_subscription_id}`;
+    } else {
+      payload = `${data.razorpay_order_id}|${data.razorpay_payment_id}`;
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+
+    if (expectedSignature !== data.razorpay_signature) {
+      throw new Error('Invalid payment signature');
+    }
+
+    // Process based on type
+    if (data.type === 'subscription' && data.planId && data.razorpay_subscription_id) {
+      await SubscriptionService.assignPlan(userId, data.planId, {
+        razorpaySubscriptionId: data.razorpay_subscription_id,
+      });
+      return { success: true, message: 'Subscription activated' };
+    } else if (data.type === 'topup' && data.productId) {
+      const product = await prisma.creditProduct.findUnique({ where: { id: data.productId } });
+      if (!product) throw new Error('Product not found');
+
+      await WalletService.addPurchasedCredits(
+        userId,
+        product.credits,
+        data.razorpay_payment_id
+      );
+      return { success: true, message: `${product.credits} credits added` };
+    }
+
+    throw new Error('Invalid verification data');
+  }
+
+  /**
+   * Handle Razorpay webhook events
+   */
+  static async handleWebhook(body: any) {
+    const event = body.event;
+    const payload = body.payload;
+
+    switch (event) {
+      case 'subscription.activated': {
+        // Subscription is now active — credits already allocated via verify-payment
+        console.log('[BillingService] Subscription activated via webhook');
+        break;
+      }
+
+      case 'subscription.charged': {
+        // Recurring charge — allocate new cycle credits
+        const subEntity = payload?.subscription?.entity;
+        if (subEntity?.id) {
+          const subscription = await prisma.userSubscription.findUnique({
+            where: { razorpaySubscriptionId: subEntity.id },
+          });
+          if (subscription) {
+            await SubscriptionService.handleRenewal(
+              subEntity.id,
+              new Date(),
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // ~30 days
+            );
+          }
         }
         break;
       }
 
-      case 'invoice.paid': {
-        const invoice = event.data.object as Stripe.Invoice;
-        // Only handle renewal invoices (not the first one which is handled by checkout.session.completed)
-        if (invoice.billing_reason === 'subscription_cycle') {
-          await this.handleInvoicePaid(invoice);
+      case 'subscription.cancelled': {
+        const subEntity = payload?.subscription?.entity;
+        if (subEntity?.id) {
+          await SubscriptionService.handleCancellation(subEntity.id);
         }
         break;
       }
 
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        const subId = typeof invoice.subscription === 'string'
-          ? invoice.subscription
-          : invoice.subscription?.id;
+      case 'payment.failed': {
+        const paymentEntity = payload?.payment?.entity;
+        const subId = paymentEntity?.subscription_id;
         if (subId) {
           await SubscriptionService.handlePaymentFailure(subId);
         }
         break;
       }
 
-      case 'customer.subscription.updated': {
-        const sub = event.data.object as Stripe.Subscription;
-        await this.handleSubscriptionUpdated(sub);
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as Stripe.Subscription;
-        await SubscriptionService.handleCancellation(sub.id);
-        break;
-      }
-
       default:
-        console.log(`[BillingService] Unhandled webhook event: ${event.type}`);
+        console.log(`[BillingService] Unhandled webhook event: ${event}`);
     }
+  }
+
+  /**
+   * Cancel a user's subscription
+   */
+  static async cancelSubscription(userId: string) {
+    const subscription = await prisma.userSubscription.findUnique({ where: { userId } });
+    if (!subscription?.razorpaySubscriptionId) {
+      throw new Error('No active Razorpay subscription found');
+    }
+
+    const rz = requireRazorpay();
+    await rz.subscriptions.cancel(subscription.razorpaySubscriptionId, false); // cancel at end of period
+
+    await prisma.userSubscription.update({
+      where: { userId },
+      data: { cancelAtPeriodEnd: true },
+    });
+
+    return { success: true, message: 'Subscription will be cancelled at end of billing period' };
   }
 
   /**
@@ -119,136 +216,12 @@ export class BillingService {
   }
 
   /**
-   * Create a Stripe Customer Portal session
-   */
-  static async createPortalSession(userId: string) {
-    const subscription = await prisma.userSubscription.findUnique({ where: { userId } });
-    if (!subscription?.stripeCustomerId) {
-      throw new Error('No Stripe customer found for this user');
-    }
-
-    const session = await requireStripe().billingPortal.sessions.create({
-      customer: subscription.stripeCustomerId,
-      return_url: `${FRONTEND_URL}/settings?tab=billing`,
-    });
-
-    return { url: session.url };
-  }
-
-  /**
    * Get available top-up credit products
    */
   static async getAvailableProducts() {
     return prisma.creditProduct.findMany({
       where: { isActive: true },
       orderBy: { credits: 'asc' },
-    });
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────
-
-  private static async getOrCreateStripeCustomer(userId: string): Promise<string> {
-    // Check existing subscription for customer ID
-    const subscription = await prisma.userSubscription.findUnique({ where: { userId } });
-    if (subscription?.stripeCustomerId) {
-      return subscription.stripeCustomerId;
-    }
-
-    // Create new Stripe customer
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, name: true },
-    });
-
-    if (!user) throw new Error('User not found');
-
-    const customer = await requireStripe().customers.create({
-      email: user.email,
-      name: user.name,
-      metadata: { userId },
-    });
-
-    // Store customer ID if subscription record exists
-    if (subscription) {
-      await prisma.userSubscription.update({
-        where: { userId },
-        data: { stripeCustomerId: customer.id },
-      });
-    }
-
-    return customer.id;
-  }
-
-  private static async handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Session) {
-    const userId = session.metadata?.userId;
-    const planId = session.metadata?.planId;
-    if (!userId || !planId) {
-      console.error('[BillingService] Missing metadata in checkout session');
-      return;
-    }
-
-    const stripeSubscriptionId = typeof session.subscription === 'string'
-      ? session.subscription
-      : session.subscription?.id;
-
-    if (!stripeSubscriptionId) return;
-
-    // Get subscription details from Stripe for period dates
-    const stripeSub = await requireStripe().subscriptions.retrieve(stripeSubscriptionId);
-
-    await SubscriptionService.assignPlan(userId, planId, {
-      stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-      stripeSubscriptionId,
-      currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-      currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-    });
-  }
-
-  private static async handleTopUpCheckoutComplete(session: Stripe.Checkout.Session) {
-    const userId = session.metadata?.userId;
-    const credits = parseInt(session.metadata?.credits || '0', 10);
-    if (!userId || credits <= 0) {
-      console.error('[BillingService] Missing metadata in top-up checkout');
-      return;
-    }
-
-    await WalletService.addPurchasedCredits(
-      userId,
-      credits,
-      session.payment_intent as string | undefined
-    );
-  }
-
-  private static async handleInvoicePaid(invoice: Stripe.Invoice) {
-    const subId = typeof invoice.subscription === 'string'
-      ? invoice.subscription
-      : invoice.subscription?.id;
-    if (!subId) return;
-
-    const stripeSub = await requireStripe().subscriptions.retrieve(subId);
-
-    await SubscriptionService.handleRenewal(
-      subId,
-      new Date(stripeSub.current_period_start * 1000),
-      new Date(stripeSub.current_period_end * 1000)
-    );
-  }
-
-  private static async handleSubscriptionUpdated(sub: Stripe.Subscription) {
-    const subscription = await prisma.userSubscription.findUnique({
-      where: { stripeSubscriptionId: sub.id },
-    });
-
-    if (!subscription) return;
-
-    await prisma.userSubscription.update({
-      where: { stripeSubscriptionId: sub.id },
-      data: {
-        status: sub.status === 'active' ? 'active' : sub.status === 'past_due' ? 'past_due' : subscription.status,
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
-        currentPeriodStart: new Date(sub.current_period_start * 1000),
-        currentPeriodEnd: new Date(sub.current_period_end * 1000),
-      },
     });
   }
 }

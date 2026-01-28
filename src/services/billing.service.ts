@@ -17,7 +17,7 @@ export interface WalletTransaction {
   balanceAfter: number;
   featureCode: string | null;
   description: string;
-  stripePaymentId: string | null;
+  razorpayPaymentId: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
 }
@@ -44,7 +44,7 @@ export interface SubscriptionPlan {
   name: string;
   displayName: string;
   monthlyCredits: number;
-  stripePriceId: string | null;
+  razorpayPlanId: string | null;
   isActive: boolean;
 }
 
@@ -53,8 +53,7 @@ export interface UserSubscription {
   userId: string;
   planId: string;
   plan: SubscriptionPlan;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
+  razorpaySubscriptionId: string | null;
   status: 'active' | 'cancelled' | 'past_due' | 'trialing';
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
@@ -66,12 +65,37 @@ export interface CreditProduct {
   name: string;
   credits: number;
   priceInCents: number;
-  stripePriceId: string;
+  razorpayPlanId: string;
   isActive: boolean;
 }
 
-export interface CheckoutResult {
-  url: string;
+export interface SubscriptionCheckoutResult {
+  subscriptionId: string;
+  keyId: string;
+  userName: string;
+  userEmail: string;
+  planName: string;
+}
+
+export interface TopUpCheckoutResult {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  userName: string;
+  userEmail: string;
+  productName: string;
+  credits: number;
+}
+
+export interface VerifyPaymentData {
+  razorpay_order_id?: string;
+  razorpay_subscription_id?: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  type: 'subscription' | 'topup';
+  planId?: string;
+  productId?: string;
 }
 
 export interface TransactionFilters {
@@ -117,23 +141,28 @@ class BillingServiceClient {
 
   // ── Billing ──
 
-  async createSubscriptionCheckout(planId: string): Promise<ApiResponse<CheckoutResult>> {
-    const response = await api.post<ApiResponse<CheckoutResult>>('/billing/checkout/subscription', { planId });
+  async createSubscriptionCheckout(planId: string): Promise<ApiResponse<SubscriptionCheckoutResult>> {
+    const response = await api.post<ApiResponse<SubscriptionCheckoutResult>>('/billing/checkout/subscription', { planId });
     return response.data;
   }
 
-  async createTopUpCheckout(productId: string): Promise<ApiResponse<CheckoutResult>> {
-    const response = await api.post<ApiResponse<CheckoutResult>>('/billing/checkout/topup', { productId });
+  async createTopUpCheckout(productId: string): Promise<ApiResponse<TopUpCheckoutResult>> {
+    const response = await api.post<ApiResponse<TopUpCheckoutResult>>('/billing/checkout/topup', { productId });
+    return response.data;
+  }
+
+  async verifyPayment(data: VerifyPaymentData): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    const response = await api.post<ApiResponse<{ success: boolean; message: string }>>('/billing/verify-payment', data);
+    return response.data;
+  }
+
+  async cancelSubscription(): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    const response = await api.post<ApiResponse<{ success: boolean; message: string }>>('/billing/cancel-subscription');
     return response.data;
   }
 
   async getSubscription(): Promise<ApiResponse<UserSubscription>> {
     const response = await api.get<ApiResponse<UserSubscription>>('/billing/subscription');
-    return response.data;
-  }
-
-  async getPortalUrl(): Promise<ApiResponse<{ url: string }>> {
-    const response = await api.get<ApiResponse<{ url: string }>>('/billing/portal');
     return response.data;
   }
 

@@ -1,33 +1,37 @@
+import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { BillingService } from '../services/billing.service';
 import { sendSuccess, sendError } from '../utils/response.utils';
-import { stripe } from '../lib/stripe';
 
 const router = Router();
 
 /**
- * POST /api/v1/billing/webhook — Stripe webhook (no auth, raw body)
- * IMPORTANT: This route must be registered BEFORE express.json() body parsing,
- * or use express.raw() specifically. Handled in app.ts.
+ * POST /api/v1/billing/webhook — Razorpay webhook (no auth, JSON body)
  */
 router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
-  const sig = req.headers['stripe-signature'] as string;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const signature = req.headers['x-razorpay-signature'] as string;
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
-    console.error('[billing] STRIPE_WEBHOOK_SECRET not configured');
+    console.error('[billing] RAZORPAY_WEBHOOK_SECRET not configured');
     sendError(res, 'Webhook not configured', 500);
     return;
   }
 
   try {
-    if (!stripe) {
-      sendError(res, 'Stripe is not configured', 500);
+    // Verify webhook signature
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      sendError(res, 'Invalid webhook signature', 400);
       return;
     }
-    const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    await BillingService.handleWebhook(event);
+
+    await BillingService.handleWebhook(req.body);
     res.json({ received: true });
   } catch (error: any) {
     console.error('[billing] Webhook error:', error.message);
@@ -77,6 +81,34 @@ router.post('/checkout/topup', async (req: Request, res: Response): Promise<void
 });
 
 /**
+ * POST /api/v1/billing/verify-payment — verify Razorpay payment after checkout modal
+ */
+router.post('/verify-payment', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const result = await BillingService.verifyPayment(userId, req.body);
+    sendSuccess(res, result);
+  } catch (error: any) {
+    console.error('[billing] verifyPayment error:', error);
+    sendError(res, error.message || 'Payment verification failed', 400);
+  }
+});
+
+/**
+ * POST /api/v1/billing/cancel-subscription — cancel subscription
+ */
+router.post('/cancel-subscription', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const result = await BillingService.cancelSubscription(userId);
+    sendSuccess(res, result);
+  } catch (error: any) {
+    console.error('[billing] cancelSubscription error:', error);
+    sendError(res, error.message || 'Failed to cancel subscription', 500);
+  }
+});
+
+/**
  * GET /api/v1/billing/subscription — current subscription
  */
 router.get('/subscription', async (req: Request, res: Response): Promise<void> => {
@@ -87,20 +119,6 @@ router.get('/subscription', async (req: Request, res: Response): Promise<void> =
   } catch (error) {
     console.error('[billing] getSubscription error:', error);
     sendError(res, 'Failed to get subscription', 500);
-  }
-});
-
-/**
- * GET /api/v1/billing/portal — Stripe customer portal URL
- */
-router.get('/portal', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userId = req.user!.id;
-    const result = await BillingService.createPortalSession(userId);
-    sendSuccess(res, result);
-  } catch (error: any) {
-    console.error('[billing] createPortalSession error:', error);
-    sendError(res, error.message || 'Failed to create portal session', 500);
   }
 });
 

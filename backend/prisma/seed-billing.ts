@@ -14,7 +14,7 @@ async function seedBilling() {
       name: 'free',
       displayName: 'Free',
       monthlyCredits: 5,
-      stripePriceId: null,
+      razorpayPlanId: null,
     },
   });
   console.log(`  ✅ Free plan: ${freePlan.id} (${freePlan.monthlyCredits} credits/mo)`);
@@ -26,8 +26,7 @@ async function seedBilling() {
       name: 'pro',
       displayName: 'Pro',
       monthlyCredits: 30,
-      // Replace with your real Stripe Price ID when configured
-      stripePriceId: process.env.STRIPE_PRO_PRICE_ID || 'price_pro_placeholder',
+      razorpayPlanId: process.env.RAZORPAY_PRO_PLAN_ID || 'plan_pro_placeholder',
     },
   });
   console.log(`  ✅ Pro plan: ${proPlan.id} (${proPlan.monthlyCredits} credits/mo)`);
@@ -75,33 +74,33 @@ async function seedBilling() {
   }
 
   // ── Credit Products (Top-ups) ──────────────────────────────────────
-  // Note: stripePriceId values are placeholders.
-  // Replace with real Stripe Price IDs after creating products in Stripe Dashboard.
+  // Note: razorpayPlanId values are placeholders.
+  // Replace with real Razorpay Plan IDs after creating products in Razorpay Dashboard.
 
   const products = [
     {
       name: '10 Credits',
       credits: 10,
       priceInCents: 299,
-      stripePriceId: process.env.STRIPE_TOPUP_10_PRICE_ID || 'price_topup_10_placeholder',
+      razorpayPlanId: process.env.RAZORPAY_TOPUP_10_PLAN_ID || 'plan_topup_10_placeholder',
     },
     {
       name: '30 Credits',
       credits: 30,
       priceInCents: 699,
-      stripePriceId: process.env.STRIPE_TOPUP_30_PRICE_ID || 'price_topup_30_placeholder',
+      razorpayPlanId: process.env.RAZORPAY_TOPUP_30_PLAN_ID || 'plan_topup_30_placeholder',
     },
     {
       name: '100 Credits',
       credits: 100,
       priceInCents: 1999,
-      stripePriceId: process.env.STRIPE_TOPUP_100_PRICE_ID || 'price_topup_100_placeholder',
+      razorpayPlanId: process.env.RAZORPAY_TOPUP_100_PLAN_ID || 'plan_topup_100_placeholder',
     },
   ];
 
   for (const product of products) {
     const result = await prisma.creditProduct.upsert({
-      where: { stripePriceId: product.stripePriceId },
+      where: { razorpayPlanId: product.razorpayPlanId },
       update: {
         name: product.name,
         credits: product.credits,
@@ -116,7 +115,7 @@ async function seedBilling() {
   console.log('   Plans: Free (5 credits/mo), Pro (30 credits/mo)');
   console.log('   Features: 4 features at 1 credit each');
   console.log('   Top-ups: 10 ($2.99), 30 ($6.99), 100 ($19.99)');
-  console.log('\n⚠️  Remember to replace placeholder Stripe Price IDs with real ones!');
+  console.log('\n⚠️  Remember to replace placeholder Razorpay Plan IDs with real ones!');
 }
 
 seedBilling()

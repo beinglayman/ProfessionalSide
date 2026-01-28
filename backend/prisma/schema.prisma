@@ -1237,7 +1237,7 @@ model SubscriptionPlan {
   name              String   @unique  // "free", "pro"
   displayName       String              // "Free", "Pro"
   monthlyCredits    Int                 // 0 for free, e.g. 500 for pro
-  stripePriceId     String?             // null for free tier
+  razorpayPlanId    String?             // null for free tier
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1252,8 +1252,7 @@ model UserSubscription {
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId               String
   plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
-  stripeCustomerId     String?
-  stripeSubscriptionId String?  @unique
+  razorpaySubscriptionId String?  @unique
   status               String   @default("active") // active, cancelled, past_due, trialing
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
@@ -1261,7 +1260,6 @@ model UserSubscription {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  @@index([stripeCustomerId])
   @@map("user_subscriptions")
 }
 
@@ -1288,7 +1286,7 @@ model WalletTransaction {
   balanceAfter    Int      // running balance snapshot after this transaction
   featureCode     String?  // e.g. "advanced_analytics", "export_pdf"
   description     String
-  stripePaymentId String?
+  razorpayPaymentId String?
   metadata        Json?    // additional context
   createdAt       DateTime @default(now())
 
@@ -1303,7 +1301,7 @@ model CreditProduct {
   name          String              // "100 Credits"
   credits       Int                 // 100
   priceInCents  Int                 // 999
-  stripePriceId String   @unique
+  razorpayPlanId String   @unique
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

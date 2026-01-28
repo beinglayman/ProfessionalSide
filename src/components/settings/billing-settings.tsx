@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Coins, CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Coins, CreditCard, Loader2 } from 'lucide-react';
 import {
   billingService,
   WalletBalance,
@@ -10,7 +10,6 @@ import {
 import { PlanSelector } from '../billing/PlanSelector';
 import { TopUpSelector } from '../billing/TopUpSelector';
 import { TransactionHistory } from '../billing/TransactionHistory';
-import { useSearchParams } from 'react-router-dom';
 
 export default function BillingSettings() {
   const [balance, setBalance] = useState<WalletBalance | null>(null);
@@ -18,50 +17,51 @@ export default function BillingSettings() {
   const [products, setProducts] = useState<CreditProduct[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchParams] = useSearchParams();
 
-  const checkoutStatus = searchParams.get('checkout');
+  const fetchData = useCallback(async () => {
+    try {
+      const [walletRes, subRes, productsRes] = await Promise.all([
+        billingService.getWallet(),
+        billingService.getSubscription(),
+        billingService.getProducts(),
+      ]);
+
+      if (walletRes.success && walletRes.data) setBalance(walletRes.data);
+      if (subRes.success && subRes.data) {
+        setSubscription(subRes.data);
+        const subPlan = subRes.data.plan;
+        const freePlan: SubscriptionPlan = {
+          id: 'free',
+          name: 'free',
+          displayName: 'Free',
+          monthlyCredits: 0,
+          razorpayPlanId: null,
+          isActive: true,
+        };
+        if (subPlan.name === 'free') {
+          setPlans([freePlan, {
+            id: 'pro-placeholder',
+            name: 'pro',
+            displayName: 'Pro',
+            monthlyCredits: 500,
+            razorpayPlanId: 'placeholder',
+            isActive: true,
+          }]);
+        } else {
+          setPlans([freePlan, subPlan]);
+        }
+      }
+      if (productsRes.success && productsRes.data) setProducts(productsRes.data);
+    } catch (err) {
+      console.error('Billing data fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    Promise.all([
-      billingService.getWallet(),
-      billingService.getSubscription(),
-      billingService.getProducts(),
-    ])
-      .then(([walletRes, subRes, productsRes]) => {
-        if (walletRes.success && walletRes.data) setBalance(walletRes.data);
-        if (subRes.success && subRes.data) {
-          setSubscription(subRes.data);
-          // Build plan list from subscription data
-          // We always have the free plan + the subscription's plan if different
-          const subPlan = subRes.data.plan;
-          const freePlan: SubscriptionPlan = {
-            id: 'free',
-            name: 'free',
-            displayName: 'Free',
-            monthlyCredits: 0,
-            stripePriceId: null,
-            isActive: true,
-          };
-          if (subPlan.name === 'free') {
-            // Try to show a Pro plan placeholder if we know about it
-            setPlans([freePlan, ...(subPlan.name !== 'pro' ? [{
-              id: 'pro-placeholder',
-              name: 'pro',
-              displayName: 'Pro',
-              monthlyCredits: 500,
-              stripePriceId: process.env.STRIPE_PRO_PRICE_ID || 'placeholder',
-              isActive: true,
-            }] : [])]);
-          } else {
-            setPlans([freePlan, subPlan]);
-          }
-        }
-        if (productsRes.success && productsRes.data) setProducts(productsRes.data);
-      })
-      .catch((err) => console.error('Billing data fetch error:', err))
-      .finally(() => setLoading(false));
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   if (loading) {
     return (
@@ -76,22 +76,8 @@ export default function BillingSettings() {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Billing & Credits</h2>
-        <p className="mt-1 text-gray-600">Manage your subscription, credits, and payment methods.</p>
+        <p className="mt-1 text-gray-600">Manage your subscription and credits.</p>
       </div>
-
-      {/* Checkout status banner */}
-      {checkoutStatus === 'success' && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
-          <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-          <p className="text-sm text-green-800">Payment successful! Your credits have been updated.</p>
-        </div>
-      )}
-      {checkoutStatus === 'cancel' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center space-x-3">
-          <XCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
-          <p className="text-sm text-amber-800">Checkout was cancelled. No charges were made.</p>
-        </div>
-      )}
 
       {/* Credit Balance Card */}
       <div className="bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-lg p-6">
@@ -141,12 +127,12 @@ export default function BillingSettings() {
 
       {/* Plan Selector */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <PlanSelector subscription={subscription} plans={plans} />
+        <PlanSelector subscription={subscription} plans={plans} onSubscriptionChange={fetchData} />
       </div>
 
       {/* Top-Up Credits */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <TopUpSelector products={products} />
+        <TopUpSelector products={products} onPurchaseComplete={fetchData} />
       </div>
 
       {/* Transaction History */}

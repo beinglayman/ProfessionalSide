@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Check, Crown, Loader2 } from 'lucide-react';
+import { useRazorpay } from 'react-razorpay';
 import { billingService, UserSubscription, SubscriptionPlan } from '../../services/billing.service';
 import { Button } from '../ui/button';
 
 interface PlanSelectorProps {
   subscription: UserSubscription | null;
   plans: SubscriptionPlan[];
+  onSubscriptionChange?: () => void;
 }
 
-export function PlanSelector({ subscription, plans }: PlanSelectorProps) {
+export function PlanSelector({ subscription, plans, onSubscriptionChange }: PlanSelectorProps) {
   const [loading, setLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const { Razorpay } = useRazorpay();
 
   const currentPlanName = subscription?.plan?.name || 'free';
 
@@ -17,9 +21,37 @@ export function PlanSelector({ subscription, plans }: PlanSelectorProps) {
     setLoading(true);
     try {
       const res = await billingService.createSubscriptionCheckout(planId);
-      if (res.success && res.data?.url) {
-        window.location.href = res.data.url;
-      }
+      if (!res.success || !res.data) return;
+
+      const { subscriptionId, keyId, userName, userEmail, planName } = res.data;
+
+      const options = {
+        key: keyId,
+        subscription_id: subscriptionId,
+        name: 'InChronicle',
+        description: `${planName} Plan Subscription`,
+        prefill: { name: userName, email: userEmail },
+        handler: async (response: any) => {
+          try {
+            await billingService.verifyPayment({
+              razorpay_subscription_id: response.razorpay_subscription_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              type: 'subscription',
+              planId,
+            });
+            onSubscriptionChange?.();
+          } catch (err) {
+            console.error('Payment verification failed:', err);
+          }
+        },
+        modal: {
+          ondismiss: () => setLoading(false),
+        },
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
     } catch (err) {
       console.error('Checkout error:', err);
     } finally {
@@ -27,17 +59,16 @@ export function PlanSelector({ subscription, plans }: PlanSelectorProps) {
     }
   };
 
-  const handleManage = async () => {
-    setLoading(true);
+  const handleCancel = async () => {
+    if (!confirm('Are you sure you want to cancel your subscription? It will remain active until the end of the current billing period.')) return;
+    setCancelLoading(true);
     try {
-      const res = await billingService.getPortalUrl();
-      if (res.success && res.data?.url) {
-        window.location.href = res.data.url;
-      }
+      await billingService.cancelSubscription();
+      onSubscriptionChange?.();
     } catch (err) {
-      console.error('Portal error:', err);
+      console.error('Cancel error:', err);
     } finally {
-      setLoading(false);
+      setCancelLoading(false);
     }
   };
 
@@ -103,8 +134,20 @@ export function PlanSelector({ subscription, plans }: PlanSelectorProps) {
               </ul>
               {isCurrent ? (
                 !isFree ? (
-                  <Button variant="outline" size="sm" className="w-full" onClick={handleManage} disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Manage Plan'}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={handleCancel}
+                    disabled={cancelLoading || subscription?.cancelAtPeriodEnd}
+                  >
+                    {cancelLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : subscription?.cancelAtPeriodEnd ? (
+                      'Cancelling at period end'
+                    ) : (
+                      'Cancel Subscription'
+                    )}
                   </Button>
                 ) : null
               ) : (

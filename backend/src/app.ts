@@ -119,8 +119,7 @@ app.use(cors({
   optionsSuccessStatus: 200,
 }));
 
-// Stripe webhook needs raw body for signature verification — must be before express.json()
-app.use('/api/v1/billing/webhook', express.raw({ type: 'application/json' }));
+// Razorpay webhook uses standard JSON body (no raw body needed)
 
 // Body parsing with limits and error handling
 app.use(express.json({

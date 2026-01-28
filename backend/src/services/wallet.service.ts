@@ -179,7 +179,7 @@ export class WalletService {
   /**
    * Add purchased credits (called on top-up)
    */
-  static async addPurchasedCredits(userId: string, amount: number, stripePaymentId?: string) {
+  static async addPurchasedCredits(userId: string, amount: number, razorpayPaymentId?: string) {
     const wallet = await this.getOrCreateWallet(userId);
 
     const updatedWallet = await prisma.wallet.update({
@@ -196,7 +196,7 @@ export class WalletService {
         amount,
         creditPool: 'purchased',
         balanceAfter: newTotal,
-        stripePaymentId,
+        razorpayPaymentId,
         description: `Purchased ${amount} credits`,
       },
     });

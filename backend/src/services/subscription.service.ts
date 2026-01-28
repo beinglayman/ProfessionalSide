@@ -3,14 +3,13 @@ import { WalletService } from './wallet.service';
 
 export class SubscriptionService {
   /**
-   * Assign a plan to a user (used by webhook + admin)
+   * Assign a plan to a user (used by payment verification + admin)
    */
   static async assignPlan(
     userId: string,
     planId: string,
     options: {
-      stripeCustomerId?: string;
-      stripeSubscriptionId?: string;
+      razorpaySubscriptionId?: string;
       currentPeriodStart?: Date;
       currentPeriodEnd?: Date;
     } = {}
@@ -22,8 +21,7 @@ export class SubscriptionService {
       where: { userId },
       update: {
         planId,
-        stripeCustomerId: options.stripeCustomerId,
-        stripeSubscriptionId: options.stripeSubscriptionId,
+        razorpaySubscriptionId: options.razorpaySubscriptionId,
         currentPeriodStart: options.currentPeriodStart,
         currentPeriodEnd: options.currentPeriodEnd,
         status: 'active',
@@ -32,8 +30,7 @@ export class SubscriptionService {
       create: {
         userId,
         planId,
-        stripeCustomerId: options.stripeCustomerId,
-        stripeSubscriptionId: options.stripeSubscriptionId,
+        razorpaySubscriptionId: options.razorpaySubscriptionId,
         currentPeriodStart: options.currentPeriodStart,
         currentPeriodEnd: options.currentPeriodEnd,
         status: 'active',
@@ -51,14 +48,14 @@ export class SubscriptionService {
   /**
    * Handle subscription renewal — expire old credits, allocate new
    */
-  static async handleRenewal(stripeSubscriptionId: string, periodStart: Date, periodEnd: Date) {
+  static async handleRenewal(razorpaySubscriptionId: string, periodStart: Date, periodEnd: Date) {
     const subscription = await prisma.userSubscription.findUnique({
-      where: { stripeSubscriptionId },
+      where: { razorpaySubscriptionId },
       include: { plan: true },
     });
 
     if (!subscription) {
-      console.error(`[SubscriptionService] No subscription found for ${stripeSubscriptionId}`);
+      console.error(`[SubscriptionService] No subscription found for ${razorpaySubscriptionId}`);
       return;
     }
 
@@ -72,7 +69,7 @@ export class SubscriptionService {
 
     // Update period dates
     await prisma.userSubscription.update({
-      where: { stripeSubscriptionId },
+      where: { razorpaySubscriptionId },
       data: {
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
@@ -84,29 +81,25 @@ export class SubscriptionService {
   /**
    * Handle cancellation
    */
-  static async handleCancellation(stripeSubscriptionId: string) {
+  static async handleCancellation(razorpaySubscriptionId: string) {
     const subscription = await prisma.userSubscription.findUnique({
-      where: { stripeSubscriptionId },
+      where: { razorpaySubscriptionId },
     });
 
     if (!subscription) return;
 
     await prisma.userSubscription.update({
-      where: { stripeSubscriptionId },
+      where: { razorpaySubscriptionId },
       data: { status: 'cancelled', cancelAtPeriodEnd: true },
     });
-
-    // Note: subscription credits remain until period end.
-    // They'll be expired on the next renewal attempt (which won't happen)
-    // or can be expired via a cron if needed.
   }
 
   /**
    * Handle payment failure
    */
-  static async handlePaymentFailure(stripeSubscriptionId: string) {
+  static async handlePaymentFailure(razorpaySubscriptionId: string) {
     await prisma.userSubscription.updateMany({
-      where: { stripeSubscriptionId },
+      where: { razorpaySubscriptionId },
       data: { status: 'past_due' },
     });
   }
@@ -131,7 +124,6 @@ export class SubscriptionService {
     });
 
     if (!subscription) {
-      // Find or create the free plan
       let freePlan = await prisma.subscriptionPlan.findUnique({ where: { name: 'free' } });
       if (!freePlan) {
         freePlan = await prisma.subscriptionPlan.create({
