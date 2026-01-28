@@ -11,7 +11,7 @@
 
 ## Executive Summary
 
-Transform InChronicle from a journaling tool into a career story generator. Engineers connect their tools, entries are enhanced and clustered, and STAR narratives are generated with evidence links and verification.
+Transform InChronicle from a journaling tool into a career story generator. Engineers connect their tools, activities are enhanced and clustered, and STAR narratives are generated with evidence links and verification.
 
 **Primary User:** Senior Software Engineer preparing for promotion conversation
 **Core Value:** "You did the work. Now prove it."
@@ -22,9 +22,9 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 | Epic | Description | Phase |
 |------|-------------|-------|
-| **E1: Entry Persistence** | Store enhanced entries in Postgres for multi-week analysis | Phase 1 |
-| **E2: Entry Enhancement** | Classify entries and extract signals from raw data | Phase 1 |
-| **E3: Hard-Link Clustering** | Group entries by shared Jira tickets, PRs, participants | Phase 2 |
+| **E1: Activity Persistence** | Store tool activities in Postgres for multi-week analysis | Phase 1 |
+| **E2: Activity Enhancement** | Classify activities and extract signals from raw data | Phase 1 |
+| **E3: Hard-Link Clustering** | Group activities by shared Jira tickets, PRs, participants | Phase 2 |
 | **E4: Cluster Management** | UI for viewing, merging, splitting, renaming clusters | Phase 2 |
 | **E5: STAR Generation** | Generate evidence-backed narratives from clusters | Phase 3 |
 | **E6: Verification** | Challenge claims and suggest evidence gaps | Phase 3 |
@@ -32,20 +32,20 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 ---
 
-## Epic 1: Entry Persistence
+## Epic 1: Activity Persistence
 
 ### User Stories
 
 #### US-1.1: Database Schema
 **As a** developer
-**I want** Prisma models for EnhancedEntry, StoryCluster, CareerStory
-**So that** entries can be persisted and queried
+**I want** Prisma models for ToolActivity, StoryCluster, CareerStory
+**So that** activities can be persisted and queried
 
 **Acceptance Criteria:**
-- [ ] `EnhancedEntry` model exists with all fields from concept doc
-- [ ] `StoryCluster` model exists with entry relationship
+- [ ] `ToolActivity` model exists with all fields from concept doc
+- [ ] `StoryCluster` model exists with activity relationship
 - [ ] `CareerStory` model exists with STAR JSON fields
-- [ ] User model has `enhancedEntries` and `storyClusters` relations
+- [ ] User model has `toolActivities` and `storyClusters` relations
 - [ ] Migration runs without errors
 - [ ] Indexes exist on `[userId, timestamp]` and `[userId, source]`
 - [ ] Unique constraint on `[userId, source, sourceId]` prevents duplicates
@@ -56,15 +56,15 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 ---
 
-#### US-1.2: Persist Entries After Analysis
+#### US-1.2: Persist Activities After Analysis
 **As a** user who fetches MCP data
 **I want** my analyzed activities saved to the database
 **So that** I can cluster them later across multiple sessions
 
 **Acceptance Criteria:**
-- [ ] When MCP organizer runs, entries are persisted to `enhanced_entries` table
-- [ ] Duplicate entries (same source + sourceId) are skipped, not errored
-- [ ] Entry timestamp matches original activity time, not fetch time
+- [ ] When MCP organizer runs, activities are persisted to `tool_activities` table
+- [ ] Duplicate activities (same source + sourceId) are skipped, not errored
+- [ ] Activity timestamp matches original activity time, not fetch time
 - [ ] Raw activity data is stored in `rawData` JSON field for debugging
 - [ ] Source URL is preserved for evidence linking
 
@@ -74,30 +74,30 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 ---
 
-#### US-1.3: List Enhanced Entries API
+#### US-1.3: List Tool Activities API
 **As a** frontend developer
-**I want** an API to list a user's enhanced entries
+**I want** an API to list a user's tool activities
 **So that** I can display them in the UI
 
 **Acceptance Criteria:**
-- [ ] `GET /api/career-stories/entries` returns user's entries
+- [ ] `GET /api/career-stories/activities` returns user's activities
 - [ ] Supports `?from=DATE&to=DATE` query params for date filtering
 - [ ] Supports `?source=github,jira` for source filtering
-- [ ] Supports `?clustered=false` to show only unclustered entries
-- [ ] Returns entries sorted by timestamp descending
+- [ ] Supports `?clustered=false` to show only unclustered activities
+- [ ] Returns activities sorted by timestamp descending
 - [ ] Pagination with `?limit=50&offset=0`
 - [ ] Response includes total count for pagination
 
 **Response Schema:**
 ```json
 {
-  "entries": [
+  "activities": [
     {
       "id": "cuid",
       "source": "github",
       "title": "PR: Add search optimization",
       "timestamp": "2026-01-24T14:30:00Z",
-      "entryType": "initiated",
+      "activityType": "initiated",
       "actionType": "pr_merged",
       "importance": "high",
       "impactSignals": { "approvalCount": 2 },
@@ -114,24 +114,24 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 ---
 
-## Epic 2: Entry Enhancement
+## Epic 2: Activity Enhancement
 
 ### User Stories
 
-#### US-2.1: Classify Entry Type
-**As a** user viewing my entries
-**I want** each entry classified as "initiated" or "participation"
+#### US-2.1: Classify Activity Type
+**As a** user viewing my activities
+**I want** each activity classified as "initiated" or "participation"
 **So that** I know what I drove vs. what I contributed to
 
 **Acceptance Criteria:**
-- [ ] PR author → `entryType: initiated`
-- [ ] PR reviewer → `entryType: participation`
-- [ ] Meeting organizer → `entryType: initiated`
-- [ ] Meeting attendee → `entryType: participation`
-- [ ] Ticket assignee who closed → `entryType: initiated`
-- [ ] Ticket commenter → `entryType: participation`
-- [ ] Page creator → `entryType: initiated`
-- [ ] Page editor (not creator) → `entryType: participation`
+- [ ] PR author → `activityType: initiated`
+- [ ] PR reviewer → `activityType: participation`
+- [ ] Meeting organizer → `activityType: initiated`
+- [ ] Meeting attendee → `activityType: participation`
+- [ ] Ticket assignee who closed → `activityType: initiated`
+- [ ] Ticket commenter → `activityType: participation`
+- [ ] Page creator → `activityType: initiated`
+- [ ] Page editor (not creator) → `activityType: participation`
 - [ ] Classification happens in AnalyzerAgent prompt (not separate service)
 
 **Technical Notes:**
@@ -142,7 +142,7 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 #### US-2.2: Extract Action Type
 **As a** system
-**I want** each entry to have a specific actionType
+**I want** each activity to have a specific actionType
 **So that** I can filter and aggregate by action
 
 **Acceptance Criteria:**
@@ -163,7 +163,7 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 #### US-2.3: Extract Impact Signals
 **As a** user preparing for promotion
-**I want** to see impact metrics on my entries
+**I want** to see impact metrics on my activities
 **So that** I can highlight high-impact work
 
 **Acceptance Criteria:**
@@ -187,7 +187,7 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 
 #### US-2.4: Extract Effort Signals
 **As a** user
-**I want** to see effort metrics on my entries
+**I want** to see effort metrics on my activities
 **So that** I can demonstrate the work I put in
 
 **Acceptance Criteria:**
@@ -207,7 +207,7 @@ Transform InChronicle from a journaling tool into a career story generator. Engi
 #### US-2.5: Detect Cross-Tool References
 **As a** system
 **I want** to find references between tools (Jira IDs in PRs, etc.)
-**So that** entries can be clustered by shared references
+**So that** activities can be clustered by shared references
 
 **Acceptance Criteria:**
 - [ ] Detect Jira ticket IDs: `PROJ-123` pattern in PR title/body/commits
@@ -233,7 +233,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 #### US-2.6: Extract Actors
 **As a** user
-**I want** to know who was involved in each entry
+**I want** to know who was involved in each activity
 **So that** I can see collaboration patterns
 
 **Acceptance Criteria:**
@@ -250,18 +250,18 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 #### US-3.1: Cluster by Shared References
 **As a** user
-**I want** my entries automatically grouped by shared Jira tickets/PRs
+**I want** my activities automatically grouped by shared Jira tickets/PRs
 **So that** related work appears together as a story
 
 **Acceptance Criteria:**
-- [ ] Entries sharing a Jira ticket ID are clustered together
-- [ ] Entries sharing a GitHub PR reference are clustered together
+- [ ] Activities sharing a Jira ticket ID are clustered together
+- [ ] Activities sharing a GitHub PR reference are clustered together
 - [ ] Transitive clustering: if A→Jira-123 and B→Jira-123, then A and B cluster
 - [ ] Clusters have auto-generated title from most common reference
-- [ ] Unclustered entries remain with `clusterId: null`
+- [ ] Unclustered activities remain with `clusterId: null`
 
 **Algorithm:**
-1. Build reference graph: ref → [entry IDs]
+1. Build reference graph: ref → [activity IDs]
 2. Find connected components
 3. Each component = one cluster
 
@@ -275,7 +275,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 **Acceptance Criteria:**
 - [ ] `POST /api/career-stories/clusters/generate` triggers clustering
 - [ ] Request body: `{ "from": "2026-01-01", "to": "2026-01-31" }`
-- [ ] Only unclustered entries in range are processed
+- [ ] Only unclustered activities in range are processed
 - [ ] Existing clusters are not modified
 - [ ] Response returns new cluster count and IDs
 - [ ] Idempotent: re-running doesn't create duplicate clusters
@@ -289,10 +289,10 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 **Acceptance Criteria:**
 - [ ] `GET /api/career-stories/clusters` returns user's clusters
-- [ ] Includes entry count per cluster
+- [ ] Includes activity count per cluster
 - [ ] Includes aggregated metrics (total lines changed, total effort)
 - [ ] Supports `?status=draft,active` filtering
-- [ ] Sorted by most recent entry timestamp
+- [ ] Sorted by most recent activity timestamp
 
 **Response Schema:**
 ```json
@@ -302,12 +302,12 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
       "id": "cuid",
       "title": "Search Infrastructure Migration",
       "summary": null,
-      "entryCount": 7,
+      "activityCount": 7,
       "totalLinesChanged": 1444,
       "totalEffortMinutes": 270,
       "status": "draft",
-      "latestEntryAt": "2026-01-24T14:30:00Z",
-      "entries": [{ "id": "...", "title": "...", "timestamp": "..." }]
+      "latestActivityAt": "2026-01-24T14:30:00Z",
+      "activities": [{ "id": "...", "title": "...", "timestamp": "..." }]
     }
   ]
 }
@@ -324,19 +324,19 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 - [ ] `PATCH /api/career-stories/clusters/:id` updates cluster
 - [ ] Can update: `title`, `summary`, `color`, `status`
 - [ ] `POST /api/career-stories/clusters/:id/merge` merges another cluster into this one
-- [ ] Merge moves all entries to target cluster, deletes source cluster
-- [ ] `DELETE /api/career-stories/clusters/:id` deletes cluster (entries become unclustered)
+- [ ] Merge moves all activities to target cluster, deletes source cluster
+- [ ] `DELETE /api/career-stories/clusters/:id` deletes cluster (activities become unclustered)
 
 ---
 
-#### US-3.5: Move Entry Between Clusters
+#### US-3.5: Move Activity Between Clusters
 **As a** user
-**I want** to drag an entry from one cluster to another
+**I want** to drag an activity from one cluster to another
 **So that** I can fix clustering mistakes
 
 **Acceptance Criteria:**
-- [ ] `PATCH /api/career-stories/entries/:id` with `{ "clusterId": "new-cluster-id" }`
-- [ ] Entry count updated on both old and new cluster
+- [ ] `PATCH /api/career-stories/activities/:id` with `{ "clusterId": "new-cluster-id" }`
+- [ ] Activity count updated on both old and new cluster
 - [ ] Moving to `clusterId: null` removes from cluster
 - [ ] Can move to a new cluster created on the fly
 
@@ -352,20 +352,20 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 **So that** I can browse my work stories
 
 **Acceptance Criteria:**
-- [ ] Clusters displayed as cards with title, entry count, date range
+- [ ] Clusters displayed as cards with title, activity count, date range
 - [ ] Color indicator for each cluster
-- [ ] Click to expand and see entries
-- [ ] Unclustered entries shown separately
+- [ ] Click to expand and see activities
+- [ ] Unclustered activities shown separately
 
 ---
 
-#### US-4.2: Drag and Drop Entries
+#### US-4.2: Drag and Drop Activities
 **As a** user
-**I want** to drag entries between clusters
+**I want** to drag activities between clusters
 **So that** I can manually organize my work
 
 **Acceptance Criteria:**
-- [ ] Drag entry card to different cluster
+- [ ] Drag activity card to different cluster
 - [ ] Visual feedback during drag
 - [ ] Drop zone highlights
 - [ ] API called on drop
@@ -382,7 +382,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 - [ ] Select two clusters
 - [ ] "Merge" button appears
 - [ ] Choose which title to keep
-- [ ] Entries combined
+- [ ] Activities combined
 - [ ] Source cluster deleted
 
 ---
@@ -400,7 +400,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 - [ ] `POST /api/career-stories/stories/generate` with `{ clusterId, intent }`
 - [ ] Intent options: `promotion`, `interview`, `negotiation`, `review`
 - [ ] Returns STAR JSON with Situation, Task, Action, Result
-- [ ] Each section includes evidence links to entries
+- [ ] Each section includes evidence links to activities
 - [ ] Action items include effort metrics ("847 lines", "4.5 hrs")
 - [ ] Result includes quantified outcomes
 
@@ -412,7 +412,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
   "situation": {
     "text": "Search was slow — half a second per query...",
     "evidence": [
-      { "entryId": "...", "date": "2026-01-06", "description": "Triaged timeout reports" }
+      { "activityId": "...", "date": "2026-01-06", "description": "Triaged timeout reports" }
     ]
   },
   "task": {
@@ -424,7 +424,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
       {
         "description": "Built search service foundation",
         "effort": "312 lines",
-        "evidence": { "entryId": "...", "url": "github.com/..." }
+        "evidence": { "activityId": "...", "url": "github.com/..." }
       }
     ]
   },
@@ -466,13 +466,13 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 **Acceptance Criteria:**
 - [ ] Quantified claims flagged if no evidence: "10x faster — who says so?"
-- [ ] Leadership claims flagged if only participation entries: "Led — did you lead or participate?"
+- [ ] Leadership claims flagged if only participation activities: "Led — did you lead or participate?"
 - [ ] Cross-team claims flagged if no other teams in participants
 - [ ] Each flag includes suggestion for evidence to add
 
 **Verification Statuses:**
-- `verified` — Evidence exists in entries
-- `needs_evidence` — Claim made, no supporting entry
+- `verified` — Evidence exists in activities
+- `needs_evidence` — Claim made, no supporting activity
 - `needs_context` — Claim is vague, needs specifics
 
 ---
@@ -484,7 +484,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 **Acceptance Criteria:**
 - [ ] Click "Add evidence" on flagged claim
-- [ ] Options: select existing entry, add URL, add text note
+- [ ] Options: select existing activity, add URL, add text note
 - [ ] Added evidence updates verification status
 - [ ] Verification score recalculates
 
@@ -507,13 +507,13 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 ### User Stories
 
-#### US-7.1: Entry Stream Animation
+#### US-7.1: Activity Stream Animation
 **As a** demo viewer
-**I want** to see entries stream in visually
+**I want** to see activities stream in visually
 **So that** I understand the data being captured
 
 **Acceptance Criteria:**
-- [ ] Entries appear one by one with 150ms stagger
+- [ ] Activities appear one by one with 150ms stagger
 - [ ] Color-coded by source (GitHub=green, Jira=blue, etc.)
 - [ ] Shows title, timestamp, source icon
 - [ ] Stream can be triggered on demand
@@ -522,12 +522,12 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 
 #### US-7.2: Cluster Animation
 **As a** demo viewer
-**I want** to see entries cluster together
+**I want** to see activities cluster together
 **So that** I understand the grouping
 
 **Acceptance Criteria:**
-- [ ] Entries fly/animate into cluster cards
-- [ ] Cluster card grows as entries join
+- [ ] Activities fly/animate into cluster cards
+- [ ] Cluster card grows as activities join
 - [ ] Clear visual of "same tickets = same story"
 
 ---
@@ -540,7 +540,7 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 **Acceptance Criteria:**
 - [ ] Sections expand sequentially
 - [ ] Evidence links highlighted on hover
-- [ ] Click evidence to see source entry
+- [ ] Click evidence to see source activity
 - [ ] Export to markdown/PDF
 
 ---
@@ -548,44 +548,44 @@ const CONFLUENCE_PATTERN = /atlassian\.net\/wiki\/.*\/pages\/(\d+)/g;
 ## Non-Functional Requirements
 
 ### NFR-1: Performance
-- Entry list API: < 200ms for 100 entries
-- Clustering: < 2s for 200 entries
+- Activity list API: < 200ms for 100 activities
+- Clustering: < 2s for 200 activities
 - STAR generation: < 10s (LLM call)
 
 ### NFR-2: Privacy
-- Entries only visible to owner
+- Activities only visible to owner
 - No cross-user data access
-- User can delete all entries
+- User can delete all activities
 
 ### NFR-3: Data Integrity
-- No duplicate entries (unique constraint)
-- Cascade delete: user → entries → clusters → stories
+- No duplicate activities (unique constraint)
+- Cascade delete: user → activities → clusters → stories
 - Audit log for all deletions
 
 ---
 
 ## Open Questions (For Clarifier)
 
-1. **Q:** Should we store entry data indefinitely or offer retention limits?
+1. **Q:** Should we store activity data indefinitely or offer retention limits?
    **Context:** Privacy vs. historical clustering
 
-2. **Q:** What happens to clusters when entries are deleted?
-   **Options:** Delete cluster, keep with fewer entries, archive
+2. **Q:** What happens to clusters when activities are deleted?
+   **Options:** Delete cluster, keep with fewer activities, archive
 
 3. **Q:** Should clustering be automatic or user-triggered?
    **Context:** Background job vs. on-demand
 
-4. **Q:** Maximum entries per cluster before suggesting split?
+4. **Q:** Maximum activities per cluster before suggesting split?
    **Proposal:** Warn at 20, suggest split at 30
 
 ---
 
 ## Definition of Done
 
-Phase 1 (Entry Persistence + Enhancement):
+Phase 1 (Activity Persistence + Enhancement):
 - [ ] All US-1.x acceptance criteria pass
 - [ ] All US-2.x acceptance criteria pass
-- [ ] 24 test entries persisted from demo data
+- [ ] 24 test activities persisted from demo data
 - [ ] API endpoints documented in Swagger/OpenAPI
 
 Phase 2 (Clustering):
@@ -611,8 +611,8 @@ Phase 4 (Demo):
 
 | Requirement | Concept Section | Demo Script Act |
 |-------------|-----------------|-----------------|
-| US-1.x | Phase 1: Persist Enhanced Entries | Act 2: Firehose |
-| US-2.x | BUILDING: Enhanced Entry Schema | Act 2: Firehose |
+| US-1.x | Phase 1: Persist Tool Activities | Act 2: Firehose |
+| US-2.x | BUILDING: ToolActivity Schema | Act 2: Firehose |
 | US-3.x | Phase 2: Hard-Link Clustering | Act 3: Clusters |
 | US-4.x | Phase 2: Cluster UI | Act 3: Clusters |
 | US-5.x | Phase 3: STAR Generation | Act 4: Generate STAR |
@@ -665,7 +665,7 @@ Phase 4 (Demo):
 
 4. **Error Handling Missing**
    - What if GitHub API fails mid-fetch?
-   - What if clustering has 0 entries?
+   - What if clustering has 0 activities?
    - **Add:** Error states for each API
 
 5. **Concurrency Not Addressed**
@@ -715,7 +715,7 @@ const LEADERSHIP_PATTERNS = [
 ```
 
 For each flagged claim:
-1. Search entries for supporting evidence (URL, metric, third-party confirmation)
+1. Search activities for supporting evidence (URL, metric, third-party confirmation)
 2. If not found → `needs_evidence`
 3. If found but user-authored → `needs_context` (self-reported)
 4. If found from external source → `verified`
@@ -740,8 +740,8 @@ For each flagged claim:
 
 **Acceptance Criteria:**
 - [ ] Running clustering twice on same date range produces same result
-- [ ] Already-clustered entries are skipped
-- [ ] New entries in range are added to appropriate clusters
+- [ ] Already-clustered activities are skipped
+- [ ] New activities in range are added to appropriate clusters
 - [ ] No duplicate clusters created
 
 ---
@@ -752,8 +752,8 @@ For each flagged claim:
 
 | Epic | Priority | Rationale |
 |------|----------|-----------|
-| E1: Entry Persistence | **P0 - Must** | Foundation for everything |
-| E2: Entry Enhancement | **P0 - Must** | Required for useful entries |
+| E1: Activity Persistence | **P0 - Must** | Foundation for everything |
+| E2: Activity Enhancement | **P0 - Must** | Required for useful activities |
 | E3: Hard-Link Clustering | **P0 - Must** | Core differentiator |
 | E4: Cluster Management | **P1 - Should** | Can use API directly for demo |
 | E5: STAR Generation | **P0 - Must** | Demo requires it |
@@ -763,8 +763,8 @@ For each flagged claim:
 ### MVP Cut Recommendation
 
 **Phase 1 MVP (Demo-ready):**
-- ✅ E1: Entry Persistence (all)
-- ✅ E2: Entry Enhancement (US-2.1 through US-2.5, skip US-2.6 actors)
+- ✅ E1: Activity Persistence (all)
+- ✅ E2: Activity Enhancement (US-2.1 through US-2.5, skip US-2.6 actors)
 - ✅ E3: Hard-Link Clustering (US-3.1, US-3.2, US-3.3)
 - ⏸️ E4: Cluster Management (skip — use API/database directly)
 - ✅ E5: STAR Generation (US-5.1 only, skip US-5.2 intent variants)
@@ -772,7 +772,7 @@ For each flagged claim:
 - ⏸️ E7: Demo UI (skip — record with existing journal UI + voiceover)
 
 **What this means:**
-- Can demo the full flow with 24 entries → 3 clusters → 1 STAR story
+- Can demo the full flow with 24 activities → 3 clusters → 1 STAR story
 - Verification shows flags but doesn't have "add evidence" flow
 - Demo uses existing UI, not custom animations
 - Manual database queries for cluster management
@@ -791,9 +791,9 @@ For each flagged claim:
 | # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
 | 1 | Retention limits? | **No limit for MVP** | Simplicity. Add retention settings post-launch. |
-| 2 | Clusters when entries deleted? | **Keep cluster with fewer entries** | Don't surprise user. Warn if cluster goes to 0. |
+| 2 | Clusters when activities deleted? | **Keep cluster with fewer activities** | Don't surprise user. Warn if cluster goes to 0. |
 | 3 | Automatic vs triggered clustering? | **User-triggered for MVP** | Simpler. Add auto-clustering later. |
-| 4 | Max entries per cluster? | **Warn at 20, suggest split at 30** | Accepted as proposed. |
+| 4 | Max activities per cluster? | **Warn at 20, suggest split at 30** | Accepted as proposed. |
 
 ---
 
