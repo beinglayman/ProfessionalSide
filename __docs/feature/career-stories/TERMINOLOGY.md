@@ -135,14 +135,14 @@ POST /api/v1/career-stories/stories       // ✓
 - [x] Controller: `career-stories.controller.ts`
 - [x] Routes: `/api/v1/career-stories/activities/*`
 
-**Docs (Need Cleanup):**
-- [ ] 00-CONCEPT.md: Replace "entry/entries" (when referring to tool data) with "activity/activities"
-- [ ] 01-DEFINE.md: Major cleanup needed
-  - Epic names: "Entry Persistence" → "Activity Persistence"
-  - "EnhancedEntry" → "ToolActivity"
-  - "enhanced_entries table" → "tool_activities table"
-  - Keep "journal entry" for user-written content
-- [ ] User story language cleanup
+**Docs (Cleaned Up):**
+- [ ] 00-CONCEPT.md: Needs cleanup (still uses "entry" in many places)
+- [x] 01-DEFINE.md: DONE - 101 → 0 "entry" references
+  - Epic names: "Activity Persistence", "Activity Enhancement"
+  - Model: `ToolActivity`
+  - Table: `tool_activities`
+  - All user stories updated
+- [x] TERMINOLOGY.md: Decision documented
 
 **UI (Already Correct):**
 - [x] MCP components use "activity" for tool data
