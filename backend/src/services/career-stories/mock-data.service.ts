@@ -347,6 +347,107 @@ export function generateMockActivities(): ActivityInput[] {
       },
     },
 
+    // Slack: Thread reply to user's original message (someone replied to honey.arora)
+    {
+      source: 'slack',
+      sourceId: 'thread-reply-xyz',
+      sourceUrl: 'https://acme.slack.com/archives/C0PLATFORM/p1234567891',
+      title: 'Thread reply in #platform',
+      description: 'Re: Rate limiting question - Yes, PLAT-500 needs the auth changes from AUTH-123 first.',
+      timestamp: daysAgo(14),
+      rawData: {
+        channelId: 'C0PLATFORM',
+        channelName: 'platform',
+        messageTs: '1234567891.111111',
+        threadTs: '1234567891.000000',  // Original thread by honey.arora
+        parentAuthor: 'honey.arora',
+        replyAuthor: 'bob.chen',
+        isThreadReply: true,
+      },
+    },
+
+    // GitHub: User was @mentioned in a PR comment
+    {
+      source: 'github',
+      sourceId: 'acme/backend#75',
+      sourceUrl: 'https://github.com/acme/backend/pull/75',
+      title: 'fix(api): handle edge case in rate limiter',
+      description: 'Fixes edge case found in PLAT-500 testing.',
+      timestamp: daysAgo(10),
+      rawData: {
+        number: 75,
+        state: 'merged',
+        author: 'bob.chen',
+        additions: 25,
+        deletions: 5,
+        changedFiles: 2,
+        comments: [
+          { author: 'bob.chen', body: '@honey.arora can you confirm this matches the AUTH-123 token validation logic?' },
+          { author: 'honey.arora', body: 'Looks good! The token check here aligns with what we did in acme/backend#42' },
+        ],
+        mentions: ['honey.arora'],
+        commits: 2,
+      },
+    },
+
+    // Jira: Ticket assigned TO user (user is the assignee)
+    {
+      source: 'jira',
+      sourceId: 'ONCALL-101',
+      sourceUrl: 'https://acme.atlassian.net/browse/ONCALL-101',
+      title: 'On-call: Investigate auth service latency spike',
+      description: 'Assigned to honey.arora. Related to AUTH-123 OAuth2 changes. See monitoring dashboard.',
+      timestamp: daysAgo(8),
+      rawData: {
+        key: 'ONCALL-101',
+        status: 'Done',
+        priority: 'Critical',
+        assignee: 'honey.arora',  // User IS the assignee
+        reporter: 'oncall-bot',
+        storyPoints: 2,
+        labels: ['oncall', 'incident'],
+      },
+    },
+
+    // Jira: User is watching a ticket (not assignee or reporter)
+    {
+      source: 'jira',
+      sourceId: 'INFRA-200',
+      sourceUrl: 'https://acme.atlassian.net/browse/INFRA-200',
+      title: 'Upgrade Redis cluster for caching layer',
+      description: 'Needed for PERF-457 caching requirements. Watchers: honey.arora, backend-team',
+      timestamp: daysAgo(6),
+      rawData: {
+        key: 'INFRA-200',
+        status: 'In Progress',
+        priority: 'High',
+        assignee: 'infra-team',
+        reporter: 'pm',
+        watchers: ['honey.arora', 'backend-team'],
+        userRole: 'watcher',
+        storyPoints: 5,
+      },
+    },
+
+    // Confluence: User is watching a page (not author)
+    {
+      source: 'confluence',
+      sourceId: '777888',
+      sourceUrl: 'https://acme.atlassian.net/wiki/spaces/ENG/pages/777888/Redis+Cluster+Operations+Runbook',
+      title: 'Redis Cluster Operations Runbook',
+      description: 'Runbook for INFRA-200 Redis upgrade. Related to PERF-457 caching layer.',
+      timestamp: daysAgo(5),
+      rawData: {
+        pageId: '777888',
+        spaceKey: 'ENG',
+        version: 2,
+        createdBy: 'infra-team',
+        lastModifiedBy: 'infra-team',
+        watchers: ['honey.arora', 'backend-team'],
+        userRole: 'watcher',
+      },
+    },
+
     // Google Meet: User joined a meeting about their PR
     {
       source: 'google',
@@ -380,6 +481,92 @@ export function generateMockActivities(): ActivityInput[] {
         comments: [
           { author: 'architect', body: '@honey.arora what do you think about the auth service boundaries?' },
         ],
+      },
+    },
+
+    // Google Calendar: User organized a meeting (links to auth work)
+    {
+      source: 'google',
+      sourceId: 'gcal-auth-review-meeting',
+      sourceUrl: 'https://calendar.google.com/calendar/event?eid=YXV0aC1yZXZpZXctbWVldGluZw',
+      title: 'AUTH-123 Security Review - OAuth2 Implementation',
+      description: 'Deep dive into OAuth2 token handling. Attendees: security-team, bob.chen. Related: acme/backend#42',
+      timestamp: daysAgo(11),
+      rawData: {
+        eventId: 'auth-review-meeting',
+        organizer: 'honey.arora',
+        attendees: ['security-lead', 'bob.chen', 'honey.arora'],
+        userRole: 'organizer',
+        duration: 60,
+        conferenceLink: 'https://meet.google.com/auth-rev-mtg',
+      },
+    },
+
+    // Google Calendar: User was invited as attendee
+    {
+      source: 'google',
+      sourceId: 'gcal-perf-standup',
+      sourceUrl: 'https://calendar.google.com/calendar/event?eid=cGVyZi1zdGFuZHVw',
+      title: 'PERF-456 Daily Standup',
+      description: 'Daily sync for performance optimization sprint.',
+      timestamp: daysAgo(6),
+      rawData: {
+        eventId: 'perf-standup',
+        organizer: 'pm@acme.com',
+        attendees: ['honey.arora', 'frontend-dev', 'pm'],
+        userRole: 'attendee',
+        duration: 15,
+      },
+    },
+
+    // Google Sheets: User created a spreadsheet for tracking
+    {
+      source: 'google',
+      sourceId: 'gsheet-perf-metrics',
+      sourceUrl: 'https://docs.google.com/spreadsheets/d/1PerfMetricsSheet_abcdefghij123/edit',
+      title: 'PERF-456 Performance Metrics Dashboard',
+      description: 'Tracking dashboard load times for PERF-456. Sharing with team for acme/backend#55 impact analysis.',
+      timestamp: daysAgo(7),
+      rawData: {
+        spreadsheetId: '1PerfMetricsSheet_abcdefghij123',
+        owner: 'honey.arora',
+        lastModifiedBy: 'honey.arora',
+        sheets: ['Dashboard', 'Raw Data', 'Charts'],
+      },
+    },
+
+    // Google Sheets: User was tagged in a comment
+    {
+      source: 'google',
+      sourceId: 'gsheet-capacity-planning',
+      sourceUrl: 'https://docs.google.com/spreadsheets/d/1CapacityPlanSheet_xyz789012345/edit',
+      title: 'Q1 Capacity Planning',
+      description: '@honey.arora please update the auth team estimates for PLAT-500.',
+      timestamp: daysAgo(17),
+      rawData: {
+        spreadsheetId: '1CapacityPlanSheet_xyz789012345',
+        owner: 'pm@acme.com',
+        lastModifiedBy: 'pm@acme.com',
+        comments: [
+          { author: 'pm', body: '@honey.arora please update auth team estimates for rate limiting work' },
+        ],
+        mentions: ['honey.arora'],
+      },
+    },
+
+    // Google Slides: User created a presentation
+    {
+      source: 'google',
+      sourceId: 'gslides-auth-overview',
+      sourceUrl: 'https://docs.google.com/presentation/d/1AuthOverviewSlides_abcdef12345/edit',
+      title: 'OAuth2 Architecture Overview',
+      description: 'Presentation for AUTH-123 architecture review. Used in the security review meeting.',
+      timestamp: daysAgo(12),
+      rawData: {
+        presentationId: '1AuthOverviewSlides_abcdef12345',
+        owner: 'honey.arora',
+        lastModifiedBy: 'honey.arora',
+        slideCount: 15,
       },
     },
 
@@ -425,19 +612,58 @@ export function generateMockActivities(): ActivityInput[] {
 
 /**
  * Get expected cluster results for validation
+ *
+ * Updated to reflect comprehensive cross-tool clustering with rawData patterns.
+ * Clusters are linked by shared refs extracted from titles, descriptions, URLs, and rawData.
  */
-export function getExpectedClusters(): { name: string; refs: string[]; activityCount: number }[] {
+export function getExpectedClusters(): { name: string; sharedRefs: string[]; activityIds: string[] }[] {
   return [
     {
-      name: 'Authentication System',
-      refs: ['AUTH-123', 'AUTH-124', 'acme/backend#42', 'confluence:987654'],
-      activityCount: 4,
+      // Auth + Platform work clusters together because:
+      // - SEC-100 mentions AUTH-123
+      // - PLAT-500 mentions AUTH-123
+      // - All related PRs, meetings, docs link back
+      name: 'Auth & Platform',
+      sharedRefs: ['AUTH-123', 'AUTH-124', 'acme/backend#42', 'confluence:987654', 'PLAT-500'],
+      activityIds: [
+        // Core auth work
+        'AUTH-123', 'AUTH-124', 'acme/backend#42', '987654',
+        // Security audit (links via AUTH-123)
+        'SEC-100',
+        // Rate limiting (links via PLAT-500 and AUTH-123)
+        'PLAT-500', '555444',
+        // Participant entries (mentions, reviews, meetings)
+        'meeting-67890', 'thread-reply-xyz', 'acme/backend#75', 'ONCALL-101',
+        'gcal-auth-review-meeting', 'gslides-auth-overview', 'acme/backend#70', 'DesignFile999XYZ',
+        // Google entries linking to PLAT-500
+        'gdoc-1AbC123XYZ456_defGHI789jkl', 'gsheet-capacity-planning',
+      ],
     },
     {
-      name: 'Performance Optimization',
-      refs: ['PERF-456', 'PERF-457', 'acme/backend#55', 'acme/frontend#22'],
-      activityCount: 5, // Includes the meeting that mentions PERF-456
+      // Performance work + Infrastructure
+      name: 'Performance & Infrastructure',
+      sharedRefs: ['PERF-456', 'PERF-457', 'acme/backend#55', 'acme/frontend#22', 'INFRA-200'],
+      activityIds: [
+        // Core perf work
+        'PERF-456', 'PERF-457', 'acme/backend#55', 'acme/frontend#22',
+        // Meetings and Slack
+        'meeting-12345', 'thread-abc123',
+        // Google entries
+        'gcal-perf-standup', 'gsheet-perf-metrics', 'meet-xyz-uvwx-stu',
+        // Infrastructure (links via PERF-457)
+        'INFRA-200', '777888',
+      ],
     },
-    // DOC-789, acme/backend#60, and Figma file should remain unclustered
+    // Unclustered:
+    // - DOC-789: Standalone documentation ticket
+    // - acme/backend#60: Dependency update, no ticket refs
+    // - Abc123XYZ: Mobile redesign Figma, no cross-refs
   ];
+}
+
+/**
+ * Get expected unclustered activity IDs
+ */
+export function getExpectedUnclustered(): string[] {
+  return ['DOC-789', 'acme/backend#60', 'Abc123XYZ'];
 }
