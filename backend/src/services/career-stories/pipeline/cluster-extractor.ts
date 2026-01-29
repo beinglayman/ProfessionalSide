@@ -2,19 +2,21 @@
  * ClusterExtractor - Pipeline Processor
  *
  * Groups activities into clusters based on shared cross-tool references.
- * Uses connected components algorithm (DFS) to find related activities.
+ * Uses graphlib for connected components algorithm.
  *
  * Lifecycle:
  * 1. validate() - Ensure configuration is valid
  * 2. process(input, options) - Cluster activities with diagnostics
  *
  * Algorithm:
- * 1. Build ref → activityIds map
- * 2. Build adjacency list (activities sharing refs are connected)
- * 3. Run DFS to find connected components
+ * 1. Build ref → activityIds index
+ * 2. Build undirected graph (activities sharing refs are connected)
+ * 3. Find connected components using graphlib
  * 4. Filter by minimum cluster size
  */
 
+import { Graph, alg } from 'graphlib';
+import { ok, err } from 'neverthrow';
 import {
   PipelineProcessor,
   ProcessorResult,
@@ -24,6 +26,8 @@ import {
   ClusterExtractionInput,
   ClusterExtractionOutput,
   ClusterExtractionOptions,
+  ClusterExtractionResult,
+  ClusterExtractionError,
   ClusterableActivity,
   Cluster,
   WarningCodes,
@@ -38,7 +42,7 @@ export class ClusterExtractor
     >
 {
   readonly name = 'ClusterExtractor';
-  readonly version = '2.0.0';
+  readonly version = '3.0.0'; // v3: graphlib integration
 
   /**
    * Validate processor configuration
@@ -49,7 +53,29 @@ export class ClusterExtractor
   }
 
   /**
-   * Process activities and produce clusters with diagnostics
+   * Process activities and produce clusters with diagnostics.
+   * Returns Result type for explicit error handling.
+   */
+  safeProcess(
+    input: ClusterExtractionInput,
+    options: ClusterExtractionOptions = {}
+  ): ClusterExtractionResult {
+    try {
+      const result = this.process(input, options);
+      return ok(result);
+    } catch (error) {
+      return err({
+        code: 'CLUSTERING_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown clustering error',
+        cause: error instanceof Error ? error : undefined,
+        context: { activityCount: input.activities.length, options },
+      });
+    }
+  }
+
+  /**
+   * Process activities and produce clusters with diagnostics.
+   * @deprecated Use safeProcess() for Result-based error handling
    */
   process(
     input: ClusterExtractionInput,
@@ -106,29 +132,27 @@ export class ClusterExtractor
       });
     }
 
-    // Build adjacency list
-    const { adjacency, refToActivityIds } =
-      this.buildAdjacencyList(sanitizedActivities);
-
-    // Find connected components
-    const components = this.findConnectedComponents(
-      sanitizedActivities,
-      adjacency
-    );
+    // Build graph and find connected components using graphlib
+    const { graph, refToActivityIds } = this.buildGraph(sanitizedActivities);
+    const components = alg.components(graph);
 
     // Build clusters from components that meet minimum size
     const clusters: Cluster[] = [];
     const clusteredIds = new Set<string>();
+    let clusterIndex = 0;
 
     for (const component of components) {
       if (component.length >= minClusterSize) {
         const cluster = this.buildCluster(
           component,
           sanitizedActivities,
-          refToActivityIds
+          refToActivityIds,
+          clusterIndex,
+          options.idGenerator
         );
         clusters.push(cluster);
         component.forEach((id) => clusteredIds.add(id));
+        clusterIndex++;
       }
     }
 
@@ -214,13 +238,24 @@ export class ClusterExtractor
   // PRIVATE HELPERS
   // ===========================================================================
 
-  private buildAdjacencyList(activities: ClusterableActivity[]): {
-    adjacency: Map<string, Set<string>>;
+  /**
+   * Build an undirected graph where activities are nodes and
+   * shared refs create edges between activities.
+   */
+  private buildGraph(activities: ClusterableActivity[]): {
+    graph: Graph;
     refToActivityIds: Map<string, Set<string>>;
   } {
-    // Map: ref → set of activity IDs that have this ref
-    const refToActivityIds = new Map<string, Set<string>>();
+    // Create undirected graph
+    const graph = new Graph({ directed: false });
 
+    // Add all activities as nodes
+    for (const activity of activities) {
+      graph.setNode(activity.id);
+    }
+
+    // Build ref → activityIds index
+    const refToActivityIds = new Map<string, Set<string>>();
     for (const activity of activities) {
       for (const ref of activity.refs) {
         if (!refToActivityIds.has(ref)) {
@@ -230,65 +265,26 @@ export class ClusterExtractor
       }
     }
 
-    // Map: activityId → set of connected activity IDs
-    const adjacency = new Map<string, Set<string>>();
-
-    for (const activity of activities) {
-      adjacency.set(activity.id, new Set());
-    }
-
-    // Activities sharing a ref are connected
-    for (const activityIds of refToActivityIds.values()) {
+    // Create edges between activities that share refs
+    for (const [ref, activityIds] of refToActivityIds) {
       const ids = Array.from(activityIds);
       for (let i = 0; i < ids.length; i++) {
         for (let j = i + 1; j < ids.length; j++) {
-          adjacency.get(ids[i])!.add(ids[j]);
-          adjacency.get(ids[j])!.add(ids[i]);
+          // setEdge is idempotent - won't create duplicates
+          graph.setEdge(ids[i], ids[j], { ref });
         }
       }
     }
 
-    return { adjacency, refToActivityIds };
-  }
-
-  private findConnectedComponents(
-    activities: ClusterableActivity[],
-    adjacency: Map<string, Set<string>>
-  ): string[][] {
-    const visited = new Set<string>();
-    const components: string[][] = [];
-
-    const dfs = (id: string, component: string[]) => {
-      visited.add(id);
-      component.push(id);
-
-      const neighbors = adjacency.get(id);
-      if (neighbors) {
-        for (const neighbor of neighbors) {
-          if (!visited.has(neighbor)) {
-            dfs(neighbor, component);
-          }
-        }
-      }
-    };
-
-    for (const activity of activities) {
-      if (!visited.has(activity.id)) {
-        const component: string[] = [];
-        dfs(activity.id, component);
-        if (component.length > 0) {
-          components.push(component);
-        }
-      }
-    }
-
-    return components;
+    return { graph, refToActivityIds };
   }
 
   private buildCluster(
     activityIds: string[],
     activities: ClusterableActivity[],
-    refToActivityIds: Map<string, Set<string>>
+    refToActivityIds: Map<string, Set<string>>,
+    clusterIndex: number,
+    idGenerator?: (index: number) => string
   ): Cluster {
     const activitySet = new Set(activityIds);
     const activitiesInCluster = activities.filter((a) =>
@@ -324,8 +320,13 @@ export class ClusterExtractor
       ...new Set(activitiesInCluster.map((a) => a.source).filter(Boolean)),
     ] as string[];
 
+    // Use provided ID generator or default to timestamp-based ID
+    const clusterId = idGenerator
+      ? idGenerator(clusterIndex)
+      : `cluster-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
     return {
-      id: `cluster-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      id: clusterId,
       activityIds,
       sharedRefs,
       metrics: {

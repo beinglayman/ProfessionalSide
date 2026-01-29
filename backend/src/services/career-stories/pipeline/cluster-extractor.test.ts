@@ -386,5 +386,40 @@ describe('ClusterExtractor', () => {
       expect(result.data.clusters[0].activityIds).toContain('start');
       expect(result.data.clusters[0].activityIds).toContain('end');
     });
+
+    it('uses custom ID generator when provided', () => {
+      const activities: ClusterableActivity[] = [
+        { id: 'a1', refs: ['REF-1'] },
+        { id: 'a2', refs: ['REF-1'] },
+        { id: 'a3', refs: ['REF-2'] },
+        { id: 'a4', refs: ['REF-2'] },
+      ];
+
+      const idGenerator = (index: number) => `test-cluster-${index}`;
+
+      const result = extractor.process({ activities }, { idGenerator });
+
+      expect(result.data.clusters).toHaveLength(2);
+      expect(result.data.clusters.map(c => c.id).sort()).toEqual([
+        'test-cluster-0',
+        'test-cluster-1',
+      ]);
+    });
+
+    it('generates deterministic IDs with custom generator for testing', () => {
+      const activities: ClusterableActivity[] = [
+        { id: 'a1', refs: ['REF'] },
+        { id: 'a2', refs: ['REF'] },
+      ];
+
+      const idGenerator = (index: number) => `deterministic-${index}`;
+
+      // Run twice and verify same IDs
+      const result1 = extractor.process({ activities }, { idGenerator });
+      const result2 = extractor.process({ activities }, { idGenerator });
+
+      expect(result1.data.clusters[0].id).toBe('deterministic-0');
+      expect(result2.data.clusters[0].id).toBe('deterministic-0');
+    });
   });
 });
