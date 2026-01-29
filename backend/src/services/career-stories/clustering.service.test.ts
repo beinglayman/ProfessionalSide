@@ -34,7 +34,9 @@ function clusterBySharedRefs(
   const refToActivities = new Map<string, Set<string>>();
 
   activities.forEach((activity) => {
-    activity.crossToolRefs.forEach((ref) => {
+    // Handle null/undefined refs gracefully
+    const refs = activity.crossToolRefs || [];
+    refs.forEach((ref) => {
       if (!refToActivities.has(ref)) {
         refToActivities.set(ref, new Set());
       }
@@ -313,6 +315,176 @@ describe('Clustering Algorithm', () => {
       expect(clustersA).toHaveLength(1);
       expect(clustersB).toHaveLength(1);
       expect(new Set(clustersA[0])).toEqual(new Set(clustersB[0]));
+    });
+  });
+
+  // ===========================================================================
+  // HIGH-VALUE ADDITIONS (CM Council Recommendations)
+  // ===========================================================================
+
+  describe('long transitive chains (Sandi Metz)', () => {
+    it('handles 6+ hop transitive chains', () => {
+      // A→B→C→D→E→F→G through shared refs
+      const activities: MockActivity[] = [
+        { id: 'A', crossToolRefs: ['REF-AB'], clusterId: null },
+        { id: 'B', crossToolRefs: ['REF-AB', 'REF-BC'], clusterId: null },
+        { id: 'C', crossToolRefs: ['REF-BC', 'REF-CD'], clusterId: null },
+        { id: 'D', crossToolRefs: ['REF-CD', 'REF-DE'], clusterId: null },
+        { id: 'E', crossToolRefs: ['REF-DE', 'REF-EF'], clusterId: null },
+        { id: 'F', crossToolRefs: ['REF-EF', 'REF-FG'], clusterId: null },
+        { id: 'G', crossToolRefs: ['REF-FG'], clusterId: null },
+      ];
+
+      const clusters = clusterBySharedRefs(activities);
+
+      // All 7 should be in one cluster via transitive links
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0]).toHaveLength(7);
+      expect(clusters[0]).toContain('A');
+      expect(clusters[0]).toContain('G');
+    });
+
+    it('handles very long chains (20 hops) without stack overflow', () => {
+      const activities: MockActivity[] = [];
+
+      for (let i = 0; i < 21; i++) {
+        const refs: string[] = [];
+        if (i > 0) refs.push(`REF-${i - 1}-${i}`);
+        if (i < 20) refs.push(`REF-${i}-${i + 1}`);
+        activities.push({ id: `node-${i}`, crossToolRefs: refs, clusterId: null });
+      }
+
+      const clusters = clusterBySharedRefs(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0]).toHaveLength(21);
+    });
+  });
+
+  describe('ref edge cases (Uncle Bob)', () => {
+    it('handles activity with null-ish refs gracefully', () => {
+      const activities: MockActivity[] = [
+        { id: 'A', crossToolRefs: ['REF-1'], clusterId: null },
+        { id: 'B', crossToolRefs: ['REF-1'], clusterId: null },
+        // @ts-expect-error - testing runtime behavior with bad data
+        { id: 'C', crossToolRefs: null, clusterId: null },
+        // @ts-expect-error - testing runtime behavior with bad data
+        { id: 'D', crossToolRefs: undefined, clusterId: null },
+      ];
+
+      // Should not throw
+      expect(() => clusterBySharedRefs(activities)).not.toThrow();
+
+      const clusters = clusterBySharedRefs(activities);
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0]).toContain('A');
+      expect(clusters[0]).toContain('B');
+    });
+
+    it('handles duplicate refs in same activity', () => {
+      const activities: MockActivity[] = [
+        { id: 'A', crossToolRefs: ['REF-1', 'REF-1', 'REF-1'], clusterId: null },
+        { id: 'B', crossToolRefs: ['REF-1'], clusterId: null },
+      ];
+
+      const clusters = clusterBySharedRefs(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0]).toHaveLength(2);
+    });
+
+    it('handles empty string refs', () => {
+      const activities: MockActivity[] = [
+        { id: 'A', crossToolRefs: ['', 'REF-1'], clusterId: null },
+        { id: 'B', crossToolRefs: ['REF-1', ''], clusterId: null },
+      ];
+
+      const clusters = clusterBySharedRefs(activities);
+
+      // Empty strings would match each other, but that's fine
+      expect(clusters).toHaveLength(1);
+    });
+  });
+
+  describe('case sensitivity (Sandi Metz)', () => {
+    it('treats AUTH-123 and auth-123 as DIFFERENT refs', () => {
+      const activities: MockActivity[] = [
+        { id: 'A', crossToolRefs: ['AUTH-123'], clusterId: null },
+        { id: 'B', crossToolRefs: ['AUTH-123'], clusterId: null },
+        { id: 'C', crossToolRefs: ['auth-123'], clusterId: null },
+        { id: 'D', crossToolRefs: ['auth-123'], clusterId: null },
+      ];
+
+      const clusters = clusterBySharedRefs(activities);
+
+      // Should be 2 separate clusters (case matters)
+      expect(clusters).toHaveLength(2);
+
+      const upperCluster = clusters.find(c => c.includes('A'))!;
+      const lowerCluster = clusters.find(c => c.includes('C'))!;
+
+      expect(upperCluster).toContain('A');
+      expect(upperCluster).toContain('B');
+      expect(upperCluster).not.toContain('C');
+
+      expect(lowerCluster).toContain('C');
+      expect(lowerCluster).toContain('D');
+      expect(lowerCluster).not.toContain('A');
+    });
+  });
+
+  describe('scale sanity check (Kent Beck)', () => {
+    it('handles 100 activities without performance issues', () => {
+      const activities: MockActivity[] = [];
+
+      // Create 10 projects with 10 activities each
+      for (let project = 0; project < 10; project++) {
+        for (let item = 0; item < 10; item++) {
+          activities.push({
+            id: `proj${project}-item${item}`,
+            crossToolRefs: [`PROJ${project}-EPIC`, `PROJ${project}-${item}`],
+            clusterId: null,
+          });
+        }
+      }
+
+      const startTime = performance.now();
+      const clusters = clusterBySharedRefs(activities);
+      const duration = performance.now() - startTime;
+
+      // Should complete in <100ms
+      expect(duration).toBeLessThan(100);
+
+      // Should have 10 clusters
+      expect(clusters).toHaveLength(10);
+
+      // Each cluster should have 10 items
+      clusters.forEach(cluster => {
+        expect(cluster).toHaveLength(10);
+      });
+    });
+
+    it('handles 500 activities in reasonable time', () => {
+      const activities: MockActivity[] = [];
+
+      // Create 50 projects with 10 activities each
+      for (let project = 0; project < 50; project++) {
+        for (let item = 0; item < 10; item++) {
+          activities.push({
+            id: `proj${project}-item${item}`,
+            crossToolRefs: [`PROJ${project}-EPIC`],
+            clusterId: null,
+          });
+        }
+      }
+
+      const startTime = performance.now();
+      const clusters = clusterBySharedRefs(activities);
+      const duration = performance.now() - startTime;
+
+      // Should complete in <500ms even for 500 activities
+      expect(duration).toBeLessThan(500);
+      expect(clusters).toHaveLength(50);
     });
   });
 });
