@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: inchronicle-postgres
+    ports:
+      - "5433:5432"  # Custom port to avoid collision
+    environment:
+      POSTGRES_USER: inchronicle
+      POSTGRES_PASSWORD: inchronicle_dev
+      POSTGRES_DB: inchronicle_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inchronicle -d inchronicle_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -22,7 +22,9 @@
     "db:add-design-skills": "node scripts/add-design-skills.js",
     "db:add-missing-categories": "node scripts/add-missing-work-categories.js",
     "db:seed-billing": "tsx prisma/seed-billing.ts",
-    "db:reset": "prisma migrate reset --force && npm run db:seed"
+    "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -80,9 +82,11 @@
     "@types/nodemailer": "^6.4.17",
     "@types/pdfkit": "^0.14.0",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "prisma": "^5.7.1",
     "tsx": "^4.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"
