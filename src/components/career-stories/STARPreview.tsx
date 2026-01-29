@@ -15,10 +15,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { RefreshCw, Check, Edit2, Copy, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { STARComponent, ToolType, GenerateSTARResult } from '../../types/career-stories';
+import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ToolIcon } from './ToolIcon';
+import { FrameworkSelector } from './FrameworkSelector';
 import { TIMING, DISPLAY_LIMITS, CONFIDENCE_THRESHOLDS } from './constants';
 
 // Confidence dot component
@@ -96,6 +97,10 @@ interface STARPreviewProps {
   polishEnabled: boolean;
   /** Callback when polish toggle changes */
   onPolishToggle: (enabled: boolean) => void;
+  /** Currently selected narrative framework */
+  framework: NarrativeFramework;
+  /** Callback when framework changes - triggers regeneration */
+  onFrameworkChange: (framework: NarrativeFramework) => void;
   /** Callback to regenerate the STAR */
   onRegenerate: () => void;
   /** Optional callback to save user edits - not yet connected to backend */
@@ -112,6 +117,8 @@ export function STARPreview({
   isLoading,
   polishEnabled,
   onPolishToggle,
+  framework,
+  onFrameworkChange,
   onRegenerate,
   onSave,
 }: STARPreviewProps) {
@@ -302,6 +309,14 @@ export function STARPreview({
                   <ToolIcon key={`${tool}-${idx}`} tool={tool} className="w-4 h-4 text-[8px]" />
                 ))}
               </div>
+            </div>
+            {/* Framework Selector */}
+            <div className="mt-3">
+              <FrameworkSelector
+                value={framework}
+                onChange={onFrameworkChange}
+                disabled={isLoading}
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
