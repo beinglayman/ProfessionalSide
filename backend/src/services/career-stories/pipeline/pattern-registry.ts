@@ -20,9 +20,11 @@ import {
   githubRefPattern,
   githubUrlPattern,
   confluencePagePattern,
+  confluenceRawDataPattern,
   figmaUrlPattern,
   figmaRawDataPattern,
   slackChannelUrlPattern,
+  slackRawDataPattern,
   googleDocsPattern,
   googleSheetsPattern,
   googleSlidesPattern,
@@ -30,6 +32,9 @@ import {
   googleDriveFolderPattern,
   googleMeetPattern,
   googleCalendarPattern,
+  // Raw data patterns
+  googleDocsRawDataPattern,
+  googleMeetRawDataPattern,
 } from './patterns';
 
 export interface PatternValidationError {
@@ -213,6 +218,11 @@ export class PatternRegistry {
       googleDriveFolderPattern,
       googleMeetPattern,
       googleCalendarPattern,
+      // Raw data patterns (for API responses)
+      confluenceRawDataPattern,
+      slackRawDataPattern,
+      googleDocsRawDataPattern,
+      googleMeetRawDataPattern,
     ];
 
     for (const pattern of defaults) {

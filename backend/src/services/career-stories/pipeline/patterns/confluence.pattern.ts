@@ -60,3 +60,49 @@ export const confluencePagePattern: RefPattern = {
     'https://acme.atlassian.net/wiki/spaces/ENG/overview',  // Space overview, no page ID
   ],
 };
+
+// =============================================================================
+// RAW DATA PATTERNS
+// These match structured IDs in JSON rawData from API responses.
+//
+// Why rawData patterns?
+// When activities are fetched from APIs (e.g., Confluence API), the response
+// includes structured fields like `pageId` that aren't in URLs. We JSON.stringify
+// the rawData and match these fields as text patterns.
+//
+// Trade-off: Parsing JSON as text is less precise than proper parsing, but it's
+// simpler and handles nested structures automatically. Marked as "medium" confidence.
+// =============================================================================
+
+/**
+ * Confluence pageId from JSON rawData
+ * Matches pageId field in API responses
+ */
+export const confluenceRawDataPattern: RefPattern = {
+  id: 'confluence-rawdata-v1',
+  name: 'Confluence Raw Data ID',
+  version: 1,
+  description: 'Confluence pageId from JSON rawData',
+  regex: /"pageId"\s*:\s*"(\d{5,})"/g,
+  toolType: 'confluence',
+  confidence: 'medium',  // Medium: parsing JSON as text
+
+  normalizeMatch: (match) => `confluence:${match[1]}`,
+
+  examples: [
+    {
+      input: '{"pageId": "987654", "spaceKey": "ENG"}',
+      expectedRef: 'confluence:987654',
+      source: 'confluence-rawdata',
+    },
+    {
+      input: '{"pageId":"123456789","version":5}',
+      expectedRef: 'confluence:123456789',
+      source: 'confluence-rawdata',
+    },
+  ],
+
+  negativeExamples: [
+    '{"pageId": "123"}',  // Too short (< 5 digits)
+  ],
+};

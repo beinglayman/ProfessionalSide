@@ -8,11 +8,15 @@
  * 3. Register in PatternRegistry
  */
 
+// Constants
+export * from './constants';
+
+// Patterns
 export { jiraTicketPattern } from './jira.pattern';
 export { githubRefPattern, githubUrlPattern } from './github.pattern';
-export { confluencePagePattern } from './confluence.pattern';
+export { confluencePagePattern, confluenceRawDataPattern } from './confluence.pattern';
 export { figmaUrlPattern, figmaRawDataPattern } from './figma.pattern';
-export { slackChannelUrlPattern } from './slack.pattern';
+export { slackChannelUrlPattern, slackRawDataPattern } from './slack.pattern';
 export {
   googleDocsPattern,
   googleSheetsPattern,
@@ -21,4 +25,7 @@ export {
   googleDriveFolderPattern,
   googleMeetPattern,
   googleCalendarPattern,
+  // Raw data patterns
+  googleDocsRawDataPattern,
+  googleMeetRawDataPattern,
 } from './google.pattern';

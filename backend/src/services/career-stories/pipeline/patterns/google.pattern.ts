@@ -281,3 +281,84 @@ export const googleCalendarPattern: RefPattern = {
     'https://calendar.google.com/calendar/r/month',  // View URL, not event
   ],
 };
+
+// =============================================================================
+// RAW DATA PATTERNS
+// These match structured IDs in JSON rawData from API responses.
+//
+// Why rawData patterns?
+// When activities are fetched from APIs (e.g., Google Drive API), the response
+// includes structured fields like `documentId` that aren't in URLs. We JSON.stringify
+// the rawData and match these fields as text patterns.
+//
+// Trade-off: Parsing JSON as text is less precise than proper parsing, but it's
+// simpler and handles nested structures automatically. Marked as "medium" confidence.
+// =============================================================================
+
+/**
+ * Google Docs documentId from JSON rawData
+ * Matches documentId field in API responses
+ *
+ * Example rawData: { "documentId": "1AbC123...", "title": "My Doc" }
+ */
+export const googleDocsRawDataPattern: RefPattern = {
+  id: 'google-docs-rawdata-v1',
+  name: 'Google Docs Raw Data ID',
+  version: 1,
+  description: 'Google Docs documentId from JSON rawData',
+  regex: /"documentId"\s*:\s*"([a-zA-Z0-9_-]{25,})"/g,
+  toolType: 'google',
+  confidence: 'medium',  // Medium: parsing JSON as text
+
+  normalizeMatch: (match) => `gdoc:${match[1]}`,
+
+  examples: [
+    {
+      input: '{"documentId": "1AbC123XYZ456_defGHI789jkl", "title": "Doc"}',
+      expectedRef: 'gdoc:1AbC123XYZ456_defGHI789jkl',
+      source: 'google-rawdata',
+    },
+    {
+      input: '{"documentId":"1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"}',
+      expectedRef: 'gdoc:1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+      source: 'google-rawdata',
+    },
+  ],
+
+  negativeExamples: [
+    '{"documentId": "short"}',  // Too short
+  ],
+};
+
+/**
+ * Google Meet meetCode from JSON rawData
+ * Matches meetCode field in API responses
+ */
+export const googleMeetRawDataPattern: RefPattern = {
+  id: 'google-meet-rawdata-v1',
+  name: 'Google Meet Raw Data Code',
+  version: 1,
+  description: 'Google Meet meetCode from JSON rawData',
+  regex: /"meetCode"\s*:\s*"([a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4})"/gi,
+  toolType: 'google',
+  confidence: 'medium',  // Medium: parsing JSON as text
+
+  normalizeMatch: (match) => `gmeet:${match[1].toLowerCase()}`,
+
+  examples: [
+    {
+      input: '{"meetCode": "abc-defg-hij", "duration": 45}',
+      expectedRef: 'gmeet:abc-defg-hij',
+      source: 'google-rawdata',
+    },
+    {
+      input: '{"meetCode":"xyz-uvwx-stu"}',
+      expectedRef: 'gmeet:xyz-uvwx-stu',
+      source: 'google-rawdata',
+    },
+  ],
+
+  negativeExamples: [
+    '{"meetCode": "invalid"}',  // Wrong format
+  ],
+};
