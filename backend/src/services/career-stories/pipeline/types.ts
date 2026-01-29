@@ -95,6 +95,10 @@ export const WarningCodes = {
   DATE_FILTERED: 'DATE_FILTERED',
   /** Some activities have no refs and cannot cluster */
   ACTIVITIES_WITHOUT_REFS: 'ACTIVITIES_WITHOUT_REFS',
+  /** Cluster failed validation gates for STAR generation */
+  VALIDATION_GATES_FAILED: 'VALIDATION_GATES_FAILED',
+  /** Some activities in cluster could not be found */
+  ACTIVITIES_NOT_FOUND: 'ACTIVITIES_NOT_FOUND',
 } as const;
 
 /**
@@ -324,6 +328,311 @@ export interface ClusterExtractionOptions {
     start: Date;
     end: Date;
   };
+}
+
+// =============================================================================
+// CAREER PERSONA (ICP - Identity Resolution)
+// =============================================================================
+
+/**
+ * CareerPersona - User's identity across all connected tools.
+ *
+ * Provided during onboarding. Used by ParticipationDetector to determine
+ * if the user was initiator/contributor/observer for each activity.
+ *
+ * Why user-provided? Avoids months of identity federation work.
+ * OAuth flows return most of these IDs automatically during connection.
+ */
+export interface CareerPersona {
+  /** Display name for generated STARs */
+  displayName: string;
+
+  /** Email addresses (for matching across tools) */
+  emails: string[];
+
+  /** Tool-specific identifiers */
+  identities: {
+    jira?: {
+      accountId?: string;
+      displayName?: string;
+      emailAddress?: string;
+    };
+    github?: {
+      login: string;
+      id?: number;
+    };
+    confluence?: {
+      accountId?: string;
+      publicName?: string;
+    };
+    slack?: {
+      userId: string;
+      displayName?: string;
+    };
+    google?: {
+      email: string;
+      calendarId?: string;
+    };
+    figma?: {
+      userId?: string;
+      email?: string;
+    };
+    outlook?: {
+      email: string;
+      userId?: string;
+    };
+  };
+}
+
+// =============================================================================
+// STAR GENERATION TYPES
+// =============================================================================
+
+/**
+ * Participation level in an activity.
+ * Determines how prominently to feature work in STAR narratives.
+ */
+export type ParticipationLevel = 'initiator' | 'contributor' | 'mentioned' | 'observer';
+
+/**
+ * Result of participation detection for a single activity.
+ */
+export interface ParticipationResult {
+  activityId: string;
+  level: ParticipationLevel;
+  /** Evidence for classification (e.g., 'jira-assignee', 'github-reviewer') */
+  signals: string[];
+}
+
+/**
+ * Activity with full data (not just ID) for STAR generation.
+ */
+export interface HydratedActivity {
+  id: string;
+  source: ToolType;
+  title: string;
+  description?: string | null;
+  timestamp: Date;
+  sourceUrl?: string | null;
+  rawData?: Record<string, unknown> | null;
+  /** Extracted refs for this activity */
+  refs: string[];
+}
+
+/**
+ * Cluster enriched with full activity data.
+ */
+export interface HydratedCluster extends Cluster {
+  activities: HydratedActivity[];
+}
+
+/**
+ * A single STAR component with provenance.
+ */
+export interface STARComponent {
+  /** Extracted/generated text */
+  text: string;
+  /** Activity IDs that contributed to this component */
+  sources: string[];
+  /** Confidence in extraction quality (0-1) */
+  confidence: number;
+}
+
+/**
+ * Draft STAR narrative generated from a cluster.
+ */
+export interface DraftSTAR {
+  clusterId: string;
+  situation: STARComponent;
+  task: STARComponent;
+  action: STARComponent;
+  result: STARComponent;
+
+  /** Overall confidence (min of component confidences) */
+  overallConfidence: number;
+
+  /** Participation breakdown */
+  participationSummary: {
+    initiatorCount: number;
+    contributorCount: number;
+    mentionedCount: number;
+    observerCount: number;
+  };
+
+  /** Suggested improvements */
+  suggestedEdits: string[];
+
+  /** Metadata */
+  metadata: {
+    dateRange: { start: Date; end: Date };
+    toolsCovered: ToolType[];
+    totalActivities: number;
+  };
+}
+
+/**
+ * Validation result for a STAR.
+ */
+export interface STARValidationResult {
+  passed: boolean;
+  score: number;
+  failedGates: string[];
+  warnings: string[];
+}
+
+/**
+ * Final scored STAR ready for display/editing.
+ */
+export interface ScoredSTAR extends DraftSTAR {
+  validation: STARValidationResult;
+  /** User edits (if any) */
+  userEdits?: {
+    situation?: string;
+    task?: string;
+    action?: string;
+    result?: string;
+  };
+}
+
+/**
+ * STARExtractor input - follows PipelineProcessor pattern.
+ */
+export interface STARExtractionInput {
+  cluster: HydratedCluster;
+  persona: CareerPersona;
+}
+
+/**
+ * STARExtractor output.
+ */
+export interface STARExtractionOutput {
+  star: ScoredSTAR | null;
+  participations: ParticipationResult[];
+}
+
+/**
+ * STARExtractor options.
+ */
+export interface STARExtractionOptions {
+  /** Enable debug mode */
+  debug?: boolean;
+  /** Minimum cluster size to generate STAR */
+  minActivities?: number;
+  /** Minimum tool types to generate STAR */
+  minToolTypes?: number;
+  /** Maximum observer ratio allowed */
+  maxObserverRatio?: number;
+}
+
+// =============================================================================
+// NARRATIVE FRAMEWORK SYSTEM
+// Configurable "views" on the same core cluster data.
+// =============================================================================
+
+/**
+ * Available narrative frameworks.
+ * Each extracts different components from the same HydratedCluster.
+ *
+ * - STAR: Situation-Task-Action-Result (classic)
+ * - STARL: STAR + Learning (growth-focused)
+ * - CAR: Challenge-Action-Result (concise, problem-focused)
+ * - PAR: Problem-Action-Result (technical, engineering)
+ * - SAR: Situation-Action-Result (ultra-concise)
+ * - SOAR: Situation-Objective-Action-Result (business alignment)
+ * - SHARE: Situation-Hindsight-Action-Result-Example (collaboration)
+ * - CARL: Context-Action-Result-Learning (failure/accountability)
+ */
+export type NarrativeFrameworkType =
+  | 'STAR'
+  | 'STARL'
+  | 'CAR'
+  | 'PAR'
+  | 'SAR'
+  | 'SOAR'
+  | 'SHARE'
+  | 'CARL';
+
+/**
+ * A narrative component (flexible - works for any framework).
+ */
+export interface NarrativeComponent {
+  /** Component name (e.g., 'situation', 'challenge', 'learning') */
+  name: string;
+  /** Extracted text */
+  text: string;
+  /** Activity IDs that contributed */
+  sources: string[];
+  /** Extraction confidence (0-1) */
+  confidence: number;
+}
+
+/**
+ * A generated narrative (framework-agnostic).
+ */
+export interface GeneratedNarrative {
+  /** Source cluster ID */
+  clusterId: string;
+  /** Framework used */
+  framework: NarrativeFrameworkType;
+  /** Ordered components */
+  components: NarrativeComponent[];
+  /** Overall confidence */
+  overallConfidence: number;
+  /** Participation breakdown */
+  participationSummary: {
+    initiatorCount: number;
+    contributorCount: number;
+    mentionedCount: number;
+    observerCount: number;
+  };
+  /** Suggested edits */
+  suggestedEdits: string[];
+  /** Metadata */
+  metadata: {
+    dateRange: { start: Date; end: Date };
+    toolsCovered: ToolType[];
+    totalActivities: number;
+  };
+  /** Validation result */
+  validation: STARValidationResult;
+}
+
+/**
+ * Framework definition - describes a narrative framework's structure.
+ */
+export interface NarrativeFrameworkDefinition {
+  /** Framework type */
+  type: NarrativeFrameworkType;
+  /** Human-readable name */
+  name: string;
+  /** Description */
+  description: string;
+  /** Ordered component names */
+  componentOrder: string[];
+  /** Best suited for these contexts */
+  bestFor: string[];
+  /** Not ideal for these contexts */
+  notIdealFor: string[];
+}
+
+/**
+ * Narrative extraction input (framework-agnostic).
+ */
+export interface NarrativeExtractionInput {
+  cluster: HydratedCluster;
+  persona: CareerPersona;
+  /** Which framework to use (default: STAR) */
+  framework?: NarrativeFrameworkType;
+}
+
+/**
+ * Narrative extraction output.
+ */
+export interface NarrativeExtractionOutput {
+  narrative: GeneratedNarrative | null;
+  participations: ParticipationResult[];
+  /** Alternative frameworks that could work for this cluster */
+  alternativeFrameworks?: NarrativeFrameworkType[];
 }
 
 // =============================================================================
