@@ -378,4 +378,70 @@ describe('RefExtractor', () => {
       expect(refs).toContain('slack:C12345678');
     });
   });
+
+  describe('safeProcess (Result-based API)', () => {
+    it('returns ok Result on successful extraction', () => {
+      const result = extractor.safeProcess({ texts: ['AUTH-123'] });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.data.refs).toContain('AUTH-123');
+      }
+    });
+
+    it('returns ok Result with empty refs for no matches', () => {
+      const result = extractor.safeProcess({ texts: ['no refs here'] });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.data.refs).toHaveLength(0);
+      }
+    });
+
+    it('returns ok Result with diagnostics', () => {
+      const result = extractor.safeProcess({ texts: ['AUTH-123 and CORE-456'] });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.diagnostics.processor).toBe('RefExtractor');
+        expect(result.value.diagnostics.processingTimeMs).toBeGreaterThan(0);
+      }
+    });
+
+    it('can be chained with map', () => {
+      const result = extractor
+        .safeProcess({ texts: ['AUTH-123'] })
+        .map((r) => r.data.refs.length);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(1);
+      }
+    });
+
+    it('can be chained with andThen', () => {
+      const result = extractor
+        .safeProcess({ texts: ['AUTH-123'] })
+        .andThen((r) => {
+          if (r.data.refs.length === 0) {
+            return { isOk: () => false, isErr: () => true, error: 'no refs' } as any;
+          }
+          return { isOk: () => true, isErr: () => false, value: r.data.refs[0] } as any;
+        });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('preserves warnings in Result', () => {
+      const result = extractor.safeProcess(
+        { texts: ['AUTH-123'] },
+        { patternIds: ['nonexistent'] }
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.warnings.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });

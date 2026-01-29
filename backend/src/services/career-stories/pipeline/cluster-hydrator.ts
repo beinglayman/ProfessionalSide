@@ -7,7 +7,17 @@
  * This is a simple data transformation, not a full PipelineProcessor.
  */
 
-import { Cluster, HydratedCluster, HydratedActivity, ToolType, ProcessorWarning, WarningCodes } from './types';
+import { ok, err } from 'neverthrow';
+import {
+  Cluster,
+  HydratedCluster,
+  HydratedActivity,
+  ToolType,
+  ProcessorWarning,
+  WarningCodes,
+  HydrationResult,
+  HydrationError,
+} from './types';
 
 /**
  * Raw activity from data source (before ref extraction).
@@ -33,10 +43,41 @@ export interface ActivityWithRefs extends RawActivity {
 export class ClusterHydrator {
   /**
    * Hydrate a cluster with full activity data.
+   * Returns Result type for explicit error handling.
+   */
+  safeHydrate(
+    cluster: Cluster,
+    activityLookup: Map<string, ActivityWithRefs>
+  ): HydrationResult {
+    try {
+      const result = this.hydrate(cluster, activityLookup);
+
+      // If ALL activities are missing, return an error
+      if (result.cluster.activities.length === 0 && cluster.activityIds.length > 0) {
+        return err({
+          code: 'NO_ACTIVITIES_FOUND',
+          message: `No activities found for cluster ${cluster.id}`,
+          missingActivityIds: cluster.activityIds,
+        });
+      }
+
+      return ok(result);
+    } catch (error) {
+      return err({
+        code: 'ACTIVITY_LOOKUP_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown hydration error',
+        cause: error instanceof Error ? error : undefined,
+      });
+    }
+  }
+
+  /**
+   * Hydrate a cluster with full activity data.
    *
    * @param cluster - Cluster with activity IDs
    * @param activityLookup - Map of activity ID to full activity data
    * @returns Object with HydratedCluster and any warnings
+   * @deprecated Use safeHydrate() for Result-based error handling
    */
   hydrate(
     cluster: Cluster,

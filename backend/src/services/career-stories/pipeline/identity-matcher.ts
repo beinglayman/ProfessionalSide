@@ -8,12 +8,14 @@
  * No identity federation magic - just simple matching.
  */
 
+import { ok, err, Result } from 'neverthrow';
 import {
   CareerPersona,
   ToolType,
   ParticipationLevel,
   ParticipationResult,
   HydratedActivity,
+  IdentityMatchError,
 } from './types';
 
 /**
@@ -67,6 +69,47 @@ export class IdentityMatcher {
 
   /**
    * Detect participation level for an activity.
+   * Returns Result type for explicit error handling.
+   */
+  safeDetectParticipation(
+    activity: HydratedActivity
+  ): Result<ParticipationResult, IdentityMatchError> {
+    try {
+      const result = this.detectParticipation(activity);
+      return ok(result);
+    } catch (error) {
+      return err({
+        code: 'MATCHING_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown matching error',
+        cause: error instanceof Error ? error : undefined,
+        context: { activityId: activity.id },
+      });
+    }
+  }
+
+  /**
+   * Detect participation for multiple activities.
+   * Returns array of Results for batch processing.
+   */
+  safeDetectParticipations(
+    activities: HydratedActivity[]
+  ): Result<ParticipationResult[], IdentityMatchError> {
+    const results: ParticipationResult[] = [];
+
+    for (const activity of activities) {
+      const result = this.safeDetectParticipation(activity);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+      results.push(result.value);
+    }
+
+    return ok(results);
+  }
+
+  /**
+   * Detect participation level for an activity.
+   * @deprecated Use safeDetectParticipation() for Result-based error handling
    */
   detectParticipation(activity: HydratedActivity): ParticipationResult {
     const signals = this.collectSignals(activity);

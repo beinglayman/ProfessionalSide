@@ -11,6 +11,7 @@
  * Follows same PipelineProcessor pattern as RefExtractor and ClusterExtractor.
  */
 
+import { ok, err } from 'neverthrow';
 import {
   PipelineProcessor,
   ProcessorResult,
@@ -27,6 +28,8 @@ import {
   STARExtractionInput,
   STARExtractionOutput,
   STARExtractionOptions,
+  STARExtractionResult,
+  STARExtractionError,
   ToolType,
   WarningCodes,
 } from './types';
@@ -81,6 +84,45 @@ export class STARExtractor
 
   /**
    * Process a hydrated cluster and extract STAR narrative.
+   * Returns Result type for explicit error handling.
+   */
+  safeProcess(
+    input: STARExtractionInput,
+    options: STARExtractionOptions = {}
+  ): STARExtractionResult {
+    try {
+      const result = this.process(input, options);
+
+      // Check if validation failed - this is an expected "error" case
+      if (!result.data.star) {
+        const failedGates = result.warnings
+          .find((w) => w.code === WarningCodes.VALIDATION_GATES_FAILED)
+          ?.context?.failedGates as string[] | undefined;
+
+        return err({
+          code: 'VALIDATION_FAILED',
+          message: 'Cluster failed validation gates',
+          failedGates: failedGates || [],
+          // Include participations to avoid duplicate processing in caller
+          participations: result.data.participations,
+          context: { clusterId: input.cluster.id },
+        });
+      }
+
+      return ok(result);
+    } catch (error) {
+      return err({
+        code: 'EXTRACTION_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown extraction error',
+        cause: error instanceof Error ? error : undefined,
+        context: { clusterId: input.cluster.id },
+      });
+    }
+  }
+
+  /**
+   * Process a hydrated cluster and extract STAR narrative.
+   * @deprecated Use safeProcess() for Result-based error handling
    */
   process(
     input: STARExtractionInput,

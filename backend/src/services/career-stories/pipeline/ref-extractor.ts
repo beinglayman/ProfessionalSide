@@ -14,6 +14,7 @@
  * - Backward-compatible API
  */
 
+import { ok, err, Result } from 'neverthrow';
 import {
   PipelineProcessor,
   ProcessorResult,
@@ -23,6 +24,8 @@ import {
   RefExtractionInput,
   RefExtractionOutput,
   RefExtractionOptions,
+  RefExtractionResult,
+  RefExtractionError,
   PatternMatch,
   PatternAnalysis,
   ConfidenceLevel,
@@ -78,7 +81,29 @@ export class RefExtractor
   }
 
   /**
-   * Process input and extract refs with full diagnostics
+   * Process input and extract refs with full diagnostics.
+   * Returns Result type for explicit error handling.
+   */
+  safeProcess(
+    input: RefExtractionInput,
+    options: RefExtractionOptions = {}
+  ): RefExtractionResult {
+    try {
+      const result = this.process(input, options);
+      return ok(result);
+    } catch (error) {
+      return err({
+        code: 'PATTERN_EXECUTION_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown extraction error',
+        cause: error instanceof Error ? error : undefined,
+        context: { input, options },
+      });
+    }
+  }
+
+  /**
+   * Process input and extract refs with full diagnostics.
+   * @deprecated Use safeProcess() for Result-based error handling
    */
   process(
     input: RefExtractionInput,
