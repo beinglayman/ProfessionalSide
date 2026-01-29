@@ -19,6 +19,8 @@ import {
   addActivityToCluster,
   removeActivityFromCluster,
   mergeClusters,
+  // STAR Generation
+  generateStar,
   // Stats
   getStats,
   // Mock Data (Development)
@@ -56,6 +58,7 @@ router.patch('/clusters/:id', updateCluster);
 router.delete('/clusters/:id', deleteCluster);
 router.post('/clusters/:id/activities', addActivityToCluster);
 router.delete('/clusters/:id/activities/:activityId', removeActivityFromCluster);
+router.post('/clusters/:id/generate-star', generateStar);
 
 // ============================================================================
 // MOCK DATA (Development/Testing Only)

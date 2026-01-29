@@ -13,6 +13,21 @@ import {
   generateMockActivities,
   getExpectedClusters,
 } from '../services/career-stories';
+import {
+  starGenerationService,
+  STARGenerationOptions,
+} from '../services/career-stories/star-generation.service';
+import { ActivityWithRefs } from '../services/career-stories/pipeline/cluster-hydrator';
+import { Cluster } from '../services/career-stories/pipeline/types';
+import { buildPersonaFromUser } from '../services/career-stories/persona-builder';
+import {
+  generateClustersSchema,
+  updateClusterSchema,
+  addActivitySchema,
+  mergeClustersSchema,
+  generateStarSchema,
+  formatZodErrors,
+} from './career-stories.schemas';
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
@@ -111,7 +126,13 @@ export const generateClusters = asyncHandler(async (req: Request, res: Response)
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  const { startDate, endDate, minClusterSize = 2 } = req.body;
+  // Validate request body with Zod
+  const parseResult = generateClustersSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { startDate, endDate, minClusterSize = 2 } = parseResult.data;
 
   const results = await clusteringService.clusterActivities(userId, {
     dateRange: startDate && endDate ? {
@@ -171,11 +192,18 @@ export const getClusterById = asyncHandler(async (req: Request, res: Response): 
 export const updateCluster = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
-  const { name } = req.body;
 
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
+
+  // Validate request body with Zod
+  const parseResult = updateClusterSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { name } = parseResult.data;
 
   // Verify ownership
   const existing = await prisma.storyCluster.findFirst({
@@ -224,11 +252,18 @@ export const deleteCluster = asyncHandler(async (req: Request, res: Response): P
 export const addActivityToCluster = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id: clusterId } = req.params;
-  const { activityId } = req.body;
 
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
+
+  // Validate request body with Zod
+  const parseResult = addActivitySchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { activityId } = parseResult.data;
 
   // Verify cluster ownership
   const cluster = await prisma.storyCluster.findFirst({
@@ -280,20 +315,158 @@ export const removeActivityFromCluster = asyncHandler(async (req: Request, res: 
 });
 
 /**
- * POST /api/career-stories/clusters/merge
- * Merge multiple clusters into one
+ * POST /api/career-stories/clusters/:id/generate-star
+ * Generate a STAR narrative from a cluster
  */
-export const mergeClusters = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const generateStar = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  const { targetClusterId, sourceClusterIds } = req.body;
+  const { id: clusterId } = req.params;
 
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  if (!targetClusterId || !sourceClusterIds || !Array.isArray(sourceClusterIds)) {
-    return void sendError(res, 'targetClusterId and sourceClusterIds[] required', 400);
+  // Validate request body with Zod
+  const parseResult = generateStarSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
   }
+
+  const { personaId, options } = parseResult.data;
+
+  // Step 1: Get cluster and verify ownership
+  const dbCluster = await prisma.storyCluster.findFirst({
+    where: { id: clusterId, userId },
+    include: {
+      activities: {
+        orderBy: { timestamp: 'asc' },
+      },
+    },
+  });
+
+  if (!dbCluster) {
+    return void sendError(res, 'Cluster not found', 404);
+  }
+
+  // Step 2: Get user and build persona
+  // TODO: Add CareerPersona model lookup in Phase 3
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
+
+  if (!user) {
+    return void sendError(res, 'User not found', 404);
+  }
+
+  const persona = buildPersonaFromUser(user);
+
+  // Step 3: Calculate shared refs from activities
+  const refCounts = new Map<string, number>();
+  for (const activity of dbCluster.activities) {
+    const refs = (activity.crossToolRefs as string[]) || [];
+    for (const ref of refs) {
+      refCounts.set(ref, (refCounts.get(ref) || 0) + 1);
+    }
+  }
+  const sharedRefs = Array.from(refCounts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([ref]) => ref);
+
+  // Step 4: Transform DB cluster to pipeline Cluster type
+  const cluster: Cluster = {
+    id: dbCluster.id,
+    activityIds: dbCluster.activities.map((a) => a.id),
+    sharedRefs,
+    metrics: {
+      activityCount: dbCluster.activities.length,
+      refCount: sharedRefs.length,
+      toolTypes: [...new Set(dbCluster.activities.map((a) => a.source))],
+      dateRange: dbCluster.activities.length > 0
+        ? {
+            earliest: dbCluster.activities[0].timestamp,
+            latest: dbCluster.activities[dbCluster.activities.length - 1].timestamp,
+          }
+        : undefined,
+    },
+  };
+
+  // Step 5: Transform DB activities to ActivityWithRefs type
+  const activities: ActivityWithRefs[] = dbCluster.activities.map((a) => ({
+    id: a.id,
+    source: a.source,
+    sourceId: a.sourceId,
+    sourceUrl: a.sourceUrl,
+    title: a.title,
+    description: a.description,
+    timestamp: a.timestamp,
+    refs: (a.crossToolRefs as string[]) || [],
+    rawData: a.rawData as Record<string, unknown> | null,
+  }));
+
+  // Step 6: Generate STAR using Result-based API
+  const generationOptions: STARGenerationOptions = {
+    debug: options?.debug,
+    polish: options?.polish,
+    framework: options?.framework,
+  };
+
+  const generationResult = await starGenerationService.generate(
+    cluster,
+    activities,
+    persona,
+    generationOptions
+  );
+
+  // Handle generation errors
+  if (generationResult.isErr()) {
+    const error = generationResult.error;
+    const statusCode = error.code === 'CLUSTER_NOT_FOUND' ? 404 : 500;
+    return void sendError(res, error.message, statusCode, {
+      code: error.code,
+      stage: error.stage,
+    });
+  }
+
+  const result = generationResult.value;
+
+  // Step 7: Return result
+  if (result.star) {
+    sendSuccess(res, {
+      star: result.star,
+      polishStatus: result.polishStatus,
+      processingTimeMs: result.processingTimeMs,
+    });
+  } else {
+    // Validation failed but not an error - return success with null star
+    sendSuccess(res, {
+      star: null,
+      reason: 'VALIDATION_GATES_FAILED',
+      failedGates: result.failedGates,
+      participations: result.participations,
+      processingTimeMs: result.processingTimeMs,
+    });
+  }
+});
+
+/**
+ * POST /api/career-stories/clusters/merge
+ * Merge multiple clusters into one
+ */
+export const mergeClusters = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  // Validate request body with Zod
+  const parseResult = mergeClustersSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { targetClusterId, sourceClusterIds } = parseResult.data;
 
   // Verify all clusters belong to user
   const allClusterIds = [targetClusterId, ...sourceClusterIds];

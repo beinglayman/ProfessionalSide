@@ -27,3 +27,17 @@ export {
   generateMockActivities,
   getExpectedClusters,
 } from './mock-data.service';
+
+export {
+  STARGenerationService,
+  starGenerationService,
+  STARGenerationOptions,
+  STARGenerationResult,
+} from './star-generation.service';
+
+export {
+  LLMPolisherService,
+  llmPolisherService,
+  PolishResult,
+  PolishedSTAR,
+} from './llm-polisher.service';
