@@ -13,6 +13,7 @@ import {
   generateMockActivities,
   getExpectedClusters,
 } from '../services/career-stories';
+import * as demoService from '../services/career-stories/demo.service';
 import {
   starGenerationService,
   STARGenerationOptions,
@@ -603,8 +604,8 @@ export const clearMockData = asyncHandler(async (req: Request, res: Response): P
 
 /**
  * POST /api/career-stories/mock/full-pipeline
- * Run full pipeline: seed -> cluster -> return results
- * Convenience endpoint for testing
+ * Run full pipeline using DEMO tables: seed -> cluster -> return results.
+ * Safe for production - uses isolated demo_* tables, not real user data.
  */
 export const runFullPipeline = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
@@ -613,44 +614,173 @@ export const runFullPipeline = asyncHandler(async (req: Request, res: Response):
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  // Check if running in development
-  if (process.env.NODE_ENV === 'production') {
-    return void sendError(res, 'Pipeline test not available in production', 403);
-  }
-
-  // Step 1: Clear existing data
-  await prisma.careerStory.deleteMany({ where: { cluster: { userId } } });
-  await prisma.storyCluster.deleteMany({ where: { userId } });
-  await prisma.toolActivity.deleteMany({ where: { userId } });
-
-  // Step 2: Seed mock data
-  const mockActivities = generateMockActivities();
-  const seededCount = await activityService.persistActivities(userId, mockActivities);
-
-  // Step 3: Run clustering
-  const clusters = await clusteringService.clusterActivities(userId, { minClusterSize: 2 });
-
-  // Step 4: Get unclustered activities
-  const unclustered = await activityService.getUnclusteredActivities(userId);
+  // Use demo service - safe for production as it uses separate demo_* tables
+  const result = await demoService.seedDemoData(userId);
 
   sendSuccess(res, {
     pipeline: {
-      step1_cleared: true,
-      step2_seeded: seededCount,
-      step3_clustered: clusters.length,
-      step4_unclustered: unclustered.length,
+      activitiesSeeded: result.activitiesSeeded,
+      clustersCreated: result.clustersCreated,
     },
-    clusters: clusters.map(c => ({
-      id: c.cluster.id,
-      activityCount: c.activityCount,
-      activityIds: c.activityIds,
-    })),
-    unclusteredActivities: unclustered.map(a => ({
-      id: a.id,
-      source: a.source,
-      title: a.title,
-      refs: a.crossToolRefs,
-    })),
-    expected: getExpectedClusters(),
-  }, 'Full pipeline executed');
+    clusters: result.clusters,
+  }, 'Demo stories created successfully');
+});
+
+/**
+ * GET /api/career-stories/demo/clusters
+ * Get all demo clusters for the user.
+ */
+export const getDemoClusters = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const clusters = await demoService.getDemoClusters(userId);
+  sendSuccess(res, clusters);
+});
+
+/**
+ * GET /api/career-stories/demo/clusters/:id
+ * Get a single demo cluster with activities.
+ */
+export const getDemoClusterById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const cluster = await demoService.getDemoClusterById(userId, id);
+  if (!cluster) {
+    return void sendError(res, 'Demo cluster not found', 404);
+  }
+
+  sendSuccess(res, cluster);
+});
+
+/**
+ * POST /api/career-stories/demo/clusters/:id/generate-star
+ * Generate STAR narrative for a demo cluster.
+ * Uses the same pipeline but reads from demo tables.
+ */
+export const generateDemoStar = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id: clusterId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  // Validate request body
+  const parseResult = generateStarSchema.safeParse(req.body || {});
+  if (!parseResult.success) {
+    const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    return void sendError(res, errors, 400);
+  }
+
+  const { options } = parseResult.data;
+
+  // Get demo cluster with activities
+  const cluster = await demoService.getDemoClusterById(userId, clusterId);
+  if (!cluster) {
+    return void sendError(res, 'Demo cluster not found', 404);
+  }
+
+  // Build persona from user profile
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  const persona = user ? buildPersonaFromUser({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+  }) : {
+    displayName: 'Demo User',
+    emails: ['demo@example.com'],
+    identities: {},
+  };
+
+  // Convert demo activities to the format expected by STAR generation
+  const activities: ActivityWithRefs[] = (cluster.activities || []).map((a) => ({
+    id: a.id,
+    source: a.source,
+    sourceId: a.sourceId,
+    sourceUrl: a.sourceUrl,
+    title: a.title,
+    description: a.description,
+    timestamp: a.timestamp,
+    crossToolRefs: a.crossToolRefs,
+    refs: a.crossToolRefs, // ActivityWithRefs requires refs field
+    rawData: null,
+    clusterId: cluster.id,
+    userId,
+    createdAt: new Date(),
+  }));
+
+  // Compute shared refs from activities
+  const refCounts = new Map<string, number>();
+  activities.forEach((a) => {
+    a.refs.forEach((ref) => {
+      refCounts.set(ref, (refCounts.get(ref) || 0) + 1);
+    });
+  });
+  const sharedRefs = Array.from(refCounts.entries())
+    .filter(([, count]) => count >= 2)
+    .map(([ref]) => ref);
+
+  // Build cluster object for STAR generation
+  const clusterForGeneration: Cluster = {
+    id: cluster.id,
+    activityIds: activities.map((a) => a.id),
+    sharedRefs,
+    metrics: {
+      activityCount: activities.length,
+      refCount: sharedRefs.length,
+      toolTypes: [...new Set(activities.map((a) => a.source))],
+      dateRange: cluster.metrics?.dateRange
+        ? {
+            earliest: new Date(cluster.metrics.dateRange.start),
+            latest: new Date(cluster.metrics.dateRange.end),
+          }
+        : undefined,
+    },
+  };
+
+  // Generate STAR using the pipeline
+  const starOptions: STARGenerationOptions = {
+    polish: options?.polish ?? true,
+    framework: options?.framework ?? 'STAR',
+  };
+
+  const result = await starGenerationService.generate(
+    clusterForGeneration,
+    activities,
+    persona,
+    starOptions
+  );
+
+  if (result.isErr()) {
+    return void sendError(res, result.error.message, 500);
+  }
+
+  sendSuccess(res, result.value);
+});
+
+/**
+ * DELETE /api/career-stories/demo/clear
+ * Clear all demo data for a user.
+ */
+export const clearDemoData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  await demoService.clearDemoData(userId);
+  sendSuccess(res, { cleared: true }, 'Demo data cleared');
 });

@@ -27,6 +27,11 @@ import {
   seedMockData,
   clearMockData,
   runFullPipeline,
+  // Demo Mode (Production-safe)
+  getDemoClusters,
+  getDemoClusterById,
+  generateDemoStar,
+  clearDemoData,
 } from '../controllers/career-stories.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -66,5 +71,13 @@ router.post('/clusters/:id/generate-star', generateStar);
 router.post('/mock/seed', seedMockData);
 router.delete('/mock/clear', clearMockData);
 router.post('/mock/full-pipeline', runFullPipeline);
+
+// ============================================================================
+// DEMO MODE (Production-safe - uses separate demo_* tables)
+// ============================================================================
+router.get('/demo/clusters', getDemoClusters);
+router.get('/demo/clusters/:id', getDemoClusterById);
+router.post('/demo/clusters/:id/generate-star', generateDemoStar);
+router.delete('/demo/clear', clearDemoData);
 
 export default router;

@@ -334,4 +334,110 @@ export class ClusteringService {
       where: { id: targetClusterId },
     });
   }
+
+  /**
+   * Cluster activities in memory (no database persistence).
+   * Useful for demo/sandbox mode where we don't want to touch real tables.
+   *
+   * @param activities - Activities to cluster
+   * @param options - Clustering options
+   * @returns Array of cluster results with activity IDs and suggested names
+   */
+  clusterActivitiesInMemory(
+    activities: Array<{
+      id: string;
+      source: string;
+      sourceId: string;
+      title: string;
+      description: string | null;
+      timestamp: Date;
+      crossToolRefs: string[];
+    }>,
+    options?: { minClusterSize?: number }
+  ): Array<{ activityIds: string[]; name: string | null }> {
+    const minSize = options?.minClusterSize ?? 2;
+
+    if (activities.length === 0) {
+      return [];
+    }
+
+    // Build adjacency list
+    const refToActivities = new Map<string, Set<string>>();
+    activities.forEach((activity) => {
+      const refs = activity.crossToolRefs || [];
+      refs.forEach((ref) => {
+        if (!refToActivities.has(ref)) {
+          refToActivities.set(ref, new Set());
+        }
+        refToActivities.get(ref)!.add(activity.id);
+      });
+    });
+
+    const adjacency = new Map<string, Set<string>>();
+    activities.forEach((activity) => {
+      adjacency.set(activity.id, new Set());
+    });
+
+    refToActivities.forEach((activityIds) => {
+      const ids = Array.from(activityIds);
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          adjacency.get(ids[i])!.add(ids[j]);
+          adjacency.get(ids[j])!.add(ids[i]);
+        }
+      }
+    });
+
+    // Find connected components
+    const visited = new Set<string>();
+    const components: string[][] = [];
+
+    activities.forEach((activity) => {
+      if (!visited.has(activity.id)) {
+        const component: string[] = [];
+        this.dfs(activity.id, adjacency, visited, component);
+        if (component.length > 0) {
+          components.push(component);
+        }
+      }
+    });
+
+    // Filter by min size and generate names
+    return components
+      .filter((c) => c.length >= minSize)
+      .map((activityIds) => {
+        // Generate a name based on common refs
+        const commonRefs = this.findCommonRefs(activityIds, activities);
+        return {
+          activityIds,
+          name: commonRefs.length > 0 ? commonRefs[0] : null,
+        };
+      });
+  }
+
+  /**
+   * Find common references for a set of activities
+   */
+  private findCommonRefs(
+    activityIds: string[],
+    activities: Array<{ id: string; crossToolRefs: string[] }>
+  ): string[] {
+    const activityMap = new Map(activities.map((a) => [a.id, a]));
+    const refCounts = new Map<string, number>();
+
+    activityIds.forEach((id) => {
+      const activity = activityMap.get(id);
+      if (activity) {
+        activity.crossToolRefs.forEach((ref) => {
+          refCounts.set(ref, (refCounts.get(ref) || 0) + 1);
+        });
+      }
+    });
+
+    // Return refs that appear in at least 2 activities, sorted by count
+    return Array.from(refCounts.entries())
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .map(([ref]) => ref);
+  }
 }

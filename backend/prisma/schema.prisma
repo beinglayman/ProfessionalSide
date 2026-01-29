@@ -108,6 +108,10 @@ model User {
   toolActivities ToolActivity[]
   storyClusters  StoryCluster[]
 
+  // Career Stories - Demo/Sandbox
+  demoToolActivities DemoToolActivity[]
+  demoStoryClusters  DemoStoryCluster[]
+
   @@map("users")
 }
 
@@ -1407,4 +1411,82 @@ model CareerStory {
   cluster StoryCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
 
   @@map("career_stories")
+}
+
+// ============================================================================
+// CAREER STORIES - DEMO/SANDBOX DATA (Parallel tables for testing)
+// ============================================================================
+// These tables mirror the real tables but are isolated for demo/testing.
+// Users can experiment without affecting their real career data.
+
+model DemoToolActivity {
+  id     String @id @default(cuid())
+  userId String
+
+  // Source identification
+  source    String // github, jira, confluence, outlook, figma
+  sourceId  String // Original ID from source system
+  sourceUrl String? // Link back to source
+
+  // Core content
+  title       String
+  description String?
+  timestamp   DateTime
+
+  // Cross-tool references
+  crossToolRefs String[] @default([])
+
+  // Clustering assignment
+  clusterId String?
+
+  // Raw data
+  rawData Json?
+
+  createdAt DateTime @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cluster DemoStoryCluster? @relation(fields: [clusterId], references: [id])
+
+  @@unique([userId, source, sourceId])
+  @@index([userId, timestamp])
+  @@index([clusterId])
+  @@map("demo_tool_activities")
+}
+
+model DemoStoryCluster {
+  id     String @id @default(cuid())
+  userId String
+
+  name String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities DemoToolActivity[]
+  story      DemoCareerStory?
+
+  @@index([userId])
+  @@map("demo_story_clusters")
+}
+
+model DemoCareerStory {
+  id        String @id @default(cuid())
+  clusterId String @unique
+
+  intent String
+
+  situation Json
+  task      Json
+  action    Json
+  result    Json
+
+  verification Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cluster DemoStoryCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+
+  @@map("demo_career_stories")
 }

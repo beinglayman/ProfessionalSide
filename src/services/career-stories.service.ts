@@ -202,25 +202,77 @@ export class CareerStoriesService {
 
   /**
    * Run full pipeline: seed -> cluster -> return results
+   * Now uses demo tables (production-safe)
    */
   static async runFullPipeline(): Promise<ApiResponse<{
     pipeline: {
-      step1_cleared: boolean;
-      step2_seeded: number;
-      step3_clustered: number;
-      step4_unclustered: number;
+      activitiesSeeded: number;
+      clustersCreated: number;
     };
-    clusters: Array<{ id: string; activityCount: number; activityIds: string[] }>;
+    clusters: Array<{
+      id: string;
+      name: string | null;
+      activityCount: number;
+      metrics?: {
+        dateRange?: { start: string; end: string };
+        toolTypes?: string[];
+      };
+    }>;
   }>> {
     const response = await api.post<ApiResponse<{
       pipeline: {
-        step1_cleared: boolean;
-        step2_seeded: number;
-        step3_clustered: number;
-        step4_unclustered: number;
+        activitiesSeeded: number;
+        clustersCreated: number;
       };
-      clusters: Array<{ id: string; activityCount: number; activityIds: string[] }>;
+      clusters: Array<{
+        id: string;
+        name: string | null;
+        activityCount: number;
+        metrics?: {
+          dateRange?: { start: string; end: string };
+          toolTypes?: string[];
+        };
+      }>;
     }>>('/career-stories/mock/full-pipeline');
+    return response.data;
+  }
+
+  // =============================================================================
+  // DEMO MODE (Production-safe - uses separate demo tables)
+  // =============================================================================
+
+  /**
+   * Get all demo clusters
+   */
+  static async getDemoClusters(): Promise<ApiResponse<Cluster[]>> {
+    const response = await api.get<ApiResponse<Cluster[]>>('/career-stories/demo/clusters');
+    return response.data;
+  }
+
+  /**
+   * Get a single demo cluster with activities
+   */
+  static async getDemoClusterById(id: string): Promise<ApiResponse<ClusterWithActivities>> {
+    const response = await api.get<ApiResponse<ClusterWithActivities>>(`/career-stories/demo/clusters/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Generate STAR for a demo cluster
+   */
+  static async generateDemoStar(clusterId: string, data: GenerateSTARRequest = {}): Promise<ApiResponse<GenerateSTARResult>> {
+    const response = await api.post<ApiResponse<GenerateSTARResult>>(
+      `/career-stories/demo/clusters/${clusterId}/generate-star`,
+      data
+    );
+    return response.data;
+  }
+
+  /**
+   * Clear all demo data
+   */
+  static async clearDemoData(): Promise<ApiResponse<{ cleared: boolean }>> {
+    const response = await api.delete<ApiResponse<{ cleared: boolean }>>('/career-stories/demo/clear');
     return response.data;
   }
 }

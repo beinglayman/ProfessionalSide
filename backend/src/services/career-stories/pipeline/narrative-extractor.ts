@@ -657,7 +657,6 @@ export class NarrativeExtractor
         activityCount: cluster.activities.length,
         toolTypeCount: cluster.metrics.toolTypes.length,
         initiatorCount: participations.filter((p) => p.level === 'initiator').length,
-        framework,
       },
       outputMetrics: {
         narrativeGenerated: narrative ? 1 : 0,

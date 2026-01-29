@@ -31,12 +31,8 @@ import {
   GenerateClustersRequest,
   GenerateSTARRequest,
   MergeClustersRequest,
-  GenerateSTARResult,
 } from '../types/career-stories';
 import {
-  DEMO_CLUSTERS,
-  DEMO_CLUSTER_DETAILS,
-  DEMO_STARS,
   isDemoMode,
   enableDemoMode,
 } from '../services/career-stories-demo-data';
@@ -107,52 +103,60 @@ export const useUnclusteredActivities = () => {
 
 /**
  * Get all clusters for the user.
- * Falls back to demo data when backend returns empty or errors.
+ * In demo mode, fetches from demo tables. Otherwise, fetches from real tables.
  */
 export const useClusters = () => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
+      // If in demo mode, use demo endpoints
+      if (isDemoMode()) {
+        const response = await CareerStoriesService.getDemoClusters();
+        if (response.success && response.data) {
+          return response.data;
+        }
+        // Demo mode but no demo clusters - return empty (user needs to seed)
+        return [];
+      }
+
+      // Normal mode - get real clusters
       try {
         const response = await CareerStoriesService.getClusters();
         if (response.success && response.data) {
-          // If has clusters, return them
-          if (response.data.length > 0) {
-            return response.data;
-          }
+          return response.data;
         }
       } catch {
-        // API error - fall through to demo mode
+        // API error
       }
 
-      // No clusters or API error - enable demo mode and return demo data
+      // No real clusters - enable demo mode so user sees the option to create demo stories
       enableDemoMode();
-      return DEMO_CLUSTERS;
+      return [];
     },
   });
 };
 
 /**
  * Get a single cluster with activities.
- * Falls back to demo data when in demo mode.
+ * In demo mode, fetches from demo tables.
  */
 export const useCluster = (id: string) => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesCluster(id),
     queryFn: async () => {
-      // Check if this is a demo cluster
-      if (isDemoMode() && DEMO_CLUSTER_DETAILS[id]) {
-        return DEMO_CLUSTER_DETAILS[id];
+      // In demo mode, use demo endpoints
+      if (isDemoMode()) {
+        const response = await CareerStoriesService.getDemoClusterById(id);
+        if (response.success && response.data) {
+          return response.data;
+        }
+        throw new Error(response.error || 'Failed to fetch demo cluster');
       }
 
+      // Normal mode - get real cluster
       const response = await CareerStoriesService.getClusterById(id);
       if (response.success && response.data) {
         return response.data;
-      }
-
-      // Fall back to demo data if available
-      if (isDemoMode() && DEMO_CLUSTER_DETAILS[id]) {
-        return DEMO_CLUSTER_DETAILS[id];
       }
 
       throw new Error(response.error || 'Failed to fetch cluster');
@@ -280,7 +284,7 @@ export const useMergeClusters = () => {
 
 /**
  * Generate STAR narrative for a cluster.
- * Returns demo STAR when in demo mode.
+ * In demo mode, calls the demo endpoint which uses demo tables.
  *
  * @param clusterId - The cluster to generate a STAR from
  * @param request - Optional request options (personaId, polish settings)
@@ -290,28 +294,12 @@ export const useGenerateStar = () => {
 
   return useMutation({
     mutationFn: async ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) => {
-      const framework = request?.options?.framework || 'STAR';
-
-      // In demo mode, use pre-generated demo STAR data
-      // Demo clusters don't exist in the real database, so we can't call the real API
-      if (isDemoMode() && DEMO_STARS[clusterId]) {
-        // Simulate network delay for realism
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // Get the demo STAR and adapt labels based on framework
-        const demoStar = DEMO_STARS[clusterId];
-
-        // For non-STAR frameworks, we still show the same content but the UI will
-        // display it with the appropriate framework labels. The content structure
-        // (Situation→Context, Task→Objective, etc.) maps naturally across frameworks.
-        const demoResult: GenerateSTARResult = {
-          star: demoStar,
-          polishStatus: request?.options?.polish ? 'success' : 'skipped',
-          processingTimeMs: 1500,
-        };
-        return { success: true, data: demoResult };
+      // In demo mode, use demo endpoint
+      if (isDemoMode()) {
+        return CareerStoriesService.generateDemoStar(clusterId, request);
       }
 
+      // Normal mode - use real endpoint
       return CareerStoriesService.generateStar(clusterId, request);
     },
     onSuccess: (response, { clusterId }) => {
