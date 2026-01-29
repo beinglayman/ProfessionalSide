@@ -619,6 +619,37 @@ app.post('/api/v1/run-migrations', async (req, res) => {
   }
 });
 
+// TEMPORARY: Update billing costs
+app.post('/api/v1/update-billing-costs', async (req, res) => {
+  try {
+    // Update Pro plan to 30 credits/month
+    const proPlan = await prisma.subscriptionPlan.update({
+      where: { name: 'pro' },
+      data: { monthlyCredits: 30 },
+    });
+
+    // Update all feature costs to 1 credit
+    const features = await prisma.featureCost.updateMany({
+      data: { creditCost: 1 },
+    });
+
+    // Get updated data for confirmation
+    const allFeatures = await prisma.featureCost.findMany({
+      select: { featureCode: true, creditCost: true },
+    });
+
+    res.json({
+      success: true,
+      message: 'Billing costs updated',
+      proPlan: { name: proPlan.name, monthlyCredits: proPlan.monthlyCredits },
+      featuresUpdated: features.count,
+      features: allFeatures,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Debug endpoint to check user/profile data
 app.get('/api/v1/debug-profile', async (req, res) => {
   try {
