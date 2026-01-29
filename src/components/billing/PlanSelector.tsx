@@ -94,9 +94,20 @@ export function PlanSelector({ subscription, plans, onSubscriptionChange }: Plan
                   Current
                 </span>
               )}
-              <div className="flex items-center space-x-2 mb-2">
-                {!isFree && <Crown className="h-5 w-5 text-amber-500" />}
-                <h4 className="text-lg font-semibold text-gray-900">{plan.displayName}</h4>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  {!isFree && <Crown className="h-5 w-5 text-amber-500" />}
+                  <h4 className="text-lg font-semibold text-gray-900">{plan.displayName}</h4>
+                </div>
+                {!isFree && (
+                  <div className="text-right">
+                    <span className="text-xl font-bold text-gray-900">$9.99</span>
+                    <span className="text-sm text-gray-500">/mo</span>
+                  </div>
+                )}
+                {isFree && (
+                  <span className="text-xl font-bold text-gray-900">Free</span>
+                )}
               </div>
               <p className="text-sm text-gray-600 mb-3">
                 {plan.monthlyCredits > 0
