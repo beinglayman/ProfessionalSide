@@ -248,6 +248,178 @@ export function generateMockActivities(): ActivityInput[] {
         organizer: 'pm@acme.com',
       },
     },
+
+    // =========================================================================
+    // PARTICIPANT ENTRIES: User was tagged/mentioned (not initiator)
+    // These demonstrate evidence of collaboration and impact
+    // =========================================================================
+
+    // Jira: User was tagged as reviewer on someone else's ticket
+    {
+      source: 'jira',
+      sourceId: 'PLAT-500',
+      sourceUrl: 'https://acme.atlassian.net/browse/PLAT-500',
+      title: 'Implement rate limiting for API',
+      description: 'CC @honey.arora for security review. Blocked by AUTH-123 completion.',
+      timestamp: daysAgo(13),
+      rawData: {
+        key: 'PLAT-500',
+        status: 'In Review',
+        priority: 'High',
+        assignee: 'bob.chen',
+        watchers: ['honey.arora', 'security-team'],
+        mentions: ['honey.arora'],
+        storyPoints: 5,
+      },
+    },
+
+    // Jira: User mentioned in comments (pulling AUTH-123 into this cluster)
+    {
+      source: 'jira',
+      sourceId: 'SEC-100',
+      sourceUrl: 'https://acme.atlassian.net/browse/SEC-100',
+      title: 'Security audit for authentication module',
+      description: 'Audit the new OAuth2 implementation from AUTH-123. @honey.arora please provide architecture overview.',
+      timestamp: daysAgo(9),
+      rawData: {
+        key: 'SEC-100',
+        status: 'Done',
+        priority: 'Critical',
+        assignee: 'security-team',
+        mentions: ['honey.arora'],
+        comments: [
+          { author: 'security-lead', body: '@honey.arora can you walk us through the token storage?' },
+          { author: 'honey.arora', body: 'Sure, see the design doc confluence:987654' },
+        ],
+      },
+    },
+
+    // Confluence: User was tagged for review
+    {
+      source: 'confluence',
+      sourceId: '555444',
+      sourceUrl: 'https://acme.atlassian.net/wiki/spaces/ENG/pages/555444/API+Rate+Limiting+Design',
+      title: 'API Rate Limiting Design',
+      description: 'Design doc for PLAT-500. @honey.arora please review the security considerations section.',
+      timestamp: daysAgo(15),
+      rawData: {
+        pageId: '555444',
+        spaceKey: 'ENG',
+        version: 3,
+        createdBy: 'bob.chen',
+        lastModifiedBy: 'bob.chen',
+        mentions: ['honey.arora'],
+      },
+    },
+
+    // Outlook: User was invited to meeting (attendee, not organizer)
+    {
+      source: 'outlook',
+      sourceId: 'meeting-67890',
+      sourceUrl: null,
+      title: 'AUTH-123 Code Review Deep Dive',
+      description: 'Review session for OAuth2 implementation. Attendees: honey.arora, bob.chen, security-team',
+      timestamp: daysAgo(11),
+      rawData: {
+        meetingId: 'meeting-67890',
+        duration: 90,
+        organizer: 'bob.chen',
+        attendees: ['honey.arora', 'bob.chen', 'security-lead'],
+        userRole: 'attendee',  // User was invited, not organizer
+      },
+    },
+
+    // Slack: User was mentioned in thread about performance work
+    {
+      source: 'slack',
+      sourceId: 'thread-abc123',
+      sourceUrl: 'https://acme.slack.com/archives/C0ENGINEERING/p1234567890',
+      title: 'Thread in #engineering',
+      description: '@honey.arora your backend#55 changes fixed our dashboard! PERF-456 is looking good in staging.',
+      timestamp: daysAgo(4),
+      rawData: {
+        channelId: 'C0ENGINEERING',
+        channelName: 'engineering',
+        messageTs: '1234567890.123456',
+        threadTs: '1234567890.000000',
+        mentions: ['honey.arora'],
+        reactions: [{ name: 'tada', count: 5 }],
+      },
+    },
+
+    // Google Meet: User joined a meeting about their PR
+    {
+      source: 'google',
+      sourceId: 'meet-xyz-uvwx-stu',
+      sourceUrl: 'https://meet.google.com/xyz-uvwx-stu',
+      title: 'Backend PR Review - Performance Optimization',
+      description: 'Reviewing acme/backend#55 with the team. Agenda: https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit',
+      timestamp: daysAgo(5),
+      rawData: {
+        meetCode: 'xyz-uvwx-stu',
+        duration: 45,
+        organizer: 'tech-lead@acme.com',
+        participants: ['honey.arora', 'tech-lead', 'senior-dev'],
+      },
+    },
+
+    // Google Docs: User was tagged for feedback on a design doc
+    {
+      source: 'google',
+      sourceId: 'gdoc-1AbC123XYZ456_defGHI789jkl',
+      sourceUrl: 'https://docs.google.com/document/d/1AbC123XYZ456_defGHI789jkl/edit',
+      title: 'Microservices Migration Plan',
+      description: 'PLAT-500 depends on this. @honey.arora please review the auth service section.',
+      timestamp: daysAgo(16),
+      rawData: {
+        documentId: '1AbC123XYZ456_defGHI789jkl',
+        title: 'Microservices Migration Plan',
+        owner: 'architect@acme.com',
+        lastModifiedBy: 'architect@acme.com',
+        suggestedEditors: ['honey.arora'],
+        comments: [
+          { author: 'architect', body: '@honey.arora what do you think about the auth service boundaries?' },
+        ],
+      },
+    },
+
+    // GitHub: User was requested as reviewer
+    {
+      source: 'github',
+      sourceId: 'acme/backend#70',
+      sourceUrl: 'https://github.com/acme/backend/pull/70',
+      title: 'feat(auth): add MFA support',
+      description: 'Builds on AUTH-123 OAuth2 work. @honey.arora requesting review for security aspects.',
+      timestamp: daysAgo(3),
+      rawData: {
+        number: 70,
+        state: 'open',
+        author: 'bob.chen',
+        additions: 350,
+        deletions: 20,
+        changedFiles: 12,
+        requestedReviewers: ['honey.arora'],
+        reviews: [],
+        commits: 5,
+      },
+    },
+
+    // Figma: User was tagged in design feedback
+    {
+      source: 'figma',
+      sourceId: 'DesignFile999XYZ',
+      sourceUrl: 'https://www.figma.com/file/DesignFile999XYZ/Auth-Flow-Mockups',
+      title: 'Auth Flow Mockups',
+      description: 'UI mockups for AUTH-123 OAuth2 flow. @honey.arora please review the error states.',
+      timestamp: daysAgo(20),
+      rawData: {
+        file_key: 'DesignFile999XYZ',
+        fileName: 'Auth-Flow-Mockups',
+        lastModified: daysAgo(18).toISOString(),
+        owner: 'designer@acme.com',
+        commenters: ['honey.arora', 'product-manager'],
+      },
+    },
   ];
 }
 
