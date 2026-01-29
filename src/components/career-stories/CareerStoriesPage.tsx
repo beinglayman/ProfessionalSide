@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FlaskConical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult } from '../../types/career-stories';
 import {
@@ -21,6 +21,7 @@ import { ClusterStatus } from './ClusterCard';
 import { STARPreview } from './STARPreview';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
+import { isDemoMode, disableDemoMode } from '../../services/career-stories-demo-data';
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -118,9 +119,16 @@ export function CareerStoriesPage() {
   >({});
   // Mobile sheet open state - separate from selection since user might close sheet without deselecting
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  // Track if we're showing demo data
+  const [showingDemo, setShowingDemo] = useState(isDemoMode());
 
   // Queries
   const { data: clusters = [], isLoading: isLoadingClusters } = useClusters();
+
+  // Update demo mode state when clusters load
+  useEffect(() => {
+    setShowingDemo(isDemoMode());
+  }, [clusters]);
 
   // Mutations
   const generateClustersMutation = useGenerateClusters();
@@ -208,6 +216,32 @@ export function CareerStoriesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50" data-testid="career-stories-page">
+      {/* Demo Mode Banner */}
+      {showingDemo && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800">
+              <FlaskConical className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Demo Mode: Showing sample data for showcase purposes
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                disableDemoMode();
+                setShowingDemo(false);
+                window.location.reload();
+              }}
+              className="text-amber-700 hover:text-amber-900 text-xs"
+            >
+              Exit Demo
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -229,7 +263,7 @@ export function CareerStoriesPage() {
             <Button
               variant="outline"
               onClick={handleGenerateClusters}
-              disabled={generateClustersMutation.isPending}
+              disabled={generateClustersMutation.isPending || showingDemo}
               data-testid="header-generate-clusters"
               className="hidden lg:flex"
             >
