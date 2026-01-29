@@ -74,28 +74,11 @@ async function seedBilling() {
   }
 
   // ── Credit Products (Top-ups) ──────────────────────────────────────
-  // Note: razorpayPlanId values are placeholders.
-  // Replace with real Razorpay Plan IDs after creating products in Razorpay Dashboard.
 
   const products = [
-    {
-      name: '10 Credits',
-      credits: 10,
-      priceInCents: 299,
-      razorpayPlanId: process.env.RAZORPAY_TOPUP_10_PLAN_ID || 'plan_topup_10_placeholder',
-    },
-    {
-      name: '30 Credits',
-      credits: 30,
-      priceInCents: 699,
-      razorpayPlanId: process.env.RAZORPAY_TOPUP_30_PLAN_ID || 'plan_topup_30_placeholder',
-    },
-    {
-      name: '100 Credits',
-      credits: 100,
-      priceInCents: 1999,
-      razorpayPlanId: process.env.RAZORPAY_TOPUP_100_PLAN_ID || 'plan_topup_100_placeholder',
-    },
+    { name: 'small', credits: 10, priceInCents: 1000, razorpayPlanId: 'topup_small' },
+    { name: 'medium', credits: 30, priceInCents: 2000, razorpayPlanId: 'topup_medium' },
+    { name: 'large', credits: 50, priceInCents: 3000, razorpayPlanId: 'topup_large' },
   ];
 
   for (const product of products) {
@@ -114,7 +97,7 @@ async function seedBilling() {
   console.log('\n🎉 Billing seed complete!');
   console.log('   Plans: Free (5 credits/mo), Pro (30 credits/mo)');
   console.log('   Features: 4 features at 1 credit each');
-  console.log('   Top-ups: 10 ($2.99), 30 ($6.99), 100 ($19.99)');
+  console.log('   Top-ups: 10 ($10), 30 ($20), 50 ($30)');
   console.log('\n⚠️  Remember to replace placeholder Razorpay Plan IDs with real ones!');
 }
 

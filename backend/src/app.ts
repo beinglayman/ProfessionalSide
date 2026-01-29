@@ -619,31 +619,48 @@ app.post('/api/v1/run-migrations', async (req, res) => {
   }
 });
 
-// TEMPORARY: Update billing costs
+// TEMPORARY: Update billing costs and products
 app.post('/api/v1/update-billing-costs', async (req, res) => {
   try {
-    // Update Pro plan to 30 credits/month
+    // 1. Update Pro plan to 30 credits/month
     const proPlan = await prisma.subscriptionPlan.update({
       where: { name: 'pro' },
       data: { monthlyCredits: 30 },
     });
 
-    // Update all feature costs to 1 credit
-    const features = await prisma.featureCost.updateMany({
+    // 2. Update all feature costs to 1 credit
+    await prisma.featureCost.updateMany({
       data: { creditCost: 1 },
     });
+
+    // 3. Delete all existing credit products
+    await prisma.creditProduct.deleteMany({});
+
+    // 4. Create new credit products with new pricing
+    const newProducts = [
+      { name: 'small', credits: 10, priceInCents: 1000, razorpayPlanId: 'topup_small', isActive: true },
+      { name: 'medium', credits: 30, priceInCents: 2000, razorpayPlanId: 'topup_medium', isActive: true },
+      { name: 'large', credits: 50, priceInCents: 3000, razorpayPlanId: 'topup_large', isActive: true },
+    ];
+
+    for (const product of newProducts) {
+      await prisma.creditProduct.create({ data: product });
+    }
 
     // Get updated data for confirmation
     const allFeatures = await prisma.featureCost.findMany({
       select: { featureCode: true, creditCost: true },
     });
+    const allProducts = await prisma.creditProduct.findMany({
+      select: { name: true, credits: true, priceInCents: true },
+    });
 
     res.json({
       success: true,
-      message: 'Billing costs updated',
+      message: 'Billing configuration updated',
       proPlan: { name: proPlan.name, monthlyCredits: proPlan.monthlyCredits },
-      featuresUpdated: features.count,
       features: allFeatures,
+      products: allProducts,
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
