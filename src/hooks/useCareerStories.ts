@@ -106,15 +106,15 @@ export const useUnclusteredActivities = () => {
  * In demo mode, fetches from demo tables. Otherwise, fetches from real tables.
  */
 export const useClusters = () => {
-  return useQuery({
+  const query = useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
       // Normal mode - try to get real clusters first
       try {
         const response = await CareerStoriesService.getClusters();
         if (response.success && response.data && response.data.length > 0) {
-          // Has real clusters - ensure demo mode is off
-          return response.data;
+          // Has real clusters
+          return { clusters: response.data, isDemo: false };
         }
       } catch {
         // API error - fall through to demo mode
@@ -122,9 +122,15 @@ export const useClusters = () => {
 
       // No real clusters - enable demo mode so user sees the option to create demo stories
       enableDemoMode();
-      return [];
+      return { clusters: [], isDemo: true };
     },
   });
+
+  return {
+    ...query,
+    data: query.data?.clusters ?? [],
+    isDemo: query.data?.isDemo ?? false,
+  };
 };
 
 /**
