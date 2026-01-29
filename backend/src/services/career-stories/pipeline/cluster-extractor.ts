@@ -26,6 +26,7 @@ import {
   ClusterExtractionOptions,
   ClusterableActivity,
   Cluster,
+  WarningCodes,
 } from './types';
 
 export class ClusterExtractor
@@ -73,7 +74,7 @@ export class ClusterExtractor
 
       if (activities.length < input.activities.length) {
         warnings.push({
-          code: 'DATE_FILTERED',
+          code: WarningCodes.DATE_FILTERED,
           message: `Filtered ${input.activities.length - activities.length} activities outside date range`,
           context: {
             original: input.activities.length,
@@ -99,7 +100,7 @@ export class ClusterExtractor
     );
     if (noRefActivities.length > 0) {
       warnings.push({
-        code: 'ACTIVITIES_WITHOUT_REFS',
+        code: WarningCodes.ACTIVITIES_WITHOUT_REFS,
         message: `${noRefActivities.length} activities have no refs and cannot cluster`,
         context: { activityIds: noRefActivities.slice(0, 5).map((a) => a.id) },
       });
@@ -324,7 +325,7 @@ export class ClusterExtractor
     ] as string[];
 
     return {
-      id: `cluster-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `cluster-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       activityIds,
       sharedRefs,
       metrics: {

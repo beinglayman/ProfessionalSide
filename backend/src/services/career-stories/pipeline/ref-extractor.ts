@@ -26,8 +26,25 @@ import {
   PatternMatch,
   PatternAnalysis,
   ConfidenceLevel,
+  RefPattern,
+  WarningCodes,
+  ErrorCodes,
 } from './types';
 import { PatternRegistry, patternRegistry } from './pattern-registry';
+
+/**
+ * Configuration constants for RefExtractor
+ */
+const CONFIG = {
+  /** Characters of context to show around matches in diagnostics */
+  CONTEXT_RADIUS: 40,
+
+  /** Maximum text length to process (characters). Larger texts are truncated with warning. */
+  MAX_TEXT_LENGTH: 1_000_000, // 1MB of text
+
+  /** Preview length for debug output */
+  DEBUG_PREVIEW_LENGTH: 500,
+} as const;
 
 export class RefExtractor
   implements
@@ -68,119 +85,48 @@ export class RefExtractor
     options: RefExtractionOptions = {}
   ): ProcessorResult<RefExtractionOutput> {
     const startTime = performance.now();
-    const warnings: ProcessorWarning[] = [];
-    const errors: ProcessorError[] = [];
 
-    // Combine all text sources
-    const texts = [...input.texts];
-    if (options.includeSourceUrl && input.sourceUrl) {
-      texts.push(input.sourceUrl);
-    }
+    // Step 1: Prepare input text
+    const { text, warnings, textCount } = this.prepareInput(input, options);
 
-    const combinedText = texts.filter(Boolean).join('\n');
-
-    if (!combinedText) {
+    if (!text) {
       return this.emptyResult(startTime, options);
     }
 
-    // Select patterns based on options
+    // Step 2: Select and validate patterns
     const patterns = this.selectPatterns(options);
 
     if (patterns.length === 0) {
       warnings.push({
-        code: 'NO_PATTERNS',
+        code: WarningCodes.NO_PATTERNS,
         message: 'No patterns match the specified filters',
         context: { options },
       });
       return this.emptyResult(startTime, options, warnings);
     }
 
-    // Extract matches
-    const allMatches: PatternMatch[] = [];
-    const patternAnalysis: PatternAnalysis[] = [];
+    // Step 3: Run pattern matching
+    const { matches, patternAnalysis, errors } = this.runPatterns(
+      text,
+      patterns,
+      options.debug ?? false
+    );
 
-    for (const pattern of patterns) {
-      try {
-        pattern.regex.lastIndex = 0;
-        const matches = Array.from(combinedText.matchAll(pattern.regex));
+    // Step 4: Deduplicate and build result
+    const { uniqueRefs, uniqueMatches } = this.deduplicateMatches(matches);
 
-        if (matches.length === 0) {
-          patternAnalysis.push({
-            patternId: pattern.id,
-            matchCount: 0,
-            noMatchReason: 'regex-no-match',
-            nearMisses: options.debug
-              ? this.findNearMisses(combinedText, pattern.id)
-              : undefined,
-          });
-          continue;
-        }
-
-        patternAnalysis.push({
-          patternId: pattern.id,
-          matchCount: matches.length,
-        });
-
-        for (const match of matches) {
-          const ref = pattern.normalizeMatch(match);
-          allMatches.push({
-            ref,
-            patternId: pattern.id,
-            confidence: pattern.confidence,
-            location: {
-              start: match.index!,
-              end: match.index! + match[0].length,
-              context: this.extractContext(combinedText, match.index!, 40),
-            },
-            rawMatch: match[0],
-          });
-        }
-      } catch (error) {
-        errors.push({
-          code: 'PATTERN_ERROR',
-          message: `Pattern ${pattern.id} threw error: ${error}`,
-          recoverable: true,
-          context: { patternId: pattern.id },
-        });
-      }
-    }
-
-    // Deduplicate refs
-    const seenRefs = new Set<string>();
-    const uniqueRefs: string[] = [];
-    const uniqueMatches: PatternMatch[] = [];
-
-    for (const match of allMatches) {
-      if (!seenRefs.has(match.ref)) {
-        seenRefs.add(match.ref);
-        uniqueRefs.push(match.ref);
-        uniqueMatches.push(match);
-      }
-    }
-
-    const processingTimeMs = performance.now() - startTime;
-
-    const diagnostics: ProcessorDiagnostics = {
-      processor: this.name,
-      processingTimeMs,
-      inputMetrics: {
-        textCount: texts.length,
-        totalLength: combinedText.length,
-      },
-      outputMetrics: {
-        refCount: uniqueRefs.length,
-        matchCount: allMatches.length,
-        patternsMatched: patternAnalysis.filter((a) => a.matchCount > 0).length,
-      },
-    };
-
-    if (options.debug) {
-      diagnostics.debug = {
-        patternAnalysis,
-        patternsAttempted: patterns.map((p) => p.id),
-        textPreview: combinedText.substring(0, 500),
-      };
-    }
+    // Step 5: Build diagnostics
+    const diagnostics = this.buildDiagnostics(
+      startTime,
+      textCount,
+      text.length,
+      uniqueRefs.length,
+      matches.length,
+      patternAnalysis,
+      patterns,
+      text,
+      options.debug ?? false
+    );
 
     return {
       data: {
@@ -192,6 +138,163 @@ export class RefExtractor
       warnings,
       errors,
     };
+  }
+
+  // ===========================================================================
+  // PROCESS HELPER METHODS (extracted for readability)
+  // ===========================================================================
+
+  /**
+   * Prepare input: combine texts, apply size guard
+   */
+  private prepareInput(
+    input: RefExtractionInput,
+    options: RefExtractionOptions
+  ): { text: string; warnings: ProcessorWarning[]; textCount: number } {
+    const warnings: ProcessorWarning[] = [];
+    const texts = [...input.texts];
+
+    if (options.includeSourceUrl && input.sourceUrl) {
+      texts.push(input.sourceUrl);
+    }
+
+    let text = texts.filter(Boolean).join('\n');
+
+    // Guard against excessively large inputs
+    if (text.length > CONFIG.MAX_TEXT_LENGTH) {
+      warnings.push({
+        code: WarningCodes.TEXT_TRUNCATED,
+        message: `Input text truncated from ${text.length} to ${CONFIG.MAX_TEXT_LENGTH} characters`,
+        context: { originalLength: text.length },
+      });
+      text = text.substring(0, CONFIG.MAX_TEXT_LENGTH);
+    }
+
+    return { text, warnings, textCount: texts.length };
+  }
+
+  /**
+   * Run all patterns against text, collect matches and errors
+   */
+  private runPatterns(
+    text: string,
+    patterns: RefPattern[],
+    debug: boolean
+  ): {
+    matches: PatternMatch[];
+    patternAnalysis: PatternAnalysis[];
+    errors: ProcessorError[];
+  } {
+    const matches: PatternMatch[] = [];
+    const patternAnalysis: PatternAnalysis[] = [];
+    const errors: ProcessorError[] = [];
+
+    for (const pattern of patterns) {
+      try {
+        pattern.regex.lastIndex = 0;
+        const regexMatches = Array.from(text.matchAll(pattern.regex));
+
+        if (regexMatches.length === 0) {
+          patternAnalysis.push({
+            patternId: pattern.id,
+            matchCount: 0,
+            noMatchReason: 'regex-no-match',
+            nearMisses: debug ? this.findNearMisses(text, pattern.id) : undefined,
+          });
+          continue;
+        }
+
+        patternAnalysis.push({
+          patternId: pattern.id,
+          matchCount: regexMatches.length,
+        });
+
+        for (const match of regexMatches) {
+          const ref = pattern.normalizeMatch(match);
+          matches.push({
+            ref,
+            patternId: pattern.id,
+            confidence: pattern.confidence,
+            location: {
+              start: match.index!,
+              end: match.index! + match[0].length,
+              context: this.extractContext(text, match.index!, CONFIG.CONTEXT_RADIUS),
+            },
+            rawMatch: match[0],
+          });
+        }
+      } catch (error) {
+        errors.push({
+          code: ErrorCodes.PATTERN_ERROR,
+          message: `Pattern ${pattern.id} threw error: ${error}`,
+          recoverable: true,
+          context: { patternId: pattern.id },
+        });
+      }
+    }
+
+    return { matches, patternAnalysis, errors };
+  }
+
+  /**
+   * Deduplicate matches by ref
+   */
+  private deduplicateMatches(matches: PatternMatch[]): {
+    uniqueRefs: string[];
+    uniqueMatches: PatternMatch[];
+  } {
+    const seenRefs = new Set<string>();
+    const uniqueRefs: string[] = [];
+    const uniqueMatches: PatternMatch[] = [];
+
+    for (const match of matches) {
+      if (!seenRefs.has(match.ref)) {
+        seenRefs.add(match.ref);
+        uniqueRefs.push(match.ref);
+        uniqueMatches.push(match);
+      }
+    }
+
+    return { uniqueRefs, uniqueMatches };
+  }
+
+  /**
+   * Build diagnostics object
+   */
+  private buildDiagnostics(
+    startTime: number,
+    textCount: number,
+    totalLength: number,
+    refCount: number,
+    matchCount: number,
+    patternAnalysis: PatternAnalysis[],
+    patterns: RefPattern[],
+    text: string,
+    debug: boolean
+  ): ProcessorDiagnostics {
+    const diagnostics: ProcessorDiagnostics = {
+      processor: this.name,
+      processingTimeMs: performance.now() - startTime,
+      inputMetrics: {
+        textCount,
+        totalLength,
+      },
+      outputMetrics: {
+        refCount,
+        matchCount,
+        patternsMatched: patternAnalysis.filter((a) => a.matchCount > 0).length,
+      },
+    };
+
+    if (debug) {
+      diagnostics.debug = {
+        patternAnalysis,
+        patternsAttempted: patterns.map((p) => p.id),
+        textPreview: text.substring(0, CONFIG.DEBUG_PREVIEW_LENGTH),
+      };
+    }
+
+    return diagnostics;
   }
 
   // ===========================================================================

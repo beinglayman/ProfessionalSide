@@ -79,6 +79,38 @@ export interface ProcessorError {
 }
 
 // =============================================================================
+// WARNING AND ERROR CODES
+// =============================================================================
+
+/**
+ * Standard warning codes used by pipeline processors.
+ * Use these constants instead of magic strings.
+ */
+export const WarningCodes = {
+  /** Input text was truncated due to size limits */
+  TEXT_TRUNCATED: 'TEXT_TRUNCATED',
+  /** No patterns matched the specified filters */
+  NO_PATTERNS: 'NO_PATTERNS',
+  /** Activities filtered out by date range */
+  DATE_FILTERED: 'DATE_FILTERED',
+  /** Some activities have no refs and cannot cluster */
+  ACTIVITIES_WITHOUT_REFS: 'ACTIVITIES_WITHOUT_REFS',
+} as const;
+
+/**
+ * Standard error codes used by pipeline processors.
+ */
+export const ErrorCodes = {
+  /** A pattern threw an error during execution */
+  PATTERN_ERROR: 'PATTERN_ERROR',
+  /** Pattern validation failed */
+  PATTERN_VALIDATION_FAILED: 'PATTERN_VALIDATION_FAILED',
+} as const;
+
+export type WarningCode = (typeof WarningCodes)[keyof typeof WarningCodes];
+export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+
+// =============================================================================
 // REF EXTRACTOR TYPES
 // =============================================================================
 
