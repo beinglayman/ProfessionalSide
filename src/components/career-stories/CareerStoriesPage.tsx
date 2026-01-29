@@ -17,6 +17,7 @@ import {
   useCluster,
   useGenerateClusters,
   useGenerateStar,
+  useRunFullPipeline,
 } from '../../hooks/useCareerStories';
 import { ClusterList } from './ClusterList';
 import { ClusterStatus } from './ClusterCard';
@@ -147,6 +148,22 @@ export function CareerStoriesPage() {
   // Mutations
   const generateClustersMutation = useGenerateClusters();
   const generateStarMutation = useGenerateStar();
+  const runFullPipelineMutation = useRunFullPipeline();
+
+  // Handler to switch from demo to live API with real data
+  const handleSwitchToLiveAPI = useCallback(async () => {
+    try {
+      // Run full pipeline to seed real data and create clusters in DB
+      await runFullPipelineMutation.mutateAsync();
+      // Disable demo mode
+      disableDemoMode();
+      setShowingDemo(false);
+      // Reload to fetch real data
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to switch to live API:', error);
+    }
+  }, [runFullPipelineMutation]);
 
   // Handlers - define handleGenerateStar first since handleSelectCluster depends on it
   const handleGenerateStar = useCallback(
@@ -289,18 +306,29 @@ export function CareerStoriesPage() {
                 Demo Mode: Showing sample data for showcase purposes
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                disableDemoMode();
-                setShowingDemo(false);
-                window.location.reload();
-              }}
-              className="text-amber-700 hover:text-amber-900 text-xs"
-            >
-              Exit Demo
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSwitchToLiveAPI}
+                disabled={runFullPipelineMutation.isPending}
+                className="text-blue-700 hover:text-blue-900 text-xs border-blue-300 hover:border-blue-400"
+              >
+                {runFullPipelineMutation.isPending ? 'Seeding Data...' : 'Switch to Live API'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  disableDemoMode();
+                  setShowingDemo(false);
+                  window.location.reload();
+                }}
+                className="text-amber-700 hover:text-amber-900 text-xs"
+              >
+                Exit Demo
+              </Button>
+            </div>
           </div>
         </div>
       )}
