@@ -653,7 +653,7 @@ app.post('/api/v1/seed-billing-razorpay', async (req, res) => {
       });
     }
 
-    // Upsert credit products (top-ups) - no razorpayPlanId needed for one-time purchases
+    // Upsert credit products (top-ups) - razorpayPlanId is unique key
     const products = [
       { name: 'starter', credits: 50, priceInCents: 499, razorpayPlanId: 'topup_starter' },
       { name: 'popular', credits: 150, priceInCents: 999, razorpayPlanId: 'topup_popular' },
@@ -662,8 +662,8 @@ app.post('/api/v1/seed-billing-razorpay', async (req, res) => {
 
     for (const product of products) {
       await prisma.creditProduct.upsert({
-        where: { name: product.name },
-        update: product,
+        where: { razorpayPlanId: product.razorpayPlanId },
+        update: { name: product.name, credits: product.credits, priceInCents: product.priceInCents },
         create: { ...product, isActive: true },
       });
     }
