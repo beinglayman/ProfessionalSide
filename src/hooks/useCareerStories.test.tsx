@@ -10,6 +10,7 @@ import {
   useCareerStoriesStats,
 } from './useCareerStories';
 import { CareerStoriesService } from '../services/career-stories.service';
+import { disableDemoMode } from '../services/career-stories-demo-data';
 
 // Mock the service
 vi.mock('../services/career-stories.service');
@@ -33,10 +34,13 @@ const createWrapper = () => {
 describe('useCareerStories Hooks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Ensure demo mode is disabled for tests
+    disableDemoMode();
   });
 
   afterEach(() => {
     vi.resetAllMocks();
+    disableDemoMode();
   });
 
   describe('useClusters', () => {
@@ -63,7 +67,7 @@ describe('useCareerStories Hooks', () => {
       expect(mockCareerStoriesService.getClusters).toHaveBeenCalledTimes(1);
     });
 
-    it('handles error response', async () => {
+    it('falls back to demo data on error response', async () => {
       mockCareerStoriesService.getClusters.mockResolvedValue({
         success: false,
         error: 'Failed to fetch clusters',
@@ -73,11 +77,14 @@ describe('useCareerStories Hooks', () => {
         wrapper: createWrapper(),
       });
 
+      // Should succeed with demo data fallback
       await waitFor(() => {
-        expect(result.current.isError).toBe(true);
+        expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(result.current.error).toBeDefined();
+      // Should have demo clusters (3 of them)
+      expect(result.current.data).toBeDefined();
+      expect(result.current.data?.length).toBe(3);
     });
   });
 

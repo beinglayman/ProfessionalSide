@@ -134,19 +134,7 @@ export function CareerStoriesPage() {
   const generateClustersMutation = useGenerateClusters();
   const generateStarMutation = useGenerateStar();
 
-  // Handlers
-  const handleSelectCluster = useCallback((cluster: Cluster) => {
-    setSelectedCluster(cluster);
-    // Open mobile sheet on mobile (below desktop breakpoint)
-    if (window.innerWidth < BREAKPOINTS.DESKTOP) {
-      setMobileSheetOpen(true);
-    }
-  }, []);
-
-  const handleGenerateClusters = useCallback(() => {
-    generateClustersMutation.mutate({});
-  }, [generateClustersMutation]);
-
+  // Handlers - define handleGenerateStar first since handleSelectCluster depends on it
   const handleGenerateStar = useCallback(
     (clusterId: string) => {
       // Update status to generating
@@ -196,6 +184,26 @@ export function CareerStoriesPage() {
     },
     [generateStarMutation, polishEnabled]
   );
+
+  const handleSelectCluster = useCallback((cluster: Cluster) => {
+    setSelectedCluster(cluster);
+
+    // Open mobile sheet on mobile (below desktop breakpoint)
+    if (window.innerWidth < BREAKPOINTS.DESKTOP) {
+      setMobileSheetOpen(true);
+    }
+
+    // Auto-generate STAR if not already generated (for demo mode especially)
+    const existingStatus = clusterStatuses[cluster.id];
+    if (!existingStatus || existingStatus.status === 'idle') {
+      // Auto-trigger generation
+      handleGenerateStar(cluster.id);
+    }
+  }, [clusterStatuses, handleGenerateStar]);
+
+  const handleGenerateClusters = useCallback(() => {
+    generateClustersMutation.mutate({});
+  }, [generateClustersMutation]);
 
   const handleRegenerate = useCallback(() => {
     if (selectedCluster) {

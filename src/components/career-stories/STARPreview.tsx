@@ -60,12 +60,8 @@ const STARSection: React.FC<STARSectionProps> = ({
         <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
           {label}
         </h4>
-        <div className="flex items-center gap-2">
-          <ConfidenceDot confidence={component.confidence} />
-          <span className="text-xs text-gray-500">
-            ({component.confidence.toFixed(2)})
-          </span>
-        </div>
+        {/* Show confidence dot only - no numeric score to avoid confusing users */}
+        <ConfidenceDot confidence={component.confidence} />
       </div>
       {isEditing ? (
         <textarea
@@ -401,11 +397,11 @@ export function STARPreview({
           </div>
         </div>
 
-        {/* Processing time */}
-        {result.processingTimeMs && (
-          <p className="text-xs text-gray-400 text-right">
-            Generated in {result.processingTimeMs}ms
-            {result.polishStatus && ` • Polish: ${result.polishStatus}`}
+        {/* Processing status - only show polish success indicator, not technical details */}
+        {result.polishStatus === 'success' && (
+          <p className="text-xs text-gray-400 text-right flex items-center justify-end gap-1">
+            <Check className="h-3 w-3 text-green-500" />
+            AI polished
           </p>
         )}
       </CardContent>

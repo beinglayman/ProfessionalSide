@@ -52,34 +52,41 @@ test.describe('Career Stories Screenshots', () => {
       }
     }
 
-    // Click first cluster if exists
+    // Click first cluster if exists - this now auto-generates STAR
     const clusterCard = page.locator('[data-testid^="cluster-card-"]').first();
     if (await clusterCard.isVisible()) {
       console.log('Selecting cluster...');
       await clusterCard.click();
-      await page.waitForTimeout(1000);
 
+      // Brief wait to capture loading state
+      await page.waitForTimeout(500);
       await page.screenshot({
         path: 'screenshots/career-stories-03-cluster-selected.png',
         fullPage: true
       });
       console.log('Captured: career-stories-03-cluster-selected.png');
 
-      // Try to generate STAR
-      const generateStarBtn = page.locator('[data-testid^="generate-star-"]').first();
-      if (await generateStarBtn.isVisible()) {
-        console.log('Generating STAR...');
-        await generateStarBtn.click();
-
-        // Wait for generation (can take a few seconds)
-        await page.waitForTimeout(8000);
-
-        await page.screenshot({
-          path: 'screenshots/career-stories-04-star-generated.png',
-          fullPage: true
-        });
-        console.log('Captured: career-stories-04-star-generated.png');
+      // Wait for STAR to be generated (auto-generates on click)
+      console.log('Waiting for STAR generation...');
+      try {
+        // Wait for the STAR preview to show actual content (SITUATION header)
+        await page.waitForSelector('[data-testid="star-preview"]', { timeout: 10000 });
+        await page.waitForTimeout(500); // Extra time for content to render
+      } catch {
+        // If auto-generate didn't happen, try manual generate
+        const generateStarBtn = page.locator('[data-testid^="generate-star-"]').first();
+        if (await generateStarBtn.isVisible()) {
+          console.log('Generating STAR manually...');
+          await generateStarBtn.click();
+          await page.waitForTimeout(3000);
+        }
       }
+
+      await page.screenshot({
+        path: 'screenshots/career-stories-04-star-generated.png',
+        fullPage: true
+      });
+      console.log('Captured: career-stories-04-star-generated.png');
     }
 
     // Mobile view
