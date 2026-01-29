@@ -3,31 +3,21 @@
  *
  * Displays a cluster summary with activity count, date range, and tool icons.
  * Supports selection state and STAR generation status.
+ *
+ * Accessibility:
+ * - Uses role="option" for listbox pattern
+ * - Supports keyboard navigation (Enter/Space to select)
+ * - Provides aria-selected state
  */
 
 import React from 'react';
 import { format } from 'date-fns';
 import { CheckCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Cluster, ToolType, TOOL_ICONS } from '../../types/career-stories';
+import { Cluster, ToolType } from '../../types/career-stories';
 import { Button } from '../ui/button';
-
-// Tool icons using Lucide (simplified - in production use actual brand icons)
-const ToolIcon: React.FC<{ tool: ToolType; className?: string }> = ({ tool, className }) => {
-  const { name, color } = TOOL_ICONS[tool];
-
-  // Simple colored circle with letter for now
-  return (
-    <span
-      className={cn('inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white', className)}
-      style={{ backgroundColor: color }}
-      title={name}
-      aria-label={name}
-    >
-      {name.charAt(0)}
-    </span>
-  );
-};
+import { ToolIcon } from './ToolIcon';
+import { DISPLAY_LIMITS } from './constants';
 
 export type ClusterStatus = 'idle' | 'generating' | 'ready' | 'error';
 
@@ -133,11 +123,11 @@ export function ClusterCard({
 
       {/* Tool icons */}
       <div className="flex items-center gap-1 mb-3">
-        {toolTypes.slice(0, 4).map((tool, idx) => (
+        {toolTypes.slice(0, DISPLAY_LIMITS.TOOL_ICONS_CLUSTER).map((tool, idx) => (
           <ToolIcon key={`${tool}-${idx}`} tool={tool} />
         ))}
-        {toolTypes.length > 4 && (
-          <span className="text-xs text-gray-400">+{toolTypes.length - 4}</span>
+        {toolTypes.length > DISPLAY_LIMITS.TOOL_ICONS_CLUSTER && (
+          <span className="text-xs text-gray-400">+{toolTypes.length - DISPLAY_LIMITS.TOOL_ICONS_CLUSTER}</span>
         )}
       </div>
 

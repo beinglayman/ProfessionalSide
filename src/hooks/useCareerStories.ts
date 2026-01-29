@@ -2,6 +2,19 @@
  * Career Stories React Query Hooks
  *
  * Hooks for fetching and mutating career stories data.
+ *
+ * Query Key Strategy:
+ * - All keys prefixed with 'career-stories' for easy invalidation
+ * - Cluster list uses array key for collection
+ * - Individual cluster uses factory function for ID-based key
+ *
+ * Cache Invalidation:
+ * - Mutations invalidate related queries for consistency
+ * - generateStar invalidates cluster queries to update STAR status
+ * - generateClusters invalidates stats and unclustered activities
+ *
+ * TODO: Add retry logic for network failures
+ * TODO: Consider staleTime optimization for frequently accessed data
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -231,14 +244,17 @@ export const useMergeClusters = () => {
 // =============================================================================
 
 /**
- * Generate STAR narrative for a cluster
+ * Generate STAR narrative for a cluster.
+ *
+ * @param clusterId - The cluster to generate a STAR from
+ * @param request - Optional request options (personaId, polish settings)
  */
 export const useGenerateStar = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ clusterId, options }: { clusterId: string; options?: GenerateSTARRequest }) =>
-      CareerStoriesService.generateStar(clusterId, options),
+    mutationFn: ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) =>
+      CareerStoriesService.generateStar(clusterId, request),
     onSuccess: (response, { clusterId }) => {
       if (response.success) {
         // Invalidate cluster to get updated data

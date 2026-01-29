@@ -3,36 +3,29 @@
  *
  * Displays the generated STAR narrative with confidence indicators.
  * Supports editing, regeneration, and polish toggle.
+ *
+ * States:
+ * - Loading: Shows skeleton placeholders during generation
+ * - Error: Shows validation failure message with failed gates
+ * - Placeholder: Shows when no cluster is selected
+ * - Success: Shows full STAR narrative with edit capabilities
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { RefreshCw, Check, Edit2, Copy, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { STARComponent, ToolType, TOOL_ICONS, GenerateSTARResult } from '../../types/career-stories';
+import { STARComponent, ToolType, GenerateSTARResult } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-
-// Tool icon component
-const ToolIcon: React.FC<{ tool: ToolType; className?: string }> = ({ tool, className }) => {
-  const { name, color } = TOOL_ICONS[tool];
-  return (
-    <span
-      className={cn('inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white', className)}
-      style={{ backgroundColor: color }}
-      title={name}
-      aria-label={name}
-    >
-      {name.charAt(0)}
-    </span>
-  );
-};
+import { ToolIcon } from './ToolIcon';
+import { TIMING, DISPLAY_LIMITS, CONFIDENCE_THRESHOLDS } from './constants';
 
 // Confidence dot component
 const ConfidenceDot: React.FC<{ confidence: number }> = ({ confidence }) => {
   const getColor = () => {
-    if (confidence >= 0.8) return 'bg-green-500';
-    if (confidence >= 0.5) return 'bg-yellow-500';
+    if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'bg-green-500';
+    if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
@@ -91,15 +84,26 @@ const STARSection: React.FC<STARSectionProps> = ({
 };
 
 interface STARPreviewProps {
+  /** Display name for the cluster */
   clusterName: string;
+  /** Number of activities in the cluster */
   activityCount: number;
+  /** Date range of activities (ISO strings) */
   dateRange?: { earliest: string; latest: string };
+  /** Tool types for displaying icons */
   toolTypes: ToolType[];
+  /** Generation result - null when not yet generated */
   result: GenerateSTARResult | null;
+  /** Whether STAR is currently being generated */
   isLoading: boolean;
+  /** Whether AI polish is enabled for regeneration */
   polishEnabled: boolean;
+  /** Callback when polish toggle changes */
   onPolishToggle: (enabled: boolean) => void;
+  /** Callback to regenerate the STAR */
   onRegenerate: () => void;
+  /** Optional callback to save user edits - not yet connected to backend */
+  // TODO: Implement save functionality in Phase 3
   onSave?: (edits: { situation?: string; task?: string; action?: string; result?: string }) => void;
 }
 
@@ -117,6 +121,7 @@ export function STARPreview({
 }: STARPreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [edits, setEdits] = useState({
     situation: '',
     task: '',
@@ -124,10 +129,13 @@ export function STARPreview({
     result: '',
   });
 
+  // Ref to track timeout for cleanup
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const star = result?.star;
 
   // Initialize edits when star is loaded
-  React.useEffect(() => {
+  useEffect(() => {
     if (star) {
       setEdits({
         situation: star.situation.text,
@@ -138,21 +146,63 @@ export function STARPreview({
     }
   }, [star]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const formatDateRange = () => {
     if (!dateRange) return '';
-    const earliest = new Date(dateRange.earliest);
-    const latest = new Date(dateRange.latest);
-    return `${format(earliest, 'MMM d')} - ${format(latest, 'MMM d')}`;
+    try {
+      const earliest = new Date(dateRange.earliest);
+      const latest = new Date(dateRange.latest);
+      // Validate dates are valid
+      if (isNaN(earliest.getTime()) || isNaN(latest.getTime())) {
+        return '';
+      }
+      return `${format(earliest, 'MMM d')} - ${format(latest, 'MMM d')}`;
+    } catch {
+      return '';
+    }
   };
 
+  /**
+   * Copy STAR narrative to clipboard.
+   * Handles clipboard API failures gracefully.
+   */
   const handleCopy = async () => {
     if (!star) return;
 
     const text = `SITUATION:\n${star.situation.text}\n\nTASK:\n${star.task.text}\n\nACTION:\n${star.action.text}\n\nRESULT:\n${star.result.text}`;
 
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyError(false);
+
+      // Clear any existing timeout
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+
+      // Reset copied state after delay
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopied(false);
+      }, TIMING.COPY_FEEDBACK_MS);
+    } catch (err) {
+      // Clipboard API can fail due to permissions or browser support
+      console.warn('Failed to copy to clipboard:', err);
+      setCopyError(true);
+
+      // Reset error state after delay
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopyError(false);
+      }, TIMING.COPY_FEEDBACK_MS);
+    }
   };
 
   const handleSave = () => {
@@ -252,7 +302,7 @@ export function STARPreview({
               <span>{formatDateRange()}</span>
               <span>•</span>
               <div className="flex items-center gap-1">
-                {toolTypes.slice(0, 3).map((tool, idx) => (
+                {toolTypes.slice(0, DISPLAY_LIMITS.TOOL_ICONS_PREVIEW).map((tool, idx) => (
                   <ToolIcon key={`${tool}-${idx}`} tool={tool} className="w-4 h-4 text-[8px]" />
                 ))}
               </div>
@@ -272,8 +322,15 @@ export function STARPreview({
               size="sm"
               onClick={handleCopy}
               data-testid="copy-star"
+              aria-label={copied ? 'Copied to clipboard' : 'Copy to clipboard'}
             >
-              {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              {copied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : copyError ? (
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>

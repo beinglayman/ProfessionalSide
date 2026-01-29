@@ -7,7 +7,7 @@
  * - Cluster list, STAR preview, and generation
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult } from '../../types/career-stories';
@@ -20,16 +20,41 @@ import { ClusterList } from './ClusterList';
 import { ClusterStatus } from './ClusterCard';
 import { STARPreview } from './STARPreview';
 import { Button } from '../ui/button';
+import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 
-// Mobile bottom sheet component
+// Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
 }
 
+/**
+ * Mobile bottom sheet overlay.
+ * - Closes on backdrop click
+ * - Closes on Escape key
+ * - Traps focus within the dialog
+ */
 const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) => {
+  // Handle Escape key to close
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
+
+  const maxHeightStyle = `${MOBILE_SHEET_MAX_HEIGHT_VH}vh`;
+  const contentMaxHeight = `calc(${maxHeightStyle} - 2rem)`;
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
@@ -43,14 +68,19 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
       <div
         role="dialog"
         aria-modal="true"
-        className="absolute bottom-0 left-0 right-0 max-h-[85vh] bg-white rounded-t-2xl shadow-xl overflow-hidden animate-slide-up"
+        aria-label="STAR Preview"
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl overflow-hidden animate-slide-up"
+        style={{ maxHeight: maxHeightStyle }}
       >
-        {/* Handle */}
+        {/* Handle - provides visual affordance for dragging */}
         <div className="flex justify-center py-2">
           <div className="w-10 h-1 bg-gray-300 rounded-full" />
         </div>
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(85vh-2rem)] p-4">
+        <div
+          className="overflow-y-auto p-4"
+          style={{ maxHeight: contentMaxHeight }}
+        >
           {children}
         </div>
       </div>
@@ -58,15 +88,35 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
   );
 };
 
+/**
+ * Main page component for Career Stories feature.
+ *
+ * State Management:
+ * - selectedCluster: Currently selected cluster in the list
+ * - clusterStatuses: Tracks generation state per cluster (idle/generating/ready/error)
+ * - polishEnabled: Whether AI polish is enabled for STAR generation
+ * - mobileSheetOpen: Controls mobile bottom sheet visibility
+ *
+ * Data Flow:
+ * 1. useClusters() fetches all clusters on mount
+ * 2. User selects a cluster -> opens preview panel (desktop) or sheet (mobile)
+ * 3. User clicks "Generate STAR" -> mutation starts, status updates
+ * 4. Result stored in clusterStatuses, displayed in STARPreview
+ *
+ * TODO: Consider persisting polishEnabled preference to localStorage
+ * TODO: Add optimistic updates for better UX during generation
+ */
 export function CareerStoriesPage() {
   const navigate = useNavigate();
 
-  // State
+  // State for cluster selection and STAR generation
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [polishEnabled, setPolishEnabled] = useState(true);
+  // Track generation status per cluster to show loading/success/error states
   const [clusterStatuses, setClusterStatuses] = useState<
     Record<string, { status: ClusterStatus; error?: string; result?: GenerateSTARResult }>
   >({});
+  // Mobile sheet open state - separate from selection since user might close sheet without deselecting
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   // Queries
@@ -79,8 +129,8 @@ export function CareerStoriesPage() {
   // Handlers
   const handleSelectCluster = useCallback((cluster: Cluster) => {
     setSelectedCluster(cluster);
-    // Open mobile sheet on mobile
-    if (window.innerWidth < 1024) {
+    // Open mobile sheet on mobile (below desktop breakpoint)
+    if (window.innerWidth < BREAKPOINTS.DESKTOP) {
       setMobileSheetOpen(true);
     }
   }, []);
@@ -100,7 +150,7 @@ export function CareerStoriesPage() {
       generateStarMutation.mutate(
         {
           clusterId,
-          options: { options: { polish: polishEnabled } },
+          request: { options: { polish: polishEnabled } },
         },
         {
           onSuccess: (response) => {

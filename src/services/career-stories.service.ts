@@ -2,6 +2,19 @@
  * Career Stories Service
  *
  * API service for tool activities, clusters, and STAR narrative generation.
+ *
+ * API Endpoints:
+ * - GET /career-stories/clusters - List all clusters
+ * - GET /career-stories/clusters/:id - Get cluster with activities
+ * - POST /career-stories/clusters/generate - Run clustering algorithm
+ * - POST /career-stories/clusters/:id/generate-star - Generate STAR narrative
+ *
+ * Error Handling:
+ * - All methods return ApiResponse wrapper with success/error
+ * - HTTP errors are converted to error property in response
+ *
+ * TODO: Add request/response logging for debugging
+ * TODO: Consider adding request caching for static data
  */
 
 import { api, ApiResponse } from '../lib/api';

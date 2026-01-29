@@ -3,6 +3,15 @@
  *
  * Frontend types for tool activities, clusters, and STAR narratives.
  * These match the backend API contract from career-stories.controller.ts
+ *
+ * Type Hierarchy:
+ * - ToolActivity: Individual work item from integrated tools
+ * - Cluster: Group of related activities
+ * - ScoredSTAR: Generated narrative with confidence scores
+ *
+ * NOTE: Keep in sync with backend types in:
+ * - backend/src/services/career-stories/pipeline/types/star.types.ts
+ * - backend/src/services/career-stories/pipeline/types/cluster.types.ts
  */
 
 // =============================================================================
