@@ -15,7 +15,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { RefreshCw, Check, Edit2, Copy, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { STARComponent, ToolType, GenerateSTARResult } from '../../types/career-stories';
+import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ToolIcon } from './ToolIcon';
@@ -83,6 +83,18 @@ const STARSection: React.FC<STARSectionProps> = ({
   );
 };
 
+/** Framework display info */
+const FRAMEWORK_INFO: Record<NarrativeFramework, { name: string; description: string }> = {
+  STAR: { name: 'STAR', description: 'Situation, Task, Action, Result' },
+  STARL: { name: 'STAR-L', description: 'STAR + Learning' },
+  CAR: { name: 'CAR', description: 'Challenge, Action, Result' },
+  PAR: { name: 'PAR', description: 'Problem, Action, Result' },
+  SAR: { name: 'SAR', description: 'Situation, Action, Result' },
+  SOAR: { name: 'SOAR', description: 'Situation, Objective, Action, Result' },
+  SHARE: { name: 'SHARE', description: 'Situation, Hindsight, Action, Result, Example' },
+  CARL: { name: 'CARL', description: 'Context, Action, Result, Learning' },
+};
+
 interface STARPreviewProps {
   /** Display name for the cluster */
   clusterName: string;
@@ -100,6 +112,10 @@ interface STARPreviewProps {
   polishEnabled: boolean;
   /** Callback when polish toggle changes */
   onPolishToggle: (enabled: boolean) => void;
+  /** Currently selected narrative framework */
+  framework: NarrativeFramework;
+  /** Callback when framework changes */
+  onFrameworkChange: (framework: NarrativeFramework) => void;
   /** Callback to regenerate the STAR */
   onRegenerate: () => void;
   /** Optional callback to save user edits - not yet connected to backend */
@@ -116,6 +132,8 @@ export function STARPreview({
   isLoading,
   polishEnabled,
   onPolishToggle,
+  framework,
+  onFrameworkChange,
   onRegenerate,
   onSave,
 }: STARPreviewProps) {
@@ -366,38 +384,61 @@ export function STARPreview({
           onEditChange={(v) => setEdits({ ...edits, result: v })}
         />
 
-        {/* Polish toggle and actions */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={polishEnabled}
-              onChange={(e) => onPolishToggle(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              data-testid="polish-toggle"
-            />
-            <span className="text-sm text-gray-700">Polish with AI</span>
-          </label>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRegenerate}
-              data-testid="regenerate-star"
+        {/* Framework selector and options */}
+        <div className="flex flex-col gap-3 pt-4 border-t">
+          {/* Framework dropdown */}
+          <div className="flex items-center gap-3">
+            <label htmlFor="framework-select" className="text-sm font-medium text-gray-700">
+              Format:
+            </label>
+            <select
+              id="framework-select"
+              value={framework}
+              onChange={(e) => onFrameworkChange(e.target.value as NarrativeFramework)}
+              className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              data-testid="framework-select"
             >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Regenerate
-            </Button>
-            {isEditing && (
+              {(Object.keys(FRAMEWORK_INFO) as NarrativeFramework[]).map((fw) => (
+                <option key={fw} value={fw}>
+                  {FRAMEWORK_INFO[fw].name} - {FRAMEWORK_INFO[fw].description}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Polish toggle and actions */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={polishEnabled}
+                onChange={(e) => onPolishToggle(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                data-testid="polish-toggle"
+              />
+              <span className="text-sm text-gray-700">Polish with AI</span>
+            </label>
+
+            <div className="flex items-center gap-2">
               <Button
+                variant="outline"
                 size="sm"
-                onClick={handleSave}
-                data-testid="save-star"
+                onClick={onRegenerate}
+                data-testid="regenerate-star"
               >
-                Save
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Regenerate
               </Button>
-            )}
+              {isEditing && (
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  data-testid="save-star"
+                >
+                  Save
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

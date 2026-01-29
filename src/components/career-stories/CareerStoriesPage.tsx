@@ -10,7 +10,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Cluster, ToolType, GenerateSTARResult } from '../../types/career-stories';
+import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
 import {
   useClusters,
   useGenerateClusters,
@@ -112,6 +112,16 @@ export function CareerStoriesPage() {
   // State for cluster selection and STAR generation
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [polishEnabled, setPolishEnabled] = useState(true);
+  // Selected narrative framework - stored in localStorage for persistence
+  const [framework, setFramework] = useState<NarrativeFramework>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('career-stories-framework');
+      if (saved && ['STAR', 'STARL', 'CAR', 'PAR', 'SAR', 'SOAR', 'SHARE', 'CARL'].includes(saved)) {
+        return saved as NarrativeFramework;
+      }
+    }
+    return 'STAR';
+  });
   // Track generation status per cluster to show loading/success/error states
   const [clusterStatuses, setClusterStatuses] = useState<
     Record<string, { status: ClusterStatus; error?: string; result?: GenerateSTARResult }>
@@ -140,7 +150,9 @@ export function CareerStoriesPage() {
   }, [generateClustersMutation]);
 
   const handleGenerateStar = useCallback(
-    (clusterId: string) => {
+    (clusterId: string, overrideFramework?: NarrativeFramework) => {
+      const useFramework = overrideFramework || framework;
+
       // Update status to generating
       setClusterStatuses((prev) => ({
         ...prev,
@@ -150,7 +162,7 @@ export function CareerStoriesPage() {
       generateStarMutation.mutate(
         {
           clusterId,
-          request: { options: { polish: polishEnabled } },
+          request: { options: { polish: polishEnabled, framework: useFramework } },
         },
         {
           onSuccess: (response) => {
@@ -186,7 +198,21 @@ export function CareerStoriesPage() {
         }
       );
     },
-    [generateStarMutation, polishEnabled]
+    [generateStarMutation, polishEnabled, framework]
+  );
+
+  // Handle framework change - save to localStorage and regenerate
+  const handleFrameworkChange = useCallback(
+    (newFramework: NarrativeFramework) => {
+      setFramework(newFramework);
+      localStorage.setItem('career-stories-framework', newFramework);
+
+      // Regenerate if a cluster is selected
+      if (selectedCluster) {
+        handleGenerateStar(selectedCluster.id, newFramework);
+      }
+    },
+    [selectedCluster, handleGenerateStar]
   );
 
   const handleRegenerate = useCallback(() => {
@@ -268,6 +294,8 @@ export function CareerStoriesPage() {
               isLoading={selectedClusterState?.status === 'generating'}
               polishEnabled={polishEnabled}
               onPolishToggle={setPolishEnabled}
+              framework={framework}
+              onFrameworkChange={handleFrameworkChange}
               onRegenerate={handleRegenerate}
             />
           </div>
@@ -301,6 +329,8 @@ export function CareerStoriesPage() {
             isLoading={selectedClusterState?.status === 'generating'}
             polishEnabled={polishEnabled}
             onPolishToggle={setPolishEnabled}
+            framework={framework}
+            onFrameworkChange={handleFrameworkChange}
             onRegenerate={handleRegenerate}
           />
         </MobileSheet>

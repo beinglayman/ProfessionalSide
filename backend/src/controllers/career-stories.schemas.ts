@@ -63,7 +63,7 @@ export type MergeClustersInput = z.infer<typeof mergeClustersSchema>;
  */
 export const starOptionsSchema = z.object({
   polish: z.boolean().optional(),
-  framework: z.enum(['STAR', 'CAR', 'PAR', 'SOAR']).optional(),
+  framework: z.enum(['STAR', 'STARL', 'CAR', 'PAR', 'SAR', 'SOAR', 'SHARE', 'CARL']).optional(),
   debug: z.boolean().optional(),
 }).strict();
 
