@@ -290,12 +290,22 @@ export const useGenerateStar = () => {
 
   return useMutation({
     mutationFn: async ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) => {
-      // In demo mode, return pre-generated demo STAR
+      const framework = request?.options?.framework || 'STAR';
+
+      // In demo mode, use pre-generated demo STAR data
+      // Demo clusters don't exist in the real database, so we can't call the real API
       if (isDemoMode() && DEMO_STARS[clusterId]) {
         // Simulate network delay for realism
         await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Get the demo STAR and adapt labels based on framework
+        const demoStar = DEMO_STARS[clusterId];
+
+        // For non-STAR frameworks, we still show the same content but the UI will
+        // display it with the appropriate framework labels. The content structure
+        // (Situation→Context, Task→Objective, etc.) maps naturally across frameworks.
         const demoResult: GenerateSTARResult = {
-          star: DEMO_STARS[clusterId],
+          star: demoStar,
           polishStatus: request?.options?.polish ? 'success' : 'skipped',
           processingTimeMs: 1500,
         };
