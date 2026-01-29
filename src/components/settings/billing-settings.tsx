@@ -43,7 +43,7 @@ export default function BillingSettings() {
             id: 'pro-placeholder',
             name: 'pro',
             displayName: 'Pro',
-            monthlyCredits: 500,
+            monthlyCredits: 30,
             razorpayPlanId: 'placeholder',
             isActive: true,
           }]);

@@ -13,6 +13,10 @@
  * - generateStar invalidates cluster queries to update STAR status
  * - generateClusters invalidates stats and unclustered activities
  *
+ * Demo Mode:
+ * - When backend returns empty data, demo mode provides sample clusters
+ * - Demo mode can be toggled via localStorage 'career-stories-demo'
+ *
  * TODO: Add retry logic for network failures
  * TODO: Consider staleTime optimization for frequently accessed data
  */
@@ -27,7 +31,15 @@ import {
   GenerateClustersRequest,
   GenerateSTARRequest,
   MergeClustersRequest,
+  GenerateSTARResult,
 } from '../types/career-stories';
+import {
+  DEMO_CLUSTERS,
+  DEMO_CLUSTER_DETAILS,
+  DEMO_STARS,
+  isDemoMode,
+  enableDemoMode,
+} from '../services/career-stories-demo-data';
 
 // =============================================================================
 // STATS
@@ -94,32 +106,55 @@ export const useUnclusteredActivities = () => {
 // =============================================================================
 
 /**
- * Get all clusters for the user
+ * Get all clusters for the user.
+ * Falls back to demo data when backend returns empty or errors.
  */
 export const useClusters = () => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
-      const response = await CareerStoriesService.getClusters();
-      if (response.success && response.data) {
-        return response.data;
+      try {
+        const response = await CareerStoriesService.getClusters();
+        if (response.success && response.data) {
+          // If has clusters, return them
+          if (response.data.length > 0) {
+            return response.data;
+          }
+        }
+      } catch {
+        // API error - fall through to demo mode
       }
-      throw new Error(response.error || 'Failed to fetch clusters');
+
+      // No clusters or API error - enable demo mode and return demo data
+      enableDemoMode();
+      return DEMO_CLUSTERS;
     },
   });
 };
 
 /**
- * Get a single cluster with activities
+ * Get a single cluster with activities.
+ * Falls back to demo data when in demo mode.
  */
 export const useCluster = (id: string) => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesCluster(id),
     queryFn: async () => {
+      // Check if this is a demo cluster
+      if (isDemoMode() && DEMO_CLUSTER_DETAILS[id]) {
+        return DEMO_CLUSTER_DETAILS[id];
+      }
+
       const response = await CareerStoriesService.getClusterById(id);
       if (response.success && response.data) {
         return response.data;
       }
+
+      // Fall back to demo data if available
+      if (isDemoMode() && DEMO_CLUSTER_DETAILS[id]) {
+        return DEMO_CLUSTER_DETAILS[id];
+      }
+
       throw new Error(response.error || 'Failed to fetch cluster');
     },
     enabled: !!id,
@@ -245,6 +280,7 @@ export const useMergeClusters = () => {
 
 /**
  * Generate STAR narrative for a cluster.
+ * Returns demo STAR when in demo mode.
  *
  * @param clusterId - The cluster to generate a STAR from
  * @param request - Optional request options (personaId, polish settings)
@@ -253,8 +289,21 @@ export const useGenerateStar = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) =>
-      CareerStoriesService.generateStar(clusterId, request),
+    mutationFn: async ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) => {
+      // In demo mode, return pre-generated demo STAR
+      if (isDemoMode() && DEMO_STARS[clusterId]) {
+        // Simulate network delay for realism
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const demoResult: GenerateSTARResult = {
+          star: DEMO_STARS[clusterId],
+          polishStatus: request?.options?.polish ? 'success' : 'skipped',
+          processingTimeMs: 1500,
+        };
+        return { success: true, data: demoResult };
+      }
+
+      return CareerStoriesService.generateStar(clusterId, request);
+    },
     onSuccess: (response, { clusterId }) => {
       if (response.success) {
         // Invalidate cluster to get updated data

@@ -2,7 +2,7 @@
  * NarrativeExtractor - Framework-Aware Pipeline Processor
  *
  * Transforms a HydratedCluster into a narrative using the specified framework
- * (STAR, STARL, CAR, PAR, SAR, SOAR, SHARE, CARL). Uses pattern matching to
+ * (STAR, CAR, SOAR, CARL, etc.). Uses pattern matching and LLM prompts to
  * extract appropriate components based on the framework definition.
  *
  * This extends STARExtractor to support all 8 narrative frameworks.
@@ -279,6 +279,7 @@ export class NarrativeExtractor
     if (candidates.length > 0) {
       // Sort by relevance (based on component type)
       const sorted = this.sortCandidates(candidates, componentName);
+      const best = sorted[0];
 
       return {
         name: componentName,

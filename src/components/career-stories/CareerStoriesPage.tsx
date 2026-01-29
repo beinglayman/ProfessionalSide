@@ -8,11 +8,13 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FlaskConical, CheckCircle2, Clock, Lightbulb, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
+import { CONFIDENCE_THRESHOLDS } from './constants';
 import {
   useClusters,
+  useCluster,
   useGenerateClusters,
   useGenerateStar,
 } from '../../hooks/useCareerStories';
@@ -21,6 +23,7 @@ import { ClusterStatus } from './ClusterCard';
 import { STARPreview } from './STARPreview';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
+import { isDemoMode, disableDemoMode } from '../../services/career-stories-demo-data';
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -128,27 +131,24 @@ export function CareerStoriesPage() {
   >({});
   // Mobile sheet open state - separate from selection since user might close sheet without deselecting
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  // Track if we're showing demo data
+  const [showingDemo, setShowingDemo] = useState(isDemoMode());
 
   // Queries
   const { data: clusters = [], isLoading: isLoadingClusters } = useClusters();
+  // Fetch selected cluster with activities for evidence linking
+  const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
+
+  // Update demo mode state when clusters load
+  useEffect(() => {
+    setShowingDemo(isDemoMode());
+  }, [clusters]);
 
   // Mutations
   const generateClustersMutation = useGenerateClusters();
   const generateStarMutation = useGenerateStar();
 
-  // Handlers
-  const handleSelectCluster = useCallback((cluster: Cluster) => {
-    setSelectedCluster(cluster);
-    // Open mobile sheet on mobile (below desktop breakpoint)
-    if (window.innerWidth < BREAKPOINTS.DESKTOP) {
-      setMobileSheetOpen(true);
-    }
-  }, []);
-
-  const handleGenerateClusters = useCallback(() => {
-    generateClustersMutation.mutate({});
-  }, [generateClustersMutation]);
-
+  // Handlers - define handleGenerateStar first since handleSelectCluster depends on it
   const handleGenerateStar = useCallback(
     (clusterId: string, overrideFramework?: NarrativeFramework) => {
       const useFramework = overrideFramework || framework;
@@ -215,6 +215,26 @@ export function CareerStoriesPage() {
     [selectedCluster, handleGenerateStar]
   );
 
+  const handleSelectCluster = useCallback((cluster: Cluster) => {
+    setSelectedCluster(cluster);
+
+    // Open mobile sheet on mobile (below desktop breakpoint)
+    if (window.innerWidth < BREAKPOINTS.DESKTOP) {
+      setMobileSheetOpen(true);
+    }
+
+    // Auto-generate STAR if not already generated (for demo mode especially)
+    const existingStatus = clusterStatuses[cluster.id];
+    if (!existingStatus || existingStatus.status === 'idle') {
+      // Auto-trigger generation
+      handleGenerateStar(cluster.id);
+    }
+  }, [clusterStatuses, handleGenerateStar]);
+
+  const handleGenerateClusters = useCallback(() => {
+    generateClustersMutation.mutate({});
+  }, [generateClustersMutation]);
+
   const handleRegenerate = useCallback(() => {
     if (selectedCluster) {
       handleGenerateStar(selectedCluster.id);
@@ -232,8 +252,59 @@ export function CareerStoriesPage() {
     return selectedCluster.metrics.toolTypes as ToolType[];
   }, [selectedCluster]);
 
+  // Compute stats for the stats bar
+  const stats = useMemo(() => {
+    let complete = 0;
+    let inProgress = 0;
+    let draft = 0;
+    let totalActivities = 0;
+
+    clusters.forEach((cluster) => {
+      totalActivities += cluster.activityCount || 0;
+      const state = clusterStatuses[cluster.id];
+      if (state?.result?.star) {
+        const confidence = state.result.star.overallConfidence;
+        if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) {
+          complete++;
+        } else if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) {
+          inProgress++;
+        } else {
+          draft++;
+        }
+      }
+    });
+
+    return { complete, inProgress, draft, totalActivities, totalClusters: clusters.length };
+  }, [clusters, clusterStatuses]);
+
   return (
     <div className="min-h-screen bg-gray-50" data-testid="career-stories-page">
+      {/* Demo Mode Banner */}
+      {showingDemo && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800">
+              <FlaskConical className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Demo Mode: Showing sample data for showcase purposes
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                disableDemoMode();
+                setShowingDemo(false);
+                window.location.reload();
+              }}
+              className="text-amber-700 hover:text-amber-900 text-xs"
+            >
+              Exit Demo
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -255,7 +326,7 @@ export function CareerStoriesPage() {
             <Button
               variant="outline"
               onClick={handleGenerateClusters}
-              disabled={generateClustersMutation.isPending}
+              disabled={generateClustersMutation.isPending || showingDemo}
               data-testid="header-generate-clusters"
               className="hidden lg:flex"
             >
@@ -264,6 +335,36 @@ export function CareerStoriesPage() {
           </div>
         </div>
       </header>
+
+      {/* Stats Bar */}
+      {clusters.length > 0 && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-center gap-6 text-sm">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="font-semibold text-gray-900">{stats.complete}</span>
+                <span className="text-gray-500">Complete</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-semibold text-gray-900">{stats.inProgress}</span>
+                <span className="text-gray-500">In Progress</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Lightbulb className="h-4 w-4 text-gray-400" />
+                <span className="font-semibold text-gray-900">{stats.draft}</span>
+                <span className="text-gray-500">Draft</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5">
+                <Link2 className="h-4 w-4 text-blue-500" />
+                <span className="font-semibold text-gray-900">{stats.totalActivities}</span>
+                <span className="text-gray-500">Activities</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto">
@@ -290,6 +391,7 @@ export function CareerStoriesPage() {
               activityCount={selectedCluster?.activityCount || 0}
               dateRange={selectedCluster?.metrics?.dateRange}
               toolTypes={selectedToolTypes}
+              activities={clusterWithActivities?.activities}
               result={selectedClusterState?.result || null}
               isLoading={selectedClusterState?.status === 'generating'}
               polishEnabled={polishEnabled}
@@ -325,6 +427,7 @@ export function CareerStoriesPage() {
             activityCount={selectedCluster?.activityCount || 0}
             dateRange={selectedCluster?.metrics?.dateRange}
             toolTypes={selectedToolTypes}
+            activities={clusterWithActivities?.activities}
             result={selectedClusterState?.result || null}
             isLoading={selectedClusterState?.status === 'generating'}
             polishEnabled={polishEnabled}

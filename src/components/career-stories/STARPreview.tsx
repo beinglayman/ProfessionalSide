@@ -11,15 +11,248 @@
  * - Success: Shows full STAR narrative with edit capabilities
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
-import { RefreshCw, Check, Edit2, Copy, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Check, Edit2, Copy, AlertTriangle, Lightbulb, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
+import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework, ToolActivity } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ToolIcon } from './ToolIcon';
+import { FrameworkSelector } from './FrameworkSelector';
 import { TIMING, DISPLAY_LIMITS, CONFIDENCE_THRESHOLDS } from './constants';
+
+// =============================================================================
+// STORY STATUS
+// =============================================================================
+
+type StoryStatus = 'complete' | 'in-progress' | 'draft';
+
+/**
+ * Derive story status from overall confidence.
+ * - Complete: >= 0.8
+ * - In Progress: >= 0.5
+ * - Draft: < 0.5
+ */
+function getStoryStatus(confidence: number): StoryStatus {
+  if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'complete';
+  if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'in-progress';
+  return 'draft';
+}
+
+const StoryStatusBadge: React.FC<{ status: StoryStatus }> = ({ status }) => {
+  const config = {
+    complete: {
+      label: 'Complete',
+      icon: CheckCircle2,
+      className: 'bg-green-100 text-green-700 border-green-200',
+    },
+    'in-progress': {
+      label: 'In Progress',
+      icon: Clock,
+      className: 'bg-amber-100 text-amber-700 border-amber-200',
+    },
+    draft: {
+      label: 'Draft',
+      icon: Lightbulb,
+      className: 'bg-gray-100 text-gray-600 border-gray-200',
+    },
+  };
+
+  const { label, icon: Icon, className } = config[status];
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
+        className
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {label}
+    </span>
+  );
+};
+
+// =============================================================================
+// STAR PROGRESS BAR
+// =============================================================================
+
+interface STARProgressBarProps {
+  situation: number;
+  task: number;
+  action: number;
+  result: number;
+}
+
+/**
+ * Get component status based on confidence threshold.
+ */
+function getComponentStatus(confidence: number): 'complete' | 'partial' | 'pending' {
+  if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'complete';
+  if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'partial';
+  return 'pending';
+}
+
+const STARProgressBar: React.FC<STARProgressBarProps> = ({
+  situation,
+  task,
+  action,
+  result,
+}) => {
+  // Calculate overall progress (average of all components, scaled to percentage)
+  const overallProgress = Math.round(((situation + task + action + result) / 4) * 100);
+
+  const components = [
+    { letter: 'S', confidence: situation },
+    { letter: 'T', confidence: task },
+    { letter: 'A', confidence: action },
+    { letter: 'R', confidence: result },
+  ];
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          STAR Progress
+        </span>
+        <span className="text-sm font-semibold text-gray-700">{overallProgress}%</span>
+      </div>
+      {/* Progress bar */}
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+        <div
+          className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+          style={{ width: `${overallProgress}%` }}
+        />
+      </div>
+      {/* S-T-A-R breakdown */}
+      <div className="flex items-center justify-center gap-2">
+        {components.map(({ letter, confidence }) => {
+          const status = getComponentStatus(confidence);
+          const statusStyles = {
+            complete: 'bg-green-500 text-white border-green-500',
+            partial: 'bg-amber-100 text-amber-700 border-amber-300',
+            pending: 'bg-gray-100 text-gray-400 border-gray-200',
+          };
+          return (
+            <span
+              key={letter}
+              className={cn(
+                'w-7 h-7 flex items-center justify-center text-xs font-bold rounded border',
+                statusStyles[status]
+              )}
+              title={`${letter}: ${Math.round(confidence * 100)}% confidence`}
+            >
+              {letter}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// =============================================================================
+// SUGGESTED EDITS (What's Missing)
+// =============================================================================
+
+interface SuggestedEditsProps {
+  edits: string[];
+}
+
+const SuggestedEdits: React.FC<SuggestedEditsProps> = ({ edits }) => {
+  if (!edits || edits.length === 0) return null;
+
+  return (
+    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+      <h4 className="flex items-center gap-1.5 text-sm font-medium text-amber-800 mb-2">
+        <Lightbulb className="h-4 w-4" />
+        What's Missing
+      </h4>
+      <ul className="space-y-1">
+        {edits.map((edit, idx) => (
+          <li key={idx} className="text-sm text-amber-700 pl-5 relative">
+            <span className="absolute left-0">•</span>
+            {edit}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+// =============================================================================
+// EVIDENCE CHIPS
+// =============================================================================
+
+interface EvidenceChipsProps {
+  sourceIds: string[];
+  activities: ToolActivity[];
+  maxDisplay?: number;
+}
+
+/**
+ * Display clickable chips for source activities.
+ * Shows tool icon + truncated title for each activity.
+ */
+const EvidenceChips: React.FC<EvidenceChipsProps> = ({
+  sourceIds,
+  activities,
+  maxDisplay = 3,
+}) => {
+  if (!sourceIds || sourceIds.length === 0 || !activities || activities.length === 0) {
+    return null;
+  }
+
+  // Create lookup map for activities
+  const activityMap = useMemo(() => {
+    const map = new Map<string, ToolActivity>();
+    activities.forEach((a) => map.set(a.id, a));
+    return map;
+  }, [activities]);
+
+  // Get activities for source IDs
+  const sourceActivities = sourceIds
+    .map((id) => activityMap.get(id))
+    .filter((a): a is ToolActivity => a !== undefined);
+
+  if (sourceActivities.length === 0) return null;
+
+  const displayActivities = sourceActivities.slice(0, maxDisplay);
+  const remainingCount = sourceActivities.length - maxDisplay;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {displayActivities.map((activity) => (
+        <a
+          key={activity.id}
+          href={activity.sourceUrl || '#'}
+          target={activity.sourceUrl ? '_blank' : undefined}
+          rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
+          className={cn(
+            'inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full',
+            'bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors',
+            'max-w-[200px] truncate',
+            !activity.sourceUrl && 'cursor-default'
+          )}
+          title={activity.title}
+          onClick={(e) => !activity.sourceUrl && e.preventDefault()}
+        >
+          <ToolIcon tool={activity.source} className="w-3 h-3 text-[6px] flex-shrink-0" />
+          <span className="truncate">{activity.title}</span>
+          {activity.sourceUrl && (
+            <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 text-gray-400" />
+          )}
+        </a>
+      ))}
+      {remainingCount > 0 && (
+        <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">
+          +{remainingCount} more
+        </span>
+      )}
+    </div>
+  );
+};
 
 // Confidence dot component
 const ConfidenceDot: React.FC<{ confidence: number }> = ({ confidence }) => {
@@ -45,6 +278,7 @@ interface STARSectionProps {
   isEditing: boolean;
   editValue: string;
   onEditChange: (value: string) => void;
+  activities?: ToolActivity[];
 }
 
 const STARSection: React.FC<STARSectionProps> = ({
@@ -53,6 +287,7 @@ const STARSection: React.FC<STARSectionProps> = ({
   isEditing,
   editValue,
   onEditChange,
+  activities = [],
 }) => {
   return (
     <div className="mb-4">
@@ -60,12 +295,8 @@ const STARSection: React.FC<STARSectionProps> = ({
         <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
           {label}
         </h4>
-        <div className="flex items-center gap-2">
-          <ConfidenceDot confidence={component.confidence} />
-          <span className="text-xs text-gray-500">
-            ({component.confidence.toFixed(2)})
-          </span>
-        </div>
+        {/* Show confidence dot only - no numeric score to avoid confusing users */}
+        <ConfidenceDot confidence={component.confidence} />
       </div>
       {isEditing ? (
         <textarea
@@ -77,22 +308,12 @@ const STARSection: React.FC<STARSectionProps> = ({
       ) : (
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{component.text}</p>
+          {/* Evidence chips showing source activities */}
+          <EvidenceChips sourceIds={component.sources} activities={activities} />
         </div>
       )}
     </div>
   );
-};
-
-/** Framework display info */
-const FRAMEWORK_INFO: Record<NarrativeFramework, { name: string; description: string }> = {
-  STAR: { name: 'STAR', description: 'Situation, Task, Action, Result' },
-  STARL: { name: 'STAR-L', description: 'STAR + Learning' },
-  CAR: { name: 'CAR', description: 'Challenge, Action, Result' },
-  PAR: { name: 'PAR', description: 'Problem, Action, Result' },
-  SAR: { name: 'SAR', description: 'Situation, Action, Result' },
-  SOAR: { name: 'SOAR', description: 'Situation, Objective, Action, Result' },
-  SHARE: { name: 'SHARE', description: 'Situation, Hindsight, Action, Result, Example' },
-  CARL: { name: 'CARL', description: 'Context, Action, Result, Learning' },
 };
 
 interface STARPreviewProps {
@@ -104,6 +325,8 @@ interface STARPreviewProps {
   dateRange?: { earliest: string; latest: string };
   /** Tool types for displaying icons */
   toolTypes: ToolType[];
+  /** Activities in the cluster for evidence linking */
+  activities?: ToolActivity[];
   /** Generation result - null when not yet generated */
   result: GenerateSTARResult | null;
   /** Whether STAR is currently being generated */
@@ -114,7 +337,7 @@ interface STARPreviewProps {
   onPolishToggle: (enabled: boolean) => void;
   /** Currently selected narrative framework */
   framework: NarrativeFramework;
-  /** Callback when framework changes */
+  /** Callback when framework changes - triggers regeneration */
   onFrameworkChange: (framework: NarrativeFramework) => void;
   /** Callback to regenerate the STAR */
   onRegenerate: () => void;
@@ -128,6 +351,7 @@ export function STARPreview({
   activityCount,
   dateRange,
   toolTypes,
+  activities = [],
   result,
   isLoading,
   polishEnabled,
@@ -307,13 +531,19 @@ export function STARPreview({
     );
   }
 
+  // Compute story status from confidence
+  const storyStatus = getStoryStatus(star.overallConfidence);
+
   // Full STAR display
   return (
     <Card data-testid="star-preview" aria-live="polite">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg">{clusterName}</CardTitle>
+            <div className="flex items-center gap-2 mb-1">
+              <CardTitle className="text-lg">{clusterName}</CardTitle>
+              <StoryStatusBadge status={storyStatus} />
+            </div>
             <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
               <span>{activityCount} activities</span>
               <span>•</span>
@@ -324,6 +554,14 @@ export function STARPreview({
                   <ToolIcon key={`${tool}-${idx}`} tool={tool} className="w-4 h-4 text-[8px]" />
                 ))}
               </div>
+            </div>
+            {/* Framework Selector */}
+            <div className="mt-3">
+              <FrameworkSelector
+                value={framework}
+                onChange={onFrameworkChange}
+                disabled={isLoading}
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -355,12 +593,21 @@ export function STARPreview({
       </CardHeader>
 
       <CardContent className="space-y-1">
+        {/* STAR Progress Bar */}
+        <STARProgressBar
+          situation={star.situation.confidence}
+          task={star.task.confidence}
+          action={star.action.confidence}
+          result={star.result.confidence}
+        />
+
         <STARSection
           label="Situation"
           component={star.situation}
           isEditing={isEditing}
           editValue={edits.situation}
           onEditChange={(v) => setEdits({ ...edits, situation: v })}
+          activities={activities}
         />
         <STARSection
           label="Task"
@@ -368,6 +615,7 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.task}
           onEditChange={(v) => setEdits({ ...edits, task: v })}
+          activities={activities}
         />
         <STARSection
           label="Action"
@@ -375,6 +623,7 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.action}
           onEditChange={(v) => setEdits({ ...edits, action: v })}
+          activities={activities}
         />
         <STARSection
           label="Result"
@@ -382,71 +631,52 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.result}
           onEditChange={(v) => setEdits({ ...edits, result: v })}
+          activities={activities}
         />
 
-        {/* Framework selector and options */}
-        <div className="flex flex-col gap-3 pt-4 border-t">
-          {/* Framework dropdown */}
-          <div className="flex items-center gap-3">
-            <label htmlFor="framework-select" className="text-sm font-medium text-gray-700">
-              Format:
-            </label>
-            <select
-              id="framework-select"
-              value={framework}
-              onChange={(e) => onFrameworkChange(e.target.value as NarrativeFramework)}
-              className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              data-testid="framework-select"
+        {/* Suggested Edits (What's Missing) */}
+        <SuggestedEdits edits={star.suggestedEdits} />
+
+        {/* Polish toggle and actions */}
+        <div className="flex items-center justify-between pt-4 border-t mt-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={polishEnabled}
+              onChange={(e) => onPolishToggle(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              data-testid="polish-toggle"
+            />
+            <span className="text-sm text-gray-700">Polish with AI</span>
+          </label>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRegenerate}
+              data-testid="regenerate-star"
             >
-              {(Object.keys(FRAMEWORK_INFO) as NarrativeFramework[]).map((fw) => (
-                <option key={fw} value={fw}>
-                  {FRAMEWORK_INFO[fw].name} - {FRAMEWORK_INFO[fw].description}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Polish toggle and actions */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={polishEnabled}
-                onChange={(e) => onPolishToggle(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                data-testid="polish-toggle"
-              />
-              <span className="text-sm text-gray-700">Polish with AI</span>
-            </label>
-
-            <div className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Regenerate
+            </Button>
+            {isEditing && (
               <Button
-                variant="outline"
                 size="sm"
-                onClick={onRegenerate}
-                data-testid="regenerate-star"
+                onClick={handleSave}
+                data-testid="save-star"
               >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Regenerate
+                Save
               </Button>
-              {isEditing && (
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  data-testid="save-star"
-                >
-                  Save
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Processing time */}
-        {result.processingTimeMs && (
-          <p className="text-xs text-gray-400 text-right">
-            Generated in {result.processingTimeMs}ms
-            {result.polishStatus && ` • Polish: ${result.polishStatus}`}
+        {/* Processing status - only show polish success indicator, not technical details */}
+        {result.polishStatus === 'success' && (
+          <p className="text-xs text-gray-400 text-right flex items-center justify-end gap-1">
+            <Check className="h-3 w-3 text-green-500" />
+            AI polished
           </p>
         )}
       </CardContent>

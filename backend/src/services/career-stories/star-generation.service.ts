@@ -19,8 +19,6 @@ import {
   ParticipationResult,
   NarrativeFrameworkType,
   STARGenerationError,
-  GeneratedNarrative,
-  STARComponent,
 } from './pipeline/types';
 import {
   ClusterHydrator,
@@ -69,7 +67,7 @@ export interface STARGenerationResult {
   participations: ParticipationResult[];
 }
 
-export class STARGenerationService {
+export class NarrativeGenerationService {
   private _narrativeExtractor: NarrativeExtractor | null = null;
 
   constructor(
@@ -118,8 +116,12 @@ export class STARGenerationService {
 
     const hydratedCluster = hydrationResult.value.cluster;
 
-    // Step 2: Extract narrative using the specified framework
+    // Step 2: Extract narrative (use NarrativeExtractor for all frameworks)
     const framework = options.framework || 'STAR';
+
+    let star: ScoredSTAR | null = null;
+    let participations: ParticipationResult[] = [];
+    let failedGates: string[] | undefined;
 
     // Use NarrativeExtractor for all frameworks - it handles STAR and others
     const narrativeResult = this.narrativeExtractorInstance.safeProcess(
@@ -132,10 +134,6 @@ export class STARGenerationService {
         maxObserverRatio: options.maxObserverRatio,
       }
     );
-
-    let star: ScoredSTAR | null = null;
-    let participations: ParticipationResult[] = [];
-    let failedGates: string[] | undefined;
 
     if (narrativeResult.isErr()) {
       const error = narrativeResult.error;
@@ -213,14 +211,18 @@ export class STARGenerationService {
    * Convert GeneratedNarrative to ScoredSTAR format for frontend compatibility.
    * Maps framework components to STAR-like structure.
    */
-  private convertNarrativeToScoredSTAR(narrative: GeneratedNarrative): ScoredSTAR {
+  private convertNarrativeToScoredSTAR(
+    narrative: import('./pipeline/types').GeneratedNarrative
+  ): ScoredSTAR {
     const componentMap = new Map(
       narrative.components.map((c) => [c.name, c])
     );
 
     // Map components to STAR structure
     // Different frameworks have different components, so we map them intelligently
-    const getComponent = (...names: string[]): STARComponent => {
+    const getComponent = (
+      ...names: string[]
+    ): import('./pipeline/types').STARComponent => {
       for (const name of names) {
         const component = componentMap.get(name);
         if (component && component.text) {
@@ -294,4 +296,8 @@ export class STARGenerationService {
 }
 
 // Singleton instance
-export const starGenerationService = new STARGenerationService();
+export const narrativeGenerationService = new NarrativeGenerationService();
+
+// Backwards-compatible alias
+export const starGenerationService = narrativeGenerationService;
+export { NarrativeGenerationService as STARGenerationService };

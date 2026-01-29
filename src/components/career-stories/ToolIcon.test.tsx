@@ -9,11 +9,18 @@ describe('ToolIcon', () => {
       render(<ToolIcon tool={tool} />);
       const icon = screen.getByLabelText(TOOL_ICONS[tool].name);
       expect(icon).toBeInTheDocument();
-      expect(icon).toHaveTextContent(TOOL_ICONS[tool].name.charAt(0));
     });
 
-    it('displays first letter of tool name', () => {
-      render(<ToolIcon tool="github" />);
+    it('displays SVG icon for github', () => {
+      const { container } = render(<ToolIcon tool="github" />);
+      // GitHub has SVG icon
+      const svg = container.querySelector('svg');
+      expect(svg).toBeInTheDocument();
+    });
+
+    it('displays letter fallback for tools without SVG', () => {
+      // 'google' and 'outlook' don't have SVG icons
+      render(<ToolIcon tool="google" />);
       expect(screen.getByText('G')).toBeInTheDocument();
     });
 
@@ -49,7 +56,7 @@ describe('ToolIcon', () => {
       const icon = container.querySelector('span');
       expect(icon).toHaveClass('rounded-full');
       expect(icon).toHaveClass('text-white');
-      expect(icon).toHaveClass('font-bold');
+      // font-bold only on fallback letters, not SVG icons
     });
   });
 

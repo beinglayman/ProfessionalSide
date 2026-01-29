@@ -40,3 +40,63 @@ export const CONFIDENCE_THRESHOLDS = {
 
 /** Mobile sheet height as viewport percentage */
 export const MOBILE_SHEET_MAX_HEIGHT_VH = 85;
+
+/** Narrative framework metadata for UI display */
+export const NARRATIVE_FRAMEWORKS = {
+  STAR: {
+    label: 'STAR',
+    description: 'Situation, Task, Action, Result',
+    sections: ['situation', 'task', 'action', 'result'],
+    group: 'popular',
+  },
+  STARL: {
+    label: 'STARL',
+    description: 'STAR + Learning',
+    sections: ['situation', 'task', 'action', 'result', 'learning'],
+    group: 'popular',
+  },
+  CAR: {
+    label: 'CAR',
+    description: 'Challenge, Action, Result (Concise)',
+    sections: ['challenge', 'action', 'result'],
+    group: 'concise',
+  },
+  PAR: {
+    label: 'PAR',
+    description: 'Problem, Action, Result',
+    sections: ['problem', 'action', 'result'],
+    group: 'concise',
+  },
+  SAR: {
+    label: 'SAR',
+    description: 'Situation, Action, Result (Simplified)',
+    sections: ['situation', 'action', 'result'],
+    group: 'concise',
+  },
+  SOAR: {
+    label: 'SOAR',
+    description: 'Situation, Obstacles, Actions, Results',
+    sections: ['situation', 'obstacles', 'actions', 'results'],
+    group: 'detailed',
+  },
+  SHARE: {
+    label: 'SHARE',
+    description: 'Situation, Hindrances, Actions, Results, Evaluation',
+    sections: ['situation', 'hindrances', 'actions', 'results', 'evaluation'],
+    group: 'detailed',
+  },
+  CARL: {
+    label: 'CARL',
+    description: 'Context, Action, Result, Learning',
+    sections: ['context', 'action', 'result', 'learning'],
+    group: 'detailed',
+  },
+} as const;
+
+export type FrameworkGroup = 'popular' | 'concise' | 'detailed';
+
+export const FRAMEWORK_GROUPS: Record<FrameworkGroup, { label: string; frameworks: (keyof typeof NARRATIVE_FRAMEWORKS)[] }> = {
+  popular: { label: 'Popular', frameworks: ['STAR', 'STARL'] },
+  concise: { label: 'Concise', frameworks: ['CAR', 'PAR', 'SAR'] },
+  detailed: { label: 'Detailed', frameworks: ['SOAR', 'SHARE', 'CARL'] },
+};
