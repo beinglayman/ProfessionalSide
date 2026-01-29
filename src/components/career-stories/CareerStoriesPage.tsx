@@ -8,9 +8,10 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { ArrowLeft, FlaskConical } from 'lucide-react';
+import { ArrowLeft, FlaskConical, CheckCircle2, Clock, Lightbulb, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
+import { CONFIDENCE_THRESHOLDS } from './constants';
 import {
   useClusters,
   useGenerateClusters,
@@ -248,6 +249,31 @@ export function CareerStoriesPage() {
     return selectedCluster.metrics.toolTypes as ToolType[];
   }, [selectedCluster]);
 
+  // Compute stats for the stats bar
+  const stats = useMemo(() => {
+    let complete = 0;
+    let inProgress = 0;
+    let draft = 0;
+    let totalActivities = 0;
+
+    clusters.forEach((cluster) => {
+      totalActivities += cluster.activityCount || 0;
+      const state = clusterStatuses[cluster.id];
+      if (state?.result?.star) {
+        const confidence = state.result.star.overallConfidence;
+        if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) {
+          complete++;
+        } else if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) {
+          inProgress++;
+        } else {
+          draft++;
+        }
+      }
+    });
+
+    return { complete, inProgress, draft, totalActivities, totalClusters: clusters.length };
+  }, [clusters, clusterStatuses]);
+
   return (
     <div className="min-h-screen bg-gray-50" data-testid="career-stories-page">
       {/* Demo Mode Banner */}
@@ -306,6 +332,36 @@ export function CareerStoriesPage() {
           </div>
         </div>
       </header>
+
+      {/* Stats Bar */}
+      {clusters.length > 0 && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-center gap-6 text-sm">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="font-semibold text-gray-900">{stats.complete}</span>
+                <span className="text-gray-500">Complete</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-semibold text-gray-900">{stats.inProgress}</span>
+                <span className="text-gray-500">In Progress</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Lightbulb className="h-4 w-4 text-gray-400" />
+                <span className="font-semibold text-gray-900">{stats.draft}</span>
+                <span className="text-gray-500">Draft</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5">
+                <Link2 className="h-4 w-4 text-blue-500" />
+                <span className="font-semibold text-gray-900">{stats.totalActivities}</span>
+                <span className="text-gray-500">Activities</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto">
