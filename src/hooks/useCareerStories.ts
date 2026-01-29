@@ -109,24 +109,15 @@ export const useClusters = () => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
-      // If in demo mode, use demo endpoints
-      if (isDemoMode()) {
-        const response = await CareerStoriesService.getDemoClusters();
-        if (response.success && response.data) {
-          return response.data;
-        }
-        // Demo mode but no demo clusters - return empty (user needs to seed)
-        return [];
-      }
-
-      // Normal mode - get real clusters
+      // Normal mode - try to get real clusters first
       try {
         const response = await CareerStoriesService.getClusters();
-        if (response.success && response.data) {
+        if (response.success && response.data && response.data.length > 0) {
+          // Has real clusters - ensure demo mode is off
           return response.data;
         }
       } catch {
-        // API error
+        // API error - fall through to demo mode
       }
 
       // No real clusters - enable demo mode so user sees the option to create demo stories

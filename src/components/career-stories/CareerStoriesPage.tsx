@@ -132,18 +132,20 @@ export function CareerStoriesPage() {
   >({});
   // Mobile sheet open state - separate from selection since user might close sheet without deselecting
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  // Track if we're showing demo data
-  const [showingDemo, setShowingDemo] = useState(isDemoMode());
-
   // Queries
   const { data: clusters = [], isLoading: isLoadingClusters } = useClusters();
   // Fetch selected cluster with activities for evidence linking
   const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
 
-  // Update demo mode state when clusters load
+  // Track if we're showing demo data - check after clusters load
+  const [showingDemo, setShowingDemo] = useState(false);
+
+  // Update demo mode state when clusters load or when loading completes
   useEffect(() => {
-    setShowingDemo(isDemoMode());
-  }, [clusters]);
+    if (!isLoadingClusters) {
+      setShowingDemo(isDemoMode());
+    }
+  }, [clusters, isLoadingClusters]);
 
   // Mutations
   const generateClustersMutation = useGenerateClusters();
