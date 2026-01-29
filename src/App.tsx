@@ -28,6 +28,7 @@ import NotificationsPage from './pages/notifications';
 import ServiceStatusPageStandalone from './pages/services/status-standalone';
 import { MCPCallbackPage } from './pages/mcp/callback';
 import Format7DesignShowcase from './pages/format7-design-showcase';
+import { CareerStoriesPage } from './components/career-stories';
 
 export type NetworkType = 'organization' | 'global';
 
@@ -182,6 +183,14 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/format7-showcase"
           element={<Format7DesignShowcase />}
+        />
+        <Route
+          path="/career-stories"
+          element={
+            <ProtectedRoute>
+              <CareerStoriesPage />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/workspaces/discovery" 
