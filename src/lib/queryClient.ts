@@ -49,4 +49,11 @@ export const QueryKeys = {
   // Goals
   goals: ['goals'] as const,
   goal: (id: string) => ['goals', id] as const,
+
+  // Career Stories
+  careerStoriesStats: ['career-stories', 'stats'] as const,
+  careerStoriesClusters: ['career-stories', 'clusters'] as const,
+  careerStoriesCluster: (id: string) => ['career-stories', 'cluster', id] as const,
+  careerStoriesActivities: (params: any) => ['career-stories', 'activities', params] as const,
+  careerStoriesUnclusteredActivities: ['career-stories', 'activities', 'unclustered'] as const,
 } as const;
