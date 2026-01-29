@@ -619,6 +619,70 @@ app.post('/api/v1/run-migrations', async (req, res) => {
   }
 });
 
+// TEMPORARY: Re-seed billing data with Razorpay plan ID
+app.post('/api/v1/seed-billing-razorpay', async (req, res) => {
+  try {
+    console.log('🌱 Re-seeding billing data with Razorpay plan IDs...');
+
+    // Upsert subscription plans
+    const freePlan = await prisma.subscriptionPlan.upsert({
+      where: { name: 'free' },
+      update: { displayName: 'Free', monthlyCredits: 0, razorpayPlanId: null, isActive: true },
+      create: { name: 'free', displayName: 'Free', monthlyCredits: 0, razorpayPlanId: null, isActive: true },
+    });
+
+    const proPlan = await prisma.subscriptionPlan.upsert({
+      where: { name: 'pro' },
+      update: { displayName: 'Pro', monthlyCredits: 500, razorpayPlanId: 'plan_S9YGbvaUGRji6l', isActive: true },
+      create: { name: 'pro', displayName: 'Pro', monthlyCredits: 500, razorpayPlanId: 'plan_S9YGbvaUGRji6l', isActive: true },
+    });
+
+    // Upsert feature costs
+    const features = [
+      { featureCode: 'ai_entry_generation', displayName: 'AI Entry Generation', creditCost: 5, description: 'Generate journal entries using AI' },
+      { featureCode: 'ai_skill_extraction', displayName: 'AI Skill Extraction', creditCost: 3, description: 'Extract skills from journal entries' },
+      { featureCode: 'ai_summary', displayName: 'AI Summary', creditCost: 2, description: 'Generate AI summaries' },
+      { featureCode: 'export_pdf', displayName: 'Export to PDF', creditCost: 1, description: 'Export entries to PDF' },
+    ];
+
+    for (const feature of features) {
+      await prisma.featureCost.upsert({
+        where: { featureCode: feature.featureCode },
+        update: feature,
+        create: { ...feature, isActive: true },
+      });
+    }
+
+    // Upsert credit products (top-ups) - no razorpayPlanId needed for one-time purchases
+    const products = [
+      { name: 'starter', credits: 50, priceInCents: 499, razorpayPlanId: 'topup_starter' },
+      { name: 'popular', credits: 150, priceInCents: 999, razorpayPlanId: 'topup_popular' },
+      { name: 'power', credits: 500, priceInCents: 2499, razorpayPlanId: 'topup_power' },
+    ];
+
+    for (const product of products) {
+      await prisma.creditProduct.upsert({
+        where: { name: product.name },
+        update: product,
+        create: { ...product, isActive: true },
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Billing data re-seeded with Razorpay',
+      data: {
+        plans: [freePlan.name, proPlan.name],
+        features: features.map(f => f.featureCode),
+        products: products.map(p => p.name),
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Billing seed error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Debug endpoint to check user/profile data
 app.get('/api/v1/debug-profile', async (req, res) => {
   try {
