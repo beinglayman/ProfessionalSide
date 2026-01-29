@@ -9,6 +9,8 @@
  * - demo_tool_activities (instead of tool_activities)
  * - demo_story_clusters (instead of story_clusters)
  * - demo_career_stories (instead of career_stories)
+ *
+ * @module demo.service
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
@@ -16,9 +18,51 @@ import { generateMockActivities } from './mock-data.service';
 import { ClusteringService } from './clustering.service';
 import { RefExtractorService } from './ref-extractor.service';
 
-const prisma = new PrismaClient();
-const clusteringService = new ClusteringService(prisma);
-const refExtractor = new RefExtractorService();
+// Default instances - can be overridden via DI for testing
+let prisma = new PrismaClient();
+let clusteringService = new ClusteringService(prisma);
+let refExtractor = new RefExtractorService();
+
+/**
+ * Configure service dependencies (primarily for testing)
+ */
+export function configureDemoService(deps: {
+  prisma?: PrismaClient;
+  clusteringService?: ClusteringService;
+  refExtractor?: RefExtractorService;
+}): void {
+  if (deps.prisma) {
+    prisma = deps.prisma;
+    // Re-create clustering service with new prisma instance
+    clusteringService = deps.clusteringService || new ClusteringService(deps.prisma);
+  }
+  if (deps.clusteringService) clusteringService = deps.clusteringService;
+  if (deps.refExtractor) refExtractor = deps.refExtractor;
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Compute date range from timestamps.
+ * Returns undefined if timestamps array is empty.
+ */
+function computeDateRange(timestamps: Date[]): { start: string; end: string } | undefined {
+  if (timestamps.length === 0) return undefined;
+  const times = timestamps.map((t) => t.getTime());
+  return {
+    start: new Date(Math.min(...times)).toISOString(),
+    end: new Date(Math.max(...times)).toISOString(),
+  };
+}
+
+/**
+ * Extract unique tool types from activities.
+ */
+function extractToolTypes(activities: Array<{ source: string }>): string[] {
+  return [...new Set(activities.map((a) => a.source))];
+}
 
 export interface DemoCluster {
   id: string;
@@ -138,22 +182,14 @@ export async function seedDemoData(userId: string): Promise<{
     const clusterActivities = activities.filter((a) =>
       result.activityIds.includes(a.id)
     );
-    const timestamps = clusterActivities.map((a) => a.timestamp);
-    const toolTypes = [...new Set(clusterActivities.map((a) => a.source))];
 
     clusters.push({
       id: cluster.id,
       name: cluster.name,
       activityCount: result.activityIds.length,
       metrics: {
-        dateRange:
-          timestamps.length > 0
-            ? {
-                start: new Date(Math.min(...timestamps.map((t) => t.getTime()))).toISOString(),
-                end: new Date(Math.max(...timestamps.map((t) => t.getTime()))).toISOString(),
-              }
-            : undefined,
-        toolTypes,
+        dateRange: computeDateRange(clusterActivities.map((a) => a.timestamp)),
+        toolTypes: extractToolTypes(clusterActivities),
       },
     });
   }
@@ -178,26 +214,15 @@ export async function getDemoClusters(userId: string): Promise<DemoCluster[]> {
     orderBy: { createdAt: 'desc' },
   });
 
-  return clusters.map((cluster) => {
-    const timestamps = cluster.activities.map((a) => a.timestamp);
-    const toolTypes = [...new Set(cluster.activities.map((a) => a.source))];
-
-    return {
-      id: cluster.id,
-      name: cluster.name,
-      activityCount: cluster._count.activities,
-      metrics: {
-        dateRange:
-          timestamps.length > 0
-            ? {
-                start: new Date(Math.min(...timestamps.map((t) => t.getTime()))).toISOString(),
-                end: new Date(Math.max(...timestamps.map((t) => t.getTime()))).toISOString(),
-              }
-            : undefined,
-        toolTypes,
-      },
-    };
-  });
+  return clusters.map((cluster) => ({
+    id: cluster.id,
+    name: cluster.name,
+    activityCount: cluster._count.activities,
+    metrics: {
+      dateRange: computeDateRange(cluster.activities.map((a) => a.timestamp)),
+      toolTypes: extractToolTypes(cluster.activities),
+    },
+  }));
 }
 
 /**
@@ -218,9 +243,6 @@ export async function getDemoClusterById(
 
   if (!cluster) return null;
 
-  const timestamps = cluster.activities.map((a) => a.timestamp);
-  const toolTypes = [...new Set(cluster.activities.map((a) => a.source))];
-
   return {
     id: cluster.id,
     name: cluster.name,
@@ -236,14 +258,8 @@ export async function getDemoClusterById(
       crossToolRefs: a.crossToolRefs,
     })),
     metrics: {
-      dateRange:
-        timestamps.length > 0
-          ? {
-              start: new Date(Math.min(...timestamps.map((t) => t.getTime()))).toISOString(),
-              end: new Date(Math.max(...timestamps.map((t) => t.getTime()))).toISOString(),
-            }
-          : undefined,
-      toolTypes,
+      dateRange: computeDateRange(cluster.activities.map((a) => a.timestamp)),
+      toolTypes: extractToolTypes(cluster.activities),
     },
   };
 }
