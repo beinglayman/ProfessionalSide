@@ -19,6 +19,8 @@ import {
   ParticipationResult,
   NarrativeFrameworkType,
   STARGenerationError,
+  GeneratedNarrative,
+  STARComponent,
 } from './pipeline/types';
 import {
   ClusterHydrator,
@@ -26,6 +28,7 @@ import {
   ActivityWithRefs,
 } from './pipeline/cluster-hydrator';
 import { STARExtractor, starExtractor } from './pipeline/star-extractor';
+import { NarrativeExtractor, narrativeExtractor } from './pipeline/narrative-extractor';
 import {
   LLMPolisherService,
   llmPolisherService,
@@ -67,11 +70,25 @@ export interface STARGenerationResult {
 }
 
 export class STARGenerationService {
+  private _narrativeExtractor: NarrativeExtractor | null = null;
+
   constructor(
     private hydrator: ClusterHydrator = clusterHydrator,
     private extractor: STARExtractor = starExtractor,
+    narrativeExtractorInstance?: NarrativeExtractor,
     private polisher: LLMPolisherService = llmPolisherService
-  ) {}
+  ) {
+    if (narrativeExtractorInstance) {
+      this._narrativeExtractor = narrativeExtractorInstance;
+    }
+  }
+
+  private get narrativeExtractorInstance(): NarrativeExtractor {
+    if (!this._narrativeExtractor) {
+      this._narrativeExtractor = narrativeExtractor;
+    }
+    return this._narrativeExtractor;
+  }
 
   /**
    * Generate a STAR narrative from a cluster using Result-based error handling.
@@ -101,10 +118,14 @@ export class STARGenerationService {
 
     const hydratedCluster = hydrationResult.value.cluster;
 
-    // Step 2: Extract STAR
-    const extractionResult = this.extractor.safeProcess(
-      { cluster: hydratedCluster, persona },
+    // Step 2: Extract narrative using the specified framework
+    const framework = options.framework || 'STAR';
+
+    // Use NarrativeExtractor for all frameworks - it handles STAR and others
+    const narrativeResult = this.narrativeExtractorInstance.safeProcess(
+      { cluster: hydratedCluster, persona, framework },
       {
+        framework,
         debug: options.debug,
         minActivities: options.minActivities,
         minToolTypes: options.minToolTypes,
@@ -116,8 +137,8 @@ export class STARGenerationService {
     let participations: ParticipationResult[] = [];
     let failedGates: string[] | undefined;
 
-    if (extractionResult.isErr()) {
-      const error = extractionResult.error;
+    if (narrativeResult.isErr()) {
+      const error = narrativeResult.error;
 
       // Validation failures are expected - return success with null star
       if (error.code === 'VALIDATION_FAILED') {
@@ -132,8 +153,13 @@ export class STARGenerationService {
         });
       }
     } else {
-      star = extractionResult.value.data.star;
-      participations = extractionResult.value.data.participations;
+      const narrative = narrativeResult.value.data.narrative;
+      participations = narrativeResult.value.data.participations;
+
+      if (narrative) {
+        // Convert GeneratedNarrative to ScoredSTAR format for frontend compatibility
+        star = this.convertNarrativeToScoredSTAR(narrative);
+      }
     }
 
     // Step 3: Optional polish
@@ -181,6 +207,89 @@ export class STARGenerationService {
       persona,
       options
     );
+  }
+
+  /**
+   * Convert GeneratedNarrative to ScoredSTAR format for frontend compatibility.
+   * Maps framework components to STAR-like structure.
+   */
+  private convertNarrativeToScoredSTAR(narrative: GeneratedNarrative): ScoredSTAR {
+    const componentMap = new Map(
+      narrative.components.map((c) => [c.name, c])
+    );
+
+    // Map components to STAR structure
+    // Different frameworks have different components, so we map them intelligently
+    const getComponent = (...names: string[]): STARComponent => {
+      for (const name of names) {
+        const component = componentMap.get(name);
+        if (component && component.text) {
+          return {
+            text: component.text,
+            sources: component.sources,
+            confidence: component.confidence,
+          };
+        }
+      }
+      // Return empty component if none found
+      return { text: '', sources: [], confidence: 0 };
+    };
+
+    // Map framework components to STAR structure:
+    // - Situation: situation, context, problem, challenge
+    // - Task: task, objective
+    // - Action: action
+    // - Result: result, learning, hindsight, example (combined if multiple)
+    const situation = getComponent('situation', 'context', 'problem', 'challenge');
+    const task = getComponent('task', 'objective');
+    const action = getComponent('action');
+
+    // For result, we may want to combine result + learning for frameworks like STARL/CARL
+    let result = getComponent('result');
+    const learning = componentMap.get('learning');
+    const hindsight = componentMap.get('hindsight');
+    const example = componentMap.get('example');
+
+    // Append learning/hindsight/example to result if present
+    const resultExtras: string[] = [];
+    if (learning?.text) resultExtras.push(`Learning: ${learning.text}`);
+    if (hindsight?.text) resultExtras.push(`Hindsight: ${hindsight.text}`);
+    if (example?.text) resultExtras.push(`Example: ${example.text}`);
+
+    if (resultExtras.length > 0 && result.text) {
+      result = {
+        ...result,
+        text: `${result.text}\n\n${resultExtras.join('\n\n')}`,
+      };
+    } else if (resultExtras.length > 0 && !result.text) {
+      // If no result but have extras, use them
+      result = {
+        text: resultExtras.join('\n\n'),
+        sources: [
+          ...(learning?.sources || []),
+          ...(hindsight?.sources || []),
+          ...(example?.sources || []),
+        ],
+        confidence: Math.max(
+          learning?.confidence || 0,
+          hindsight?.confidence || 0,
+          example?.confidence || 0
+        ),
+      };
+    }
+
+    return {
+      clusterId: narrative.clusterId,
+      situation,
+      task,
+      action,
+      result,
+      overallConfidence: narrative.overallConfidence,
+      participationSummary: narrative.participationSummary,
+      suggestedEdits: narrative.suggestedEdits,
+      metadata: narrative.metadata,
+      validation: narrative.validation,
+    };
   }
 }
 
