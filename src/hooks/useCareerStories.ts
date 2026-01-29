@@ -107,30 +107,27 @@ export const useUnclusteredActivities = () => {
 
 /**
  * Get all clusters for the user.
- * Falls back to demo data when backend returns empty.
+ * Falls back to demo data when backend returns empty or errors.
  */
 export const useClusters = () => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
-      const response = await CareerStoriesService.getClusters();
-      if (response.success && response.data) {
-        // If no clusters and demo mode, return demo data
-        if (response.data.length === 0 && isDemoMode()) {
-          return DEMO_CLUSTERS;
+      try {
+        const response = await CareerStoriesService.getClusters();
+        if (response.success && response.data) {
+          // If has clusters, return them
+          if (response.data.length > 0) {
+            return response.data;
+          }
         }
-        // If no clusters, auto-enable demo mode for showcase
-        if (response.data.length === 0) {
-          enableDemoMode();
-          return DEMO_CLUSTERS;
-        }
-        return response.data;
+      } catch {
+        // API error - fall through to demo mode
       }
-      // On error, fall back to demo if enabled
-      if (isDemoMode()) {
-        return DEMO_CLUSTERS;
-      }
-      throw new Error(response.error || 'Failed to fetch clusters');
+
+      // No clusters or API error - enable demo mode and return demo data
+      enableDemoMode();
+      return DEMO_CLUSTERS;
     },
   });
 };

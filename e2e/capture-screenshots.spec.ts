@@ -25,18 +25,31 @@ test.describe('Career Stories Screenshots', () => {
     });
     console.log('Captured: career-stories-01-initial.png');
 
-    // Try to generate clusters if empty
-    const generateBtn = page.getByRole('button', { name: /generate clusters/i }).first();
-    if (await generateBtn.isVisible()) {
-      console.log('Clicking Generate Clusters...');
-      await generateBtn.click();
-      await page.waitForTimeout(5000);
+    // Check if demo mode banner is visible (means we have demo clusters)
+    const demoBanner = page.getByText('Demo Mode');
+    const hasDemoMode = await demoBanner.isVisible().catch(() => false);
 
+    if (hasDemoMode) {
+      console.log('Demo mode active - clusters already loaded');
       await page.screenshot({
-        path: 'screenshots/career-stories-02-after-generate.png',
+        path: 'screenshots/career-stories-02-demo-clusters.png',
         fullPage: true
       });
-      console.log('Captured: career-stories-02-after-generate.png');
+      console.log('Captured: career-stories-02-demo-clusters.png');
+    } else {
+      // Try to generate clusters if empty (non-demo mode)
+      const generateBtn = page.getByRole('button', { name: /generate clusters/i }).first();
+      if (await generateBtn.isVisible() && await generateBtn.isEnabled()) {
+        console.log('Clicking Generate Clusters...');
+        await generateBtn.click();
+        await page.waitForTimeout(5000);
+
+        await page.screenshot({
+          path: 'screenshots/career-stories-02-after-generate.png',
+          fullPage: true
+        });
+        console.log('Captured: career-stories-02-after-generate.png');
+      }
     }
 
     // Click first cluster if exists
