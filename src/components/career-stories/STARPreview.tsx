@@ -11,11 +11,11 @@
  * - Success: Shows full STAR narrative with edit capabilities
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
-import { RefreshCw, Check, Edit2, Copy, AlertTriangle, Lightbulb, CheckCircle2, Clock } from 'lucide-react';
+import { RefreshCw, Check, Edit2, Copy, AlertTriangle, Lightbulb, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework } from '../../types/career-stories';
+import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework, ToolActivity } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ToolIcon } from './ToolIcon';
@@ -181,6 +181,79 @@ const SuggestedEdits: React.FC<SuggestedEditsProps> = ({ edits }) => {
   );
 };
 
+// =============================================================================
+// EVIDENCE CHIPS
+// =============================================================================
+
+interface EvidenceChipsProps {
+  sourceIds: string[];
+  activities: ToolActivity[];
+  maxDisplay?: number;
+}
+
+/**
+ * Display clickable chips for source activities.
+ * Shows tool icon + truncated title for each activity.
+ */
+const EvidenceChips: React.FC<EvidenceChipsProps> = ({
+  sourceIds,
+  activities,
+  maxDisplay = 3,
+}) => {
+  if (!sourceIds || sourceIds.length === 0 || !activities || activities.length === 0) {
+    return null;
+  }
+
+  // Create lookup map for activities
+  const activityMap = useMemo(() => {
+    const map = new Map<string, ToolActivity>();
+    activities.forEach((a) => map.set(a.id, a));
+    return map;
+  }, [activities]);
+
+  // Get activities for source IDs
+  const sourceActivities = sourceIds
+    .map((id) => activityMap.get(id))
+    .filter((a): a is ToolActivity => a !== undefined);
+
+  if (sourceActivities.length === 0) return null;
+
+  const displayActivities = sourceActivities.slice(0, maxDisplay);
+  const remainingCount = sourceActivities.length - maxDisplay;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {displayActivities.map((activity) => (
+        <a
+          key={activity.id}
+          href={activity.sourceUrl || '#'}
+          target={activity.sourceUrl ? '_blank' : undefined}
+          rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
+          className={cn(
+            'inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full',
+            'bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors',
+            'max-w-[200px] truncate',
+            !activity.sourceUrl && 'cursor-default'
+          )}
+          title={activity.title}
+          onClick={(e) => !activity.sourceUrl && e.preventDefault()}
+        >
+          <ToolIcon tool={activity.source} className="w-3 h-3 text-[6px] flex-shrink-0" />
+          <span className="truncate">{activity.title}</span>
+          {activity.sourceUrl && (
+            <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 text-gray-400" />
+          )}
+        </a>
+      ))}
+      {remainingCount > 0 && (
+        <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">
+          +{remainingCount} more
+        </span>
+      )}
+    </div>
+  );
+};
+
 // Confidence dot component
 const ConfidenceDot: React.FC<{ confidence: number }> = ({ confidence }) => {
   const getColor = () => {
@@ -205,6 +278,7 @@ interface STARSectionProps {
   isEditing: boolean;
   editValue: string;
   onEditChange: (value: string) => void;
+  activities?: ToolActivity[];
 }
 
 const STARSection: React.FC<STARSectionProps> = ({
@@ -213,6 +287,7 @@ const STARSection: React.FC<STARSectionProps> = ({
   isEditing,
   editValue,
   onEditChange,
+  activities = [],
 }) => {
   return (
     <div className="mb-4">
@@ -233,6 +308,8 @@ const STARSection: React.FC<STARSectionProps> = ({
       ) : (
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{component.text}</p>
+          {/* Evidence chips showing source activities */}
+          <EvidenceChips sourceIds={component.sources} activities={activities} />
         </div>
       )}
     </div>
@@ -248,6 +325,8 @@ interface STARPreviewProps {
   dateRange?: { earliest: string; latest: string };
   /** Tool types for displaying icons */
   toolTypes: ToolType[];
+  /** Activities in the cluster for evidence linking */
+  activities?: ToolActivity[];
   /** Generation result - null when not yet generated */
   result: GenerateSTARResult | null;
   /** Whether STAR is currently being generated */
@@ -272,6 +351,7 @@ export function STARPreview({
   activityCount,
   dateRange,
   toolTypes,
+  activities = [],
   result,
   isLoading,
   polishEnabled,
@@ -527,6 +607,7 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.situation}
           onEditChange={(v) => setEdits({ ...edits, situation: v })}
+          activities={activities}
         />
         <STARSection
           label="Task"
@@ -534,6 +615,7 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.task}
           onEditChange={(v) => setEdits({ ...edits, task: v })}
+          activities={activities}
         />
         <STARSection
           label="Action"
@@ -541,6 +623,7 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.action}
           onEditChange={(v) => setEdits({ ...edits, action: v })}
+          activities={activities}
         />
         <STARSection
           label="Result"
@@ -548,6 +631,7 @@ export function STARPreview({
           isEditing={isEditing}
           editValue={edits.result}
           onEditChange={(v) => setEdits({ ...edits, result: v })}
+          activities={activities}
         />
 
         {/* Suggested Edits (What's Missing) */}

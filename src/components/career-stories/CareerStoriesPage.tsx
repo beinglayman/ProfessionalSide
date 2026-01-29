@@ -14,6 +14,7 @@ import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework } from '../..
 import { CONFIDENCE_THRESHOLDS } from './constants';
 import {
   useClusters,
+  useCluster,
   useGenerateClusters,
   useGenerateStar,
 } from '../../hooks/useCareerStories';
@@ -135,6 +136,8 @@ export function CareerStoriesPage() {
 
   // Queries
   const { data: clusters = [], isLoading: isLoadingClusters } = useClusters();
+  // Fetch selected cluster with activities for evidence linking
+  const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
 
   // Update demo mode state when clusters load
   useEffect(() => {
@@ -388,6 +391,7 @@ export function CareerStoriesPage() {
               activityCount={selectedCluster?.activityCount || 0}
               dateRange={selectedCluster?.metrics?.dateRange}
               toolTypes={selectedToolTypes}
+              activities={clusterWithActivities?.activities}
               result={selectedClusterState?.result || null}
               isLoading={selectedClusterState?.status === 'generating'}
               polishEnabled={polishEnabled}
@@ -423,6 +427,7 @@ export function CareerStoriesPage() {
             activityCount={selectedCluster?.activityCount || 0}
             dateRange={selectedCluster?.metrics?.dateRange}
             toolTypes={selectedToolTypes}
+            activities={clusterWithActivities?.activities}
             result={selectedClusterState?.result || null}
             isLoading={selectedClusterState?.status === 'generating'}
             polishEnabled={polishEnabled}
