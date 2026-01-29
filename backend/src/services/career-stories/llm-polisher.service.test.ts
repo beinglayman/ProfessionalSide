@@ -2,30 +2,54 @@
  * LLMPolisherService Tests
  *
  * Tests focus on:
- * 1. Happy path polishing (without real API calls)
+ * 1. Happy path polishing (with mocked ModelSelectorService)
  * 2. Graceful fallback on errors
  * 3. Component-level granularity
  * 4. PolishStatus enum for explicit outcomes
- * 5. Client injection for testability
+ * 5. Service injection for testability
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LLMPolisherService, PolishStatus } from './llm-polisher.service';
 import { DraftSTAR, STARComponent, ScoredSTAR } from './pipeline/types';
 
+// Mock ModelSelectorService
+const createMockModelSelector = (response?: string, shouldFail = false) => ({
+  executeTask: vi.fn().mockImplementation(async () => {
+    if (shouldFail) {
+      throw new Error('API Error');
+    }
+    return {
+      content: response || 'Improved text here',
+      model: 'gpt-4o-mini',
+      estimatedCost: 0.001,
+    };
+  }),
+  getModelInfo: vi.fn().mockReturnValue({
+    quick: 'gpt-4o-mini',
+    premium: 'gpt-4o',
+    identical: false,
+  }),
+});
+
 describe('LLMPolisherService', () => {
-  let originalApiKey: string | undefined;
+  let originalAzureKey: string | undefined;
+  let originalAzureEndpoint: string | undefined;
 
   beforeEach(() => {
-    originalApiKey = process.env.ANTHROPIC_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
+    originalAzureKey = process.env.AZURE_OPENAI_API_KEY;
+    originalAzureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    // Clear env vars to test unconfigured state
+    delete process.env.AZURE_OPENAI_API_KEY;
+    delete process.env.AZURE_OPENAI_ENDPOINT;
   });
 
   afterEach(() => {
-    if (originalApiKey) {
-      process.env.ANTHROPIC_API_KEY = originalApiKey;
-    } else {
-      delete process.env.ANTHROPIC_API_KEY;
+    if (originalAzureKey) {
+      process.env.AZURE_OPENAI_API_KEY = originalAzureKey;
+    }
+    if (originalAzureEndpoint) {
+      process.env.AZURE_OPENAI_ENDPOINT = originalAzureEndpoint;
     }
   });
 
@@ -84,53 +108,19 @@ describe('LLMPolisherService', () => {
   });
 
   describe('configuration', () => {
-    it('reports unconfigured when no API key', () => {
+    it('reports unconfigured when no ModelSelectorService', () => {
       const service = new LLMPolisherService(null);
       expect(service.isConfigured()).toBe(false);
     });
 
-    it('reports configured when API key provided via env', () => {
-      process.env.ANTHROPIC_API_KEY = 'test-key';
-      const service = new LLMPolisherService();
-      expect(service.isConfigured()).toBe(true);
-    });
-
-    it('reports configured when client injected', () => {
-      const mockClient = {} as any;
-      const service = new LLMPolisherService(mockClient);
+    it('reports configured when ModelSelectorService injected', () => {
+      const mockSelector = createMockModelSelector();
+      const service = new LLMPolisherService(mockSelector as any);
       expect(service.isConfigured()).toBe(true);
     });
   });
 
-  describe('client injection', () => {
-    it('accepts pre-configured client', () => {
-      const mockClient = { messages: { create: vi.fn() } } as any;
-      const service = new LLMPolisherService(mockClient);
-
-      expect(service.isConfigured()).toBe(true);
-    });
-
-    it('accepts custom client factory', () => {
-      const mockClient = { messages: { create: vi.fn() } } as any;
-      const factory = vi.fn().mockReturnValue(mockClient);
-
-      const service = new LLMPolisherService(null, 'test-api-key', factory);
-
-      expect(factory).toHaveBeenCalledWith('test-api-key');
-      expect(service.isConfigured()).toBe(true);
-    });
-
-    it('prefers injected client over factory', () => {
-      const injectedClient = { messages: { create: vi.fn() } } as any;
-      const factory = vi.fn();
-
-      new LLMPolisherService(injectedClient, 'api-key', factory);
-
-      expect(factory).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('polish() without API key', () => {
+  describe('polish() without configuration', () => {
     it('returns not_configured status when not configured', async () => {
       const service = new LLMPolisherService(null);
       const star = createDraftSTAR();
@@ -138,7 +128,7 @@ describe('LLMPolisherService', () => {
       const result = await service.polish(star);
 
       expect(result.status).toBe('not_configured');
-      expect(result.reason).toBe('ANTHROPIC_API_KEY not configured');
+      expect(result.reason).toContain('not configured');
       expect(result.situation.improved.text).toBe(star.situation.text);
       expect(result.task.improved.text).toBe(star.task.text);
       expect(result.action.improved.text).toBe(star.action.text);
@@ -196,15 +186,8 @@ describe('LLMPolisherService', () => {
     });
 
     it('returns ok Result when configured', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockResolvedValue({
-            content: [{ type: 'text', text: 'Improved text here' }],
-          }),
-        },
-      } as any;
-
-      const service = new LLMPolisherService(mockClient);
+      const mockSelector = createMockModelSelector('Improved text here');
+      const service = new LLMPolisherService(mockSelector as any);
       const star = createDraftSTAR();
 
       const result = await service.safePolish(star);
@@ -214,7 +197,7 @@ describe('LLMPolisherService', () => {
   });
 
   describe('polishIfConfigured()', () => {
-    it('returns not_configured status when no API key', async () => {
+    it('returns not_configured status when no configuration', async () => {
       const service = new LLMPolisherService(null);
       const star = createScoredSTAR();
 
@@ -225,32 +208,20 @@ describe('LLMPolisherService', () => {
       expect(result.reason).toContain('not configured');
     });
 
-    it('returns applied status when polish succeeds', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockResolvedValue({
-            content: [{ type: 'text', text: 'Much improved professional text' }],
-          }),
-        },
-      } as any;
-
-      const service = new LLMPolisherService(mockClient);
+    it('returns success status when polish succeeds', async () => {
+      const mockSelector = createMockModelSelector('Much improved professional text');
+      const service = new LLMPolisherService(mockSelector as any);
       const star = createScoredSTAR();
 
       const result = await service.polishIfConfigured(star);
 
-      expect(result.status).toBe('applied');
+      expect(result.status).toBe('success');
       expect(result.star.situation.text).toBe('Much improved professional text');
     });
 
     it('returns original star when polish fails', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockRejectedValue(new Error('API Error')),
-        },
-      } as any;
-
-      const service = new LLMPolisherService(mockClient);
+      const mockSelector = createMockModelSelector('', true);
+      const service = new LLMPolisherService(mockSelector as any);
       const originalStar = createScoredSTAR();
 
       const result = await service.polishIfConfigured(originalStar);
@@ -266,27 +237,21 @@ describe('LLMPolisherService', () => {
       const statuses: PolishStatus[] = [
         'not_requested',
         'not_configured',
+        'success',
         'applied',
         'skipped',
         'failed',
         'no_improvement',
       ];
 
-      expect(statuses).toHaveLength(6);
+      expect(statuses).toHaveLength(7);
     });
   });
 
   describe('component polishing', () => {
     it('skips components with short text', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockResolvedValue({
-            content: [{ type: 'text', text: 'Improved' }],
-          }),
-        },
-      } as any;
-
-      const service = new LLMPolisherService(mockClient);
+      const mockSelector = createMockModelSelector('Improved');
+      const service = new LLMPolisherService(mockSelector as any);
       const star = createDraftSTAR({
         situation: createComponent({ text: 'Short' }), // Less than MIN_TEXT_LENGTH
       });
@@ -298,15 +263,8 @@ describe('LLMPolisherService', () => {
     });
 
     it('skips components with zero confidence', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockResolvedValue({
-            content: [{ type: 'text', text: 'Improved' }],
-          }),
-        },
-      } as any;
-
-      const service = new LLMPolisherService(mockClient);
+      const mockSelector = createMockModelSelector('Improved');
+      const service = new LLMPolisherService(mockSelector as any);
       const star = createDraftSTAR({
         task: createComponent({ text: 'This has zero confidence', confidence: 0 }),
       });
@@ -352,18 +310,15 @@ describe('LLMPolisherService', () => {
 
   describe('error handling', () => {
     it('handles timeout errors gracefully', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockRejectedValue(
-            Object.assign(new Error('Request timed out'), { name: 'AbortError' })
-          ),
-        },
-      } as any;
+      const mockSelector = {
+        executeTask: vi.fn().mockRejectedValue(
+          Object.assign(new Error('Request timed out'), { name: 'AbortError' })
+        ),
+      };
 
-      const service = new LLMPolisherService(mockClient);
+      const service = new LLMPolisherService(mockSelector as any);
       const star = createDraftSTAR();
 
-      // polish() catches errors and returns fallback
       const result = await service.polish(star);
 
       expect(result.status).toBe('failed');
@@ -371,20 +326,14 @@ describe('LLMPolisherService', () => {
     });
 
     it('handles generic LLM errors gracefully', async () => {
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockRejectedValue(new Error('Rate limit exceeded')),
-        },
-      } as any;
-
-      const service = new LLMPolisherService(mockClient);
+      const mockSelector = createMockModelSelector('', true);
+      const service = new LLMPolisherService(mockSelector as any);
       const star = createDraftSTAR();
 
-      // polish() catches errors and returns fallback
       const result = await service.polish(star);
 
       expect(result.status).toBe('failed');
-      expect(result.reason).toContain('Rate limit exceeded');
+      expect(result.reason).toContain('API Error');
     });
   });
 
@@ -435,7 +384,7 @@ describe('LLMPolisherService', () => {
 
       const result = await service.polish(star);
 
-      // Should return fallback (no API key), text preserved
+      // Should return fallback (no config), text preserved
       expect(result.situation.improved.text).toBe(longText);
     });
 
@@ -450,6 +399,50 @@ describe('LLMPolisherService', () => {
       const result = await service.polish(star);
 
       expect(result.situation.improved.text).toBe(specialText);
+    });
+  });
+
+  describe('successful polishing with mock', () => {
+    it('polishes all components when configured', async () => {
+      const mockSelector = createMockModelSelector('Professionally polished text');
+      const service = new LLMPolisherService(mockSelector as any);
+      const star = createDraftSTAR();
+
+      const result = await service.polish(star);
+
+      expect(result.status).toBe('success');
+      expect(result.situation.status).toBe('success');
+      expect(result.task.status).toBe('success');
+      expect(result.action.status).toBe('success');
+      expect(result.result.status).toBe('success');
+      expect(result.situation.improved.text).toBe('Professionally polished text');
+    });
+
+    it('calls executeTask with correct parameters', async () => {
+      const mockSelector = createMockModelSelector('Improved');
+      const service = new LLMPolisherService(mockSelector as any);
+      const star = createDraftSTAR();
+
+      await service.polish(star);
+
+      // Should call executeTask 4 times (one for each component)
+      expect(mockSelector.executeTask).toHaveBeenCalledTimes(4);
+
+      // Check first call parameters
+      const firstCall = mockSelector.executeTask.mock.calls[0];
+      expect(firstCall[0]).toBe('summarize'); // task type
+      expect(firstCall[2]).toBe('quick'); // quality level
+    });
+
+    it('returns no_improvement when LLM returns same text', async () => {
+      const originalText = 'Dashboard was taking 10s to load, users were complaining.';
+      const mockSelector = createMockModelSelector(originalText); // Same as input
+      const service = new LLMPolisherService(mockSelector as any);
+      const star = createDraftSTAR();
+
+      const result = await service.polish(star);
+
+      expect(result.situation.status).toBe('no_improvement');
     });
   });
 });
