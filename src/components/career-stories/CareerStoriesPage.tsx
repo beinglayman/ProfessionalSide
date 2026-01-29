@@ -303,7 +303,7 @@ export function CareerStoriesPage() {
             <div className="flex items-center gap-2 text-amber-800">
               <FlaskConical className="h-4 w-4" />
               <span className="text-sm font-medium">
-                Demo Mode: Showing sample data for showcase purposes
+                Demo Mode: Viewing sample stories. Create your own draft stories from real data.
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -314,7 +314,7 @@ export function CareerStoriesPage() {
                 disabled={runFullPipelineMutation.isPending}
                 className="text-blue-700 hover:text-blue-900 text-xs border-blue-300 hover:border-blue-400"
               >
-                {runFullPipelineMutation.isPending ? 'Seeding Data...' : 'Switch to Live API'}
+                {runFullPipelineMutation.isPending ? 'Creating Stories...' : 'Create Draft Stories'}
               </Button>
               <Button
                 variant="ghost"
