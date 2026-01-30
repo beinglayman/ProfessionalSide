@@ -14,6 +14,7 @@ import {
   getExpectedClusters,
 } from '../services/career-stories';
 import * as demoService from '../services/career-stories/demo.service';
+import { DEFAULT_DEMO_PERSONA, DemoServiceError } from '../services/career-stories/demo.service';
 import {
   starGenerationService,
   STARGenerationOptions,
@@ -32,6 +33,29 @@ import {
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
+
+// =============================================================================
+// ERROR HANDLING (RC: Reusable error handler for demo endpoints)
+// =============================================================================
+
+/**
+ * Handle DemoServiceError and return appropriate HTTP status.
+ * Returns true if error was handled, false if it should be re-thrown.
+ */
+function handleDemoServiceError(error: unknown, res: Response): boolean {
+  if (error instanceof DemoServiceError) {
+    const statusMap: Record<string, number> = {
+      ENTRY_NOT_FOUND: 404,
+      CLUSTER_NOT_FOUND: 404,
+      NO_ACTIVITIES: 400,
+      INVALID_INPUT: 400,
+    };
+    const status = statusMap[error.code] || 500;
+    sendError(res, error.message, status, { code: error.code });
+    return true;
+  }
+  return false;
+}
 
 // ============================================================================
 // TOOL ACTIVITIES
@@ -698,11 +722,7 @@ export const generateDemoStar = asyncHandler(async (req: Request, res: Response)
     id: user.id,
     email: user.email,
     name: user.name,
-  }) : {
-    displayName: 'Demo User',
-    emails: ['demo@example.com'],
-    identities: {},
-  };
+  }) : DEFAULT_DEMO_PERSONA;
 
   // Convert demo activities to the format expected by STAR generation
   const activities: ActivityWithRefs[] = (cluster.activities || []).map((a) => ({
@@ -783,4 +803,111 @@ export const clearDemoData = asyncHandler(async (req: Request, res: Response): P
 
   await demoService.clearDemoData(userId);
   sendSuccess(res, { cleared: true }, 'Demo data cleared');
+});
+
+/**
+ * POST /api/v1/demo/sync
+ * Seed demo data for the user (activities, clusters).
+ * Used by the frontend Sync button in demo mode.
+ */
+export const syncDemoData = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const result = await demoService.seedDemoData(userId);
+  sendSuccess(res, {
+    activityCount: result.activitiesSeeded,
+    clusterCount: result.clustersCreated,
+    entryCount: result.entriesCreated,
+  }, 'Demo data synced successfully');
+});
+
+/**
+ * GET /api/v1/demo/journal-entries
+ * List demo journal entries for the user.
+ */
+export const getDemoJournalEntries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const entries = await demoService.getDemoJournalEntries(userId);
+  sendSuccess(res, entries);
+});
+
+/**
+ * PATCH /api/v1/demo/journal-entries/:id/activities
+ * Update activity IDs for a demo journal entry.
+ */
+export const updateDemoJournalEntryActivities = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { activityIds } = req.body;
+  if (!Array.isArray(activityIds)) {
+    return void sendError(res, 'activityIds must be an array', 400);
+  }
+
+  try {
+    const result = await demoService.updateDemoJournalEntryActivities(userId, id, activityIds);
+    sendSuccess(res, result, 'Journal entry activities updated');
+  } catch (error) {
+    if (!handleDemoServiceError(error, res)) throw error;
+  }
+});
+
+/**
+ * PATCH /api/v1/demo/clusters/:id/activities
+ * Update activity assignments for a demo cluster.
+ */
+export const updateDemoClusterActivities = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { activityIds } = req.body;
+  if (!Array.isArray(activityIds)) {
+    return void sendError(res, 'activityIds must be an array', 400);
+  }
+
+  try {
+    const result = await demoService.updateDemoClusterActivities(userId, id, activityIds);
+    sendSuccess(res, result, 'Cluster activities updated');
+  } catch (error) {
+    if (!handleDemoServiceError(error, res)) throw error;
+  }
+});
+
+/**
+ * POST /api/v1/demo/journal-entries/:id/regenerate
+ * Regenerate narrative for a demo journal entry.
+ */
+export const regenerateDemoJournalNarrative = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { options } = req.body || {};
+
+  try {
+    const result = await demoService.regenerateDemoJournalNarrative(userId, id, options);
+    sendSuccess(res, result, 'Journal narrative regenerated');
+  } catch (error) {
+    if (!handleDemoServiceError(error, res)) throw error;
+  }
 });
