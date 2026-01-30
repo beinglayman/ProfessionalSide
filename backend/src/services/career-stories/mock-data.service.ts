@@ -607,6 +607,174 @@ export function generateMockActivities(): ActivityInput[] {
         commenters: ['honey.arora', 'product-manager'],
       },
     },
+
+    // =========================================================================
+    // HISTORICAL ACTIVITIES (30-60 days ago) - for richer journal entries
+    // =========================================================================
+
+    // Earlier project: API Versioning (35-45 days ago)
+    {
+      source: 'jira',
+      sourceId: 'API-200',
+      sourceUrl: 'https://acme.atlassian.net/browse/API-200',
+      title: 'Implement API versioning strategy',
+      description: 'Design and implement v2 API endpoints with backwards compatibility.',
+      timestamp: daysAgo(45),
+      rawData: {
+        key: 'API-200',
+        status: 'Done',
+        priority: 'High',
+        assignee: 'honey.arora',
+        storyPoints: 13,
+        labels: ['api', 'breaking-change'],
+      },
+    },
+    {
+      source: 'github',
+      sourceId: 'acme/backend#30',
+      sourceUrl: 'https://github.com/acme/backend/pull/30',
+      title: 'feat(api): implement v2 endpoints with versioning',
+      description: 'Closes API-200. Adds /v2 prefix and request header versioning support.',
+      timestamp: daysAgo(40),
+      rawData: {
+        number: 30,
+        state: 'merged',
+        additions: 890,
+        deletions: 120,
+        changedFiles: 28,
+        reviews: 4,
+        commits: 12,
+      },
+    },
+    {
+      source: 'confluence',
+      sourceId: '654321',
+      sourceUrl: 'https://acme.atlassian.net/wiki/spaces/ENG/pages/654321/API+Versioning+Strategy',
+      title: 'API Versioning Strategy',
+      description: 'Technical design for API-200. Covers URL versioning, header versioning, and deprecation policy.',
+      timestamp: daysAgo(50),
+      rawData: {
+        pageId: '654321',
+        spaceKey: 'ENG',
+        version: 8,
+        lastModifiedBy: 'honey.arora',
+      },
+    },
+
+    // Earlier project: Database Migration (50-60 days ago)
+    {
+      source: 'jira',
+      sourceId: 'DB-150',
+      sourceUrl: 'https://acme.atlassian.net/browse/DB-150',
+      title: 'Migrate user data to new schema',
+      description: 'Zero-downtime migration of user table to support multi-tenancy.',
+      timestamp: daysAgo(60),
+      rawData: {
+        key: 'DB-150',
+        status: 'Done',
+        priority: 'Critical',
+        assignee: 'honey.arora',
+        storyPoints: 21,
+        labels: ['database', 'migration', 'multi-tenant'],
+      },
+    },
+    {
+      source: 'github',
+      sourceId: 'acme/backend#25',
+      sourceUrl: 'https://github.com/acme/backend/pull/25',
+      title: 'feat(db): implement zero-downtime user schema migration',
+      description: 'Closes DB-150. Uses shadow table pattern for safe migration.',
+      timestamp: daysAgo(55),
+      rawData: {
+        number: 25,
+        state: 'merged',
+        additions: 650,
+        deletions: 200,
+        changedFiles: 18,
+        reviews: 5,
+        commits: 8,
+      },
+    },
+    {
+      source: 'confluence',
+      sourceId: '543210',
+      sourceUrl: 'https://acme.atlassian.net/wiki/spaces/ENG/pages/543210/Database+Migration+Runbook',
+      title: 'Database Migration Runbook',
+      description: 'Step-by-step runbook for DB-150 migration. Includes rollback procedures.',
+      timestamp: daysAgo(58),
+      rawData: {
+        pageId: '543210',
+        spaceKey: 'ENG',
+        version: 4,
+        lastModifiedBy: 'honey.arora',
+      },
+    },
+
+    // Earlier activities: Code review and mentoring (35-50 days ago)
+    {
+      source: 'github',
+      sourceId: 'acme/backend#28',
+      sourceUrl: 'https://github.com/acme/backend/pull/28',
+      title: 'feat(users): add user preference storage',
+      description: 'New feature PR. @honey.arora requested as reviewer for database design.',
+      timestamp: daysAgo(42),
+      rawData: {
+        number: 28,
+        state: 'merged',
+        author: 'junior-dev',
+        additions: 280,
+        deletions: 15,
+        changedFiles: 8,
+        requestedReviewers: ['honey.arora'],
+        reviews: [{ reviewer: 'honey.arora', state: 'APPROVED' }],
+        commits: 4,
+      },
+    },
+    {
+      source: 'slack',
+      sourceId: 'thread-mentoring-db',
+      sourceUrl: 'https://acme.slack.com/archives/C0BACKEND/p1234500000',
+      title: 'Thread in #backend-team',
+      description: '@honey.arora thanks for the detailed code review on #28! The database indexing tips were super helpful.',
+      timestamp: daysAgo(41),
+      rawData: {
+        channelId: 'C0BACKEND',
+        channelName: 'backend-team',
+        messageTs: '1234500000.123456',
+        mentions: ['honey.arora'],
+      },
+    },
+
+    // Q4 Planning activities (30-35 days ago)
+    {
+      source: 'google',
+      sourceId: 'gdoc-q4-okrs',
+      sourceUrl: 'https://docs.google.com/document/d/1Q4OKRs_planning_doc_xyz/edit',
+      title: 'Q4 Engineering OKRs',
+      description: 'Team OKRs for Q4. @honey.arora owns the API reliability objective.',
+      timestamp: daysAgo(35),
+      rawData: {
+        documentId: '1Q4OKRs_planning_doc_xyz',
+        owner: 'eng-manager',
+        contributors: ['honey.arora', 'tech-lead', 'senior-dev'],
+      },
+    },
+    {
+      source: 'jira',
+      sourceId: 'EPIC-Q4-100',
+      sourceUrl: 'https://acme.atlassian.net/browse/EPIC-Q4-100',
+      title: 'Q4 API Reliability Initiative',
+      description: 'Epic for Q4 reliability improvements. Includes AUTH-123, PERF-456, and monitoring work.',
+      timestamp: daysAgo(32),
+      rawData: {
+        key: 'EPIC-Q4-100',
+        issueType: 'Epic',
+        status: 'In Progress',
+        priority: 'High',
+        assignee: 'honey.arora',
+        linkedIssues: ['AUTH-123', 'PERF-456'],
+      },
+    },
   ];
 }
 
