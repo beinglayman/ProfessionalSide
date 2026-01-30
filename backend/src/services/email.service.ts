@@ -11,8 +11,8 @@ import {
 import { EmailTemplateService } from './email-template.service';
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
-  private config: EmailConfig;
+  private transporter!: nodemailer.Transporter;
+  private config!: EmailConfig;
   private templateService: EmailTemplateService;
   private isEnabled: boolean;
 

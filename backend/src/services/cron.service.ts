@@ -122,7 +122,6 @@ export class CronService {
         console.error(`Error in scheduled job ${name}:`, error);
       }
     }, {
-      scheduled: true,
       timezone: process.env.TZ || 'UTC'
     });
 

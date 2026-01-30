@@ -19,7 +19,7 @@ export class NotificationQueueService {
   private emailService: EmailService;
   private queue: QueuedNotification[] = [];
   private isProcessing = false;
-  private processingInterval: NodeJS.Timer | null = null;
+  private processingInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.emailService = new EmailService();

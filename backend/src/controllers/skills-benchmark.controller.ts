@@ -159,15 +159,19 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
 
     console.log('🚀 Starting Production Skills Benchmark Population via API...');
     
-    // Get all skills without benchmarks
-    const allSkills = await prisma.skill.findMany({
-      where: {
-        benchmarks: {
-          none: {}
-        }
-      },
+    // Get all skills
+    const allSkillsList = await prisma.skill.findMany({
       select: { id: true, name: true, category: true }
     });
+
+    // Get all skill names that already have benchmarks
+    const existingBenchmarks = await prisma.skillBenchmark.findMany({
+      select: { skillName: true }
+    });
+    const existingSkillNames = new Set(existingBenchmarks.map(b => b.skillName));
+
+    // Filter to skills without benchmarks
+    const allSkills = allSkillsList.filter(skill => !existingSkillNames.has(skill.name));
     
     processStats.totalSkills = allSkills.length;
     console.log(`📊 Found ${allSkills.length} skills needing benchmarks`);
@@ -209,16 +213,17 @@ export const populateAllSkillBenchmarks = asyncHandler(async (req: Request, res:
             // Save to database
             await prisma.skillBenchmark.create({
               data: {
-                skillId: skill.id,
-                averageSalary: (benchmark as any).averageSalary,
-                marketDemand: (benchmark as any).marketDemand,
-                growthTrend: (benchmark as any).growthTrend,
-                difficulty: (benchmark as any).difficulty,
-                timeToLearn: (benchmark as any).timeToLearn,
-                relatedSkills: (benchmark as any).relatedSkills,
-                industryBreakdown: (benchmark as any).industryBreakdown,
-                source: 'api-mass-population',
-                lastUpdated: new Date()
+                skillName: skill.name,
+                industry: 'general',
+                role: 'general',
+                industryAverage: (benchmark as any).industryAverage ?? 50,
+                juniorLevel: (benchmark as any).juniorLevel ?? 30,
+                midLevel: (benchmark as any).midLevel ?? 50,
+                seniorLevel: (benchmark as any).seniorLevel ?? 70,
+                expertLevel: (benchmark as any).expertLevel ?? 90,
+                marketDemand: (benchmark as any).marketDemand ?? 'medium',
+                growthTrend: (benchmark as any).growthTrend ?? 'stable',
+                description: (benchmark as any).description ?? `Benchmark data for ${skill.name}`
               }
             });
             

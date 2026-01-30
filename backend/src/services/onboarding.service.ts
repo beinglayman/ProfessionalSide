@@ -341,7 +341,7 @@ export class OnboardingService {
     
     try {
       // Complete regular onboarding process
-      await this.completeOnboarding(userId, data);
+      await this.completeOnboarding(userId);
       
       // Create personal workspace
       await this.createPersonalWorkspace(userId);

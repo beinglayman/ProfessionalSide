@@ -880,7 +880,6 @@ const workTypeToSkills = {
   'information-architecture': ['ux-design', 'wireframing', 'critical-thinking'],
   'user-flows': ['ux-design', 'wireframing', 'figma', 'sketch'],
   'wireframing': ['wireframing', 'figma', 'sketch', 'adobe-xd'],
-  'content-strategy': ['ux-design', 'communication', 'content-marketing'],
   'feature-prioritization': ['ux-design', 'critical-thinking', 'stakeholder-management'],
   'ux-strategy': ['ux-design', 'critical-thinking', 'communication', 'leadership'],
   'accessibility-planning': ['ux-design', 'ui-design', 'critical-thinking'],

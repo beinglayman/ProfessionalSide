@@ -254,7 +254,17 @@ export class ExportService {
           include: {
             skill: true
           }
-        }
+        },
+        workExperiences: {
+          orderBy: { startDate: 'desc' }
+        },
+        education: {
+          orderBy: { startYear: 'desc' }
+        },
+        certifications: {
+          orderBy: { issueDate: 'desc' }
+        },
+        languages: true
       }
     });
 
@@ -275,15 +285,15 @@ export class ExportService {
       profileCompleteness: user.profile?.profileCompleteness || 0,
       skills: user.skills.map(us => ({
         name: us.skill.name,
-        category: us.skill.category,
+        category: us.skill.category || '',
         level: us.level,
         endorsements: us.endorsements,
         yearsOfExp: us.yearsOfExp
       })),
-      experience: user.profile?.experience ? JSON.parse(user.profile.experience) : undefined,
-      education: user.profile?.education ? JSON.parse(user.profile.education) : undefined,
-      certifications: user.profile?.certifications ? JSON.parse(user.profile.certifications) : undefined,
-      languages: user.profile?.languages ? JSON.parse(user.profile.languages) : undefined
+      experience: user.workExperiences.length > 0 ? user.workExperiences : undefined,
+      education: user.education.length > 0 ? user.education : undefined,
+      certifications: user.certifications.length > 0 ? user.certifications : undefined,
+      languages: user.languages.length > 0 ? user.languages : undefined
     };
   }
 

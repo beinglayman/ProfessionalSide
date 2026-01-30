@@ -176,15 +176,15 @@ export class SearchService {
         type: 'people' as const,
         title: user.name,
         subtitle: `${user.title || 'Professional'}${user.company ? ` at ${user.company}` : ''}`,
-        description: user.bio,
-        avatar: user.avatar,
+        description: user.bio ?? undefined,
+        avatar: user.avatar ?? undefined,
         position: user.title || '',
         company: user.company || '',
-        location: user.location,
+        location: user.location ?? undefined,
         connectionStatus,
         mutualConnections,
         skills: [], // TODO: Add skills from user profile
-        bio: user.bio,
+        bio: user.bio ?? undefined,
         isVerified: false, // TODO: Add verification logic
         relevanceScore: this.calculatePeopleRelevanceScore(user, query, networkContext),
         matchType
@@ -244,13 +244,13 @@ export class SearchService {
         type: 'workspaces' as const,
         title: workspace.name,
         subtitle: workspace.organization?.name || 'Workspace',
-        description: workspace.description,
+        description: workspace.description ?? undefined,
         organizationName: workspace.organization?.name || '',
         memberCount: workspace._count.members,
         isPrivate: false, // For now, assume all workspaces are private (user is member)
         canJoin: false, // User is already a member
         canRequestJoin: false, // User is already a member
-        industry: workspace.organization?.industry,
+        industry: (workspace.organization as any)?.industry ?? undefined,
         tags: [], // TODO: Add workspace tags
         recentActivity: new Date(workspace.updatedAt),
         relevanceScore: this.calculateWorkspaceRelevanceScore(workspace, query, networkContext),
@@ -347,7 +347,7 @@ export class SearchService {
         author: {
           id: entry.author.id,
           name: entry.author.name,
-          avatar: entry.author.avatar
+          avatar: entry.author.avatar ?? undefined
         },
         workspaceName: entry.workspace?.name,
         workspaceId: entry.workspaceId,
@@ -409,7 +409,7 @@ export class SearchService {
         endorsements: count,
         relatedSkills: [], // TODO: Add related skills logic
         trendingScore: count > 5 ? count : undefined,
-        industryDemand: count > 10 ? 'high' : count > 5 ? 'medium' : 'low',
+        industryDemand: (count > 10 ? 'high' : count > 5 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
         usersWithSkill: count,
         networkUsersWithSkill: networkSkillCounts.get(skill) || 0,
         relevanceScore: this.calculateSkillRelevanceScore(skill, query, count),

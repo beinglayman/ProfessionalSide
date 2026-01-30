@@ -260,7 +260,7 @@ Manage your notification preferences: ${variables.unsubscribeUrl}
    * Get default subject for template
    */
   private getDefaultSubject(templateId: string): string {
-    const subjects = {
+    const subjects: Record<string, string> = {
       welcome: 'Welcome to InChronicle!',
       password_reset: 'Reset your InChronicle password',
       journal_like: '{{senderName}} liked your journal entry',
@@ -345,7 +345,7 @@ Manage your notification preferences: {{unsubscribeUrl}}
    * Get template-specific content
    */
   private getTemplateContent(templateId: string): string {
-    const content = {
+    const content: Record<string, string> = {
       welcome: `
         <h1>Welcome to InChronicle, {{recipientName}}!</h1>
         <p>We're excited to have you join our professional journaling community.</p>
@@ -390,21 +390,21 @@ Manage your notification preferences: {{unsubscribeUrl}}
         <h1>Your Daily Digest</h1>
         <p>Hi {{recipientName}},</p>
         <p>Here's what happened in your professional network today:</p>
-        
+
         {{#if digestData.newLikes.count}}
         <h3>New Likes ({{digestData.newLikes.count}})</h3>
         {{#each digestData.newLikes.entries}}
         <p>• {{likerName}} liked "{{entryTitle}}"</p>
         {{/each}}
         {{/if}}
-        
+
         {{#if digestData.newComments.count}}
         <h3>New Comments ({{digestData.newComments.count}})</h3>
         {{#each digestData.newComments.entries}}
         <p>• {{commenterName}} commented on "{{entryTitle}}"</p>
         {{/each}}
         {{/if}}
-        
+
         <a href="{{actionUrl}}" class="button">View Dashboard</a>
       `
     };
@@ -420,7 +420,7 @@ Manage your notification preferences: {{unsubscribeUrl}}
    * Get template-specific text content
    */
   private getTemplateTextContent(templateId: string): string {
-    const content = {
+    const content: Record<string, string> = {
       welcome: 'Welcome to InChronicle! We\'re excited to have you join our professional journaling community.',
       password_reset: 'You requested to reset your password. Use the link below to create a new password.',
       journal_like: '{{senderName}} liked your journal entry "{{entryTitle}}".',
