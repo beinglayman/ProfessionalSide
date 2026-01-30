@@ -17,6 +17,8 @@ import {
   useCluster,
   useGenerateClusters,
   useGenerateStar,
+  useDemoActivities,
+  useUpdateDemoClusterActivities,
 } from '../../hooks/useCareerStories';
 import { ClusterList } from './ClusterList';
 import { ClusterStatus } from './ClusterCard';
@@ -159,6 +161,10 @@ export function CareerStoriesPage() {
   // Mutations
   const generateClustersMutation = useGenerateClusters();
   const generateStarMutation = useGenerateStar();
+  const updateClusterActivitiesMutation = useUpdateDemoClusterActivities();
+
+  // Fetch all activities for the edit modal (in demo mode)
+  const { data: allActivities = [] } = useDemoActivities();
 
   // Handlers - define handleGenerateStar first since handleSelectCluster depends on it
   const handleGenerateStar = useCallback(
@@ -253,6 +259,13 @@ export function CareerStoriesPage() {
     }
   }, [selectedCluster, handleGenerateStar]);
 
+  const handleUpdateClusterActivities = useCallback(
+    async (clusterId: string, activityIds: string[]) => {
+      await updateClusterActivitiesMutation.mutateAsync({ clusterId, activityIds });
+    },
+    [updateClusterActivitiesMutation]
+  );
+
   // Computed values
   const selectedClusterState = useMemo(() => {
     if (!selectedCluster) return null;
@@ -291,23 +304,6 @@ export function CareerStoriesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50" data-testid="career-stories-page">
-      {/* Demo Mode Banner */}
-      {showingDemo && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-800">
-              <FlaskConical className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Demo Mode: Viewing sample stories
-              </span>
-              <span className="text-xs text-amber-600 hidden sm:inline">
-                (Press {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+E to switch to live data)
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -384,6 +380,8 @@ export function CareerStoriesPage() {
               onGenerateStar={handleGenerateStar}
               onGenerateClusters={handleGenerateClusters}
               isGeneratingClusters={generateClustersMutation.isPending}
+              availableActivities={showingDemo ? allActivities : []}
+              onUpdateClusterActivities={showingDemo ? handleUpdateClusterActivities : undefined}
             />
           </div>
 
@@ -417,6 +415,8 @@ export function CareerStoriesPage() {
             onGenerateStar={handleGenerateStar}
             onGenerateClusters={handleGenerateClusters}
             isGeneratingClusters={generateClustersMutation.isPending}
+            availableActivities={showingDemo ? allActivities : []}
+            onUpdateClusterActivities={showingDemo ? handleUpdateClusterActivities : undefined}
           />
         </div>
 

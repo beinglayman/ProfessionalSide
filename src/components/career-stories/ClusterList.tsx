@@ -7,7 +7,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { FolderOpen, Plus, RefreshCw, Loader2 } from 'lucide-react';
-import { Cluster, GenerateSTARResult } from '../../types/career-stories';
+import { Cluster, GenerateSTARResult, ToolActivity } from '../../types/career-stories';
 import { ClusterCard, ClusterStatus } from './ClusterCard';
 import { Button } from '../ui/button';
 import { EmptyState } from '../ui/empty-state';
@@ -21,6 +21,8 @@ interface ClusterListProps {
   onGenerateStar: (clusterId: string) => void;
   onGenerateClusters: () => void;
   isGeneratingClusters: boolean;
+  availableActivities?: ToolActivity[];
+  onUpdateClusterActivities?: (clusterId: string, activityIds: string[]) => Promise<void>;
 }
 
 export function ClusterList({
@@ -32,6 +34,8 @@ export function ClusterList({
   onGenerateStar,
   onGenerateClusters,
   isGeneratingClusters,
+  availableActivities = [],
+  onUpdateClusterActivities,
 }: ClusterListProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -143,6 +147,12 @@ export function ClusterList({
               errorMessage={clusterState.error}
               onSelect={() => onSelectCluster(cluster)}
               onGenerateStar={() => onGenerateStar(cluster.id)}
+              availableActivities={availableActivities}
+              onUpdateActivities={
+                onUpdateClusterActivities
+                  ? (activityIds) => onUpdateClusterActivities(cluster.id, activityIds)
+                  : undefined
+              }
             />
           );
         })}

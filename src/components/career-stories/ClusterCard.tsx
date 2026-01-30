@@ -10,14 +10,15 @@
  * - Provides aria-selected state
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Loader2, Pencil } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Cluster, ToolType } from '../../types/career-stories';
+import { Cluster, ToolType, ToolActivity } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { ToolIcon } from './ToolIcon';
 import { DISPLAY_LIMITS } from './constants';
+import { EditActivitiesModal } from '../shared/EditActivitiesModal';
 
 export type ClusterStatus = 'idle' | 'generating' | 'ready' | 'error';
 
@@ -28,6 +29,8 @@ interface ClusterCardProps {
   errorMessage?: string;
   onSelect: () => void;
   onGenerateStar: () => void;
+  availableActivities?: ToolActivity[];
+  onUpdateActivities?: (activityIds: string[]) => Promise<void>;
 }
 
 export function ClusterCard({
@@ -37,14 +40,23 @@ export function ClusterCard({
   errorMessage,
   onSelect,
   onGenerateStar,
+  availableActivities = [],
+  onUpdateActivities,
 }: ClusterCardProps) {
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
   const toolTypes = (cluster.metrics?.toolTypes || []) as ToolType[];
   const dateRange = cluster.metrics?.dateRange;
 
   const formatDateRange = () => {
     if (!dateRange) return 'No dates';
-    const earliest = new Date(dateRange.earliest);
-    const latest = new Date(dateRange.latest);
+    // Handle both API formats: {start, end} and {earliest, latest}
+    const startDate = (dateRange as { start?: string; earliest?: string }).start
+      || (dateRange as { earliest?: string }).earliest;
+    const endDate = (dateRange as { end?: string; latest?: string }).end
+      || (dateRange as { latest?: string }).latest;
+    if (!startDate || !endDate) return 'No dates';
+    const earliest = new Date(startDate);
+    const latest = new Date(endDate);
     return `${format(earliest, 'MMM d')} - ${format(latest, 'MMM d')}`;
   };
 
@@ -131,21 +143,51 @@ export function ClusterCard({
         )}
       </div>
 
-      {/* Generate button */}
-      {status !== 'generating' && status !== 'ready' && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={(e) => {
-            e.stopPropagation();
-            onGenerateStar();
-          }}
-          data-testid={`generate-star-${cluster.id}`}
-          className="w-full"
-          disabled={status === 'error'}
-        >
-          Generate STAR
-        </Button>
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        {status !== 'generating' && status !== 'ready' && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onGenerateStar();
+            }}
+            data-testid={`generate-star-${cluster.id}`}
+            className="flex-1"
+            disabled={status === 'error'}
+          >
+            Generate STAR
+          </Button>
+        )}
+        {onUpdateActivities && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditModalOpen(true);
+            }}
+            data-testid={`edit-activities-${cluster.id}`}
+            title="Edit activities"
+            aria-label={`Edit activities for ${cluster.name || 'this cluster'}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Edit Activities Modal */}
+      {onUpdateActivities && (
+        <EditActivitiesModal
+          isOpen={isEditModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          currentActivityIds={cluster.activityIds || []}
+          availableActivities={availableActivities}
+          onSave={onUpdateActivities}
+          minActivities={1}
+          title="Edit Cluster Activities"
+        />
       )}
     </div>
   );
