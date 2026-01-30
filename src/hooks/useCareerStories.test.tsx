@@ -67,7 +67,7 @@ describe('useCareerStories Hooks', () => {
       expect(mockCareerStoriesService.getClusters).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to demo data on error response', async () => {
+    it('throws error on failed API response', async () => {
       mockCareerStoriesService.getClusters.mockResolvedValue({
         success: false,
         error: 'Failed to fetch clusters',
@@ -77,14 +77,13 @@ describe('useCareerStories Hooks', () => {
         wrapper: createWrapper(),
       });
 
-      // Should succeed with demo data fallback
+      // Should fail with error
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect(result.current.isError).toBe(true);
       });
 
-      // Should have demo clusters (3 of them)
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.length).toBe(3);
+      expect(result.current.error).toBeDefined();
+      expect(result.current.error?.message).toContain('Failed to fetch clusters');
     });
   });
 

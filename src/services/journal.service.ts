@@ -495,8 +495,17 @@ export class JournalService {
         delete fallbackParams.workspaceId;
         return this.getJournalEntries(fallbackParams);
       }
-      
+
       throw error;
     }
+  }
+
+  /**
+   * Get demo journal entries (for demo mode).
+   * Fetches from the parallel demo tables.
+   */
+  static async getDemoJournalEntries(): Promise<ApiResponse<JournalEntry[]>> {
+    const response = await api.get<ApiResponse<JournalEntry[]>>('/demo/journal-entries');
+    return response.data;
   }
 }

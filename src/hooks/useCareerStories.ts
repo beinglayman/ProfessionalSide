@@ -359,3 +359,63 @@ export const useRunFullPipeline = () => {
     },
   });
 };
+
+// =============================================================================
+// DEMO MODE MUTATIONS
+// =============================================================================
+
+/**
+ * Update activity assignments for a demo cluster.
+ * Sets groupingMethod to 'manual'.
+ */
+export const useUpdateDemoClusterActivities = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ clusterId, activityIds }: { clusterId: string; activityIds: string[] }) => {
+      // In demo mode with client-side data, update local state
+      if (isDemoMode() && DEMO_CLUSTER_DETAILS[clusterId]) {
+        // Simulate API call
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // For now, just return success - real API will persist
+        return {
+          success: true,
+          data: { id: clusterId, activityCount: activityIds.length, groupingMethod: 'manual' },
+        };
+      }
+
+      // Live demo mode - call API
+      return CareerStoriesService.updateDemoClusterActivities(clusterId, activityIds);
+    },
+    onSuccess: (response, { clusterId }) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesCluster(clusterId) });
+        queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesClusters });
+      }
+    },
+  });
+};
+
+/**
+ * Get all demo activities for activity selection.
+ */
+export const useDemoActivities = () => {
+  return useQuery({
+    queryKey: ['demo-activities'],
+    queryFn: async () => {
+      // In demo mode with client-side data, gather from all clusters
+      if (isDemoMode()) {
+        const allActivities = Object.values(DEMO_CLUSTER_DETAILS).flatMap((c) => c.activities);
+        return allActivities;
+      }
+
+      // Live mode - fetch from API
+      const response = await CareerStoriesService.getDemoActivities();
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response.error || 'Failed to fetch demo activities');
+    },
+  });
+};

@@ -303,40 +303,12 @@ export const DEMO_STARS: Record<string, ScoredSTAR> = {
 };
 
 // =============================================================================
-// DEMO MODE HELPER
+// DEMO MODE HELPER - Re-export from global service for backwards compatibility
 // =============================================================================
 
-/**
- * Check if demo mode is enabled.
- * Demo mode is ON by default (null or 'true'), OFF only when explicitly set to 'false'.
- */
-export function isDemoMode(): boolean {
-  if (typeof window !== 'undefined') {
-    const value = localStorage.getItem('career-stories-demo');
-    // Demo mode is ON by default - only OFF if explicitly set to 'false'
-    return value !== 'false';
-  }
-  return true; // Default to demo mode for SSR
-}
-
-export function enableDemoMode(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('career-stories-demo', 'true');
-  }
-}
-
-export function disableDemoMode(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('career-stories-demo', 'false');
-  }
-}
-
-export function toggleDemoMode(): boolean {
-  const newValue = !isDemoMode();
-  if (newValue) {
-    enableDemoMode();
-  } else {
-    disableDemoMode();
-  }
-  return newValue;
-}
+export {
+  isDemoMode,
+  enableDemoMode,
+  disableDemoMode,
+  toggleDemoMode,
+} from './demo-mode.service';

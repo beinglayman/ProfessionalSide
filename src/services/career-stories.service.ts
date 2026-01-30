@@ -275,4 +275,26 @@ export class CareerStoriesService {
     const response = await api.delete<ApiResponse<{ cleared: boolean }>>('/career-stories/demo/clear');
     return response.data;
   }
+
+  /**
+   * Update activity assignments for a demo cluster
+   */
+  static async updateDemoClusterActivities(
+    clusterId: string,
+    activityIds: string[]
+  ): Promise<ApiResponse<{ id: string; activityCount: number; groupingMethod: string }>> {
+    const response = await api.patch<ApiResponse<{ id: string; activityCount: number; groupingMethod: string }>>(
+      `/demo/clusters/${clusterId}/activities`,
+      { activityIds }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all demo activities for the user
+   */
+  static async getDemoActivities(): Promise<ApiResponse<ToolActivity[]>> {
+    const response = await api.get<ApiResponse<ToolActivity[]>>('/demo/activities');
+    return response.data;
+  }
 }

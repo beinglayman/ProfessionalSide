@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  JournalService, 
-  CreateJournalEntryRequest, 
+import {
+  JournalService,
+  CreateJournalEntryRequest,
   UpdateJournalEntryRequest,
   GetJournalEntriesParams,
-  PublishJournalEntryRequest 
+  PublishJournalEntryRequest
 } from '../services/journal.service';
 import { QueryKeys } from '../lib/queryClient';
+import { isDemoMode } from '../services/demo-mode.service';
 
 // Get journal entries
 export const useJournalEntries = (params: GetJournalEntriesParams = {}, enabled: boolean = true) => {
@@ -27,10 +28,25 @@ export const useJournalEntries = (params: GetJournalEntriesParams = {}, enabled:
 };
 
 // Get user feed (includes rechronicles)
+// In demo mode, fetches from demo journal entries table
 export const useUserFeed = (params: GetJournalEntriesParams = {}) => {
   return useQuery({
-    queryKey: ['journal', 'feed', params],
+    queryKey: ['journal', 'feed', params, isDemoMode()],
     queryFn: async () => {
+      // Demo mode - fetch from demo journal entries
+      if (isDemoMode()) {
+        const response = await JournalService.getDemoJournalEntries();
+        if (response.success && response.data) {
+          return {
+            entries: response.data,
+            pagination: { page: 1, limit: 100, total: response.data.length, totalPages: 1 },
+          };
+        }
+        // If demo entries fail, return empty array (user hasn't synced yet)
+        return { entries: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0 } };
+      }
+
+      // Live mode - fetch real entries
       const response = await JournalService.getUserFeed(params);
       if (response.success && response.data) {
         return {
