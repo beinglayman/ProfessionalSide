@@ -49,6 +49,7 @@ import journalSubscriptionRoutes from './routes/journal-subscription.routes';
 import billingRoutes from './routes/billing.routes';
 import walletRoutes from './routes/wallet.routes';
 import careerStoriesRoutes from './routes/career-stories.routes';
+import demoRoutes from './routes/demo.routes';
 
 // Conditionally import MCP routes (only in production to avoid tsx issues)
 let mcpRoutes: any = null;
@@ -710,6 +711,7 @@ app.use('/api/v1', journalSubscriptionRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/career-stories', careerStoriesRoutes);
+app.use('/api/v1/demo', demoRoutes);
 
 // MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
 if (mcpRoutes) {
