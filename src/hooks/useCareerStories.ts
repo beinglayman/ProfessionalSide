@@ -34,7 +34,9 @@ import {
 } from '../types/career-stories';
 import {
   isDemoMode,
-  enableDemoMode,
+  DEMO_CLUSTERS,
+  DEMO_CLUSTER_DETAILS,
+  DEMO_STARS,
 } from '../services/career-stories-demo-data';
 
 // =============================================================================
@@ -106,51 +108,38 @@ export const useUnclusteredActivities = () => {
  * In demo mode, fetches from demo tables. Otherwise, fetches from real tables.
  */
 export const useClusters = () => {
-  const query = useQuery({
+  return useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
-      // Normal mode - try to get real clusters first
-      try {
-        const response = await CareerStoriesService.getClusters();
-        if (response.success && response.data && response.data.length > 0) {
-          // Has real clusters
-          return { clusters: response.data, isDemo: false };
-        }
-      } catch {
-        // API error - fall through to demo mode
+      // Demo mode - use client-side mock data (no API call)
+      if (isDemoMode()) {
+        return DEMO_CLUSTERS;
       }
 
-      // No real clusters - enable demo mode so user sees the option to create demo stories
-      enableDemoMode();
-      return { clusters: [], isDemo: true };
+      // Live mode - fetch real clusters from API
+      const response = await CareerStoriesService.getClusters();
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response.error || 'Failed to fetch clusters');
     },
   });
-
-  return {
-    ...query,
-    data: query.data?.clusters ?? [],
-    isDemo: query.data?.isDemo ?? false,
-  };
 };
 
 /**
  * Get a single cluster with activities.
- * In demo mode, fetches from demo tables.
+ * In demo mode, uses client-side mock data.
  */
 export const useCluster = (id: string) => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesCluster(id),
     queryFn: async () => {
-      // In demo mode, use demo endpoints
-      if (isDemoMode()) {
-        const response = await CareerStoriesService.getDemoClusterById(id);
-        if (response.success && response.data) {
-          return response.data;
-        }
-        throw new Error(response.error || 'Failed to fetch demo cluster');
+      // Demo mode - use client-side mock data
+      if (isDemoMode() && DEMO_CLUSTER_DETAILS[id]) {
+        return DEMO_CLUSTER_DETAILS[id];
       }
 
-      // Normal mode - get real cluster
+      // Live mode - fetch from API
       const response = await CareerStoriesService.getClusterById(id);
       if (response.success && response.data) {
         return response.data;
@@ -281,7 +270,7 @@ export const useMergeClusters = () => {
 
 /**
  * Generate STAR narrative for a cluster.
- * In demo mode, calls the demo endpoint which uses demo tables.
+ * In demo mode, uses client-side mock STAR data.
  *
  * @param clusterId - The cluster to generate a STAR from
  * @param request - Optional request options (personaId, polish settings)
@@ -291,17 +280,26 @@ export const useGenerateStar = () => {
 
   return useMutation({
     mutationFn: async ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) => {
-      // In demo mode, use demo endpoint
-      if (isDemoMode()) {
-        return CareerStoriesService.generateDemoStar(clusterId, request);
+      // Demo mode - use client-side mock STAR data
+      if (isDemoMode() && DEMO_STARS[clusterId]) {
+        // Simulate network delay for realism
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        return {
+          success: true,
+          data: {
+            star: DEMO_STARS[clusterId],
+            polishStatus: request?.options?.polish ? 'success' : 'skipped',
+            processingTimeMs: 800,
+          },
+        };
       }
 
-      // Normal mode - use real endpoint
+      // Live mode - call real API
       return CareerStoriesService.generateStar(clusterId, request);
     },
     onSuccess: (response, { clusterId }) => {
       if (response.success) {
-        // Invalidate cluster to get updated data
         queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesCluster(clusterId) });
         queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesClusters });
         queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesStats });

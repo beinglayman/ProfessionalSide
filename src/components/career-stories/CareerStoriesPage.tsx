@@ -17,14 +17,13 @@ import {
   useCluster,
   useGenerateClusters,
   useGenerateStar,
-  useRunFullPipeline,
 } from '../../hooks/useCareerStories';
 import { ClusterList } from './ClusterList';
 import { ClusterStatus } from './ClusterCard';
 import { STARPreview } from './STARPreview';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
-import { isDemoMode, disableDemoMode } from '../../services/career-stories-demo-data';
+import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -132,40 +131,34 @@ export function CareerStoriesPage() {
   >({});
   // Mobile sheet open state - separate from selection since user might close sheet without deselecting
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  // Queries
-  const { data: clusters = [], isLoading: isLoadingClusters, isDemo } = useClusters();
+  // Track demo mode state
+  const [showingDemo, setShowingDemo] = useState(isDemoMode());
+
+  // Queries - will use demo or real data based on isDemoMode()
+  const { data: clusters = [], isLoading: isLoadingClusters, refetch: refetchClusters } = useClusters();
   // Fetch selected cluster with activities for evidence linking
   const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
 
-  // Track if we're showing demo data - derived from query result
-  const [showingDemo, setShowingDemo] = useState(isDemoMode());
-
-  // Update demo mode state when query completes
+  // Keyboard shortcut: Cmd/Ctrl + E to toggle demo mode
   useEffect(() => {
-    if (!isLoadingClusters) {
-      setShowingDemo(isDemo || isDemoMode());
-    }
-  }, [isDemo, isLoadingClusters]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+        e.preventDefault();
+        const newDemoMode = toggleDemoMode();
+        setShowingDemo(newDemoMode);
+        setSelectedCluster(null);
+        // Refetch clusters with new mode
+        refetchClusters();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [refetchClusters]);
 
   // Mutations
   const generateClustersMutation = useGenerateClusters();
   const generateStarMutation = useGenerateStar();
-  const runFullPipelineMutation = useRunFullPipeline();
-
-  // Handler to switch from demo to live API with real data
-  const handleSwitchToLiveAPI = useCallback(async () => {
-    try {
-      // Run full pipeline to seed real data and create clusters in DB
-      await runFullPipelineMutation.mutateAsync();
-      // Disable demo mode
-      disableDemoMode();
-      setShowingDemo(false);
-      // Reload to fetch real data
-      window.location.reload();
-    } catch (error) {
-      console.error('Failed to switch to live API:', error);
-    }
-  }, [runFullPipelineMutation]);
 
   // Handlers - define handleGenerateStar first since handleSelectCluster depends on it
   const handleGenerateStar = useCallback(
@@ -305,31 +298,11 @@ export function CareerStoriesPage() {
             <div className="flex items-center gap-2 text-amber-800">
               <FlaskConical className="h-4 w-4" />
               <span className="text-sm font-medium">
-                Demo Mode: Viewing sample stories. Create your own draft stories from real data.
+                Demo Mode: Viewing sample stories
               </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSwitchToLiveAPI}
-                disabled={runFullPipelineMutation.isPending}
-                className="text-blue-700 hover:text-blue-900 text-xs border-blue-300 hover:border-blue-400"
-              >
-                {runFullPipelineMutation.isPending ? 'Creating Stories...' : 'Create Draft Stories'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  disableDemoMode();
-                  setShowingDemo(false);
-                  window.location.reload();
-                }}
-                className="text-amber-700 hover:text-amber-900 text-xs"
-              >
-                Exit Demo
-              </Button>
+              <span className="text-xs text-amber-600 hidden sm:inline">
+                (Press {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+E to switch to live data)
+              </span>
             </div>
           </div>
         </div>
