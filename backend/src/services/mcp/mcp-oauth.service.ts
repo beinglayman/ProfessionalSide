@@ -654,6 +654,12 @@ export class MCPOAuthService {
         return null;
       }
 
+      // Ensure accessToken exists before decrypting
+      if (!integration.accessToken) {
+        console.error(`[MCP OAuth] No access token stored for ${toolType}`);
+        return null;
+      }
+
       return this.decrypt(integration.accessToken);
     } catch (error) {
       console.error(`[MCP OAuth] Error getting access token for ${toolType}:`, error);
@@ -843,7 +849,7 @@ export class MCPOAuthService {
 
       // Validate each integration in parallel
       const validationPromises = integrations.map(async (integration) => {
-        const result = await this.validateIntegration(userId, integration.toolType);
+        const result = await this.validateIntegration(userId, integration.toolType as MCPToolType);
         return { toolType: integration.toolType, ...result };
       });
 

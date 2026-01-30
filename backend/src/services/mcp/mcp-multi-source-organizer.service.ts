@@ -12,7 +12,7 @@ import {
   OneDriveActivity,
   OneNoteActivity
 } from '../../types/mcp.types';
-import { ModelSelectorService, modelSelector } from '../ai/model-selector.service';
+import { ModelSelectorService, getModelSelector } from '../ai/model-selector.service';
 import { AnalyzerAgent, CorrelatorAgent, GeneratorAgent } from './agents';
 import type { AnalysisResult, CorrelationResult, GeneratedEntries } from './agents';
 
@@ -112,10 +112,14 @@ export class MCPMultiSourceOrganizer {
     });
 
     // Initialize agents with model selector
+    const selector = getModelSelector();
+    if (!selector) {
+      throw new Error('ModelSelectorService not available - no LLM provider configured');
+    }
     this.agents = {
-      analyzer: new AnalyzerAgent(modelSelector),
-      correlator: new CorrelatorAgent(modelSelector),
-      generator: new GeneratorAgent(modelSelector)
+      analyzer: new AnalyzerAgent(selector),
+      correlator: new CorrelatorAgent(selector),
+      generator: new GeneratorAgent(selector)
     };
 
     console.log('✅ MCP Multi-Source Organizer initialized with AI agents');

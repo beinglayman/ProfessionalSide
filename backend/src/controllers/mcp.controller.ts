@@ -4,6 +4,7 @@ import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import * as crypto from 'crypto';
 import { format7Transformer } from '../services/mcp/format7-transformer.service';
 import { getContentSanitizerService } from '../services/mcp/content-sanitizer.service';
+import { MCPToolType } from '../types/mcp.types';
 
 // Mock data store for development
 const mockIntegrations = new Map<string, any>();
@@ -1335,8 +1336,8 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
     console.log(`[Format7] Current user identifiers for filtering: [${uniqueIdentifiers.slice(0, 5).join(', ')}${uniqueIdentifiers.length > 5 ? '...' : ''}]`);
 
     const format7Entry = format7Transformer.transformToFormat7(
-      agentResults.organized,
-      sourcesMap,
+      agentResults.organized as any,
+      sourcesMap as Map<MCPToolType, any>,
       {
         userId,
         workspaceName: workspaceName || 'Professional Work',
@@ -1345,11 +1346,6 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
           start: new Date(),
           end: new Date()
         },
-        suggestedTitle: agentResults.analysis?.suggestedTitle,
-        suggestedEntryType: agentResults.analysis?.suggestedEntryType as 'achievement' | 'learning' | 'challenge' | 'reflection',
-        extractedSkills: agentResults.organized?.extractedSkills || [],
-        correlations: agentResults.correlations || [],
-        artifacts: agentResults.organized?.artifacts || [],
         currentUserIdentifiers: uniqueIdentifiers
       }
     );
@@ -1363,9 +1359,7 @@ export const generateFormat7Entry = asyncHandler(async (req: Request, res: Respo
     console.log(`[Format7] Technologies: ${format7Entry.summary.technologies_used.length}`);
     console.log(`[Format7] ========================================`);
 
-    sendSuccess(res, format7Entry, {
-      message: `Successfully generated Format7 entry from ${sourcesMap.size} tool(s)`
-    });
+    sendSuccess(res, format7Entry, `Successfully generated Format7 entry from ${sourcesMap.size} tool(s)`);
   } catch (error: any) {
     console.error('[Format7] Error:', error);
     sendError(res, error.message || 'Failed to generate Format7 entry');
@@ -1645,15 +1639,15 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
       console.log('[MCP Controller] Applying skills safety net to category items...');
       let itemsFixed = 0;
 
-      organizedActivity.categories.forEach(category => {
+      organizedActivity.categories.forEach((category: { items?: Array<{ id: string; skills?: string[] }> }) => {
         if (category.items && Array.isArray(category.items)) {
-          category.items.forEach(item => {
+          category.items.forEach((item: { id: string; skills?: string[] }) => {
             // Check if item is missing skills
             if (!item.skills || !Array.isArray(item.skills) || item.skills.length === 0) {
               // Copy from global extractedSkills as fallback
               item.skills = organizedActivity.extractedSkills || [];
               itemsFixed++;
-              console.log(`[MCP Controller] Item ${item.id} missing skills, applied ${item.skills.length} global skills`);
+              console.log(`[MCP Controller] Item ${item.id} missing skills, applied ${(item.skills || []).length} global skills`);
             }
           });
         }
@@ -1716,8 +1710,8 @@ export const transformFormat7 = asyncHandler(async (req: Request, res: Response)
     }
 
     const format7Entry = format7Transformer.transformToFormat7(
-      organizedActivity,
-      rawToolData,
+      organizedActivity as any,
+      rawToolData as Map<MCPToolType, any>,
       {
         userId,
         workspaceName: options?.workspaceName || 'Professional Work',

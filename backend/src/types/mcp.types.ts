@@ -77,6 +77,7 @@ export interface GitHubActivity {
     author: string;
     timestamp: Date;
     url: string;
+    repository?: string;
   }>;
   pullRequests: Array<{
     id: number;
@@ -85,12 +86,17 @@ export interface GitHubActivity {
     author: string;
     createdAt: Date;
     url: string;
+    reviewers?: string[];
+    labels?: string[];
+    repository?: string;
+    reviewStatus?: string;
   }>;
   issues: Array<{
     id: number;
     title: string;
     state: string;
     assignee?: string;
+    author?: string;
     createdAt: Date;
     url: string;
   }>;
@@ -107,22 +113,38 @@ export interface JiraActivity {
     key: string;
     summary: string;
     status: string;
+    statusCategory?: string;
     assignee?: string;
-    updated: Date;
+    reporter?: string;
+    priority?: string;
+    issueType?: string;
+    project?: {
+      key: string;
+      name: string;
+    };
+    created?: string;
+    updated: Date | string;
     timeSpent?: number;
+    timeEstimate?: number;
+    description?: string;
+    commentCount?: number;
     url: string;
   }>;
   projects: Array<{
     key: string;
     name: string;
+    projectType?: string;
     lead?: string;
+    url?: string;
   }>;
   sprints: Array<{
     id: number;
     name: string;
     state: string;
-    startDate?: Date;
-    endDate?: Date;
+    boardName?: string;
+    startDate?: Date | string;
+    endDate?: Date | string;
+    goal?: string;
   }>;
 }
 
@@ -131,20 +153,27 @@ export interface FigmaActivity {
   files: Array<{
     key: string;
     name: string;
-    lastModified: Date;
+    lastModified: Date | string;
     thumbnailUrl?: string;
     url: string;
+    teamName?: string;
+    projectName?: string;
+    version?: string;
   }>;
   components: Array<{
     key: string;
     name: string;
     description?: string;
+    fileName?: string;
+    fileKey?: string;
   }>;
   comments: Array<{
     id: string;
     message: string;
     fileKey: string;
-    createdAt: Date;
+    createdAt: Date | string;
+    fileName?: string;
+    user?: string;
   }>;
 }
 
@@ -157,6 +186,7 @@ export interface OutlookActivity {
     endTime: Date;
     attendees: string[];
     isOrganizer: boolean;
+    importance?: string;
   }>;
   emails: Array<{
     id: string;
@@ -164,6 +194,7 @@ export interface OutlookActivity {
     sender: string;
     receivedAt: Date;
     hasAttachments: boolean;
+    importance?: string;
   }>;
 }
 

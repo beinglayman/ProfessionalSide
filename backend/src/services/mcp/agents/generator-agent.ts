@@ -268,7 +268,10 @@ Make it inspiring and valuable for professional peers.
   }
 
   private selectTopActivities(data: OrganizedActivity, count: number) {
-    const allActivities = data.categories.flatMap(c => c.items);
+    // Flatten items while preserving the category from the parent
+    const allActivities = data.categories.flatMap(c =>
+      c.items.map(item => ({ ...item, category: c.type }))
+    );
     return allActivities
       .filter(a => a.selected)
       .sort((a, b) => {

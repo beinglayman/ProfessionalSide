@@ -46,7 +46,7 @@ export class AnalyzerAgent {
   async quickAnalyze(activities: Map<MCPToolType, any>): Promise<AnalysisResult> {
     // Normalize to Map if plain object was passed
     if (!(activities instanceof Map)) {
-      activities = new Map(Object.entries(activities as any));
+      activities = new Map(Object.entries(activities as any) as [MCPToolType, any][]);
     }
     console.log('🔍 Quick analyzing activities from', activities.size, 'sources');
 
@@ -118,7 +118,7 @@ export class AnalyzerAgent {
   async deepAnalyze(activities: Map<MCPToolType, any>): Promise<AnalysisResult> {
     // Normalize to Map if plain object was passed
     if (!(activities instanceof Map)) {
-      activities = new Map(Object.entries(activities as any));
+      activities = new Map(Object.entries(activities as any) as [MCPToolType, any][]);
     }
     console.log('🔬 Deep analyzing activities from', activities.size, 'sources');
 
