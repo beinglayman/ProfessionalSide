@@ -109,8 +109,9 @@ model User {
   storyClusters  StoryCluster[]
 
   // Career Stories - Demo/Sandbox
-  demoToolActivities DemoToolActivity[]
-  demoStoryClusters  DemoStoryCluster[]
+  demoToolActivities  DemoToolActivity[]
+  demoStoryClusters   DemoStoryCluster[]
+  demoJournalEntries  DemoJournalEntry[]
 
   @@map("users")
 }
@@ -1459,6 +1460,10 @@ model DemoStoryCluster {
 
   name String?
 
+  // Grouping metadata (for activity editing)
+  groupingMethod     String?   @default("auto") // 'auto' | 'manual'
+  lastGroupingEditAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1489,4 +1494,37 @@ model DemoCareerStory {
   cluster DemoStoryCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
 
   @@map("demo_career_stories")
+}
+
+// Demo journal entries - isolated from production for YC demo
+model DemoJournalEntry {
+  id          String @id @default(cuid())
+  userId      String
+  workspaceId String
+
+  // Content
+  title       String
+  description String
+  fullContent String
+
+  // Activity provenance (demo-only, not on production JournalEntry)
+  activityIds        String[] @default([])
+  groupingMethod     String?  @default("time") // 'time' | 'manual' | 'ai_suggested'
+  lastGroupingEditAt DateTime?
+
+  // Time range for grouping
+  timeRangeStart DateTime?
+  timeRangeEnd   DateTime?
+
+  // Generation metadata
+  generatedAt  DateTime?
+  lastEditedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("demo_journal_entries")
 }
