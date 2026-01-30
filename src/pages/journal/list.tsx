@@ -49,7 +49,8 @@ import {
   Upload,
   Download,
   RepeatIcon,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
@@ -65,6 +66,9 @@ import { JournalService } from '../../services/journal.service';
 import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
+import { isDemoMode } from '../../services/demo-mode.service';
+import { runDemoSync } from '../../services/demo-sync.service';
+import { SyncProgressModal, SyncIntegration } from '../../components/sync/SyncProgressModal';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -99,6 +103,12 @@ export default function JournalPage() {
     journal: JournalEntry | null;
   }>({ open: false, journal: null });
   const [onboardingProfileImage, setOnboardingProfileImage] = useState<string | null>(null);
+
+  // Sync modal state
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncIntegrations, setSyncIntegrations] = useState<SyncIntegration[]>([]);
+  const [syncComplete, setSyncComplete] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Fetch journal entries from backend first (without workspace validation)
   const baseQueryParams = useMemo(() => ({
@@ -526,6 +536,40 @@ export default function JournalPage() {
     setRechronicleSidePanel({ open: false, journal: null });
   };
 
+  // Handle sync button click
+  const handleSync = async () => {
+    console.log('[Journal] handleSync called, isDemoMode:', isDemoMode());
+    if (isDemoMode()) {
+      // Demo mode: run simulated sync
+      console.log('[Journal] Starting demo sync...');
+      setIsSyncing(true);
+      setSyncComplete(false);
+      setShowSyncModal(true);
+
+      await runDemoSync({
+        onIntegrationUpdate: setSyncIntegrations,
+        onComplete: () => {
+          setSyncComplete(true);
+          setIsSyncing(false);
+        },
+        onError: (error) => {
+          console.error('Sync failed:', error);
+          setIsSyncing(false);
+          setShowSyncModal(false);
+        },
+      });
+    } else {
+      // Real mode: TODO - implement real sync
+      console.log('Real sync not implemented yet');
+      setToastMessage('Real sync coming soon');
+    }
+  };
+
+  const handleSyncComplete = () => {
+    setShowSyncModal(false);
+    // Reload to show new data
+    window.location.reload();
+  };
 
   // Toggle analytics section
   const toggleAnalytics = (journalId: string) => {
@@ -904,8 +948,18 @@ export default function JournalPage() {
               )}
               <ChevronDown className={cn("h-4 w-4 transition-transform", showSearchFilters && "rotate-180")} />
             </button>
-            
-            <Button 
+
+            <Button
+              variant="outline"
+              className="shadow-xs transition-all duration-200 hover:shadow-md px-3 py-1.5 text-xs"
+              onClick={handleSync}
+              disabled={isSyncing}
+            >
+              <RefreshCw className={cn("mr-1 h-3.5 w-3.5", isSyncing && "animate-spin")} />
+              Sync
+            </Button>
+
+            <Button
               className="bg-primary-500 hover:bg-primary-600 text-white shadow-xs transition-all duration-200 hover:shadow-md px-3 py-1.5 text-xs"
               onClick={() => setShowNewEntryModal(true)}
             >
@@ -1005,6 +1059,15 @@ export default function JournalPage() {
           </div>
         </div>
       )}
+
+      {/* Sync Progress Modal */}
+      <SyncProgressModal
+        open={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        integrations={syncIntegrations}
+        isComplete={syncComplete}
+        onComplete={handleSyncComplete}
+      />
     </div>
   );
 }

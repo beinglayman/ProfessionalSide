@@ -91,7 +91,7 @@ export interface JournalEntry {
   };
   achievementType?: 'certification' | 'award' | 'milestone' | 'recognition'; // For achievement entries
   achievementTitle?: string; // Achievement title
-  achievementDescription?: string; // Achievement description
+  achievementDescript`ion?: string; // Achievement description
   
   // Goal linking fields
   linkedGoals?: {
