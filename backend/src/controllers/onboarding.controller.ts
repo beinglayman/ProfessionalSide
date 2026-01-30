@@ -36,7 +36,7 @@ export const getMyOnboardingData = asyncHandler(async (req: Request, res: Respon
       careerGoals: [],
       professionalInterests: []
     };
-    void sendSuccess(res, defaultData);
+    return void sendSuccess(res, defaultData);
   }
 
   sendSuccess(res, onboardingData);
