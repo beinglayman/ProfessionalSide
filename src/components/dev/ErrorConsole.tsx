@@ -18,6 +18,7 @@ import {
   Clock,
   XCircle,
   Zap,
+  FlaskConical,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import {
@@ -27,6 +28,8 @@ import {
   RequestTrace,
   TraceStatus,
 } from '../../contexts/ErrorConsoleContext';
+import { DemoTab } from './DemoTab';
+import { isDemoMode } from '../../services/demo-mode.service';
 
 // ===== ERROR SEVERITY CONFIG =====
 
@@ -512,6 +515,22 @@ export const ErrorConsole: React.FC = () => {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setActiveTab('demo')}
+                className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                  activeTab === 'demo'
+                    ? 'bg-gray-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <FlaskConical size={12} />
+                Demo
+                {isDemoMode() && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                    ON
+                  </span>
+                )}
+              </button>
             </div>
 
             {/* Status badges */}
@@ -558,7 +577,8 @@ export const ErrorConsole: React.FC = () => {
           </div>
         </div>
 
-        {/* Toolbar */}
+        {/* Toolbar (hidden in demo tab) */}
+        {activeTab !== 'demo' && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-700 bg-gray-800/50">
           <div className="flex items-center gap-1">
             <Filter size={14} className="text-gray-500" />
@@ -663,10 +683,13 @@ export const ErrorConsole: React.FC = () => {
             <span className="hidden sm:inline">Clear</span>
           </button>
         </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'errors' ? (
+          {activeTab === 'demo' ? (
+            <DemoTab />
+          ) : activeTab === 'errors' ? (
             filteredErrors.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <AlertCircle size={32} className="mb-2 opacity-50" />
@@ -694,7 +717,9 @@ export const ErrorConsole: React.FC = () => {
         {/* Footer */}
         <div className="px-4 py-2 border-t border-gray-700 bg-gray-800/50 rounded-b-lg">
           <p className="text-xs text-gray-500">
-            {activeTab === 'errors'
+            {activeTab === 'demo'
+              ? 'Toggle demo mode for YC pitch demos. Demo data is isolated from real user data.'
+              : activeTab === 'errors'
               ? 'Captures: console.error, console.warn, unhandled exceptions, promise rejections, API errors'
               : 'Captures: All API requests with full request/response data for AI debugging'}
           </p>
