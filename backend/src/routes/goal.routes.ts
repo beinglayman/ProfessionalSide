@@ -468,8 +468,8 @@ router.put('/:goalId/progress', async (req: Request, res: Response) => {
       targetGoal.progressOverride = null;
       
       // Recalculate from milestones
-      const completedCount = targetGoal.milestones.filter(m => m.completed).length;
-      const partialCount = targetGoal.milestones.filter(m => m.status === 'partial').length;
+      const completedCount = targetGoal.milestones.filter((m: { completed: boolean }) => m.completed).length;
+      const partialCount = targetGoal.milestones.filter((m: { status: string }) => m.status === 'partial').length;
       const totalCount = targetGoal.milestones.length;
       
       if (totalCount > 0) {
@@ -479,11 +479,15 @@ router.put('/:goalId/progress', async (req: Request, res: Response) => {
     }
     
     // Update the storage
-    const workspaceGoals = goalsStorage.get(targetWorkspaceId);
-    const goalIndex = workspaceGoals.findIndex(g => g.id === goalId);
-    workspaceGoals[goalIndex] = targetGoal;
-    goalsStorage.set(targetWorkspaceId, workspaceGoals);
-    setGoalsStorage(goalsStorage);
+    if (targetWorkspaceId) {
+      const workspaceGoals = goalsStorage.get(targetWorkspaceId);
+      if (workspaceGoals) {
+        const goalIndex = workspaceGoals.findIndex((g: { id: string }) => g.id === goalId);
+        workspaceGoals[goalIndex] = targetGoal;
+        goalsStorage.set(targetWorkspaceId, workspaceGoals);
+        setGoalsStorage(goalsStorage);
+      }
+    }
     
     console.log('✅ Goal progress updated:', { 
       goalId, 
@@ -1136,25 +1140,23 @@ router.put('/:goalId/milestones/:milestoneId/complete', async (req: Request, res
       }
     });
 
-    // Update goal progress if auto-calculation is enabled
-    if (milestone.goal.autoCalculateProgress !== false && !milestone.goal.progressOverride) {
-      const allMilestones = await prisma.goalMilestone.findMany({
-        where: { goalId }
-      });
-      
-      const completedMilestones = allMilestones.filter(m => 
-        m.id === milestoneId ? completed : m.completed
-      ).length;
-      
-      const newProgress = allMilestones.length > 0 
-        ? Math.round((completedMilestones / allMilestones.length) * 100)
-        : 0;
+    // Update goal progress based on milestone completion
+    const allMilestones = await prisma.goalMilestone.findMany({
+      where: { goalId }
+    });
 
-      await prisma.goal.update({
-        where: { id: goalId },
-        data: { progress: newProgress }
-      });
-    }
+    const completedMilestones = allMilestones.filter(m =>
+      m.id === milestoneId ? completed : m.completed
+    ).length;
+
+    const newProgress = allMilestones.length > 0
+      ? Math.round((completedMilestones / allMilestones.length) * 100)
+      : 0;
+
+    await prisma.goal.update({
+      where: { id: goalId },
+      data: { progress: newProgress }
+    });
 
     console.log('✅ Milestone manually completed:', { milestoneId, completed });
     sendSuccess(res, updatedMilestone, 'Milestone completion updated successfully');

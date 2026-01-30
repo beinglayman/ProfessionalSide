@@ -305,7 +305,8 @@ router.get('/journal-streak', auth, async (req: Request, res: Response) => {
 
     // Entry types distribution
     const categoryCount = entries.reduce((acc, entry) => {
-      acc[entry.category] = (acc[entry.category] || 0) + 1;
+      const category = entry.category || 'uncategorized';
+      acc[category] = (acc[category] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -359,28 +360,28 @@ router.get('/goals-scorecard', auth, async (req: Request, res: Response) => {
         id: true,
         title: true,
         description: true,
-        currentValue: true,
-        unit: true,
+        progress: true,
         category: true,
-        deadline: true,
+        targetDate: true,
+        status: true,
         updatedAt: true
       }
     });
 
-    const completedGoals = goals.filter(g => g.status === 'COMPLETED').length;
+    const completedGoals = goals.filter(g => g.status === 'achieved').length;
     const totalGoals = goals.length;
     const overallProgress = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
     const goalsData = goals.map(goal => ({
       id: goal.id,
       title: goal.title,
-      progress: (goal as any).currentValue || 0,
-      target: (goal as any).targetValue || 100,
-      unit: (goal as any).unit || 'points',
+      progress: goal.progress || 0,
+      target: 100,
+      unit: 'percent',
       category: goal.category,
-      dueDate: (goal as any).deadline ? (goal as any).deadline.toISOString() : '',
-      status: goal.status === 'COMPLETED' ? 'completed' : 
-              goal.status === 'IN_PROGRESS' ? 'on-track' : 'pending',
+      dueDate: goal.targetDate ? goal.targetDate.toISOString() : '',
+      status: goal.status === 'achieved' ? 'completed' :
+              goal.status === 'in-progress' ? 'on-track' : 'pending',
       lastUpdated: goal.updatedAt.toISOString()
     }));
 
@@ -430,10 +431,15 @@ router.get('/recent-activity', auth, async (req: Request, res: Response) => {
         description: true,
         createdAt: true,
         category: true,
-        likesCount: true,
-        commentsCount: true,
-        viewsCount: true,
-        tags: true
+        visibility: true,
+        tags: true,
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+            analytics: true
+          }
+        }
       }
     });
 
@@ -445,11 +451,11 @@ router.get('/recent-activity', auth, async (req: Request, res: Response) => {
       date: activity.createdAt.toISOString(),
       monthYear: format(activity.createdAt, 'yyyy-MM'),
       content: activity.description,
-      status: activity.status.toLowerCase(),
+      status: activity.visibility.toLowerCase(),
       kpis: {
-        views: (activity as any).viewsCount || 0,
-        reactions: (activity as any).likesCount || 0,
-        comments: (activity as any).commentsCount || 0,
+        views: activity._count.analytics || 0,
+        reactions: activity._count.likes || 0,
+        comments: activity._count.comments || 0,
         attestations: 0,
         endorsements: 0
       }

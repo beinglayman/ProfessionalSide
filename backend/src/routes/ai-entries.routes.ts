@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { authenticate } from '../middleware/auth.middleware';
 import { AIEntryGeneratorService } from '../services/ai-entry-generator.service';

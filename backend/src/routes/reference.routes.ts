@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { Prisma, Skill } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 const router = express.Router();
@@ -99,37 +100,39 @@ router.get('/work-types/:workCategoryId', async (req: Request, res: Response) =>
 router.get('/skills', async (req: Request, res: Response) => {
   try {
     const { category, workTypeId } = req.query;
-    
-    let whereClause = {};
-    
+
+    const whereClause: Prisma.SkillWhereInput = {};
+
     // Filter by category if provided
-    if (category) {
+    if (category && typeof category === 'string') {
       whereClause.category = category;
     }
-    
+
     // Filter by work type if provided (skills associated with a specific work type)
-    if (workTypeId) {
+    if (workTypeId && typeof workTypeId === 'string') {
       whereClause.workTypeSkills = {
         some: {
           workTypeId
         }
       };
     }
-    
+
+    const includeClause: Prisma.SkillInclude | undefined = workTypeId && typeof workTypeId === 'string' ? {
+      workTypeSkills: {
+        where: { workTypeId },
+        include: {
+          workType: true
+        }
+      }
+    } : undefined;
+
     const skills = await prisma.skill.findMany({
       where: whereClause,
       orderBy: [
         { category: 'asc' },
         { name: 'asc' }
       ],
-      include: workTypeId ? {
-        workTypeSkills: {
-          where: { workTypeId },
-          include: {
-            workType: true
-          }
-        }
-      } : undefined
+      include: includeClause
     });
 
     res.json({
@@ -183,22 +186,32 @@ router.get('/skills-for-work-type/:workTypeId', async (req: Request, res: Respon
  * @desc Get skills associated with multiple work types
  * @access Public
  */
-router.get('/skills-for-work-types', async (req: Request, res: Response): Promise<void> => {
+router.get('/skills-for-work-types', async (req: Request, res: Response) => {
   try {
     const { workTypeIds } = req.query;
-    
+
     if (!workTypeIds) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'workTypeIds query parameter is required'
       });
+      return;
     }
-    
+
     // Parse workTypeIds (can be comma-separated string or array)
-    const workTypeIdArray = Array.isArray(workTypeIds) 
-      ? workTypeIds 
-      : workTypeIds.split(',');
-    
+    let workTypeIdArray: string[];
+    if (Array.isArray(workTypeIds)) {
+      workTypeIdArray = workTypeIds.filter((id): id is string => typeof id === 'string');
+    } else if (typeof workTypeIds === 'string') {
+      workTypeIdArray = workTypeIds.split(',');
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'workTypeIds must be a string or array of strings'
+      });
+      return;
+    }
+
     const workTypeSkills = await prisma.workTypeSkill.findMany({
       where: {
         workTypeId: {
@@ -211,9 +224,9 @@ router.get('/skills-for-work-types', async (req: Request, res: Response): Promis
     });
 
     // Get unique skills (remove duplicates)
-    const uniqueSkills = [];
-    const skillIds = new Set();
-    
+    const uniqueSkills: Skill[] = [];
+    const skillIds = new Set<string>();
+
     workTypeSkills.forEach(wts => {
       if (!skillIds.has(wts.skill.id)) {
         skillIds.add(wts.skill.id);
@@ -247,10 +260,10 @@ router.get('/skills-for-work-types', async (req: Request, res: Response): Promis
  * @desc Get complete hierarchical data for a focus area (categories, work types, and skills)
  * @access Public
  */
-router.get('/hierarchical-data/:focusAreaId', async (req: Request, res: Response): Promise<void> => {
+router.get('/hierarchical-data/:focusAreaId', async (req: Request, res: Response) => {
   try {
     const { focusAreaId } = req.params;
-    
+
     const focusArea = await prisma.focusArea.findUnique({
       where: { id: focusAreaId },
       include: {
@@ -271,10 +284,11 @@ router.get('/hierarchical-data/:focusAreaId', async (req: Request, res: Response
     });
 
     if (!focusArea) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Focus area not found'
       });
+      return;
     }
 
     // Transform the data to include skills in work types

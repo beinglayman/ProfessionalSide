@@ -1,10 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
 import { NotificationQueueService } from '../services/notification-queue.service';
 import { EmailNotificationEvent } from '../types/email.types';
+
+// Helper to convert EntityType enum values to lowercase for EmailNotificationEvent
+function entityTypeToLowercase(
+  entityType: 'JOURNAL_ENTRY' | 'WORKSPACE' | 'USER' | 'COMMENT' | undefined
+): 'journal_entry' | 'workspace' | 'user' | 'comment' | undefined {
+  if (!entityType) return undefined;
+  return entityType.toLowerCase() as 'journal_entry' | 'workspace' | 'user' | 'comment';
+}
 
 const router = Router();
 const notificationQueue = new NotificationQueueService();
@@ -74,9 +83,9 @@ router.get('/', async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const offset = (pageNum - 1) * limitNum;
 
-    const where = {
+    const where: Prisma.NotificationWhereInput = {
       recipientId: userId,
-      ...(type && { type }),
+      ...(type && { type: type as Prisma.EnumNotificationTypeFilter }),
       ...(isRead !== undefined && { isRead: isRead === 'true' })
     };
 
@@ -186,6 +195,9 @@ router.post('/', async (req: Request, res: Response) => {
       where: { userId: validatedData.recipientId }
     });
 
+    // Check quiet hours - declare outside so it's accessible later
+    let inQuietHours = false;
+
     if (preferences) {
       // Check if this type of notification is enabled
       const typeEnabled = {
@@ -202,9 +214,9 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       // Check quiet hours for email and push notifications
-      const inQuietHours = isInQuietHours(preferences.quietHoursStart, preferences.quietHoursEnd);
-      
-      // Note: We still create the in-app notification, but external notifications 
+      inQuietHours = isInQuietHours(preferences.quietHoursStart ?? undefined, preferences.quietHoursEnd ?? undefined);
+
+      // Note: We still create the in-app notification, but external notifications
       // (email/push) would be handled by a separate service that respects quiet hours
       if (inQuietHours) {
         console.log(`📱 User ${validatedData.recipientId} is in quiet hours - email/push notifications will be delayed`);
@@ -236,15 +248,13 @@ router.post('/', async (req: Request, res: Response) => {
     // Queue email notification if user has email notifications enabled
     if (preferences?.emailNotifications && !inQuietHours) {
       const emailEvent: EmailNotificationEvent = {
-        type: validatedData.type.toLowerCase() as any,
+        type: validatedData.type.toLowerCase() as 'like' | 'comment' | 'mention' | 'workspace_invite' | 'achievement' | 'system',
         recipientId: validatedData.recipientId,
         senderId,
-        title: validatedData.title,
         data: validatedData.data || {},
         metadata: {
-          entityType: validatedData.relatedEntityType,
-          entityId: validatedData.relatedEntityId,
-          notificationId: notification.id
+          entityType: entityTypeToLowercase(validatedData.relatedEntityType),
+          entityId: validatedData.relatedEntityId
         }
       };
 
@@ -255,7 +265,7 @@ router.post('/', async (req: Request, res: Response) => {
         console.error('Failed to queue email notification:', error);
         // Don't fail the request if email queueing fails
       }
-    } else if (inQuietHours) {
+    } else if (inQuietHours && preferences?.emailNotifications) {
       // Queue email for after quiet hours
       const quietEndTime = preferences?.quietHoursEnd;
       let delayMs = 0;
@@ -275,15 +285,13 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       const emailEvent: EmailNotificationEvent = {
-        type: validatedData.type.toLowerCase() as any,
+        type: validatedData.type.toLowerCase() as 'like' | 'comment' | 'mention' | 'workspace_invite' | 'achievement' | 'system',
         recipientId: validatedData.recipientId,
         senderId,
-        title: validatedData.title,
         data: validatedData.data || {},
         metadata: {
-          entityType: validatedData.relatedEntityType,
-          entityId: validatedData.relatedEntityId,
-          notificationId: notification.id
+          entityType: entityTypeToLowercase(validatedData.relatedEntityType),
+          entityId: validatedData.relatedEntityId
         }
       };
 
@@ -484,18 +492,16 @@ export async function createNotificationForEvent(
 
     // Queue email notification if enabled
     if (preferences?.emailNotifications) {
-      const inQuietHours = isInQuietHours(preferences.quietHoursStart, preferences.quietHoursEnd);
-      
+      const inQuietHours = isInQuietHours(preferences.quietHoursStart ?? undefined, preferences.quietHoursEnd ?? undefined);
+
       const emailEvent: EmailNotificationEvent = {
-        type: type.toLowerCase() as any,
+        type: type.toLowerCase() as 'like' | 'comment' | 'mention' | 'workspace_invite' | 'achievement',
         recipientId,
         senderId,
-        title,
         data: data || {},
         metadata: {
-          entityType: relatedEntityType,
-          entityId: relatedEntityId,
-          notificationId: notification.id
+          entityType: entityTypeToLowercase(relatedEntityType),
+          entityId: relatedEntityId
         }
       };
 

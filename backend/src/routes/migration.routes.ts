@@ -16,10 +16,11 @@ router.post('/execute-benchmark-migration', async (req: Request, res: Response):
     
     if (!fs.existsSync(exportFile)) {
       console.error('❌ Export file not found:', exportFile);
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Export file not found. Please ensure skill-benchmarks-export.json exists.'
       });
+      return;
     }
 
     const benchmarks = JSON.parse(fs.readFileSync(exportFile, 'utf8'));

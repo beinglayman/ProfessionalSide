@@ -5,6 +5,54 @@ import { sendSuccess, sendError } from '../utils/response.utils';
 
 const router = Router();
 
+// Type definitions for connection data
+interface WorkspaceInfo {
+  id: string;
+  name: string;
+}
+
+// Type for user skills from Prisma query
+interface UserSkillWithSkill {
+  skill: {
+    name: string;
+  };
+}
+
+interface ConnectionData {
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatar: string | null;
+    title: string | null;
+    company: string | null;
+    bio: string | null;
+    location: string | null;
+    skills: UserSkillWithSkill[];
+  };
+  skillNames: string[];
+  workspaces: WorkspaceInfo[];
+  roles: Set<string>;
+  joinDates: Date[];
+}
+
+// Type for stats connection data (simplified version)
+interface StatsConnectionData {
+  workspaces: string[];
+  joinDates: Date[];
+}
+
+// Empty array types for request/follower placeholders
+interface ConnectionRequest {
+  id: string;
+  // Add other fields as needed when implementing
+}
+
+interface Follower {
+  id: string;
+  // Add other fields as needed when implementing
+}
+
 // In-memory storage for connection type preferences (for demo purposes)
 // In production, this would be stored in a database table
 const connectionTypePreferences = new Map<string, Map<string, 'core' | 'extended'>>();
@@ -80,7 +128,15 @@ router.get('/connections', async (req: Request, res: Response) => {
             company: true,
             bio: true,
             location: true,
-            skills: true
+            skills: {
+              select: {
+                skill: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            }
           }
         },
         workspace: {
@@ -90,20 +146,23 @@ router.get('/connections', async (req: Request, res: Response) => {
     });
 
     // Group by user and collect their workspace memberships
-    const userConnections = new Map();
-    
+    const userConnections = new Map<string, ConnectionData>();
+
     workspaceMembersQuery.forEach(member => {
-      const userId = member.user.id;
-      if (!userConnections.has(userId)) {
-        userConnections.set(userId, {
+      const memberId = member.user.id;
+      if (!userConnections.has(memberId)) {
+        // Extract skill names from the nested relation
+        const skillNames = member.user.skills.map((us: UserSkillWithSkill) => us.skill.name);
+        userConnections.set(memberId, {
           user: member.user,
+          skillNames,
           workspaces: [],
           roles: new Set(),
           joinDates: []
         });
       }
-      
-      const connection = userConnections.get(userId);
+
+      const connection = userConnections.get(memberId)!;
       connection.workspaces.push({
         id: member.workspace.id,
         name: member.workspace.name
@@ -113,9 +172,9 @@ router.get('/connections', async (req: Request, res: Response) => {
     });
 
     // Convert to connection format with automatic core network assignment
-    const connections = Array.from(userConnections.values()).map(conn => {
+    const connections = Array.from(userConnections.values()).map((conn: ConnectionData) => {
       const sharedWorkspaceCount = conn.workspaces.length;
-      const earliestJoin = new Date(Math.min(...conn.joinDates.map(d => d.getTime())));
+      const earliestJoin = new Date(Math.min(...conn.joinDates.map((d: Date) => d.getTime())));
       const isRecentCollaborator = (Date.now() - earliestJoin.getTime()) < (90 * 24 * 60 * 60 * 1000); // 90 days
 
       // Auto-assign to core network based on workspace collaboration, then check user preferences
@@ -134,8 +193,8 @@ router.get('/connections', async (req: Request, res: Response) => {
         context: 'workspace-collaborator',
         sharedWorkspaces: conn.workspaces,
         collaborationSince: earliestJoin.toISOString(),
-        lastActivity: new Date(Math.max(...conn.joinDates.map(d => d.getTime()))).toISOString(),
-        skills: conn.user.skills || [],
+        lastActivity: new Date(Math.max(...conn.joinDates.map((d: Date) => d.getTime()))).toISOString(),
+        skills: conn.skillNames || [],
         bio: conn.user.bio || '',
         location: conn.user.location || '',
         isOnline: false, // Would need real-time status
@@ -143,7 +202,7 @@ router.get('/connections', async (req: Request, res: Response) => {
         // Add required fields for ConnectionCard
         mutualConnections: 0, // Would need calculation
         connectedAt: earliestJoin.toISOString(),
-        lastInteraction: new Date(Math.max(...conn.joinDates.map(d => d.getTime()))).toISOString(),
+        lastInteraction: new Date(Math.max(...conn.joinDates.map((d: Date) => d.getTime()))).toISOString(),
         interactionCount: conn.workspaces.length, // Simple metric based on shared workspaces
         collaborationScore: Math.min(95, 60 + (conn.workspaces.length * 10)), // Simple score
         appreciatedByCore: 0, // Would need calculation
@@ -171,14 +230,14 @@ router.get('/connections', async (req: Request, res: Response) => {
     if (workspaces && (workspaces as string).length > 0) {
       const workspaceFilter = (workspaces as string).split(',');
       filteredConnections = filteredConnections.filter(conn =>
-        conn.sharedWorkspaces.some(w => workspaceFilter.includes(w.id))
+        conn.sharedWorkspaces.some((w: WorkspaceInfo) => workspaceFilter.includes(w.id))
       );
     }
 
     if (skills && (skills as string).length > 0) {
       const skillFilter = (skills as string).split(',').map(s => s.toLowerCase());
       filteredConnections = filteredConnections.filter(conn =>
-        conn.skills.some(skill => skillFilter.includes(skill.toLowerCase()))
+        conn.skills.some((skill: string) => skillFilter.includes(skill.toLowerCase()))
       );
     }
 
@@ -326,7 +385,17 @@ router.get('/filters/skills', async (req: Request, res: Response) => {
       },
       include: {
         user: {
-          select: { skills: true }
+          select: {
+            skills: {
+              select: {
+                skill: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            }
+          }
         }
       }
     });
@@ -335,7 +404,7 @@ router.get('/filters/skills', async (req: Request, res: Response) => {
     const skillsSet = new Set<string>();
     workspaceMembers.forEach(member => {
       if (member.user.skills && Array.isArray(member.user.skills)) {
-        member.user.skills.forEach(skill => skillsSet.add(skill));
+        member.user.skills.forEach((us: UserSkillWithSkill) => skillsSet.add(us.skill.name));
       }
     });
 
@@ -355,7 +424,7 @@ router.get('/requests', async (req: Request, res: Response) => {
 
     // For now, return empty array since connection requests are not fully implemented
     // In a real implementation, this would fetch actual connection requests from database
-    const requests = [];
+    const requests: ConnectionRequest[] = [];
 
     sendSuccess(res, requests, 'Connection requests retrieved successfully');
   } catch (error) {
@@ -372,7 +441,7 @@ router.get('/followers', async (req: Request, res: Response) => {
 
     // For now, return empty array since followers are not fully implemented
     // In a real implementation, this would fetch actual followers from database
-    const followers = [];
+    const followers: Follower[] = [];
 
     const result = {
       data: followers,
@@ -454,18 +523,18 @@ router.get('/stats', async (req: Request, res: Response) => {
     });
 
     // Group by user and collect their workspace memberships to apply the same logic as connections endpoint
-    const userConnections = new Map();
-    
+    const userConnections = new Map<string, StatsConnectionData>();
+
     workspaceMembers.forEach(member => {
-      const userId = member.user.id;
-      if (!userConnections.has(userId)) {
-        userConnections.set(userId, {
+      const memberId = member.user.id;
+      if (!userConnections.has(memberId)) {
+        userConnections.set(memberId, {
           workspaces: [],
           joinDates: []
         });
       }
-      
-      const connection = userConnections.get(userId);
+
+      const connection = userConnections.get(memberId)!;
       connection.workspaces.push(member.workspaceId);
       connection.joinDates.push(member.joinedAt);
     });
@@ -474,14 +543,14 @@ router.get('/stats', async (req: Request, res: Response) => {
     let coreConnections = 0;
     let extendedConnections = 0;
 
-    Array.from(userConnections.values()).forEach(conn => {
+    Array.from(userConnections.values()).forEach((conn: StatsConnectionData) => {
       const sharedWorkspaceCount = conn.workspaces.length;
-      const earliestJoin = new Date(Math.min(...conn.joinDates.map(d => d.getTime())));
+      const earliestJoin = new Date(Math.min(...conn.joinDates.map((d: Date) => d.getTime())));
       const isRecentCollaborator = (Date.now() - earliestJoin.getTime()) < (90 * 24 * 60 * 60 * 1000); // 90 days
 
       // Auto-assign to core network based on workspace collaboration
       const connectionType = sharedWorkspaceCount >= 2 || isRecentCollaborator ? 'core' : 'extended';
-      
+
       if (connectionType === 'core') {
         coreConnections++;
       } else {

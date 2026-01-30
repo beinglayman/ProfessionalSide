@@ -408,7 +408,7 @@ router.get('/:workspaceId/journal-entries', async (req: Request, res: Response) 
 
     const where = {
       workspaceId,
-      ...(category && { category }),
+      ...(category && { category: category as string }),
       ...(search && {
         OR: [
           { title: { contains: search as string, mode: 'insensitive' as const } },
@@ -416,7 +416,7 @@ router.get('/:workspaceId/journal-entries', async (req: Request, res: Response) 
           { tags: { hasSome: [search as string] } }
         ]
       })
-    };
+    } as const;
 
     const orderBy = {
       [sortBy as string]: sortOrder
@@ -490,13 +490,13 @@ router.get('/:workspaceId/journal-entries', async (req: Request, res: Response) 
     const entriesWithInteractions = await Promise.all(
       entries.map(async (entry) => {
         const [hasLiked, hasAppreciated, hasRechronicled] = await Promise.all([
-          prisma.journalEntryLike.findFirst({
+          prisma.journalLike.findFirst({
             where: { entryId: entry.id, userId }
           }),
-          prisma.journalEntryAppreciate.findFirst({
+          prisma.journalAppreciate.findFirst({
             where: { entryId: entry.id, userId }
           }),
-          prisma.journalEntryRechronicle.findFirst({
+          prisma.journalRechronicle.findFirst({
             where: { entryId: entry.id, userId }
           })
         ]);
@@ -506,11 +506,11 @@ router.get('/:workspaceId/journal-entries', async (req: Request, res: Response) 
           hasLiked: !!hasLiked,
           hasAppreciated: !!hasAppreciated,
           hasRechronicled: !!hasRechronicled,
-          likes: entry._count.likes,
-          comments: entry._count.comments,
-          appreciates: entry._count.appreciates,
-          rechronicles: entry._count.rechronicles,
-          views: entry._count.analytics
+          likes: (entry._count as any).likes,
+          comments: (entry._count as any).comments,
+          appreciates: (entry._count as any).appreciates,
+          rechronicles: (entry._count as any).rechronicles,
+          views: (entry._count as any).analytics
         };
       })
     );
@@ -1055,7 +1055,7 @@ router.post('/invitations/:token/accept', async (req: Request, res: Response) =>
           userId,
           workspaceId: invitation.workspaceId,
           role: invitation.role,
-          permissions: invitation.permissions
+          permissions: invitation.permissions as object | undefined
         },
         include: {
           workspace: { select: { name: true } },
@@ -1173,7 +1173,7 @@ router.post('/invitations/:invitationId/accept-by-id', async (req: Request, res:
           userId,
           workspaceId: invitation.workspaceId,
           role: invitation.role,
-          permissions: invitation.permissions
+          permissions: invitation.permissions as object | undefined
         },
         include: {
           workspace: { select: { name: true } },
@@ -1926,15 +1926,7 @@ router.get('/:workspaceId/goals', async (req: Request, res: Response) => {
         })) || []
       })),
       linkedJournalEntries: [], // TODO: Implement journal linking
-      createdBy: {
-        id: goal.user.id,
-        name: goal.user.name || goal.user.email.split('@')[0],
-        email: goal.user.email,
-        avatar: goal.user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(goal.user.name || goal.user.email.split('@')[0])}&background=random`,
-        title: goal.user.title || 'Team Member'
-      },
-      tags: [], // TODO: Implement tags
-      editHistory: []
+      tags: [] // TODO: Implement tags
     }));
 
     sendSuccess(res, transformedGoals, 'Workspace goals retrieved successfully');
@@ -1996,12 +1988,12 @@ router.put('/:workspaceId/archive', async (req: Request, res: Response) => {
 
     // Create notifications for all members
     const notifications = allMembers.map(member => ({
-      type: 'WORKSPACE_ARCHIVED',
+      type: 'SYSTEM' as const,
       title: 'Workspace Archived',
       message: `The workspace "${archivedWorkspace.name}" has been archived by ${memberRole.role === 'OWNER' ? 'the owner' : 'an admin'}`,
       recipientId: member.userId,
       senderId: userId,
-      relatedEntityType: 'WORKSPACE',
+      relatedEntityType: 'WORKSPACE' as const,
       relatedEntityId: workspaceId
     }));
 

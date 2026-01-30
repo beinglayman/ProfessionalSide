@@ -151,7 +151,8 @@ router.post('/control', async (req: Request, res: Response): Promise<void> => {
     const { serviceId, action, command } = req.body;
 
     if (!['start', 'stop', 'restart'].includes(action)) {
-      return res.status(400).json({ error: 'Invalid action' });
+      res.status(400).json({ error: 'Invalid action' });
+      return;
     }
 
     console.log(`Executing ${action} command for ${serviceId}: ${command}`);
@@ -204,7 +205,8 @@ router.get('/logs/:serviceId', async (req: Request, res: Response): Promise<void
         logPath = path.join(process.cwd(), 'logs', 'combined.log');
         break;
       default:
-        return res.status(404).json({ error: 'Log file not found for this service' });
+        res.status(404).json({ error: 'Log file not found for this service' });
+        return;
     }
 
     try {
