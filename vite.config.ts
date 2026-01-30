@@ -8,6 +8,13 @@ export default defineConfig({
     port: 5555, // Unique port to avoid conflicts with other projects
     strictPort: true, // Don't try other ports if 5555 is busy
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   preview: {
     host: '0.0.0.0',
