@@ -63,6 +63,52 @@ function emptyPaginatedResponse(page: number, limit: number): JournalEntriesResp
 }
 
 export class JournalService {
+  private readonly isDemoMode: boolean;
+
+  constructor(isDemoMode = false) {
+    this.isDemoMode = isDemoMode;
+  }
+
+  // ===========================================================================
+  // PRIVATE HELPERS FOR DEMO/PRODUCTION TABLE ROUTING
+  // ===========================================================================
+
+  /**
+   * Find a journal entry and validate ownership.
+   * Routes to demo or production table based on isDemoMode.
+   *
+   * @throws Error('Journal entry not found') if entry doesn't exist
+   * @throws Error('Access denied: You can only delete your own entries') if user doesn't own it
+   */
+  private async findEntryAndValidateOwnership(
+    entryId: string,
+    userId: string
+  ): Promise<{ id: string }> {
+    if (this.isDemoMode) {
+      const entry = await prisma.demoJournalEntry.findUnique({
+        where: { id: entryId }
+      });
+      if (!entry) throw new Error('Journal entry not found');
+      if (entry.userId !== userId) {
+        throw new Error('Access denied: You can only delete your own entries');
+      }
+      return entry;
+    }
+
+    const entry = await prisma.journalEntry.findUnique({
+      where: { id: entryId }
+    });
+    if (!entry) throw new Error('Journal entry not found');
+    if (entry.authorId !== userId) {
+      throw new Error('Access denied: You can only delete your own entries');
+    }
+    return entry;
+  }
+
+  // ===========================================================================
+  // PUBLIC METHODS
+  // ===========================================================================
+
   /**
    * Create a new journal entry
    */
@@ -230,11 +276,10 @@ export class JournalService {
    */
   async getJournalEntries(
     userId: string,
-    filters: GetJournalEntriesInput,
-    isDemoMode: boolean = false
+    filters: GetJournalEntriesInput
   ): Promise<JournalEntriesResponse> {
     // Route to demo handler if in demo mode
-    if (isDemoMode) {
+    if (this.isDemoMode) {
       return this.getDemoJournalEntries(userId, filters);
     }
 
@@ -816,6 +861,32 @@ export class JournalService {
    * Get single journal entry by ID
    */
   async getJournalEntryById(entryId: string, userId: string) {
+    // Demo mode: fetch from demo table
+    if (this.isDemoMode) {
+      const demoEntry = await prisma.demoJournalEntry.findUnique({
+        where: { id: entryId }
+      });
+
+      if (!demoEntry) {
+        throw new Error('Journal entry not found');
+      }
+
+      // Fetch user and workspace separately (DemoJournalEntry has no relations)
+      const [user, workspace] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, name: true, avatar: true, title: true }
+        }),
+        prisma.workspace.findUnique({
+          where: { id: demoEntry.workspaceId },
+          include: { organization: { select: { name: true } } }
+        })
+      ]);
+
+      // Transform demo entry to response format
+      return this.transformDemoEntryToResponse(demoEntry, user, workspace);
+    }
+
     const entry = await prisma.journalEntry.findUnique({
       where: { id: entryId },
       include: {
@@ -1028,21 +1099,14 @@ export class JournalService {
    * Delete journal entry
    */
   async deleteJournalEntry(entryId: string, userId: string) {
-    const entry = await prisma.journalEntry.findUnique({
-      where: { id: entryId }
-    });
+    // Validate entry exists and user owns it
+    await this.findEntryAndValidateOwnership(entryId, userId);
 
-    if (!entry) {
-      throw new Error('Journal entry not found');
+    // Delete from appropriate table
+    if (this.isDemoMode) {
+      return prisma.demoJournalEntry.delete({ where: { id: entryId } });
     }
-
-    if (entry.authorId !== userId) {
-      throw new Error('Access denied: You can only delete your own entries');
-    }
-
-    return prisma.journalEntry.delete({
-      where: { id: entryId }
-    });
+    return prisma.journalEntry.delete({ where: { id: entryId } });
   }
 
   /**
@@ -1193,10 +1257,17 @@ export class JournalService {
 
   /**
    * Get comments for a journal entry
+   * @param isDemoMode - Demo entries have no comments, returns empty array
    */
   async getEntryComments(entryId: string) {
-    console.log('🔍 Getting comments for entry:', entryId);
-    
+    console.log('🔍 Getting comments for entry:', entryId, 'isDemoMode:', this.isDemoMode);
+
+    // Demo mode: demo entries don't have comments
+    if (this.isDemoMode) {
+      console.log('📋 Demo mode: returning empty comments');
+      return [];
+    }
+
     // First check if entry exists
     const entry = await prisma.journalEntry.findUnique({
       where: { id: entryId }
@@ -1469,14 +1540,13 @@ export class JournalService {
    */
   async getUserFeed(
     userId: string,
-    filters: GetJournalEntriesInput,
-    isDemoMode: boolean = false
+    filters: GetJournalEntriesInput
   ): Promise<JournalEntriesResponse> {
     try {
-      console.log('📊 getUserFeed called for user:', userId, 'isDemoMode:', isDemoMode, 'with filters:', filters);
+      console.log('📊 getUserFeed called for user:', userId, 'isDemoMode:', this.isDemoMode, 'with filters:', filters);
 
-      // Route to unified getJournalEntries with isDemoMode flag
-      const result = await this.getJournalEntries(userId, filters, isDemoMode);
+      // Route to unified getJournalEntries (uses this.isDemoMode internally)
+      const result = await this.getJournalEntries(userId, filters);
       console.log('📊 getJournalEntries returned:', result.entries.length, 'entries');
 
       return result;

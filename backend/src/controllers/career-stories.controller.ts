@@ -826,33 +826,6 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
 });
 
 /**
- * GET /api/v1/demo/journal-entries
- * List demo journal entries for the user.
- *
- * NOTE: This endpoint is deprecated. Use /api/v1/journal/feed with
- * X-Demo-Mode header instead for unified demo/production handling.
- */
-export const getDemoJournalEntries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
-
-  if (!userId) {
-    return void sendError(res, 'User not authenticated', 401);
-  }
-
-  // Use unified JournalService with isDemoMode=true
-  const { JournalService } = await import('../services/journal.service');
-  const journalService = new JournalService();
-
-  const result = await journalService.getJournalEntries(
-    userId,
-    { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' },
-    true // isDemoMode
-  );
-
-  sendSuccess(res, result.entries);
-});
-
-/**
  * PATCH /api/v1/demo/journal-entries/:id/activities
  * Update activity IDs for a demo journal entry.
  */
