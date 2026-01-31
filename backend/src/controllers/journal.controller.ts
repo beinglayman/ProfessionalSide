@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { JournalService } from '../services/journal.service';
 import { sendSuccess, sendError, sendPaginated, asyncHandler } from '../utils/response.utils';
 import { createNotificationForEvent } from '../routes/notification.routes';
+import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
 import {
   createJournalEntrySchema,
   updateJournalEntrySchema,
@@ -480,14 +481,18 @@ export const getUserRechronicles = asyncHandler(async (req: Request, res: Respon
 });
 
 /**
- * Get user feed including both original entries and rechronicled entries
+ * Get user feed including both original entries and rechronicled entries.
+ * Uses unified JournalService that handles both demo and production modes.
  */
 export const getUserFeed = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  
+
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
+
+  // Check if this is a demo mode request
+  const isDemoMode = isDemoModeRequest(req);
 
   // Parse and validate query parameters
   const queryParams = {
@@ -499,8 +504,14 @@ export const getUserFeed = asyncHandler(async (req: Request, res: Response): Pro
   const validatedData: GetJournalEntriesInput = getJournalEntriesSchema.parse(queryParams);
 
   try {
-    const result = await journalService.getUserFeed(userId, validatedData);
-    sendPaginated(res, result.entries, result.pagination, 'User feed retrieved');
+    // Unified service call - isDemoMode determines which tables to query
+    const result = await journalService.getUserFeed(userId, validatedData, isDemoMode);
+    sendPaginated(
+      res,
+      result.entries,
+      result.pagination,
+      isDemoMode ? 'Demo user feed retrieved' : 'User feed retrieved'
+    );
   } catch (error: any) {
     if ((error as any).message.includes('Access denied')) {
       return void sendError(res, (error as any).message, 403);

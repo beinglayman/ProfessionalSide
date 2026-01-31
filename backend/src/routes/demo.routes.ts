@@ -3,6 +3,10 @@
  *
  * API routes for demo mode functionality.
  * These endpoints seed and manage demo data separately from real user data.
+ *
+ * NOTE: For reading journal entries in demo mode, use the unified endpoint:
+ *   GET /api/v1/journal/feed with header X-Demo-Mode: true
+ * The /demo/journal-entries endpoint is deprecated.
  */
 
 import { Router } from 'express';
@@ -36,7 +40,8 @@ router.delete('/clear', clearDemoData);
 
 /**
  * GET /api/v1/demo/journal-entries
- * List demo journal entries for the user.
+ * @deprecated Use GET /api/v1/journal/feed with X-Demo-Mode header instead.
+ * This endpoint now redirects to the unified JournalService internally.
  */
 router.get('/journal-entries', getDemoJournalEntries);
 
