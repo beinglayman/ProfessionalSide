@@ -18,11 +18,13 @@ import {
   getUserFeed
 } from '../controllers/journal.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { attachJournalService } from '../middleware/demo-mode.middleware';
 
 const router = Router();
 
-// All journal routes require authentication
+// All journal routes require authentication and request-scoped JournalService
 router.use(authenticate);
+router.use(attachJournalService);
 
 // Journal entry CRUD
 router.get('/entries', getJournalEntries);
