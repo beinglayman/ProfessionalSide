@@ -131,7 +131,10 @@ export const getJournalEntriesSchema = z.object({
     .default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(20)
+  limit: z.number().min(1).max(100).default(20),
+  // Activity stream enhancements
+  includeActivityMeta: z.boolean().optional().default(false),
+  filterBySource: z.string().optional() // Filter by activity source (github, jira, etc.)
 });
 
 // Publish journal entry schema
@@ -347,6 +350,19 @@ export interface JournalEntryResponse {
   timeRangeStart: Date | null;
   timeRangeEnd: Date | null;
   generatedAt: Date | null;
+
+  // Activity metadata (optional, only included when includeActivityMeta=true)
+  activityMeta?: {
+    totalCount: number;
+    sources: Array<{
+      source: string;
+      count: number;
+    }>;
+    dateRange: {
+      earliest: string | null; // ISO 8601
+      latest: string | null;   // ISO 8601
+    };
+  };
 }
 
 /**

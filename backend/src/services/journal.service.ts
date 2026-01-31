@@ -14,6 +14,7 @@ import {
   JournalEntriesResponse
 } from '../types/journal.types';
 import { skillTrackingService } from './skill-tracking.service';
+import { ActivityService } from './activity.service';
 
 // =============================================================================
 // CONSTANTS
@@ -69,40 +70,95 @@ export class JournalService {
     this.isDemoMode = isDemoMode;
   }
 
+  /**
+   * Get the sourceMode based on isDemoMode flag.
+   * Used for filtering JournalEntry records by source.
+   */
+  private get sourceMode(): 'demo' | 'production' {
+    return this.isDemoMode ? 'demo' : 'production';
+  }
+
   // ===========================================================================
-  // PRIVATE HELPERS FOR DEMO/PRODUCTION TABLE ROUTING
+  // PRIVATE HELPERS
   // ===========================================================================
 
   /**
    * Find a journal entry and validate ownership.
-   * Routes to demo or production table based on isDemoMode.
+   * Uses sourceMode filter for DELETE operations (Cmd+E mode deletes only demo entries).
    *
-   * @throws Error('Journal entry not found') if entry doesn't exist
+   * NOTE: This is intentionally different from fetching which does NOT filter by sourceMode.
+   * - Fetch (getJournalEntries): Returns ALL entries regardless of sourceMode
+   * - Delete (via this method): Filters by sourceMode so Cmd+E can delete only demo entries
+   *
+   * @throws Error('Journal entry not found') if entry doesn't exist or wrong sourceMode
    * @throws Error('Access denied: You can only delete your own entries') if user doesn't own it
    */
   private async findEntryAndValidateOwnership(
     entryId: string,
     userId: string
   ): Promise<{ id: string }> {
-    if (this.isDemoMode) {
-      const entry = await prisma.demoJournalEntry.findUnique({
-        where: { id: entryId }
-      });
-      if (!entry) throw new Error('Journal entry not found');
-      if (entry.userId !== userId) {
-        throw new Error('Access denied: You can only delete your own entries');
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id: entryId,
+        sourceMode: this.sourceMode // Filter by sourceMode for delete operations
       }
-      return entry;
-    }
-
-    const entry = await prisma.journalEntry.findUnique({
-      where: { id: entryId }
     });
     if (!entry) throw new Error('Journal entry not found');
     if (entry.authorId !== userId) {
       throw new Error('Access denied: You can only delete your own entries');
     }
     return entry;
+  }
+
+  /**
+   * Get journal entry IDs that have activities from a specific source.
+   * Used for filterBySource functionality.
+   */
+  private async getEntryIdsWithSource(userId: string, source: string): Promise<string[]> {
+    // Get all journal entries with their activityIds
+    const entries = await prisma.journalEntry.findMany({
+      where: { authorId: userId },
+      select: { id: true, activityIds: true, sourceMode: true }
+    });
+
+    // Collect all activity IDs by sourceMode
+    const demoActivityIds: string[] = [];
+    const prodActivityIds: string[] = [];
+
+    for (const entry of entries) {
+      if (!entry.activityIds || entry.activityIds.length === 0) continue;
+      if (entry.sourceMode === 'demo') {
+        demoActivityIds.push(...entry.activityIds);
+      } else {
+        prodActivityIds.push(...entry.activityIds);
+      }
+    }
+
+    // Fetch activities and check source
+    const activitiesWithSource = new Set<string>();
+
+    if (demoActivityIds.length > 0) {
+      const demoActivities = await prisma.demoToolActivity.findMany({
+        where: { id: { in: demoActivityIds }, source },
+        select: { id: true }
+      });
+      demoActivities.forEach(a => activitiesWithSource.add(a.id));
+    }
+
+    if (prodActivityIds.length > 0) {
+      const prodActivities = await prisma.toolActivity.findMany({
+        where: { id: { in: prodActivityIds }, source },
+        select: { id: true }
+      });
+      prodActivities.forEach(a => activitiesWithSource.add(a.id));
+    }
+
+    // Find entries that have at least one activity from the source
+    return entries
+      .filter(entry =>
+        (entry.activityIds || []).some(id => activitiesWithSource.has(id))
+      )
+      .map(entry => entry.id);
   }
 
   // ===========================================================================
@@ -268,41 +324,56 @@ export class JournalService {
 
   /**
    * Get journal entries with filtering and pagination.
-   * Unified method that handles both demo and production modes.
+   * Unified method that fetches ALL entries regardless of sourceMode.
+   *
+   * NOTE: sourceMode is used for seeding (demo vs real integrations) but
+   * does NOT affect reading - users see all their entries in one feed.
    *
    * @param userId - The user requesting the entries
    * @param filters - Filtering and pagination options
-   * @param isDemoMode - If true, queries demo tables instead of production
    */
   async getJournalEntries(
     userId: string,
     filters: GetJournalEntriesInput
   ): Promise<JournalEntriesResponse> {
-    // Route to demo handler if in demo mode
-    if (this.isDemoMode) {
-      return this.getDemoJournalEntries(userId, filters);
-    }
-
-    // Production mode - existing logic
-    return this.getProductionJournalEntries(userId, filters);
+    // Unified fetch - demo mode no longer affects reading
+    // All entries are fetched from the same table regardless of sourceMode
+    return this.getUnifiedJournalEntries(userId, filters);
   }
 
   /**
-   * Get demo journal entries.
-   * Transforms demo entries to match the unified JournalEntryResponse shape.
+   * Get journal entries from the unified JournalEntry table.
+   * Does NOT filter by sourceMode - returns all entries for the user.
    *
    * @throws Never - returns empty array on errors to avoid breaking the UI
    */
-  private async getDemoJournalEntries(
+  private async getUnifiedJournalEntries(
     userId: string,
     filters: GetJournalEntriesInput
   ): Promise<JournalEntriesResponse> {
-    const { page, limit, search, sortBy, sortOrder } = filters;
+    const { page, limit, search, sortBy, sortOrder, includeActivityMeta, filterBySource } = filters;
     const skip = (page - 1) * limit;
 
     try {
-      // Build where clause for demo entries (simpler than production)
-      const where: any = { userId };
+      // If filterBySource is specified, we need to filter entries that have activities from that source
+      let filteredEntryIds: string[] | null = null;
+      if (filterBySource) {
+        filteredEntryIds = await this.getEntryIdsWithSource(userId, filterBySource);
+        if (filteredEntryIds.length === 0) {
+          return emptyPaginatedResponse(page, limit);
+        }
+      }
+
+      // Build where clause - NO sourceMode filter (fetch all entries)
+      const where: any = {
+        authorId: userId
+        // sourceMode filter removed - show all entries regardless of demo/production
+      };
+
+      // Apply source filter if specified
+      if (filteredEntryIds) {
+        where.id = { in: filteredEntryIds };
+      }
 
       if (search) {
         where.OR = [
@@ -312,50 +383,117 @@ export class JournalService {
         ];
       }
 
-      // Build orderBy - fallback to createdAt for fields demo entries don't have
+      // Build orderBy - fallback to createdAt for fields that need aggregation
       const unsupportedSortFields = ['likes', 'comments', 'views'];
       const effectiveSortBy = unsupportedSortFields.includes(sortBy) ? 'createdAt' : sortBy;
       const orderBy: any = { [effectiveSortBy]: sortOrder };
 
-      // Fetch entries and count in parallel
+      // Fetch entries and count in parallel with full relations
       const [entries, total] = await Promise.all([
-        prisma.demoJournalEntry.findMany({
+        prisma.journalEntry.findMany({
           where,
           orderBy,
           skip,
           take: limit,
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                title: true
+              }
+            },
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+                organization: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            },
+            collaborators: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                    title: true
+                  }
+                }
+              }
+            },
+            reviewers: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                    title: true
+                  }
+                }
+              }
+            },
+            artifacts: true,
+            outcomes: true,
+            goalLinks: {
+              include: {
+                goal: {
+                  select: {
+                    id: true,
+                    title: true,
+                    progress: true
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+                appreciates: true,
+                rechronicles: true,
+                analytics: true
+              }
+            }
+          }
         }),
-        prisma.demoJournalEntry.count({ where })
+        prisma.journalEntry.count({ where })
       ]);
 
-      // Early return if no entries - avoid unnecessary user/workspace queries
+      // Early return if no entries
       if (entries.length === 0) {
-        console.log(`📋 Demo mode: No entries found for user ${userId}`);
+        console.log(`📋 No entries found for user ${userId}`);
         return emptyPaginatedResponse(page, limit);
       }
 
-      // Fetch user and workspace info in parallel (only if we have entries)
-      const [user, workspace] = await Promise.all([
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, name: true, avatar: true, title: true }
-        }),
-        prisma.workspace.findFirst({
-          where: { members: { some: { userId } } },
-          select: {
-            id: true,
-            name: true,
-            organization: { select: { name: true } }
-          }
-        })
-      ]);
-
-      // Transform demo entries to unified response shape
-      const transformedEntries = entries.map(entry =>
-        this.transformDemoEntryToResponse(entry, user, workspace)
+      // Transform entries to response shape
+      let transformedEntries: JournalEntryResponse[] = entries.map(entry =>
+        this.transformJournalEntryToResponse(entry, userId)
       );
 
-      console.log(`📋 Demo mode: Returning ${transformedEntries.length} entries for user ${userId}`);
+      // Enrich with activity metadata if requested
+      if (includeActivityMeta) {
+        const activityService = new ActivityService(this.isDemoMode);
+        const entryIds = entries.map((e: any) => e.id);
+        const activityMetaMap = await activityService.getActivityMetaForEntries(userId, entryIds);
+
+        transformedEntries = transformedEntries.map(entry => ({
+          ...entry,
+          activityMeta: activityMetaMap.get(entry.id) || {
+            totalCount: 0,
+            sources: [],
+            dateRange: { earliest: null, latest: null }
+          }
+        }));
+      }
+
+      console.log(`📋 Returning ${transformedEntries.length} entries for user ${userId}`);
 
       return {
         entries: transformedEntries,
@@ -374,114 +512,142 @@ export class JournalService {
   }
 
   /**
-   * Transform a demo journal entry to the unified JournalEntryResponse shape.
-   * Extracted for testability and readability.
+   * Transform a JournalEntry (with includes) to the unified JournalEntryResponse shape.
+   * Used for both demo and production entries from the unified table.
    */
-  private transformDemoEntryToResponse(
-    entry: {
-      id: string;
-      title: string;
-      description: string;
-      fullContent: string;
-      workspaceId: string;
-      createdAt: Date;
-      updatedAt: Date;
-      activityIds: string[];
-      groupingMethod: string | null;
-      timeRangeStart: Date | null;
-      timeRangeEnd: Date | null;
-      generatedAt: Date | null;
-    },
-    user: { id: string; name: string | null; avatar: string | null; title: string | null } | null,
-    workspace: { id: string; name: string; organization: { name: string } | null } | null
+  private transformJournalEntryToResponse(
+    entry: any,
+    requestingUserId: string,
+    userInteractions?: {
+      hasLiked: boolean;
+      hasAppreciated: boolean;
+      hasRechronicled: boolean;
+    }
   ): JournalEntryResponse {
     return {
       id: entry.id,
       title: entry.title,
       description: entry.description,
-      fullContent: entry.fullContent,
-      abstractContent: entry.description, // Use description as abstract for demo
+      fullContent: entry.authorId === requestingUserId ? entry.fullContent : '', // Hide full content for others
+      abstractContent: entry.abstractContent,
 
       // Workspace context
-      workspaceId: entry.workspaceId || workspace?.id || DEMO_DEFAULTS.WORKSPACE_ID,
-      workspaceName: workspace?.name || DEMO_DEFAULTS.WORKSPACE_NAME,
-      organizationName: workspace?.organization?.name || null,
+      workspaceId: entry.workspaceId,
+      workspaceName: entry.workspace?.name || DEMO_DEFAULTS.WORKSPACE_NAME,
+      organizationName: entry.workspace?.organization?.name || null,
 
       // Author info
       author: {
-        id: user?.id || entry.id, // Fallback to entry id if user not found
-        name: user?.name || DEMO_DEFAULTS.USER_NAME,
-        avatar: user?.avatar || null,
-        position: user?.title || DEMO_DEFAULTS.USER_POSITION
+        id: entry.author?.id || entry.authorId,
+        name: entry.author?.name || DEMO_DEFAULTS.USER_NAME,
+        avatar: entry.author?.avatar || null,
+        position: entry.author?.title || DEMO_DEFAULTS.USER_POSITION
       },
 
-      // Empty arrays for relations (demo entries don't have these)
-      collaborators: [],
-      reviewers: [],
-      artifacts: [],
-      outcomes: [],
+      // Collaborators
+      collaborators: (entry.collaborators || []).map((c: any) => ({
+        id: c.user.id,
+        name: c.user.name || 'Unknown',
+        avatar: c.user.avatar,
+        role: c.role
+      })),
+
+      // Reviewers
+      reviewers: (entry.reviewers || []).map((r: any) => ({
+        id: r.user.id,
+        name: r.user.name || 'Unknown',
+        avatar: r.user.avatar,
+        department: r.department
+      })),
+
+      // Artifacts
+      artifacts: (entry.artifacts || []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        url: a.url,
+        size: a.size
+      })),
+
+      // Outcomes
+      outcomes: (entry.outcomes || []).map((o: any) => ({
+        category: o.category,
+        title: o.title,
+        description: o.description,
+        highlight: o.highlight,
+        metrics: o.metrics as string | null
+      })),
 
       // Metadata
-      skills: extractSkillsFromContent(entry.fullContent),
-      tags: ['demo'],
-      category: DEMO_DEFAULTS.CATEGORY,
-      visibility: 'workspace' as const,
-      isPublished: false,
-      publishedAt: null,
+      skills: entry.skills || [],
+      tags: entry.tags || [],
+      category: entry.category || DEMO_DEFAULTS.CATEGORY,
+      visibility: entry.visibility as 'private' | 'workspace' | 'network',
+      isPublished: entry.isPublished,
+      publishedAt: entry.publishedAt,
 
       // Timestamps
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
-      lastModified: entry.createdAt,
+      lastModified: entry.lastModified,
 
-      // Social counts (demo entries don't have social features)
-      likes: 0,
-      comments: 0,
-      appreciates: 0,
-      rechronicles: 0,
+      // Social counts
+      likes: entry._count?.likes || 0,
+      comments: entry._count?.comments || 0,
+      appreciates: entry._count?.appreciates || 0,
+      rechronicles: entry._count?.rechronicles || 0,
 
       // User interaction status
-      hasLiked: false,
-      hasAppreciated: false,
-      hasRechronicled: false,
+      hasLiked: userInteractions?.hasLiked || false,
+      hasAppreciated: userInteractions?.hasAppreciated || false,
+      hasRechronicled: userInteractions?.hasRechronicled || false,
 
       // Discussions
-      discussCount: 0,
+      discussCount: entry._count?.comments || 0,
       discussions: [],
 
       // Analytics
       analytics: {
-        viewCount: 0,
+        viewCount: entry._count?.analytics || 0,
         averageReadTime: 0,
         engagementTrend: 'stable' as const,
         trendPercentage: 0
       },
 
       // Achievement fields
-      achievementType: null,
-      achievementTitle: null,
-      achievementDescription: null,
+      achievementType: entry.achievementType,
+      achievementTitle: entry.achievementTitle,
+      achievementDescription: entry.achievementDescription,
 
-      // Goal links (empty for demo)
-      linkedGoals: [],
+      // Goal links
+      linkedGoals: (entry.goalLinks || []).map((gl: any) => ({
+        goalId: gl.goal.id,
+        goalTitle: gl.goal.title,
+        contributionType: gl.contributionType,
+        progressContribution: gl.progressContribution,
+        linkedAt: gl.linkedAt,
+        notes: null
+      })),
 
       // Format7 data
-      format7Data: null,
-      format7DataNetwork: null,
-      generateNetworkEntry: true,
+      format7Data: entry.format7Data,
+      format7DataNetwork: entry.format7DataNetwork,
+      generateNetworkEntry: entry.generateNetworkEntry,
 
       // Network entry fields
-      networkContent: null,
-      networkTitle: null,
+      networkContent: entry.networkContent,
+      networkTitle: entry.networkTitle,
 
       // Dual-path generation fields
       activityIds: entry.activityIds || [],
-      groupingMethod: entry.groupingMethod || null,
-      timeRangeStart: entry.timeRangeStart || null,
-      timeRangeEnd: entry.timeRangeEnd || null,
-      generatedAt: entry.generatedAt || null
+      groupingMethod: entry.groupingMethod,
+      timeRangeStart: entry.timeRangeStart,
+      timeRangeEnd: entry.timeRangeEnd,
+      generatedAt: entry.generatedAt
     };
   }
+
+  // NOTE: transformDemoEntryToResponse has been REMOVED - use transformJournalEntryToResponse instead
 
   /**
    * Get production journal entries with full relations and filtering.
@@ -506,8 +672,9 @@ export class JournalService {
 
     const skip = (page - 1) * limit;
 
-    // Build where clause
+    // Build where clause - always filter by sourceMode: 'production'
     const where: any = {
+      sourceMode: 'production',
       AND: []
     };
 
@@ -858,37 +1025,16 @@ export class JournalService {
   }
 
   /**
-   * Get single journal entry by ID
+   * Get single journal entry by ID.
+   * Uses unified JournalEntry table - NO sourceMode filter.
    */
   async getJournalEntryById(entryId: string, userId: string) {
-    // Demo mode: fetch from demo table
-    if (this.isDemoMode) {
-      const demoEntry = await prisma.demoJournalEntry.findUnique({
-        where: { id: entryId }
-      });
-
-      if (!demoEntry) {
-        throw new Error('Journal entry not found');
-      }
-
-      // Fetch user and workspace separately (DemoJournalEntry has no relations)
-      const [user, workspace] = await Promise.all([
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, name: true, avatar: true, title: true }
-        }),
-        prisma.workspace.findUnique({
-          where: { id: demoEntry.workspaceId },
-          include: { organization: { select: { name: true } } }
-        })
-      ]);
-
-      // Transform demo entry to response format
-      return this.transformDemoEntryToResponse(demoEntry, user, workspace);
-    }
-
-    const entry = await prisma.journalEntry.findUnique({
-      where: { id: entryId },
+    // Unified fetch - no sourceMode filter
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id: entryId
+        // sourceMode filter removed - entry can be from any source
+      },
       include: {
         author: {
           select: {
@@ -1096,16 +1242,14 @@ export class JournalService {
   }
 
   /**
-   * Delete journal entry
+   * Delete journal entry.
+   * Uses unified JournalEntry table - findEntryAndValidateOwnership handles sourceMode filtering.
    */
   async deleteJournalEntry(entryId: string, userId: string) {
-    // Validate entry exists and user owns it
+    // Validate entry exists and user owns it (uses sourceMode filter internally)
     await this.findEntryAndValidateOwnership(entryId, userId);
 
-    // Delete from appropriate table
-    if (this.isDemoMode) {
-      return prisma.demoJournalEntry.delete({ where: { id: entryId } });
-    }
+    // Delete from unified JournalEntry table
     return prisma.journalEntry.delete({ where: { id: entryId } });
   }
 

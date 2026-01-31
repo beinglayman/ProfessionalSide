@@ -91,7 +91,7 @@ export const createJournalEntry = asyncHandler(async (req: Request, res: Respons
  */
 export const getJournalEntries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  
+
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
@@ -100,7 +100,10 @@ export const getJournalEntries = asyncHandler(async (req: Request, res: Response
   const queryParams = {
     ...req.query,
     page: req.query.page ? parseInt(req.query.page as string) : 1,
-    limit: req.query.limit ? parseInt(req.query.limit as string) : 20
+    limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+    // Activity stream enhancements
+    includeActivityMeta: req.query.includeActivityMeta === 'true',
+    filterBySource: req.query.filterBySource as string | undefined
   };
 
   const validatedData: GetJournalEntriesInput = getJournalEntriesSchema.parse(queryParams);
