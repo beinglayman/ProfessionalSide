@@ -1,0 +1,74 @@
+{
+  "feature": "activity-stream-draft-stories",
+  "slug": "activity-stream-draft-stories",
+  "title": "Activity Stream & Draft Stories View",
+  "description": "Two-column Journal tab with Draft Stories (Journal Entries) in left column and associated Raw Activities in right panel, filterable by Source or Temporal grouping",
+  "stage": "concept",
+  "status": "pending",
+  "createdAt": "2026-01-31",
+  "updatedAt": "2026-01-31",
+  "stages": {
+    "concept": {
+      "status": "complete",
+      "artifacts": ["PROMPT.md"],
+      "completedAt": "2026-01-31"
+    },
+    "define": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "design-system": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "design-ux": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "develop": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "detect": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "deploy": {
+      "status": "pending",
+      "artifacts": []
+    }
+  },
+  "terminology": {
+    "rawActivity": "Individual event from connected tool (GitHub PR, Jira ticket, etc.)",
+    "journalEntry": "= Draft Story. Auto-generated grouping of raw activities",
+    "draftStory": "= Journal Entry. Same thing, user-facing name",
+    "careerStory": "User-promoted narrative with explicit framework (STAR, etc.)"
+  },
+  "dependencies": [
+    "JournalEntry table with groupingMethod field",
+    "Raw activities storage (DemoToolActivity or production equivalent)",
+    "Connected tool integrations (GitHub, Jira, Teams, etc.)"
+  ],
+  "keyDecisions": [
+    "Two-tab system: By Source and By Temporal",
+    "Two-column layout: Draft Stories (left) + Raw Activities (right)",
+    "Click Draft Story to reveal its associated raw activities",
+    "SVG tree-line connections for visual linking"
+  ],
+  "openQuestions": [
+    "How to handle Draft Stories with 100+ raw activities?",
+    "Should By Source tab show one Draft Story per source, or filter existing Draft Stories?",
+    "How to indicate which Draft Stories are ready for promotion to Career Story?",
+    "Should we show activity count badges on source icons?"
+  ],
+  "demoReference": {
+    "path": "__docs/plans/2026-01-24-journal-settings-ux-analysis/journal-page/demo-v2/",
+    "files": [
+      "index.html - Entry cards, source icons, tree-line patterns",
+      "styles.css - Source colors, card styling"
+    ]
+  },
+  "relatedFeatures": [
+    "career-stories-creation-flow - Promotes Draft Stories to Career Stories"
+  ]
+}
