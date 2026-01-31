@@ -3,13 +3,15 @@
  *
  * API routes for demo mode functionality.
  * These endpoints seed and manage demo data separately from real user data.
+ *
+ * For reading journal entries in demo mode, use the unified endpoint:
+ *   GET /api/v1/journal/feed with header X-Demo-Mode: true
  */
 
 import { Router } from 'express';
 import {
   syncDemoData,
   clearDemoData,
-  getDemoJournalEntries,
   updateDemoJournalEntryActivities,
   updateDemoClusterActivities,
   regenerateDemoJournalNarrative,
@@ -33,12 +35,6 @@ router.post('/sync', syncDemoData);
  * Clear all demo data for the user.
  */
 router.delete('/clear', clearDemoData);
-
-/**
- * GET /api/v1/demo/journal-entries
- * List demo journal entries for the user.
- */
-router.get('/journal-entries', getDemoJournalEntries);
 
 /**
  * PATCH /api/v1/demo/journal-entries/:id/activities

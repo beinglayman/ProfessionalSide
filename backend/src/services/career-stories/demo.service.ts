@@ -412,12 +412,14 @@ async function generateAllNarratives(
 // =============================================================================
 
 /**
- * Seed demo journal entries using bi-weekly time windows.
- * Creates 4-6 entries spanning the activity date range.
+ * Seed demo journal entries using BOTH temporal AND cluster-based grouping.
+ * Creates:
+ * - Temporal entries: bi-weekly time windows (existing logic)
+ * - Cluster entries: grouped by cross-tool references like AUTH-123
  */
 async function seedDemoJournalEntries(
   userId: string,
-  activities: Array<{ id: string; timestamp: Date; title: string; source: string }>
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string; crossToolRefs?: string[] }>
 ): Promise<DemoJournalEntryData[]> {
   if (activities.length === 0) return [];
 
@@ -427,6 +429,27 @@ async function seedDemoJournalEntries(
   });
   const workspaceId = workspace?.id || DEFAULT_DEMO_WORKSPACE_ID;
 
+  const entries: DemoJournalEntryData[] = [];
+
+  // 1. Create temporal entries (existing logic - 14-day windows)
+  const temporalEntries = await createTemporalEntries(userId, activities, workspaceId);
+  entries.push(...temporalEntries);
+
+  // 2. Create cluster-based entries (NEW)
+  const clusterEntries = await createClusterEntries(userId, workspaceId);
+  entries.push(...clusterEntries);
+
+  return entries;
+}
+
+/**
+ * Create temporal entries using bi-weekly time windows.
+ */
+async function createTemporalEntries(
+  userId: string,
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
+  workspaceId: string
+): Promise<DemoJournalEntryData[]> {
   const sorted = [...activities].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
@@ -455,6 +478,110 @@ async function seedDemoJournalEntries(
   }
 
   return entries;
+}
+
+/**
+ * Create cluster-based entries from demo clusters.
+ * Only creates entries for clusters with enough activities.
+ */
+async function createClusterEntries(
+  userId: string,
+  workspaceId: string
+): Promise<DemoJournalEntryData[]> {
+  const clusters = await deps.prisma.demoStoryCluster.findMany({
+    where: { userId },
+    include: { activities: true },
+  });
+
+  const entries: DemoJournalEntryData[] = [];
+
+  for (const cluster of clusters) {
+    if (cluster.activities.length >= MIN_ACTIVITIES_PER_ENTRY) {
+      const entry = await createJournalEntryFromCluster(userId, cluster, workspaceId);
+      entries.push(entry);
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Create a single journal entry from a cluster.
+ */
+async function createJournalEntryFromCluster(
+  userId: string,
+  cluster: {
+    id: string;
+    name: string | null;
+    activities: Array<{ id: string; timestamp: Date; title: string; source: string }>;
+  },
+  workspaceId: string
+): Promise<DemoJournalEntryData> {
+  const activities = cluster.activities;
+  const sorted = [...activities].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  );
+
+  const startDate = sorted[0].timestamp;
+  const endDate = sorted[sorted.length - 1].timestamp;
+
+  // Generate title from cluster name or derive from activities
+  const clusterName = cluster.name || 'Project';
+  const summary = getClusterSummary(activities);
+  const title = `${clusterName}: ${summary}`;
+
+  const toolSummary = buildToolSummary(activities);
+  const description = `${activities.length} related activities across ${toolSummary}`;
+
+  const entry = await deps.prisma.demoJournalEntry.create({
+    data: {
+      userId,
+      workspaceId,
+      title,
+      description,
+      fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
+      activityIds: activities.map((a) => a.id),
+      groupingMethod: 'cluster',
+      timeRangeStart: startDate,
+      timeRangeEnd: endDate,
+      generatedAt: null,
+    },
+  });
+
+  return {
+    id: entry.id,
+    title: entry.title,
+    activityIds: entry.activityIds,
+    timeRangeStart: startDate,
+    timeRangeEnd: endDate,
+  };
+}
+
+/**
+ * Generate a summary of cluster activities for the title.
+ */
+function getClusterSummary(activities: Array<{ title: string }>): string {
+  // Extract common keywords from activity titles
+  const words = activities
+    .flatMap((a) => a.title.toLowerCase().split(/\s+/))
+    .filter((word) => word.length > 3);
+
+  const wordCounts: Record<string, number> = {};
+  words.forEach((word) => {
+    wordCounts[word] = (wordCounts[word] || 0) + 1;
+  });
+
+  // Find most common meaningful word
+  const sorted = Object.entries(wordCounts)
+    .filter(([word]) => !['this', 'that', 'with', 'from', 'into', 'the', 'and', 'for'].includes(word))
+    .sort((a, b) => b[1] - a[1]);
+
+  if (sorted.length > 0 && sorted[0][1] > 1) {
+    const keyword = sorted[0][0];
+    return keyword.charAt(0).toUpperCase() + keyword.slice(1) + ' Work';
+  }
+
+  return 'Cross-Tool Collaboration';
 }
 
 /**
@@ -622,107 +749,11 @@ export async function clearDemoData(userId: string): Promise<void> {
 // =============================================================================
 // PUBLIC API: Journal Entries
 // =============================================================================
-
-/**
- * Demo Journal Entry formatted for frontend display.
- * Matches the JournalEntry type expected by JournalCard component.
- */
-export interface DemoJournalEntryFormatted {
-  id: string;
-  title: string;
-  workspaceId: string;
-  workspaceName: string;
-  organizationName: string | null;
-  description: string;
-  fullContent: string;
-  abstractContent: string;
-  createdAt: Date;
-  lastModified: Date;
-  author: {
-    id: string;
-    name: string;
-    avatar: string;
-    position: string;
-  };
-  collaborators: Array<{ id: string; name: string; avatar: string; role: string }>;
-  reviewers: Array<{ id: string; name: string; avatar: string; department: string }>;
-  artifacts: Array<{ id: string; name: string; type: string; url: string }>;
-  skills: string[];
-  outcomes: Array<{ category: string; title: string; description: string }>;
-  visibility: 'private' | 'workspace' | 'network';
-  isPublished: boolean;
-  likes: number;
-  comments: number;
-  hasLiked: boolean;
-  tags: string[];
-  category: string;
-  appreciates: number;
-  hasAppreciated: boolean;
-  activityIds: string[];
-  groupingMethod: string | null;
-  timeRangeStart: Date | null;
-  timeRangeEnd: Date | null;
-  generatedAt: Date | null;
-}
-
-/**
- * Get demo journal entries for a user.
- * Returns entries formatted for the JournalCard component.
- */
-export async function getDemoJournalEntries(userId: string): Promise<DemoJournalEntryFormatted[]> {
-  const entries = await deps.prisma.demoJournalEntry.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const user = await deps.prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true },
-  });
-
-  const workspace = await deps.prisma.workspace.findFirst({
-    where: { members: { some: { userId } } },
-    select: { id: true, name: true },
-  });
-
-  return entries.map((e) => ({
-    id: e.id,
-    title: e.title,
-    workspaceId: workspace?.id || DEFAULT_DEMO_WORKSPACE_ID,
-    workspaceName: workspace?.name || 'Demo Workspace',
-    organizationName: null,
-    description: e.description,
-    fullContent: e.fullContent,
-    abstractContent: e.description,
-    createdAt: e.createdAt,
-    lastModified: e.createdAt,
-    author: {
-      id: user?.id || userId,
-      name: user?.name || 'Demo User',
-      avatar: '',
-      position: 'Software Engineer',
-    },
-    collaborators: [],
-    reviewers: [],
-    artifacts: [],
-    skills: extractSkillsFromContent(e.fullContent),
-    outcomes: [],
-    visibility: 'workspace' as const,
-    isPublished: false,
-    likes: 0,
-    comments: 0,
-    hasLiked: false,
-    tags: ['demo'],
-    category: 'achievement',
-    appreciates: 0,
-    hasAppreciated: false,
-    activityIds: e.activityIds,
-    groupingMethod: e.groupingMethod,
-    timeRangeStart: e.timeRangeStart,
-    timeRangeEnd: e.timeRangeEnd,
-    generatedAt: e.generatedAt,
-  }));
-}
+// NOTE: getDemoJournalEntries has been REMOVED.
+// All journal entry reads now go through the unified JournalService.
+// Use JournalService.getJournalEntries(userId, filters, isDemoMode=true) instead.
+// See: backend/src/services/journal.service.ts
+// =============================================================================
 
 /**
  * Update activity IDs for a demo journal entry.

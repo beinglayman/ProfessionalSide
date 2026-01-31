@@ -826,21 +826,6 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
 });
 
 /**
- * GET /api/v1/demo/journal-entries
- * List demo journal entries for the user.
- */
-export const getDemoJournalEntries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
-
-  if (!userId) {
-    return void sendError(res, 'User not authenticated', 401);
-  }
-
-  const entries = await demoService.getDemoJournalEntries(userId);
-  sendSuccess(res, entries);
-});
-
-/**
  * PATCH /api/v1/demo/journal-entries/:id/activities
  * Update activity IDs for a demo journal entry.
  */

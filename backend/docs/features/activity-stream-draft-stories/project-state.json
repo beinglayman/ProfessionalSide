@@ -1,0 +1,75 @@
+{
+  "project_id": "activity-stream-draft-stories",
+  "project_name": "Activity Stream & Draft Stories View",
+  "domain": "career-management",
+  "created_at": "2026-01-31T18:00:00Z",
+  "current_stage": "develop",
+  "current_phase": "not_started",
+  "stages": {
+    "concept": {
+      "status": "complete",
+      "started_at": "2026-01-31T18:00:00Z",
+      "completed_at": "2026-01-31T18:30:00Z",
+      "gate_result": "PASS",
+      "artifacts": [
+        "stages/01-concept/artifacts/concept-brief-v1.md"
+      ],
+      "records": [
+        "stages/01-concept/records/checker-review-v1.md"
+      ]
+    },
+    "define": {
+      "status": "complete",
+      "started_at": "2026-01-31T18:30:00Z",
+      "completed_at": "2026-01-31T19:00:00Z",
+      "gate_result": "PASS",
+      "artifacts": [
+        "stages/02-define/artifacts/requirements-doc-v1.md"
+      ],
+      "records": [
+        "stages/02-define/records/clarifier-review-v1.md"
+      ],
+      "metrics": {
+        "user_stories": 8,
+        "test_scenarios": 18,
+        "priority_breakdown": {
+          "must": 4,
+          "should": 3,
+          "could": 1
+        }
+      }
+    },
+    "design": {
+      "status": "complete",
+      "started_at": "2026-01-31T19:00:00Z",
+      "completed_at": "2026-01-31T20:00:00Z",
+      "gate_result": "CONDITIONAL_PASS",
+      "conditions": [
+        "Optimize temporal bucket query during implementation",
+        "Verify error classes exist"
+      ],
+      "ux": {
+        "status": "skipped",
+        "reason": "demo-v2 prototypes serve as wireframes"
+      },
+      "system": {
+        "status": "complete",
+        "artifacts": [
+          "stages/03-design/system/artifacts/system-design-spec-v1.md"
+        ],
+        "records": [
+          "stages/03-design/system/records/technical-review-v1.md"
+        ]
+      }
+    },
+    "develop": { "status": "not_started" },
+    "detect": { "status": "not_started" },
+    "deploy": { "status": "not_started" }
+  },
+  "terminology": {
+    "rawActivity": "Individual event from connected tool (GitHub PR, Jira ticket, etc.)",
+    "journalEntry": "= Draft Story. Auto-generated grouping of raw activities",
+    "draftStory": "= Journal Entry. Same thing, user-facing name",
+    "careerStory": "User-promoted narrative with explicit framework (STAR, etc.)"
+  }
+}

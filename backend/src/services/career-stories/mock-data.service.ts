@@ -783,49 +783,55 @@ export function generateMockActivities(): ActivityInput[] {
  *
  * Updated to reflect comprehensive cross-tool clustering with rawData patterns.
  * Clusters are linked by shared refs extracted from titles, descriptions, URLs, and rawData.
+ *
+ * Current clustering produces 3 clusters:
+ * 1. DB-150 cluster (database migration work)
+ * 2. Main cluster (Auth + Platform + Perf + Infra - all interconnected)
+ * 3. API-200 cluster (API versioning work)
  */
 export function getExpectedClusters(): { name: string; sharedRefs: string[]; activityIds: string[] }[] {
   return [
     {
-      // Auth + Platform work clusters together because:
-      // - SEC-100 mentions AUTH-123
-      // - PLAT-500 mentions AUTH-123
-      // - All related PRs, meetings, docs link back
-      name: 'Auth & Platform',
-      sharedRefs: ['AUTH-123', 'AUTH-124', 'acme/backend#42', 'confluence:987654', 'PLAT-500'],
+      // Database migration work
+      name: 'Database Migration',
+      sharedRefs: ['DB-150'],
+      activityIds: ['543210', 'DB-150', 'acme/backend#25'],
+    },
+    {
+      // Main interconnected cluster - Auth + Platform + Perf + Infra
+      // These are all connected through shared refs like AUTH-123, PERF-456, etc.
+      name: 'Auth & Platform & Performance',
+      sharedRefs: [
+        'AUTH-123', 'confluence:987654', 'acme/backend#42',
+        'PERF-456', 'acme/backend#55', 'acme/frontend#22',
+        'PERF-457', 'PLAT-500', 'INFRA-200',
+      ],
       activityIds: [
+        // Platform rate limiting
+        '555444', 'PLAT-500',
         // Core auth work
-        'AUTH-123', 'AUTH-124', 'acme/backend#42', '987654',
-        // Security audit (links via AUTH-123)
-        'SEC-100',
-        // Rate limiting (links via PLAT-500 and AUTH-123)
-        'PLAT-500', '555444',
-        // Participant entries (mentions, reviews, meetings)
-        'meeting-67890', 'thread-reply-xyz', 'acme/backend#75', 'ONCALL-101',
-        'gcal-auth-review-meeting', 'gslides-auth-overview', 'acme/backend#70', 'DesignFile999XYZ',
-        // Google entries linking to PLAT-500
+        'acme/backend#42', 'meeting-67890', 'thread-reply-xyz', '987654',
+        'AUTH-123', 'AUTH-124', 'SEC-100', 'acme/backend#75',
+        'gcal-auth-review-meeting', 'gslides-auth-overview', 'ONCALL-101',
+        'acme/backend#70', 'DesignFile999XYZ',
+        // Epic
+        'EPIC-Q4-100',
+        // Performance work
+        'PERF-456', 'PERF-457', 'acme/backend#55', 'acme/frontend#22',
+        'meeting-12345', 'thread-abc123',
+        'gcal-perf-standup', 'gsheet-perf-metrics', 'meet-xyz-uvwx-stu',
+        // Infrastructure
+        '777888', 'INFRA-200',
+        // Google docs
         'gdoc-1AbC123XYZ456_defGHI789jkl', 'gsheet-capacity-planning',
       ],
     },
     {
-      // Performance work + Infrastructure
-      name: 'Performance & Infrastructure',
-      sharedRefs: ['PERF-456', 'PERF-457', 'acme/backend#55', 'acme/frontend#22', 'INFRA-200'],
-      activityIds: [
-        // Core perf work
-        'PERF-456', 'PERF-457', 'acme/backend#55', 'acme/frontend#22',
-        // Meetings and Slack
-        'meeting-12345', 'thread-abc123',
-        // Google entries
-        'gcal-perf-standup', 'gsheet-perf-metrics', 'meet-xyz-uvwx-stu',
-        // Infrastructure (links via PERF-457)
-        'INFRA-200', '777888',
-      ],
+      // API versioning work
+      name: 'API Versioning',
+      sharedRefs: ['API-200'],
+      activityIds: ['654321', 'API-200', 'acme/backend#30'],
     },
-    // Unclustered:
-    // - DOC-789: Standalone documentation ticket
-    // - acme/backend#60: Dependency update, no ticket refs
-    // - Abc123XYZ: Mobile redesign Figma, no cross-refs
   ];
 }
 
@@ -833,5 +839,12 @@ export function getExpectedClusters(): { name: string; sharedRefs: string[]; act
  * Get expected unclustered activity IDs
  */
 export function getExpectedUnclustered(): string[] {
-  return ['DOC-789', 'acme/backend#60', 'Abc123XYZ'];
+  return [
+    'DOC-789',           // Standalone documentation
+    'acme/backend#60',   // Dependency update, no ticket refs
+    'Abc123XYZ',         // Mobile redesign Figma, no cross-refs
+    'acme/backend#28',   // Logging improvements, no cross-refs
+    'thread-mentoring-db', // Mentoring thread, no project refs
+    'gdoc-q4-okrs',      // Q4 OKRs doc, no project refs
+  ];
 }

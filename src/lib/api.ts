@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getErrorConsole } from '../contexts/ErrorConsoleContext';
+import { isDemoMode } from '../services/demo-mode.service';
 
 // API Configuration - Production and development support
 const envApiUrl = import.meta.env.VITE_API_URL;
@@ -53,6 +54,11 @@ api.interceptors.request.use(
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Add demo mode header
+    if (isDemoMode()) {
+      config.headers['X-Demo-Mode'] = 'true';
     }
 
     // Start request trace

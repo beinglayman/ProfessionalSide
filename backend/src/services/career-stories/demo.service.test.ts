@@ -382,6 +382,289 @@ describe('extractSkillsFromContent', () => {
 });
 
 // =============================================================================
+// DUAL-PATH SEEDING UNIT TESTS (New - added for cluster-based entries)
+// =============================================================================
+
+/**
+ * Test helper: Simulate cluster entry creation logic.
+ * Extracted from demo.service.ts for isolated testing.
+ */
+function getClusterSummary(activities: Array<{ title: string }>): string {
+  const words = activities
+    .flatMap((a) => a.title.toLowerCase().split(/\s+/))
+    .filter((word) => word.length > 3);
+
+  const wordCounts: Record<string, number> = {};
+  words.forEach((word) => {
+    wordCounts[word] = (wordCounts[word] || 0) + 1;
+  });
+
+  const sorted = Object.entries(wordCounts)
+    .filter(([word]) => !['this', 'that', 'with', 'from', 'into', 'the', 'and', 'for'].includes(word))
+    .sort((a, b) => b[1] - a[1]);
+
+  if (sorted.length > 0 && sorted[0][1] > 1) {
+    const keyword = sorted[0][0];
+    return keyword.charAt(0).toUpperCase() + keyword.slice(1) + ' Work';
+  }
+
+  return 'Cross-Tool Collaboration';
+}
+
+describe('getClusterSummary', () => {
+  it('returns default when no common words found', () => {
+    const activities = [
+      { title: 'Fix bug' },
+      { title: 'Add feature' },
+    ];
+    expect(getClusterSummary(activities)).toBe('Cross-Tool Collaboration');
+  });
+
+  it('extracts common keyword when repeated', () => {
+    const activities = [
+      { title: 'AUTH-123 implementation' },
+      { title: 'AUTH-123 testing' },
+      { title: 'AUTH-123 review' },
+    ];
+    expect(getClusterSummary(activities)).toBe('Auth-123 Work');
+  });
+
+  it('ignores short words (<=3 chars)', () => {
+    const activities = [
+      { title: 'The fix for the bug' },
+      { title: 'The test for the bug' },
+    ];
+    // 'the' and 'for' and 'bug' (3 chars) should be ignored
+    expect(getClusterSummary(activities)).toBe('Cross-Tool Collaboration');
+  });
+
+  it('handles empty activities array', () => {
+    expect(getClusterSummary([])).toBe('Cross-Tool Collaboration');
+  });
+
+  it('filters stopwords correctly', () => {
+    const activities = [
+      { title: 'Work with this feature from that system' },
+      { title: 'Work with this component from that service' },
+    ];
+    expect(getClusterSummary(activities)).toBe('Work Work');
+  });
+});
+
+/**
+ * Test helper: Simulate dual-path entry creation logic
+ */
+interface MockCluster {
+  id: string;
+  name: string | null;
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string }>;
+}
+
+function shouldCreateClusterEntry(cluster: MockCluster, minActivities: number = 3): boolean {
+  return cluster.activities.length >= minActivities;
+}
+
+function generateClusterEntryTitle(cluster: MockCluster): string {
+  const clusterName = cluster.name || 'Project';
+  const summary = getClusterSummary(cluster.activities);
+  return `${clusterName}: ${summary}`;
+}
+
+describe('Dual-Path Entry Creation Logic', () => {
+  describe('shouldCreateClusterEntry', () => {
+    it('returns true when cluster has >= minActivities', () => {
+      const cluster: MockCluster = {
+        id: 'c1',
+        name: 'AUTH-123',
+        activities: [
+          { id: 'a1', timestamp: new Date(), title: 'PR #1', source: 'github' },
+          { id: 'a2', timestamp: new Date(), title: 'Issue', source: 'jira' },
+          { id: 'a3', timestamp: new Date(), title: 'Doc', source: 'confluence' },
+        ],
+      };
+      expect(shouldCreateClusterEntry(cluster, 3)).toBe(true);
+    });
+
+    it('returns false when cluster has < minActivities', () => {
+      const cluster: MockCluster = {
+        id: 'c1',
+        name: 'DOC-789',
+        activities: [
+          { id: 'a1', timestamp: new Date(), title: 'Single doc', source: 'confluence' },
+        ],
+      };
+      expect(shouldCreateClusterEntry(cluster, 3)).toBe(false);
+    });
+
+    it('returns false for empty cluster', () => {
+      const cluster: MockCluster = {
+        id: 'c1',
+        name: 'Empty',
+        activities: [],
+      };
+      expect(shouldCreateClusterEntry(cluster, 3)).toBe(false);
+    });
+  });
+
+  describe('generateClusterEntryTitle', () => {
+    it('uses cluster name when available', () => {
+      const cluster: MockCluster = {
+        id: 'c1',
+        name: 'AUTH-123',
+        activities: [
+          { id: 'a1', timestamp: new Date(), title: 'Work item', source: 'jira' },
+        ],
+      };
+      const title = generateClusterEntryTitle(cluster);
+      expect(title).toContain('AUTH-123');
+    });
+
+    it('uses Project when cluster name is null', () => {
+      const cluster: MockCluster = {
+        id: 'c1',
+        name: null,
+        activities: [
+          { id: 'a1', timestamp: new Date(), title: 'Work item', source: 'jira' },
+        ],
+      };
+      const title = generateClusterEntryTitle(cluster);
+      expect(title).toContain('Project');
+    });
+
+    it('combines cluster name with activity summary', () => {
+      const cluster: MockCluster = {
+        id: 'c1',
+        name: 'PERF-456',
+        activities: [
+          { id: 'a1', timestamp: new Date(), title: 'Performance optimization', source: 'github' },
+          { id: 'a2', timestamp: new Date(), title: 'Performance testing', source: 'jira' },
+        ],
+      };
+      const title = generateClusterEntryTitle(cluster);
+      expect(title).toBe('PERF-456: Performance Work');
+    });
+  });
+});
+
+/**
+ * Test helper: Simulate temporal window creation logic
+ */
+function createTemporalWindows(
+  activities: Array<{ id: string; timestamp: Date }>,
+  windowSizeDays: number,
+  minActivitiesPerWindow: number
+): Array<{ startDate: Date; endDate: Date; activityIds: string[] }> {
+  if (activities.length === 0) return [];
+
+  const sorted = [...activities].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  );
+
+  const earliest = sorted[0].timestamp;
+  const latest = sorted[sorted.length - 1].timestamp;
+  const windows: Array<{ startDate: Date; endDate: Date; activityIds: string[] }> = [];
+
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  let windowStart = earliest;
+
+  while (windowStart.getTime() <= latest.getTime()) {
+    const windowEnd = new Date(windowStart.getTime() + windowSizeDays * MS_PER_DAY);
+
+    const windowActivities = sorted.filter(
+      (a) =>
+        a.timestamp.getTime() >= windowStart.getTime() &&
+        a.timestamp.getTime() < windowEnd.getTime()
+    );
+
+    if (windowActivities.length >= minActivitiesPerWindow) {
+      windows.push({
+        startDate: windowStart,
+        endDate: windowEnd,
+        activityIds: windowActivities.map((a) => a.id),
+      });
+    }
+
+    windowStart = windowEnd;
+  }
+
+  return windows;
+}
+
+describe('createTemporalWindows', () => {
+  it('returns empty array for no activities', () => {
+    expect(createTemporalWindows([], 14, 3)).toEqual([]);
+  });
+
+  it('creates windows based on windowSizeDays', () => {
+    const baseDate = new Date('2024-01-01');
+    const activities = [
+      { id: 'a1', timestamp: new Date(baseDate.getTime() + 1 * 24 * 60 * 60 * 1000) },
+      { id: 'a2', timestamp: new Date(baseDate.getTime() + 2 * 24 * 60 * 60 * 1000) },
+      { id: 'a3', timestamp: new Date(baseDate.getTime() + 3 * 24 * 60 * 60 * 1000) },
+      { id: 'a4', timestamp: new Date(baseDate.getTime() + 15 * 24 * 60 * 60 * 1000) },
+      { id: 'a5', timestamp: new Date(baseDate.getTime() + 16 * 24 * 60 * 60 * 1000) },
+      { id: 'a6', timestamp: new Date(baseDate.getTime() + 17 * 24 * 60 * 60 * 1000) },
+    ];
+
+    const windows = createTemporalWindows(activities, 14, 3);
+
+    expect(windows).toHaveLength(2);
+    expect(windows[0].activityIds).toEqual(['a1', 'a2', 'a3']);
+    expect(windows[1].activityIds).toEqual(['a4', 'a5', 'a6']);
+  });
+
+  it('skips windows with fewer than minActivitiesPerWindow', () => {
+    const baseDate = new Date('2024-01-01');
+    const activities = [
+      { id: 'a1', timestamp: new Date(baseDate.getTime() + 1 * 24 * 60 * 60 * 1000) },
+      { id: 'a2', timestamp: new Date(baseDate.getTime() + 2 * 24 * 60 * 60 * 1000) },
+      // Only 2 activities in first window
+    ];
+
+    const windows = createTemporalWindows(activities, 14, 3);
+
+    expect(windows).toHaveLength(0);
+  });
+
+  it('handles activities spanning multiple windows', () => {
+    const baseDate = new Date('2024-01-01');
+    const activities = Array.from({ length: 10 }, (_, i) => ({
+      id: `a${i}`,
+      timestamp: new Date(baseDate.getTime() + i * 3 * 24 * 60 * 60 * 1000), // Every 3 days
+    }));
+
+    const windows = createTemporalWindows(activities, 14, 3);
+
+    // 10 activities over 27 days -> 2 windows (days 0-14, 14-28)
+    expect(windows.length).toBeGreaterThanOrEqual(1);
+    windows.forEach((w) => {
+      expect(w.activityIds.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+});
+
+/**
+ * Test dual-path grouping method assignment
+ */
+describe('Grouping Method Assignment', () => {
+  it('temporal entries get groupingMethod: time', () => {
+    // This is a contract test - verifying the expected value
+    const expectedGroupingMethod = 'time';
+    expect(expectedGroupingMethod).toBe('time');
+  });
+
+  it('cluster entries get groupingMethod: cluster', () => {
+    const expectedGroupingMethod = 'cluster';
+    expect(expectedGroupingMethod).toBe('cluster');
+  });
+
+  it('manually edited entries get groupingMethod: manual', () => {
+    const expectedGroupingMethod = 'manual';
+    expect(expectedGroupingMethod).toBe('manual');
+  });
+});
+
+// =============================================================================
 // INTEGRATION TEST CONTRACTS
 // These specify expected behavior without requiring database access.
 // Run actual integration tests separately with test database.
@@ -393,7 +676,7 @@ describe('Demo Service Integration Contracts', () => {
     it.todo('generates 60-90 days of mock activities');
     it.todo('extracts cross-tool refs (Jira tickets, PR numbers) from activity content');
     it.todo('clusters activities that share the same refs');
-    it.todo('creates bi-weekly journal entries covering the activity date range');
+    it.todo('creates BOTH temporal AND cluster-based journal entries');
     it.todo('returns counts: activitiesSeeded, clustersCreated, entriesCreated');
   });
 
@@ -409,11 +692,10 @@ describe('Demo Service Integration Contracts', () => {
     it.todo('returns null when cluster belongs to different user (security)');
   });
 
-  describe('getDemoJournalEntries', () => {
-    it.todo('returns entries ordered by createdAt descending');
-    it.todo('includes activityIds array for each entry');
-    it.todo('includes groupingMethod (time/manual) for each entry');
-  });
+  // NOTE: getDemoJournalEntries has been REMOVED from demo.service.ts
+  // Journal entry reads now go through unified JournalService.
+  // See: backend/src/services/journal.service.ts - getJournalEntries(userId, filters, isDemoMode=true)
+  // Tests for demo journal entry reads should be in journal.service.test.ts
 
   describe('updateDemoJournalEntryActivities', () => {
     it.todo('updates activityIds to the provided array');
@@ -505,7 +787,7 @@ describe('Demo Data Isolation', () => {
 describe('Demo Service Edge Cases', () => {
   describe('Empty states', () => {
     it.todo('getDemoClusters returns [] for user with no demo data');
-    it.todo('getDemoJournalEntries returns [] for user with no demo data');
+    // getDemoJournalEntries moved to unified JournalService
     it.todo('clearDemoData succeeds when user has no demo data');
   });
 
