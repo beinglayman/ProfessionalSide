@@ -1217,6 +1217,11 @@ model WorkspaceJournalSubscription {
   // Tool selection
   selectedTools String[] @default([]) // ['github', 'jira', 'figma', ...] - subset of user's connected tools
 
+  // Dual-path generation options
+  cadence           String  @default("daily") // daily, weekly, sprint - determines lookback period
+  groupingMethod    String  @default("temporal") // temporal, cluster - how to group activities
+  preferredFramework String? // STAR, ONE_ON_ONE, SKILL_GAP, PROJECT_IMPACT, etc.
+
   // Customization
   customPrompt    String? // Optional AI guidance (e.g., 'Focus on learning outcomes')
   defaultCategory String? // Auto-apply to generated entries
