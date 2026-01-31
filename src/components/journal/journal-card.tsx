@@ -333,9 +333,32 @@ export function JournalCard({
       <div className={cn("px-6 pb-4", showUserProfile ? "pt-0" : "pt-6")}>
         {/* Title with date range - matching JournalEnhanced style */}
         <div className="flex items-start justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex-1">
-            {journal.title}
-          </h3>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {journal.title}
+              </h3>
+              {/* Grouping Method Badge */}
+              {journal.groupingMethod && (
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                  journal.groupingMethod === 'cluster'
+                    ? "bg-purple-100 text-purple-700"
+                    : journal.groupingMethod === 'manual'
+                    ? "bg-gray-100 text-gray-700"
+                    : "bg-blue-100 text-blue-700"
+                )}>
+                  {journal.groupingMethod === 'cluster' ? (
+                    <><Network className="h-3 w-3" /> Clustered</>
+                  ) : journal.groupingMethod === 'manual' ? (
+                    <><Settings className="h-3 w-3" /> Manual</>
+                  ) : (
+                    <><Calendar className="h-3 w-3" /> Daily</>
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 flex-shrink-0 ml-4">
             <Clock className="w-3.5 h-3.5" />
             <span>{format(journal.createdAt, 'MMM d, yyyy')}</span>

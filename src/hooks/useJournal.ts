@@ -9,6 +9,10 @@ import {
 import { QueryKeys } from '../lib/queryClient';
 import { isDemoMode } from '../services/demo-mode.service';
 
+// Note: Demo mode is now handled by the backend via X-Demo-Mode header.
+// The header is automatically added by the API interceptor in src/lib/api.ts.
+// Frontend hooks use the same API calls - backend routes to demo/real tables.
+
 // Get journal entries
 export const useJournalEntries = (params: GetJournalEntriesParams = {}, enabled: boolean = true) => {
   return useQuery({
@@ -28,31 +32,22 @@ export const useJournalEntries = (params: GetJournalEntriesParams = {}, enabled:
 };
 
 // Get user feed (includes rechronicles)
-// In demo mode, fetches from demo journal entries table
+// Demo mode is now handled by backend via X-Demo-Mode header
 export const useUserFeed = (params: GetJournalEntriesParams = {}) => {
   return useQuery({
     queryKey: ['journal', 'feed', params, isDemoMode()],
     queryFn: async () => {
-      // Demo mode - fetch from demo journal entries
-      if (isDemoMode()) {
-        const response = await JournalService.getDemoJournalEntries();
-        if (response.success && response.data) {
-          return {
-            entries: response.data,
-            pagination: { page: 1, limit: 100, total: response.data.length, totalPages: 1 },
-          };
-        }
-        // If demo entries fail, return empty array (user hasn't synced yet)
-        return { entries: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0 } };
-      }
-
-      // Live mode - fetch real entries
+      // Backend automatically routes to demo/real tables based on X-Demo-Mode header
       const response = await JournalService.getUserFeed(params);
       if (response.success && response.data) {
         return {
           entries: response.data,
           pagination: response.pagination,
         };
+      }
+      // Return empty if no data (e.g., demo mode without sync)
+      if (response.success && !response.data) {
+        return { entries: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
       }
       throw new Error(response.error || 'Failed to fetch user feed');
     },
