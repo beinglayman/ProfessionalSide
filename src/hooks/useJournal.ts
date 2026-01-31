@@ -105,15 +105,16 @@ export const useUpdateJournalEntry = () => {
 // Delete journal entry
 export const useDeleteJournalEntry = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (id: string) => JournalService.deleteJournalEntry(id),
     onSuccess: (response, id) => {
       if (response.success) {
         // Remove from cache
         queryClient.removeQueries({ queryKey: QueryKeys.journalEntry(id) });
-        // Invalidate entries list
+        // Invalidate entries list and feed
         queryClient.invalidateQueries({ queryKey: ['journal', 'entries'] });
+        queryClient.invalidateQueries({ queryKey: ['journal', 'feed'] });
       }
     },
   });
