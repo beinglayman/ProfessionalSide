@@ -9,9 +9,58 @@ import {
   AddArtifactInput,
   LinkToGoalInput,
   RecordAnalyticsInput,
-  RechronicleInput
+  RechronicleInput,
+  JournalEntryResponse,
+  JournalEntriesResponse
 } from '../types/journal.types';
 import { skillTrackingService } from './skill-tracking.service';
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Default values for demo mode when real data is unavailable */
+const DEMO_DEFAULTS = {
+  WORKSPACE_ID: 'demo-workspace',
+  WORKSPACE_NAME: 'Demo Workspace',
+  USER_NAME: 'Demo User',
+  USER_POSITION: 'Software Engineer',
+  CATEGORY: 'achievement',
+  MAX_EXTRACTED_SKILLS: 10,
+} as const;
+
+/** Skill patterns for automatic extraction from content */
+const SKILL_EXTRACTION_PATTERNS = [
+  /\b(React|TypeScript|JavaScript|Python|Node\.js|PostgreSQL|GraphQL|REST API|Docker|Kubernetes|AWS|GCP|Azure)\b/gi,
+  /\b(machine learning|data analysis|system design|performance optimization|security|testing|CI\/CD)\b/gi,
+];
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Extract technology skills from content using pattern matching.
+ * Used for demo entries that don't have explicit skill tags.
+ */
+function extractSkillsFromContent(content: string): string[] {
+  const skills = new Set<string>();
+  for (const pattern of SKILL_EXTRACTION_PATTERNS) {
+    const matches = content.match(pattern) || [];
+    matches.forEach(m => skills.add(m));
+  }
+  return Array.from(skills).slice(0, DEMO_DEFAULTS.MAX_EXTRACTED_SKILLS);
+}
+
+/**
+ * Create empty pagination response for edge cases.
+ */
+function emptyPaginatedResponse(page: number, limit: number): JournalEntriesResponse {
+  return {
+    entries: [],
+    pagination: { page, limit, total: 0, totalPages: 0 }
+  };
+}
 
 export class JournalService {
   /**
@@ -172,9 +221,230 @@ export class JournalService {
   }
 
   /**
-   * Get journal entries with filtering and pagination
+   * Get journal entries with filtering and pagination.
+   * Unified method that handles both demo and production modes.
+   *
+   * @param userId - The user requesting the entries
+   * @param filters - Filtering and pagination options
+   * @param isDemoMode - If true, queries demo tables instead of production
    */
-  async getJournalEntries(userId: string, filters: GetJournalEntriesInput) {
+  async getJournalEntries(
+    userId: string,
+    filters: GetJournalEntriesInput,
+    isDemoMode: boolean = false
+  ): Promise<JournalEntriesResponse> {
+    // Route to demo handler if in demo mode
+    if (isDemoMode) {
+      return this.getDemoJournalEntries(userId, filters);
+    }
+
+    // Production mode - existing logic
+    return this.getProductionJournalEntries(userId, filters);
+  }
+
+  /**
+   * Get demo journal entries.
+   * Transforms demo entries to match the unified JournalEntryResponse shape.
+   *
+   * @throws Never - returns empty array on errors to avoid breaking the UI
+   */
+  private async getDemoJournalEntries(
+    userId: string,
+    filters: GetJournalEntriesInput
+  ): Promise<JournalEntriesResponse> {
+    const { page, limit, search, sortBy, sortOrder } = filters;
+    const skip = (page - 1) * limit;
+
+    try {
+      // Build where clause for demo entries (simpler than production)
+      const where: any = { userId };
+
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { fullContent: { contains: search, mode: 'insensitive' } }
+        ];
+      }
+
+      // Build orderBy - fallback to createdAt for fields demo entries don't have
+      const unsupportedSortFields = ['likes', 'comments', 'views'];
+      const effectiveSortBy = unsupportedSortFields.includes(sortBy) ? 'createdAt' : sortBy;
+      const orderBy: any = { [effectiveSortBy]: sortOrder };
+
+      // Fetch entries and count in parallel
+      const [entries, total] = await Promise.all([
+        prisma.demoJournalEntry.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+        prisma.demoJournalEntry.count({ where })
+      ]);
+
+      // Early return if no entries - avoid unnecessary user/workspace queries
+      if (entries.length === 0) {
+        console.log(`📋 Demo mode: No entries found for user ${userId}`);
+        return emptyPaginatedResponse(page, limit);
+      }
+
+      // Fetch user and workspace info in parallel (only if we have entries)
+      const [user, workspace] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, name: true, avatar: true, title: true }
+        }),
+        prisma.workspace.findFirst({
+          where: { members: { some: { userId } } },
+          select: {
+            id: true,
+            name: true,
+            organization: { select: { name: true } }
+          }
+        })
+      ]);
+
+      // Transform demo entries to unified response shape
+      const transformedEntries = entries.map(entry =>
+        this.transformDemoEntryToResponse(entry, user, workspace)
+      );
+
+      console.log(`📋 Demo mode: Returning ${transformedEntries.length} entries for user ${userId}`);
+
+      return {
+        entries: transformedEntries,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      };
+    } catch (error) {
+      // Log error but return empty result to avoid breaking the UI
+      console.error('❌ Error fetching demo journal entries:', error);
+      return emptyPaginatedResponse(page, limit);
+    }
+  }
+
+  /**
+   * Transform a demo journal entry to the unified JournalEntryResponse shape.
+   * Extracted for testability and readability.
+   */
+  private transformDemoEntryToResponse(
+    entry: {
+      id: string;
+      title: string;
+      description: string;
+      fullContent: string;
+      workspaceId: string;
+      createdAt: Date;
+      updatedAt: Date;
+      activityIds: string[];
+      groupingMethod: string | null;
+      timeRangeStart: Date | null;
+      timeRangeEnd: Date | null;
+      generatedAt: Date | null;
+    },
+    user: { id: string; name: string | null; avatar: string | null; title: string | null } | null,
+    workspace: { id: string; name: string; organization: { name: string } | null } | null
+  ): JournalEntryResponse {
+    return {
+      id: entry.id,
+      title: entry.title,
+      description: entry.description,
+      fullContent: entry.fullContent,
+      abstractContent: entry.description, // Use description as abstract for demo
+
+      // Workspace context
+      workspaceId: entry.workspaceId || workspace?.id || DEMO_DEFAULTS.WORKSPACE_ID,
+      workspaceName: workspace?.name || DEMO_DEFAULTS.WORKSPACE_NAME,
+      organizationName: workspace?.organization?.name || null,
+
+      // Author info
+      author: {
+        id: user?.id || entry.id, // Fallback to entry id if user not found
+        name: user?.name || DEMO_DEFAULTS.USER_NAME,
+        avatar: user?.avatar || null,
+        position: user?.title || DEMO_DEFAULTS.USER_POSITION
+      },
+
+      // Empty arrays for relations (demo entries don't have these)
+      collaborators: [],
+      reviewers: [],
+      artifacts: [],
+      outcomes: [],
+
+      // Metadata
+      skills: extractSkillsFromContent(entry.fullContent),
+      tags: ['demo'],
+      category: DEMO_DEFAULTS.CATEGORY,
+      visibility: 'workspace' as const,
+      isPublished: false,
+      publishedAt: null,
+
+      // Timestamps
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      lastModified: entry.createdAt,
+
+      // Social counts (demo entries don't have social features)
+      likes: 0,
+      comments: 0,
+      appreciates: 0,
+      rechronicles: 0,
+
+      // User interaction status
+      hasLiked: false,
+      hasAppreciated: false,
+      hasRechronicled: false,
+
+      // Discussions
+      discussCount: 0,
+      discussions: [],
+
+      // Analytics
+      analytics: {
+        viewCount: 0,
+        averageReadTime: 0,
+        engagementTrend: 'stable' as const,
+        trendPercentage: 0
+      },
+
+      // Achievement fields
+      achievementType: null,
+      achievementTitle: null,
+      achievementDescription: null,
+
+      // Goal links (empty for demo)
+      linkedGoals: [],
+
+      // Format7 data
+      format7Data: null,
+      format7DataNetwork: null,
+      generateNetworkEntry: true,
+
+      // Network entry fields
+      networkContent: null,
+      networkTitle: null,
+
+      // Dual-path generation fields
+      activityIds: entry.activityIds || [],
+      groupingMethod: entry.groupingMethod || null,
+      timeRangeStart: entry.timeRangeStart || null,
+      timeRangeEnd: entry.timeRangeEnd || null,
+      generatedAt: entry.generatedAt || null
+    };
+  }
+
+  /**
+   * Get production journal entries with full relations and filtering.
+   */
+  private async getProductionJournalEntries(
+    userId: string,
+    filters: GetJournalEntriesInput
+  ): Promise<JournalEntriesResponse> {
     const {
       workspaceId,
       visibility,
@@ -218,7 +488,7 @@ export class JournalService {
       where.AND.push({
         OR: [
           { authorId: userId }, // Own entries
-          { 
+          {
             AND: [
               { visibility: 'workspace' },
               {
@@ -349,6 +619,17 @@ export class JournalService {
           },
           artifacts: true,
           outcomes: true,
+          goalLinks: {
+            include: {
+              goal: {
+                select: {
+                  id: true,
+                  title: true,
+                  progress: true
+                }
+              }
+            }
+          },
           _count: {
             select: {
               likes: true,
@@ -368,7 +649,7 @@ export class JournalService {
 
     // Add user's interaction status to each entry
     const entryIds = entries.map(entry => entry.id);
-    
+
     const [userLikes, userAppreciates, userRechronicles] = await Promise.all([
       prisma.journalLike.findMany({
         where: {
@@ -397,18 +678,131 @@ export class JournalService {
     const appreciatedEntries = new Set(userAppreciates.map(app => app.entryId));
     const rechronicledEntries = new Set(userRechronicles.map(rech => rech.entryId));
 
-    // Add interaction status to entries
-    const enrichedEntries = entries.map(entry => ({
-      ...entry,
+    // Transform production entries to unified response shape
+    const transformedEntries: JournalEntryResponse[] = entries.map(entry => ({
+      id: entry.id,
+      title: entry.title,
+      description: entry.description,
+      fullContent: entry.authorId === userId ? entry.fullContent : '', // Hide full content for others
+      abstractContent: entry.abstractContent,
+
+      // Workspace context
+      workspaceId: entry.workspaceId,
+      workspaceName: entry.workspace.name,
+      organizationName: entry.workspace.organization?.name || null,
+
+      // Author info
+      author: {
+        id: entry.author.id,
+        name: entry.author.name || 'Unknown',
+        avatar: entry.author.avatar,
+        position: entry.author.title
+      },
+
+      // Collaborators
+      collaborators: entry.collaborators.map(c => ({
+        id: c.user.id,
+        name: c.user.name || 'Unknown',
+        avatar: c.user.avatar,
+        role: c.role
+      })),
+
+      // Reviewers
+      reviewers: entry.reviewers.map(r => ({
+        id: r.user.id,
+        name: r.user.name || 'Unknown',
+        avatar: r.user.avatar,
+        department: r.department
+      })),
+
+      // Artifacts
+      artifacts: entry.artifacts.map(a => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        url: a.url,
+        size: a.size
+      })),
+
+      // Outcomes
+      outcomes: entry.outcomes.map(o => ({
+        category: o.category,
+        title: o.title,
+        description: o.description,
+        highlight: o.highlight,
+        metrics: o.metrics as string | null
+      })),
+
+      // Metadata
+      skills: entry.skills,
+      tags: entry.tags,
+      category: entry.category,
+      visibility: entry.visibility as 'private' | 'workspace' | 'network',
+      isPublished: entry.isPublished,
+      publishedAt: entry.publishedAt,
+
+      // Timestamps
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      lastModified: entry.lastModified,
+
+      // Social counts
+      likes: entry._count.likes,
+      comments: entry._count.comments,
+      appreciates: entry._count.appreciates,
+      rechronicles: entry._count.rechronicles,
+
+      // User interaction status
       hasLiked: likedEntries.has(entry.id),
       hasAppreciated: appreciatedEntries.has(entry.id),
       hasRechronicled: rechronicledEntries.has(entry.id),
-      // Remove full content for list view (except for own entries)
-      fullContent: entry.authorId === userId ? entry.fullContent : undefined
+
+      // Discussions (simplified - would need separate query for full discussion data)
+      discussCount: entry._count.comments,
+      discussions: [],
+
+      // Analytics
+      analytics: {
+        viewCount: entry._count.analytics,
+        averageReadTime: 0,
+        engagementTrend: 'stable' as const,
+        trendPercentage: 0
+      },
+
+      // Achievement fields
+      achievementType: entry.achievementType,
+      achievementTitle: entry.achievementTitle,
+      achievementDescription: entry.achievementDescription,
+
+      // Goal links
+      linkedGoals: entry.goalLinks.map(gl => ({
+        goalId: gl.goal.id,
+        goalTitle: gl.goal.title,
+        contributionType: gl.contributionType,
+        progressContribution: gl.progressContribution,
+        linkedAt: gl.linkedAt,
+        notes: null // GoalJournalLink doesn't have notes field
+      })),
+
+      // Format7 data
+      format7Data: entry.format7Data,
+      format7DataNetwork: entry.format7DataNetwork,
+      generateNetworkEntry: entry.generateNetworkEntry,
+
+      // Network entry fields
+      networkContent: entry.networkContent,
+      networkTitle: entry.networkTitle,
+
+      // Dual-path generation fields
+      activityIds: entry.activityIds || [],
+      groupingMethod: entry.groupingMethod,
+      timeRangeStart: entry.timeRangeStart,
+      timeRangeEnd: entry.timeRangeEnd,
+      generatedAt: entry.generatedAt
     }));
 
     return {
-      entries: enrichedEntries,
+      entries: transformedEntries,
       pagination: {
         page,
         limit,
@@ -1066,18 +1460,25 @@ export class JournalService {
   }
 
   /**
-   * Get user feed including both journal entries and rechronicled entries
+   * Get user feed including both journal entries and rechronicled entries.
+   * Unified method that handles both demo and production modes.
+   *
+   * @param userId - The user requesting the feed
+   * @param filters - Filtering and pagination options
+   * @param isDemoMode - If true, queries demo tables instead of production
    */
-  async getUserFeed(userId: string, filters: GetJournalEntriesInput) {
+  async getUserFeed(
+    userId: string,
+    filters: GetJournalEntriesInput,
+    isDemoMode: boolean = false
+  ): Promise<JournalEntriesResponse> {
     try {
-      console.log('📊 getUserFeed called for user:', userId, 'with filters:', filters);
-      
-      // For now, just return regular journal entries to test the endpoint
-      // We'll add rechronicle functionality once this works
-      console.log('📊 Calling getJournalEntries...');
-      const result = await this.getJournalEntries(userId, filters);
+      console.log('📊 getUserFeed called for user:', userId, 'isDemoMode:', isDemoMode, 'with filters:', filters);
+
+      // Route to unified getJournalEntries with isDemoMode flag
+      const result = await this.getJournalEntries(userId, filters, isDemoMode);
       console.log('📊 getJournalEntries returned:', result.entries.length, 'entries');
-      
+
       return result;
     } catch (error) {
       console.error('❌ Error in getUserFeed:', error);
