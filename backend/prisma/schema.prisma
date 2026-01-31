@@ -445,6 +445,14 @@ model JournalEntry {
   achievementTitle       String?
   achievementDescription String?
 
+  // Dual-path generation fields (activity provenance for generated entries)
+  activityIds        String[] @default([])
+  groupingMethod     String?  @default("time") // 'time' | 'cluster' | 'manual'
+  lastGroupingEditAt DateTime?
+  timeRangeStart     DateTime?
+  timeRangeEnd       DateTime?
+  generatedAt        DateTime?
+
   // Timestamps
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
