@@ -1,0 +1,52 @@
+{
+  "feature": "career-stories-creation-flow",
+  "slug": "career-stories-creation-flow",
+  "title": "Career Stories Creation Flow",
+  "description": "User-initiated promotion of JournalEntries to CareerStories with narrative templates (STAR, SOAR, CAR, etc.)",
+  "stage": "concept",
+  "status": "pending",
+  "createdAt": "2026-01-31",
+  "updatedAt": "2026-01-31",
+  "stages": {
+    "concept": {
+      "status": "complete",
+      "artifacts": ["PROMPT.md"],
+      "completedAt": "2026-01-31"
+    },
+    "define": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "design-system": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "design-ux": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "develop": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "detect": {
+      "status": "pending",
+      "artifacts": []
+    },
+    "deploy": {
+      "status": "pending",
+      "artifacts": []
+    }
+  },
+  "dependencies": [
+    "JournalEntry table with groupingMethod field",
+    "CareerStory table",
+    "AI generation service"
+  ],
+  "keyDecisions": [],
+  "openQuestions": [
+    "Should users be able to edit generated sections before saving?",
+    "Should we support custom narrative templates?",
+    "How to handle combining multiple temporal entries into one story?"
+  ]
+}
