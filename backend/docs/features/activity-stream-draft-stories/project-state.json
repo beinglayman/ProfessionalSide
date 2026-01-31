@@ -1,0 +1,33 @@
+{
+  "project_id": "activity-stream-draft-stories",
+  "project_name": "Activity Stream & Draft Stories View",
+  "domain": "career-management",
+  "created_at": "2026-01-31T18:00:00Z",
+  "current_stage": "define",
+  "current_phase": "not_started",
+  "stages": {
+    "concept": {
+      "status": "complete",
+      "started_at": "2026-01-31T18:00:00Z",
+      "completed_at": "2026-01-31T18:30:00Z",
+      "gate_result": "PASS",
+      "artifacts": [
+        "stages/01-concept/artifacts/concept-brief-v1.md"
+      ],
+      "records": [
+        "stages/01-concept/records/checker-review-v1.md"
+      ]
+    },
+    "define": { "status": "not_started" },
+    "design": { "status": "not_started" },
+    "develop": { "status": "not_started" },
+    "detect": { "status": "not_started" },
+    "deploy": { "status": "not_started" }
+  },
+  "terminology": {
+    "rawActivity": "Individual event from connected tool (GitHub PR, Jira ticket, etc.)",
+    "journalEntry": "= Draft Story. Auto-generated grouping of raw activities",
+    "draftStory": "= Journal Entry. Same thing, user-facing name",
+    "careerStory": "User-promoted narrative with explicit framework (STAR, etc.)"
+  }
+}
