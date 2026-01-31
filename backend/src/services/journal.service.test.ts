@@ -100,10 +100,11 @@ describe('JournalService Unified Mode', () => {
 
   describe('getUserFeed', () => {
     it('delegates to getJournalEntries with isDemoMode', async () => {
-      const result = await journalService.getUserFeed(
+      // Demo mode is now set via constructor
+      const demoService = new JournalService(true);
+      const result = await demoService.getUserFeed(
         TEST_USER_ID,
-        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-        true // demo mode
+        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
       );
 
       expect(result).toHaveProperty('entries');
@@ -114,7 +115,6 @@ describe('JournalService Unified Mode', () => {
       const result = await journalService.getUserFeed(
         TEST_USER_ID,
         { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
-        // no isDemoMode param - should default to false
       );
 
       expect(result).toHaveProperty('entries');
@@ -376,5 +376,182 @@ describe('Data Isolation', () => {
 
     const overlap = [...demoIds].filter(id => prodIds.has(id));
     expect(overlap).toHaveLength(0);
+  });
+});
+
+// =============================================================================
+// DELETE JOURNAL ENTRY TESTS
+// =============================================================================
+
+describe('deleteJournalEntry', () => {
+  describe('demo mode', () => {
+    const demoService = new JournalService(true);
+
+    it('deletes entry from demo table when isDemoMode=true', async () => {
+      // Create a demo entry to delete
+      const demoEntry = await prisma.demoJournalEntry.create({
+        data: {
+          userId: TEST_USER_ID,
+          workspaceId: 'test-workspace',
+          title: 'Test Entry to Delete',
+          description: 'This entry will be deleted',
+          fullContent: 'Full content here',
+        },
+      });
+
+      // Delete it
+      await demoService.deleteJournalEntry(demoEntry.id, TEST_USER_ID);
+
+      // Verify it's gone
+      const deletedEntry = await prisma.demoJournalEntry.findUnique({
+        where: { id: demoEntry.id },
+      });
+      expect(deletedEntry).toBeNull();
+    });
+
+    it('throws "Journal entry not found" for non-existent entry', async () => {
+      await expect(
+        demoService.deleteJournalEntry('non-existent-id-12345', TEST_USER_ID)
+      ).rejects.toThrow('Journal entry not found');
+    });
+
+    it('throws "Access denied" when user does not own the entry', async () => {
+      // Create entry owned by test user
+      const demoEntry = await prisma.demoJournalEntry.create({
+        data: {
+          userId: TEST_USER_ID,
+          workspaceId: 'test-workspace',
+          title: 'Entry owned by test user',
+          description: 'Another user will try to delete this',
+          fullContent: 'Content',
+        },
+      });
+
+      // Try to delete as different user
+      await expect(
+        demoService.deleteJournalEntry(demoEntry.id, 'different-user-id')
+      ).rejects.toThrow('Access denied: You can only delete your own entries');
+
+      // Cleanup
+      await prisma.demoJournalEntry.delete({ where: { id: demoEntry.id } });
+    });
+  });
+
+  describe('production mode', () => {
+    const prodService = new JournalService(false);
+
+    it('throws "Journal entry not found" for non-existent entry', async () => {
+      await expect(
+        prodService.deleteJournalEntry('non-existent-prod-id', TEST_USER_ID)
+      ).rejects.toThrow('Journal entry not found');
+    });
+  });
+});
+
+// =============================================================================
+// GET JOURNAL ENTRY BY ID TESTS
+// =============================================================================
+
+describe('getJournalEntryById', () => {
+  describe('demo mode', () => {
+    const demoService = new JournalService(true);
+
+    it('fetches entry from demo table when isDemoMode=true', async () => {
+      // First ensure there's a demo entry
+      const existingEntries = await prisma.demoJournalEntry.findMany({
+        where: { userId: TEST_USER_ID },
+        take: 1,
+      });
+
+      if (existingEntries.length > 0) {
+        const entry = await demoService.getJournalEntryById(
+          existingEntries[0].id,
+          TEST_USER_ID
+        );
+
+        expect(entry).toHaveProperty('id', existingEntries[0].id);
+        expect(entry).toHaveProperty('title');
+        expect(entry).toHaveProperty('author');
+      }
+    });
+
+    it('throws "Journal entry not found" for non-existent demo entry', async () => {
+      await expect(
+        demoService.getJournalEntryById('non-existent-demo-id', TEST_USER_ID)
+      ).rejects.toThrow('Journal entry not found');
+    });
+
+    it('transforms demo entry to response format with all required fields', async () => {
+      // Create a demo entry
+      const demoEntry = await prisma.demoJournalEntry.create({
+        data: {
+          userId: TEST_USER_ID,
+          workspaceId: 'test-workspace',
+          title: 'Test Entry for getById',
+          description: 'Testing getJournalEntryById',
+          fullContent: 'Full content for testing',
+          groupingMethod: 'time',
+        },
+      });
+
+      try {
+        const entry = await demoService.getJournalEntryById(demoEntry.id, TEST_USER_ID);
+
+        // Verify response shape
+        expect(entry).toHaveProperty('id', demoEntry.id);
+        expect(entry).toHaveProperty('title', demoEntry.title);
+        expect(entry).toHaveProperty('description', demoEntry.description);
+        expect(entry).toHaveProperty('author');
+        expect(entry.author).toHaveProperty('id');
+        expect(entry.author).toHaveProperty('name');
+        expect(entry).toHaveProperty('groupingMethod', 'time');
+      } finally {
+        // Cleanup
+        await prisma.demoJournalEntry.delete({ where: { id: demoEntry.id } });
+      }
+    });
+  });
+
+  describe('production mode', () => {
+    const prodService = new JournalService(false);
+
+    it('throws "Journal entry not found" for non-existent production entry', async () => {
+      await expect(
+        prodService.getJournalEntryById('non-existent-prod-id', TEST_USER_ID)
+      ).rejects.toThrow('Journal entry not found');
+    });
+  });
+});
+
+// =============================================================================
+// GET ENTRY COMMENTS TESTS
+// =============================================================================
+
+describe('getEntryComments', () => {
+  describe('demo mode', () => {
+    const demoService = new JournalService(true);
+
+    it('returns empty array in demo mode', async () => {
+      const comments = await demoService.getEntryComments('any-entry-id');
+      expect(comments).toEqual([]);
+    });
+
+    it('does not throw for any entry ID in demo mode', async () => {
+      // In demo mode, we don't validate entry existence for comments
+      // Just return empty array
+      await expect(
+        demoService.getEntryComments('completely-fake-id')
+      ).resolves.toEqual([]);
+    });
+  });
+
+  describe('production mode', () => {
+    const prodService = new JournalService(false);
+
+    it('throws "Journal entry not found" for non-existent entry', async () => {
+      await expect(
+        prodService.getEntryComments('non-existent-prod-entry')
+      ).rejects.toThrow('Journal entry not found');
+    });
   });
 });
