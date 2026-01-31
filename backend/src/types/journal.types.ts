@@ -204,3 +204,160 @@ export type AddArtifactInput = z.infer<typeof addArtifactSchema>;
 export type LinkToGoalInput = z.infer<typeof linkToGoalSchema>;
 export type RecordAnalyticsInput = z.infer<typeof recordAnalyticsSchema>;
 export type RechronicleInput = z.infer<typeof rechronicleSchema>;
+
+// =============================================================================
+// UNIFIED JOURNAL ENTRY RESPONSE TYPE
+// =============================================================================
+
+/**
+ * Unified response type for journal entries.
+ * Used by BOTH demo and production queries to ensure consistent API contracts.
+ * Frontend receives this same shape regardless of data source.
+ */
+export interface JournalEntryResponse {
+  id: string;
+  title: string;
+  description: string;
+  fullContent: string;
+  abstractContent: string | null;
+
+  // Workspace context
+  workspaceId: string;
+  workspaceName: string;
+  organizationName: string | null;
+
+  // Author info
+  author: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    position: string | null;
+  };
+
+  // Collaborators and reviewers
+  collaborators: Array<{
+    id: string;
+    name: string;
+    avatar: string | null;
+    role: string;
+  }>;
+  reviewers: Array<{
+    id: string;
+    name: string;
+    avatar: string | null;
+    department: string | null;
+  }>;
+
+  // Artifacts and outcomes
+  artifacts: Array<{
+    id: string;
+    name: string;
+    type: string;
+    url: string;
+    size: string | null;
+  }>;
+  outcomes: Array<{
+    category: string;
+    title: string;
+    description: string;
+    highlight: string | null;
+    metrics: string | null;
+  }>;
+
+  // Metadata
+  skills: string[];
+  tags: string[];
+  category: string | null;
+  visibility: 'private' | 'workspace' | 'network';
+  isPublished: boolean;
+  publishedAt: Date | null;
+
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+  lastModified: Date;
+
+  // Social counts
+  likes: number;
+  comments: number;
+  appreciates: number;
+  rechronicles: number;
+
+  // User interaction status
+  hasLiked: boolean;
+  hasAppreciated: boolean;
+  hasRechronicled: boolean;
+
+  // Discussions
+  discussCount: number;
+  discussions: Array<{
+    id: string;
+    author: { name: string; avatar: string | null };
+    content: string;
+    createdAt: Date;
+  }>;
+
+  // Analytics
+  analytics: {
+    viewCount: number;
+    averageReadTime: number;
+    engagementTrend: 'up' | 'down' | 'stable';
+    trendPercentage: number;
+  };
+
+  // Achievement fields (optional)
+  achievementType: string | null;
+  achievementTitle: string | null;
+  achievementDescription: string | null;
+
+  // Goal links
+  linkedGoals: Array<{
+    goalId: string;
+    goalTitle: string;
+    contributionType: string;
+    progressContribution: number;
+    linkedAt: Date;
+    notes: string | null;
+  }>;
+
+  // Format7 data
+  format7Data: any | null;
+  format7DataNetwork: any | null;
+  generateNetworkEntry: boolean;
+
+  // Network entry fields
+  networkContent: string | null;
+  networkTitle: string | null;
+
+  // Rechronicle metadata (when this is a rechronicled entry)
+  isRechronicle?: boolean;
+  rechronicleComment?: string | null;
+  rechronicledAt?: Date | null;
+  rechronicledBy?: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    position: string | null;
+  } | null;
+  originalEntry?: JournalEntryResponse | null;
+
+  // Dual-path generation fields
+  activityIds: string[];
+  groupingMethod: string | null;
+  timeRangeStart: Date | null;
+  timeRangeEnd: Date | null;
+  generatedAt: Date | null;
+}
+
+/**
+ * Paginated response for journal entry lists
+ */
+export interface JournalEntriesResponse {
+  entries: JournalEntryResponse[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
