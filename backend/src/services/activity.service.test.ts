@@ -181,13 +181,30 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Cleanup test data
+  // Cleanup test data in reverse dependency order
+
+  // 1. Delete journal entries for test users
   await prisma.journalEntry.deleteMany({
-    where: { id: TEST_JOURNAL_ENTRY_ID }
+    where: { authorId: { in: [ACTIVITY_TEST_USER_ID, ACTIVITY_TEST_OTHER_USER_ID] } }
   });
+
+  // 2. Delete activities for test users
   await prisma.demoToolActivity.deleteMany({
-    where: { id: { in: TEST_ACTIVITY_IDS } }
+    where: { userId: { in: [ACTIVITY_TEST_USER_ID, ACTIVITY_TEST_OTHER_USER_ID] } }
   });
+
+  // 3. Delete workspace memberships for test users
+  await prisma.workspaceMember.deleteMany({
+    where: { userId: { in: [ACTIVITY_TEST_USER_ID, ACTIVITY_TEST_OTHER_USER_ID] } }
+  });
+
+  // 4. Delete test users
+  await prisma.user.deleteMany({
+    where: { id: { in: [ACTIVITY_TEST_USER_ID, ACTIVITY_TEST_OTHER_USER_ID] } }
+  });
+
+  // Note: We don't delete the 'Test Workspace' as it may be shared with other tests
+
   await prisma.$disconnect();
 });
 
