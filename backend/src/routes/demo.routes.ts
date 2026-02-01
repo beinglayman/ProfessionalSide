@@ -29,7 +29,7 @@ router.use(authenticate);
  */
 router.post('/sync', syncDemoData);
 
-// Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/demo instead
+// Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/all with X-Demo-Mode header
 
 /**
  * PATCH /api/v1/demo/journal-entries/:id/activities
