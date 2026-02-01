@@ -220,9 +220,18 @@ interface DemoJournalEntryData {
   activityIds: string[];
   timeRangeStart: Date;
   timeRangeEnd: Date;
+  groupingMethod: 'time' | 'cluster';
 }
 
-interface SeedDemoDataResult {
+/** Summary of a created journal entry for UI animation */
+export interface EntryPreview {
+  id: string;
+  title: string;
+  groupingMethod: 'time' | 'cluster';
+  activityCount: number;
+}
+
+export interface SeedDemoDataResult {
   activitiesSeeded: number;
   /** Activity counts by source (e.g., { github: 18, jira: 14 }) */
   activitiesBySource: Record<string, number>;
@@ -230,6 +239,8 @@ interface SeedDemoDataResult {
   entriesCreated: number;
   temporalEntriesCreated: number;
   clusterEntriesCreated: number;
+  /** Entry previews for UI animation */
+  entryPreviews: EntryPreview[];
   clusters: InMemoryCluster[];
 }
 
@@ -283,6 +294,14 @@ export async function seedDemoData(userId: string): Promise<SeedDemoDataResult> 
     clusterEntries: journalResult.clusterCount,
   });
 
+  // Build entry previews for UI animation
+  const entryPreviews: EntryPreview[] = journalResult.entries.map(entry => ({
+    id: entry.id,
+    title: entry.title,
+    groupingMethod: entry.groupingMethod as 'time' | 'cluster',
+    activityCount: entry.activityIds?.length || 0,
+  }));
+
   return {
     activitiesSeeded: activities.length,
     activitiesBySource,
@@ -290,6 +309,7 @@ export async function seedDemoData(userId: string): Promise<SeedDemoDataResult> 
     entriesCreated: journalResult.entries.length,
     temporalEntriesCreated: journalResult.temporalCount,
     clusterEntriesCreated: journalResult.clusterCount,
+    entryPreviews,
     clusters,
   };
 }
@@ -583,6 +603,7 @@ async function createJournalEntryFromCluster(
     activityIds: entry.activityIds,
     timeRangeStart: startDate,
     timeRangeEnd: endDate,
+    groupingMethod: 'cluster' as const,
   };
 }
 
@@ -663,6 +684,7 @@ async function createJournalEntryFromWindow(
     activityIds: entry.activityIds,
     timeRangeStart: startDate,
     timeRangeEnd: endDate,
+    groupingMethod: 'time' as const,
   };
 }
 
