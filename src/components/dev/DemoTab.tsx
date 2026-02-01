@@ -21,11 +21,11 @@ import {
   isDemoMode,
   toggleDemoMode,
 } from '../../services/demo-mode.service';
-import { fetchDemoStatus, clearDemoData, DemoStatus } from '../../services/demo-status.service';
+import { fetchStatus, clearDemoData, AppStatus } from '../../services/status.service';
 
 export const DemoTab: React.FC = () => {
   const [isDemo, setIsDemo] = useState(() => isDemoMode());
-  const [status, setStatus] = useState<DemoStatus | null>(null);
+  const [status, setStatus] = useState<AppStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export const DemoTab: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchDemoStatus();
+      const data = await fetchStatus();
       setStatus(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch status');
@@ -83,7 +83,8 @@ export const DemoTab: React.FC = () => {
     setError(null);
     try {
       await clearDemoData();
-      setStatus({ activityCount: 0, entriesByGrouping: {}, totalEntries: 0 });
+      // Refresh from backend to confirm deletion
+      await refreshStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear data');
     } finally {

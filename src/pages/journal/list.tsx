@@ -68,8 +68,8 @@ import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
-import { runDemoSync } from '../../services/demo-sync.service';
-import { SyncProgressModal, SyncIntegration } from '../../components/sync/SyncProgressModal';
+import { runDemoSync, SyncState } from '../../services/sync.service';
+import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -111,9 +111,18 @@ export default function JournalPage() {
 
   // Sync modal state
   const [showSyncModal, setShowSyncModal] = useState(false);
-  const [syncIntegrations, setSyncIntegrations] = useState<SyncIntegration[]>([]);
-  const [syncComplete, setSyncComplete] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Listen for external data changes to refresh
+  useEffect(() => {
+    const handleDataChanged = () => {
+      queryClient.invalidateQueries({ queryKey: ['journal'] });
+    };
+
+    window.addEventListener('journal-data-changed', handleDataChanged);
+    return () => window.removeEventListener('journal-data-changed', handleDataChanged);
+  }, [queryClient]);
 
   // Fetch journal entries from backend first (without workspace validation)
   const baseQueryParams = useMemo(() => ({
@@ -560,13 +569,12 @@ export default function JournalPage() {
       // Demo mode: run simulated sync
       console.log('[Journal] Starting demo sync...');
       setIsSyncing(true);
-      setSyncComplete(false);
+      setSyncState(null);
       setShowSyncModal(true);
 
       await runDemoSync({
-        onIntegrationUpdate: setSyncIntegrations,
+        onStateUpdate: setSyncState,
         onComplete: () => {
-          setSyncComplete(true);
           setIsSyncing(false);
         },
         onError: (error) => {
@@ -1094,8 +1102,7 @@ export default function JournalPage() {
       <SyncProgressModal
         open={showSyncModal}
         onClose={() => setShowSyncModal(false)}
-        integrations={syncIntegrations}
-        isComplete={syncComplete}
+        state={syncState}
         onComplete={handleSyncComplete}
       />
     </div>
