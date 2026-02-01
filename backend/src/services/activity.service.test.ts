@@ -27,52 +27,36 @@ let OTHER_USER_ID: string;
 let TEST_JOURNAL_ENTRY_ID: string;
 let TEST_ACTIVITY_IDS: string[] = [];
 
+// Use fixed IDs to avoid polluting other tests' data
+const ACTIVITY_TEST_USER_ID = 'test-user-activity-service-main';
+const ACTIVITY_TEST_OTHER_USER_ID = 'test-user-activity-service-other';
+
 async function getOrCreateTestUsers(): Promise<{ mainUserId: string; otherUserId: string }> {
-  // Try to find at least 2 existing users (avoid creating test users)
-  const existingUsers = await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 2
+  // Create/ensure dedicated test users for activity tests (don't reuse other tests' users)
+  const mainUser = await prisma.user.upsert({
+    where: { id: ACTIVITY_TEST_USER_ID },
+    update: {},
+    create: {
+      id: ACTIVITY_TEST_USER_ID,
+      email: 'test-activity-main@example.com',
+      name: 'Activity Test User Main',
+      password: 'test-password-hash'
+    }
   });
 
-  if (existingUsers.length >= 2) {
-    return {
-      mainUserId: existingUsers[0].id,
-      otherUserId: existingUsers[1].id
-    };
-  }
-
-  // Create test users as needed
-  const timestamp = Date.now();
-
-  let mainUserId: string;
-  if (existingUsers.length >= 1) {
-    mainUserId = existingUsers[0].id;
-  } else {
-    const mainUser = await prisma.user.create({
-      data: {
-        id: `test-user-activity-main-${timestamp}`,
-        email: `test-activity-main-${timestamp}@example.com`,
-        name: 'Activity Test User Main',
-        password: 'test-password-hash',
-        passwordHash: 'test-hash'
-      }
-    });
-    mainUserId = mainUser.id;
-  }
-
-  // Always create second user if we don't have 2
-  const otherUser = await prisma.user.create({
-    data: {
-      id: `test-user-activity-other-${timestamp}`,
-      email: `test-activity-other-${timestamp}@example.com`,
+  const otherUser = await prisma.user.upsert({
+    where: { id: ACTIVITY_TEST_OTHER_USER_ID },
+    update: {},
+    create: {
+      id: ACTIVITY_TEST_OTHER_USER_ID,
+      email: 'test-activity-other@example.com',
       name: 'Activity Test User Other',
-      password: 'test-password-hash',
-      passwordHash: 'test-hash'
+      password: 'test-password-hash'
     }
   });
 
   return {
-    mainUserId,
+    mainUserId: mainUser.id,
     otherUserId: otherUser.id
   };
 }
@@ -268,10 +252,66 @@ describe('ActivityService', () => {
   });
 
   describe('getActivitiesForJournalEntry', () => {
+    // Helper to create isolated test data for each test
+    async function createIsolatedTestData() {
+      const workspace = await prisma.workspace.findFirst();
+      const timestamp = Date.now();
+      const activityIds = [
+        `test-activity-iso-1-${timestamp}`,
+        `test-activity-iso-2-${timestamp}`
+      ];
+
+      await prisma.demoToolActivity.createMany({
+        data: [
+          {
+            id: activityIds[0],
+            userId: TEST_USER_ID,
+            source: 'github',
+            sourceId: 'pr-iso-1',
+            title: 'Isolated Test PR',
+            description: 'Isolated test',
+            timestamp: new Date()
+          },
+          {
+            id: activityIds[1],
+            userId: TEST_USER_ID,
+            source: 'jira',
+            sourceId: 'PROJ-iso-1',
+            title: 'Isolated Test Ticket',
+            description: 'Isolated test',
+            timestamp: new Date()
+          }
+        ]
+      });
+
+      const entryId = `test-entry-iso-${timestamp}`;
+      await prisma.journalEntry.create({
+        data: {
+          id: entryId,
+          title: 'Isolated Test Entry',
+          description: 'For isolated tests',
+          fullContent: 'Content',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace!.id,
+          sourceMode: 'demo',
+          activityIds
+        }
+      });
+
+      return { entryId, activityIds };
+    }
+
+    async function cleanupIsolatedTestData(entryId: string, activityIds: string[]) {
+      await prisma.journalEntry.deleteMany({ where: { id: entryId } });
+      await prisma.demoToolActivity.deleteMany({ where: { id: { in: activityIds } } });
+    }
+
     it('returns activities for a valid journal entry', async () => {
+      const { entryId, activityIds } = await createIsolatedTestData();
+
       const service = new ActivityService(true); // Demo mode
       const result = await service.getActivitiesForJournalEntry(
-        TEST_JOURNAL_ENTRY_ID,
+        entryId,
         TEST_USER_ID,
         { page: 1, limit: 20 }
       );
@@ -281,16 +321,20 @@ describe('ActivityService', () => {
       expect(result).toHaveProperty('meta');
       expect(Array.isArray(result.data)).toBe(true);
       expect(result.data.length).toBeGreaterThan(0);
-      expect(result.meta.journalEntryId).toBe(TEST_JOURNAL_ENTRY_ID);
+      expect(result.meta.journalEntryId).toBe(entryId);
       expect(result.meta.sourceMode).toBe('demo');
+
+      await cleanupIsolatedTestData(entryId, activityIds);
     });
 
     it('paginates correctly', async () => {
+      const { entryId, activityIds } = await createIsolatedTestData();
+
       const service = new ActivityService(true);
 
       // Get first page with limit 1
       const page1 = await service.getActivitiesForJournalEntry(
-        TEST_JOURNAL_ENTRY_ID,
+        entryId,
         TEST_USER_ID,
         { page: 1, limit: 1 }
       );
@@ -303,12 +347,16 @@ describe('ActivityService', () => {
         expect(page1.pagination.hasMore).toBe(true);
         expect(page1.pagination.totalPages).toBeGreaterThan(1);
       }
+
+      await cleanupIsolatedTestData(entryId, activityIds);
     });
 
     it('filters by source', async () => {
+      const { entryId, activityIds } = await createIsolatedTestData();
+
       const service = new ActivityService(true);
       const result = await service.getActivitiesForJournalEntry(
-        TEST_JOURNAL_ENTRY_ID,
+        entryId,
         TEST_USER_ID,
         { page: 1, limit: 20, source: 'github' }
       );
@@ -317,6 +365,8 @@ describe('ActivityService', () => {
       for (const activity of result.data) {
         expect(activity.source).toBe('github');
       }
+
+      await cleanupIsolatedTestData(entryId, activityIds);
     });
 
     it('throws ActivityNotFoundError for non-existent entry', async () => {
@@ -332,15 +382,19 @@ describe('ActivityService', () => {
     });
 
     it('throws ActivityAccessDeniedError for other users entry', async () => {
+      const { entryId, activityIds } = await createIsolatedTestData();
+
       const service = new ActivityService(true);
 
       await expect(
         service.getActivitiesForJournalEntry(
-          TEST_JOURNAL_ENTRY_ID,
+          entryId,
           OTHER_USER_ID, // Different user
           { page: 1, limit: 20 }
         )
       ).rejects.toThrow(ActivityAccessDeniedError);
+
+      await cleanupIsolatedTestData(entryId, activityIds);
     });
 
     it('returns empty array for entry with no activities', async () => {
