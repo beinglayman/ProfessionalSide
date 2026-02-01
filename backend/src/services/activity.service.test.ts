@@ -374,25 +374,57 @@ describe('ActivityService', () => {
     });
 
     it('returns correct activity response shape', async () => {
+      // Create fresh test data for this test to avoid interference from other tests
+      const workspace = await prisma.workspace.findFirst();
+      const activityId = `test-activity-shape-${Date.now()}`;
+      await prisma.demoToolActivity.create({
+        data: {
+          id: activityId,
+          userId: TEST_USER_ID,
+          source: 'github',
+          sourceId: 'pr-shape-test',
+          title: 'Shape Test PR',
+          description: 'Test for response shape',
+          timestamp: new Date()
+        }
+      });
+
+      const entryId = `test-entry-shape-${Date.now()}`;
+      await prisma.journalEntry.create({
+        data: {
+          id: entryId,
+          title: 'Shape Test Entry',
+          description: 'For shape test',
+          fullContent: 'Content',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace!.id,
+          sourceMode: 'demo',
+          activityIds: [activityId]
+        }
+      });
+
       const service = new ActivityService(true);
       const result = await service.getActivitiesForJournalEntry(
-        TEST_JOURNAL_ENTRY_ID,
+        entryId,
         TEST_USER_ID,
         { page: 1, limit: 20 }
       );
 
-      if (result.data.length > 0) {
-        const activity = result.data[0];
-        expect(activity).toHaveProperty('id');
-        expect(activity).toHaveProperty('source');
-        expect(activity).toHaveProperty('sourceId');
-        expect(activity).toHaveProperty('title');
-        expect(activity).toHaveProperty('timestamp');
-        expect(activity).toHaveProperty('crossToolRefs');
-        // Timestamp should be ISO 8601
-        expect(typeof activity.timestamp).toBe('string');
-        expect(new Date(activity.timestamp).toISOString()).toBe(activity.timestamp);
-      }
+      expect(result.data.length).toBeGreaterThan(0);
+      const activity = result.data[0];
+      expect(activity).toHaveProperty('id');
+      expect(activity).toHaveProperty('source');
+      expect(activity).toHaveProperty('sourceId');
+      expect(activity).toHaveProperty('title');
+      expect(activity).toHaveProperty('timestamp');
+      expect(activity).toHaveProperty('crossToolRefs');
+      // Timestamp should be ISO 8601
+      expect(typeof activity.timestamp).toBe('string');
+      expect(new Date(activity.timestamp).toISOString()).toBe(activity.timestamp);
+
+      // Cleanup
+      await prisma.journalEntry.delete({ where: { id: entryId } });
+      await prisma.demoToolActivity.delete({ where: { id: activityId } });
     });
   });
 
@@ -497,20 +529,53 @@ describe('ActivityService', () => {
 
   describe('getActivityMetaForEntries', () => {
     it('returns metadata for valid entries', async () => {
+      // Create fresh test data for this test
+      const workspace = await prisma.workspace.findFirst();
+      const activityId = `test-activity-meta-${Date.now()}`;
+      await prisma.demoToolActivity.create({
+        data: {
+          id: activityId,
+          userId: TEST_USER_ID,
+          source: 'github',
+          sourceId: 'pr-meta-test',
+          title: 'Meta Test PR',
+          description: 'Test for meta retrieval',
+          timestamp: new Date()
+        }
+      });
+
+      const entryId = `test-entry-meta-${Date.now()}`;
+      await prisma.journalEntry.create({
+        data: {
+          id: entryId,
+          title: 'Meta Test Entry',
+          description: 'For meta test',
+          fullContent: 'Content',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace!.id,
+          sourceMode: 'demo',
+          activityIds: [activityId]
+        }
+      });
+
       const service = new ActivityService(true);
       const result = await service.getActivityMetaForEntries(
         TEST_USER_ID,
-        [TEST_JOURNAL_ENTRY_ID]
+        [entryId]
       );
 
       expect(result).toBeInstanceOf(Map);
-      expect(result.has(TEST_JOURNAL_ENTRY_ID)).toBe(true);
+      expect(result.has(entryId)).toBe(true);
 
-      const meta = result.get(TEST_JOURNAL_ENTRY_ID)!;
+      const meta = result.get(entryId)!;
       expect(meta).toHaveProperty('totalCount');
       expect(meta).toHaveProperty('sources');
       expect(meta).toHaveProperty('dateRange');
       expect(meta.totalCount).toBeGreaterThan(0);
+
+      // Cleanup
+      await prisma.journalEntry.delete({ where: { id: entryId } });
+      await prisma.demoToolActivity.delete({ where: { id: activityId } });
     });
 
     it('returns empty meta for entries with no activities', async () => {
@@ -525,15 +590,48 @@ describe('ActivityService', () => {
     });
 
     it('batch processes multiple entries efficiently', async () => {
+      // Create fresh test data for this test
+      const workspace = await prisma.workspace.findFirst();
+      const activityId = `test-activity-batch-${Date.now()}`;
+      await prisma.demoToolActivity.create({
+        data: {
+          id: activityId,
+          userId: TEST_USER_ID,
+          source: 'jira',
+          sourceId: 'ticket-batch-test',
+          title: 'Batch Test Ticket',
+          description: 'Test for batch processing',
+          timestamp: new Date()
+        }
+      });
+
+      const entryId = `test-entry-batch-${Date.now()}`;
+      await prisma.journalEntry.create({
+        data: {
+          id: entryId,
+          title: 'Batch Test Entry',
+          description: 'For batch test',
+          fullContent: 'Content',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace!.id,
+          sourceMode: 'demo',
+          activityIds: [activityId]
+        }
+      });
+
       const service = new ActivityService(true);
       const result = await service.getActivityMetaForEntries(
         TEST_USER_ID,
-        [TEST_JOURNAL_ENTRY_ID, 'fake-id-1', 'fake-id-2']
+        [entryId, 'fake-id-1', 'fake-id-2']
       );
 
       expect(result).toBeInstanceOf(Map);
       // Should have entry for the valid one
-      expect(result.has(TEST_JOURNAL_ENTRY_ID)).toBe(true);
+      expect(result.has(entryId)).toBe(true);
+
+      // Cleanup
+      await prisma.journalEntry.delete({ where: { id: entryId } });
+      await prisma.demoToolActivity.delete({ where: { id: activityId } });
     });
   });
 });
