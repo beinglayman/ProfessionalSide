@@ -11,7 +11,6 @@
 import { Router } from 'express';
 import {
   syncDemoData,
-  clearDemoData,
   updateDemoJournalEntryActivities,
   updateDemoClusterActivities,
   regenerateDemoJournalNarrative,
@@ -30,11 +29,7 @@ router.use(authenticate);
  */
 router.post('/sync', syncDemoData);
 
-/**
- * DELETE /api/v1/demo/clear
- * Clear all demo data for the user.
- */
-router.delete('/clear', clearDemoData);
+// Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/demo instead
 
 /**
  * PATCH /api/v1/demo/journal-entries/:id/activities
