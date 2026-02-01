@@ -2,89 +2,96 @@
  * DemoTab Component
  *
  * Demo mode controls within the unified dev console.
- * Allows toggling demo mode, syncing demo data, and resetting.
+ * Read-only status display + clear functionality.
+ *
+ * Writing (sync) happens via Journal page - this is just for viewing/clearing.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  RefreshCw,
   Trash2,
   Database,
   FileText,
   Clock,
   Link2,
-  Play,
-  CheckCircle2,
-  Circle,
+  RefreshCw,
   Loader2,
 } from 'lucide-react';
 import {
   isDemoMode,
   toggleDemoMode,
-  getDemoSyncStatus,
-  setDemoSyncStatus,
-  clearDemoSyncStatus,
-  DemoSyncStatus,
 } from '../../services/demo-mode.service';
-import { runDemoSync, clearDemoData } from '../../services/demo-sync.service';
-import { SyncIntegration } from '../sync/SyncProgressModal';
+import { fetchDemoStatus, clearDemoData, DemoStatus } from '../../services/demo-status.service';
 
 export const DemoTab: React.FC = () => {
   const [isDemo, setIsDemo] = useState(() => isDemoMode());
-  const [syncStatus, setSyncStatus] = useState<DemoSyncStatus>(() => getDemoSyncStatus());
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [status, setStatus] = useState<DemoStatus | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [syncIntegrations, setSyncIntegrations] = useState<SyncIntegration[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch status from real APIs
+  const refreshStatus = useCallback(async () => {
+    if (!isDemo) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchDemoStatus();
+      setStatus(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch status');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isDemo]);
+
+  // Fetch on mount and when demo mode changes
+  useEffect(() => {
+    refreshStatus();
+  }, [refreshStatus]);
 
   // Listen for demo mode changes
   useEffect(() => {
     const handleDemoModeChanged = (e: CustomEvent<{ isDemo: boolean }>) => {
       setIsDemo(e.detail.isDemo);
     };
-    const handleSyncStatusChanged = (e: CustomEvent<DemoSyncStatus>) => {
-      setSyncStatus(e.detail);
-    };
 
     window.addEventListener('demo-mode-changed', handleDemoModeChanged as EventListener);
-    window.addEventListener('demo-sync-status-changed', handleSyncStatusChanged as EventListener);
-
     return () => {
       window.removeEventListener('demo-mode-changed', handleDemoModeChanged as EventListener);
-      window.removeEventListener('demo-sync-status-changed', handleSyncStatusChanged as EventListener);
     };
   }, []);
 
   const handleToggle = () => {
     const newValue = toggleDemoMode();
     setIsDemo(newValue);
-  };
-
-  const handleSync = async () => {
-    setIsSyncing(true);
-    setSyncIntegrations([]);
-
-    await runDemoSync({
-      onIntegrationUpdate: setSyncIntegrations,
-      onComplete: (result) => {
-        setIsSyncing(false);
-        setSyncIntegrations([]);
-        // Reload to reflect new data
-        window.location.reload();
-      },
-      onError: (error) => {
-        console.error('Demo sync failed:', error);
-        setIsSyncing(false);
-        setSyncIntegrations([]);
-      },
-    });
+    if (newValue) {
+      // Fetch status when switching to demo mode
+      refreshStatus();
+    } else {
+      setStatus(null);
+    }
   };
 
   const handleClear = async () => {
+    if (!confirm('Clear all demo data? This will delete demo activities and journal entries.')) {
+      return;
+    }
+
     setIsClearing(true);
-    await clearDemoData();
-    setIsClearing(false);
-    window.location.reload();
+    setError(null);
+    try {
+      await clearDemoData();
+      setStatus({ activityCount: 0, entriesByGrouping: {}, totalEntries: 0 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear data');
+    } finally {
+      setIsClearing(false);
+    }
   };
+
+  const hasData = status && (status.activityCount > 0 || status.totalEntries > 0);
 
   return (
     <div className="p-4 space-y-6">
@@ -137,106 +144,89 @@ export const DemoTab: React.FC = () => {
       {/* Demo Data Status (only when in demo mode) */}
       {isDemo && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">Demo Data Status</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-300">Demo Data Status</h3>
+            <button
+              onClick={refreshStatus}
+              disabled={isLoading}
+              className="p-1 text-gray-400 hover:text-gray-200 disabled:opacity-50"
+              title="Refresh"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
 
-          {syncStatus.hasSynced ? (
+          {error && (
+            <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 mb-3">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          {isLoading && !status ? (
+            <div className="bg-gray-800 rounded-lg p-4 text-center">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400 mx-auto" />
+            </div>
+          ) : status && hasData ? (
             <div className="bg-gray-800 rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 text-gray-400">
                   <Database className="h-4 w-4" />
                   Activities
                 </span>
-                <span className="font-mono text-gray-200">{syncStatus.activityCount}</span>
+                <span className="font-mono text-gray-200">{status.activityCount}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 text-gray-400">
                   <FileText className="h-4 w-4" />
                   Journal Entries
                 </span>
-                <span className="font-mono text-gray-200">{syncStatus.entryCount}</span>
+                <span className="font-mono text-gray-200">{status.totalEntries}</span>
               </div>
               <div className="flex items-center justify-between text-sm pl-4 text-xs">
                 <span className="flex items-center gap-2 text-gray-500">
                   <Clock className="h-3 w-3" />
                   Temporal (bi-weekly)
                 </span>
-                <span className="font-mono text-gray-400">{syncStatus.temporalEntryCount || 0}</span>
+                <span className="font-mono text-gray-400">{status.entriesByGrouping.time || 0}</span>
               </div>
               <div className="flex items-center justify-between text-sm pl-4 text-xs">
                 <span className="flex items-center gap-2 text-gray-500">
                   <Link2 className="h-3 w-3" />
                   Cluster-based (refs)
                 </span>
-                <span className="font-mono text-gray-400">{syncStatus.clusterEntryCount || 0}</span>
+                <span className="font-mono text-gray-400">{status.entriesByGrouping.cluster || 0}</span>
               </div>
-              {syncStatus.lastSyncAt && (
-                <p className="text-xs text-gray-500 pt-2 border-t border-gray-700">
-                  Last synced: {new Date(syncStatus.lastSyncAt).toLocaleString()}
-                </p>
-              )}
             </div>
           ) : (
             <div className="bg-gray-800 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-400">No demo data synced yet</p>
+              <p className="text-sm text-gray-400">No demo data</p>
               <p className="text-xs text-gray-500 mt-1">
-                Click "Sync Demo Data" below or use the Sync button in Journal
+                Use the Sync button on the Journal page to seed demo data
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Sync Progress (when syncing) */}
-      {isSyncing && syncIntegrations.length > 0 && (
+      {/* Clear Button (only when in demo mode and has data) */}
+      {isDemo && hasData && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">Syncing...</h3>
-          <div className="bg-gray-800 rounded-lg p-3 space-y-2">
-            {syncIntegrations.map((integration) => (
-              <div key={integration.id} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-gray-400">
-                  {integration.status === 'pending' && <Circle className="h-3 w-3 text-gray-500" />}
-                  {integration.status === 'syncing' && <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />}
-                  {integration.status === 'done' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
-                  {integration.name}
-                </span>
-                {integration.status === 'done' && integration.itemCount !== undefined && (
-                  <span className="text-xs text-green-400">
-                    {integration.itemCount} {integration.itemLabel}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Actions (only when in demo mode) */}
-      {isDemo && (
-        <div className="flex gap-3">
           <button
-            onClick={handleSync}
-            disabled={isSyncing || isClearing}
-            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 disabled:text-amber-400 text-white text-sm font-medium rounded-lg transition-colors"
+            onClick={handleClear}
+            disabled={isClearing}
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-red-800 hover:bg-red-900/30 disabled:opacity-50 text-red-400 text-sm font-medium rounded-lg transition-colors"
           >
-            {isSyncing ? (
+            {isClearing ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Syncing...
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Clearing...
               </>
             ) : (
               <>
-                <Play className="h-4 w-4" />
-                Sync Demo Data
+                <Trash2 className="h-4 w-4" />
+                Clear Demo Data
               </>
             )}
-          </button>
-          <button
-            onClick={handleClear}
-            disabled={isSyncing || isClearing || !syncStatus.hasSynced}
-            className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-600 hover:bg-gray-700 disabled:opacity-50 text-gray-300 text-sm font-medium rounded-lg transition-colors"
-          >
-            <Trash2 className="h-4 w-4" />
-            Clear
           </button>
         </div>
       )}
