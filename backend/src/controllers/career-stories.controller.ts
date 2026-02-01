@@ -12,6 +12,8 @@ import {
   ClusteringService,
   generateMockActivities,
   getExpectedClusters,
+  createStoryPublishingService,
+  Visibility,
 } from '../services/career-stories';
 import * as demoService from '../services/career-stories/demo.service';
 import { DEFAULT_DEMO_PERSONA, DemoServiceError } from '../services/career-stories/demo.service';
@@ -33,6 +35,33 @@ import {
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
+
+// =============================================================================
+// DEMO MODE DETECTION
+// =============================================================================
+
+/**
+ * Check if the request is in demo mode.
+ * Reads from:
+ * 1. req.isDemoMode (set by middleware if applied)
+ * 2. X-Demo-Mode header
+ * 3. isDemoMode query parameter
+ */
+function isDemoModeRequest(req: Request): boolean {
+  // Middleware-set value takes precedence
+  if (req.isDemoMode !== undefined) {
+    return req.isDemoMode;
+  }
+  // Fall back to header
+  if (req.headers['x-demo-mode'] === 'true') {
+    return true;
+  }
+  // Fall back to query parameter
+  if (req.query.isDemoMode === 'true') {
+    return true;
+  }
+  return false;
+}
 
 // =============================================================================
 // ERROR HANDLING (RC: Reusable error handler for demo endpoints)
@@ -529,7 +558,7 @@ export const getStats = asyncHandler(async (req: Request, res: Response): Promis
     prisma.storyCluster.count({ where: { userId } }),
     prisma.toolActivity.count({ where: { userId, clusterId: null } }),
     prisma.careerStory.count({
-      where: { cluster: { userId } },
+      where: { userId },
     }),
   ]);
 
@@ -606,7 +635,7 @@ export const clearMockData = asyncHandler(async (req: Request, res: Response): P
 
   // Delete in order: stories -> clusters -> activities
   const deletedStories = await prisma.careerStory.deleteMany({
-    where: { cluster: { userId } },
+    where: { userId },
   });
 
   const deletedClusters = await prisma.storyCluster.deleteMany({
@@ -651,143 +680,28 @@ export const runFullPipeline = asyncHandler(async (req: Request, res: Response):
 });
 
 /**
- * GET /api/career-stories/demo/clusters
- * Get all demo clusters for the user.
+ * @deprecated DemoStoryCluster table has been removed.
+ * Clusters are now stored inline in JournalEntry (activityIds, groupingMethod, clusterRef).
+ * Use GET /api/v1/journal/feed with X-Demo-Mode header instead.
  */
-export const getDemoClusters = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
-
-  if (!userId) {
-    return void sendError(res, 'User not authenticated', 401);
-  }
-
-  const clusters = await demoService.getDemoClusters(userId);
-  sendSuccess(res, clusters);
+export const getDemoClusters = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  return void sendError(res, 'DemoStoryCluster has been deprecated. Use journal entries with groupingMethod="cluster" instead.', 410);
 });
 
 /**
- * GET /api/career-stories/demo/clusters/:id
- * Get a single demo cluster with activities.
+ * @deprecated DemoStoryCluster table has been removed.
+ * Use GET /api/v1/journal/entries/:id with X-Demo-Mode header instead.
  */
-export const getDemoClusterById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
-  const { id } = req.params;
-
-  if (!userId) {
-    return void sendError(res, 'User not authenticated', 401);
-  }
-
-  const cluster = await demoService.getDemoClusterById(userId, id);
-  if (!cluster) {
-    return void sendError(res, 'Demo cluster not found', 404);
-  }
-
-  sendSuccess(res, cluster);
+export const getDemoClusterById = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  return void sendError(res, 'DemoStoryCluster has been deprecated. Use journal entries with groupingMethod="cluster" instead.', 410);
 });
 
 /**
- * POST /api/career-stories/demo/clusters/:id/generate-star
- * Generate STAR narrative for a demo cluster.
- * Uses the same pipeline but reads from demo tables.
+ * @deprecated Use POST /api/v1/demo/journal-entries/:id/regenerate instead.
+ * STAR generation now works on journal entries directly.
  */
-export const generateDemoStar = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
-  const { id: clusterId } = req.params;
-
-  if (!userId) {
-    return void sendError(res, 'User not authenticated', 401);
-  }
-
-  // Validate request body
-  const parseResult = generateStarSchema.safeParse(req.body || {});
-  if (!parseResult.success) {
-    const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
-    return void sendError(res, errors, 400);
-  }
-
-  const { options } = parseResult.data;
-
-  // Get demo cluster with activities
-  const cluster = await demoService.getDemoClusterById(userId, clusterId);
-  if (!cluster) {
-    return void sendError(res, 'Demo cluster not found', 404);
-  }
-
-  // Build persona from user profile
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-
-  const persona = user ? buildPersonaFromUser({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-  }) : DEFAULT_DEMO_PERSONA;
-
-  // Convert demo activities to the format expected by STAR generation
-  const activities: ActivityWithRefs[] = (cluster.activities || []).map((a) => ({
-    id: a.id,
-    source: a.source,
-    sourceId: a.sourceId,
-    sourceUrl: a.sourceUrl,
-    title: a.title,
-    description: a.description,
-    timestamp: a.timestamp,
-    crossToolRefs: a.crossToolRefs,
-    refs: a.crossToolRefs, // ActivityWithRefs requires refs field
-    rawData: null,
-    clusterId: cluster.id,
-    userId,
-    createdAt: new Date(),
-  }));
-
-  // Compute shared refs from activities
-  const refCounts = new Map<string, number>();
-  activities.forEach((a) => {
-    a.refs.forEach((ref) => {
-      refCounts.set(ref, (refCounts.get(ref) || 0) + 1);
-    });
-  });
-  const sharedRefs = Array.from(refCounts.entries())
-    .filter(([, count]) => count >= 2)
-    .map(([ref]) => ref);
-
-  // Build cluster object for STAR generation
-  const clusterForGeneration: Cluster = {
-    id: cluster.id,
-    activityIds: activities.map((a) => a.id),
-    sharedRefs,
-    metrics: {
-      activityCount: activities.length,
-      refCount: sharedRefs.length,
-      toolTypes: [...new Set(activities.map((a) => a.source))],
-      dateRange: cluster.metrics?.dateRange
-        ? {
-            earliest: new Date(cluster.metrics.dateRange.start),
-            latest: new Date(cluster.metrics.dateRange.end),
-          }
-        : undefined,
-    },
-  };
-
-  // Generate STAR using the pipeline
-  const starOptions: STARGenerationOptions = {
-    polish: options?.polish ?? true,
-    framework: options?.framework ?? 'STAR',
-  };
-
-  const result = await starGenerationService.generate(
-    clusterForGeneration,
-    activities,
-    persona,
-    starOptions
-  );
-
-  if (result.isErr()) {
-    return void sendError(res, result.error.message, 500);
-  }
-
-  sendSuccess(res, result.value);
+export const generateDemoStar = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  return void sendError(res, 'generateDemoStar has been deprecated. Use POST /api/v1/demo/journal-entries/:id/regenerate instead.', 410);
 });
 
 /**
@@ -820,8 +734,10 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
   const result = await demoService.seedDemoData(userId);
   sendSuccess(res, {
     activityCount: result.activitiesSeeded,
-    clusterCount: result.clustersCreated,
+    activitiesBySource: result.activitiesBySource,
     entryCount: result.entriesCreated,
+    temporalEntryCount: result.temporalEntriesCreated,
+    clusterEntryCount: result.clusterEntriesCreated,
   }, 'Demo data synced successfully');
 });
 
@@ -851,28 +767,11 @@ export const updateDemoJournalEntryActivities = asyncHandler(async (req: Request
 });
 
 /**
- * PATCH /api/v1/demo/clusters/:id/activities
- * Update activity assignments for a demo cluster.
+ * @deprecated DemoStoryCluster table has been removed.
+ * Use PATCH /api/v1/demo/journal-entries/:id/activities instead.
  */
-export const updateDemoClusterActivities = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
-  const { id } = req.params;
-
-  if (!userId) {
-    return void sendError(res, 'User not authenticated', 401);
-  }
-
-  const { activityIds } = req.body;
-  if (!Array.isArray(activityIds)) {
-    return void sendError(res, 'activityIds must be an array', 400);
-  }
-
-  try {
-    const result = await demoService.updateDemoClusterActivities(userId, id, activityIds);
-    sendSuccess(res, result, 'Cluster activities updated');
-  } catch (error) {
-    if (!handleDemoServiceError(error, res)) throw error;
-  }
+export const updateDemoClusterActivities = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  return void sendError(res, 'DemoStoryCluster has been deprecated. Use PATCH /api/v1/demo/journal-entries/:id/activities instead.', 410);
 });
 
 /**
@@ -895,4 +794,140 @@ export const regenerateDemoJournalNarrative = asyncHandler(async (req: Request, 
   } catch (error) {
     if (!handleDemoServiceError(error, res)) throw error;
   }
+});
+
+// ============================================================================
+// STORY PUBLISHING (Demo Mode)
+// ============================================================================
+
+/**
+ * POST /api/v1/career-stories/demo/stories/:id/publish
+ * Publish a demo story to the user's profile.
+ */
+export const publishDemoStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { visibility = 'private' } = req.body;
+
+  const service = createStoryPublishingService(true); // Demo mode
+  const result = await service.publish(id, userId, visibility as Visibility);
+
+  if (!result.success) {
+    const status = result.error === 'Story not found' ? 404 :
+                   result.error?.includes('own') ? 403 :
+                   result.missingFields ? 400 : 500;
+    return void sendError(res, result.error || 'Publish failed', status, {
+      missingFields: result.missingFields,
+    });
+  }
+
+  sendSuccess(res, result, 'Story published');
+});
+
+/**
+ * POST /api/v1/career-stories/demo/stories/:id/unpublish
+ * Unpublish a demo story from the profile.
+ */
+export const unpublishDemoStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const service = createStoryPublishingService(true); // Demo mode
+  const result = await service.unpublish(id, userId);
+
+  if (!result.success) {
+    const status = result.error === 'Story not found' ? 404 : 403;
+    return void sendError(res, result.error || 'Unpublish failed', status);
+  }
+
+  sendSuccess(res, result, 'Story unpublished');
+});
+
+/**
+ * PUT /api/v1/career-stories/demo/stories/:id/visibility
+ * Change visibility of a demo story.
+ */
+export const setDemoStoryVisibility = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { visibility } = req.body;
+  if (!visibility) {
+    return void sendError(res, 'visibility is required', 400);
+  }
+
+  const service = createStoryPublishingService(true); // Demo mode
+  const result = await service.setVisibility(id, userId, visibility as Visibility);
+
+  if (!result.success) {
+    const status = result.error === 'Story not found' ? 404 :
+                   result.error?.includes('own') ? 403 : 400;
+    return void sendError(res, result.error || 'Failed to update visibility', status);
+  }
+
+  sendSuccess(res, result, 'Visibility updated');
+});
+
+/**
+ * GET /api/v1/career-stories/demo/stories/:id
+ * Get a demo story with publishing info.
+ */
+export const getDemoStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const service = createStoryPublishingService(true); // Demo mode
+  const result = await service.getStory(id, userId);
+
+  if (!result.success) {
+    return void sendError(res, result.error || 'Story not found', 404);
+  }
+
+  sendSuccess(res, result);
+});
+
+// ============================================================================
+// PROFILE: PUBLISHED STORIES
+// Demo/production routing based on isDemoModeRequest helper
+// ============================================================================
+
+/**
+ * GET /api/v1/career-stories/users/:userId/published-stories
+ * Get published stories for a user's profile.
+ * Respects visibility based on viewer relationship.
+ * Demo/production routing determined by x-demo-mode header or isDemoMode query param.
+ */
+export const getPublishedStories = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const viewerId = req.user?.id || null;
+  const { userId: profileUserId } = req.params;
+  const isDemoMode = isDemoModeRequest(req);
+
+  // Check if viewer is in same workspace (placeholder - implement based on actual workspace logic)
+  const isWorkspaceMember = false; // TODO: Implement workspace membership check
+
+  const service = createStoryPublishingService(isDemoMode);
+  const result = await service.getPublishedStories(profileUserId, viewerId, isWorkspaceMember);
+
+  sendSuccess(res, {
+    stories: result.stories,
+    totalCount: result.totalCount,
+    viewerAccess: result.viewerAccess,
+  });
 });

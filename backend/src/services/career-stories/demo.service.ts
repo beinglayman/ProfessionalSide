@@ -6,9 +6,12 @@
  * in production without affecting their actual work history.
  *
  * Tables used:
- * - demo_tool_activities (instead of tool_activities)
- * - demo_story_clusters (instead of story_clusters)
- * - demo_career_stories (instead of career_stories)
+ * - demo_tool_activities: Raw activity data from integrations (source-level)
+ * - JournalEntry (sourceMode='demo'): Journal entries with activityIds inline
+ * - CareerStory (sourceMode='demo'): Career stories (if needed)
+ *
+ * NOTE: DemoStoryCluster has been removed. Clustering is now done in-memory
+ * and stored inline in JournalEntry (activityIds, groupingMethod, clusterRef).
  *
  * @module demo.service
  */
@@ -17,8 +20,9 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { generateMockActivities } from './mock-data.service';
 import { ClusteringService } from './clustering.service';
 import { RefExtractorService } from './ref-extractor.service';
-import { getModelSelector, ModelSelectorService } from '../ai/model-selector.service';
-import { ChatCompletionMessageParam } from 'openai/resources/index';
+import { getModelSelector } from '../ai/model-selector.service';
+// NOTE: ModelSelectorService, ChatCompletionMessageParam removed
+// Narrative generation now lives in JournalService.regenerateNarrative()
 
 // =============================================================================
 // CONSTANTS
@@ -39,11 +43,8 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 /** Timeout for all narrative generation (30 seconds) */
 const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
 
-/** LLM temperature for narrative generation */
-const NARRATIVE_TEMPERATURE = 0.7;
-
-/** Max tokens for narrative generation */
-const NARRATIVE_MAX_TOKENS = 1500;
+// NOTE: NARRATIVE_TEMPERATURE and NARRATIVE_MAX_TOKENS removed
+// These are now in JournalService
 
 /** Default workspace ID for demo mode when user has no workspace */
 const DEFAULT_DEMO_WORKSPACE_ID = 'demo-workspace';
@@ -187,11 +188,15 @@ export function buildToolSummary(activities: Array<{ source: string }>): string 
 // TYPES
 // =============================================================================
 
-export interface DemoCluster {
-  id: string;
+/**
+ * In-memory cluster result from clustering service.
+ * Used only during journal entry creation - not persisted to database.
+ * Clustering info is stored inline in JournalEntry (activityIds, groupingMethod, clusterRef).
+ */
+export interface InMemoryCluster {
   name: string | null;
-  activityCount: number;
-  activities?: DemoActivity[];
+  activityIds: string[];
+  activities: DemoActivity[];
   metrics?: {
     dateRange?: { start: string; end: string };
     toolTypes?: string[];
@@ -219,9 +224,13 @@ interface DemoJournalEntryData {
 
 interface SeedDemoDataResult {
   activitiesSeeded: number;
+  /** Activity counts by source (e.g., { github: 18, jira: 14 }) */
+  activitiesBySource: Record<string, number>;
   clustersCreated: number;
   entriesCreated: number;
-  clusters: DemoCluster[];
+  temporalEntriesCreated: number;
+  clusterEntriesCreated: number;
+  clusters: InMemoryCluster[];
 }
 
 // =============================================================================
@@ -244,27 +253,43 @@ export async function seedDemoData(userId: string): Promise<SeedDemoDataResult> 
   const activities = await seedDemoActivities(userId);
   log.debug(`Seeded ${activities.length} activities`);
 
-  // Step 3: Cluster activities
-  const clusters = await clusterDemoActivities(userId, activities);
-  log.debug(`Created ${clusters.length} clusters`);
+  // Step 2b: Count activities by source
+  const activitiesBySource: Record<string, number> = {};
+  for (const activity of activities) {
+    activitiesBySource[activity.source] = (activitiesBySource[activity.source] || 0) + 1;
+  }
+  log.debug('Activities by source:', activitiesBySource);
 
-  // Step 4: Create journal entries
-  const journalEntries = await seedDemoJournalEntries(userId, activities);
-  log.debug(`Created ${journalEntries.length} journal entries`);
+  // Step 3: Cluster activities (in-memory, no database persistence)
+  const activitiesWithSourceUrl = activities.map((a) => ({
+    ...a,
+    sourceUrl: a.sourceUrl ?? null,
+  }));
+  const clusters = clusterDemoActivities(activitiesWithSourceUrl);
+  log.debug(`Created ${clusters.length} in-memory clusters`);
+
+  // Step 4: Create journal entries (using in-memory clusters)
+  const journalResult = await seedDemoJournalEntries(userId, activities, clusters);
+  log.debug(`Created ${journalResult.entries.length} journal entries (${journalResult.temporalCount} temporal, ${journalResult.clusterCount} cluster)`);
 
   // Step 5: Generate narratives (with timeout)
-  await generateAllNarratives(userId, journalEntries);
+  await generateAllNarratives(userId, journalResult.entries);
 
   log.info('Demo data seed complete', {
     activities: activities.length,
     clusters: clusters.length,
-    entries: journalEntries.length,
+    entries: journalResult.entries.length,
+    temporalEntries: journalResult.temporalCount,
+    clusterEntries: journalResult.clusterCount,
   });
 
   return {
     activitiesSeeded: activities.length,
+    activitiesBySource,
     clustersCreated: clusters.length,
-    entriesCreated: journalEntries.length,
+    entriesCreated: journalResult.entries.length,
+    temporalEntriesCreated: journalResult.temporalCount,
+    clusterEntriesCreated: journalResult.clusterCount,
     clusters,
   };
 }
@@ -276,6 +301,7 @@ async function seedDemoActivities(userId: string): Promise<Array<{
   id: string;
   source: string;
   sourceId: string;
+  sourceUrl: string | null;
   title: string;
   description: string | null;
   timestamp: Date;
@@ -316,20 +342,21 @@ async function seedDemoActivities(userId: string): Promise<Array<{
 }
 
 /**
- * Cluster demo activities and persist to database
+ * Cluster demo activities in-memory (no database persistence).
+ * Clusters are stored inline in JournalEntry.activityIds.
  */
-async function clusterDemoActivities(
-  userId: string,
+function clusterDemoActivities(
   activities: Array<{
     id: string;
     source: string;
     sourceId: string;
+    sourceUrl: string | null;
     title: string;
     description: string | null;
     timestamp: Date;
     crossToolRefs: string[];
   }>
-): Promise<DemoCluster[]> {
+): InMemoryCluster[] {
   const clusterResults = deps.clusteringService.clusterActivitiesInMemory(
     activities.map((a) => ({
       id: a.id,
@@ -343,32 +370,27 @@ async function clusterDemoActivities(
     { minClusterSize: MIN_CLUSTER_SIZE }
   );
 
-  const clusters: DemoCluster[] = [];
-
-  for (const result of clusterResults) {
-    const cluster = await deps.prisma.demoStoryCluster.create({
-      data: { userId, name: result.name },
-    });
-
-    await deps.prisma.demoToolActivity.updateMany({
-      where: { id: { in: result.activityIds } },
-      data: { clusterId: cluster.id },
-    });
-
+  return clusterResults.map((result) => {
     const clusterActivities = activities.filter((a) => result.activityIds.includes(a.id));
-
-    clusters.push({
-      id: cluster.id,
-      name: cluster.name,
-      activityCount: result.activityIds.length,
+    return {
+      name: result.name,
+      activityIds: result.activityIds,
+      activities: clusterActivities.map((a) => ({
+        id: a.id,
+        source: a.source,
+        sourceId: a.sourceId,
+        sourceUrl: a.sourceUrl,
+        title: a.title,
+        description: a.description,
+        timestamp: a.timestamp,
+        crossToolRefs: a.crossToolRefs,
+      })),
       metrics: {
         dateRange: computeDateRange(clusterActivities.map((a) => a.timestamp)),
         toolTypes: extractToolTypes(clusterActivities),
       },
-    });
-  }
-
-  return clusters;
+    };
+  });
 }
 
 /**
@@ -416,12 +438,15 @@ async function generateAllNarratives(
  * Creates:
  * - Temporal entries: bi-weekly time windows (existing logic)
  * - Cluster entries: grouped by cross-tool references like AUTH-123
+ *
+ * NOTE: Clusters are now passed in-memory, not queried from database.
  */
 async function seedDemoJournalEntries(
   userId: string,
-  activities: Array<{ id: string; timestamp: Date; title: string; source: string; crossToolRefs?: string[] }>
-): Promise<DemoJournalEntryData[]> {
-  if (activities.length === 0) return [];
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string; crossToolRefs?: string[] }>,
+  inMemoryClusters: InMemoryCluster[]
+): Promise<{ entries: DemoJournalEntryData[]; temporalCount: number; clusterCount: number }> {
+  if (activities.length === 0) return { entries: [], temporalCount: 0, clusterCount: 0 };
 
   // Query workspace ONCE before the loop (RJ: avoid N+1)
   const workspace = await deps.prisma.workspace.findFirst({
@@ -429,17 +454,17 @@ async function seedDemoJournalEntries(
   });
   const workspaceId = workspace?.id || DEFAULT_DEMO_WORKSPACE_ID;
 
-  const entries: DemoJournalEntryData[] = [];
-
   // 1. Create temporal entries (existing logic - 14-day windows)
   const temporalEntries = await createTemporalEntries(userId, activities, workspaceId);
-  entries.push(...temporalEntries);
 
-  // 2. Create cluster-based entries (NEW)
-  const clusterEntries = await createClusterEntries(userId, workspaceId);
-  entries.push(...clusterEntries);
+  // 2. Create cluster-based entries (from in-memory clusters)
+  const clusterEntries = await createClusterEntries(userId, workspaceId, inMemoryClusters);
 
-  return entries;
+  return {
+    entries: [...temporalEntries, ...clusterEntries],
+    temporalCount: temporalEntries.length,
+    clusterCount: clusterEntries.length,
+  };
 }
 
 /**
@@ -481,21 +506,17 @@ async function createTemporalEntries(
 }
 
 /**
- * Create cluster-based entries from demo clusters.
+ * Create cluster-based entries from in-memory clusters.
  * Only creates entries for clusters with enough activities.
  */
 async function createClusterEntries(
   userId: string,
-  workspaceId: string
+  workspaceId: string,
+  inMemoryClusters: InMemoryCluster[]
 ): Promise<DemoJournalEntryData[]> {
-  const clusters = await deps.prisma.demoStoryCluster.findMany({
-    where: { userId },
-    include: { activities: true },
-  });
-
   const entries: DemoJournalEntryData[] = [];
 
-  for (const cluster of clusters) {
+  for (const cluster of inMemoryClusters) {
     if (cluster.activities.length >= MIN_ACTIVITIES_PER_ENTRY) {
       const entry = await createJournalEntryFromCluster(userId, cluster, workspaceId);
       entries.push(entry);
@@ -506,15 +527,11 @@ async function createClusterEntries(
 }
 
 /**
- * Create a single journal entry from a cluster.
+ * Create a single journal entry from an in-memory cluster.
  */
 async function createJournalEntryFromCluster(
   userId: string,
-  cluster: {
-    id: string;
-    name: string | null;
-    activities: Array<{ id: string; timestamp: Date; title: string; source: string }>;
-  },
+  cluster: InMemoryCluster,
   workspaceId: string
 ): Promise<DemoJournalEntryData> {
   const activities = cluster.activities;
@@ -533,18 +550,30 @@ async function createJournalEntryFromCluster(
   const toolSummary = buildToolSummary(activities);
   const description = `${activities.length} related activities across ${toolSummary}`;
 
-  const entry = await deps.prisma.demoJournalEntry.create({
+  // Extract skills from the title and description
+  const combinedContent = `${title} ${description}`;
+  const skills = extractSkillsFromContent(combinedContent);
+
+  const entry = await deps.prisma.journalEntry.create({
     data: {
-      userId,
+      authorId: userId,
       workspaceId,
       title,
       description,
       fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
-      activityIds: activities.map((a) => a.id),
+      activityIds: cluster.activityIds,
       groupingMethod: 'cluster',
+      clusterRef: cluster.name || undefined,
       timeRangeStart: startDate,
       timeRangeEnd: endDate,
       generatedAt: null,
+      // Demo mode fields
+      sourceMode: 'demo',
+      // Required JournalEntry fields with sensible defaults
+      visibility: 'workspace',
+      category: 'achievement',
+      tags: ['demo', 'cluster-based'],
+      skills,
     },
   });
 
@@ -602,9 +631,13 @@ async function createJournalEntryFromWindow(
   const toolSummary = buildToolSummary(windowActivities);
   const description = `${windowActivities.length} activities across ${toolSummary}`;
 
-  const entry = await deps.prisma.demoJournalEntry.create({
+  // Extract skills from the title and description
+  const combinedContent = `${title} ${description}`;
+  const skills = extractSkillsFromContent(combinedContent);
+
+  const entry = await deps.prisma.journalEntry.create({
     data: {
-      userId,
+      authorId: userId,
       workspaceId,
       title,
       description,
@@ -614,6 +647,13 @@ async function createJournalEntryFromWindow(
       timeRangeStart: startDate,
       timeRangeEnd: endDate,
       generatedAt: null,
+      // Demo mode fields
+      sourceMode: 'demo',
+      // Required JournalEntry fields with sensible defaults
+      visibility: 'workspace',
+      category: 'achievement',
+      tags: ['demo', 'temporal'],
+      skills,
     },
   });
 
@@ -627,79 +667,15 @@ async function createJournalEntryFromWindow(
 }
 
 // =============================================================================
-// PUBLIC API: Clusters
+// PUBLIC API: Activities
 // =============================================================================
 
 /**
- * Get all demo clusters for a user.
+ * Get all demo activities for a user.
  */
-export async function getDemoClusters(userId: string): Promise<DemoCluster[]> {
-  const clusters = await deps.prisma.demoStoryCluster.findMany({
-    where: { userId },
-    include: {
-      activities: true,
-      _count: { select: { activities: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  return clusters.map((cluster) => ({
-    id: cluster.id,
-    name: cluster.name,
-    activityCount: cluster._count.activities,
-    metrics: {
-      dateRange: computeDateRange(cluster.activities.map((a) => a.timestamp)),
-      toolTypes: extractToolTypes(cluster.activities),
-    },
-  }));
-}
-
-/**
- * Get a single demo cluster with activities.
- */
-export async function getDemoClusterById(
-  userId: string,
-  clusterId: string
-): Promise<DemoCluster | null> {
-  const cluster = await deps.prisma.demoStoryCluster.findFirst({
-    where: { id: clusterId, userId },
-    include: {
-      activities: { orderBy: { timestamp: 'desc' } },
-    },
-  });
-
-  if (!cluster) return null;
-
-  return {
-    id: cluster.id,
-    name: cluster.name,
-    activityCount: cluster.activities.length,
-    activities: cluster.activities.map((a) => ({
-      id: a.id,
-      source: a.source,
-      sourceId: a.sourceId,
-      sourceUrl: a.sourceUrl,
-      title: a.title,
-      description: a.description,
-      timestamp: a.timestamp,
-      crossToolRefs: a.crossToolRefs,
-    })),
-    metrics: {
-      dateRange: computeDateRange(cluster.activities.map((a) => a.timestamp)),
-      toolTypes: extractToolTypes(cluster.activities),
-    },
-  };
-}
-
-/**
- * Get demo activities for a cluster (for STAR generation).
- */
-export async function getDemoActivitiesForCluster(
-  userId: string,
-  clusterId: string
-): Promise<DemoActivity[]> {
+export async function getDemoActivities(userId: string): Promise<DemoActivity[]> {
   const activities = await deps.prisma.demoToolActivity.findMany({
-    where: { userId, clusterId },
+    where: { userId },
     orderBy: { timestamp: 'desc' },
   });
 
@@ -716,13 +692,27 @@ export async function getDemoActivitiesForCluster(
 }
 
 /**
- * Check if a cluster ID is a demo cluster.
+ * Get demo activities by IDs (for journal entry activity lookup).
  */
-export async function isDemoCluster(clusterId: string): Promise<boolean> {
-  const count = await deps.prisma.demoStoryCluster.count({
-    where: { id: clusterId },
+export async function getDemoActivitiesByIds(
+  userId: string,
+  activityIds: string[]
+): Promise<DemoActivity[]> {
+  const activities = await deps.prisma.demoToolActivity.findMany({
+    where: { userId, id: { in: activityIds } },
+    orderBy: { timestamp: 'desc' },
   });
-  return count > 0;
+
+  return activities.map((a) => ({
+    id: a.id,
+    source: a.source,
+    sourceId: a.sourceId,
+    sourceUrl: a.sourceUrl,
+    title: a.title,
+    description: a.description,
+    timestamp: a.timestamp,
+    crossToolRefs: a.crossToolRefs,
+  }));
 }
 
 /**
@@ -731,19 +721,44 @@ export async function isDemoCluster(clusterId: string): Promise<boolean> {
  */
 export async function clearDemoData(userId: string): Promise<void> {
   await deps.prisma.$transaction([
-    deps.prisma.demoCareerStory.deleteMany({
-      where: { cluster: { userId } },
+    // Delete demo career stories from unified CareerStory table
+    deps.prisma.careerStory.deleteMany({
+      where: { userId, sourceMode: 'demo' },
     }),
-    deps.prisma.demoStoryCluster.deleteMany({
-      where: { userId },
-    }),
+    // Delete demo tool activities (source-level data)
     deps.prisma.demoToolActivity.deleteMany({
       where: { userId },
     }),
-    deps.prisma.demoJournalEntry.deleteMany({
-      where: { userId },
+    // Delete demo journal entries from unified JournalEntry table
+    deps.prisma.journalEntry.deleteMany({
+      where: { authorId: userId, sourceMode: 'demo' },
     }),
   ]);
+}
+
+/**
+ * Clear only demo journal entries for a user.
+ * Keeps demo activities intact so they can be re-grouped into new entries.
+ * Returns count of deleted entries.
+ */
+export async function clearDemoJournalEntries(userId: string): Promise<{ deletedCount: number }> {
+  // Also delete career stories since they're generated from journal entries
+  const [careerStoryResult, journalResult] = await deps.prisma.$transaction([
+    deps.prisma.careerStory.deleteMany({
+      where: { userId, sourceMode: 'demo' },
+    }),
+    deps.prisma.journalEntry.deleteMany({
+      where: { authorId: userId, sourceMode: 'demo' },
+    }),
+  ]);
+
+  log.info('Cleared demo journal entries', {
+    userId,
+    journalEntriesDeleted: journalResult.count,
+    careerStoriesDeleted: careerStoryResult.count,
+  });
+
+  return { deletedCount: journalResult.count };
 }
 
 // =============================================================================
@@ -763,15 +778,15 @@ export async function updateDemoJournalEntryActivities(
   entryId: string,
   activityIds: string[]
 ): Promise<{ id: string; activityIds: string[]; groupingMethod: string }> {
-  const entry = await deps.prisma.demoJournalEntry.findFirst({
-    where: { id: entryId, userId },
+  const entry = await deps.prisma.journalEntry.findFirst({
+    where: { id: entryId, authorId: userId, sourceMode: 'demo' },
   });
 
   if (!entry) {
     throw new DemoServiceError('Demo journal entry not found', 'ENTRY_NOT_FOUND');
   }
 
-  const updated = await deps.prisma.demoJournalEntry.update({
+  const updated = await deps.prisma.journalEntry.update({
     where: { id: entryId },
     data: {
       activityIds,
@@ -787,58 +802,19 @@ export async function updateDemoJournalEntryActivities(
   };
 }
 
-/**
- * Update activity assignments for a demo cluster.
- * Sets groupingMethod to 'manual' when activities are changed.
- */
-export async function updateDemoClusterActivities(
-  userId: string,
-  clusterId: string,
-  activityIds: string[]
-): Promise<{ id: string; activityCount: number; groupingMethod: string }> {
-  const cluster = await deps.prisma.demoStoryCluster.findFirst({
-    where: { id: clusterId, userId },
-  });
-
-  if (!cluster) {
-    throw new DemoServiceError('Demo cluster not found', 'CLUSTER_NOT_FOUND');
-  }
-
-  await deps.prisma.demoToolActivity.updateMany({
-    where: { clusterId },
-    data: { clusterId: null },
-  });
-
-  if (activityIds.length > 0) {
-    await deps.prisma.demoToolActivity.updateMany({
-      where: { id: { in: activityIds }, userId },
-      data: { clusterId },
-    });
-  }
-
-  await deps.prisma.demoStoryCluster.update({
-    where: { id: clusterId },
-    data: {
-      groupingMethod: 'manual',
-      lastGroupingEditAt: new Date(),
-    },
-  });
-
-  return {
-    id: clusterId,
-    activityCount: activityIds.length,
-    groupingMethod: 'manual',
-  };
-}
 
 // =============================================================================
 // NARRATIVE GENERATION
 // =============================================================================
 
+// Import JournalService for delegation
+import { JournalService } from '../journal.service';
+
 /**
  * Regenerate narrative for a demo journal entry.
- * Uses ModelSelectorService (GPT-4o) for LLM-powered narrative generation.
- * Falls back to structured content if LLM is unavailable.
+ *
+ * @deprecated Use JournalService.regenerateNarrative() instead.
+ * This function now delegates to the unified JournalService method.
  */
 export async function regenerateDemoJournalNarrative(
   userId: string,
@@ -851,159 +827,16 @@ export async function regenerateDemoJournalNarrative(
   fullContent: string;
   generatedAt: Date;
 }> {
-  const entry = await deps.prisma.demoJournalEntry.findFirst({
-    where: { id: entryId, userId },
+  // Delegate to unified JournalService (isDemoMode=true)
+  const journalService = new JournalService(true);
+  return journalService.regenerateNarrative(userId, entryId, {
+    style: (options?.style as 'professional' | 'casual' | 'technical' | 'storytelling') || 'professional',
+    maxRetries: options?.maxRetries || 1,
   });
-
-  if (!entry) {
-    throw new DemoServiceError('Demo journal entry not found', 'ENTRY_NOT_FOUND');
-  }
-
-  const activities = await deps.prisma.demoToolActivity.findMany({
-    where: { id: { in: entry.activityIds }, userId },
-    orderBy: { timestamp: 'asc' },
-  });
-
-  if (activities.length === 0) {
-    throw new DemoServiceError('No activities found for this journal entry', 'NO_ACTIVITIES');
-  }
-
-  const toolSummary = buildToolSummary(activities);
-  const selector = getModelSelector();
-  let fullContent: string;
-  let description: string;
-
-  if (selector) {
-    try {
-      const result = await generateNarrativeWithLLM(selector, entry.title, activities, options?.style);
-      fullContent = result.fullContent;
-      description = result.description;
-    } catch (error) {
-      log.warn('LLM narrative generation failed, using fallback', { error: (error as Error).message });
-      const fallback = generateFallbackNarrative(entry.title, activities, toolSummary);
-      fullContent = fallback.fullContent;
-      description = fallback.description;
-    }
-  } else {
-    const fallback = generateFallbackNarrative(entry.title, activities, toolSummary);
-    fullContent = fallback.fullContent;
-    description = fallback.description;
-  }
-
-  const updated = await deps.prisma.demoJournalEntry.update({
-    where: { id: entryId },
-    data: { description, fullContent, generatedAt: new Date() },
-  });
-
-  return {
-    id: updated.id,
-    title: updated.title,
-    description: updated.description,
-    fullContent: updated.fullContent,
-    generatedAt: updated.generatedAt!,
-  };
 }
 
-/**
- * Generate narrative using LLM (GPT-4o via ModelSelectorService)
- */
-async function generateNarrativeWithLLM(
-  selector: ModelSelectorService,
-  title: string,
-  activities: Array<{
-    source: string;
-    title: string;
-    description: string | null;
-    timestamp: Date;
-  }>,
-  style?: string
-): Promise<{ fullContent: string; description: string }> {
-  const activitiesText = activities
-    .map((a) => {
-      const date = a.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      return `- [${date}] ${a.source}: ${a.title}${a.description ? ` - ${a.description}` : ''}`;
-    })
-    .join('\n');
-
-  const messages: ChatCompletionMessageParam[] = [
-    {
-      role: 'system',
-      content: `You are a professional journal writer helping someone document their work accomplishments.
-Write in first person with a ${style || 'professional'} tone.
-Focus on achievements, learnings, and impact.
-Be concise but meaningful.
-Always return valid JSON.`,
-    },
-    {
-      role: 'user',
-      content: `Generate a journal entry narrative for "${title}" based on these activities:
-
-${activitiesText}
-
-Return JSON with this structure:
-{
-  "description": "A 1-2 sentence summary of the key accomplishments",
-  "fullContent": "A detailed narrative (3-5 paragraphs) in first person describing the work, challenges, solutions, and outcomes. Use markdown formatting."
-}`,
-    },
-  ];
-
-  const result = await selector.executeTask('generate', messages, 'high', {
-    temperature: NARRATIVE_TEMPERATURE,
-    maxTokens: NARRATIVE_MAX_TOKENS,
-  });
-
-  // Strip markdown code blocks if present
-  let jsonContent = result.content.trim();
-  if (jsonContent.startsWith('```')) {
-    jsonContent = jsonContent.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
-  }
-
-  try {
-    const parsed = JSON.parse(jsonContent);
-    if (!parsed.fullContent || !parsed.description) {
-      throw new Error('Missing required fields in LLM response');
-    }
-    return { fullContent: parsed.fullContent, description: parsed.description };
-  } catch (parseError) {
-    log.error('Failed to parse LLM response', {
-      error: (parseError as Error).message,
-      contentPreview: jsonContent.substring(0, 200),
-    });
-    throw new Error(`LLM returned invalid JSON: ${(parseError as Error).message}`);
-  }
-}
-
-/**
- * Generate fallback narrative when LLM is unavailable
- */
-function generateFallbackNarrative(
-  title: string,
-  activities: Array<{ source: string; title: string; timestamp: Date }>,
-  toolSummary: string
-): { fullContent: string; description: string } {
-  const description = `${activities.length} activities across ${toolSummary}`;
-
-  const activitySummaries = activities.map((a) => {
-    const date = a.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `- **${date}** [${a.source}]: ${a.title}`;
-  });
-
-  const fullContent = `# ${title}
-
-## Summary
-${description}
-
-## Activities
-${activitySummaries.join('\n')}
-
----
-*This is a structured summary. Click regenerate when LLM service is available for a richer narrative.*
-
-*Generated at ${new Date().toISOString()}*`;
-
-  return { fullContent, description };
-}
+// NOTE: generateNarrativeWithLLM and generateFallbackNarrative have been REMOVED.
+// These are now in JournalService.regenerateNarrative() - the unified method.
 
 // =============================================================================
 // ERROR HANDLING (RC: Reusable error types)
