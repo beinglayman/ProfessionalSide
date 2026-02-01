@@ -11,8 +11,12 @@ import {
   RecordAnalyticsInput,
   RechronicleInput,
   JournalEntryResponse,
-  JournalEntriesResponse
+  JournalEntriesResponse,
+  CreateDraftStoryInput,
+  RegenerateNarrativeInput
 } from '../types/journal.types';
+import { getModelSelector, ModelSelectorService } from './ai/model-selector.service';
+import { buildNarrativeMessages, formatActivitiesForPrompt } from './ai/prompts/journal-narrative.prompt';
 import { skillTrackingService } from './skill-tracking.service';
 import { ActivityService } from './activity.service';
 
@@ -35,6 +39,12 @@ const SKILL_EXTRACTION_PATTERNS = [
   /\b(React|TypeScript|JavaScript|Python|Node\.js|PostgreSQL|GraphQL|REST API|Docker|Kubernetes|AWS|GCP|Azure)\b/gi,
   /\b(machine learning|data analysis|system design|performance optimization|security|testing|CI\/CD)\b/gi,
 ];
+
+/** LLM temperature for narrative generation */
+const NARRATIVE_TEMPERATURE = 0.7;
+
+/** Max tokens for narrative generation */
+const NARRATIVE_MAX_TOKENS = 1500;
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -192,6 +202,7 @@ export class JournalService {
         abstractContent: data.abstractContent,
         authorId,
         workspaceId: data.workspaceId,
+        sourceMode: this.sourceMode,
         visibility: data.visibility,
         category: data.category,
         tags: data.tags,
@@ -369,6 +380,17 @@ export class JournalService {
         authorId: userId
         // sourceMode filter removed - show all entries regardless of demo/production
       };
+
+      console.log('🔍 getUnifiedJournalEntries query params:', {
+        userId,
+        page,
+        limit,
+        skip,
+        sortBy,
+        sortOrder,
+        isDemoMode: this.isDemoMode,
+        where: JSON.stringify(where)
+      });
 
       // Apply source filter if specified
       if (filteredEntryIds) {
@@ -1157,8 +1179,11 @@ export class JournalService {
    * Update journal entry
    */
   async updateJournalEntry(entryId: string, userId: string, data: UpdateJournalEntryInput) {
-    const entry = await prisma.journalEntry.findUnique({
-      where: { id: entryId }
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id: entryId,
+        sourceMode: this.sourceMode
+      }
     });
 
     if (!entry) {
@@ -1260,6 +1285,7 @@ export class JournalService {
     const whereClause: any = {
       authorId: userId,
       isPublished: false,
+      sourceMode: this.sourceMode,
       tags: {
         has: 'auto-generated'
       }
@@ -1281,6 +1307,34 @@ export class JournalService {
     });
 
     return { deletedCount: count };
+  }
+
+  /**
+   * Clear ALL entries for a user filtered by sourceMode.
+   * Used by Cmd+E "Clear Demo Data" to delete all demo entries.
+   * Only operates when isDemoMode=true to prevent accidental deletion of production data.
+   */
+  async clearAllBySourceMode(userId: string): Promise<{ deletedEntries: number; deletedActivities: number }> {
+    if (!this.isDemoMode) {
+      throw new Error('clearAllBySourceMode can only be called in demo mode');
+    }
+
+    // Delete all demo journal entries for this user
+    const entriesResult = await prisma.journalEntry.deleteMany({
+      where: {
+        authorId: userId,
+        sourceMode: 'demo',
+      },
+    });
+
+    // Delete all demo activities for this user
+    const activityService = new ActivityService(true);
+    const activitiesResult = await activityService.deleteAllForUser(userId);
+
+    return {
+      deletedEntries: entriesResult.count,
+      deletedActivities: activitiesResult.deletedCount,
+    };
   }
 
   /**
@@ -1698,5 +1752,325 @@ export class JournalService {
       console.error('❌ Error in getUserFeed:', error);
       throw error;
     }
+  }
+
+  // ===========================================================================
+  // DRAFT STORY CREATION (Unified for demo and production)
+  // ===========================================================================
+
+  /**
+   * Create a draft story from activities.
+   * Unified method that works for BOTH demo and production modes.
+   *
+   * The sourceMode is derived from the activity table:
+   * - Demo mode: looks up activities in DemoToolActivity
+   * - Production mode: looks up activities in ToolActivity
+   *
+   * @param authorId - The user creating the draft story
+   * @param data - Draft story input data
+   * @returns Created journal entry
+   */
+  async createDraftStory(
+    authorId: string,
+    data: CreateDraftStoryInput
+  ): Promise<{
+    id: string;
+    title: string;
+    description: string;
+    fullContent: string;
+    activityIds: string[];
+    groupingMethod: string;
+    timeRangeStart: Date | null;
+    timeRangeEnd: Date | null;
+    sourceMode: 'demo' | 'production';
+  }> {
+    // 1. Fetch activities from the appropriate table based on isDemoMode
+    const activities = await this.fetchActivitiesForDraftStory(authorId, data.activityIds);
+
+    if (activities.length === 0) {
+      throw new Error('No activities found for the provided IDs');
+    }
+
+    // 2. Compute time range if not provided
+    const timestamps = activities.map(a => a.timestamp);
+    const timeRangeStart = data.timeRangeStart || new Date(Math.min(...timestamps.map(t => t.getTime())));
+    const timeRangeEnd = data.timeRangeEnd || new Date(Math.max(...timestamps.map(t => t.getTime())));
+
+    // 3. Generate title and description if not provided
+    const toolSummary = this.buildToolSummary(activities);
+    const title = data.title || this.generateDraftTitle(data.groupingMethod, data.clusterRef, timeRangeStart, timeRangeEnd);
+    const description = data.description || `${activities.length} activities across ${toolSummary}`;
+
+    // 4. Extract skills from title and description if not provided
+    const skills = data.skills.length > 0
+      ? data.skills
+      : extractSkillsFromContent(`${title} ${description}`);
+
+    // 5. Create the journal entry
+    const entry = await prisma.journalEntry.create({
+      data: {
+        authorId,
+        workspaceId: data.workspaceId,
+        title,
+        description,
+        fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
+        activityIds: data.activityIds,
+        groupingMethod: data.groupingMethod,
+        clusterRef: data.clusterRef,
+        timeRangeStart,
+        timeRangeEnd,
+        generatedAt: null,
+        sourceMode: this.sourceMode,
+        visibility: 'workspace',
+        category: 'achievement',
+        tags: data.tags.length > 0 ? data.tags : ['demo', data.groupingMethod === 'cluster' ? 'cluster-based' : 'temporal'],
+        skills,
+      },
+    });
+
+    return {
+      id: entry.id,
+      title: entry.title,
+      description: entry.description,
+      fullContent: entry.fullContent,
+      activityIds: entry.activityIds,
+      groupingMethod: entry.groupingMethod || data.groupingMethod,
+      timeRangeStart: entry.timeRangeStart,
+      timeRangeEnd: entry.timeRangeEnd,
+      sourceMode: entry.sourceMode as 'demo' | 'production',
+    };
+  }
+
+  /**
+   * Regenerate narrative for a journal entry using LLM.
+   * Unified method that works for BOTH demo and production entries.
+   *
+   * @param userId - The user requesting regeneration
+   * @param entryId - The journal entry ID
+   * @param options - Narrative generation options
+   * @returns Updated journal entry with new narrative
+   */
+  async regenerateNarrative(
+    userId: string,
+    entryId: string,
+    options?: RegenerateNarrativeInput
+  ): Promise<{
+    id: string;
+    title: string;
+    description: string;
+    fullContent: string;
+    generatedAt: Date;
+  }> {
+    // 1. Find the entry (uses sourceMode filter for ownership validation)
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id: entryId,
+        authorId: userId,
+        sourceMode: this.sourceMode
+      },
+    });
+
+    if (!entry) {
+      throw new Error('Journal entry not found');
+    }
+
+    // 2. Fetch activities for this entry
+    const activities = await this.fetchActivitiesForDraftStory(userId, entry.activityIds);
+
+    if (activities.length === 0) {
+      throw new Error('No activities found for this journal entry');
+    }
+
+    // 3. Generate narrative
+    const toolSummary = this.buildToolSummary(activities);
+    const selector = getModelSelector();
+    let fullContent: string;
+    let description: string;
+
+    if (selector) {
+      try {
+        const result = await this.generateNarrativeWithLLM(selector, entry.title, activities, options?.style);
+        fullContent = result.fullContent;
+        description = result.description;
+      } catch (error) {
+        console.warn('LLM narrative generation failed, using fallback', { error: (error as Error).message });
+        const fallback = this.generateFallbackNarrative(entry.title, activities, toolSummary);
+        fullContent = fallback.fullContent;
+        description = fallback.description;
+      }
+    } else {
+      const fallback = this.generateFallbackNarrative(entry.title, activities, toolSummary);
+      fullContent = fallback.fullContent;
+      description = fallback.description;
+    }
+
+    // 4. Update the entry
+    const updated = await prisma.journalEntry.update({
+      where: { id: entryId },
+      data: { description, fullContent, generatedAt: new Date() },
+    });
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      description: updated.description,
+      fullContent: updated.fullContent,
+      generatedAt: updated.generatedAt!,
+    };
+  }
+
+  // ===========================================================================
+  // PRIVATE HELPERS FOR DRAFT STORY CREATION
+  // ===========================================================================
+
+  /**
+   * Fetch activities from the appropriate table based on isDemoMode.
+   */
+  private async fetchActivitiesForDraftStory(
+    userId: string,
+    activityIds: string[]
+  ): Promise<Array<{
+    id: string;
+    source: string;
+    title: string;
+    description: string | null;
+    timestamp: Date;
+  }>> {
+    if (this.isDemoMode) {
+      return prisma.demoToolActivity.findMany({
+        where: { id: { in: activityIds }, userId },
+        orderBy: { timestamp: 'asc' },
+        select: {
+          id: true,
+          source: true,
+          title: true,
+          description: true,
+          timestamp: true,
+        },
+      });
+    } else {
+      return prisma.toolActivity.findMany({
+        where: { id: { in: activityIds }, userId },
+        orderBy: { timestamp: 'asc' },
+        select: {
+          id: true,
+          source: true,
+          title: true,
+          description: true,
+          timestamp: true,
+        },
+      });
+    }
+  }
+
+  /**
+   * Build tool summary string (e.g., "3 github, 2 jira")
+   */
+  private buildToolSummary(activities: Array<{ source: string }>): string {
+    const toolCounts: Record<string, number> = {};
+    activities.forEach((a) => {
+      toolCounts[a.source] = (toolCounts[a.source] || 0) + 1;
+    });
+    return Object.entries(toolCounts)
+      .map(([tool, count]) => `${count} ${tool}`)
+      .join(', ');
+  }
+
+  /**
+   * Generate a draft title based on grouping method.
+   */
+  private generateDraftTitle(
+    groupingMethod: string,
+    clusterRef: string | undefined,
+    timeRangeStart: Date,
+    timeRangeEnd: Date
+  ): string {
+    if (groupingMethod === 'cluster' && clusterRef) {
+      return `${clusterRef}: Cross-Tool Collaboration`;
+    }
+
+    const startStr = timeRangeStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = timeRangeEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `Week of ${startStr} - ${endStr}`;
+  }
+
+  /**
+   * Generate narrative using LLM (GPT-4o via ModelSelectorService)
+   * Uses prompts from journal-narrative.prompt.ts
+   */
+  private async generateNarrativeWithLLM(
+    selector: ModelSelectorService,
+    title: string,
+    activities: Array<{
+      source: string;
+      title: string;
+      description: string | null;
+      timestamp: Date;
+    }>,
+    style?: string
+  ): Promise<{ fullContent: string; description: string }> {
+    // Format activities and build messages using extracted prompts
+    const activitiesText = formatActivitiesForPrompt(activities);
+    const messages = buildNarrativeMessages({
+      title,
+      activitiesText,
+      style: style || 'professional',
+    });
+
+    const result = await selector.executeTask('generate', messages, 'high', {
+      temperature: NARRATIVE_TEMPERATURE,
+      maxTokens: NARRATIVE_MAX_TOKENS,
+    });
+
+    // Strip markdown code blocks if present
+    let jsonContent = result.content.trim();
+    if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+    }
+
+    try {
+      const parsed = JSON.parse(jsonContent);
+      if (!parsed.fullContent || !parsed.description) {
+        throw new Error('Missing required fields in LLM response');
+      }
+      return { fullContent: parsed.fullContent, description: parsed.description };
+    } catch (parseError) {
+      console.error('Failed to parse LLM response', {
+        error: (parseError as Error).message,
+        contentPreview: jsonContent.substring(0, 200),
+      });
+      throw new Error(`LLM returned invalid JSON: ${(parseError as Error).message}`);
+    }
+  }
+
+  /**
+   * Generate fallback narrative when LLM is unavailable
+   */
+  private generateFallbackNarrative(
+    title: string,
+    activities: Array<{ source: string; title: string; timestamp: Date }>,
+    toolSummary: string
+  ): { fullContent: string; description: string } {
+    const description = `${activities.length} activities across ${toolSummary}`;
+
+    const activitySummaries = activities.map((a) => {
+      const date = a.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `- **${date}** [${a.source}]: ${a.title}`;
+    });
+
+    const fullContent = `# ${title}
+
+## Summary
+${description}
+
+## Activities
+${activitySummaries.join('\n')}
+
+---
+*This is a structured summary. Click regenerate when LLM service is available for a richer narrative.*
+
+*Generated at ${new Date().toISOString()}*`;
+
+    return { fullContent, description };
   }
 }
