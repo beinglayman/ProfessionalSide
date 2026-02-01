@@ -19,7 +19,8 @@ const DEFAULT_SYNC_STATUS: DemoSyncStatus = {
   lastSyncAt: null,
   activityCount: 0,
   entryCount: 0,
-  clusterCount: 0,
+  temporalEntryCount: 0,
+  clusterEntryCount: 0,
 };
 
 /**
@@ -66,8 +67,12 @@ export interface DemoSyncStatus {
   hasSynced: boolean;
   lastSyncAt: string | null;
   activityCount: number;
+  /** Total journal entries */
   entryCount: number;
-  clusterCount: number;
+  /** Journal entries grouped by time window (bi-weekly) */
+  temporalEntryCount: number;
+  /** Journal entries grouped by cross-tool refs (e.g., AUTH-123) */
+  clusterEntryCount: number;
 }
 
 export function getDemoSyncStatus(): DemoSyncStatus {

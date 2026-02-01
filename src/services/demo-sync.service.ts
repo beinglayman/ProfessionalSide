@@ -8,14 +8,23 @@
 import { SyncIntegration } from '../components/sync/SyncProgressModal';
 import { setDemoSyncStatus } from './demo-mode.service';
 
-// Simulated integrations for demo
-const DEMO_INTEGRATIONS: Omit<SyncIntegration, 'status'>[] = [
-  { id: 'github', name: 'GitHub', icon: 'github', itemCount: 18, itemLabel: 'commits & PRs' },
-  { id: 'jira', name: 'Jira', icon: 'jira', itemCount: 14, itemLabel: 'tickets' },
-  { id: 'confluence', name: 'Confluence', icon: 'confluence', itemCount: 6, itemLabel: 'docs' },
-  { id: 'slack', name: 'Slack', icon: 'slack', itemCount: 8, itemLabel: 'threads' },
-  { id: 'figma', name: 'Figma', icon: 'figma', itemCount: 3, itemLabel: 'designs' },
-  { id: 'google', name: 'Google Workspace', icon: 'google', itemCount: 5, itemLabel: 'meetings' },
+/**
+ * Integration metadata (without counts - those come from backend)
+ */
+interface IntegrationMeta {
+  id: string;
+  name: string;
+  icon: string;
+  itemLabel: string;
+}
+
+const INTEGRATION_META: IntegrationMeta[] = [
+  { id: 'github', name: 'GitHub', icon: 'github', itemLabel: 'commits & PRs' },
+  { id: 'jira', name: 'Jira', icon: 'jira', itemLabel: 'tickets' },
+  { id: 'confluence', name: 'Confluence', icon: 'confluence', itemLabel: 'docs' },
+  { id: 'slack', name: 'Slack', icon: 'slack', itemLabel: 'threads' },
+  { id: 'figma', name: 'Figma', icon: 'figma', itemLabel: 'designs' },
+  { id: 'google', name: 'Google Workspace', icon: 'google', itemLabel: 'meetings' },
 ];
 
 export interface DemoSyncCallbacks {
@@ -26,27 +35,56 @@ export interface DemoSyncCallbacks {
 
 export interface DemoSyncResult {
   activityCount: number;
+  activitiesBySource: Record<string, number>;
   entryCount: number;
-  clusterCount: number;
+  temporalEntryCount: number;
+  clusterEntryCount: number;
+}
+
+/**
+ * Build integrations list with real counts from backend.
+ */
+function buildIntegrations(activitiesBySource: Record<string, number>): SyncIntegration[] {
+  return INTEGRATION_META.map(meta => ({
+    ...meta,
+    itemCount: activitiesBySource[meta.id] ?? 0,
+    status: 'pending' as const,
+  })).filter(i => i.itemCount > 0); // Only show integrations with data
 }
 
 /**
  * Run the demo sync process with simulated progress.
- * Each integration "syncs" with realistic delays.
+ * Fetches real data first, then animates with actual counts.
  */
 export async function runDemoSync(callbacks: DemoSyncCallbacks): Promise<void> {
   console.log('[DemoSync] runDemoSync started');
 
-  // Initialize integrations as pending
-  const integrations: SyncIntegration[] = DEMO_INTEGRATIONS.map(i => ({
-    ...i,
-    status: 'pending' as const,
-  }));
-
-  callbacks.onIntegrationUpdate([...integrations]);
-
   try {
-    // Process each integration with delays
+    // First, call backend to seed demo data and get real counts
+    const result = await seedDemoDataOnBackend();
+
+    // Build integrations with real counts
+    const integrations = buildIntegrations(result.activitiesBySource);
+
+    // If no integrations have data, skip animation
+    if (integrations.length === 0) {
+      console.log('[DemoSync] No activities seeded, skipping animation');
+      setDemoSyncStatus({
+        hasSynced: true,
+        lastSyncAt: new Date().toISOString(),
+        activityCount: result.activityCount,
+        entryCount: result.entryCount,
+        temporalEntryCount: result.temporalEntryCount,
+        clusterEntryCount: result.clusterEntryCount,
+      });
+      callbacks.onComplete(result);
+      return;
+    }
+
+    // Show all as pending initially
+    callbacks.onIntegrationUpdate([...integrations]);
+
+    // Animate through each integration with delays
     for (let i = 0; i < integrations.length; i++) {
       // Set current to syncing
       integrations[i].status = 'syncing';
@@ -65,16 +103,14 @@ export async function runDemoSync(callbacks: DemoSyncCallbacks): Promise<void> {
       }
     }
 
-    // Call backend to seed demo data
-    const result = await seedDemoDataOnBackend();
-
     // Update sync status in localStorage
     setDemoSyncStatus({
       hasSynced: true,
       lastSyncAt: new Date().toISOString(),
       activityCount: result.activityCount,
       entryCount: result.entryCount,
-      clusterCount: result.clusterCount,
+      temporalEntryCount: result.temporalEntryCount,
+      clusterEntryCount: result.clusterEntryCount,
     });
 
     callbacks.onComplete(result);
@@ -113,20 +149,20 @@ async function seedDemoDataOnBackend(): Promise<DemoSyncResult> {
     const data = await response.json();
     console.log('[DemoSync] Backend response:', data);
 
+    // Backend returns explicit counts for temporal and cluster entries
+    const responseData = data.data || data;
+
     return {
-      activityCount: data.data?.activityCount || data.activityCount || 45,
-      entryCount: data.data?.entryCount || data.entryCount || 8,
-      clusterCount: data.data?.clusterCount || data.clusterCount || 0,
+      activityCount: responseData.activityCount ?? 0,
+      activitiesBySource: responseData.activitiesBySource ?? {},
+      entryCount: responseData.entryCount ?? 0,
+      temporalEntryCount: responseData.temporalEntryCount ?? 0,
+      clusterEntryCount: responseData.clusterEntryCount ?? 0,
     };
   } catch (error) {
-    // If backend not available, return mock result for frontend-only testing
+    // If backend not available, throw error - don't fake data
     console.error('[DemoSync] Backend sync failed:', error);
-    console.warn('[DemoSync] Using mock result for frontend-only testing');
-    return {
-      activityCount: 45,
-      entryCount: 8,
-      clusterCount: 0,
-    };
+    throw error;
   }
 }
 
@@ -153,7 +189,8 @@ export async function clearDemoData(): Promise<void> {
     lastSyncAt: null,
     activityCount: 0,
     entryCount: 0,
-    clusterCount: 0,
+    temporalEntryCount: 0,
+    clusterEntryCount: 0,
   });
 }
 

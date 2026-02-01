@@ -11,7 +11,8 @@ import {
   Trash2,
   Database,
   FileText,
-  Layers,
+  Clock,
+  Link2,
   Play,
   CheckCircle2,
   Circle,
@@ -154,12 +155,19 @@ export const DemoTab: React.FC = () => {
                 </span>
                 <span className="font-mono text-gray-200">{syncStatus.entryCount}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-gray-400">
-                  <Layers className="h-4 w-4" />
-                  Clusters
+              <div className="flex items-center justify-between text-sm pl-4 text-xs">
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Clock className="h-3 w-3" />
+                  Temporal (bi-weekly)
                 </span>
-                <span className="font-mono text-gray-200">{syncStatus.clusterCount}</span>
+                <span className="font-mono text-gray-400">{syncStatus.temporalEntryCount || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm pl-4 text-xs">
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Link2 className="h-3 w-3" />
+                  Cluster-based (refs)
+                </span>
+                <span className="font-mono text-gray-400">{syncStatus.clusterEntryCount || 0}</span>
               </div>
               {syncStatus.lastSyncAt && (
                 <p className="text-xs text-gray-500 pt-2 border-t border-gray-700">
