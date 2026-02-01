@@ -25,6 +25,7 @@ const INTEGRATION_META: IntegrationMeta[] = [
   { id: 'slack', name: 'Slack', icon: 'slack', itemLabel: 'threads' },
   { id: 'figma', name: 'Figma', icon: 'figma', itemLabel: 'designs' },
   { id: 'google', name: 'Google Workspace', icon: 'google', itemLabel: 'meetings' },
+  { id: 'outlook', name: 'Outlook', icon: 'outlook', itemLabel: 'emails' },
 ];
 
 export interface DemoSyncCallbacks {
