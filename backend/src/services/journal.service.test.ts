@@ -133,13 +133,57 @@ describe('JournalService Unified Mode', () => {
 
 // =============================================================================
 // RESPONSE SHAPE TESTS
+// Uses isolated test user to avoid polluting other tests
 // =============================================================================
 
 describe('JournalEntryResponse Shape', () => {
+  const SHAPE_TEST_USER_ID = 'test-user-response-shape';
+  const SHAPE_TEST_WORKSPACE_ID = 'test-workspace-response-shape';
+
+  // Setup: Create isolated test user and workspace
+  beforeAll(async () => {
+    // Ensure test user exists
+    const existingUser = await prisma.user.findUnique({ where: { id: SHAPE_TEST_USER_ID } });
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          id: SHAPE_TEST_USER_ID,
+          email: 'test-shape@example.com',
+          name: 'Shape Test User',
+          password: 'test-hash',
+        },
+      });
+    }
+
+    // Ensure test workspace exists
+    const existingWorkspace = await prisma.workspace.findUnique({ where: { id: SHAPE_TEST_WORKSPACE_ID } });
+    if (!existingWorkspace) {
+      await prisma.workspace.create({
+        data: {
+          id: SHAPE_TEST_WORKSPACE_ID,
+          name: 'Shape Test Workspace',
+          isPersonal: true,
+          members: {
+            create: { userId: SHAPE_TEST_USER_ID, role: 'owner', permissions: {} },
+          },
+        },
+      });
+    }
+  });
+
+  // Cleanup after all shape tests to avoid polluting other test suites
+  afterAll(async () => {
+    await prisma.$transaction([
+      prisma.careerStory.deleteMany({ where: { userId: SHAPE_TEST_USER_ID } }),
+      prisma.journalEntry.deleteMany({ where: { authorId: SHAPE_TEST_USER_ID } }),
+      prisma.demoToolActivity.deleteMany({ where: { userId: SHAPE_TEST_USER_ID } }),
+    ]);
+  });
+
   it('demo entries have all required fields', async () => {
-    // Check if demo data already exists (from previous test runs) in the unified JournalEntry table
+    // Check if demo data already exists
     const existingEntries = await prisma.journalEntry.findMany({
-      where: { authorId: TEST_USER_ID, sourceMode: 'demo' },
+      where: { authorId: SHAPE_TEST_USER_ID, sourceMode: 'demo' },
       take: 1,
     });
 
@@ -148,7 +192,7 @@ describe('JournalEntryResponse Shape', () => {
       const { seedDemoData, configureSeedService } = await import('./career-stories/seed.service');
       configureSeedService({ prisma });
 
-      await seedDemoData(TEST_USER_ID, 'vscode', {
+      await seedDemoData(SHAPE_TEST_USER_ID, 'vscode', {
         name: 'Test User',
         currentRole: 'Engineer',
         skills: ['TypeScript'],
@@ -158,7 +202,7 @@ describe('JournalEntryResponse Shape', () => {
 
     const demoService = new JournalService(true);
     const result = await demoService.getJournalEntries(
-      TEST_USER_ID,
+      SHAPE_TEST_USER_ID,
       { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
@@ -736,5 +780,194 @@ describe('validateActivityEdges', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].activityId).toBe('act-1');
+  });
+});
+
+// =============================================================================
+// CLEAR ALL BY SOURCE MODE TESTS (Transactional Deletion)
+// =============================================================================
+
+describe('clearAllBySourceMode', () => {
+  const CLEAR_TEST_USER_ID = 'test-user-clear-demo-data';
+  let testWorkspaceId: string;
+
+  // Helper to create minimal journal entry data
+  const makeEntry = (title: string, sourceMode: 'demo' | 'production') => ({
+    authorId: CLEAR_TEST_USER_ID,
+    workspaceId: testWorkspaceId,
+    title,
+    description: 'Test entry',
+    fullContent: 'Test content',
+    sourceMode,
+  });
+
+  // Helper to create minimal activity data
+  const makeActivity = (source: string, sourceId: string, title: string) => ({
+    userId: CLEAR_TEST_USER_ID,
+    source,
+    sourceId,
+    title,
+    timestamp: new Date(),
+  });
+
+  // Setup: Create isolated test user and workspace
+  beforeAll(async () => {
+    const existingUser = await prisma.user.findUnique({
+      where: { id: CLEAR_TEST_USER_ID },
+    });
+
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          id: CLEAR_TEST_USER_ID,
+          email: 'test-clear-demo@example.com',
+          name: 'Clear Demo Test User',
+          password: 'test-hash',
+        },
+      });
+    }
+
+    // Create or find workspace
+    let workspace = await prisma.workspace.findFirst({
+      where: { members: { some: { userId: CLEAR_TEST_USER_ID } } },
+    });
+
+    if (!workspace) {
+      workspace = await prisma.workspace.create({
+        data: {
+          name: 'Clear Test Workspace',
+          members: {
+            create: { userId: CLEAR_TEST_USER_ID, role: 'owner' },
+          },
+        },
+      });
+    }
+    testWorkspaceId = workspace.id;
+  });
+
+  // Cleanup after each test
+  afterEach(async () => {
+    await prisma.$transaction([
+      prisma.journalEntry.deleteMany({ where: { authorId: CLEAR_TEST_USER_ID } }),
+      prisma.demoToolActivity.deleteMany({ where: { userId: CLEAR_TEST_USER_ID } }),
+    ]);
+  });
+
+  describe('demo mode', () => {
+    const demoService = new JournalService(true);
+
+    it('deletes journal entries and activities in a single transaction', async () => {
+      // Create demo entries
+      await prisma.journalEntry.createMany({
+        data: [
+          makeEntry('Entry 1', 'demo'),
+          makeEntry('Entry 2', 'demo'),
+        ],
+      });
+
+      // Create demo activities
+      await prisma.demoToolActivity.createMany({
+        data: [
+          makeActivity('github', 'gh-1', 'PR #1'),
+          makeActivity('jira', 'jira-1', 'TASK-1'),
+          makeActivity('slack', 'slack-1', 'Message'),
+        ],
+      });
+
+      // Verify data exists
+      const entriesBefore = await prisma.journalEntry.count({ where: { authorId: CLEAR_TEST_USER_ID, sourceMode: 'demo' } });
+      const activitiesBefore = await prisma.demoToolActivity.count({ where: { userId: CLEAR_TEST_USER_ID } });
+      expect(entriesBefore).toBe(2);
+      expect(activitiesBefore).toBe(3);
+
+      // Clear demo data
+      const result = await demoService.clearAllBySourceMode(CLEAR_TEST_USER_ID);
+
+      // Verify counts returned
+      expect(result.deletedEntries).toBe(2);
+      expect(result.deletedActivities).toBe(3);
+
+      // Verify data is gone
+      const entriesAfter = await prisma.journalEntry.count({ where: { authorId: CLEAR_TEST_USER_ID, sourceMode: 'demo' } });
+      const activitiesAfter = await prisma.demoToolActivity.count({ where: { userId: CLEAR_TEST_USER_ID } });
+      expect(entriesAfter).toBe(0);
+      expect(activitiesAfter).toBe(0);
+    });
+
+    it('returns zero counts when no data exists', async () => {
+      const result = await demoService.clearAllBySourceMode(CLEAR_TEST_USER_ID);
+
+      expect(result.deletedEntries).toBe(0);
+      expect(result.deletedActivities).toBe(0);
+    });
+
+    it('only deletes demo entries, not production entries', async () => {
+      // Create both demo and production entries
+      await prisma.journalEntry.createMany({
+        data: [
+          makeEntry('Demo Entry', 'demo'),
+          makeEntry('Prod Entry', 'production'),
+        ],
+      });
+
+      // Clear demo data
+      const result = await demoService.clearAllBySourceMode(CLEAR_TEST_USER_ID);
+
+      expect(result.deletedEntries).toBe(1);
+
+      // Production entry should still exist
+      const prodEntry = await prisma.journalEntry.findFirst({
+        where: { authorId: CLEAR_TEST_USER_ID, sourceMode: 'production' },
+      });
+      expect(prodEntry).not.toBeNull();
+      expect(prodEntry?.title).toBe('Prod Entry');
+    });
+
+    it('only deletes data for the specified user', async () => {
+      const OTHER_USER_ID = 'test-user-clear-other';
+
+      // Ensure other user exists
+      const existingOther = await prisma.user.findUnique({ where: { id: OTHER_USER_ID } });
+      if (!existingOther) {
+        await prisma.user.create({
+          data: {
+            id: OTHER_USER_ID,
+            email: 'other-user@example.com',
+            name: 'Other User',
+            password: 'hash',
+          },
+        });
+      }
+
+      // Create activities for both users
+      await prisma.demoToolActivity.createMany({
+        data: [
+          makeActivity('github', 'gh-1', 'User 1 PR'),
+          { userId: OTHER_USER_ID, source: 'github', sourceId: 'gh-2', title: 'User 2 PR', timestamp: new Date() },
+        ],
+      });
+
+      // Clear only CLEAR_TEST_USER_ID's data
+      const result = await demoService.clearAllBySourceMode(CLEAR_TEST_USER_ID);
+
+      expect(result.deletedActivities).toBe(1);
+
+      // Other user's data should still exist
+      const otherActivities = await prisma.demoToolActivity.count({ where: { userId: OTHER_USER_ID } });
+      expect(otherActivities).toBe(1);
+
+      // Cleanup
+      await prisma.demoToolActivity.deleteMany({ where: { userId: OTHER_USER_ID } });
+    });
+  });
+
+  describe('production mode', () => {
+    const prodService = new JournalService(false);
+
+    it('throws error when called in production mode', async () => {
+      await expect(
+        prodService.clearAllBySourceMode(CLEAR_TEST_USER_ID)
+      ).rejects.toThrow('clearAllBySourceMode can only be called in demo mode');
+    });
   });
 });

@@ -14,7 +14,7 @@
  * Run with: npx vitest run src/services/career-stories/unified-flow.integration.test.ts
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { JournalService } from '../journal.service';
 import {
@@ -25,7 +25,7 @@ import {
 import { clearDemoData, configureSeedService, seedDemoData } from './seed.service';
 
 // =============================================================================
-// TEST SETUP
+// TEST SETUP - Isolated test user to avoid polluting real data
 // =============================================================================
 
 const prisma = new PrismaClient();
@@ -34,6 +34,10 @@ configureSeedService({ prisma });
 const TEST_USER_ID = 'test-user-unified-flow';
 const TEST_WORKSPACE_ID = 'test-workspace-unified-flow';
 
+/**
+ * Create test user and workspace if they don't exist.
+ * Uses unique IDs to isolate from real users.
+ */
 async function ensureTestUser(): Promise<void> {
   const existingUser = await prisma.user.findUnique({
     where: { id: TEST_USER_ID },
@@ -72,11 +76,17 @@ async function ensureTestUser(): Promise<void> {
   }
 }
 
+/**
+ * Clean up ALL test data for this test user.
+ * Called before AND after tests to ensure isolation.
+ * Uses transaction for atomicity.
+ */
 async function cleanupTestData(): Promise<void> {
-  // Clean up in reverse dependency order
-  await prisma.careerStory.deleteMany({ where: { userId: TEST_USER_ID } });
-  await prisma.journalEntry.deleteMany({ where: { authorId: TEST_USER_ID } });
-  await clearDemoData(TEST_USER_ID);
+  await prisma.$transaction([
+    prisma.careerStory.deleteMany({ where: { userId: TEST_USER_ID } }),
+    prisma.journalEntry.deleteMany({ where: { authorId: TEST_USER_ID } }),
+    prisma.demoToolActivity.deleteMany({ where: { userId: TEST_USER_ID } }),
+  ]);
 }
 
 // =============================================================================
@@ -86,6 +96,7 @@ async function cleanupTestData(): Promise<void> {
 describe('Unified Flow Integration', () => {
   let seedResult: Awaited<ReturnType<typeof seedDemoData>>;
 
+  // Clean before ALL tests to handle interrupted previous runs
   beforeAll(async () => {
     await ensureTestUser();
     await cleanupTestData();
@@ -95,6 +106,7 @@ describe('Unified Flow Integration', () => {
     console.log(`\nSeeded: ${seedResult.activitiesSeeded} activities, ${seedResult.clustersCreated} clusters, ${seedResult.entriesCreated} entries`);
   }, 120000);
 
+  // Clean after ALL tests to leave no trace
   afterAll(async () => {
     await cleanupTestData();
     await prisma.$disconnect();
