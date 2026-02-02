@@ -293,12 +293,21 @@ app.use((req, res, next) => {
 // Audit logging (after authentication middleware)
 // app.use('/api/', auditMiddleware()); // Temporarily disabled due to missing audit_logs table
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+// Health check (includes basic db connectivity test)
+app.get('/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = 'connected';
+  } catch (error) {
+    dbStatus = `error: ${error instanceof Error ? error.message : 'unknown'}`;
+    console.error('Health check DB error:', error);
+  }
+  res.json({
+    status: dbStatus === 'connected' ? 'OK' : 'DEGRADED',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+    environment: process.env.NODE_ENV,
+    database: dbStatus
   });
 });
 

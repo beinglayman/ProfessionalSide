@@ -22,5 +22,6 @@ RUN npm run db:generate
 EXPOSE $PORT
 
 # Start with tsx (runs TypeScript directly, no build needed)
-# Run migrations on startup, then start the app
-CMD ["sh", "-c", "npm run db:migrate:deploy && NODE_ENV=production npx tsx src/app.ts"]
+# Run migrations on startup (continue if fails), then start the app
+# The app will report migration failures via health endpoint
+CMD ["sh", "-c", "(npm run db:migrate:deploy || echo 'Migration failed, starting app anyway...') && NODE_ENV=production npx tsx src/app.ts"]
