@@ -4,7 +4,10 @@ import { isDemoMode } from '../services/demo-mode.service';
 
 // API Configuration - Production and development support
 const envApiUrl = import.meta.env.VITE_API_URL;
-const isValidUrl = envApiUrl && !envApiUrl.includes('professionalside-production');
+// Only use envApiUrl if it points to actual backend, not the frontend domain
+const isValidUrl = envApiUrl &&
+  !envApiUrl.includes('professionalside-production') &&
+  !envApiUrl.includes('inchronicle.com');
 
 export const API_BASE_URL = isValidUrl ? envApiUrl :
   (import.meta.env.DEV ? 'http://localhost:3002/api/v1' : 'https://ps-backend-1758551070.azurewebsites.net/api/v1');
