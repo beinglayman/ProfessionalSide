@@ -92,6 +92,21 @@ export const getActivityStatsSchema = z.object({
 export type GetActivityStatsInput = z.infer<typeof getActivityStatsSchema>;
 
 /**
+ * Schema for GET /activities query params
+ * Fetches all activities with optional grouping for journal tab views
+ */
+export const getAllActivitiesSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  groupBy: z.enum(['temporal', 'source', 'story']).optional(),
+  source: z.string().optional(),
+  storyId: z.string().optional(),
+  timezone: z.string().default('UTC')
+}).strict();
+
+export type GetAllActivitiesInput = z.infer<typeof getAllActivitiesSchema>;
+
+/**
  * Path param validation
  */
 export const journalEntryIdSchema = z.string().min(1, 'Journal entry ID is required');
@@ -103,6 +118,70 @@ export const journalEntryIdSchema = z.string().min(1, 'Journal entry ID is requi
 /**
  * Single activity response
  */
+/**
+ * Raw data structure varies by source - typed for UI display
+ */
+export interface ActivityRawData {
+  // GitHub
+  number?: number;
+  state?: 'merged' | 'open' | 'closed';
+  additions?: number;
+  deletions?: number;
+  changedFiles?: number;
+  reviews?: number;
+  commits?: number;
+  requestedReviewers?: string[];
+  author?: string;
+
+  // Jira
+  key?: string;
+  status?: string;
+  priority?: 'Critical' | 'High' | 'Medium' | 'Low';
+  assignee?: string;
+  reporter?: string;
+  storyPoints?: number;
+  labels?: string[];
+  issueType?: string;
+
+  // Confluence
+  pageId?: string;
+  spaceKey?: string;
+  version?: number;
+  createdBy?: string;
+  lastModifiedBy?: string;
+
+  // Slack
+  channelId?: string;
+  channelName?: string;
+  reactions?: Array<{ name: string; count: number }>;
+  isThreadReply?: boolean;
+
+  // Outlook/Teams/Google Calendar
+  meetingId?: string;
+  eventId?: string;
+  duration?: number;
+  attendees?: string[] | number;
+  organizer?: string;
+  userRole?: 'organizer' | 'attendee' | 'watcher' | 'reviewer' | 'assignee';
+
+  // Figma
+  fileKey?: string;
+  fileName?: string;
+  commenters?: string[];
+
+  // Google Workspace
+  documentId?: string;
+  spreadsheetId?: string;
+  presentationId?: string;
+  slideCount?: number;
+  sheets?: string[];
+
+  // Common
+  mentions?: string[];
+  watchers?: string[];
+  comments?: Array<{ author: string; body: string }>;
+}
+
 export interface ActivityResponse {
   id: string;
   source: string;
@@ -112,6 +191,7 @@ export interface ActivityResponse {
   description: string | null;
   timestamp: string; // ISO 8601
   crossToolRefs: string[];
+  rawData?: ActivityRawData | null;
 }
 
 /**
@@ -189,6 +269,110 @@ export interface TemporalStatsResponse {
  * Union type for stats response
  */
 export type ActivityStatsResponse = SourceStatsResponse | TemporalStatsResponse;
+
+/**
+ * Activity with story assignment (for grouped responses)
+ */
+export interface ActivityWithStory extends ActivityResponse {
+  storyId: string | null;
+  storyTitle: string | null;
+}
+
+/**
+ * Phase within a story - logical grouping of activities
+ */
+export interface StoryPhase {
+  name: string;
+  activityIds: string[];
+  summary: string;
+}
+
+/**
+ * Story metadata for story-grouped responses
+ */
+export interface StoryMetadata {
+  id: string;
+  title: string;
+  description: string | null;
+  timeRangeStart: string | null;
+  timeRangeEnd: string | null;
+  category: string | null;
+  skills: string[];
+  createdAt: string;
+  isPublished: boolean;
+  type: 'journal_entry' | 'career_story';
+  groupingMethod?: 'time' | 'cluster' | 'manual' | 'ai';
+
+  // Enhanced fields from LLM generation
+  topics?: string[];
+  impactHighlights?: string[];
+  phases?: StoryPhase[];
+  dominantRole?: 'Led' | 'Contributed' | 'Participated' | null;
+  activityEdges?: Array<{
+    activityId: string;
+    type: 'primary' | 'supporting' | 'contextual' | 'outcome';
+    message: string;
+  }>;
+}
+
+/**
+ * Activity group (base)
+ */
+export interface ActivityGroupBase {
+  key: string;
+  label: string;
+  count: number;
+  activities: ActivityWithStory[];
+}
+
+/**
+ * Activity group with optional story metadata (for story grouping)
+ */
+export interface ActivityGroup extends ActivityGroupBase {
+  storyMetadata?: StoryMetadata;
+}
+
+/**
+ * Grouped activities response (for journal tab views)
+ */
+export interface GroupedActivitiesResponse {
+  groups: ActivityGroup[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  meta: {
+    groupBy: 'temporal' | 'source' | 'story' | null;
+    sourceMode: 'demo' | 'production';
+    timezone?: string;
+  };
+}
+
+/**
+ * Flat activities response (when no grouping)
+ */
+export interface FlatActivitiesResponse {
+  data: ActivityWithStory[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  meta: {
+    groupBy: null;
+    sourceMode: 'demo' | 'production';
+  };
+}
+
+/**
+ * All activities response (union of grouped and flat)
+ */
+export type AllActivitiesResponse = GroupedActivitiesResponse | FlatActivitiesResponse;
 
 // ============================================================================
 // ACTIVITY METADATA (for enriching journal entries)

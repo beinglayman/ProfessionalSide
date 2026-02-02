@@ -209,6 +209,162 @@ export type RecordAnalyticsInput = z.infer<typeof recordAnalyticsSchema>;
 export type RechronicleInput = z.infer<typeof rechronicleSchema>;
 
 // =============================================================================
+// DRAFT STORY CREATION (Unified for demo and production)
+// =============================================================================
+
+/**
+ * Schema for creating a draft story from activities.
+ * Used by BOTH demo and production modes - the only difference is
+ * which activity table the activityIds reference.
+ */
+export const createDraftStorySchema = z.object({
+  /** Activity IDs to include in this draft story */
+  activityIds: z.array(z.string().min(1)).min(1, 'At least one activity is required'),
+
+  /** How activities were grouped */
+  groupingMethod: z.enum(['time', 'cluster', 'manual']),
+
+  /** Time range start (required for time-based grouping) */
+  timeRangeStart: z.date().optional(),
+
+  /** Time range end (required for time-based grouping) */
+  timeRangeEnd: z.date().optional(),
+
+  /** Cluster reference (e.g., "AUTH-123" for cluster-based grouping) */
+  clusterRef: z.string().max(100).optional(),
+
+  /** Workspace ID for the journal entry */
+  workspaceId: z.string().min(1, 'Workspace ID is required'),
+
+  /** Optional title override (auto-generated if not provided) */
+  title: z.string().max(200).optional(),
+
+  /** Optional description override (auto-generated if not provided) */
+  description: z.string().max(500).optional(),
+
+  /** Tags to apply to the entry */
+  tags: z.array(z.string().max(50)).max(20).default([]),
+
+  /** Skills extracted or specified */
+  skills: z.array(z.string().max(100)).max(20).default([]),
+});
+
+export type CreateDraftStoryInput = z.infer<typeof createDraftStorySchema>;
+
+/**
+ * Schema for regenerating narrative on an existing journal entry.
+ * Works for both demo and production entries.
+ */
+export const regenerateNarrativeSchema = z.object({
+  /** Style of narrative to generate */
+  style: z.enum(['professional', 'casual', 'technical', 'storytelling']).default('professional'),
+
+  /** Maximum retries for LLM calls */
+  maxRetries: z.number().min(0).max(3).default(1),
+});
+
+export type RegenerateNarrativeInput = z.infer<typeof regenerateNarrativeSchema>;
+
+// =============================================================================
+// DRAFT STORY GENERATION OUTPUT (Enhanced LLM Response)
+// =============================================================================
+
+/**
+ * Category for draft stories - dynamically detected by LLM
+ */
+export type DraftStoryCategory =
+  | 'feature'
+  | 'bug-fix'
+  | 'optimization'
+  | 'documentation'
+  | 'learning'
+  | 'collaboration'
+  | 'problem-solving'
+  | 'achievement';
+
+/**
+ * Phase within a draft story - logical grouping of activities
+ */
+export interface DraftStoryPhase {
+  name: string;
+  activityIds: string[];
+  summary: string;
+}
+
+/**
+ * Dominant role in the work - detected from activity patterns
+ */
+export type DraftStoryRole = 'Led' | 'Contributed' | 'Participated';
+
+/**
+ * Valid edge types for activity-story relationships.
+ *
+ * Edge types classify how each activity contributes to a story:
+ * - `primary`: Core work that directly delivers the outcome (implementation, design)
+ * - `supporting`: Enables or validates primary work (reviews, specs, tests)
+ * - `contextual`: Background context (discussions, meetings, approvals)
+ * - `outcome`: Results that prove impact (metrics, fixes, follow-ups)
+ */
+export const ACTIVITY_EDGE_TYPES = ['primary', 'supporting', 'contextual', 'outcome'] as const;
+
+/**
+ * Edge type for activity-story relationship.
+ * Classifies how an activity contributes to a story narrative.
+ */
+export type ActivityStoryEdgeType = typeof ACTIVITY_EDGE_TYPES[number];
+
+/** Default message for activity edges when LLM doesn't provide one */
+export const DEFAULT_EDGE_MESSAGE = 'Activity included in this story';
+
+/** Maximum length for edge messages */
+export const MAX_EDGE_MESSAGE_LENGTH = 200;
+
+/**
+ * Edge relationship between an activity and a story.
+ * Each edge has a type and an LLM-generated explanation.
+ */
+export interface ActivityStoryEdge {
+  /** ID of the activity this edge connects to */
+  activityId: string;
+  /** Classification of the activity's role in the story */
+  type: ActivityStoryEdgeType;
+  /** 5-15 word explanation of why this activity matters to the story */
+  message: string;
+}
+
+/**
+ * Full structured output from LLM for draft story generation
+ */
+export interface DraftStoryGenerationOutput {
+  /** 1-2 sentence summary of key accomplishments */
+  description: string;
+
+  /** Primary category of work */
+  category: DraftStoryCategory;
+
+  /** Main topics/themes extracted from activities */
+  topics: string[];
+
+  /** Technical skills demonstrated */
+  skills: string[];
+
+  /** Specific, measurable impact highlights */
+  impactHighlights: string[];
+
+  /** Full markdown narrative (3-5 paragraphs) */
+  fullContent: string;
+
+  /** Logical grouping of activities into phases */
+  phases: DraftStoryPhase[];
+
+  /** User's primary participation level */
+  dominantRole: DraftStoryRole;
+
+  /** Activity relationship edges with type and explanation */
+  activityEdges: ActivityStoryEdge[];
+}
+
+// =============================================================================
 // UNIFIED JOURNAL ENTRY RESPONSE TYPE
 // =============================================================================
 

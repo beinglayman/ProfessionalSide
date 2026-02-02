@@ -1,0 +1,57 @@
+{
+  "description": "Implemented OAuth2 authentication with rate limiting, achieving 40% latency reduction",
+  "category": "feature",
+  "topics": ["OAuth2 Authentication", "API Rate Limiting", "Performance Optimization"],
+  "skills": ["OAuth2", "Node.js", "Redis", "PostgreSQL"],
+  "impactHighlights": [
+    "Reduced API latency by 40%",
+    "Implemented zero-downtime migration",
+    "Added comprehensive test coverage"
+  ],
+  "fullContent": "# OAuth2 Implementation\n\n## Overview\nThis week, I led the implementation of OAuth2 authentication for our API gateway. This initiative aimed to replace our legacy session-based auth with a modern token-based approach.\n\n## Technical Approach\nI designed a token-based authentication flow using Redis for session storage and implemented refresh token rotation for enhanced security. The implementation included rate limiting to prevent abuse and comprehensive logging for debugging.\n\n## Outcomes\nThe implementation resulted in a 40% reduction in API latency due to the stateless nature of JWT tokens. We successfully migrated all existing users with zero downtime and achieved 95% test coverage on the new auth module.",
+  "phases": [
+    {
+      "name": "Design & Planning",
+      "activityIds": ["abc123", "def456"],
+      "summary": "Designed auth flow and created technical spec in Confluence"
+    },
+    {
+      "name": "Implementation",
+      "activityIds": ["ghi789", "jkl012"],
+      "summary": "Implemented OAuth2 flow with Redis token storage"
+    },
+    {
+      "name": "Review & Testing",
+      "activityIds": ["mno345"],
+      "summary": "Code review and integration testing"
+    }
+  ],
+  "dominantRole": "Led",
+  "activityEdges": [
+    {
+      "activityId": "abc123",
+      "type": "contextual",
+      "message": "Initial design discussion with security team"
+    },
+    {
+      "activityId": "def456",
+      "type": "supporting",
+      "message": "Technical spec approval from architecture review"
+    },
+    {
+      "activityId": "ghi789",
+      "type": "primary",
+      "message": "Core OAuth2 token implementation"
+    },
+    {
+      "activityId": "jkl012",
+      "type": "primary",
+      "message": "Rate limiting middleware implementation"
+    },
+    {
+      "activityId": "mno345",
+      "type": "outcome",
+      "message": "Performance validation showing 40% latency reduction"
+    }
+  ]
+}

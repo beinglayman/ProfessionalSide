@@ -130,6 +130,63 @@ export const STORY_GROUPING_LABELS: Record<StoryGroupingMethod, { label: string;
 };
 
 /**
+ * Dominant role in work - detected from activity patterns
+ */
+export type StoryDominantRole = 'Led' | 'Contributed' | 'Participated';
+
+/**
+ * Valid edge types for activity-story relationships
+ */
+export const ACTIVITY_EDGE_TYPES = ['primary', 'supporting', 'contextual', 'outcome'] as const;
+
+/**
+ * Edge type for activity-story relationship.
+ * Classifies how an activity contributes to a story narrative.
+ */
+export type ActivityStoryEdgeType = typeof ACTIVITY_EDGE_TYPES[number];
+
+/**
+ * Edge relationship between an activity and a story.
+ * Each edge has a type and an LLM-generated explanation.
+ */
+export interface ActivityStoryEdge {
+  /** ID of the activity this edge connects to */
+  activityId: string;
+  /** Classification of the activity's role in the story */
+  type: ActivityStoryEdgeType;
+  /** 5-15 word explanation of why this activity matters to the story */
+  message: string;
+}
+
+/**
+ * Display metadata for edge types
+ */
+export const ACTIVITY_EDGE_LABELS: Record<ActivityStoryEdgeType, { label: string; color: string; bgColor: string }> = {
+  primary: { label: 'Primary', color: '#7C3AED', bgColor: '#EDE9FE' },      // Purple
+  supporting: { label: 'Supporting', color: '#1D4ED8', bgColor: '#DBEAFE' }, // Blue
+  contextual: { label: 'Context', color: '#4B5563', bgColor: '#F3F4F6' },    // Gray
+  outcome: { label: 'Outcome', color: '#059669', bgColor: '#D1FAE5' },       // Green
+};
+
+/**
+ * Role labels and colors for display
+ */
+export const STORY_ROLE_LABELS: Record<StoryDominantRole, { label: string; color: string; bgColor: string }> = {
+  Led: { label: 'Led', color: '#B45309', bgColor: '#FEF3C7' }, // Amber
+  Contributed: { label: 'Contributed', color: '#1D4ED8', bgColor: '#DBEAFE' }, // Blue
+  Participated: { label: 'Participated', color: '#4B5563', bgColor: '#F3F4F6' }, // Gray
+};
+
+/**
+ * Phase within a story - logical grouping of activities
+ */
+export interface StoryPhase {
+  name: string;
+  activityIds: string[];
+  summary: string;
+}
+
+/**
  * Story metadata for story-grouped responses
  */
 export interface StoryMetadata {
@@ -144,6 +201,15 @@ export interface StoryMetadata {
   isPublished: boolean;
   type: 'journal_entry' | 'career_story';
   groupingMethod?: StoryGroupingMethod;
+
+  // Enhanced fields from LLM generation
+  topics?: string[];
+  impactHighlights?: string[];
+  phases?: StoryPhase[];
+  dominantRole?: StoryDominantRole | null;
+
+  // Activity relationship edges with type and explanation
+  activityEdges?: ActivityStoryEdge[];
 }
 
 /**
