@@ -455,6 +455,35 @@ app.post('/api/v1/admin/clear-all-demo-data', async (req, res) => {
   }
 });
 
+// Admin endpoint to delete entries with null sourceMode (orphaned legacy data)
+app.delete('/api/v1/admin/delete-null-sourcemode', async (req, res) => {
+  try {
+    console.log('🗑️ Deleting entries with null sourceMode...');
+
+    const results = await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM "journal_entries" WHERE "sourceMode" IS NULL`,
+      prisma.$executeRaw`DELETE FROM "career_stories" WHERE "sourceMode" IS NULL`,
+    ]);
+
+    console.log('✅ Deleted null sourceMode entries:', results);
+    res.json({
+      success: true,
+      message: 'Deleted entries with null sourceMode',
+      deleted: {
+        journalEntries: results[0],
+        careerStories: results[1],
+      }
+    });
+  } catch (error) {
+    console.error('❌ Failed to delete null sourceMode entries:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete null sourceMode entries',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Admin endpoint to fix null sourceMode entries (set to specified mode)
 app.post('/api/v1/admin/fix-null-sourcemode', async (req, res) => {
   try {
