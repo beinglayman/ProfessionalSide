@@ -6,6 +6,7 @@
  */
 
 import { setDemoSyncStatus } from './demo-mode.service';
+import { API_BASE_URL } from '../lib/api';
 
 /**
  * Integration metadata
@@ -102,7 +103,7 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
       throw new Error('No access token found');
     }
 
-    const response = await fetch('/api/v1/demo/sync', {
+    const response = await fetch(`${API_BASE_URL}/demo/sync`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -164,7 +165,7 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
  */
 export async function clearDemoData(): Promise<void> {
   try {
-    await fetch('/api/v1/demo/clear', {
+    await fetch(`${API_BASE_URL}/demo/clear`, {
       method: 'DELETE',
       credentials: 'include',
     });
