@@ -15,8 +15,8 @@ import {
   createStoryPublishingService,
   Visibility,
 } from '../services/career-stories';
-import * as demoService from '../services/career-stories/demo.service';
-import { DEFAULT_DEMO_PERSONA, DemoServiceError } from '../services/career-stories/demo.service';
+import * as seedService from '../services/career-stories/seed.service';
+import { DEFAULT_SEED_PERSONA, SeedServiceError } from '../services/career-stories/seed.service';
 import {
   starGenerationService,
   STARGenerationOptions,
@@ -68,11 +68,11 @@ function isDemoModeRequest(req: Request): boolean {
 // =============================================================================
 
 /**
- * Handle DemoServiceError and return appropriate HTTP status.
+ * Handle SeedServiceError and return appropriate HTTP status.
  * Returns true if error was handled, false if it should be re-thrown.
  */
-function handleDemoServiceError(error: unknown, res: Response): boolean {
-  if (error instanceof DemoServiceError) {
+function handleSeedServiceError(error: unknown, res: Response): boolean {
+  if (error instanceof SeedServiceError) {
     const statusMap: Record<string, number> = {
       ENTRY_NOT_FOUND: 404,
       CLUSTER_NOT_FOUND: 404,
@@ -668,7 +668,7 @@ export const runFullPipeline = asyncHandler(async (req: Request, res: Response):
   }
 
   // Use demo service - safe for production as it uses separate demo_* tables
-  const result = await demoService.seedDemoData(userId);
+  const result = await seedService.seedDemoData(userId);
 
   sendSuccess(res, {
     pipeline: {
@@ -715,7 +715,7 @@ export const clearDemoData = asyncHandler(async (req: Request, res: Response): P
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  await demoService.clearDemoData(userId);
+  await seedService.clearDemoData(userId);
   sendSuccess(res, { cleared: true }, 'Demo data cleared');
 });
 
@@ -731,15 +731,17 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  const result = await demoService.seedDemoData(userId);
+  const result = await seedService.seedDemoData(userId);
   sendSuccess(res, {
     activityCount: result.activitiesSeeded,
     activitiesBySource: result.activitiesBySource,
     entryCount: result.entriesCreated,
     temporalEntryCount: result.temporalEntriesCreated,
     clusterEntryCount: result.clusterEntriesCreated,
+    entryPreviews: result.entryPreviews,
   }, 'Demo data synced successfully');
 });
+
 
 /**
  * PATCH /api/v1/demo/journal-entries/:id/activities
@@ -759,10 +761,10 @@ export const updateDemoJournalEntryActivities = asyncHandler(async (req: Request
   }
 
   try {
-    const result = await demoService.updateDemoJournalEntryActivities(userId, id, activityIds);
+    const result = await seedService.updateDemoJournalEntryActivities(userId, id, activityIds);
     sendSuccess(res, result, 'Journal entry activities updated');
   } catch (error) {
-    if (!handleDemoServiceError(error, res)) throw error;
+    if (!handleSeedServiceError(error, res)) throw error;
   }
 });
 
@@ -789,10 +791,10 @@ export const regenerateDemoJournalNarrative = asyncHandler(async (req: Request, 
   const { options } = req.body || {};
 
   try {
-    const result = await demoService.regenerateDemoJournalNarrative(userId, id, options);
+    const result = await seedService.regenerateDemoJournalNarrative(userId, id, options);
     sendSuccess(res, result, 'Journal narrative regenerated');
   } catch (error) {
-    if (!handleDemoServiceError(error, res)) throw error;
+    if (!handleSeedServiceError(error, res)) throw error;
   }
 });
 

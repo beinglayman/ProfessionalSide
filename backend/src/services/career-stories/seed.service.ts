@@ -1,9 +1,10 @@
 /**
- * Demo Service for Career Stories
+ * Seed Service for Career Stories
  *
- * Manages demo/sandbox data in parallel tables, completely isolated from
- * real user data. This allows users to test the Career Stories feature
- * in production without affecting their actual work history.
+ * Generates sample data in parallel tables, completely isolated from
+ * real user data. Once seeded, the app works identically to production.
+ * This allows users to test the Career Stories feature without affecting
+ * their actual work history.
  *
  * Tables used:
  * - demo_tool_activities: Raw activity data from integrations (source-level)
@@ -13,7 +14,7 @@
  * NOTE: DemoStoryCluster has been removed. Clustering is now done in-memory
  * and stored inline in JournalEntry (activityIds, groupingMethod, clusterRef).
  *
- * @module demo.service
+ * @module seed.service
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
@@ -49,12 +50,15 @@ const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
 /** Default workspace ID for demo mode when user has no workspace */
 const DEFAULT_DEMO_WORKSPACE_ID = 'demo-workspace';
 
-/** Default persona for demo mode when user data is unavailable */
-export const DEFAULT_DEMO_PERSONA = {
+/** Default persona for demo/seed mode when user data is unavailable */
+export const DEFAULT_SEED_PERSONA = {
   displayName: 'Demo User',
   emails: ['demo@example.com'],
   identities: {},
 };
+
+/** @deprecated Use DEFAULT_SEED_PERSONA instead */
+export const DEFAULT_DEMO_PERSONA = DEFAULT_SEED_PERSONA;
 
 // =============================================================================
 // LOGGER (DHH: Replace console.log with conditional logging)
@@ -63,10 +67,10 @@ export const DEFAULT_DEMO_PERSONA = {
 const DEBUG_DEMO = process.env.DEBUG_DEMO === 'true' || process.env.NODE_ENV === 'development';
 
 const log = {
-  debug: (msg: string, data?: object) => DEBUG_DEMO && console.log(`[DemoService] ${msg}`, data ?? ''),
-  info: (msg: string, data?: object) => DEBUG_DEMO && console.log(`[DemoService] ${msg}`, data ?? ''),
-  warn: (msg: string, data?: object) => console.warn(`[DemoService] ${msg}`, data ?? ''),
-  error: (msg: string, data?: object) => console.error(`[DemoService] ${msg}`, data ?? ''),
+  debug: (msg: string, data?: object) => DEBUG_DEMO && console.log(`[SeedService] ${msg}`, data ?? ''),
+  info: (msg: string, data?: object) => DEBUG_DEMO && console.log(`[SeedService] ${msg}`, data ?? ''),
+  warn: (msg: string, data?: object) => console.warn(`[SeedService] ${msg}`, data ?? ''),
+  error: (msg: string, data?: object) => console.error(`[SeedService] ${msg}`, data ?? ''),
 };
 
 // =============================================================================
@@ -99,14 +103,14 @@ export async function withTimeout<T>(
 // DEPENDENCY INJECTION (SM: Class-based DI)
 // =============================================================================
 
-export interface DemoServiceDeps {
+export interface SeedServiceDeps {
   prisma: PrismaClient;
   clusteringService: ClusteringService;
   refExtractor: RefExtractorService;
 }
 
-// Default instances - can be overridden via configureDemoService for testing
-let deps: DemoServiceDeps = {
+// Default instances - can be overridden via configureSeedService for testing
+let deps: SeedServiceDeps = {
   prisma: new PrismaClient(),
   clusteringService: null as unknown as ClusteringService, // Lazy init below
   refExtractor: new RefExtractorService(),
@@ -116,7 +120,7 @@ deps.clusteringService = new ClusteringService(deps.prisma);
 /**
  * Configure service dependencies (primarily for testing)
  */
-export function configureDemoService(overrides: Partial<DemoServiceDeps>): void {
+export function configureSeedService(overrides: Partial<SeedServiceDeps>): void {
   if (overrides.prisma) {
     deps.prisma = overrides.prisma;
     // Re-create clustering service with new prisma instance unless also provided
@@ -864,12 +868,22 @@ export async function regenerateDemoJournalNarrative(
 // ERROR HANDLING (RC: Reusable error types)
 // =============================================================================
 
-export class DemoServiceError extends Error {
+export class SeedServiceError extends Error {
   constructor(
     message: string,
     public readonly code: 'ENTRY_NOT_FOUND' | 'CLUSTER_NOT_FOUND' | 'NO_ACTIVITIES' | 'INVALID_INPUT'
   ) {
     super(message);
-    this.name = 'DemoServiceError';
+    this.name = 'SeedServiceError';
   }
 }
+
+// Backwards compatibility aliases
+/** @deprecated Use SeedServiceDeps instead */
+export type DemoServiceDeps = SeedServiceDeps;
+
+/** @deprecated Use configureSeedService instead */
+export const configureDemoService = configureSeedService;
+
+/** @deprecated Use SeedServiceError instead */
+export const DemoServiceError = SeedServiceError;

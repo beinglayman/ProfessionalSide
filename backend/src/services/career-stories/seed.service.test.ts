@@ -14,8 +14,8 @@ import {
   buildToolSummary,
   extractSkillsFromContent,
   withTimeout,
-  DemoServiceError,
-} from './demo.service';
+  SeedServiceError,
+} from './seed.service';
 
 // =============================================================================
 // UNIT TESTS FOR withTimeout UTILITY (KB: Extracted helper)
@@ -723,18 +723,11 @@ describe('Demo Service Integration Contracts', () => {
   });
 
   describe('clearDemoData', () => {
-    it.todo('deletes all DemoCareerStory records for user');
-    it.todo('deletes all DemoStoryCluster records for user');
+    it.todo('deletes CareerStory records with sourceMode=demo for user');
     it.todo('deletes all DemoToolActivity records for user');
-    it.todo('deletes all DemoJournalEntry records for user');
+    it.todo('deletes JournalEntry records with sourceMode=demo for user');
     it.todo('does NOT affect other users demo data');
     it.todo('does NOT affect real (non-demo) tables');
-  });
-
-  describe('isDemoCluster', () => {
-    it.todo('returns true when cluster exists in demo_story_clusters');
-    it.todo('returns false when cluster does not exist');
-    it.todo('returns false when cluster is in real story_clusters table');
   });
 });
 

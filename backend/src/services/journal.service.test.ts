@@ -6,7 +6,12 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import { JournalService } from './journal.service';
+import {
+  JournalService,
+  validateEdgeType,
+  validateEdgeMessage,
+  validateActivityEdges,
+} from './journal.service';
 
 // =============================================================================
 // TEST SETUP
@@ -54,10 +59,11 @@ afterAll(async () => {
 describe('JournalService Unified Mode', () => {
   describe('getJournalEntries', () => {
     it('returns entries from production tables when isDemoMode=false', async () => {
-      const result = await journalService.getJournalEntries(
+      // Create production service instance
+      const prodService = new JournalService(false);
+      const result = await prodService.getJournalEntries(
         TEST_USER_ID,
-        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-        false // production mode
+        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
       );
 
       expect(result).toHaveProperty('entries');
@@ -68,10 +74,11 @@ describe('JournalService Unified Mode', () => {
     });
 
     it('returns entries from demo tables when isDemoMode=true', async () => {
-      const result = await journalService.getJournalEntries(
+      // Create demo service instance
+      const demoService = new JournalService(true);
+      const result = await demoService.getJournalEntries(
         TEST_USER_ID,
-        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-        true // demo mode
+        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
       );
 
       expect(result).toHaveProperty('entries');
@@ -80,16 +87,17 @@ describe('JournalService Unified Mode', () => {
     });
 
     it('returns same response shape for both modes', async () => {
-      const productionResult = await journalService.getJournalEntries(
+      const prodService = new JournalService(false);
+      const demoService = new JournalService(true);
+
+      const productionResult = await prodService.getJournalEntries(
         TEST_USER_ID,
-        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-        false
+        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
       );
 
-      const demoResult = await journalService.getJournalEntries(
+      const demoResult = await demoService.getJournalEntries(
         TEST_USER_ID,
-        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-        true
+        { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
       );
 
       // Both should have same structure
@@ -129,16 +137,16 @@ describe('JournalService Unified Mode', () => {
 
 describe('JournalEntryResponse Shape', () => {
   it('demo entries have all required fields', async () => {
-    // Check if demo data already exists (from previous test runs)
-    const existingEntries = await prisma.demoJournalEntry.findMany({
-      where: { userId: TEST_USER_ID },
+    // Check if demo data already exists (from previous test runs) in the unified JournalEntry table
+    const existingEntries = await prisma.journalEntry.findMany({
+      where: { authorId: TEST_USER_ID, sourceMode: 'demo' },
       take: 1,
     });
 
     // Only seed if no data exists
     if (existingEntries.length === 0) {
-      const { seedDemoData, configureDemoService } = await import('./career-stories/demo.service');
-      configureDemoService({ prisma });
+      const { seedDemoData, configureSeedService } = await import('./career-stories/seed.service');
+      configureSeedService({ prisma });
 
       await seedDemoData(TEST_USER_ID, 'vscode', {
         name: 'Test User',
@@ -148,10 +156,10 @@ describe('JournalEntryResponse Shape', () => {
       });
     }
 
-    const result = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     if (result.entries.length > 0) {
@@ -212,10 +220,10 @@ describe('JournalEntryResponse Shape', () => {
 
 describe('Regression: Response Shape Consistency', () => {
   it('demo entries have same keys as production entries would have', async () => {
-    const demoResult = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const demoResult = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     // These are the required fields that caused the original bug
@@ -244,10 +252,10 @@ describe('Regression: Response Shape Consistency', () => {
   });
 
   it('author object has required shape in demo mode', async () => {
-    const result = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     if (result.entries.length > 0) {
@@ -263,10 +271,10 @@ describe('Regression: Response Shape Consistency', () => {
   });
 
   it('analytics object has required shape in demo mode', async () => {
-    const result = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     if (result.entries.length > 0) {
@@ -287,11 +295,11 @@ describe('Regression: Response Shape Consistency', () => {
 
 describe('Edge Cases', () => {
   it('handles empty result set gracefully in demo mode', async () => {
+    const demoService = new JournalService(true);
     // Use a non-existent user ID
-    const result = await journalService.getJournalEntries(
+    const result = await demoService.getJournalEntries(
       'non-existent-user-id-12345',
-      { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     expect(result.entries).toEqual([]);
@@ -300,10 +308,10 @@ describe('Edge Cases', () => {
   });
 
   it('handles pagination boundary - page beyond total', async () => {
-    const result = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 999, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 999, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     // Should return empty entries but valid pagination
@@ -313,11 +321,11 @@ describe('Edge Cases', () => {
   });
 
   it('handles sortBy fallback for unsupported fields in demo mode', async () => {
+    const demoService = new JournalService(true);
     // 'likes', 'comments', 'views' should fall back to 'createdAt'
-    const result = await journalService.getJournalEntries(
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 10, sortBy: 'likes', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 10, sortBy: 'likes', sortOrder: 'desc' }
     );
 
     // Should not throw, should return valid result
@@ -326,10 +334,10 @@ describe('Edge Cases', () => {
   });
 
   it('handles search filter in demo mode', async () => {
-    const result = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc', search: 'test-search-term' },
-      true
+      { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc', search: 'test-search-term' }
     );
 
     // Should not throw, should return valid result (possibly empty)
@@ -338,10 +346,10 @@ describe('Edge Cases', () => {
   });
 
   it('handles limit=0 gracefully', async () => {
-    const result = await journalService.getJournalEntries(
+    const demoService = new JournalService(true);
+    const result = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 0, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 0, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
     // Should return empty entries with valid pagination
@@ -354,28 +362,29 @@ describe('Edge Cases', () => {
 // DATA ISOLATION TESTS
 // =============================================================================
 
-describe('Data Isolation', () => {
-  it('demo mode does not return production entries', async () => {
-    // Get demo entries
-    const demoResult = await journalService.getJournalEntries(
+describe('Unified Data Access', () => {
+  it('demo mode and production mode return same entries (unified table)', async () => {
+    const demoService = new JournalService(true);
+    const prodService = new JournalService(false);
+
+    // Get entries via demo service
+    const demoResult = await demoService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' },
-      true
+      { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
-    // Get production entries
-    const prodResult = await journalService.getJournalEntries(
+    // Get entries via production service
+    const prodResult = await prodService.getJournalEntries(
       TEST_USER_ID,
-      { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' },
-      false
+      { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }
     );
 
-    // Entry IDs should not overlap
-    const demoIds = new Set(demoResult.entries.map(e => e.id));
-    const prodIds = new Set(prodResult.entries.map(e => e.id));
+    // Both should return the same entries (no sourceMode filtering)
+    const demoIds = demoResult.entries.map(e => e.id).sort();
+    const prodIds = prodResult.entries.map(e => e.id).sort();
 
-    const overlap = [...demoIds].filter(id => prodIds.has(id));
-    expect(overlap).toHaveLength(0);
+    expect(demoIds).toEqual(prodIds);
+    expect(demoResult.entries.length).toBe(prodResult.entries.length);
   });
 });
 
@@ -387,15 +396,35 @@ describe('deleteJournalEntry', () => {
   describe('demo mode', () => {
     const demoService = new JournalService(true);
 
-    it('deletes entry from demo table when isDemoMode=true', async () => {
-      // Create a demo entry to delete
-      const demoEntry = await prisma.demoJournalEntry.create({
+    it('deletes entry from unified JournalEntry table when isDemoMode=true', async () => {
+      // First ensure we have a workspace for the test user
+      let workspace = await prisma.workspace.findFirst({
+        where: { members: { some: { userId: TEST_USER_ID } } },
+      });
+
+      if (!workspace) {
+        workspace = await prisma.workspace.create({
+          data: {
+            name: 'Test Workspace',
+            members: {
+              create: {
+                userId: TEST_USER_ID,
+                role: 'owner',
+              },
+            },
+          },
+        });
+      }
+
+      // Create a demo entry to delete using unified JournalEntry table with sourceMode: 'demo'
+      const demoEntry = await prisma.journalEntry.create({
         data: {
-          userId: TEST_USER_ID,
-          workspaceId: 'test-workspace',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace.id,
           title: 'Test Entry to Delete',
           description: 'This entry will be deleted',
           fullContent: 'Full content here',
+          sourceMode: 'demo',
         },
       });
 
@@ -403,7 +432,7 @@ describe('deleteJournalEntry', () => {
       await demoService.deleteJournalEntry(demoEntry.id, TEST_USER_ID);
 
       // Verify it's gone
-      const deletedEntry = await prisma.demoJournalEntry.findUnique({
+      const deletedEntry = await prisma.journalEntry.findUnique({
         where: { id: demoEntry.id },
       });
       expect(deletedEntry).toBeNull();
@@ -416,14 +445,34 @@ describe('deleteJournalEntry', () => {
     });
 
     it('throws "Access denied" when user does not own the entry', async () => {
-      // Create entry owned by test user
-      const demoEntry = await prisma.demoJournalEntry.create({
+      // First ensure we have a workspace for the test user
+      let workspace = await prisma.workspace.findFirst({
+        where: { members: { some: { userId: TEST_USER_ID } } },
+      });
+
+      if (!workspace) {
+        workspace = await prisma.workspace.create({
+          data: {
+            name: 'Test Workspace',
+            members: {
+              create: {
+                userId: TEST_USER_ID,
+                role: 'owner',
+              },
+            },
+          },
+        });
+      }
+
+      // Create entry owned by test user using unified JournalEntry table
+      const demoEntry = await prisma.journalEntry.create({
         data: {
-          userId: TEST_USER_ID,
-          workspaceId: 'test-workspace',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace.id,
           title: 'Entry owned by test user',
           description: 'Another user will try to delete this',
           fullContent: 'Content',
+          sourceMode: 'demo',
         },
       });
 
@@ -433,7 +482,7 @@ describe('deleteJournalEntry', () => {
       ).rejects.toThrow('Access denied: You can only delete your own entries');
 
       // Cleanup
-      await prisma.demoJournalEntry.delete({ where: { id: demoEntry.id } });
+      await prisma.journalEntry.delete({ where: { id: demoEntry.id } });
     });
   });
 
@@ -456,10 +505,10 @@ describe('getJournalEntryById', () => {
   describe('demo mode', () => {
     const demoService = new JournalService(true);
 
-    it('fetches entry from demo table when isDemoMode=true', async () => {
-      // First ensure there's a demo entry
-      const existingEntries = await prisma.demoJournalEntry.findMany({
-        where: { userId: TEST_USER_ID },
+    it('fetches entry from unified JournalEntry table when isDemoMode=true', async () => {
+      // First ensure there's a demo entry in the unified table
+      const existingEntries = await prisma.journalEntry.findMany({
+        where: { authorId: TEST_USER_ID, sourceMode: 'demo' },
         take: 1,
       });
 
@@ -482,15 +531,35 @@ describe('getJournalEntryById', () => {
     });
 
     it('transforms demo entry to response format with all required fields', async () => {
-      // Create a demo entry
-      const demoEntry = await prisma.demoJournalEntry.create({
+      // First ensure we have a workspace for the test user
+      let workspace = await prisma.workspace.findFirst({
+        where: { members: { some: { userId: TEST_USER_ID } } },
+      });
+
+      if (!workspace) {
+        workspace = await prisma.workspace.create({
+          data: {
+            name: 'Test Workspace',
+            members: {
+              create: {
+                userId: TEST_USER_ID,
+                role: 'owner',
+              },
+            },
+          },
+        });
+      }
+
+      // Create a demo entry using unified JournalEntry table
+      const demoEntry = await prisma.journalEntry.create({
         data: {
-          userId: TEST_USER_ID,
-          workspaceId: 'test-workspace',
+          authorId: TEST_USER_ID,
+          workspaceId: workspace.id,
           title: 'Test Entry for getById',
           description: 'Testing getJournalEntryById',
           fullContent: 'Full content for testing',
           groupingMethod: 'time',
+          sourceMode: 'demo',
         },
       });
 
@@ -507,7 +576,7 @@ describe('getJournalEntryById', () => {
         expect(entry).toHaveProperty('groupingMethod', 'time');
       } finally {
         // Cleanup
-        await prisma.demoJournalEntry.delete({ where: { id: demoEntry.id } });
+        await prisma.journalEntry.delete({ where: { id: demoEntry.id } });
       }
     });
   });
@@ -553,5 +622,119 @@ describe('getEntryComments', () => {
         prodService.getEntryComments('non-existent-prod-entry')
       ).rejects.toThrow('Journal entry not found');
     });
+  });
+});
+
+// =============================================================================
+// ACTIVITY EDGE VALIDATION TESTS
+// =============================================================================
+
+describe('validateEdgeType', () => {
+  it('returns valid edge types unchanged', () => {
+    expect(validateEdgeType('primary')).toBe('primary');
+    expect(validateEdgeType('supporting')).toBe('supporting');
+    expect(validateEdgeType('contextual')).toBe('contextual');
+    expect(validateEdgeType('outcome')).toBe('outcome');
+  });
+
+  it('defaults to primary for invalid types', () => {
+    expect(validateEdgeType('invalid')).toBe('primary');
+    expect(validateEdgeType('')).toBe('primary');
+    expect(validateEdgeType(null)).toBe('primary');
+    expect(validateEdgeType(undefined)).toBe('primary');
+    expect(validateEdgeType(123)).toBe('primary');
+    expect(validateEdgeType({})).toBe('primary');
+  });
+});
+
+describe('validateEdgeMessage', () => {
+  it('returns valid messages unchanged', () => {
+    expect(validateEdgeMessage('Core implementation work')).toBe('Core implementation work');
+    expect(validateEdgeMessage('A')).toBe('A');
+  });
+
+  it('truncates messages over 200 characters', () => {
+    const longMessage = 'x'.repeat(250);
+    const result = validateEdgeMessage(longMessage);
+    expect(result.length).toBe(200);
+  });
+
+  it('returns default message for invalid inputs', () => {
+    expect(validateEdgeMessage('')).toBe('Activity included in this story');
+    expect(validateEdgeMessage('   ')).toBe('Activity included in this story');
+    expect(validateEdgeMessage(null)).toBe('Activity included in this story');
+    expect(validateEdgeMessage(undefined)).toBe('Activity included in this story');
+    expect(validateEdgeMessage(123)).toBe('Activity included in this story');
+  });
+});
+
+describe('validateActivityEdges', () => {
+  const activityIds = ['act-1', 'act-2', 'act-3'];
+
+  it('returns default edges for empty array', () => {
+    const result = validateActivityEdges([], activityIds);
+    expect(result).toHaveLength(3);
+    expect(result.every(e => e.type === 'primary')).toBe(true);
+    expect(result.every(e => e.message === 'Activity included in this story')).toBe(true);
+  });
+
+  it('returns default edges for null/undefined', () => {
+    expect(validateActivityEdges(null, activityIds)).toHaveLength(3);
+    expect(validateActivityEdges(undefined, activityIds)).toHaveLength(3);
+  });
+
+  it('validates and returns well-formed edges', () => {
+    const edges = [
+      { activityId: 'act-1', type: 'primary', message: 'Core work' },
+      { activityId: 'act-2', type: 'supporting', message: 'Review work' },
+    ];
+    const result = validateActivityEdges(edges, activityIds);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ activityId: 'act-1', type: 'primary', message: 'Core work' });
+    expect(result[1]).toEqual({ activityId: 'act-2', type: 'supporting', message: 'Review work' });
+  });
+
+  it('filters out edges with invalid activity IDs', () => {
+    const edges = [
+      { activityId: 'act-1', type: 'primary', message: 'Valid' },
+      { activityId: 'invalid-id', type: 'primary', message: 'Invalid' },
+    ];
+    const result = validateActivityEdges(edges, activityIds);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].activityId).toBe('act-1');
+  });
+
+  it('defaults invalid edge types to primary', () => {
+    const edges = [
+      { activityId: 'act-1', type: 'invalid-type', message: 'Test' },
+    ];
+    const result = validateActivityEdges(edges, activityIds);
+
+    expect(result[0].type).toBe('primary');
+  });
+
+  it('defaults missing messages', () => {
+    const edges = [
+      { activityId: 'act-1', type: 'primary' },
+    ];
+    const result = validateActivityEdges(edges, activityIds);
+
+    expect(result[0].message).toBe('Activity included in this story');
+  });
+
+  it('filters out malformed edge objects', () => {
+    const edges = [
+      { activityId: 'act-1', type: 'primary', message: 'Valid' },
+      null,
+      'not an object',
+      123,
+      { noActivityId: true },
+    ];
+    const result = validateActivityEdges(edges, activityIds);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].activityId).toBe('act-1');
   });
 });
