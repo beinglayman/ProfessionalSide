@@ -16,7 +16,23 @@ import {
   RegenerateNarrativeInput
 } from '../types/journal.types';
 import { getModelSelector, ModelSelectorService } from './ai/model-selector.service';
-import { buildNarrativeMessages, formatActivitiesForPrompt } from './ai/prompts/journal-narrative.prompt';
+import {
+  buildNarrativeMessages,
+  formatActivitiesForPrompt,
+  buildEnhancedNarrativeMessages,
+  formatEnhancedActivitiesForPrompt,
+  EnhancedActivity,
+  GroupingContext
+} from './ai/prompts/journal-narrative.prompt';
+import {
+  DraftStoryGenerationOutput,
+  DraftStoryCategory,
+  DraftStoryPhase,
+  ActivityStoryEdge,
+  ACTIVITY_EDGE_TYPES,
+  DEFAULT_EDGE_MESSAGE,
+  MAX_EDGE_MESSAGE_LENGTH,
+} from '../types/journal.types';
 import { skillTrackingService } from './skill-tracking.service';
 import { ActivityService } from './activity.service';
 
@@ -45,6 +61,63 @@ const NARRATIVE_TEMPERATURE = 0.7;
 
 /** Max tokens for narrative generation */
 const NARRATIVE_MAX_TOKENS = 1500;
+
+// =============================================================================
+// ACTIVITY EDGE VALIDATION HELPERS (Exported for testing)
+// =============================================================================
+
+/**
+ * Validate edge type, defaulting to 'primary' for invalid values.
+ * Pure function - safe for unit testing.
+ */
+export function validateEdgeType(type: unknown): ActivityStoryEdge['type'] {
+  if (typeof type === 'string' && ACTIVITY_EDGE_TYPES.includes(type as any)) {
+    return type as ActivityStoryEdge['type'];
+  }
+  return 'primary';
+}
+
+/**
+ * Validate and truncate edge message.
+ * Pure function - safe for unit testing.
+ */
+export function validateEdgeMessage(message: unknown): string {
+  if (typeof message === 'string' && message.trim().length > 0) {
+    return message.slice(0, MAX_EDGE_MESSAGE_LENGTH);
+  }
+  return DEFAULT_EDGE_MESSAGE;
+}
+
+/**
+ * Validate activity edges from LLM response.
+ * Ensures all edges reference valid activity IDs.
+ * Pure function - safe for unit testing.
+ */
+export function validateActivityEdges(
+  edges: unknown,
+  activityIds: string[]
+): ActivityStoryEdge[] {
+  const validIds = new Set(activityIds);
+
+  if (!Array.isArray(edges) || edges.length === 0) {
+    // Default: all activities as 'primary' with generic message
+    return activityIds.map(id => ({
+      activityId: id,
+      type: 'primary',
+      message: DEFAULT_EDGE_MESSAGE,
+    }));
+  }
+
+  return edges
+    .filter((edge: unknown): edge is Record<string, unknown> =>
+      typeof edge === 'object' && edge !== null)
+    .filter((edge) => typeof edge.activityId === 'string' && validIds.has(edge.activityId))
+    .map((edge) => ({
+      activityId: edge.activityId as string,
+      type: validateEdgeType(edge.type),
+      message: validateEdgeMessage(edge.message),
+    }));
+}
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -1860,6 +1933,8 @@ export class JournalService {
     description: string;
     fullContent: string;
     generatedAt: Date;
+    category: string | null;
+    skills: string[];
   }> {
     // 1. Find the entry (uses sourceMode filter for ownership validation)
     const entry = await prisma.journalEntry.findFirst({
@@ -1881,33 +1956,79 @@ export class JournalService {
       throw new Error('No activities found for this journal entry');
     }
 
-    // 3. Generate narrative
+    // 3. Determine grouping context
+    const groupingContext: GroupingContext = {
+      type: entry.groupingMethod === 'cluster' ? 'cluster' : 'temporal',
+      clusterRef: entry.clusterRef || undefined,
+    };
+
+    // 4. Generate narrative
     const toolSummary = this.buildToolSummary(activities);
     const selector = getModelSelector();
-    let fullContent: string;
-    let description: string;
+    let generationOutput: DraftStoryGenerationOutput | null = null;
 
     if (selector) {
       try {
-        const result = await this.generateNarrativeWithLLM(selector, entry.title, activities, options?.style);
-        fullContent = result.fullContent;
-        description = result.description;
+        generationOutput = await this.generateNarrativeWithLLM(
+          selector,
+          entry.title,
+          activities,
+          groupingContext,
+          options?.style
+        );
       } catch (error) {
         console.warn('LLM narrative generation failed, using fallback', { error: (error as Error).message });
-        const fallback = this.generateFallbackNarrative(entry.title, activities, toolSummary);
-        fullContent = fallback.fullContent;
-        description = fallback.description;
       }
-    } else {
-      const fallback = this.generateFallbackNarrative(entry.title, activities, toolSummary);
-      fullContent = fallback.fullContent;
-      description = fallback.description;
     }
 
-    // 4. Update the entry
+    // Use fallback if LLM generation failed or not available
+    if (!generationOutput) {
+      const fallback = this.generateFallbackNarrative(entry.title, activities, toolSummary);
+      generationOutput = {
+        description: fallback.description,
+        fullContent: fallback.fullContent,
+        category: 'achievement',
+        topics: [],
+        skills: extractSkillsFromContent(`${entry.title} ${fallback.description}`),
+        impactHighlights: [],
+        phases: [{
+          name: 'Work',
+          activityIds: activities.map(a => a.id),
+          summary: 'Activities completed during this period',
+        }],
+        dominantRole: 'Participated',
+        activityEdges: activities.map(a => ({
+          activityId: a.id,
+          type: 'primary' as const,
+          message: DEFAULT_EDGE_MESSAGE,
+        })),
+      };
+    }
+
+    // 5. Merge topics into existing tags (with topic: prefix)
+    const existingTags = entry.tags || [];
+    const topicTags = generationOutput.topics.map(t => `topic:${t}`);
+    const nonTopicTags = existingTags.filter(t => !t.startsWith('topic:'));
+    const mergedTags = [...new Set([...nonTopicTags, ...topicTags])];
+
+    // 6. Update the entry with rich output (merge format7Data inline)
     const updated = await prisma.journalEntry.update({
       where: { id: entryId },
-      data: { description, fullContent, generatedAt: new Date() },
+      data: {
+        description: generationOutput.description,
+        fullContent: generationOutput.fullContent,
+        category: generationOutput.category,
+        skills: generationOutput.skills,
+        tags: mergedTags,
+        format7Data: {
+          ...((entry.format7Data as Record<string, unknown>) || {}),
+          phases: JSON.parse(JSON.stringify(generationOutput.phases)),
+          impactHighlights: generationOutput.impactHighlights,
+          dominantRole: generationOutput.dominantRole,
+          activityEdges: JSON.parse(JSON.stringify(generationOutput.activityEdges || [])),
+        },
+        generatedAt: new Date(),
+      },
     });
 
     return {
@@ -1916,6 +2037,8 @@ export class JournalService {
       description: updated.description,
       fullContent: updated.fullContent,
       generatedAt: updated.generatedAt!,
+      category: updated.category,
+      skills: updated.skills,
     };
   }
 
@@ -1925,41 +2048,44 @@ export class JournalService {
 
   /**
    * Fetch activities from the appropriate table based on isDemoMode.
+   * Includes rawData, crossToolRefs, and sourceUrl for enhanced narrative generation.
    */
   private async fetchActivitiesForDraftStory(
     userId: string,
     activityIds: string[]
-  ): Promise<Array<{
-    id: string;
-    source: string;
-    title: string;
-    description: string | null;
-    timestamp: Date;
-  }>> {
+  ): Promise<EnhancedActivity[]> {
+    const selectFields = {
+      id: true,
+      source: true,
+      sourceId: true,
+      sourceUrl: true,
+      title: true,
+      description: true,
+      timestamp: true,
+      rawData: true,
+      crossToolRefs: true,
+    };
+
     if (this.isDemoMode) {
-      return prisma.demoToolActivity.findMany({
+      const results = await prisma.demoToolActivity.findMany({
         where: { id: { in: activityIds }, userId },
         orderBy: { timestamp: 'asc' },
-        select: {
-          id: true,
-          source: true,
-          title: true,
-          description: true,
-          timestamp: true,
-        },
+        select: selectFields,
       });
+      return results.map(r => ({
+        ...r,
+        rawData: r.rawData as Record<string, unknown> | null,
+      }));
     } else {
-      return prisma.toolActivity.findMany({
+      const results = await prisma.toolActivity.findMany({
         where: { id: { in: activityIds }, userId },
         orderBy: { timestamp: 'asc' },
-        select: {
-          id: true,
-          source: true,
-          title: true,
-          description: true,
-          timestamp: true,
-        },
+        select: selectFields,
       });
+      return results.map(r => ({
+        ...r,
+        rawData: r.rawData as Record<string, unknown> | null,
+      }));
     }
   }
 
@@ -1996,25 +2122,24 @@ export class JournalService {
 
   /**
    * Generate narrative using LLM (GPT-4o via ModelSelectorService)
-   * Uses prompts from journal-narrative.prompt.ts
+   * Uses enhanced prompts from journal-narrative.prompt.ts
    */
   private async generateNarrativeWithLLM(
     selector: ModelSelectorService,
     title: string,
-    activities: Array<{
-      source: string;
-      title: string;
-      description: string | null;
-      timestamp: Date;
-    }>,
+    activities: EnhancedActivity[],
+    groupingContext: GroupingContext,
     style?: string
-  ): Promise<{ fullContent: string; description: string }> {
-    // Format activities and build messages using extracted prompts
-    const activitiesText = formatActivitiesForPrompt(activities);
-    const messages = buildNarrativeMessages({
+  ): Promise<DraftStoryGenerationOutput> {
+    // Format activities with rawData context
+    const activitiesText = formatEnhancedActivitiesForPrompt(activities, groupingContext);
+
+    // Build enhanced messages
+    const messages = buildEnhancedNarrativeMessages({
       title,
       activitiesText,
-      style: style || 'professional',
+      isCluster: groupingContext.type === 'cluster',
+      clusterRef: groupingContext.clusterRef,
     });
 
     const result = await selector.executeTask('generate', messages, 'high', {
@@ -2030,10 +2155,24 @@ export class JournalService {
 
     try {
       const parsed = JSON.parse(jsonContent);
+
+      // Validate required fields
       if (!parsed.fullContent || !parsed.description) {
         throw new Error('Missing required fields in LLM response');
       }
-      return { fullContent: parsed.fullContent, description: parsed.description };
+
+      // Provide defaults for optional fields
+      return {
+        description: parsed.description,
+        category: this.validateCategory(parsed.category) || 'achievement',
+        topics: Array.isArray(parsed.topics) ? parsed.topics : [],
+        skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+        impactHighlights: Array.isArray(parsed.impactHighlights) ? parsed.impactHighlights : [],
+        fullContent: parsed.fullContent,
+        phases: this.validatePhases(parsed.phases, activities),
+        dominantRole: this.validateRole(parsed.dominantRole) || 'Participated',
+        activityEdges: validateActivityEdges(parsed.activityEdges, activities.map(a => a.id)),
+      };
     } catch (parseError) {
       console.error('Failed to parse LLM response', {
         error: (parseError as Error).message,
@@ -2044,11 +2183,62 @@ export class JournalService {
   }
 
   /**
+   * Validate category from LLM response
+   */
+  private validateCategory(category: unknown): DraftStoryCategory | null {
+    const validCategories: DraftStoryCategory[] = [
+      'feature', 'bug-fix', 'optimization', 'documentation',
+      'learning', 'collaboration', 'problem-solving', 'achievement'
+    ];
+    if (typeof category === 'string' && validCategories.includes(category as DraftStoryCategory)) {
+      return category as DraftStoryCategory;
+    }
+    return null;
+  }
+
+  /**
+   * Validate role from LLM response
+   */
+  private validateRole(role: unknown): 'Led' | 'Contributed' | 'Participated' | null {
+    const validRoles = ['Led', 'Contributed', 'Participated'];
+    if (typeof role === 'string' && validRoles.includes(role)) {
+      return role as 'Led' | 'Contributed' | 'Participated';
+    }
+    return null;
+  }
+
+  /**
+   * Validate and normalize phases from LLM response
+   */
+  private validatePhases(phases: unknown, activities: EnhancedActivity[]): DraftStoryPhase[] {
+    if (!Array.isArray(phases) || phases.length === 0) {
+      // Default to single phase with all activities
+      return [{
+        name: 'Work',
+        activityIds: activities.map(a => a.id),
+        summary: 'Activities completed during this period',
+      }];
+    }
+
+    return phases.map((phase: unknown) => {
+      if (typeof phase !== 'object' || phase === null) {
+        return { name: 'Work', activityIds: [], summary: '' };
+      }
+      const p = phase as Record<string, unknown>;
+      return {
+        name: typeof p.name === 'string' ? p.name : 'Work',
+        activityIds: Array.isArray(p.activityIds) ? p.activityIds.filter((id): id is string => typeof id === 'string') : [],
+        summary: typeof p.summary === 'string' ? p.summary : '',
+      };
+    });
+  }
+
+  /**
    * Generate fallback narrative when LLM is unavailable
    */
   private generateFallbackNarrative(
     title: string,
-    activities: Array<{ source: string; title: string; timestamp: Date }>,
+    activities: EnhancedActivity[],
     toolSummary: string
   ): { fullContent: string; description: string } {
     const description = `${activities.length} activities across ${toolSummary}`;

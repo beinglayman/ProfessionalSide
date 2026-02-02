@@ -10,7 +10,13 @@ import {
   TemporalStatsResponse,
   ActivityStatsResponse,
   ActivityMeta,
-  ActivitySource
+  ActivitySource,
+  ActivityWithStory,
+  AllActivitiesResponse,
+  GetAllActivitiesInput,
+  ActivityGroup,
+  StoryMetadata,
+  StoryPhase
 } from '../types/activity.types';
 import {
   startOfDay,
@@ -223,7 +229,8 @@ export class ActivityService {
       title: a.title,
       description: a.description,
       timestamp: a.timestamp.toISOString(),
-      crossToolRefs: a.crossToolRefs || []
+      crossToolRefs: a.crossToolRefs || [],
+      rawData: a.rawData as ActivityResponse['rawData'] ?? null
     }));
 
     const totalPages = Math.ceil(total / options.limit);
@@ -360,6 +367,312 @@ export class ActivityService {
     }
 
     return result;
+  }
+
+  /**
+   * Get all activities for a user with optional grouping
+   * Used for journal tab views (Timeline, By Source, By Story)
+   */
+  async getAllActivities(
+    userId: string,
+    options: GetAllActivitiesInput
+  ): Promise<AllActivitiesResponse> {
+    logOperation('getAllActivities', {
+      userId,
+      groupBy: options.groupBy,
+      page: options.page,
+      limit: options.limit,
+      isDemoMode: this.isDemoMode
+    });
+
+    const skip = (options.page - 1) * options.limit;
+
+    // Build where clause
+    const whereClause: any = { userId };
+    if (options.source) {
+      whereClause.source = options.source;
+    }
+
+    // Fetch activities
+    let activities: any[];
+    let total: number;
+
+    if (this.isDemoMode) {
+      [activities, total] = await Promise.all([
+        prisma.demoToolActivity.findMany({
+          where: whereClause,
+          orderBy: { timestamp: 'desc' },
+          skip,
+          take: options.limit
+        }),
+        prisma.demoToolActivity.count({ where: whereClause })
+      ]);
+    } else {
+      [activities, total] = await Promise.all([
+        prisma.toolActivity.findMany({
+          where: whereClause,
+          orderBy: { timestamp: 'desc' },
+          skip,
+          take: options.limit
+        }),
+        prisma.toolActivity.count({ where: whereClause })
+      ]);
+    }
+
+    // Get story assignments for activities
+    const storyAssignments = await this.getStoryAssignmentsForActivities(
+      userId,
+      activities.map(a => a.id)
+    );
+
+    // Transform to response format with story info
+    const activitiesWithStory: ActivityWithStory[] = activities.map(a => {
+      const storyInfo = storyAssignments.get(a.id);
+      return {
+        id: a.id,
+        source: a.source,
+        sourceId: a.sourceId,
+        sourceUrl: a.sourceUrl,
+        title: a.title,
+        description: a.description,
+        timestamp: a.timestamp.toISOString(),
+        crossToolRefs: a.crossToolRefs || [],
+        rawData: a.rawData as ActivityWithStory['rawData'] ?? null,
+        storyId: storyInfo?.storyId || null,
+        storyTitle: storyInfo?.storyTitle || null
+      };
+    });
+
+    const totalPages = Math.ceil(total / options.limit);
+    const pagination = {
+      page: options.page,
+      limit: options.limit,
+      total,
+      totalPages,
+      hasMore: options.page < totalPages
+    };
+
+    // If no grouping requested, return flat list
+    if (!options.groupBy) {
+      return {
+        data: activitiesWithStory,
+        pagination,
+        meta: {
+          groupBy: null,
+          sourceMode: this.sourceMode
+        }
+      };
+    }
+
+    // For story grouping, use a different approach that shows ALL journal entries
+    // This ensures all stories are visible even when activities overlap
+    if (options.groupBy === 'story') {
+      const groups = await this.getStoryGroupsFromEntries(userId, activities);
+      return {
+        groups,
+        pagination,
+        meta: {
+          groupBy: options.groupBy,
+          sourceMode: this.sourceMode
+        }
+      };
+    }
+
+    // Group activities for temporal/source grouping
+    const groups = this.groupActivities(
+      activitiesWithStory,
+      options.groupBy,
+      options.timezone
+    );
+
+    return {
+      groups,
+      pagination,
+      meta: {
+        groupBy: options.groupBy,
+        sourceMode: this.sourceMode,
+        timezone: options.groupBy === 'temporal' ? options.timezone : undefined
+      }
+    };
+  }
+
+  /**
+   * Get story groups by fetching all journal entries first
+   * This ensures ALL entries are shown, even when activities overlap between entries
+   */
+  private async getStoryGroupsFromEntries(
+    userId: string,
+    fetchedActivities: any[]
+  ): Promise<ActivityGroup[]> {
+    // Fetch ALL journal entries for user (both temporal and cluster)
+    const journalEntries = await prisma.journalEntry.findMany({
+      where: {
+        authorId: userId,
+        sourceMode: this.sourceMode
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        timeRangeStart: true,
+        timeRangeEnd: true,
+        category: true,
+        skills: true,
+        tags: true,
+        createdAt: true,
+        isPublished: true,
+        activityIds: true,
+        groupingMethod: true,
+        format7Data: true
+      },
+      orderBy: [
+        // Cluster entries first, then by recency
+        { groupingMethod: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    });
+
+    // Get ALL activity IDs from all journal entries
+    const allEntryActivityIds = new Set<string>();
+    for (const entry of journalEntries) {
+      for (const actId of entry.activityIds || []) {
+        allEntryActivityIds.add(actId);
+      }
+    }
+
+    // Fetch all activities that belong to any journal entry
+    // Note: Activities can appear in multiple stories (m:n relationship)
+    let allEntryActivities: any[];
+    if (this.isDemoMode) {
+      allEntryActivities = await prisma.demoToolActivity.findMany({
+        where: {
+          id: { in: Array.from(allEntryActivityIds) },
+          userId // Ensure we only fetch user's activities
+        }
+      });
+    } else {
+      allEntryActivities = await prisma.toolActivity.findMany({
+        where: {
+          id: { in: Array.from(allEntryActivityIds) },
+          userId // Ensure we only fetch user's activities
+        }
+      });
+    }
+
+    // Build activity lookup map from fetched entry activities
+    const activityMap = new Map(allEntryActivities.map(a => [a.id, a]));
+
+    const groups: ActivityGroup[] = [];
+    // Track activities shown in any story (for unassigned calculation only)
+    const activitiesInAnyStory = new Set<string>();
+
+    // Process each journal entry as a group
+    // Note: Same activity CAN appear in multiple stories (m:n relationship)
+    for (const entry of journalEntries) {
+      // Get activities for this entry
+      const entryActivities: ActivityWithStory[] = [];
+
+      for (const actId of entry.activityIds || []) {
+        const activity = activityMap.get(actId);
+        if (activity) {
+          // Activity can appear in multiple stories - no deduplication here
+          entryActivities.push({
+            id: activity.id,
+            source: activity.source,
+            sourceId: activity.sourceId,
+            sourceUrl: activity.sourceUrl,
+            title: activity.title,
+            description: activity.description,
+            timestamp: activity.timestamp.toISOString(),
+            crossToolRefs: activity.crossToolRefs || [],
+            rawData: activity.rawData as ActivityWithStory['rawData'] ?? null,
+            storyId: entry.id,
+            storyTitle: entry.title
+          });
+          // Track for unassigned calculation
+          activitiesInAnyStory.add(actId);
+        }
+      }
+
+      // Add group for every journal entry (even if no activities found - could be data issue)
+      // Show total count from activityIds, not just fetched activities
+      const totalActivityCount = (entry.activityIds || []).length;
+
+      // Extract enhanced fields from format7Data
+      const format7Data = entry.format7Data as Record<string, unknown> | null;
+      const phases = format7Data?.phases as StoryPhase[] | undefined;
+      const impactHighlights = format7Data?.impactHighlights as string[] | undefined;
+      const dominantRole = format7Data?.dominantRole as 'Led' | 'Contributed' | 'Participated' | undefined;
+      const activityEdges = format7Data?.activityEdges as Array<{
+        activityId: string;
+        type: 'primary' | 'supporting' | 'contextual' | 'outcome';
+        message: string;
+      }> | undefined;
+
+      // Extract topics from tags (tags with topic: prefix)
+      const topics = (entry.tags || [])
+        .filter(tag => tag.startsWith('topic:'))
+        .map(tag => tag.slice(6));
+
+      groups.push({
+        key: entry.id,
+        label: entry.title,
+        count: totalActivityCount,
+        activities: entryActivities,
+        storyMetadata: {
+          id: entry.id,
+          title: entry.title,
+          description: entry.description,
+          timeRangeStart: entry.timeRangeStart?.toISOString() || null,
+          timeRangeEnd: entry.timeRangeEnd?.toISOString() || null,
+          category: entry.category,
+          skills: entry.skills || [],
+          createdAt: entry.createdAt.toISOString(),
+          isPublished: entry.isPublished || false,
+          type: 'journal_entry' as const,
+          groupingMethod: entry.groupingMethod as 'time' | 'cluster' | 'manual' | 'ai' | undefined,
+          // Enhanced fields from LLM generation
+          topics: topics.length > 0 ? topics : undefined,
+          impactHighlights: impactHighlights && impactHighlights.length > 0 ? impactHighlights : undefined,
+          phases: phases && phases.length > 0 ? phases : undefined,
+          dominantRole: dominantRole || null,
+          activityEdges: activityEdges && activityEdges.length > 0 ? activityEdges : undefined
+        }
+      });
+    }
+
+    // Add unassigned activities (from original fetch, not in any journal entry)
+    const fetchedActivityIds = new Set(fetchedActivities.map(a => a.id));
+    const unassignedActivities: ActivityWithStory[] = [];
+
+    for (const activity of fetchedActivities) {
+      if (!allEntryActivityIds.has(activity.id)) {
+        unassignedActivities.push({
+          id: activity.id,
+          source: activity.source,
+          sourceId: activity.sourceId,
+          sourceUrl: activity.sourceUrl,
+          title: activity.title,
+          description: activity.description,
+          timestamp: activity.timestamp.toISOString(),
+          crossToolRefs: activity.crossToolRefs || [],
+          rawData: activity.rawData as ActivityWithStory['rawData'] ?? null,
+          storyId: null,
+          storyTitle: null
+        });
+      }
+    }
+
+    if (unassignedActivities.length > 0) {
+      groups.push({
+        key: 'unassigned',
+        label: 'Unassigned',
+        count: unassignedActivities.length,
+        activities: unassignedActivities
+      });
+    }
+
+    return groups;
   }
 
   /**
@@ -583,6 +896,13 @@ export class ActivityService {
     // Check in order of specificity (most recent first)
     for (const bucket of TEMPORAL_BUCKETS) {
       const range = buckets[bucket];
+
+      // Skip buckets that are disabled (both start and end are null)
+      // This happens for "this_week" on Monday or "this_month" early in month
+      if (range.start === null && range.end === null) {
+        continue;
+      }
+
       const afterStart = range.start === null || timestamp >= range.start;
       const beforeEnd = range.end === null || timestamp <= range.end;
 
@@ -683,6 +1003,251 @@ export class ActivityService {
     }
 
     return counts;
+  }
+
+  /**
+   * Get story assignments for a list of activity IDs
+   * Returns a map of activityId -> { storyId, storyTitle }
+   */
+  private async getStoryAssignmentsForActivities(
+    userId: string,
+    activityIds: string[]
+  ): Promise<Map<string, { storyId: string; storyTitle: string }>> {
+    const result = new Map<string, { storyId: string; storyTitle: string }>();
+
+    if (activityIds.length === 0) return result;
+
+    // Find all career stories and journal entries that contain these activities
+    const [careerStories, journalEntries] = await Promise.all([
+      prisma.careerStory.findMany({
+        where: {
+          userId,
+          sourceMode: this.sourceMode,
+          activityIds: { hasSome: activityIds }
+        },
+        select: { id: true, title: true, activityIds: true }
+      }),
+      prisma.journalEntry.findMany({
+        where: {
+          authorId: userId,
+          sourceMode: this.sourceMode,
+          activityIds: { hasSome: activityIds }
+        },
+        select: { id: true, title: true, activityIds: true, groupingMethod: true }
+      })
+    ]);
+
+    // Map activities to their stories
+    // Priority: CareerStory > Cluster JournalEntry > Temporal JournalEntry
+    // This ensures cluster-based stories are visible even when activities overlap with temporal entries
+
+    // 1. Career stories have highest priority
+    for (const story of careerStories) {
+      for (const activityId of story.activityIds) {
+        if (activityIds.includes(activityId)) {
+          result.set(activityId, { storyId: story.id, storyTitle: story.title });
+        }
+      }
+    }
+
+    // 2. Cluster-based journal entries (semantic grouping) take priority over temporal
+    const clusterEntries = journalEntries.filter(e => e.groupingMethod === 'cluster');
+    const temporalEntries = journalEntries.filter(e => e.groupingMethod !== 'cluster');
+
+    for (const entry of clusterEntries) {
+      for (const activityId of entry.activityIds || []) {
+        if (activityIds.includes(activityId) && !result.has(activityId)) {
+          result.set(activityId, { storyId: entry.id, storyTitle: entry.title });
+        }
+      }
+    }
+
+    // 3. Temporal entries get remaining unassigned activities
+    for (const entry of temporalEntries) {
+      for (const activityId of entry.activityIds || []) {
+        if (activityIds.includes(activityId) && !result.has(activityId)) {
+          result.set(activityId, { storyId: entry.id, storyTitle: entry.title });
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Group activities by temporal bucket, source, or story
+   */
+  private groupActivities(
+    activities: ActivityWithStory[],
+    groupBy: 'temporal' | 'source' | 'story',
+    timezone: string = 'UTC'
+  ): Array<{ key: string; label: string; count: number; activities: ActivityWithStory[] }> {
+    if (groupBy === 'temporal') {
+      return this.groupByTemporal(activities, timezone);
+    } else if (groupBy === 'source') {
+      return this.groupBySource(activities);
+    } else {
+      return this.groupByStory(activities);
+    }
+  }
+
+  /**
+   * Group activities by temporal bucket
+   */
+  private groupByTemporal(
+    activities: ActivityWithStory[],
+    timezone: string
+  ): Array<{ key: string; label: string; count: number; activities: ActivityWithStory[] }> {
+    const now = new Date();
+    const buckets = this.computeMutuallyExclusiveBuckets(now, timezone);
+
+    const groups: Record<TemporalBucket, ActivityWithStory[]> = {
+      today: [],
+      yesterday: [],
+      this_week: [],
+      last_week: [],
+      this_month: [],
+      older: []
+    };
+
+    for (const activity of activities) {
+      const timestamp = new Date(activity.timestamp);
+      const bucket = this.classifyTimestamp(timestamp, buckets);
+      groups[bucket].push(activity);
+    }
+
+    // Return only non-empty buckets in order
+    return TEMPORAL_BUCKETS
+      .filter(bucket => groups[bucket].length > 0)
+      .map(bucket => ({
+        key: bucket,
+        label: buckets[bucket].displayName,
+        count: groups[bucket].length,
+        activities: groups[bucket]
+      }));
+  }
+
+  /**
+   * Group activities by source
+   */
+  private groupBySource(
+    activities: ActivityWithStory[]
+  ): Array<{ key: string; label: string; count: number; activities: ActivityWithStory[] }> {
+    const groups: Record<string, ActivityWithStory[]> = {};
+
+    for (const activity of activities) {
+      if (!groups[activity.source]) {
+        groups[activity.source] = [];
+      }
+      groups[activity.source].push(activity);
+    }
+
+    // Sort by count descending
+    return Object.entries(groups)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([source, sourceActivities]) => {
+        const sourceInfo = isValidSource(source)
+          ? SUPPORTED_SOURCES[source]
+          : null;
+        return {
+          key: source,
+          label: sourceInfo?.displayName || source,
+          count: sourceActivities.length,
+          activities: sourceActivities
+        };
+      });
+  }
+
+  /**
+   * Group activities by story assignment
+   * Note: Story metadata is fetched separately and attached in getAllActivities
+   */
+  private groupByStory(
+    activities: ActivityWithStory[]
+  ): ActivityGroup[] {
+    const groups: Record<string, { label: string; activities: ActivityWithStory[] }> = {
+      unassigned: { label: 'Unassigned', activities: [] }
+    };
+
+    for (const activity of activities) {
+      const storyId = activity.storyId || 'unassigned';
+      if (!groups[storyId]) {
+        groups[storyId] = {
+          label: activity.storyTitle || 'Unknown Story',
+          activities: []
+        };
+      }
+      groups[storyId].activities.push(activity);
+    }
+
+    // Sort: stories with activities first, then unassigned
+    return Object.entries(groups)
+      .filter(([_, group]) => group.activities.length > 0)
+      .sort((a, b) => {
+        // Unassigned goes last
+        if (a[0] === 'unassigned') return 1;
+        if (b[0] === 'unassigned') return -1;
+        // Sort by count descending
+        return b[1].activities.length - a[1].activities.length;
+      })
+      .map(([key, group]) => ({
+        key,
+        label: group.label,
+        count: group.activities.length,
+        activities: group.activities
+      }));
+  }
+
+  /**
+   * Fetch story metadata for a list of story IDs
+   * Currently only fetches from JournalEntry (draft stories)
+   * CareerStory is for published narratives and handled separately
+   */
+  private async getStoryMetadata(
+    userId: string,
+    storyIds: string[]
+  ): Promise<Map<string, StoryMetadata>> {
+    const result = new Map<string, StoryMetadata>();
+
+    if (storyIds.length === 0) return result;
+
+    // Fetch journal entries (draft stories)
+    const journalEntries = await prisma.journalEntry.findMany({
+      where: {
+        id: { in: storyIds },
+        authorId: userId,
+        sourceMode: this.sourceMode
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        timeRangeStart: true,
+        timeRangeEnd: true,
+        category: true,
+        skills: true,
+        createdAt: true,
+        isPublished: true
+      }
+    });
+
+    // Map journal entries
+    for (const entry of journalEntries) {
+      result.set(entry.id, {
+        id: entry.id,
+        title: entry.title,
+        description: entry.description,
+        timeRangeStart: entry.timeRangeStart?.toISOString() || null,
+        timeRangeEnd: entry.timeRangeEnd?.toISOString() || null,
+        category: entry.category || null,
+        skills: entry.skills || [],
+        createdAt: entry.createdAt.toISOString(),
+        isPublished: entry.isPublished || false,
+        type: 'journal_entry'
+      });
+    }
+
+    return result;
   }
 
   /**
