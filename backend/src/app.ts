@@ -469,17 +469,10 @@ app.post('/api/v1/admin/fix-null-sourcemode', async (req, res) => {
 
     console.log(`🔧 Fixing null sourceMode entries, setting to "${targetMode}"...`);
 
+    // Use raw SQL since Prisma doesn't allow null in where clause for non-nullable fields
     const results = await prisma.$transaction([
-      // Fix journal entries with null sourceMode
-      prisma.journalEntry.updateMany({
-        where: { sourceMode: null },
-        data: { sourceMode: targetMode }
-      }),
-      // Fix career stories with null sourceMode
-      prisma.careerStory.updateMany({
-        where: { sourceMode: null },
-        data: { sourceMode: targetMode }
-      }),
+      prisma.$executeRaw`UPDATE "journal_entries" SET "sourceMode" = ${targetMode} WHERE "sourceMode" IS NULL`,
+      prisma.$executeRaw`UPDATE "career_stories" SET "sourceMode" = ${targetMode} WHERE "sourceMode" IS NULL`,
     ]);
 
     console.log('✅ Fixed null sourceMode entries:', results);
@@ -487,8 +480,8 @@ app.post('/api/v1/admin/fix-null-sourcemode', async (req, res) => {
       success: true,
       message: `Fixed null sourceMode entries, set to "${targetMode}"`,
       updated: {
-        journalEntries: results[0].count,
-        careerStories: results[1].count,
+        journalEntries: results[0],
+        careerStories: results[1],
       }
     });
   } catch (error) {
