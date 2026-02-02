@@ -146,6 +146,14 @@ export const getActivityStats = asyncHandler(
 
       sendSuccess(res, result);
     } catch (error: unknown) {
+      console.error('🔴 getActivityStats error:', {
+        userId,
+        groupBy,
+        timezone,
+        isDemoMode: req.headers['x-demo-mode'] === 'true',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       if (error instanceof ActivityNotFoundError) {
         return void sendError(res, error.message, 404);
       }
