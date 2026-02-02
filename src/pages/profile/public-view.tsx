@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils';
 import { profileApiService, ProfileData } from '../../services/profile-api.service';
 import { JournalService } from '../../services/journal.service';
 import { useAuth } from '../../contexts/AuthContext';
+import { API_BASE_URL } from '../../lib/api';
 
 
 
@@ -80,7 +81,7 @@ export function PublicProfilePage() {
       
       // Fetch privacy settings from the backend - this should be a public endpoint
       // that returns filtered settings based on the viewer's relationship to the profile owner
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1'}/users/${profileUserId}/privacy-settings`, {
+      const response = await fetch(`${API_BASE_URL}/users/${profileUserId}/privacy-settings`, {
         headers: {
           'Content-Type': 'application/json',
           ...(currentUser && {
