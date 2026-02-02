@@ -1,9 +1,23 @@
-# System Design Specification v1: Activity Stream & Draft Stories
+# System Design Specification v2: Activity Stream & Draft Stories
 
 **Author:** The Architect (Maker)
 **Date:** 2026-01-31
-**Status:** Draft
+**Status:** Draft (API Nerd Review Applied)
 **Traceability:** requirements-doc-v1.md → Gate 2 PASS
+
+---
+
+## API Design Philosophy
+
+This design follows REST resource principles with honest naming:
+
+| What | URL | Why |
+|------|-----|-----|
+| Activities for a draft story | `GET /journal-entries/:id/activities` | Activities are a sub-resource of journal entries |
+| Activity counts/stats | `GET /activity-stats?groupBy=...` | Stats are aggregations, not resources |
+| Journal entries with metadata | `GET /journal?includeActivityMeta=true` | Enrich existing resource with optional data |
+
+**Key Principle:** `sourceMode` is derived from the journal entry data, not sent by the client. This prevents header/data mismatches.
 
 ---
 
@@ -38,10 +52,9 @@
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │                         API Routes                                   │    │
-│  │  GET /api/v1/journal                    (existing)                  │    │
-│  │  GET /api/v1/activities                 (NEW)                       │    │
-│  │  GET /api/v1/activities/by-source       (NEW)                       │    │
-│  │  GET /api/v1/activities/by-temporal     (NEW)                       │    │
+│  │  GET /api/v1/journal                    (existing, enhanced)        │    │
+│  │  GET /api/v1/journal-entries/:id/activities  (NEW)                  │    │
+│  │  GET /api/v1/activity-stats             (NEW - aggregations)        │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                    │                                         │
 │  ┌─────────────────────────────────┴─────────────────────────────────┐      │
@@ -87,23 +100,29 @@
 
 ## 2. API Specifications
 
-### 2.1 GET /api/v1/activities
+### 2.1 GET /api/v1/journal-entries/:id/activities
 
 **Purpose:** Fetch raw activities for a specific Draft Story (Journal Entry)
 
+**Design Note:** Activities are a sub-resource of journal entries. The `sourceMode` is derived from the journal entry itself — no client header needed.
+
 **Request:**
 ```http
-GET /api/v1/activities?journalEntryId={id}&page=1&limit=20
+GET /api/v1/journal-entries/{id}/activities?page=1&limit=20&source=github
 Authorization: Bearer {token}
-X-Demo-Mode: true|false
 ```
+
+**Path Parameters:**
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | string | Yes | Journal Entry (Draft Story) ID |
 
 **Query Parameters:**
 | Param | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| journalEntryId | string | Yes | - | Draft Story ID to fetch activities for |
 | page | number | No | 1 | Page number |
 | limit | number | No | 20 | Items per page (max: 100) |
+| source | string | No | - | Filter by source (github, jira, etc.) |
 
 **Response (200 OK):**
 ```json
@@ -134,25 +153,39 @@ X-Demo-Mode: true|false
 }
 ```
 
+**Response Headers:**
+```http
+Cache-Control: private, max-age=30
+ETag: "abc123-1706745600"
+```
+
 **Error Responses:**
-- `400 Bad Request` — Missing journalEntryId
 - `404 Not Found` — Journal entry not found
 - `403 Forbidden` — User doesn't own journal entry
 
 ---
 
-### 2.2 GET /api/v1/activities/by-source
+### 2.2 GET /api/v1/activity-stats
 
-**Purpose:** Get activity counts grouped by source tool for filtering
+**Purpose:** Get activity aggregations (counts by source or temporal bucket)
+
+**Design Note:** This is an aggregation endpoint, not a resource endpoint. It returns *counts*, not activities. The name reflects this honestly.
 
 **Request:**
 ```http
-GET /api/v1/activities/by-source
+GET /api/v1/activity-stats?groupBy=source
+GET /api/v1/activity-stats?groupBy=temporal&timezone=America/New_York
 Authorization: Bearer {token}
 X-Demo-Mode: true|false
 ```
 
-**Response (200 OK):**
+**Query Parameters:**
+| Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| groupBy | enum | Yes | - | `source` or `temporal` |
+| timezone | string | No | UTC | User's timezone (only for `groupBy=temporal`) |
+
+**Response (200 OK) — groupBy=source:**
 ```json
 {
   "data": [
@@ -182,33 +215,16 @@ X-Demo-Mode: true|false
     }
   ],
   "meta": {
+    "groupBy": "source",
     "totalActivities": 150,
-    "totalJournalEntries": 12
+    "totalJournalEntries": 12,
+    "sourceCount": 3,
+    "maxSources": 20
   }
 }
 ```
 
-**Use Case:** Populate the "By Source" tab filter buttons with counts
-
----
-
-### 2.3 GET /api/v1/activities/by-temporal
-
-**Purpose:** Get activity counts grouped by temporal buckets
-
-**Request:**
-```http
-GET /api/v1/activities/by-temporal?timezone=America/New_York
-Authorization: Bearer {token}
-X-Demo-Mode: true|false
-```
-
-**Query Parameters:**
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| timezone | string | No | UTC | User's timezone for bucket calculation |
-
-**Response (200 OK):**
+**Response (200 OK) — groupBy=temporal:**
 ```json
 {
   "data": [
@@ -234,13 +250,13 @@ X-Demo-Mode: true|false
     },
     {
       "bucket": "this_week",
-      "displayName": "This Week",
+      "displayName": "This Week (excl. today/yesterday)",
       "dateRange": {
         "start": "2026-01-27T00:00:00Z",
-        "end": "2026-01-31T23:59:59Z"
+        "end": "2026-01-29T23:59:59Z"
       },
-      "activityCount": 25,
-      "journalEntryCount": 4
+      "activityCount": 12,
+      "journalEntryCount": 1
     },
     {
       "bucket": "last_week",
@@ -254,13 +270,13 @@ X-Demo-Mode: true|false
     },
     {
       "bucket": "this_month",
-      "displayName": "This Month",
+      "displayName": "This Month (excl. above)",
       "dateRange": {
         "start": "2026-01-01T00:00:00Z",
-        "end": "2026-01-31T23:59:59Z"
+        "end": "2026-01-19T23:59:59Z"
       },
-      "activityCount": 120,
-      "journalEntryCount": 10
+      "activityCount": 53,
+      "journalEntryCount": 3
     },
     {
       "bucket": "older",
@@ -272,27 +288,94 @@ X-Demo-Mode: true|false
       "activityCount": 30,
       "journalEntryCount": 2
     }
-  ]
+  ],
+  "meta": {
+    "groupBy": "temporal",
+    "timezone": "America/New_York",
+    "totalActivities": 150,
+    "totalJournalEntries": 12
+  }
 }
 ```
 
-**Temporal Bucket Definitions:**
+**Response Headers:**
+```http
+Cache-Control: private, max-age=60
+ETag: "stats-1706745600"
+```
+
+**Use Case:** Populate the "By Source" and "By Temporal" tab filter buttons with counts.
+
+**Note on Temporal Buckets:** Buckets are **mutually exclusive filters**. An activity in "today" is NOT also counted in "this_week". Each activity belongs to exactly one bucket. The `dateRange` reflects the exclusive window for that bucket.
+
+**Temporal Bucket Definitions (Mutually Exclusive):**
 | Bucket | Definition |
 |--------|------------|
 | today | Current calendar day in user's timezone |
-| yesterday | Previous calendar day |
-| this_week | Monday-Sunday of current week |
+| yesterday | Previous calendar day only |
+| this_week | Monday through day-before-yesterday of current week |
 | last_week | Monday-Sunday of previous week |
-| this_month | First to last day of current month |
+| this_month | Days in current month not covered by above buckets |
 | older | Everything before current month |
 
 ---
 
-### 2.4 GET /api/v1/journal (Enhanced)
+### 2.4 How to Get Raw Activities (Usage Patterns)
+
+The API is designed around the primary use case: **selecting a draft story shows its activities**.
+
+#### Pattern 1: By Draft Story (Primary)
+User clicks a draft story → fetch its activities:
+```http
+GET /api/v1/journal-entries/je_xyz789/activities
+```
+Returns the actual activity records linked to that draft story.
+
+#### Pattern 2: By Source Filter
+User clicks "GitHub" tab → show draft stories with GitHub activities:
+```http
+GET /api/v1/journal?filterBySource=github&includeActivityMeta=true
+```
+Returns draft stories that contain at least one GitHub activity. User then clicks a draft story to see its activities (Pattern 1).
+
+#### Pattern 3: By Temporal Filter
+User clicks "Yesterday" tab → show draft stories from yesterday:
+```http
+GET /api/v1/journal?timeRangeStart=2026-01-30T00:00:00Z&timeRangeEnd=2026-01-30T23:59:59Z&includeActivityMeta=true
+```
+Returns draft stories whose time range overlaps with yesterday. User then clicks a draft story to see its activities (Pattern 1).
+
+**Key Insight:** The `/activity-stats` endpoint provides **counts for navigation** (populating tabs with badges). The actual activities are always fetched through a draft story context.
+
+#### Why Not `/activities?source=github`?
+Activities only make sense in the context of a draft story. A raw list of 500 GitHub activities without story context isn't useful. The UI flow is:
+1. See stats (counts per source/temporal bucket)
+2. Filter draft stories by that dimension
+3. Select a draft story
+4. View its activities
+
+This matches the two-column layout: left side filters/selects draft stories, right side shows activities for the selected story.
+
+---
+
+### 2.3 GET /api/v1/journal (Enhanced)
 
 **Purpose:** Existing endpoint, enhanced with activity metadata
 
-**Additional Response Fields:**
+**Request:**
+```http
+GET /api/v1/journal?includeActivityMeta=true&filterBySource=github
+Authorization: Bearer {token}
+X-Demo-Mode: true|false
+```
+
+**Query Parameters (new):**
+| Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| includeActivityMeta | boolean | No | false | Include activity counts/sources |
+| filterBySource | string | No | - | Filter journal entries by contributing source |
+
+**Response (200 OK):**
 ```json
 {
   "data": [
@@ -303,7 +386,6 @@ X-Demo-Mode: true|false
       "timeRangeStart": "2026-01-27T00:00:00Z",
       "timeRangeEnd": "2026-01-30T23:59:59Z",
 
-      // NEW: Activity metadata
       "activityMeta": {
         "totalCount": 8,
         "sources": [
@@ -317,15 +399,25 @@ X-Demo-Mode: true|false
         }
       }
     }
-  ]
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 12,
+    "totalPages": 1,
+    "hasMore": false
+  },
+  "meta": {
+    "sourceMode": "demo",
+    "filters": {
+      "includeActivityMeta": true,
+      "filterBySource": "github"
+    }
+  }
 }
 ```
 
-**Query Parameters (new):**
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| includeActivityMeta | boolean | No | Include activity counts/sources (default: false) |
-| filterBySource | string | No | Filter journal entries by contributing source |
+**Note:** `activityMeta` is only included when `includeActivityMeta=true`. This avoids N+1 queries for clients that don't need the metadata.
 
 ---
 
@@ -460,11 +552,12 @@ export class ActivityService {
 
   /**
    * Get activities for a specific journal entry
+   * Note: sourceMode is derived from the journal entry, not from headers
    */
   async getActivitiesForJournalEntry(
     journalEntryId: string,
     userId: string,
-    options: { page: number; limit: number }
+    options: { page: number; limit: number; source?: string }
   ): Promise<PaginatedActivities> {
     // 1. Fetch journal entry to get activityIds and sourceMode
     const journalEntry = await prisma.journalEntry.findFirst({
@@ -473,151 +566,191 @@ export class ActivityService {
 
     if (!journalEntry) throw new NotFoundError('Journal entry not found');
 
-    // 2. Query appropriate table based on sourceMode
+    // 2. Query appropriate table based on journal entry's sourceMode (not header!)
     const activityTable = journalEntry.sourceMode === 'demo'
       ? prisma.demoToolActivity
       : prisma.toolActivity;
 
-    // 3. Fetch activities by IDs with pagination
+    // 3. Build where clause with optional source filter
+    const whereClause: any = { id: { in: journalEntry.activityIds } };
+    if (options.source) {
+      whereClause.source = options.source;
+    }
+
+    // 4. Fetch activities by IDs with pagination
     const [activities, total] = await Promise.all([
       activityTable.findMany({
-        where: { id: { in: journalEntry.activityIds } },
+        where: whereClause,
         orderBy: { timestamp: 'desc' },
         skip: (options.page - 1) * options.limit,
         take: options.limit
       }),
-      activityTable.count({
-        where: { id: { in: journalEntry.activityIds } }
-      })
+      activityTable.count({ where: whereClause })
     ]);
 
-    return { data: activities, pagination: { page, limit, total, hasMore } };
+    return {
+      data: activities,
+      pagination: {
+        page: options.page,
+        limit: options.limit,
+        total,
+        totalPages: Math.ceil(total / options.limit),
+        hasMore: options.page * options.limit < total
+      },
+      meta: {
+        journalEntryId,
+        sourceMode: journalEntry.sourceMode
+      }
+    };
+  }
+
+  /**
+   * Get activity stats grouped by source or temporal bucket
+   * Note: This uses isDemoMode from header since there's no journal entry context
+   */
+  async getActivityStats(
+    userId: string,
+    groupBy: 'source' | 'temporal',
+    timezone?: string
+  ): Promise<ActivityStats> {
+    if (groupBy === 'source') {
+      return this.getStatsGroupedBySource(userId);
+    } else {
+      return this.getStatsGroupedByTemporal(userId, timezone || 'UTC');
+    }
   }
 
   /**
    * Get activity counts grouped by source
    */
-  async getActivitiesGroupedBySource(userId: string): Promise<SourceGroup[]> {
+  private async getStatsGroupedBySource(userId: string): Promise<SourceStats> {
     const activityTable = this.isDemoMode
       ? prisma.demoToolActivity
       : prisma.toolActivity;
 
-    // Aggregate by source
+    // Aggregate by source (limited to prevent unbounded response)
     const groups = await activityTable.groupBy({
       by: ['source'],
       where: { userId },
-      _count: { id: true }
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 20  // Max 20 sources to prevent unbounded response
     });
 
     // Count journal entries per source
     const journalEntryCounts = await this.getJournalEntryCountsBySource(userId);
 
-    return groups.map(g => ({
-      source: g.source,
-      ...SUPPORTED_SOURCES[g.source],
-      activityCount: g._count.id,
-      journalEntryCount: journalEntryCounts[g.source] || 0
-    }));
+    const totalActivities = groups.reduce((sum, g) => sum + g._count.id, 0);
+
+    return {
+      data: groups.map(g => ({
+        source: g.source,
+        ...SUPPORTED_SOURCES[g.source],
+        activityCount: g._count.id,
+        journalEntryCount: journalEntryCounts[g.source] || 0
+      })),
+      meta: {
+        groupBy: 'source',
+        totalActivities,
+        totalJournalEntries: Object.values(journalEntryCounts).reduce((a, b) => a + b, 0),
+        sourceCount: groups.length,
+        maxSources: 20
+      }
+    };
   }
 
   /**
-   * Get activity counts grouped by temporal bucket
+   * Get activity counts grouped by temporal bucket (mutually exclusive)
+   * Uses single SQL query with CASE for efficiency
    */
-  async getActivitiesGroupedByTemporal(
+  private async getStatsGroupedByTemporal(
     userId: string,
     timezone: string
-  ): Promise<TemporalGroup[]> {
-    const activityTable = this.isDemoMode
-      ? prisma.demoToolActivity
-      : prisma.toolActivity;
+  ): Promise<TemporalStats> {
+    const activityTable = this.isDemoMode ? 'demo_tool_activities' : 'tool_activities';
 
     const now = new Date();
-    const buckets = this.computeTemporalBuckets(now, timezone);
+    const buckets = this.computeMutuallyExclusiveBuckets(now, timezone);
 
-    // Query each bucket
-    const results = await Promise.all(
-      buckets.map(async (bucket) => {
-        const [activityCount, journalEntryCount] = await Promise.all([
-          activityTable.count({
-            where: {
-              userId,
-              timestamp: {
-                gte: bucket.dateRange.start,
-                lte: bucket.dateRange.end
-              }
-            }
-          }),
-          this.getJournalEntryCountForDateRange(
-            userId,
-            bucket.dateRange.start,
-            bucket.dateRange.end
-          )
-        ]);
+    // Single optimized SQL query with CASE statements
+    const result = await prisma.$queryRaw`
+      SELECT
+        CASE
+          WHEN timestamp >= ${buckets.today.start} AND timestamp <= ${buckets.today.end} THEN 'today'
+          WHEN timestamp >= ${buckets.yesterday.start} AND timestamp <= ${buckets.yesterday.end} THEN 'yesterday'
+          WHEN timestamp >= ${buckets.this_week.start} AND timestamp <= ${buckets.this_week.end} THEN 'this_week'
+          WHEN timestamp >= ${buckets.last_week.start} AND timestamp <= ${buckets.last_week.end} THEN 'last_week'
+          WHEN timestamp >= ${buckets.this_month.start} AND timestamp <= ${buckets.this_month.end} THEN 'this_month'
+          ELSE 'older'
+        END as bucket,
+        COUNT(*) as activity_count
+      FROM ${Prisma.raw(activityTable)}
+      WHERE user_id = ${userId}
+      GROUP BY bucket
+    `;
 
-        return { ...bucket, activityCount, journalEntryCount };
-      })
-    );
+    // Get journal entry counts per bucket (separate query)
+    const journalEntryCounts = await this.getJournalEntryCountsByTemporal(userId, buckets);
 
-    return results;
+    const totalActivities = result.reduce((sum: number, r: any) => sum + Number(r.activity_count), 0);
+
+    return {
+      data: Object.entries(buckets).map(([key, range]) => ({
+        bucket: key,
+        displayName: range.displayName,
+        dateRange: { start: range.start, end: range.end },
+        activityCount: Number(result.find((r: any) => r.bucket === key)?.activity_count || 0),
+        journalEntryCount: journalEntryCounts[key] || 0
+      })),
+      meta: {
+        groupBy: 'temporal',
+        timezone,
+        totalActivities,
+        totalJournalEntries: Object.values(journalEntryCounts).reduce((a, b) => a + b, 0)
+      }
+    };
   }
 
   /**
-   * Compute temporal bucket boundaries
+   * Compute mutually exclusive temporal bucket boundaries
+   * Each activity belongs to exactly one bucket
    */
-  private computeTemporalBuckets(now: Date, timezone: string): TemporalBucket[] {
-    // Use date-fns-tz for timezone-aware calculations
+  private computeMutuallyExclusiveBuckets(now: Date, timezone: string): TemporalBuckets {
     const zonedNow = utcToZonedTime(now, timezone);
+    const dayBeforeYesterday = endOfDay(subDays(zonedNow, 2));
 
-    return [
-      {
-        bucket: 'today',
+    return {
+      today: {
         displayName: 'Today',
-        dateRange: {
-          start: startOfDay(zonedNow),
-          end: endOfDay(zonedNow)
-        }
+        start: startOfDay(zonedNow),
+        end: endOfDay(zonedNow)
       },
-      {
-        bucket: 'yesterday',
+      yesterday: {
         displayName: 'Yesterday',
-        dateRange: {
-          start: startOfDay(subDays(zonedNow, 1)),
-          end: endOfDay(subDays(zonedNow, 1))
-        }
+        start: startOfDay(subDays(zonedNow, 1)),
+        end: endOfDay(subDays(zonedNow, 1))
       },
-      {
-        bucket: 'this_week',
-        displayName: 'This Week',
-        dateRange: {
-          start: startOfWeek(zonedNow, { weekStartsOn: 1 }),
-          end: endOfWeek(zonedNow, { weekStartsOn: 1 })
-        }
+      this_week: {
+        displayName: 'This Week (excl. today/yesterday)',
+        start: startOfWeek(zonedNow, { weekStartsOn: 1 }),
+        end: dayBeforeYesterday  // Excludes today and yesterday
       },
-      {
-        bucket: 'last_week',
+      last_week: {
         displayName: 'Last Week',
-        dateRange: {
-          start: startOfWeek(subWeeks(zonedNow, 1), { weekStartsOn: 1 }),
-          end: endOfWeek(subWeeks(zonedNow, 1), { weekStartsOn: 1 })
-        }
+        start: startOfWeek(subWeeks(zonedNow, 1), { weekStartsOn: 1 }),
+        end: endOfWeek(subWeeks(zonedNow, 1), { weekStartsOn: 1 })
       },
-      {
-        bucket: 'this_month',
-        displayName: 'This Month',
-        dateRange: {
-          start: startOfMonth(zonedNow),
-          end: endOfMonth(zonedNow)
-        }
+      this_month: {
+        displayName: 'This Month (excl. above)',
+        start: startOfMonth(zonedNow),
+        end: subDays(startOfWeek(subWeeks(zonedNow, 1), { weekStartsOn: 1 }), 1)
       },
-      {
-        bucket: 'older',
+      older: {
         displayName: 'Older',
-        dateRange: {
-          start: null,
-          end: subMonths(startOfMonth(zonedNow), 1)
-        }
+        start: null,
+        end: subDays(startOfMonth(zonedNow), 1)
       }
-    ];
+    };
   }
 }
 ```
@@ -627,18 +760,42 @@ export class ActivityService {
 ```typescript
 // Request-scoped service pattern (existing pattern in codebase)
 export function createActivityService(req: Request): ActivityService {
+  // Only use header for stats endpoint; activities endpoint derives from journal entry
   const isDemoMode = req.headers['x-demo-mode'] === 'true';
   return new ActivityService(isDemoMode);
 }
 
-// In controller:
-router.get('/activities', async (req, res) => {
+// Controller for journal entry activities (sub-resource pattern)
+router.get('/journal-entries/:id/activities', async (req, res) => {
   const service = createActivityService(req);
   const result = await service.getActivitiesForJournalEntry(
-    req.query.journalEntryId,
+    req.params.id,  // Path param, not query param
     req.user.id,
-    { page: req.query.page, limit: req.query.limit }
+    {
+      page: Number(req.query.page) || 1,
+      limit: Number(req.query.limit) || 20,
+      source: req.query.source as string | undefined
+    }
   );
+
+  // Add cache headers
+  res.set('Cache-Control', 'private, max-age=30');
+  res.set('ETag', `"${req.params.id}-${Date.now()}"`);
+  res.json(result);
+});
+
+// Controller for activity stats (aggregation endpoint)
+router.get('/activity-stats', async (req, res) => {
+  const service = createActivityService(req);
+  const result = await service.getActivityStats(
+    req.user.id,
+    req.query.groupBy as 'source' | 'temporal',
+    req.query.timezone as string | undefined
+  );
+
+  // Aggregations can be cached longer
+  res.set('Cache-Control', 'private, max-age=60');
+  res.set('ETag', `"stats-${Date.now()}"`);
   res.json(result);
 });
 ```
@@ -655,18 +812,18 @@ router.get('/activities', async (req, res) => {
 │          │     │  Router  │     │              │     │    Table     │     │  Table   │
 └────┬─────┘     └────┬─────┘     └──────┬───────┘     └──────┬───────┘     └────┬────┘
      │                │                   │                    │                  │
-     │ GET /activities?journalEntryId=X   │                    │                  │
+     │ GET /journal-entries/{id}/activities                    │                  │
      │───────────────►│                   │                    │                  │
      │                │                   │                    │                  │
-     │                │ getActivities(X)  │                    │                  │
+     │                │ getActivities(id) │                    │                  │
      │                │──────────────────►│                    │                  │
      │                │                   │                    │                  │
-     │                │                   │ findFirst(id=X)    │                  │
+     │                │                   │ findFirst(id)      │                  │
      │                │                   │───────────────────►│                  │
      │                │                   │                    │                  │
      │                │                   │◄───────────────────│                  │
      │                │                   │  {activityIds[],   │                  │
-     │                │                   │   sourceMode}      │                  │
+     │                │                   │   sourceMode}      │ (derived!)       │
      │                │                   │                    │                  │
      │                │                   │ if sourceMode='demo'                  │
      │                │                   │ findMany(ids)      │                  │
@@ -676,13 +833,13 @@ router.get('/activities', async (req, res) => {
      │                │                   │     activities[]   │                  │
      │                │                   │                    │                  │
      │                │◄──────────────────│                    │                  │
-     │                │  {data, pagination}                    │                  │
+     │                │  {data, pagination, meta}              │                  │
      │◄───────────────│                   │                    │                  │
-     │ 200 OK         │                   │                    │                  │
+     │ 200 OK + ETag  │                   │                    │                  │
      │                │                   │                    │                  │
 ```
 
-### 5.2 Load Source Groupings
+### 5.2 Load Activity Stats (Source Groupings)
 
 ```
 ┌──────────┐     ┌──────────┐     ┌──────────────┐     ┌─────────┐
@@ -690,13 +847,15 @@ router.get('/activities', async (req, res) => {
 │          │     │  Router  │     │              │     │  Table   │
 └────┬─────┘     └────┬─────┘     └──────┬───────┘     └────┬────┘
      │                │                   │                  │
-     │ GET /activities/by-source          │                  │
+     │ GET /activity-stats?groupBy=source │                  │
      │───────────────►│                   │                  │
      │                │                   │                  │
-     │                │ getGroupedBySource│                  │
+     │                │ getActivityStats  │                  │
+     │                │ (groupBy='source')│                  │
      │                │──────────────────►│                  │
      │                │                   │                  │
      │                │                   │ groupBy(source)  │
+     │                │                   │ LIMIT 20         │
      │                │                   │─────────────────►│
      │                │                   │                  │
      │                │                   │◄─────────────────│
@@ -706,11 +865,9 @@ router.get('/activities', async (req, res) => {
      │                │                   │ SUPPORTED_SOURCES│
      │                │                   │                  │
      │                │◄──────────────────│                  │
-     │                │  [{source,        │                  │
-     │                │    displayName,   │                  │
-     │                │    color, count}] │                  │
+     │                │  {data, meta}     │                  │
      │◄───────────────│                   │                  │
-     │ 200 OK         │                   │                  │
+     │ 200 OK + Cache │                   │                  │
 ```
 
 ---
@@ -721,9 +878,9 @@ router.get('/activities', async (req, res) => {
 
 | Endpoint | Auth Required | Authorization Rule |
 |----------|---------------|-------------------|
-| GET /activities | Yes (JWT) | User can only access activities linked to their own journal entries |
-| GET /activities/by-source | Yes (JWT) | User can only see their own activity aggregates |
-| GET /activities/by-temporal | Yes (JWT) | User can only see their own activity aggregates |
+| GET /journal-entries/:id/activities | Yes (JWT) | User can only access activities linked to their own journal entries |
+| GET /activity-stats | Yes (JWT) | User can only see their own activity aggregates |
+| GET /journal | Yes (JWT) | User can only see their own journal entries |
 
 ### 6.2 Data Access Control
 
@@ -749,16 +906,22 @@ async getActivitiesForJournalEntry(journalEntryId: string, userId: string) {
 ### 6.3 Input Validation
 
 ```typescript
-// Zod schema for query validation
-const GetActivitiesSchema = z.object({
-  journalEntryId: z.string().cuid(),
+// Zod schema for journal entry activities
+const GetJournalEntryActivitiesSchema = z.object({
+  // Path param validated separately
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20)
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  source: z.string().optional()
 });
 
-const GetTemporalSchema = z.object({
-  timezone: z.string().refine(isValidTimezone).default('UTC')
+// Zod schema for activity stats
+const GetActivityStatsSchema = z.object({
+  groupBy: z.enum(['source', 'temporal']),
+  timezone: z.string().refine(isValidTimezone).default('UTC').optional()
 });
+
+// Path param validation
+const JournalEntryIdSchema = z.string().cuid();
 ```
 
 ---
@@ -797,30 +960,30 @@ CREATE INDEX idx_journal_entries_author_sourcemode
 
 **New React Query Hooks:**
 ```typescript
-// src/hooks/useActivities.ts
+// src/hooks/useJournalEntryActivities.ts
 
-export function useActivitiesForJournalEntry(
+export function useJournalEntryActivities(
   journalEntryId: string | null,
-  options?: { page?: number; limit?: number }
+  options?: { page?: number; limit?: number; source?: string }
 ) {
   return useQuery({
-    queryKey: ['activities', journalEntryId, options],
-    queryFn: () => activityService.getActivities(journalEntryId, options),
-    enabled: !!journalEntryId
+    queryKey: ['journal-entries', journalEntryId, 'activities', options],
+    queryFn: () => activityService.getJournalEntryActivities(journalEntryId!, options),
+    enabled: !!journalEntryId,
+    staleTime: 30 * 1000  // Match Cache-Control: max-age=30
   });
 }
 
-export function useActivitySourceGroups() {
-  return useQuery({
-    queryKey: ['activities', 'by-source'],
-    queryFn: () => activityService.getSourceGroups()
-  });
-}
+// src/hooks/useActivityStats.ts
 
-export function useActivityTemporalGroups(timezone: string) {
+export function useActivityStats(
+  groupBy: 'source' | 'temporal',
+  timezone?: string
+) {
   return useQuery({
-    queryKey: ['activities', 'by-temporal', timezone],
-    queryFn: () => activityService.getTemporalGroups(timezone)
+    queryKey: ['activity-stats', groupBy, timezone],
+    queryFn: () => activityService.getActivityStats(groupBy, timezone),
+    staleTime: 60 * 1000  // Match Cache-Control: max-age=60
   });
 }
 ```
@@ -858,31 +1021,34 @@ async getJournalEntriesWithActivityMeta(
 ```
 backend/src/
 ├── controllers/
-│   └── activities.controller.ts      # NEW
+│   ├── journal-entry-activities.controller.ts  # NEW (sub-resource)
+│   └── activity-stats.controller.ts            # NEW (aggregations)
 ├── routes/
-│   └── activities.routes.ts          # NEW
+│   ├── journal-entries.routes.ts               # ENHANCED (add activities sub-route)
+│   └── activity-stats.routes.ts                # NEW
 ├── services/
-│   ├── activity.service.ts           # NEW
-│   └── journal.service.ts            # ENHANCED
+│   ├── activity.service.ts                     # NEW
+│   └── journal.service.ts                      # ENHANCED
 ├── validators/
-│   └── activity.validators.ts        # NEW
+│   └── activity.validators.ts                  # NEW
 └── types/
-    └── activity.types.ts             # NEW
+    └── activity.types.ts                       # NEW
 
 frontend/src/
 ├── hooks/
-│   └── useActivities.ts              # NEW
+│   ├── useJournalEntryActivities.ts            # NEW
+│   └── useActivityStats.ts                     # NEW
 ├── services/
-│   └── activity.service.ts           # NEW
+│   └── activity.service.ts                     # NEW
 ├── components/
 │   └── journal/
-│       ├── DraftStoriesPanel.tsx     # NEW
-│       ├── ActivitiesPanel.tsx       # NEW
-│       ├── ActivityCard.tsx          # NEW
-│       └── TreeLines.tsx             # NEW
+│       ├── DraftStoriesPanel.tsx               # NEW
+│       ├── ActivitiesPanel.tsx                 # NEW
+│       ├── ActivityCard.tsx                    # NEW
+│       └── TreeLines.tsx                       # NEW
 └── pages/
     └── journal/
-        └── list.tsx                  # REFACTORED
+        └── list.tsx                            # REFACTORED
 ```
 
 ---

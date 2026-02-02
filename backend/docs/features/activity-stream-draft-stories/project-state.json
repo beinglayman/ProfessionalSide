@@ -42,12 +42,14 @@
     "design": {
       "status": "complete",
       "started_at": "2026-01-31T19:00:00Z",
-      "completed_at": "2026-01-31T20:00:00Z",
-      "gate_result": "CONDITIONAL_PASS",
-      "conditions": [
-        "Optimize temporal bucket query during implementation",
-        "Verify error classes exist"
-      ],
+      "completed_at": "2026-01-31T21:00:00Z",
+      "gate_result": "PASS",
+      "api_review": {
+        "reviewer": "API Nerd",
+        "initial_score": "6.5/10",
+        "final_score": "8.5/10",
+        "issues_resolved": 8
+      },
       "ux": {
         "status": "skipped",
         "reason": "demo-v2 prototypes serve as wireframes"
@@ -55,10 +57,11 @@
       "system": {
         "status": "complete",
         "artifacts": [
-          "stages/03-design/system/artifacts/system-design-spec-v1.md"
+          "stages/03-design/system/artifacts/system-design-spec-v2.md"
         ],
         "records": [
-          "stages/03-design/system/records/technical-review-v1.md"
+          "stages/03-design/system/records/technical-review-v1.md",
+          "stages/03-design/system/records/technical-review-v2.md"
         ]
       }
     },
@@ -71,5 +74,12 @@
     "journalEntry": "= Draft Story. Auto-generated grouping of raw activities",
     "draftStory": "= Journal Entry. Same thing, user-facing name",
     "careerStory": "User-promoted narrative with explicit framework (STAR, etc.)"
+  },
+  "api_endpoints": {
+    "v2": [
+      "GET /api/v1/journal-entries/:id/activities",
+      "GET /api/v1/activity-stats?groupBy=source|temporal",
+      "GET /api/v1/journal (enhanced with includeActivityMeta)"
+    ]
   }
 }

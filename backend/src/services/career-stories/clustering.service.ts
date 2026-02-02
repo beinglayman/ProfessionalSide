@@ -235,7 +235,7 @@ export class ClusteringService {
         activities: {
           orderBy: { timestamp: 'desc' },
         },
-        story: true,
+        // Note: story relation removed - CareerStory now uses activityIds directly
       },
     });
   }

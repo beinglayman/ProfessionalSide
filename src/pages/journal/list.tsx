@@ -50,7 +50,8 @@ import {
   Download,
   RepeatIcon,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
@@ -70,6 +71,10 @@ import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
 import { runDemoSync, SyncState } from '../../services/sync.service';
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
+import { ActivityViewTabs, ActivityViewType } from '../../components/journal/activity-view-tabs';
+import { ActivityStream } from '../../components/journal/activity-stream';
+import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
+import { GroupedActivitiesResponse } from '../../types/activity';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -80,6 +85,9 @@ export default function JournalPage() {
   const [viewMode, setViewMode] = useState<'workspace' | 'network'>('workspace');
   const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Activity stream view state
+  const [activityView, setActivityView] = useState<ActivityViewType>('timeline');
 
   // Toggle view mode for individual entry
   const toggleEntryViewMode = (entryId: string) => {
@@ -137,6 +145,14 @@ export default function JournalPage() {
 
   const { data, isLoading, isError, error } = useUserFeed(baseQueryParams);
   const { data: userWorkspaces, isLoading: workspacesLoading } = useWorkspaces();
+
+  // Fetch activities for the stream view - maps activityView to API groupBy param
+  const activityGroupBy = activityView === 'timeline' ? 'temporal' : activityView;
+  const {
+    data: activitiesData,
+    isLoading: activitiesLoading,
+    error: activitiesError
+  } = useActivities({ groupBy: activityGroupBy, limit: 100 });
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
   const rechronicleMutation = useRechronicleEntry();
@@ -745,321 +761,66 @@ export default function JournalPage() {
     );
   };
 
+  // Get activity count for display
+  const activityCount = activitiesData && isGroupedResponse(activitiesData)
+    ? activitiesData.pagination.total
+    : 0;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-                My Journal
-              </h1>
-              <p className="mt-2 text-sm text-gray-600">
-                Document your professional journey and share your achievements
-              </p>
-            </div>
-            
-            {/* Workspace/Network Toggle */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
-                <button
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                    viewMode === 'workspace' 
-                      ? "bg-primary-500 text-white shadow-sm"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  )}
-                  onClick={() => setViewMode('workspace')}
-                >
-                  Workspace View
-                </button>
-                <button
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                    viewMode === 'network' 
-                      ? "bg-primary-500 text-white shadow-sm"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  )}
-                  onClick={() => setViewMode('network')}
-                >
-                  Network View
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* View Mode Info Banner */}
-        <div className={cn(
-          "mb-6 p-4 rounded-lg flex items-start gap-3",
-          viewMode === 'workspace' ? "bg-blue-50 border border-blue-200" : "bg-purple-50 border border-purple-200"
-        )}>
-          <div className="flex-shrink-0">
-            {viewMode === 'workspace' ? 
-              <Shield className="h-5 w-5 text-blue-600" /> : 
-              <Globe className="h-5 w-5 text-purple-600" />
-            }
-          </div>
-          <div className="flex-1">
-            <h3 className={cn(
-              "text-sm font-medium",
-              viewMode === 'workspace' ? "text-blue-900" : "text-purple-900"
-            )}>
-              {viewMode === 'workspace' ? 'Workspace View' : 'Network View'}
-            </h3>
-            <p className={cn(
-              "mt-1 text-sm",
-              viewMode === 'workspace' ? "text-blue-700" : "text-purple-700"
-            )}>
-              {viewMode === 'workspace' 
-                ? 'Full access to all journal details, artifacts, and confidential information. Only visible to you and your workspace members.'
-                : 'Sanitized view of your published journals. Client names and confidential details are hidden. This is what your network sees.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Search and Filters - Expandable */}
-        {showSearchFilters && (
-          <div className="mb-8 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              {/* Search */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search journal entries..."
-                    className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 focus:border-primary-500 focus:ring-primary-500"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Sort Options */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Sort by:</span>
-                <select
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'recent' | 'popular')}
-                >
-                  <option value="recent">Most Recent</option>
-                  <option value="popular">Most Popular</option>
-                </select>
-              </div>
-
-              {/* Filter Toggle */}
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className={cn(showFilters && "bg-gray-100")}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {(selectedWorkspace !== 'all' || selectedCategory !== 'all' || selectedSkills.length > 0) && (
-                  <span className="ml-2 rounded-full bg-primary-500 px-2 py-0.5 text-xs text-white">
-                    {[selectedWorkspace !== 'all', selectedCategory !== 'all', selectedSkills.length > 0].filter(Boolean).length}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            {/* Expandable Filters */}
-            {showFilters && (
-              <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Workspace Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Workspace
-                    </label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
-                      value={selectedWorkspace}
-                      onChange={(e) => setSelectedWorkspace(e.target.value)}
-                    >
-                      <option value="all">All Workspaces</option>
-                      {workspaces.map((workspace) => (
-                        <option key={workspace.id} value={workspace.id}>
-                          {workspace.name} {workspace.isPersonal && '(Personal)'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Category Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
-                    </label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                    >
-                      <option value="all">All Categories</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Clear Filters */}
-                  <div className="flex items-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedWorkspace('all');
-                        setSelectedCategory('all');
-                        setSelectedSkills([]);
-                        setSearchQuery('');
-                      }}
-                      className="w-full"
-                    >
-                      Clear All Filters
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Skills Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Skills ({selectedSkills.length} selected)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {allSkills.map((skill) => (
-                      <button
-                        key={skill}
-                        onClick={() => toggleSkill(skill)}
-                        className={cn(
-                          "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                          selectedSkills.includes(skill)
-                            ? "bg-primary-500 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        )}
-                      >
-                        {skill}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {/* Compact Header: Tabs + Count + Actions in one row */}
+        <div className="flex items-center justify-between gap-4 mb-5">
+          {/* Left: Tabs with integrated count */}
+          <div className="flex items-center gap-4">
+            <ActivityViewTabs
+              activeView={activityView}
+              onViewChange={setActivityView}
+            />
+            {activityCount > 0 && (
+              <span className="text-sm text-gray-400">
+                {activityCount} activities
+              </span>
             )}
           </div>
-        )}
 
-        {/* Results Summary with Search/Filter Toggle */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing {sortedJournals.length} journal {sortedJournals.length === 1 ? 'entry' : 'entries'}
-            {viewMode === 'network' && ' (published only)'}
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowSearchFilters(!showSearchFilters)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <Search className="h-4 w-4" />
-              <span>Search & Filter</span>
-              {(searchQuery || selectedWorkspace !== 'all' || selectedCategory !== 'all' || selectedSkills.length > 0) && (
-                <span className="ml-1 rounded-full bg-primary-500 px-2 py-0.5 text-xs text-white">
-                  {[searchQuery !== '', selectedWorkspace !== 'all', selectedCategory !== 'all', selectedSkills.length > 0].filter(Boolean).length}
-                </span>
-              )}
-              <ChevronDown className={cn("h-4 w-4 transition-transform", showSearchFilters && "rotate-180")} />
-            </button>
-
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              className="shadow-xs transition-all duration-200 hover:shadow-md px-3 py-1.5 text-xs"
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900"
               onClick={handleSync}
               disabled={isSyncing}
             >
-              <RefreshCw className={cn("mr-1 h-3.5 w-3.5", isSyncing && "animate-spin")} />
-              Sync
+              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
             </Button>
 
             <Button
-              className="bg-primary-500 hover:bg-primary-600 text-white shadow-xs transition-all duration-200 hover:shadow-md px-3 py-1.5 text-xs"
+              size="sm"
+              className="bg-primary-600 hover:bg-primary-700 text-white"
               onClick={() => setShowNewEntryModal(true)}
             >
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              New Entry
+              <Plus className="h-4 w-4 mr-1" />
+              New
             </Button>
           </div>
         </div>
 
-        {/* Workspace Tabs (only in workspace view) */}
-        {viewMode === 'workspace' && (
-          <div className="mb-6 flex items-center gap-2 overflow-x-auto border-b border-gray-200">
-            <button
-              className={cn(
-                "relative px-4 py-2 text-sm font-medium transition-colors flex items-center group",
-                selectedWorkspace === 'all'
-                  ? "text-primary-600"
-                  : "text-gray-500 hover:text-primary-600"
-              )}
-              style={{ outline: 'none', background: 'none', border: 'none' }}
-              onClick={() => setSelectedWorkspace('all')}
-            >
-              All Workspaces
-              {selectedWorkspace === 'all' && (
-                <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary-500 rounded-full" />
-              )}
-            </button>
-            {workspaces.map((ws) => (
-              <button
-                key={ws.id}
-                className={cn(
-                  "relative px-4 py-2 text-sm font-medium transition-colors flex items-center group",
-                  selectedWorkspace === ws.id
-                    ? "text-primary-600"
-                    : "text-gray-500 hover:text-primary-600"
-                )}
-                style={{ outline: 'none', background: 'none', border: 'none' }}
-                onClick={() => setSelectedWorkspace(ws.id)}
-              >
-                <span className="mr-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7V6a2 2 0 012-2h2a2 2 0 012 2v1m0 0v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7m6 0h6m0 0V6a2 2 0 012-2h2a2 2 0 012 2v1m0 0v10a2 2 0 01-2 2h-2a2 2 0 01-2-2V7" /></svg>
-                </span>
-                {ws.name}
-                {selectedWorkspace === ws.id && (
-                  <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary-500 rounded-full" />
-                )}
-              </button>
-            ))}
-            
-          </div>
-        )}
-
-        {/* Journal Entries */}
-        {sortedJournals.length > 0 ? (
-          <div className="grid gap-6">
-            {sortedJournals.map(journal => renderJournalCard(journal))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-            <FileText className="h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-sm font-medium text-gray-900">No journal entries found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchQuery || selectedSkills.length > 0 || selectedWorkspace !== 'all' || selectedCategory !== 'all' 
-                ? 'Try adjusting your filters or search query'
-                : 'Start documenting your professional journey by creating your first entry'}
-            </p>
-            <Button 
-              className="mt-4 bg-primary-500 hover:bg-primary-600 text-white shadow-sm transition-all duration-200 hover:shadow-md px-3 py-1.5 text-sm"
-              onClick={() => setShowNewEntryModal(true)}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Create Your First Entry
-            </Button>
-          </div>
-        )}
+        {/* Activity Stream */}
+        <ActivityStream
+          groups={activitiesData && isGroupedResponse(activitiesData) ? activitiesData.groups : []}
+          groupBy={activityGroupBy}
+          isLoading={activitiesLoading}
+          error={activitiesError ? String(activitiesError) : null}
+          emptyMessage={
+            activityView === 'timeline'
+              ? 'No activities yet. Sync your tools to see your work history.'
+              : activityView === 'source'
+              ? 'No activities from connected sources. Try syncing your tools.'
+              : 'No stories created yet. Activities will be grouped once you create draft stories.'
+          }
+        />
       </div>
       <NewEntryModal 
         open={showNewEntryModal} 

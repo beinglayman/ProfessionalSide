@@ -3,26 +3,25 @@ import { prisma } from './prisma';
 /**
  * Demo Table Selectors
  *
- * Provides a unified interface for querying demo vs production tables.
- * When isDemoMode is true, queries go to demo tables; otherwise, production tables.
+ * Provides a unified interface for querying demo vs production tables
+ * for SOURCE-LEVEL data (activities).
  *
- * This pattern ensures:
- * - Same query logic for both modes
- * - Same response shape for both modes
- * - No contract drift between demo and production
+ * NOTE: JournalEntry and CareerStory now use unified models with `sourceMode`
+ * field instead of separate demo tables. Use the respective services with
+ * isDemoMode flag instead of these helpers:
+ * - JournalService(isDemoMode) for journal entries
+ * - CareerStoryService(isDemoMode) for career stories
+ *
+ * This file only handles source-level tables:
+ * - DemoToolActivity vs ToolActivity
  */
-
-/**
- * Get the appropriate journal entry table based on demo mode.
- * Returns a Prisma delegate that can be used for queries.
- */
-export function getJournalEntryTable(isDemoMode: boolean) {
-  return isDemoMode ? prisma.demoJournalEntry : prisma.journalEntry;
-}
 
 /**
  * Get the appropriate tool activity table based on demo mode.
  * Returns a Prisma delegate that can be used for queries.
+ *
+ * NOTE: This is for SOURCE-LEVEL data only. For domain models
+ * (JournalEntry, CareerStory), use the unified models with sourceMode.
  */
 export function getToolActivityTable(isDemoMode: boolean) {
   return isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;

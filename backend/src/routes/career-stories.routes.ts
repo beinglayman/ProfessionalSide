@@ -85,7 +85,7 @@ router.post('/mock/full-pipeline', runFullPipeline);
 router.get('/demo/clusters', getDemoClusters);
 router.get('/demo/clusters/:id', getDemoClusterById);
 router.post('/demo/clusters/:id/generate-star', generateDemoStar);
-// Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/demo instead
+// Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/all with X-Demo-Mode header
 
 // ============================================================================
 // STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)

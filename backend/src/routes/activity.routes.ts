@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
   getJournalEntryActivities,
-  getActivityStats
+  getActivityStats,
+  getAllActivities
 } from '../controllers/activity.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
@@ -35,6 +36,22 @@ function attachActivityService(
 // All activity routes require authentication
 router.use(authenticate);
 router.use(attachActivityService);
+
+/**
+ * GET /api/v1/activities
+ *
+ * Fetch all activities for the user with optional grouping.
+ * Used for journal tab views (Timeline, By Source, By Story).
+ *
+ * Query params:
+ * - page: number (default: 1)
+ * - limit: number (default: 50, max: 200)
+ * - groupBy: 'temporal' | 'source' | 'story' (optional)
+ * - source: string (optional, filter by source)
+ * - storyId: string (optional, filter by story)
+ * - timezone: string (default: 'UTC', for temporal grouping)
+ */
+router.get('/activities', getAllActivities);
 
 /**
  * GET /api/v1/journal-entries/:id/activities

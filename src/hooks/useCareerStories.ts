@@ -32,12 +32,8 @@ import {
   GenerateSTARRequest,
   MergeClustersRequest,
 } from '../types/career-stories';
-import {
-  isDemoMode,
-  DEMO_CLUSTERS,
-  DEMO_CLUSTER_DETAILS,
-  DEMO_STARS,
-} from '../services/career-stories-demo-data';
+import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
+// NOTE: DEMO_CLUSTERS and DEMO_STARS removed - CareerStories come from DB only
 
 // =============================================================================
 // STATS
@@ -105,18 +101,18 @@ export const useUnclusteredActivities = () => {
 
 /**
  * Get all clusters for the user.
- * In demo mode, fetches from demo tables. Otherwise, fetches from real tables.
+ *
+ * NOTE: This fetches from StoryCluster table (production clustering).
+ * Demo mode no longer uses hardcoded DEMO_CLUSTERS - those were journal entries,
+ * not career stories. Career Stories are only created when a user explicitly
+ * generates a polished narrative from a JournalEntry.
  */
 export const useClusters = () => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesClusters,
     queryFn: async () => {
-      // Demo mode - use client-side mock data (no API call)
-      if (isDemoMode()) {
-        return DEMO_CLUSTERS;
-      }
-
-      // Live mode - fetch real clusters from API
+      // Always fetch from API - no demo mode fallback
+      // CareerStory records are only created through explicit narrative generation
       const response = await CareerStoriesService.getClusters();
       if (response.success && response.data) {
         return response.data;
@@ -128,23 +124,18 @@ export const useClusters = () => {
 
 /**
  * Get a single cluster with activities.
- * In demo mode, uses client-side mock data.
+ *
+ * NOTE: Demo mode fallback removed - CareerStories come from explicit
+ * narrative generation, not hardcoded mock data.
  */
 export const useCluster = (id: string) => {
   return useQuery({
     queryKey: QueryKeys.careerStoriesCluster(id),
     queryFn: async () => {
-      // Demo mode - use client-side mock data
-      if (isDemoMode() && DEMO_CLUSTER_DETAILS[id]) {
-        return DEMO_CLUSTER_DETAILS[id];
-      }
-
-      // Live mode - fetch from API
       const response = await CareerStoriesService.getClusterById(id);
       if (response.success && response.data) {
         return response.data;
       }
-
       throw new Error(response.error || 'Failed to fetch cluster');
     },
     enabled: !!id,
@@ -270,7 +261,9 @@ export const useMergeClusters = () => {
 
 /**
  * Generate STAR narrative for a cluster.
- * In demo mode, uses client-side mock STAR data.
+ *
+ * NOTE: Demo mode fallback removed - STAR generation happens through
+ * the real API which creates CareerStory records.
  *
  * @param clusterId - The cluster to generate a STAR from
  * @param request - Optional request options (personaId, polish settings)
@@ -280,22 +273,6 @@ export const useGenerateStar = () => {
 
   return useMutation({
     mutationFn: async ({ clusterId, request }: { clusterId: string; request?: GenerateSTARRequest }) => {
-      // Demo mode - use client-side mock STAR data
-      if (isDemoMode() && DEMO_STARS[clusterId]) {
-        // Simulate network delay for realism
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        return {
-          success: true,
-          data: {
-            star: DEMO_STARS[clusterId],
-            polishStatus: request?.options?.polish ? 'success' : 'skipped',
-            processingTimeMs: 800,
-          },
-        };
-      }
-
-      // Live mode - call real API
       return CareerStoriesService.generateStar(clusterId, request);
     },
     onSuccess: (response, { clusterId }) => {

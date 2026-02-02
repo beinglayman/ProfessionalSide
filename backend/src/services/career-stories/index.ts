@@ -41,3 +41,27 @@ export {
   PolishResult,
   PolishedSTAR,
 } from './llm-polisher.service';
+
+export {
+  StoryPublishingService,
+  createStoryPublishingService,
+  Visibility,
+  PublishResult,
+  PublishedStory,
+  PublishedStoriesResult,
+} from './story-publishing.service';
+
+// Unified Career Story Service (replaces StoryPublishingService)
+export {
+  CareerStoryService,
+  createCareerStoryService,
+  NARRATIVE_FRAMEWORKS,
+  type SourceMode,
+  type FrameworkName,
+  type NarrativeSection,
+  type NarrativeSections,
+  type CreateStoryInput,
+  type EditActivitiesInput,
+  type StoryResult,
+  type StoriesListResult,
+} from './career-story.service';

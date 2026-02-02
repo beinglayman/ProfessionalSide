@@ -107,11 +107,13 @@ model User {
   // Career Stories
   toolActivities ToolActivity[]
   storyClusters  StoryCluster[]
+  careerStories  CareerStory[]
 
-  // Career Stories - Demo/Sandbox
+  // Career Stories - Demo/Sandbox (source-level data only)
   demoToolActivities  DemoToolActivity[]
-  demoStoryClusters   DemoStoryCluster[]
-  demoJournalEntries  DemoJournalEntry[]
+  // NOTE: DemoStoryCluster, DemoJournalEntry, and DemoCareerStory removed
+  // Clustering is now stored inline in JournalEntry.activityIds + groupingMethod
+  // Use unified models with sourceMode field instead
 
   @@map("users")
 }
@@ -445,9 +447,13 @@ model JournalEntry {
   achievementTitle       String?
   achievementDescription String?
 
+  // Source mode: 'demo' for demo data, 'production' for real data
+  sourceMode String @default("production")
+
   // Dual-path generation fields (activity provenance for generated entries)
   activityIds        String[] @default([])
-  groupingMethod     String?  @default("time") // 'time' | 'cluster' | 'manual'
+  groupingMethod     String?  @default("time") // 'time' | 'cluster' | 'manual' | 'ai'
+  clusterRef         String?                   // e.g., 'AUTH-123' if groupingMethod='cluster'
   lastGroupingEditAt DateTime?
   timeRangeStart     DateTime?
   timeRangeEnd       DateTime?
@@ -477,6 +483,8 @@ model JournalEntry {
   // Analytics
   analytics JournalEntryAnalytics[]
 
+  @@index([authorId, sourceMode])
+  @@index([sourceMode])
   @@map("journal_entries")
 }
 
@@ -1396,34 +1404,63 @@ model StoryCluster {
 
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   activities ToolActivity[]
-  story      CareerStory?
+  // Note: story relation removed - CareerStory now uses activityIds directly
 
   @@index([userId])
   @@map("story_clusters")
 }
 
-// STAR-formatted career story generated from a cluster
+// Career story - user-curated narrative from activities
+// Framework-agnostic: supports STAR, CAR, PAR, SOAR, or any custom narrative structure
 model CareerStory {
-  id        String @id @default(cuid())
-  clusterId String @unique
+  id     String @id @default(cuid())
+  userId String
 
-  // Intent
-  intent String // promotion, interview, negotiation, review
+  // Source mode: 'demo' for demo data, 'production' for real data
+  sourceMode String @default("production")
 
-  // STAR sections (JSON for flexibility)
-  situation Json // { text, evidence: [{ activityId, date, description }] }
-  task      Json
-  action    Json // { items: [{ description, evidence }] }
-  result    Json
+  // Activity provenance (user-curated)
+  activityIds String[] @default([])
 
-  // Verification
+  // Story metadata
+  title  String  // User-facing title for the story
+  intent String? // Optional: promotion, interview, negotiation, review
+
+  // Narrative framework (extensible library)
+  // Examples: STAR, STAR_L, CAR, PAR, SOAR, PROBLEM_SOLUTION, CHALLENGE_ACTION_RESULT, etc.
+  framework String @default("STAR")
+
+  // Framework-agnostic narrative sections
+  // Structure varies by framework - stored as flexible JSON
+  // STAR: { situation, task, action, result }
+  // CAR:  { challenge, action, result }
+  // PAR:  { problem, action, result }
+  // SOAR: { situation, obstacle, action, result }
+  // Each section: { summary: string, evidence: [{ activityId, date, description }] }
+  sections Json // Dynamic sections based on framework
+
+  // Verification (optional, framework-independent)
   verification Json? // [{ claim, status, suggestion }]
+
+  // Generation tracking
+  generatedAt       DateTime?
+  needsRegeneration Boolean   @default(false)
+
+  // Publishing fields
+  visibility  String   @default("private") // "private" | "workspace" | "network"
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cluster StoryCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([userId, sourceMode])
+  @@index([isPublished])
+  @@index([visibility])
+  @@index([isPublished, visibility])
   @@map("career_stories")
 }
 
@@ -1450,94 +1487,31 @@ model DemoToolActivity {
   // Cross-tool references
   crossToolRefs String[] @default([])
 
-  // Clustering assignment
-  clusterId String?
-
   // Raw data
   rawData Json?
 
   createdAt DateTime @default(now())
 
-  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cluster DemoStoryCluster? @relation(fields: [clusterId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, source, sourceId])
   @@index([userId, timestamp])
-  @@index([clusterId])
   @@map("demo_tool_activities")
 }
 
-model DemoStoryCluster {
-  id     String @id @default(cuid())
-  userId String
-
-  name String?
-
-  // Grouping metadata (for activity editing)
-  groupingMethod     String?   @default("auto") // 'auto' | 'manual'
-  lastGroupingEditAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activities DemoToolActivity[]
-  story      DemoCareerStory?
-
-  @@index([userId])
-  @@map("demo_story_clusters")
-}
-
-model DemoCareerStory {
-  id        String @id @default(cuid())
-  clusterId String @unique
-
-  intent String
-
-  situation Json
-  task      Json
-  action    Json
-  result    Json
-
-  verification Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  cluster DemoStoryCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
-
-  @@map("demo_career_stories")
-}
-
-// Demo journal entries - isolated from production for YC demo
-model DemoJournalEntry {
-  id          String @id @default(cuid())
-  userId      String
-  workspaceId String
-
-  // Content
-  title       String
-  description String
-  fullContent String
-
-  // Activity provenance (demo-only, not on production JournalEntry)
-  activityIds        String[] @default([])
-  groupingMethod     String?  @default("time") // 'time' | 'manual' | 'ai_suggested'
-  lastGroupingEditAt DateTime?
-
-  // Time range for grouping
-  timeRangeStart DateTime?
-  timeRangeEnd   DateTime?
-
-  // Generation metadata
-  generatedAt  DateTime?
-  lastEditedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("demo_journal_entries")
-}
+// =============================================================================
+// DEPRECATED MODELS REMOVED
+// =============================================================================
+// DemoCareerStory, DemoJournalEntry, and DemoStoryCluster have been removed.
+// Use the unified models with sourceMode field instead:
+// - CareerStory (sourceMode: 'demo' | 'production')
+// - JournalEntry (sourceMode: 'demo' | 'production')
+//
+// Clustering is now stored inline in JournalEntry:
+// - activityIds: String[] - references to DemoToolActivity.id
+// - groupingMethod: 'time' | 'cluster' | 'manual' | 'ai'
+// - clusterRef: String? - e.g., 'AUTH-123' for cluster-based grouping
+//
+// The only source-level table remaining:
+// - DemoToolActivity (raw activity data from integrations)
+// =============================================================================

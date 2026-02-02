@@ -10,9 +10,11 @@ import { sendSuccess, sendError, asyncHandler } from '../utils/response.utils';
 import {
   getJournalEntryActivitiesSchema,
   getActivityStatsSchema,
+  getAllActivitiesSchema,
   journalEntryIdSchema,
   GetJournalEntryActivitiesInput,
-  GetActivityStatsInput
+  GetActivityStatsInput,
+  GetAllActivitiesInput
 } from '../types/activity.types';
 
 // =============================================================================
@@ -140,6 +142,55 @@ export const getActivityStats = asyncHandler(
 
       // Set cache headers (stats can be cached longer)
       res.set('Cache-Control', CACHE_CONTROL.STATS);
+      res.set('ETag', generateETag(result));
+
+      sendSuccess(res, result);
+    } catch (error: unknown) {
+      if (error instanceof ActivityNotFoundError) {
+        return void sendError(res, error.message, 404);
+      }
+      throw error;
+    }
+  }
+);
+
+/**
+ * GET /activities
+ *
+ * Fetch all activities for the user with optional grouping.
+ * Used for journal tab views (Timeline, By Source, By Story).
+ */
+export const getAllActivities = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return void sendError(res, 'User not authenticated', 401);
+    }
+
+    // Validate query params
+    const queryResult = getAllActivitiesSchema.safeParse({
+      page: req.query.page ? Number(req.query.page) : 1,
+      limit: req.query.limit ? Number(req.query.limit) : 50,
+      groupBy: req.query.groupBy,
+      source: req.query.source,
+      storyId: req.query.storyId,
+      timezone: req.query.timezone || 'UTC'
+    });
+
+    if (!queryResult.success) {
+      const errors = queryResult.error.issues.map(i => i.message).join(', ');
+      return void sendError(res, `Validation failed: ${errors}`, 400);
+    }
+
+    const options: GetAllActivitiesInput = queryResult.data;
+
+    try {
+      const service = getActivityService(req);
+      const result = await service.getAllActivities(userId, options);
+
+      // Set cache headers
+      res.set('Cache-Control', CACHE_CONTROL.ACTIVITIES);
       res.set('ETag', generateETag(result));
 
       sendSuccess(res, result);
