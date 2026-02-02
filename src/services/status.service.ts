@@ -6,8 +6,7 @@
  */
 
 import { isDemoMode } from './demo-mode.service';
-
-const API_BASE = '/api/v1';
+import { API_BASE_URL } from '../lib/api';
 
 export interface AppStatus {
   activityCount: number;
@@ -52,8 +51,8 @@ export async function fetchStatus(): Promise<AppStatus> {
 
   // Fetch activity stats and journal entries in parallel
   const [activityStatsRes, journalEntriesRes] = await Promise.all([
-    fetch(`${API_BASE}/activity-stats?groupBy=source`, { headers }),
-    fetch(`${API_BASE}/journal/entries`, { headers }),
+    fetch(`${API_BASE_URL}/activity-stats?groupBy=source`, { headers }),
+    fetch(`${API_BASE_URL}/journal/entries`, { headers }),
   ]);
 
   if (!activityStatsRes.ok) {
@@ -106,7 +105,7 @@ export async function clearDemoData(): Promise<{ deletedEntries: number; deleted
 
   const headers = buildHeaders(token);
 
-  const response = await fetch(`${API_BASE}/journal/entries/bulk/all`, {
+  const response = await fetch(`${API_BASE_URL}/journal/entries/bulk/all`, {
     method: 'DELETE',
     headers,
   });
