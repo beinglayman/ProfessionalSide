@@ -445,6 +445,14 @@ model JournalEntry {
   achievementTitle       String?
   achievementDescription String?
 
+  // Dual-path generation fields (activity provenance for generated entries)
+  activityIds        String[] @default([])
+  groupingMethod     String?  @default("time") // 'time' | 'cluster' | 'manual'
+  lastGroupingEditAt DateTime?
+  timeRangeStart     DateTime?
+  timeRangeEnd       DateTime?
+  generatedAt        DateTime?
+
   // Timestamps
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1216,6 +1224,11 @@ model WorkspaceJournalSubscription {
 
   // Tool selection
   selectedTools String[] @default([]) // ['github', 'jira', 'figma', ...] - subset of user's connected tools
+
+  // Dual-path generation options
+  cadence           String  @default("daily") // daily, weekly, sprint - determines lookback period
+  groupingMethod    String  @default("temporal") // temporal, cluster - how to group activities
+  preferredFramework String? // STAR, ONE_ON_ONE, SKILL_GAP, PROJECT_IMPACT, etc.
 
   // Customization
   customPrompt    String? // Optional AI guidance (e.g., 'Focus on learning outcomes')

@@ -53,6 +53,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
 import { cn } from '../../lib/utils';
 import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { JournalCard } from '../../components/journal/journal-card';
@@ -60,15 +61,15 @@ import { RechronicleCard } from '../../components/journal/rechronicle-card';
 import { RechronicleSidePanel } from '../../components/journal/rechronicle-side-panel';
 import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
-import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry } from '../../hooks/useJournal';
+import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry, useDeleteJournalEntry } from '../../hooks/useJournal';
 import { useQueryClient } from '@tanstack/react-query';
 import { JournalService } from '../../services/journal.service';
 import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
-import { runDemoSync } from '../../services/demo-sync.service';
-import { SyncProgressModal, SyncIntegration } from '../../components/sync/SyncProgressModal';
+import { runDemoSync, SyncState } from '../../services/sync.service';
+import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -98,6 +99,10 @@ export default function JournalPage() {
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; journalId: string | null }>({
+    open: false,
+    journalId: null,
+  });
   const [rechronicleSidePanel, setRechronicleSidePanel] = useState<{
     open: boolean;
     journal: JournalEntry | null;
@@ -106,9 +111,18 @@ export default function JournalPage() {
 
   // Sync modal state
   const [showSyncModal, setShowSyncModal] = useState(false);
-  const [syncIntegrations, setSyncIntegrations] = useState<SyncIntegration[]>([]);
-  const [syncComplete, setSyncComplete] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Listen for external data changes to refresh
+  useEffect(() => {
+    const handleDataChanged = () => {
+      queryClient.invalidateQueries({ queryKey: ['journal'] });
+    };
+
+    window.addEventListener('journal-data-changed', handleDataChanged);
+    return () => window.removeEventListener('journal-data-changed', handleDataChanged);
+  }, [queryClient]);
 
   // Fetch journal entries from backend first (without workspace validation)
   const baseQueryParams = useMemo(() => ({
@@ -126,6 +140,7 @@ export default function JournalPage() {
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
   const rechronicleMutation = useRechronicleEntry();
+  const deleteMutation = useDeleteJournalEntry();
 
   // Load profile image from profile service
   useEffect(() => {
@@ -442,20 +457,31 @@ export default function JournalPage() {
     });
   };
 
-  // Handle delete entry
+  // Handle delete entry - opens confirmation dialog
   const handleDeleteEntry = (journalId: string) => {
-    // In a real app, this would make an API call
-    console.log('Deleting journal:', journalId);
-    
-    // Show toast message
-    setToastMessage('Journal entry deleted successfully');
-    
-    // Close the menu
+    // Close menu first, then open confirmation dialog
     setOpenPublishMenus(prev => {
       const newSet = new Set(prev);
       newSet.delete(journalId);
       return newSet;
     });
+    setDeleteConfirm({ open: true, journalId });
+  };
+
+  // Perform actual deletion after confirmation
+  const confirmDeleteEntry = async () => {
+    const journalId = deleteConfirm.journalId;
+    if (!journalId) return;
+
+    try {
+      console.log('🗑️ Deleting journal:', { journalId, isDemoMode: isDemoMode() });
+      await deleteMutation.mutateAsync(journalId);
+      setToastMessage('Journal entry deleted successfully');
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
+      console.error('❌ Failed to delete journal:', { journalId, error: errorMessage });
+      setToastMessage(`Failed to delete: ${errorMessage}`);
+    }
   };
 
   // Handle visibility toggle (share to network / unshare)
@@ -543,13 +569,12 @@ export default function JournalPage() {
       // Demo mode: run simulated sync
       console.log('[Journal] Starting demo sync...');
       setIsSyncing(true);
-      setSyncComplete(false);
+      setSyncState(null);
       setShowSyncModal(true);
 
       await runDemoSync({
-        onIntegrationUpdate: setSyncIntegrations,
+        onStateUpdate: setSyncState,
         onComplete: () => {
-          setSyncComplete(true);
           setIsSyncing(false);
         },
         onError: (error) => {
@@ -1050,6 +1075,19 @@ export default function JournalPage() {
         isLoading={rechronicleMutation.isPending}
       />
       
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm({ open, journalId: open ? deleteConfirm.journalId : null })}
+        title="Delete Journal Entry"
+        description="Are you sure you want to delete this journal entry? This action cannot be undone."
+        variant="destructive"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDeleteEntry}
+        isLoading={deleteMutation.isPending}
+      />
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-bottom-2 duration-300">
@@ -1064,8 +1102,7 @@ export default function JournalPage() {
       <SyncProgressModal
         open={showSyncModal}
         onClose={() => setShowSyncModal(false)}
-        integrations={syncIntegrations}
-        isComplete={syncComplete}
+        state={syncState}
         onComplete={handleSyncComplete}
       />
     </div>

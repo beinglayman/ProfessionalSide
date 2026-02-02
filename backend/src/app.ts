@@ -50,6 +50,7 @@ import billingRoutes from './routes/billing.routes';
 import walletRoutes from './routes/wallet.routes';
 import careerStoriesRoutes from './routes/career-stories.routes';
 import demoRoutes from './routes/demo.routes';
+import activityRoutes from './routes/activity.routes';
 
 // Conditionally import MCP routes (only in production to avoid tsx issues)
 let mcpRoutes: any = null;
@@ -690,6 +691,7 @@ console.log('Auth routes mounted');
 app.use('/api/v1/users', userRoutes);
 console.log('User routes mounted');
 app.use('/api/v1/journal', journalRoutes);
+app.use('/api/v1', activityRoutes); // Activity routes: /journal-entries/:id/activities, /activity-stats
 app.use('/api/v1/network', networkRoutes);
 app.use('/api/v1/goals', goalRoutes);
 app.use('/api/v1/workspaces', workspaceRoutes);

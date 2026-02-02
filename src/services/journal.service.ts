@@ -480,32 +480,50 @@ export class JournalService {
   }
 
   /**
-   * Get user feed including both original entries and rechronicled entries
+   * Get user feed including both original entries and rechronicled entries.
+   * In demo mode (X-Demo-Mode header), backend returns demo journal entries.
    */
   static async getUserFeed(params: GetJournalEntriesParams = {}): Promise<ApiResponse<JournalEntry[]>> {
     try {
-      // For now, just return regular journal entries since the backend endpoint isn't working
-      // TODO: Add rechronicled entries when backend is fixed
-      const entriesResponse = await this.getJournalEntries(params);
-      return entriesResponse;
+      const searchParams = new URLSearchParams();
+
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+
+      const queryString = searchParams.toString();
+      const url = `/journal/feed${queryString ? `?${queryString}` : ''}`;
+
+      // X-Demo-Mode header is automatically added by api interceptor
+      // Backend will route to demo tables if header is present
+      const response = await api.get<ApiResponse<JournalEntry[]>>(url);
+
+      if (response.data.success && response.data.data) {
+        return {
+          success: true,
+          data: response.data.data.map((entry: ApiJournalEntry) => this.transformJournalEntry(entry)),
+          pagination: response.data.pagination,
+        };
+      }
+
+      return response.data;
     } catch (error: any) {
       // If the error is related to workspace filtering, try again without workspace filter
       if (error.response?.status === 400 && params.workspaceId) {
         const fallbackParams = { ...params };
         delete fallbackParams.workspaceId;
-        return this.getJournalEntries(fallbackParams);
+        return this.getUserFeed(fallbackParams);
       }
 
       throw error;
     }
   }
 
-  /**
-   * Get demo journal entries (for demo mode).
-   * Fetches from the parallel demo tables.
-   */
-  static async getDemoJournalEntries(): Promise<ApiResponse<JournalEntry[]>> {
-    const response = await api.get<ApiResponse<JournalEntry[]>>('/demo/journal-entries');
-    return response.data;
-  }
+  // NOTE: getDemoJournalEntries() has been REMOVED.
+  // Demo mode is now handled by the unified getUserFeed() method.
+  // The X-Demo-Mode header (added by api interceptor) tells the backend
+  // to query demo tables instead of production tables.
+  // Both modes return the same JournalEntry shape.
 }

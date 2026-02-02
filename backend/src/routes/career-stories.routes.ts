@@ -32,6 +32,13 @@ import {
   getDemoClusterById,
   generateDemoStar,
   clearDemoData,
+  // Story Publishing (Demo Mode)
+  publishDemoStory,
+  unpublishDemoStory,
+  setDemoStoryVisibility,
+  getDemoStory,
+  // Profile: Published Stories
+  getPublishedStories,
 } from '../controllers/career-stories.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -78,6 +85,20 @@ router.post('/mock/full-pipeline', runFullPipeline);
 router.get('/demo/clusters', getDemoClusters);
 router.get('/demo/clusters/:id', getDemoClusterById);
 router.post('/demo/clusters/:id/generate-star', generateDemoStar);
-router.delete('/demo/clear', clearDemoData);
+// Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/demo instead
+
+// ============================================================================
+// STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)
+// ============================================================================
+router.get('/demo/stories/:id', getDemoStory);
+router.post('/demo/stories/:id/publish', publishDemoStory);
+router.post('/demo/stories/:id/unpublish', unpublishDemoStory);
+router.put('/demo/stories/:id/visibility', setDemoStoryVisibility);
+
+// ============================================================================
+// PROFILE: PUBLISHED STORIES
+// Single endpoint - demo/prod routing based on isDemoMode from request context
+// ============================================================================
+router.get('/users/:userId/published-stories', getPublishedStories);
 
 export default router;

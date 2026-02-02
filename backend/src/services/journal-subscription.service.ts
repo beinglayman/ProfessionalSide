@@ -448,10 +448,10 @@ export class JournalSubscriptionService {
   }
 
   /**
-   * Get lookback period in days (always 1 day since last run)
+   * Get lookback period in days based on cadence
    */
-  getLookbackDays(): number {
-    return LOOKBACK_DAYS;
+  getLookbackDays(cadence: keyof typeof LOOKBACK_DAYS = 'daily'): number {
+    return LOOKBACK_DAYS[cadence];
   }
 
   /**

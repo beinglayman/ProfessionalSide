@@ -121,4 +121,11 @@ export interface JournalEntry {
 
   // Network entry toggle - indicates if network version was generated
   generateNetworkEntry?: boolean;
+
+  // Dual-path grouping method for demo entries
+  groupingMethod?: 'time' | 'cluster' | 'manual';
+  activityIds?: string[];
+  timeRangeStart?: Date | null;
+  timeRangeEnd?: Date | null;
+  generatedAt?: Date | null;
 }

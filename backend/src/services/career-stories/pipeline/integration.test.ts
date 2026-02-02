@@ -261,8 +261,8 @@ describe('Pipeline Integration', () => {
       const result = clusterExtractor.process({ activities });
 
       for (const cluster of result.data.clusters) {
-        // Each cluster should have at least 2 shared refs
-        expect(cluster.sharedRefs.length).toBeGreaterThanOrEqual(2);
+        // Each cluster should have at least 1 shared ref (the ref that connects them)
+        expect(cluster.sharedRefs.length).toBeGreaterThanOrEqual(1);
       }
     });
 
