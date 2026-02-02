@@ -1383,30 +1383,39 @@ export class JournalService {
   }
 
   /**
-   * Clear ALL entries for a user filtered by sourceMode.
-   * Used by Cmd+E "Clear Demo Data" to delete all demo entries.
+   * Clear ALL demo entries and activities for a user.
+   * Used by Cmd+E "Clear Demo Data" to delete all demo data atomically.
    * Only operates when isDemoMode=true to prevent accidental deletion of production data.
+   *
+   * @param userId - The user whose demo data should be cleared
+   * @returns Counts of deleted entries and activities
+   * @throws Error if called outside demo mode
    */
   async clearAllBySourceMode(userId: string): Promise<{ deletedEntries: number; deletedActivities: number }> {
     if (!this.isDemoMode) {
       throw new Error('clearAllBySourceMode can only be called in demo mode');
     }
 
-    // Delete all demo journal entries for this user
-    const entriesResult = await prisma.journalEntry.deleteMany({
-      where: {
-        authorId: userId,
-        sourceMode: 'demo',
-      },
-    });
+    console.log(`🗑️ clearAllBySourceMode: Starting transactional delete for user ${userId}`);
 
-    // Delete all demo activities for this user
-    const activityService = new ActivityService(true);
-    const activitiesResult = await activityService.deleteAllForUser(userId);
+    // Delete both in a single transaction for atomicity
+    const [entriesResult, activitiesResult] = await prisma.$transaction([
+      prisma.journalEntry.deleteMany({
+        where: {
+          authorId: userId,
+          sourceMode: 'demo',
+        },
+      }),
+      prisma.demoToolActivity.deleteMany({
+        where: { userId },
+      }),
+    ]);
+
+    console.log(`🗑️ clearAllBySourceMode: Deleted ${entriesResult.count} entries, ${activitiesResult.count} activities`);
 
     return {
       deletedEntries: entriesResult.count,
-      deletedActivities: activitiesResult.deletedCount,
+      deletedActivities: activitiesResult.count,
     };
   }
 

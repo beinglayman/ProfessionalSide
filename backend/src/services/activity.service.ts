@@ -675,22 +675,6 @@ export class ActivityService {
     return groups;
   }
 
-  /**
-   * Delete all activities for a user (based on sourceMode).
-   * Only operates on demo activities when isDemoMode=true.
-   */
-  async deleteAllForUser(userId: string): Promise<{ deletedCount: number }> {
-    if (!this.isDemoMode) {
-      throw new Error('deleteAllForUser can only be called in demo mode');
-    }
-
-    const result = await prisma.demoToolActivity.deleteMany({
-      where: { userId },
-    });
-
-    return { deletedCount: result.count };
-  }
-
   // ===========================================================================
   // PRIVATE METHODS
   // ===========================================================================
