@@ -51,7 +51,6 @@ export {
   PublishedStoriesResult,
 } from './story-publishing.service';
 
-// Unified Career Story Service (replaces StoryPublishingService)
 export {
   CareerStoryService,
   createCareerStoryService,
