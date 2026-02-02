@@ -421,6 +421,40 @@ app.post('/api/v1/import-benchmarks', async (req, res): Promise<void> => {
   }
 });
 
+// Admin endpoint to clear ALL demo data (for fixing stale demo state)
+app.post('/api/v1/admin/clear-all-demo-data', async (req, res) => {
+  try {
+    console.log('🗑️ Clearing ALL demo data...');
+
+    const results = await prisma.$transaction([
+      // Clear demo activities
+      prisma.demoToolActivity.deleteMany({}),
+      // Clear journal entries with sourceMode='demo'
+      prisma.journalEntry.deleteMany({ where: { sourceMode: 'demo' } }),
+      // Clear career stories with sourceMode='demo'
+      prisma.careerStory.deleteMany({ where: { sourceMode: 'demo' } }),
+    ]);
+
+    console.log('✅ Demo data cleared:', results);
+    res.json({
+      success: true,
+      message: 'All demo data cleared',
+      deleted: {
+        demoToolActivities: results[0].count,
+        demoJournalEntries: results[1].count,
+        demoCareerStories: results[2].count,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Failed to clear demo data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear demo data',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Database migration endpoint for Azure (admin use)
 app.post('/api/v1/run-migrations', async (req, res) => {
   try {
