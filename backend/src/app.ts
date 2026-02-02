@@ -455,6 +455,52 @@ app.post('/api/v1/admin/clear-all-demo-data', async (req, res) => {
   }
 });
 
+// Admin endpoint to fix null sourceMode entries (set to specified mode)
+app.post('/api/v1/admin/fix-null-sourcemode', async (req, res) => {
+  try {
+    const { targetMode = 'production' } = req.body;
+
+    if (!['demo', 'production'].includes(targetMode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid targetMode. Must be "demo" or "production"'
+      });
+    }
+
+    console.log(`🔧 Fixing null sourceMode entries, setting to "${targetMode}"...`);
+
+    const results = await prisma.$transaction([
+      // Fix journal entries with null sourceMode
+      prisma.journalEntry.updateMany({
+        where: { sourceMode: null },
+        data: { sourceMode: targetMode }
+      }),
+      // Fix career stories with null sourceMode
+      prisma.careerStory.updateMany({
+        where: { sourceMode: null },
+        data: { sourceMode: targetMode }
+      }),
+    ]);
+
+    console.log('✅ Fixed null sourceMode entries:', results);
+    res.json({
+      success: true,
+      message: `Fixed null sourceMode entries, set to "${targetMode}"`,
+      updated: {
+        journalEntries: results[0].count,
+        careerStories: results[1].count,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Failed to fix sourceMode:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix sourceMode',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Database migration endpoint for Azure (admin use)
 app.post('/api/v1/run-migrations', async (req, res) => {
   try {
