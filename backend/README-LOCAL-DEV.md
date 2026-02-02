@@ -5,6 +5,10 @@
 - Node.js 18+
 - Docker
 
+## Documentation
+
+- [Testing Guidelines](./docs/TESTING.md) - Test isolation, cleanup patterns, debugging test pollution
+
 ## Quick Start
 
 ```bash
@@ -67,6 +71,24 @@ curl -X DELETE http://localhost:3002/api/v1/career-stories/mock/clear \
 ```
 
 These endpoints are disabled in production.
+
+## Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npx vitest run src/services/journal.service.test.ts
+
+# Run integration tests
+npx vitest run src/services/career-stories/unified-flow.integration.test.ts
+```
+
+**Important:** All tests must follow the [Testing Guidelines](./docs/TESTING.md):
+- Use isolated test user IDs per suite
+- Clean up with `prisma.$transaction()` for atomicity
+- Verify database is clean after test runs
 
 ## Troubleshooting
 
