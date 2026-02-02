@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
-import { Activity, SUPPORTED_SOURCES, ActivitySource, ActivityRawData } from '../../types/activity';
+import {
+  Activity,
+  SUPPORTED_SOURCES,
+  ActivitySource,
+  ActivityRawData,
+  ActivityStoryEdge,
+  ACTIVITY_EDGE_LABELS
+} from '../../types/activity';
 import { cn } from '../../lib/utils';
 import { SourceIcons } from './source-icons';
 import {
@@ -20,6 +27,8 @@ interface ActivityCardProps {
   showStoryBadge?: boolean;
   compact?: boolean;
   className?: string;
+  /** Edge context when displaying activity within a story */
+  edge?: ActivityStoryEdge;
 }
 
 /**
@@ -200,7 +209,8 @@ export function ActivityCard({
   activity,
   showStoryBadge = true,
   compact = false,
-  className
+  className,
+  edge
 }: ActivityCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -330,6 +340,22 @@ export function ActivityCard({
               </>
             )}
           </div>
+
+          {/* Edge badge when activity is shown within a story context */}
+          {edge && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+              <span
+                className="font-medium px-1.5 py-0.5 rounded"
+                style={{
+                  color: ACTIVITY_EDGE_LABELS[edge.type].color,
+                  backgroundColor: ACTIVITY_EDGE_LABELS[edge.type].bgColor
+                }}
+              >
+                {ACTIVITY_EDGE_LABELS[edge.type].label}
+              </span>
+              <span className="text-gray-500 italic line-clamp-1">{edge.message}</span>
+            </div>
+          )}
 
           {/* Collapsed: Show story badge only */}
           {!isExpanded && showStoryBadge && activity.storyId && activity.storyTitle && (
