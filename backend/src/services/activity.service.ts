@@ -903,16 +903,17 @@ export class ActivityService {
    * Get journal entry counts grouped by source
    */
   private async getJournalEntryCountsBySource(userId: string): Promise<Record<string, number>> {
-    // Get all journal entries with their activityIds
-    const entries = await prisma.journalEntry.findMany({
-      where: {
-        authorId: userId,
-        sourceMode: this.sourceMode
-      },
-      select: {
-        activityIds: true
-      }
-    });
+    try {
+      // Get all journal entries with their activityIds
+      const entries = await prisma.journalEntry.findMany({
+        where: {
+          authorId: userId,
+          sourceMode: this.sourceMode
+        },
+        select: {
+          activityIds: true
+        }
+      });
 
     // Get all activity IDs
     const allActivityIds = entries.flatMap(e => e.activityIds || []);
@@ -949,6 +950,16 @@ export class ActivityService {
     }
 
     return counts;
+    } catch (error) {
+      console.error('🔴 getJournalEntryCountsBySource error:', {
+        userId,
+        sourceMode: this.sourceMode,
+        isDemoMode: this.isDemoMode,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Return empty counts on error to not break the entire stats endpoint
+      return {};
+    }
   }
 
   /**
