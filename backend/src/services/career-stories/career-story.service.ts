@@ -23,6 +23,44 @@ import {
 } from './story-publishing.service';
 import { narrativeGenerationService } from './star-generation.service';
 import { ActivityWithRefs } from './pipeline/cluster-hydrator';
+import { getModelSelector } from '../ai/model-selector.service';
+import {
+  buildCareerStoryMessages,
+  parseCareerStoryResponse,
+  FrameworkName as PromptFrameworkName,
+  JournalEntryContent,
+  FRAMEWORK_SECTIONS,
+} from '../ai/prompts/career-story.prompt';
+
+/** Simplified Format7Data type for journal content extraction */
+interface Format7Data {
+  frameworkComponents?: Array<{
+    name: string;
+    label: string;
+    content: string;
+    prompt?: string;
+  }>;
+  activities?: Array<{
+    id: string;
+    description: string;
+    action?: string;
+  }>;
+  summary?: {
+    skills_demonstrated?: string[];
+    technologies_used?: string[];
+  };
+  context?: {
+    primary_focus?: string;
+  };
+}
+
+/** Journal content for building sections */
+interface JournalContent {
+  fullContent: string | null;
+  format7Data: Format7Data | null;
+  description: string | null;
+  category: string | null;
+}
 
 /** Error messages for consistent error responses */
 const ERRORS = {
@@ -33,20 +71,35 @@ const ERRORS = {
   INVALID_SECTIONS: 'Invalid narrative sections',
 } as const;
 
-/** Maps framework section names to STAR component keys */
+/**
+ * Maps framework section names to STAR component keys.
+ * Used as a fallback when framework-specific sections aren't available.
+ * Note: Frameworks like SHARE have unique sections (hindrances, evaluation)
+ * that don't map cleanly to STAR - we use best-effort approximation.
+ */
 const SECTION_TO_STAR_COMPONENT: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
+  // STAR sections
   situation: 'situation',
+  task: 'task',
+  action: 'action',
+  result: 'result',
+  // Context/challenge variants → situation
   context: 'situation',
   challenge: 'situation',
   problem: 'situation',
-  task: 'task',
-  objective: 'task',
-  action: 'action',
+  // SOAR obstacles → task (represents the difficulty to overcome)
+  obstacles: 'task',
+  // SHARE hindrances → task (represents challenges that impacted progress)
+  hindrances: 'task',
+  // Action variants
   actions: 'action',
-  result: 'result',
+  objective: 'task',
+  // Result variants
   results: 'result',
-  learning: 'result',
   outcome: 'result',
+  // Learning/evaluation → result (reflection on outcomes)
+  learning: 'result',
+  evaluation: 'result',
 };
 
 export type SourceMode = 'demo' | 'production';
@@ -121,10 +174,14 @@ export interface StoriesListResult {
   total: number;
 }
 
-// Simplified framework map used by tests and validations
-export const NARRATIVE_FRAMEWORKS: Record<FrameworkName, string[]> = Object.fromEntries(
-  Object.entries(PIPELINE_FRAMEWORKS).map(([key, def]) => [key, def.componentOrder])
-) as Record<FrameworkName, string[]>;
+/**
+ * Framework section definitions matching LLM prompt expectations.
+ * Uses FRAMEWORK_SECTIONS from the prompt file for consistency with LLM output.
+ *
+ * Note: The pipeline framework definitions (PIPELINE_FRAMEWORKS) use slightly different
+ * section names in some cases. Always use NARRATIVE_FRAMEWORKS for story sections.
+ */
+export const NARRATIVE_FRAMEWORKS: Record<FrameworkName, string[]> = FRAMEWORK_SECTIONS as Record<FrameworkName, string[]>;
 
 type ActivitySnapshot = {
   id: string;
@@ -242,6 +299,320 @@ export class CareerStoryService {
     });
 
     return sections;
+  }
+
+  /**
+   * Check if journal content has rich data we can use.
+   * Returns true if frameworkComponents or fullContent exists.
+   */
+  private hasRichJournalContent(content: JournalContent): boolean {
+    if (content.format7Data?.frameworkComponents?.length) {
+      return true;
+    }
+    if (content.fullContent && content.fullContent.trim().length > 100) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Build narrative sections directly from journal content.
+   *
+   * Strategy:
+   * 1. If format7Data has frameworkComponents, map them directly to STAR sections
+   * 2. If fullContent exists, extract sections using pattern matching
+   * 3. Fall back to description/category for context
+   *
+   * The key insight is that the journal entry already contains a narrative -
+   * we just need to reformat it into the framework structure.
+   */
+  private buildSectionsFromJournalContent(
+    content: JournalContent,
+    framework: FrameworkName,
+    activityIds: string[]
+  ): NarrativeSections {
+    const sections: NarrativeSections = {};
+    const sectionKeys = NARRATIVE_FRAMEWORKS[framework] || [];
+    const defaultEvidence = activityIds.map((activityId) => ({ activityId }));
+
+    // If we have frameworkComponents, use them directly
+    const components = content.format7Data?.frameworkComponents || [];
+    if (components.length > 0) {
+      const componentMap = new Map(
+        components.map((c) => [c.name.toLowerCase(), c.content])
+      );
+
+      for (const sectionKey of sectionKeys) {
+        const starComponent = SECTION_TO_STAR_COMPONENT[sectionKey] || sectionKey;
+        const content =
+          componentMap.get(sectionKey) ||
+          componentMap.get(starComponent) ||
+          componentMap.get(sectionKey.toLowerCase());
+
+        sections[sectionKey] = {
+          summary: content || `${sectionKey}: details pending`,
+          evidence: defaultEvidence,
+        };
+      }
+
+      return sections;
+    }
+
+    // Extract sections from fullContent using pattern matching
+    if (content.fullContent) {
+      const extracted = this.extractSectionsFromContent(
+        content.fullContent,
+        sectionKeys
+      );
+
+      for (const sectionKey of sectionKeys) {
+        sections[sectionKey] = {
+          summary: extracted[sectionKey] || `${sectionKey}: details pending`,
+          evidence: defaultEvidence,
+        };
+      }
+
+      return sections;
+    }
+
+    // Fallback: use description/category to populate minimal sections
+    for (const sectionKey of sectionKeys) {
+      let summary = `${sectionKey}: details pending`;
+
+      // Map description to situation for context
+      if (sectionKey === 'situation' || sectionKey === 'context') {
+        summary = content.description || content.format7Data?.context?.primary_focus || summary;
+      }
+
+      sections[sectionKey] = { summary, evidence: defaultEvidence };
+    }
+
+    return sections;
+  }
+
+  /**
+   * Generate sections using LLM from journal content.
+   *
+   * This method transforms journal entry content into framework-specific
+   * career story sections using AI. It produces interview-ready narratives
+   * that emphasize the user's individual contributions and quantified impact.
+   *
+   * @param content - Journal entry content (fullContent, format7Data, etc.)
+   * @param framework - Target framework (STAR, SOAR, CAR, etc.)
+   * @param title - Journal entry title
+   * @param activityIds - Activity IDs for evidence linking
+   * @returns Promise<NarrativeSections> - Framework-specific sections
+   */
+  private async generateSectionsWithLLM(
+    content: JournalContent,
+    framework: FrameworkName,
+    title: string,
+    activityIds: string[]
+  ): Promise<NarrativeSections | null> {
+    const modelSelector = getModelSelector();
+    if (!modelSelector) {
+      console.warn('LLM not available for career story generation');
+      return null;
+    }
+
+    // Build journal entry content for the prompt
+    const f7 = content.format7Data || {};
+    const phases = f7.frameworkComponents?.map((c) => ({
+      name: c.name,
+      summary: c.content,
+      activityIds: [] as string[],
+    })) || null;
+
+    const journalEntry: JournalEntryContent = {
+      title,
+      description: content.description,
+      fullContent: content.fullContent,
+      category: content.category,
+      dominantRole: f7.context?.primary_focus || null,
+      phases,
+      impactHighlights: f7.summary?.skills_demonstrated || null,
+      skills: f7.summary?.technologies_used || null,
+      activityIds,
+    };
+
+    const messages = buildCareerStoryMessages({
+      journalEntry,
+      framework: framework as PromptFrameworkName,
+    });
+
+    try {
+      const result = await modelSelector.executeTask('generate', messages, 'balanced', {
+        maxTokens: 2000,
+        temperature: 0.7,
+      });
+
+      const parsed = parseCareerStoryResponse(result.content);
+      if (!parsed) {
+        console.warn('Failed to parse career story LLM response');
+        return null;
+      }
+
+      // Convert parsed sections to NarrativeSections format
+      const sections: NarrativeSections = {};
+      const sectionKeys = NARRATIVE_FRAMEWORKS[framework] || [];
+      const defaultEvidence = activityIds.map((activityId) => ({ activityId }));
+
+      // Log which sections LLM returned vs expected
+      const returnedKeys = Object.keys(parsed.sections);
+      const missingKeys = sectionKeys.filter((k) => !returnedKeys.includes(k));
+      if (missingKeys.length > 0) {
+        console.warn(`LLM missing sections for ${framework}: ${missingKeys.join(', ')}. Returned: ${returnedKeys.join(', ')}`);
+      }
+
+      for (const sectionKey of sectionKeys) {
+        const parsedSection = parsed.sections[sectionKey];
+        if (parsedSection && parsedSection.summary && parsedSection.summary.trim().length > 10) {
+          // Use LLM-generated section
+          sections[sectionKey] = {
+            summary: parsedSection.summary,
+            evidence: parsedSection.evidence?.length > 0
+              ? parsedSection.evidence.map((e) => ({
+                  activityId: e.activityId,
+                  description: e.description,
+                }))
+              : defaultEvidence,
+          };
+        } else {
+          // Fallback: generate meaningful content from fullContent
+          const fallbackContent = this.generateFallbackSection(
+            sectionKey,
+            content.fullContent || '',
+            content.description || ''
+          );
+          sections[sectionKey] = {
+            summary: fallbackContent,
+            evidence: defaultEvidence,
+          };
+        }
+      }
+
+      console.log(`✅ Generated ${framework} career story via LLM: "${parsed.title}"`);
+      return sections;
+    } catch (error) {
+      console.error('Failed to generate career story with LLM:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate a fallback section when LLM doesn't return a specific section.
+   * Uses the fullContent intelligently based on section type.
+   */
+  private generateFallbackSection(
+    sectionKey: string,
+    fullContent: string,
+    description: string
+  ): string {
+    const content = fullContent || description || '';
+    if (!content) {
+      return `This section describes the ${sectionKey} of this achievement.`;
+    }
+
+    // Extract relevant portion based on section type
+    const contentLower = content.toLowerCase();
+    const paragraphs = content.split(/\n\n+/).filter((p) => p.trim().length > 20);
+
+    // Map section keys to content patterns
+    const patterns: Record<string, RegExp[]> = {
+      situation: [/context|background|challenge|problem|initially|before/i],
+      context: [/context|background|setting|environment/i],
+      task: [/task|objective|goal|responsible|assigned/i],
+      action: [/implement|develop|creat|built|designed|led|executed/i],
+      actions: [/implement|develop|creat|built|designed|led|executed/i],
+      result: [/result|outcome|impact|improved|reduced|increased|achieved/i],
+      results: [/result|outcome|impact|improved|reduced|increased|achieved/i],
+      hindrances: [/challenge|obstacle|difficult|barrier|constraint|pushback/i],
+      obstacles: [/challenge|obstacle|difficult|barrier|constraint/i],
+      evaluation: [/learn|reflect|insight|takeaway|growth|next time/i],
+      learning: [/learn|reflect|insight|takeaway|growth|realize/i],
+      challenge: [/challenge|problem|issue|bug|difficult/i],
+      problem: [/problem|issue|gap|pain point/i],
+    };
+
+    const sectionPatterns = patterns[sectionKey] || [];
+
+    // Find paragraph that matches the section pattern
+    for (const paragraph of paragraphs) {
+      for (const pattern of sectionPatterns) {
+        if (pattern.test(paragraph)) {
+          return paragraph.slice(0, 500);
+        }
+      }
+    }
+
+    // Fallback: use first/last paragraph based on section type
+    if (paragraphs.length > 0) {
+      if (['situation', 'context', 'challenge', 'problem'].includes(sectionKey)) {
+        return paragraphs[0].slice(0, 500);
+      }
+      if (['result', 'results', 'evaluation', 'learning'].includes(sectionKey)) {
+        return paragraphs[paragraphs.length - 1].slice(0, 500);
+      }
+      // Middle sections get middle paragraphs
+      const midIdx = Math.floor(paragraphs.length / 2);
+      return paragraphs[midIdx].slice(0, 500);
+    }
+
+    return description || `This section describes the ${sectionKey} of this achievement.`;
+  }
+
+  /**
+   * Extract sections from fullContent using simple pattern matching.
+   * Looks for common headers and markdown structure.
+   */
+  private extractSectionsFromContent(
+    fullContent: string,
+    sectionKeys: string[]
+  ): Record<string, string> {
+    const result: Record<string, string> = {};
+    const content = fullContent.trim();
+
+    // Pattern 1: Look for explicit section headers (## Situation, **Situation**, etc.)
+    for (const sectionKey of sectionKeys) {
+      const patterns = [
+        new RegExp(`##\\s*${sectionKey}[:\\s]*\\n([\\s\\S]*?)(?=##|$)`, 'i'),
+        new RegExp(`\\*\\*${sectionKey}\\*\\*[:\\s]*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
+        new RegExp(`${sectionKey}[:\\s]+([^\\n]+)`, 'i'),
+      ];
+
+      for (const pattern of patterns) {
+        const match = content.match(pattern);
+        if (match && match[1]?.trim()) {
+          result[sectionKey] = match[1].trim().slice(0, 1000); // Limit length
+          break;
+        }
+      }
+    }
+
+    // Pattern 2: If no explicit sections found, try to intelligently split the content
+    const foundKeys = Object.keys(result);
+    if (foundKeys.length === 0 && content.length > 0) {
+      // For STAR framework, map content paragraphs to sections
+      const paragraphs = content
+        .split(/\n\n+/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 20);
+
+      if (paragraphs.length >= sectionKeys.length) {
+        // Distribute paragraphs across sections
+        for (let i = 0; i < sectionKeys.length; i++) {
+          result[sectionKeys[i]] = paragraphs[i] || `${sectionKeys[i]}: details pending`;
+        }
+      } else if (paragraphs.length > 0) {
+        // Use first paragraph for situation, last for result
+        result['situation'] = paragraphs[0];
+        if (paragraphs.length > 1) {
+          result['result'] = paragraphs[paragraphs.length - 1];
+        }
+      }
+    }
+
+    return result;
   }
 
   private validateSectionsInput(
@@ -370,13 +741,22 @@ export class CareerStoryService {
     entryId: string,
     framework?: FrameworkName
   ): Promise<StoryResult & { clusterId?: string }> {
+    // Fetch journal entry with rich content for narrative generation
     const entry = await prisma.journalEntry.findFirst({
       where: {
         id: entryId,
         authorId: userId,
         sourceMode: this.sourceMode,
       },
-      select: { id: true, title: true, activityIds: true },
+      select: {
+        id: true,
+        title: true,
+        activityIds: true,
+        fullContent: true,
+        format7Data: true,
+        description: true,
+        category: true,
+      },
     });
 
     if (!entry) {
@@ -405,19 +785,49 @@ export class CareerStoryService {
       }
     }
 
-    // Fetch full activities with cross-tool refs for narrative generation
-    const activities = await this.fetchActivitiesWithRefs(userId, entry.activityIds);
     const useFramework: FrameworkName = framework || 'STAR';
 
-    // Generate narrative using the pipeline (pattern matching + optional LLM polish).
-    // Falls back to basic template-based sections if generation fails.
+    // Primary: Use journal content (fullContent, format7Data) to build sections
+    // This preserves the user's narrative instead of regenerating from scratch
     let sections: NarrativeSections;
-    try {
-      sections = await this.generateNarrativeSections(activities, useFramework, userId);
-    } catch {
-      // Fallback to basic template-based sections if pipeline fails
-      const basicActivities = await this.fetchActivities(userId, entry.activityIds);
-      sections = this.buildSections(useFramework, basicActivities);
+
+    const journalContent = {
+      fullContent: entry.fullContent,
+      format7Data: entry.format7Data as Format7Data | null,
+      description: entry.description,
+      category: entry.category,
+    };
+
+    if (this.hasRichJournalContent(journalContent)) {
+      // Primary: Use LLM to transform journal content into framework-specific sections
+      // This produces interview-ready narratives that emphasize contributions and impact
+      const llmSections = await this.generateSectionsWithLLM(
+        journalContent,
+        useFramework,
+        entry.title || 'Career Story',
+        entry.activityIds
+      );
+
+      if (llmSections) {
+        sections = llmSections;
+      } else {
+        // Fallback to pattern-based extraction if LLM unavailable
+        sections = this.buildSectionsFromJournalContent(
+          journalContent,
+          useFramework,
+          entry.activityIds
+        );
+      }
+    } else {
+      // Fallback: Generate narrative using the pipeline (pattern matching + optional LLM polish)
+      const activities = await this.fetchActivitiesWithRefs(userId, entry.activityIds);
+      try {
+        sections = await this.generateNarrativeSections(activities, useFramework, userId);
+      } catch {
+        // Final fallback to basic template-based sections
+        const basicActivities = await this.fetchActivities(userId, entry.activityIds);
+        sections = this.buildSections(useFramework, basicActivities);
+      }
     }
 
     const title = entry.title || this.buildTitle(await this.fetchActivities(userId, entry.activityIds));
@@ -670,19 +1080,66 @@ export class CareerStoryService {
 
     const nextFramework = framework || (story.framework as FrameworkName);
 
-    // Use the narrative pipeline for proper generation
-    const activities = await this.fetchActivitiesWithRefs(userId, story.activityIds);
-    if (activities.length === 0) {
-      return { success: false, error: ERRORS.NO_ACTIVITIES };
-    }
+    // Try to find the original journal entry for this story's activities
+    // This allows us to use the rich content for LLM generation
+    const journalEntry = await prisma.journalEntry.findFirst({
+      where: {
+        authorId: userId,
+        sourceMode: this.sourceMode,
+        activityIds: { hasSome: story.activityIds },
+      },
+      select: {
+        id: true,
+        title: true,
+        fullContent: true,
+        format7Data: true,
+        description: true,
+        category: true,
+      },
+    });
 
     let sections: NarrativeSections;
-    try {
-      sections = await this.generateNarrativeSections(activities, nextFramework, userId);
-    } catch {
-      // Fallback to basic template-based sections if pipeline fails
-      const basicActivities = await this.fetchActivities(userId, story.activityIds);
-      sections = this.buildSections(nextFramework, basicActivities);
+
+    // Primary path: Use LLM with journal content
+    if (journalEntry?.fullContent || journalEntry?.format7Data) {
+      const journalContent: JournalContent = {
+        fullContent: journalEntry.fullContent,
+        format7Data: journalEntry.format7Data as Format7Data | null,
+        description: journalEntry.description,
+        category: journalEntry.category,
+      };
+
+      const llmSections = await this.generateSectionsWithLLM(
+        journalContent,
+        nextFramework,
+        journalEntry.title || story.title,
+        story.activityIds
+      );
+
+      if (llmSections) {
+        sections = llmSections;
+      } else {
+        // LLM failed, use pattern-based extraction
+        sections = this.buildSectionsFromJournalContent(
+          journalContent,
+          nextFramework,
+          story.activityIds
+        );
+      }
+    } else {
+      // Fallback: Use activity-based generation
+      const activities = await this.fetchActivitiesWithRefs(userId, story.activityIds);
+      if (activities.length === 0) {
+        return { success: false, error: ERRORS.NO_ACTIVITIES };
+      }
+
+      try {
+        sections = await this.generateNarrativeSections(activities, nextFramework, userId);
+      } catch {
+        // Final fallback to basic template-based sections
+        const basicActivities = await this.fetchActivities(userId, story.activityIds);
+        sections = this.buildSections(nextFramework, basicActivities);
+      }
     }
 
     const updated = await prisma.careerStory.update({
