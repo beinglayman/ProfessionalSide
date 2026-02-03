@@ -254,7 +254,12 @@ export class GitHubTool {
         deletions: prResponse.data.deletions || 0,
         changed_files: prResponse.data.changed_files || 0,
         commits: prResponse.data.commits || 0,
-        reviewers: allReviewers
+        reviewers: allReviewers,
+        // CRITICAL: Include body for cross-tool reference extraction (e.g., "Closes AUTH-123")
+        body: prResponse.data.body || '',
+        // Include head/base refs for context
+        headRef: prResponse.data.head?.ref,
+        baseRef: prResponse.data.base?.ref,
       };
     } catch (error) {
       console.error(`[GitHub Tool] Error fetching PR details for ${owner}/${repo}#${prNumber}:`, error);
@@ -320,7 +325,12 @@ export class GitHubTool {
             deletions: details?.deletions || 0,
             filesChanged: details?.changed_files || 0,
             commits: details?.commits || 0,
-            reviewers: details?.reviewers || []
+            reviewers: details?.reviewers || [],
+            // CRITICAL: Include body for cross-tool reference extraction
+            // This is where "Closes AUTH-123", "Fixes PERF-456", etc. live
+            body: details?.body || pr.body || '',
+            headRef: details?.headRef,
+            baseRef: details?.baseRef,
           };
         })
       );
@@ -361,7 +371,10 @@ export class GitHubTool {
         url: issue.html_url,
         repository: issue.repository_url.split('/').slice(-2).join('/'),
         labels: issue.labels.map((l: any) => l.name),
-        commentsCount: issue.comments || 0 // Number of comments on the issue
+        commentsCount: issue.comments || 0, // Number of comments on the issue
+        // CRITICAL: Include body for cross-tool reference extraction
+        // Issue descriptions may contain "Related to AUTH-123", "See PERF-456", etc.
+        body: issue.body || '',
       }));
     } catch (error) {
       console.error('[GitHub Tool] Error fetching issues:', error);

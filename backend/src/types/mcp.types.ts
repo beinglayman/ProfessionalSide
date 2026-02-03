@@ -90,6 +90,17 @@ export interface GitHubActivity {
     labels?: string[];
     repository?: string;
     reviewStatus?: string;
+    // Fields for cross-tool reference extraction
+    body?: string;  // PR description - contains "Closes JIRA-123" refs
+    linkedIssues?: string[];  // Explicitly linked issues
+    updatedAt?: Date;
+    additions?: number;
+    deletions?: number;
+    filesChanged?: number;
+    commits?: number;
+    commentsCount?: number;
+    isDraft?: boolean;
+    isReviewed?: boolean;
   }>;
   issues: Array<{
     id: number;
