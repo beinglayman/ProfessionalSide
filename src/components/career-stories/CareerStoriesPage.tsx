@@ -29,7 +29,7 @@ import {
   useSetCareerStoryVisibility,
 } from '../../hooks/useCareerStories';
 import { ClusterStatus } from './ClusterCard';
-import { STARPreview } from './STARPreview';
+import { NarrativePreview } from './NarrativePreview';
 import { StoryList } from './StoryList';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
@@ -114,7 +114,7 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
  * 1. useClusters() fetches all clusters on mount
  * 2. User selects a cluster -> opens preview panel (desktop) or sheet (mobile)
  * 3. User clicks "Generate STAR" -> mutation starts, status updates
- * 4. Result stored in clusterStatuses, displayed in STARPreview
+ * 4. Result stored in clusterStatuses, displayed in NarrativePreview
  *
  * TODO: Consider persisting polishEnabled preference to localStorage
  * TODO: Add optimistic updates for better UX during generation
@@ -351,8 +351,10 @@ export function CareerStoriesPage() {
   const handleRegenerate = useCallback(() => {
     // If a story is selected directly, regenerate it via API
     if (selectedStoryDirect) {
+      // Use the current framework from state, not the story's saved framework
+      // This allows regenerating with a different framework (e.g., STAR → SHARE)
       regenerateStoryMutation.mutate(
-        { id: selectedStoryDirect.id, framework: selectedStoryDirect.framework },
+        { id: selectedStoryDirect.id, framework },
         {
           onSuccess: (response) => {
             if (response.success && response.data) {
@@ -367,7 +369,7 @@ export function CareerStoriesPage() {
     if (selectedCluster) {
       handleGenerateStar(selectedCluster.id);
     }
-  }, [selectedCluster, selectedStoryDirect, handleGenerateStar, regenerateStoryMutation]);
+  }, [selectedCluster, selectedStoryDirect, handleGenerateStar, regenerateStoryMutation, framework]);
 
   const handleDeleteStory = useCallback(() => {
     if (selectedStoryDirect) {
@@ -407,7 +409,7 @@ export function CareerStoriesPage() {
     return selectedCluster.metrics.toolTypes as ToolType[];
   }, [selectedCluster]);
 
-  // Convert a CareerStory into a GenerateSTARResult format for display in STARPreview
+  // Convert a CareerStory into a GenerateSTARResult format for display in NarrativePreview
   const storyAsResult = useMemo((): GenerateSTARResult | null => {
     if (!selectedStoryDirect) return null;
 
@@ -735,7 +737,7 @@ export function CareerStoriesPage() {
 
           {/* Right column: STAR preview */}
           <div className="lg:col-span-8">
-            <STARPreview
+            <NarrativePreview
               clusterName={selectedStoryDirect?.title || selectedCluster?.name || `Cluster ${selectedCluster?.id?.slice(-6) || ''}`}
               activityCount={selectedStoryDirect?.activityIds.length || selectedCluster?.activityCount || 0}
               dateRange={selectedCluster?.metrics?.dateRange}
@@ -776,7 +778,7 @@ export function CareerStoriesPage() {
           isOpen={mobileSheetOpen && (selectedCluster !== null || selectedStoryDirect !== null)}
           onClose={() => setMobileSheetOpen(false)}
         >
-          <STARPreview
+          <NarrativePreview
             clusterName={selectedStoryDirect?.title || selectedCluster?.name || `Cluster ${selectedCluster?.id?.slice(-6) || ''}`}
             activityCount={selectedStoryDirect?.activityIds.length || selectedCluster?.activityCount || 0}
             dateRange={selectedCluster?.metrics?.dateRange}
