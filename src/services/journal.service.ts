@@ -531,7 +531,7 @@ export class JournalService {
    * Regenerate narrative for a journal entry using LLM.
    * Works for both demo and production entries (based on demo mode state).
    */
-  async regenerateNarrative(
+  static async regenerateNarrative(
     entryId: string,
     style: 'professional' | 'casual' | 'technical' | 'storytelling' = 'professional'
   ): Promise<{
