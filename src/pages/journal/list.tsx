@@ -865,6 +865,8 @@ export default function JournalPage() {
               ? 'No activities from connected sources. Try syncing your tools.'
               : 'No stories created yet. Activities will be grouped once you create draft stories.'
           }
+          onRegenerateNarrative={handleRegenerateNarrative}
+          regeneratingEntryId={regeneratingEntryId}
         />
       </div>
       <NewEntryModal 

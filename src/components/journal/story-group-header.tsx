@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { ChevronDown, ChevronRight, BookOpen, Calendar, FileText, CheckCircle, Sparkles, Users, Star } from 'lucide-react';
+import { ChevronDown, ChevronRight, BookOpen, Calendar, FileText, CheckCircle, Sparkles, Users, Star, RefreshCw, Loader2 } from 'lucide-react';
 import { StoryMetadata, StoryDominantRole } from '../../types/activity';
 import { cn } from '../../lib/utils';
 
@@ -9,6 +9,8 @@ interface StoryGroupHeaderProps {
   activityCount: number;
   isExpanded: boolean;
   onToggle: () => void;
+  onRegenerateNarrative?: (entryId: string) => void;
+  isRegenerateLoading?: boolean;
 }
 
 /**
@@ -38,7 +40,9 @@ export function StoryGroupHeader({
   storyMetadata,
   activityCount,
   isExpanded,
-  onToggle
+  onToggle,
+  onRegenerateNarrative,
+  isRegenerateLoading
 }: StoryGroupHeaderProps) {
   const {
     title,
@@ -192,10 +196,36 @@ export function StoryGroupHeader({
           )}
         </div>
 
-        {/* Activity count */}
-        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full flex-shrink-0">
-          {activityCount}
-        </span>
+        {/* Activity count and actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Regenerate button */}
+          {onRegenerateNarrative && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRegenerateNarrative(storyMetadata.id);
+              }}
+              disabled={isRegenerateLoading}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                isRegenerateLoading
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-400 hover:text-purple-600 hover:bg-purple-50"
+              )}
+              title="Regenerate narrative"
+            >
+              {isRegenerateLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+          {/* Activity count */}
+          <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+            {activityCount}
+          </span>
+        </div>
       </div>
     </button>
   );

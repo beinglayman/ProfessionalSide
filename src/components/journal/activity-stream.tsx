@@ -12,6 +12,8 @@ interface ActivityStreamProps {
   isLoading?: boolean;
   error?: string | null;
   emptyMessage?: string;
+  onRegenerateNarrative?: (entryId: string) => void;
+  regeneratingEntryId?: string | null;
 }
 
 /**
@@ -23,7 +25,9 @@ export function ActivityStream({
   groupBy,
   isLoading,
   error,
-  emptyMessage = 'No activities found'
+  emptyMessage = 'No activities found',
+  onRegenerateNarrative,
+  regeneratingEntryId
 }: ActivityStreamProps) {
   // Filter state
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
@@ -386,6 +390,8 @@ export function ActivityStream({
               group={group}
               isCollapsed={collapsedGroups.has(group.key)}
               onToggle={() => toggleGroup(group.key)}
+              onRegenerateNarrative={onRegenerateNarrative}
+              regeneratingEntryId={regeneratingEntryId}
             />
           ))
         ) : (
@@ -464,9 +470,11 @@ interface StoryGroupSectionProps {
   group: ActivityGroup;
   isCollapsed: boolean;
   onToggle: () => void;
+  onRegenerateNarrative?: (entryId: string) => void;
+  regeneratingEntryId?: string | null;
 }
 
-function StoryGroupSection({ group, isCollapsed, onToggle }: StoryGroupSectionProps) {
+function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative, regeneratingEntryId }: StoryGroupSectionProps) {
   const isUnassigned = group.key === 'unassigned';
   const isExpanded = !isCollapsed;
 
@@ -485,6 +493,8 @@ function StoryGroupSection({ group, isCollapsed, onToggle }: StoryGroupSectionPr
           activityCount={group.count}
           isExpanded={isExpanded}
           onToggle={onToggle}
+          onRegenerateNarrative={onRegenerateNarrative}
+          isRegenerateLoading={regeneratingEntryId === group.storyMetadata.id}
         />
       ) : (
         // Fallback minimal header
