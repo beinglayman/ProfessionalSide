@@ -517,8 +517,9 @@ export default function JournalPage() {
       console.log('🔄 Regenerating narrative:', { journalId, isDemoMode: isDemoMode() });
       await JournalService.regenerateNarrative(journalId, 'professional');
       setToastMessage('Narrative regenerated successfully');
-      // Refetch entries to update UI
+      // Refetch entries to update UI - invalidate both feed and activities queries
       queryClient.invalidateQueries({ queryKey: ['journal', 'feed'] });
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error: any) {
       const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
       console.error('❌ Failed to regenerate narrative:', { journalId, error: errorMessage });
