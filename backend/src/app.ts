@@ -485,15 +485,16 @@ app.delete('/api/v1/admin/delete-null-sourcemode', async (req, res) => {
 });
 
 // Admin endpoint to fix null sourceMode entries (set to specified mode)
-app.post('/api/v1/admin/fix-null-sourcemode', async (req, res) => {
+app.post('/api/v1/admin/fix-null-sourcemode', async (req, res): Promise<void> => {
   try {
     const { targetMode = 'production' } = req.body;
 
     if (!['demo', 'production'].includes(targetMode)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Invalid targetMode. Must be "demo" or "production"'
       });
+      return;
     }
 
     console.log(`🔧 Fixing null sourceMode entries, setting to "${targetMode}"...`);
