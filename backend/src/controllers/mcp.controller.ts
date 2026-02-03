@@ -1798,3 +1798,140 @@ export const sanitizeForNetwork = asyncHandler(async (req: Request, res: Respons
     sendError(res, `Failed to sanitize content: ${error.message}`, 500);
   }
 });
+
+/**
+ * Sync data from MCP tools and persist to ToolActivity table
+ * This is the production (live mode) equivalent of /demo/sync
+ *
+ * Flow (mirrors demo sync exactly):
+ * 1. Fetch real data from connected tools (GitHub, OneDrive, etc.)
+ * 2. Transform tool-specific responses to ActivityInput format
+ * 3. Persist to ToolActivity table (production, not demo)
+ * 4. Cluster activities in-memory
+ * 5. Create JournalEntry records (temporal + cluster-based)
+ * 6. Generate narratives via LLM
+ * 7. Return activity counts and entry previews for UI display
+ */
+export const syncAndPersist = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { toolTypes, dateRange, consentGiven } = req.body;
+
+  if (!userId) {
+    sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  try {
+    // Validate consent
+    if (!consentGiven) {
+      sendError(res, 'User consent is required to sync data', 400);
+      return;
+    }
+
+    // Default to GitHub and OneDrive if no tools specified
+    const tools = toolTypes?.length > 0 ? toolTypes : ['github', 'onedrive'];
+    const validTools = ['github', 'onedrive']; // Only these two have transformers for now
+    const selectedTools = tools.filter((t: string) => validTools.includes(t));
+
+    if (selectedTools.length === 0) {
+      sendError(res, `No supported tools specified. Currently supported: ${validTools.join(', ')}`, 400);
+      return;
+    }
+
+    console.log(`[MCP Sync] Starting live sync for user ${userId}, tools: [${selectedTools.join(', ')}]`);
+
+    // Import required services
+    const { GitHubTool } = await import('../services/mcp/tools/github.tool');
+    const { OneDriveTool } = await import('../services/mcp/tools/onedrive.tool');
+    const { transformToolActivity } = await import('../services/mcp/transformers');
+    const { runProductionSync } = await import('../services/career-stories/production-sync.service');
+    // ActivityInput is a type, import separately
+    type ActivityInputType = import('../services/career-stories/activity-persistence.service').ActivityInput;
+
+    // Parse date range (default: last 30 days)
+    let parsedDateRange: { start: Date; end: Date };
+    if (dateRange?.start && dateRange?.end) {
+      parsedDateRange = {
+        start: new Date(dateRange.start),
+        end: new Date(dateRange.end)
+      };
+    } else {
+      const now = new Date();
+      parsedDateRange = {
+        start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+        end: now
+      };
+    }
+
+    console.log(`[MCP Sync] Date range: ${parsedDateRange.start.toISOString()} to ${parsedDateRange.end.toISOString()}`);
+
+    // Fetch and transform activities from each tool
+    const allActivities: ActivityInputType[] = [];
+    const fetchErrors: Record<string, string> = {};
+
+    for (const toolType of selectedTools) {
+      try {
+        let result: any;
+
+        if (toolType === 'github') {
+          const tool = new GitHubTool();
+          result = await tool.fetchActivity(userId, parsedDateRange);
+        } else if (toolType === 'onedrive') {
+          const tool = new OneDriveTool();
+          result = await tool.fetchActivity(userId, parsedDateRange);
+        }
+
+        if (result?.success && result?.data) {
+          // Transform to ActivityInput format
+          const activities = transformToolActivity(toolType, result.data);
+          allActivities.push(...activities);
+          console.log(`[MCP Sync] ✓ ${toolType}: Fetched ${activities.length} activities`);
+
+          // Update lastSyncAt timestamp
+          await prisma.mCPIntegration.update({
+            where: { userId_toolType: { userId, toolType } },
+            data: { lastSyncAt: new Date() }
+          }).catch(e => console.error(`[MCP Sync] Failed to update lastSyncAt for ${toolType}:`, e));
+
+        } else {
+          const errorMsg = result?.error || 'Failed to fetch data';
+          console.log(`[MCP Sync] ✗ ${toolType}: ${errorMsg}`);
+          fetchErrors[toolType] = errorMsg;
+        }
+      } catch (error: any) {
+        console.error(`[MCP Sync] Error with ${toolType}:`, error);
+        fetchErrors[toolType] = error.message || 'Unexpected error';
+      }
+    }
+
+    if (allActivities.length === 0) {
+      const errorDetails = Object.entries(fetchErrors)
+        .map(([tool, error]) => `${tool}: ${error}`)
+        .join('; ');
+      sendError(res, `No activities fetched from any tools. ${errorDetails}`, 400);
+      return;
+    }
+
+    console.log(`[MCP Sync] Total activities fetched: ${allActivities.length}`);
+
+    // Run full production sync (matches demo flow exactly)
+    // This will: persist → cluster → create journal entries → generate narratives
+    const result = await runProductionSync(userId, allActivities as any, { clearExisting: false });
+
+    console.log(`[MCP Sync] Complete: ${result.activitiesSeeded} activities, ${result.entriesCreated} entries`);
+
+    sendSuccess(res, {
+      activityCount: result.activitiesSeeded,
+      activitiesBySource: result.activitiesBySource,
+      entryCount: result.entriesCreated,
+      temporalEntryCount: result.temporalEntriesCreated,
+      clusterEntryCount: result.clusterEntriesCreated,
+      entryPreviews: result.entryPreviews,
+      errors: Object.keys(fetchErrors).length > 0 ? fetchErrors : undefined,
+      message: `Synced ${result.activitiesSeeded} activities, created ${result.entriesCreated} journal entries`
+    });
+  } catch (error: any) {
+    console.error('[MCP Sync] Error:', error);
+    sendError(res, error.message || 'Failed to sync and persist data');
+  }
+});

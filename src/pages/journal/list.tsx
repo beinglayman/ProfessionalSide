@@ -69,7 +69,7 @@ import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
-import { runDemoSync, SyncState } from '../../services/sync.service';
+import { runDemoSync, runLiveSync, SyncState } from '../../services/sync.service';
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 import { ActivityViewTabs, ActivityViewType } from '../../components/journal/activity-view-tabs';
 import { ActivityStream } from '../../components/journal/activity-stream';
@@ -600,9 +600,24 @@ export default function JournalPage() {
         },
       });
     } else {
-      // Real mode: TODO - implement real sync
-      console.log('Real sync not implemented yet');
-      setToastMessage('Real sync coming soon');
+      // Live mode: run real sync
+      console.log('[Journal] Starting live sync...');
+      setIsSyncing(true);
+      setSyncState(null);
+      setShowSyncModal(true);
+
+      await runLiveSync({
+        onStateUpdate: setSyncState,
+        onComplete: () => {
+          setIsSyncing(false);
+        },
+        onError: (error) => {
+          console.error('Live sync failed:', error);
+          setIsSyncing(false);
+          setShowSyncModal(false);
+          setToastMessage(`Sync failed: ${error.message}`);
+        },
+      });
     }
   };
 

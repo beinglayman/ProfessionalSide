@@ -1,0 +1,608 @@
+/**
+ * Production Sync Service for Career Stories
+ *
+ * Mirrors the demo seed.service.ts flow exactly, but:
+ * - Uses ToolActivity table (not DemoToolActivity)
+ * - Uses sourceMode: 'production' (not 'demo')
+ * - Fetches real data from MCP tools (GitHub, OneDrive, etc.)
+ *
+ * Flow (matches seed.service.ts):
+ * 1. Clear existing production data (optional)
+ * 2. Fetch & persist activities to ToolActivity
+ * 3. Cluster activities in-memory
+ * 4. Create JournalEntry records (temporal + cluster-based)
+ * 5. Generate narratives via LLM
+ */
+
+import { PrismaClient, Prisma } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
+import { ClusteringService } from './clustering.service';
+import { RefExtractorService, refExtractor } from './ref-extractor.service';
+import { getModelSelector } from '../ai/model-selector.service';
+import { ActivityInput } from './activity-persistence.service';
+import { JournalService } from '../journal.service';
+
+// =============================================================================
+// CONSTANTS (match seed.service.ts)
+// =============================================================================
+
+const MIN_CLUSTER_SIZE = 2;
+const JOURNAL_WINDOW_SIZE_DAYS = 14;
+const MIN_ACTIVITIES_PER_ENTRY = 3;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
+const DEFAULT_PRODUCTION_WORKSPACE_ID = 'production-workspace';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface InMemoryCluster {
+  name: string | null;
+  activityIds: string[];
+  activities: Array<{
+    id: string;
+    source: string;
+    sourceId: string;
+    sourceUrl: string | null;
+    title: string;
+    description: string | null;
+    timestamp: Date;
+    crossToolRefs: string[];
+  }>;
+  metrics: {
+    dateRange: { start: Date; end: Date };
+    toolTypes: string[];
+  };
+}
+
+interface EntryPreview {
+  id: string;
+  title: string;
+  groupingMethod: 'time' | 'cluster';
+  activityCount: number;
+}
+
+interface JournalEntryData {
+  id: string;
+  title: string;
+  activityIds: string[];
+  timeRangeStart: Date;
+  timeRangeEnd: Date;
+  groupingMethod: 'time' | 'cluster';
+}
+
+export interface ProductionSyncResult {
+  activitiesSeeded: number;
+  activitiesBySource: Record<string, number>;
+  clustersCreated: number;
+  entriesCreated: number;
+  temporalEntriesCreated: number;
+  clusterEntriesCreated: number;
+  entryPreviews: EntryPreview[];
+}
+
+// =============================================================================
+// LOGGER
+// =============================================================================
+
+const DEBUG = process.env.DEBUG_PRODUCTION_SYNC === 'true' || process.env.NODE_ENV === 'development';
+
+const log = {
+  debug: (msg: string, data?: object) => DEBUG && console.log(`[ProductionSync] ${msg}`, data ?? ''),
+  info: (msg: string, data?: object) => console.log(`[ProductionSync] ${msg}`, data ?? ''),
+  warn: (msg: string, data?: object) => console.warn(`[ProductionSync] ${msg}`, data ?? ''),
+  error: (msg: string, data?: object) => console.error(`[ProductionSync] ${msg}`, data ?? ''),
+};
+
+// =============================================================================
+// UTILITIES
+// =============================================================================
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T | undefined> {
+  const timeout = new Promise<undefined>((resolve) => {
+    setTimeout(() => {
+      log.warn(`${label} timeout reached after ${ms}ms`);
+      resolve(undefined);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]);
+}
+
+function extractSkillsFromContent(content: string): string[] {
+  const skillKeywords = [
+    'React', 'TypeScript', 'JavaScript', 'Node.js', 'Python',
+    'API', 'REST', 'GraphQL', 'Database', 'PostgreSQL', 'MongoDB',
+    'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP',
+    'CI/CD', 'Git', 'Testing', 'Architecture', 'Performance',
+    'Security', 'Authentication', 'OAuth', 'JWT',
+    'Frontend', 'Backend', 'Full-stack', 'DevOps',
+    'Agile', 'Scrum', 'Code Review', 'Documentation',
+  ];
+
+  return skillKeywords.filter((skill) =>
+    content.toLowerCase().includes(skill.toLowerCase())
+  );
+}
+
+function computeDateRange(timestamps: Date[]): { start: Date; end: Date } {
+  const sorted = [...timestamps].sort((a, b) => a.getTime() - b.getTime());
+  return { start: sorted[0], end: sorted[sorted.length - 1] };
+}
+
+function extractToolTypes(activities: Array<{ source: string }>): string[] {
+  return [...new Set(activities.map((a) => a.source))];
+}
+
+function buildToolSummary(activities: Array<{ source: string }>): string {
+  const tools = extractToolTypes(activities);
+  if (tools.length === 1) return tools[0];
+  if (tools.length === 2) return `${tools[0]} and ${tools[1]}`;
+  return `${tools.slice(0, -1).join(', ')}, and ${tools[tools.length - 1]}`;
+}
+
+// =============================================================================
+// MAIN ORCHESTRATOR
+// =============================================================================
+
+/**
+ * Run production sync - mirrors seedDemoData exactly.
+ *
+ * @param userId User ID
+ * @param activities Pre-fetched activities (from MCP tools)
+ * @param options Sync options
+ */
+export async function runProductionSync(
+  userId: string,
+  activities: ActivityInput[],
+  options: { clearExisting?: boolean } = {}
+): Promise<ProductionSyncResult> {
+  log.info('Starting production sync', { userId, activityCount: activities.length });
+
+  const clusteringService = new ClusteringService(prisma);
+
+  // Step 1: Optionally clear existing production data
+  if (options.clearExisting) {
+    await clearProductionData(userId);
+  }
+
+  // Step 2: Persist activities to ToolActivity table
+  const persistedActivities = await persistProductionActivities(userId, activities);
+  log.debug(`Persisted ${persistedActivities.length} activities`);
+
+  // Step 2b: Count activities by source
+  const activitiesBySource: Record<string, number> = {};
+  for (const activity of persistedActivities) {
+    activitiesBySource[activity.source] = (activitiesBySource[activity.source] || 0) + 1;
+  }
+  log.debug('Activities by source:', activitiesBySource);
+
+  // Step 3: Cluster activities in-memory (same as demo)
+  const activitiesWithSourceUrl = persistedActivities.map((a) => ({
+    ...a,
+    sourceUrl: a.sourceUrl ?? null,
+  }));
+  const clusters = clusterProductionActivities(activitiesWithSourceUrl, clusteringService);
+  log.debug(`Created ${clusters.length} in-memory clusters`);
+
+  // Step 4: Create journal entries (temporal + cluster-based)
+  const journalResult = await createProductionJournalEntries(userId, persistedActivities, clusters);
+  log.debug(`Created ${journalResult.entries.length} journal entries (${journalResult.temporalCount} temporal, ${journalResult.clusterCount} cluster)`);
+
+  // Step 5: Generate narratives (with timeout)
+  await generateProductionNarratives(userId, journalResult.entries);
+
+  log.info('Production sync complete', {
+    activities: persistedActivities.length,
+    clusters: clusters.length,
+    entries: journalResult.entries.length,
+  });
+
+  // Build entry previews for UI
+  const entryPreviews: EntryPreview[] = journalResult.entries.map(entry => ({
+    id: entry.id,
+    title: entry.title,
+    groupingMethod: entry.groupingMethod,
+    activityCount: entry.activityIds?.length || 0,
+  }));
+
+  return {
+    activitiesSeeded: persistedActivities.length,
+    activitiesBySource,
+    clustersCreated: clusters.length,
+    entriesCreated: journalResult.entries.length,
+    temporalEntriesCreated: journalResult.temporalCount,
+    clusterEntriesCreated: journalResult.clusterCount,
+    entryPreviews,
+  };
+}
+
+// =============================================================================
+// STEP 1: CLEAR EXISTING DATA
+// =============================================================================
+
+async function clearProductionData(userId: string): Promise<void> {
+  log.debug('Clearing existing production data');
+
+  // Delete journal entries with sourceMode: 'production'
+  await prisma.journalEntry.deleteMany({
+    where: { authorId: userId, sourceMode: 'production' },
+  });
+
+  // Delete tool activities
+  await prisma.toolActivity.deleteMany({
+    where: { userId },
+  });
+
+  log.debug('Production data cleared');
+}
+
+// =============================================================================
+// STEP 2: PERSIST ACTIVITIES
+// =============================================================================
+
+async function persistProductionActivities(
+  userId: string,
+  activities: ActivityInput[]
+): Promise<Array<{
+  id: string;
+  source: string;
+  sourceId: string;
+  sourceUrl: string | null;
+  title: string;
+  description: string | null;
+  timestamp: Date;
+  crossToolRefs: string[];
+}>> {
+  const activitiesToCreate = activities.map((activity) => {
+    const allText = [
+      activity.sourceId,
+      activity.title,
+      activity.description || '',
+      activity.rawData ? JSON.stringify(activity.rawData) : '',
+    ].join(' ');
+    const refs = refExtractor.extractRefs(allText);
+
+    return {
+      userId,
+      source: activity.source,
+      sourceId: activity.sourceId,
+      sourceUrl: activity.sourceUrl || null,
+      title: activity.title,
+      description: activity.description || null,
+      timestamp: activity.timestamp,
+      crossToolRefs: refs,
+      rawData: (activity.rawData || Prisma.JsonNull) as Prisma.InputJsonValue,
+    };
+  });
+
+  // Use upsert to handle duplicates gracefully
+  for (const activity of activitiesToCreate) {
+    await prisma.toolActivity.upsert({
+      where: {
+        userId_source_sourceId: {
+          userId: activity.userId,
+          source: activity.source,
+          sourceId: activity.sourceId,
+        },
+      },
+      create: activity,
+      update: {
+        title: activity.title,
+        description: activity.description,
+        sourceUrl: activity.sourceUrl,
+        crossToolRefs: activity.crossToolRefs,
+        rawData: activity.rawData,
+      },
+    });
+  }
+
+  return prisma.toolActivity.findMany({
+    where: { userId },
+    orderBy: { timestamp: 'desc' },
+  });
+}
+
+// =============================================================================
+// STEP 3: CLUSTER ACTIVITIES
+// =============================================================================
+
+function clusterProductionActivities(
+  activities: Array<{
+    id: string;
+    source: string;
+    sourceId: string;
+    sourceUrl: string | null;
+    title: string;
+    description: string | null;
+    timestamp: Date;
+    crossToolRefs: string[];
+  }>,
+  clusteringService: ClusteringService
+): InMemoryCluster[] {
+  const clusterResults = clusteringService.clusterActivitiesInMemory(
+    activities.map((a) => ({
+      id: a.id,
+      source: a.source,
+      sourceId: a.sourceId,
+      title: a.title,
+      description: a.description,
+      timestamp: a.timestamp,
+      crossToolRefs: a.crossToolRefs,
+    })),
+    { minClusterSize: MIN_CLUSTER_SIZE }
+  );
+
+  return clusterResults.map((result) => {
+    const clusterActivities = activities.filter((a) => result.activityIds.includes(a.id));
+    return {
+      name: result.name,
+      activityIds: result.activityIds,
+      activities: clusterActivities.map((a) => ({
+        id: a.id,
+        source: a.source,
+        sourceId: a.sourceId,
+        sourceUrl: a.sourceUrl,
+        title: a.title,
+        description: a.description,
+        timestamp: a.timestamp,
+        crossToolRefs: a.crossToolRefs,
+      })),
+      metrics: {
+        dateRange: computeDateRange(clusterActivities.map((a) => a.timestamp)),
+        toolTypes: extractToolTypes(clusterActivities),
+      },
+    };
+  });
+}
+
+// =============================================================================
+// STEP 4: CREATE JOURNAL ENTRIES
+// =============================================================================
+
+async function createProductionJournalEntries(
+  userId: string,
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string; crossToolRefs?: string[] }>,
+  inMemoryClusters: InMemoryCluster[]
+): Promise<{ entries: JournalEntryData[]; temporalCount: number; clusterCount: number }> {
+  if (activities.length === 0) return { entries: [], temporalCount: 0, clusterCount: 0 };
+
+  // Query workspace ONCE
+  const workspace = await prisma.workspace.findFirst({
+    where: { members: { some: { userId } } },
+  });
+  const workspaceId = workspace?.id || DEFAULT_PRODUCTION_WORKSPACE_ID;
+
+  // 1. Create temporal entries (14-day windows)
+  const temporalEntries = await createTemporalEntries(userId, activities, workspaceId);
+
+  // 2. Create cluster-based entries
+  const clusterEntries = await createClusterEntries(userId, workspaceId, inMemoryClusters);
+
+  return {
+    entries: [...temporalEntries, ...clusterEntries],
+    temporalCount: temporalEntries.length,
+    clusterCount: clusterEntries.length,
+  };
+}
+
+async function createTemporalEntries(
+  userId: string,
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
+  workspaceId: string
+): Promise<JournalEntryData[]> {
+  const sorted = [...activities].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  );
+
+  const earliest = sorted[0].timestamp;
+  const latest = sorted[sorted.length - 1].timestamp;
+  const entries: JournalEntryData[] = [];
+
+  let windowStart = earliest;
+
+  while (windowStart.getTime() <= latest.getTime()) {
+    const windowEnd = new Date(windowStart.getTime() + JOURNAL_WINDOW_SIZE_DAYS * MS_PER_DAY);
+
+    const windowActivities = sorted.filter(
+      (a) =>
+        a.timestamp.getTime() >= windowStart.getTime() &&
+        a.timestamp.getTime() < windowEnd.getTime()
+    );
+
+    if (windowActivities.length >= MIN_ACTIVITIES_PER_ENTRY) {
+      const entry = await createJournalEntryFromWindow(userId, windowActivities, workspaceId);
+      entries.push(entry);
+    }
+
+    windowStart = windowEnd;
+  }
+
+  return entries;
+}
+
+async function createClusterEntries(
+  userId: string,
+  workspaceId: string,
+  inMemoryClusters: InMemoryCluster[]
+): Promise<JournalEntryData[]> {
+  const entries: JournalEntryData[] = [];
+
+  for (const cluster of inMemoryClusters) {
+    if (cluster.activities.length >= MIN_ACTIVITIES_PER_ENTRY) {
+      const entry = await createJournalEntryFromCluster(userId, cluster, workspaceId);
+      entries.push(entry);
+    }
+  }
+
+  return entries;
+}
+
+async function createJournalEntryFromWindow(
+  userId: string,
+  windowActivities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
+  workspaceId: string
+): Promise<JournalEntryData> {
+  const startDate = windowActivities[0].timestamp;
+  const endDate = windowActivities[windowActivities.length - 1].timestamp;
+
+  const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const title = `Week of ${startStr} - ${endStr}`;
+
+  const toolSummary = buildToolSummary(windowActivities);
+  const description = `${windowActivities.length} activities across ${toolSummary}`;
+
+  const combinedContent = `${title} ${description}`;
+  const skills = extractSkillsFromContent(combinedContent);
+
+  const entry = await prisma.journalEntry.create({
+    data: {
+      authorId: userId,
+      workspaceId,
+      title,
+      description,
+      fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
+      activityIds: windowActivities.map((a) => a.id),
+      groupingMethod: 'time',
+      timeRangeStart: startDate,
+      timeRangeEnd: endDate,
+      generatedAt: null,
+      // Production mode fields
+      sourceMode: 'production',
+      visibility: 'workspace',
+      category: 'achievement',
+      tags: ['production', 'temporal'],
+      skills,
+    },
+  });
+
+  return {
+    id: entry.id,
+    title: entry.title,
+    activityIds: entry.activityIds,
+    timeRangeStart: startDate,
+    timeRangeEnd: endDate,
+    groupingMethod: 'time',
+  };
+}
+
+async function createJournalEntryFromCluster(
+  userId: string,
+  cluster: InMemoryCluster,
+  workspaceId: string
+): Promise<JournalEntryData> {
+  const activities = cluster.activities;
+  const sorted = [...activities].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  );
+
+  const startDate = sorted[0].timestamp;
+  const endDate = sorted[sorted.length - 1].timestamp;
+
+  const clusterName = cluster.name || 'Project';
+  const summary = getClusterSummary(activities);
+  const title = `${clusterName}: ${summary}`;
+
+  const toolSummary = buildToolSummary(activities);
+  const description = `${activities.length} related activities across ${toolSummary}`;
+
+  const combinedContent = `${title} ${description}`;
+  const skills = extractSkillsFromContent(combinedContent);
+
+  const entry = await prisma.journalEntry.create({
+    data: {
+      authorId: userId,
+      workspaceId,
+      title,
+      description,
+      fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
+      activityIds: cluster.activityIds,
+      groupingMethod: 'cluster',
+      clusterRef: cluster.name || undefined,
+      timeRangeStart: startDate,
+      timeRangeEnd: endDate,
+      generatedAt: null,
+      // Production mode fields
+      sourceMode: 'production',
+      visibility: 'workspace',
+      category: 'achievement',
+      tags: ['production', 'cluster-based'],
+      skills,
+    },
+  });
+
+  return {
+    id: entry.id,
+    title: entry.title,
+    activityIds: entry.activityIds,
+    timeRangeStart: startDate,
+    timeRangeEnd: endDate,
+    groupingMethod: 'cluster',
+  };
+}
+
+function getClusterSummary(activities: Array<{ title: string }>): string {
+  const words = activities
+    .flatMap((a) => a.title.toLowerCase().split(/\s+/))
+    .filter((word) => word.length > 3);
+
+  const wordCounts: Record<string, number> = {};
+  words.forEach((word) => {
+    wordCounts[word] = (wordCounts[word] || 0) + 1;
+  });
+
+  const sorted = Object.entries(wordCounts)
+    .filter(([word]) => !['this', 'that', 'with', 'from', 'into', 'the', 'and', 'for'].includes(word))
+    .sort((a, b) => b[1] - a[1]);
+
+  if (sorted.length > 0 && sorted[0][1] > 1) {
+    const keyword = sorted[0][0];
+    return keyword.charAt(0).toUpperCase() + keyword.slice(1) + ' Work';
+  }
+
+  return 'Cross-Tool Collaboration';
+}
+
+// =============================================================================
+// STEP 5: GENERATE NARRATIVES
+// =============================================================================
+
+async function generateProductionNarratives(
+  userId: string,
+  entries: JournalEntryData[]
+): Promise<void> {
+  const selector = getModelSelector();
+  if (!selector) {
+    log.info('ModelSelector not available, skipping narrative generation');
+    return;
+  }
+
+  log.debug('ModelSelector available', selector.getModelInfo());
+
+  const journalService = new JournalService();
+
+  const narrativePromises = entries.map(async (entry) => {
+    try {
+      log.debug(`Generating narrative for entry ${entry.id}`);
+      await journalService.regenerateNarrative(entry.id, userId, { style: 'professional', maxRetries: 2 });
+      log.debug(`Narrative generated for entry ${entry.id}`);
+    } catch (error) {
+      log.warn(`Failed to generate narrative for entry ${entry.id}`, {
+        error: (error as Error).message,
+      });
+    }
+  });
+
+  log.info('Waiting for narrative generation...');
+  await withTimeout(
+    Promise.allSettled(narrativePromises),
+    NARRATIVE_GENERATION_TIMEOUT_MS,
+    'Narrative generation'
+  );
+  log.info('Narrative generation complete');
+}

@@ -14,6 +14,7 @@ import {
   generateFormat7Entry,
   transformFormat7,
   sanitizeForNetwork,
+  syncAndPersist,
   getSession,
   clearSession,
   clearAllSessions,
@@ -145,6 +146,15 @@ router.post('/transform-format7', authMiddleware, transformFormat7);
  * Returns: { networkTitle, networkContent, format7DataNetwork, sanitizationLog }
  */
 router.post('/sanitize-for-network', authMiddleware, sanitizeForNetwork);
+
+/**
+ * POST /api/v1/mcp/sync-and-persist
+ * Sync data from MCP tools and persist to ToolActivity table (production/live mode)
+ * This is the production equivalent of /demo/sync
+ * Body: { toolTypes?: string[], dateRange?: {...}, consentGiven: boolean }
+ * Returns: { activityCount, activitiesBySource, toolResults }
+ */
+router.post('/sync-and-persist', authMiddleware, syncAndPersist);
 
 /**
  * POST /api/v1/mcp/test-activities

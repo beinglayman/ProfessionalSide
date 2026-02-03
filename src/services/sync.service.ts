@@ -190,3 +190,76 @@ export async function resetDemoData(callbacks: SyncCallbacks): Promise<void> {
   await clearDemoData();
   await runDemoSync(callbacks);
 }
+
+/**
+ * Run live sync - fetches real data from connected tools (GitHub, OneDrive)
+ * and persists to ToolActivity table, creates journal entries with narratives.
+ * This is the production equivalent of runDemoSync - flow matches exactly.
+ */
+export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
+  try {
+    // Show syncing state
+    callbacks.onStateUpdate({
+      phase: 'syncing',
+      integrations: [],
+      entries: [],
+      totalActivities: 0,
+      totalEntries: 0,
+    });
+
+    // Call backend
+    const token = localStorage.getItem('inchronicle_access_token');
+    if (!token) {
+      throw new Error('No access token found');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/mcp/sync-and-persist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        toolTypes: ['github', 'onedrive'],
+        consentGiven: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Sync failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const result = data.data || data;
+
+    // Build final state (matches demo sync response format)
+    const integrations = buildIntegrations(result.activitiesBySource || {});
+    const entries: EntryPreview[] = (result.entryPreviews || []).map((e: EntryPreview) => ({
+      ...e,
+      status: 'done' as const,
+    }));
+
+    // Show complete state
+    callbacks.onStateUpdate({
+      phase: 'complete',
+      integrations,
+      entries,
+      totalActivities: result.activityCount || 0,
+      totalEntries: result.entryCount || 0,
+    });
+
+    // Notify journal to refresh
+    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+
+    callbacks.onComplete({
+      activityCount: result.activityCount || 0,
+      activitiesBySource: result.activitiesBySource || {},
+      entryCount: result.entryCount || 0,
+      temporalEntryCount: result.temporalEntryCount || 0,
+      clusterEntryCount: result.clusterEntryCount || 0,
+    });
+  } catch (error) {
+    callbacks.onError(error instanceof Error ? error : new Error('Live sync failed'));
+  }
+}
