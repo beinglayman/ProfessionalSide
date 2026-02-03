@@ -238,6 +238,82 @@ describe('CareerStoryService', () => {
       expect(regenerateResult.story?.sections).toHaveProperty('result');
     });
 
+    it('regenerates STAR to SHARE with correct section keys', async () => {
+      const activity = await createTestActivity({ title: 'Cross-team API standardization' });
+      const service = createCareerStoryService(true);
+
+      const createResult = await service.createStory(TEST_USER_ID, {
+        activityIds: [activity.id],
+        framework: 'STAR',
+      });
+      const storyId = createResult.story!.id;
+
+      // Regenerate with SHARE framework
+      const regenerateResult = await service.regenerate(storyId, TEST_USER_ID, 'SHARE');
+
+      expect(regenerateResult.success).toBe(true);
+      expect(regenerateResult.story?.framework).toBe('SHARE');
+      // SHARE has: situation, hindrances, actions, results, evaluation
+      const sections = regenerateResult.story?.sections;
+      expect(sections).toHaveProperty('situation');
+      expect(sections).toHaveProperty('hindrances');
+      expect(sections).toHaveProperty('actions');
+      expect(sections).toHaveProperty('results');
+      expect(sections).toHaveProperty('evaluation');
+      // Should NOT have STAR-only keys
+      expect(sections).not.toHaveProperty('task');
+    });
+
+    it('regenerates STAR to STARL with learning section', async () => {
+      const activity = await createTestActivity({ title: 'Q4 Reliability Initiative' });
+      const service = createCareerStoryService(true);
+
+      const createResult = await service.createStory(TEST_USER_ID, {
+        activityIds: [activity.id],
+        framework: 'STAR',
+      });
+      const storyId = createResult.story!.id;
+
+      // Regenerate with STARL framework
+      const regenerateResult = await service.regenerate(storyId, TEST_USER_ID, 'STARL');
+
+      expect(regenerateResult.success).toBe(true);
+      expect(regenerateResult.story?.framework).toBe('STARL');
+      // STARL has: situation, task, action, result, learning
+      const sections = regenerateResult.story?.sections;
+      expect(sections).toHaveProperty('situation');
+      expect(sections).toHaveProperty('task');
+      expect(sections).toHaveProperty('action');
+      expect(sections).toHaveProperty('result');
+      expect(sections).toHaveProperty('learning');
+    });
+
+    it('regenerates SHARE to SOAR with obstacles section', async () => {
+      const activity = await createTestActivity();
+      const service = createCareerStoryService(true);
+
+      const createResult = await service.createStory(TEST_USER_ID, {
+        activityIds: [activity.id],
+        framework: 'SHARE',
+      });
+      const storyId = createResult.story!.id;
+
+      // Regenerate with SOAR framework
+      const regenerateResult = await service.regenerate(storyId, TEST_USER_ID, 'SOAR');
+
+      expect(regenerateResult.success).toBe(true);
+      expect(regenerateResult.story?.framework).toBe('SOAR');
+      // SOAR has: situation, obstacles, actions, results
+      const sections = regenerateResult.story?.sections;
+      expect(sections).toHaveProperty('situation');
+      expect(sections).toHaveProperty('obstacles');
+      expect(sections).toHaveProperty('actions');
+      expect(sections).toHaveProperty('results');
+      // Should NOT have SHARE-only keys
+      expect(sections).not.toHaveProperty('hindrances');
+      expect(sections).not.toHaveProperty('evaluation');
+    });
+
     it('fails when story has no activities', async () => {
       // Directly create story with empty activityIds for this test
       const story = await prisma.careerStory.create({
