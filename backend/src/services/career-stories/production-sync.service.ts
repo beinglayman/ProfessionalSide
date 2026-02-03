@@ -589,7 +589,7 @@ async function generateProductionNarratives(
   const narrativePromises = entries.map(async (entry) => {
     try {
       log.debug(`Generating narrative for entry ${entry.id}`);
-      await journalService.regenerateNarrative(entry.id, userId, { style: 'professional', maxRetries: 2 });
+      await journalService.regenerateNarrative(userId, entry.id, { style: 'professional', maxRetries: 2 });
       log.debug(`Narrative generated for entry ${entry.id}`);
     } catch (error) {
       log.warn(`Failed to generate narrative for entry ${entry.id}`, {
