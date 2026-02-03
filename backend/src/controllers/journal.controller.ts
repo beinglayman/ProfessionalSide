@@ -13,6 +13,7 @@ import {
   linkToGoalSchema,
   recordAnalyticsSchema,
   rechronicleSchema,
+  createDraftStorySchema,
   CreateJournalEntryInput,
   UpdateJournalEntryInput,
   GetJournalEntriesInput,
@@ -22,7 +23,8 @@ import {
   AddArtifactInput,
   LinkToGoalInput,
   RecordAnalyticsInput,
-  RechronicleInput
+  RechronicleInput,
+  CreateDraftStoryInput
 } from '../types/journal.types';
 
 /**
@@ -584,6 +586,43 @@ export const regenerateNarrative = asyncHandler(async (req: Request, res: Respon
     }
     if (error.message === 'No activities found for this journal entry') {
       return void sendError(res, error.message, 400);
+    }
+    throw error;
+  }
+});
+
+/**
+ * POST /api/v1/journal/draft-stories
+ * Create a draft story from selected activity IDs.
+ * This allows users to manually select activities and create a journal entry.
+ * Works for both demo and production (based on X-Demo-Mode header).
+ */
+export const createDraftStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  try {
+    // Parse and validate input - handle date string conversion
+    const rawData = {
+      ...req.body,
+      timeRangeStart: req.body.timeRangeStart ? new Date(req.body.timeRangeStart) : undefined,
+      timeRangeEnd: req.body.timeRangeEnd ? new Date(req.body.timeRangeEnd) : undefined,
+    };
+
+    const validatedData: CreateDraftStoryInput = createDraftStorySchema.parse(rawData);
+
+    const entry = await getJournalService(req).createDraftStory(userId, validatedData);
+
+    sendSuccess(res, entry, 'Draft story created from activities', 201);
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return void sendError(res, 'Validation failed: ' + error.issues.map((i: any) => i.message).join(', '), 400);
+    }
+    if (error.message === 'No activities found for the provided IDs') {
+      return void sendError(res, error.message, 404);
     }
     throw error;
   }

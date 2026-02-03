@@ -17,7 +17,8 @@ import {
   addArtifact,
   getUserRechronicles,
   getUserFeed,
-  regenerateNarrative
+  regenerateNarrative,
+  createDraftStory
 } from '../controllers/journal.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { attachJournalService } from '../middleware/demo-mode.middleware';
@@ -46,6 +47,11 @@ router.post('/entries/:id/publish', publishJournalEntry);
 
 // Narrative regeneration
 router.post('/entries/:id/regenerate', regenerateNarrative);
+
+// Create draft story from selected activities
+// POST /api/v1/journal/draft-stories
+// Body: { activityIds: string[], groupingMethod: 'manual', workspaceId: string, ... }
+router.post('/draft-stories', createDraftStory);
 
 // Social interactions
 router.post('/entries/:id/like', toggleLike);

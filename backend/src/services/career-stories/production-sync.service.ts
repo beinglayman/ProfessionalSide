@@ -416,7 +416,7 @@ async function createTemporalEntries(
 
     if (windowActivities.length >= MIN_ACTIVITIES_PER_ENTRY) {
       const entry = await createJournalEntryFromWindow(userId, windowActivities, workspaceId);
-      entries.push(entry);
+      if (entry) entries.push(entry); // Skip null (duplicate) entries
     }
 
     windowStart = windowEnd;
@@ -435,7 +435,7 @@ async function createClusterEntries(
   for (const cluster of inMemoryClusters) {
     if (cluster.activities.length >= MIN_ACTIVITIES_PER_ENTRY) {
       const entry = await createJournalEntryFromCluster(userId, cluster, workspaceId);
-      entries.push(entry);
+      if (entry) entries.push(entry); // Skip null (duplicate) entries
     }
   }
 
@@ -446,7 +446,7 @@ async function createJournalEntryFromWindow(
   userId: string,
   windowActivities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
   workspaceId: string
-): Promise<JournalEntryData> {
+): Promise<JournalEntryData | null> {
   const startDate = windowActivities[0].timestamp;
   const endDate = windowActivities[windowActivities.length - 1].timestamp;
 
@@ -459,7 +459,70 @@ async function createJournalEntryFromWindow(
 
   const combinedContent = `${title} ${description}`;
   const skills = extractSkillsFromContent(combinedContent);
+  const activityIds = windowActivities.map((a) => a.id);
 
+  // Check if a temporal entry with overlapping time range already exists
+  // This prevents duplicate entries on repeated syncs
+  const existing = await prisma.journalEntry.findFirst({
+    where: {
+      authorId: userId,
+      sourceMode: 'production',
+      groupingMethod: 'time',
+      // Find entries with overlapping time ranges
+      OR: [
+        // Existing entry contains this window
+        {
+          timeRangeStart: { lte: startDate },
+          timeRangeEnd: { gte: endDate },
+        },
+        // This window contains existing entry
+        {
+          timeRangeStart: { gte: startDate },
+          timeRangeEnd: { lte: endDate },
+        },
+        // Overlapping ranges
+        {
+          timeRangeStart: { lte: endDate },
+          timeRangeEnd: { gte: startDate },
+        },
+      ],
+    },
+  });
+
+  if (existing) {
+    // Update existing entry with merged activities
+    const mergedActivityIds = [...new Set([...existing.activityIds, ...activityIds])];
+
+    // Only update if there are new activities
+    if (mergedActivityIds.length === existing.activityIds.length) {
+      log.debug(`Skipping duplicate temporal entry: ${title}`);
+      return null; // No new activities, skip
+    }
+
+    const updated = await prisma.journalEntry.update({
+      where: { id: existing.id },
+      data: {
+        activityIds: mergedActivityIds,
+        description: `${mergedActivityIds.length} activities across ${toolSummary}`,
+        // Reset narrative since activities changed
+        generatedAt: null,
+        fullContent: `# ${title}\n\n${mergedActivityIds.length} activities across ${toolSummary}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
+      },
+    });
+
+    log.debug(`Updated existing temporal entry: ${title} (${existing.activityIds.length} -> ${mergedActivityIds.length} activities)`);
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      activityIds: updated.activityIds,
+      timeRangeStart: startDate,
+      timeRangeEnd: endDate,
+      groupingMethod: 'time',
+    };
+  }
+
+  // Create new entry
   const entry = await prisma.journalEntry.create({
     data: {
       authorId: userId,
@@ -467,7 +530,7 @@ async function createJournalEntryFromWindow(
       title,
       description,
       fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
-      activityIds: windowActivities.map((a) => a.id),
+      activityIds,
       groupingMethod: 'time',
       timeRangeStart: startDate,
       timeRangeEnd: endDate,
@@ -495,7 +558,7 @@ async function createJournalEntryFromCluster(
   userId: string,
   cluster: InMemoryCluster,
   workspaceId: string
-): Promise<JournalEntryData> {
+): Promise<JournalEntryData | null> {
   const activities = cluster.activities;
   const sorted = [...activities].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
@@ -514,6 +577,53 @@ async function createJournalEntryFromCluster(
   const combinedContent = `${title} ${description}`;
   const skills = extractSkillsFromContent(combinedContent);
 
+  // Check if a cluster entry with the same clusterRef already exists
+  // This prevents duplicate entries on repeated syncs
+  if (cluster.name) {
+    const existing = await prisma.journalEntry.findFirst({
+      where: {
+        authorId: userId,
+        sourceMode: 'production',
+        groupingMethod: 'cluster',
+        clusterRef: cluster.name,
+      },
+    });
+
+    if (existing) {
+      // Update existing entry with merged activities
+      const mergedActivityIds = [...new Set([...existing.activityIds, ...cluster.activityIds])];
+
+      // Only update if there are new activities
+      if (mergedActivityIds.length === existing.activityIds.length) {
+        log.debug(`Skipping duplicate cluster entry: ${cluster.name}`);
+        return null; // No new activities, skip
+      }
+
+      const updated = await prisma.journalEntry.update({
+        where: { id: existing.id },
+        data: {
+          activityIds: mergedActivityIds,
+          description: `${mergedActivityIds.length} related activities across ${toolSummary}`,
+          // Reset narrative since activities changed
+          generatedAt: null,
+          fullContent: `# ${title}\n\n${mergedActivityIds.length} related activities across ${toolSummary}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
+        },
+      });
+
+      log.debug(`Updated existing cluster entry: ${cluster.name} (${existing.activityIds.length} -> ${mergedActivityIds.length} activities)`);
+
+      return {
+        id: updated.id,
+        title: updated.title,
+        activityIds: updated.activityIds,
+        timeRangeStart: startDate,
+        timeRangeEnd: endDate,
+        groupingMethod: 'cluster',
+      };
+    }
+  }
+
+  // Create new entry
   const entry = await prisma.journalEntry.create({
     data: {
       authorId: userId,
