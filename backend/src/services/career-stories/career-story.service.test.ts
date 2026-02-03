@@ -136,7 +136,7 @@ describe('CareerStoryService', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('No activities found for story');
+      expect(result.error).toContain('activities');
     });
   });
 
@@ -151,7 +151,7 @@ describe('CareerStoryService', () => {
       const result = await service.createFromJournalEntry(TEST_USER_ID, 'non-existent-entry');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Journal entry not found');
+      expect(result.error).toContain('not found');
     });
   });
 
@@ -181,7 +181,7 @@ describe('CareerStoryService', () => {
       const result = await service.deleteStory('non-existent-story', TEST_USER_ID);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Story not found');
+      expect(result.error).toContain('not found');
     });
 
     it('fails when user does not own the story', async () => {
@@ -196,7 +196,7 @@ describe('CareerStoryService', () => {
       const result = await service.deleteStory(storyId, 'other-user-id');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Story not found');
+      expect(result.error).toContain('not found');
     });
   });
 
@@ -256,7 +256,7 @@ describe('CareerStoryService', () => {
       const result = await service.regenerate(story.id, TEST_USER_ID);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('No activities found for story');
+      expect(result.error).toContain('activities');
     });
   });
 

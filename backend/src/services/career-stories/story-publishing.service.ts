@@ -21,6 +21,15 @@ export type Visibility = 'private' | 'workspace' | 'network';
 /** Valid visibility values for story publication */
 const VALID_VISIBILITIES: readonly Visibility[] = ['private', 'workspace', 'network'];
 
+/** Error messages for consistent error responses */
+const ERRORS = {
+  STORY_NOT_FOUND: 'Story not found',
+  NOT_OWNER: 'You do not own this story',
+  INVALID_VISIBILITY: 'Invalid visibility setting',
+  NEEDS_REGENERATION: 'Story needs regeneration before publishing',
+  MISSING_FIELDS: 'Story is missing required fields',
+} as const;
+
 /** Type guard to validate visibility value */
 function isValidVisibility(value: string): value is Visibility {
   return VALID_VISIBILITIES.includes(value as Visibility);
@@ -144,7 +153,7 @@ export class StoryPublishingService {
     visibility: Visibility
   ): Promise<PublishResult> {
     if (!isValidVisibility(visibility)) {
-      return { success: false, error: 'Invalid visibility setting' };
+      return { success: false, error: ERRORS.INVALID_VISIBILITY };
     }
 
     const story = await prisma.careerStory.findUnique({
@@ -152,15 +161,15 @@ export class StoryPublishingService {
     });
 
     if (!story || story.sourceMode !== this.sourceMode) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     if (story.userId !== userId) {
-      return { success: false, error: 'You do not own this story' };
+      return { success: false, error: ERRORS.NOT_OWNER };
     }
 
     if (story.needsRegeneration) {
-      return { success: false, error: 'Story needs regeneration before publishing' };
+      return { success: false, error: ERRORS.NEEDS_REGENERATION };
     }
 
     const missingFields = this.getMissingFields({
@@ -173,7 +182,7 @@ export class StoryPublishingService {
     if (missingFields.length > 0) {
       return {
         success: false,
-        error: 'Story is missing required fields',
+        error: ERRORS.MISSING_FIELDS,
         missingFields,
       };
     }
@@ -199,11 +208,11 @@ export class StoryPublishingService {
     });
 
     if (!story || story.sourceMode !== this.sourceMode) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     if (story.userId !== userId) {
-      return { success: false, error: 'You do not own this story' };
+      return { success: false, error: ERRORS.NOT_OWNER };
     }
 
     const updated = await prisma.careerStory.update({
@@ -226,7 +235,7 @@ export class StoryPublishingService {
     visibility: Visibility
   ): Promise<PublishResult> {
     if (!isValidVisibility(visibility)) {
-      return { success: false, error: 'Invalid visibility setting' };
+      return { success: false, error: ERRORS.INVALID_VISIBILITY };
     }
 
     const story = await prisma.careerStory.findUnique({
@@ -234,11 +243,11 @@ export class StoryPublishingService {
     });
 
     if (!story || story.sourceMode !== this.sourceMode) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     if (story.userId !== userId) {
-      return { success: false, error: 'You do not own this story' };
+      return { success: false, error: ERRORS.NOT_OWNER };
     }
 
     const updated = await prisma.careerStory.update({
@@ -261,11 +270,11 @@ export class StoryPublishingService {
     });
 
     if (!story || story.sourceMode !== this.sourceMode) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     if (story.userId !== userId) {
-      return { success: false, error: 'You do not own this story' };
+      return { success: false, error: ERRORS.NOT_OWNER };
     }
 
     return {

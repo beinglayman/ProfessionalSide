@@ -24,10 +24,14 @@ import {
 import { narrativeGenerationService } from './star-generation.service';
 import { ActivityWithRefs } from './pipeline/cluster-hydrator';
 
-/** Valid narrative frameworks supported by the service */
-const VALID_FRAMEWORKS: readonly NarrativeFrameworkType[] = [
-  'STAR', 'STARL', 'CAR', 'PAR', 'SAR', 'SOAR', 'SHARE', 'CARL'
-] as const;
+/** Error messages for consistent error responses */
+const ERRORS = {
+  STORY_NOT_FOUND: 'Story not found',
+  NO_ACTIVITIES: 'No activities found for story',
+  ENTRY_NOT_FOUND: 'Journal entry not found',
+  ENTRY_NO_ACTIVITIES: 'Journal entry has no activities',
+  INVALID_SECTIONS: 'Invalid narrative sections',
+} as const;
 
 /** Maps framework section names to STAR component keys */
 const SECTION_TO_STAR_COMPONENT: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
@@ -303,7 +307,7 @@ export class CareerStoryService {
 
     const activities = await this.fetchActivities(userId, input.activityIds);
     if (activities.length === 0) {
-      return { success: false, error: 'No activities found for story' };
+      return { success: false, error: ERRORS.NO_ACTIVITIES };
     }
 
     let sections: NarrativeSections;
@@ -312,7 +316,7 @@ export class CareerStoryService {
       if (!validation.valid || !validation.normalized) {
         return {
           success: false,
-          error: 'Invalid narrative sections',
+          error: ERRORS.INVALID_SECTIONS,
           missingFields: validation.missingFields,
         };
       }
@@ -366,8 +370,6 @@ export class CareerStoryService {
     entryId: string,
     framework?: FrameworkName
   ): Promise<StoryResult & { clusterId?: string }> {
-    console.log('📥 CareerStoryService.createFromJournalEntry:', { userId, entryId, framework, sourceMode: this.sourceMode });
-
     const entry = await prisma.journalEntry.findFirst({
       where: {
         id: entryId,
@@ -377,16 +379,12 @@ export class CareerStoryService {
       select: { id: true, title: true, activityIds: true },
     });
 
-    console.log('📋 Found entry:', entry ? { id: entry.id, title: entry.title, activityCount: entry.activityIds.length } : null);
-
     if (!entry) {
-      console.log('❌ Journal entry not found for:', { entryId, userId, sourceMode: this.sourceMode });
-      return { success: false, error: 'Journal entry not found' };
+      return { success: false, error: ERRORS.ENTRY_NOT_FOUND };
     }
 
     if (entry.activityIds.length === 0) {
-      console.log('❌ Journal entry has no activities:', entryId);
-      return { success: false, error: 'Journal entry has no activities' };
+      return { success: false, error: ERRORS.ENTRY_NO_ACTIVITIES };
     }
 
     // Find an existing cluster that contains any of these activities.
@@ -416,9 +414,8 @@ export class CareerStoryService {
     let sections: NarrativeSections;
     try {
       sections = await this.generateNarrativeSections(activities, useFramework, userId);
-      console.log('✅ Generated narrative sections via pipeline');
-    } catch (error) {
-      console.warn('⚠️ Narrative generation failed, falling back to basic sections:', error);
+    } catch {
+      // Fallback to basic template-based sections if pipeline fails
       const basicActivities = await this.fetchActivities(userId, entry.activityIds);
       sections = this.buildSections(useFramework, basicActivities);
     }
@@ -448,10 +445,23 @@ export class CareerStoryService {
   }
 
   /**
-   * Fetch activities with refs for narrative generation
+   * Fetch activities with refs for narrative generation.
+   * Returns activities in chronological order with cross-tool references.
    */
   private async fetchActivitiesWithRefs(userId: string, activityIds: string[]): Promise<ActivityWithRefs[]> {
     if (activityIds.length === 0) return [];
+
+    type ActivityRow = {
+      id: string;
+      source: string;
+      sourceId: string;
+      sourceUrl: string | null;
+      title: string;
+      description: string | null;
+      timestamp: Date;
+      rawData: Record<string, unknown> | null;
+      crossToolRefs: string[];
+    };
 
     const activities = await (this.activityTable.findMany as Function)({
       where: {
@@ -459,9 +469,9 @@ export class CareerStoryService {
         id: { in: activityIds },
       },
       orderBy: { timestamp: 'asc' },
-    });
+    }) as ActivityRow[];
 
-    return activities.map((a: any) => ({
+    return activities.map((a) => ({
       id: a.id,
       source: a.source,
       sourceId: a.sourceId,
@@ -572,7 +582,7 @@ export class CareerStoryService {
     });
 
     if (!story) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     const updated = await prisma.careerStory.update({
@@ -596,7 +606,7 @@ export class CareerStoryService {
     });
 
     if (!story) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     const activityIds = input.activityIds || story.activityIds;
@@ -608,7 +618,7 @@ export class CareerStoryService {
       if (!validation.valid || !validation.normalized) {
         return {
           success: false,
-          error: 'Invalid narrative sections',
+          error: ERRORS.INVALID_SECTIONS,
           missingFields: validation.missingFields,
         };
       }
@@ -655,7 +665,7 @@ export class CareerStoryService {
     });
 
     if (!story) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     const nextFramework = framework || (story.framework as FrameworkName);
@@ -663,15 +673,14 @@ export class CareerStoryService {
     // Use the narrative pipeline for proper generation
     const activities = await this.fetchActivitiesWithRefs(userId, story.activityIds);
     if (activities.length === 0) {
-      return { success: false, error: 'No activities found for story' };
+      return { success: false, error: ERRORS.NO_ACTIVITIES };
     }
 
     let sections: NarrativeSections;
     try {
       sections = await this.generateNarrativeSections(activities, nextFramework, userId);
-      console.log('✅ Regenerated narrative via pipeline');
-    } catch (error) {
-      console.warn('⚠️ Narrative regeneration failed, falling back to basic:', error);
+    } catch {
+      // Fallback to basic template-based sections if pipeline fails
       const basicActivities = await this.fetchActivities(userId, story.activityIds);
       sections = this.buildSections(nextFramework, basicActivities);
     }
@@ -695,7 +704,7 @@ export class CareerStoryService {
     });
 
     if (!story) {
-      return { success: false, error: 'Story not found' };
+      return { success: false, error: ERRORS.STORY_NOT_FOUND };
     }
 
     await prisma.careerStory.delete({
@@ -715,10 +724,6 @@ export class CareerStoryService {
       stories: stories.map((story) => this.mapStory(story)),
       total: stories.length,
     };
-  }
-
-  async getStories(userId: string): Promise<StoriesListResult> {
-    return this.listStories(userId);
   }
 
   async publish(
