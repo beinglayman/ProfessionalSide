@@ -16,7 +16,8 @@ import {
   addComment,
   addArtifact,
   getUserRechronicles,
-  getUserFeed
+  getUserFeed,
+  regenerateNarrative
 } from '../controllers/journal.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { attachJournalService } from '../middleware/demo-mode.middleware';
@@ -42,6 +43,9 @@ router.delete('/entries/:id', deleteJournalEntry);
 
 // Publishing
 router.post('/entries/:id/publish', publishJournalEntry);
+
+// Narrative regeneration
+router.post('/entries/:id/regenerate', regenerateNarrative);
 
 // Social interactions
 router.post('/entries/:id/like', toggleLike);

@@ -526,4 +526,27 @@ export class JournalService {
   // The X-Demo-Mode header (added by api interceptor) tells the backend
   // to query demo tables instead of production tables.
   // Both modes return the same JournalEntry shape.
+
+  /**
+   * Regenerate narrative for a journal entry using LLM.
+   * Works for both demo and production entries (based on demo mode state).
+   */
+  async regenerateNarrative(
+    entryId: string,
+    style: 'professional' | 'casual' | 'technical' | 'storytelling' = 'professional'
+  ): Promise<{
+    id: string;
+    title: string;
+    description: string;
+    fullContent: string;
+    generatedAt: string;
+    category: string | null;
+    skills: string[];
+  }> {
+    const response = await api.post<ApiResponse<any>>(
+      `/journal/entries/${entryId}/regenerate`,
+      { style }
+    );
+    return response.data.data;
+  }
 }

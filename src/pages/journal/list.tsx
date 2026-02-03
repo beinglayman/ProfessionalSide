@@ -122,6 +122,9 @@ export default function JournalPage() {
   const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Regenerate narrative state
+  const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
+
   // Listen for external data changes to refresh
   useEffect(() => {
     const handleDataChanged = () => {
@@ -500,6 +503,31 @@ export default function JournalPage() {
     }
   };
 
+  // Handle regenerate narrative
+  const handleRegenerateNarrative = async (journalId: string) => {
+    setRegeneratingEntryId(journalId);
+    // Close menu
+    setOpenPublishMenus(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(journalId);
+      return newSet;
+    });
+
+    try {
+      console.log('🔄 Regenerating narrative:', { journalId, isDemoMode: isDemoMode() });
+      await JournalService.regenerateNarrative(journalId, 'professional');
+      setToastMessage('Narrative regenerated successfully');
+      // Refetch entries to update UI
+      queryClient.invalidateQueries({ queryKey: ['journal', 'feed'] });
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
+      console.error('❌ Failed to regenerate narrative:', { journalId, error: errorMessage });
+      setToastMessage(`Failed to regenerate: ${errorMessage}`);
+    } finally {
+      setRegeneratingEntryId(null);
+    }
+  };
+
   // Handle visibility toggle (share to network / unshare)
   const handlePublishToggle = async (journal: JournalEntry) => {
     try {
@@ -757,6 +785,7 @@ export default function JournalPage() {
           showPublishMenu={openPublishMenus.has(journal.id)}
           onPublishToggle={handlePublishToggle}
           onDeleteEntry={handleDeleteEntry}
+          onRegenerateNarrative={handleRegenerateNarrative}
           onAppreciate={() => handleAppreciate(journal.id)}
           onReChronicle={() => handleOpenReChronicle(journal)}
           onToggleAnalytics={toggleAnalytics}
@@ -764,6 +793,7 @@ export default function JournalPage() {
           isAnalyticsOpen={openAnalytics.has(journal.id)}
           showUserProfile={false}
           isRechronicleLoading={rechronicleMutation.isPending}
+          isRegenerateLoading={regeneratingEntryId === journal.id}
         />
 
         {openPublishMenus.has(journal.id) && (

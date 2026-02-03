@@ -556,3 +556,35 @@ export const getUserFeed = asyncHandler(async (req: Request, res: Response): Pro
     throw error;
   }
 });
+
+/**
+ * POST /api/v1/journal/entries/:id/regenerate
+ * Regenerate narrative for a journal entry using LLM.
+ * Works for both demo and production entries (based on X-Demo-Mode header).
+ */
+export const regenerateNarrative = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { style = 'professional' } = req.body || {};
+
+  try {
+    const result = await getJournalService(req).regenerateNarrative(userId, id, {
+      style: style as 'professional' | 'casual' | 'technical' | 'storytelling',
+      maxRetries: 2,
+    });
+    sendSuccess(res, result, 'Journal narrative regenerated');
+  } catch (error: any) {
+    if (error.message === 'Journal entry not found') {
+      return void sendError(res, error.message, 404);
+    }
+    if (error.message === 'No activities found for this journal entry') {
+      return void sendError(res, error.message, 400);
+    }
+    throw error;
+  }
+});

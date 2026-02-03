@@ -26,6 +26,7 @@ import {
   Upload,
   Download,
   RepeatIcon,
+  RefreshCw,
   Trash2,
   Paperclip,
   Eye,
@@ -56,6 +57,7 @@ interface JournalCardProps {
   showPublishMenu?: boolean;
   onPublishToggle?: (journal: JournalEntry) => void;
   onDeleteEntry?: (journalId: string) => void;
+  onRegenerateNarrative?: (journalId: string) => void;
   onAppreciate?: (journalId: string) => void;
   onReChronicle?: (journalId: string, comment?: string) => void | (() => void);
   onToggleAnalytics?: (journalId: string) => void;
@@ -66,6 +68,7 @@ interface JournalCardProps {
   showUserProfile?: boolean;
   customActions?: React.ReactNode;
   isRechronicleLoading?: boolean;
+  isRegenerateLoading?: boolean;
   currentUserAvatar?: string;
   hasMultipleVisibilities?: boolean;
   onToggleViewMode?: () => void;
@@ -77,6 +80,7 @@ export function JournalCard({
   showPublishMenu = false,
   onPublishToggle,
   onDeleteEntry,
+  onRegenerateNarrative,
   onAppreciate,
   onReChronicle,
   onToggleAnalytics,
@@ -87,6 +91,7 @@ export function JournalCard({
   showUserProfile = true,
   customActions,
   isRechronicleLoading = false,
+  isRegenerateLoading = false,
   currentUserAvatar,
   hasMultipleVisibilities = false,
   onToggleViewMode,
@@ -860,6 +865,19 @@ export function JournalCard({
                         >
                           <BarChart className="h-4 w-4 text-gray-500" />
                           View Analytics
+                        </button>
+                      )}
+                      {onRegenerateNarrative && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRegenerateNarrative(journal.id);
+                          }}
+                          disabled={isRegenerateLoading}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        >
+                          <RefreshCw className={`h-4 w-4 text-gray-500 ${isRegenerateLoading ? 'animate-spin' : ''}`} />
+                          {isRegenerateLoading ? 'Regenerating...' : 'Regenerate Narrative'}
                         </button>
                       )}
                       <button
