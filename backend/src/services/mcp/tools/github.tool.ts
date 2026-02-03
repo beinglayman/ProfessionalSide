@@ -57,8 +57,11 @@ export class GitHubTool {
       this.githubApi.defaults.headers.common['Authorization'] = `token ${accessToken}`;
 
       // Calculate date range (default: last 24 hours)
-      const endDate = dateRange?.end || new Date();
-      const startDate = dateRange?.start || new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+      // Add buffer to end date to account for timezone differences
+      // This ensures we capture activities from "today" regardless of server timezone
+      const now = new Date();
+      const endDate = dateRange?.end || new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 day buffer
+      const startDate = dateRange?.start || new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
       // Fetch different types of activity in parallel
       const [userInfo, commits, pullRequests, issues, repos] = await Promise.all([
@@ -269,6 +272,8 @@ export class GitHubTool {
 
   private async fetchPullRequests(startDate: Date, endDate: Date): Promise<any[]> {
     try {
+      // GitHub search uses UTC dates only (no time component)
+      // endDate already has +1 day buffer to capture "today" in any timezone
       const dateRangeStr = `updated:${startDate.toISOString().split('T')[0]}..${endDate.toISOString().split('T')[0]}`;
 
       // Fetch both authored PRs and reviewed PRs in parallel
@@ -351,6 +356,7 @@ export class GitHubTool {
   private async fetchIssues(startDate: Date, endDate: Date): Promise<any[]> {
     try {
       // Search for issues created or updated by/for the user
+      // GitHub search uses UTC dates only - endDate has +1 day buffer for timezone coverage
       const searchResponse = await this.githubApi.get('/search/issues', {
         params: {
           q: `is:issue involves:@me updated:${startDate.toISOString().split('T')[0]}..${endDate.toISOString().split('T')[0]}`,
