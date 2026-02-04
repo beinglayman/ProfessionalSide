@@ -1,0 +1,43 @@
+{
+  "id": "a8d4daa2-f660-4955-941c-02696fa56f52",
+  "journalEntryId": "test-entry-002",
+  "sessionId": "a8fe8d8c-473e-4897-a3f2-adde3277a73e",
+  "title": "Slashed Dashboard Load Time to Save User Experience",
+  "hook": "At 3pm during a customer support meeting, I learned the dashboard load time was a staggering 8 seconds, frustrating users and risking churn.",
+  "framework": "SOAR",
+  "archetype": "detective",
+  "sections": {
+    "situation": {
+      "summary": "The user dashboard was loading in 8 seconds, causing widespread complaints and dissatisfaction among users. If left unresolved, it would have significantly impacted customer retention and trust in the product.",
+      "evidence": [
+        "Dashboard load time measured at 8 seconds",
+        "Customer complaints noted during support meeting"
+      ]
+    },
+    "obstacles": {
+      "summary": "The database queries driving the dashboard were complex and inefficient, with outdated indexing and redundant operations. Identifying which queries were the bottleneck required deep analysis and trial-and-error testing.",
+      "evidence": [
+        "Legacy query structure observed",
+        "No recent optimization or indexing applied"
+      ]
+    },
+    "actions": {
+      "summary": "I analyzed each query supporting the dashboard, focusing on execution time and redundancy. By adding indexes to key tables and implementing query batching, I streamlined the data retrieval process. Collaboration with the database administrator ensured safe deployment of changes.",
+      "evidence": [
+        "Indexes added to database tables",
+        "Query batching implemented",
+        "Database administrator involved in review"
+      ]
+    },
+    "results": {
+      "summary": "The dashboard load time dropped from 8 seconds to 1.2 seconds, a dramatic improvement that eliminated user complaints and enhanced the overall product experience. The optimization reduced server load, creating more capacity for peak traffic periods.",
+      "evidence": [
+        "Load time reduced to 1.2 seconds",
+        "Positive customer feedback post-update"
+      ]
+    }
+  },
+  "reasoning": "The story follows the SOAR framework by starting with the critical situation (slow dashboard load time), outlining the technical obstacles (inefficient queries), detailing the specific actions taken (analysis, indexing, batching), and concluding with quantifiable results (load time improvement and customer satisfaction). It emphasizes urgency and technical specificity to make the narrative compelling.",
+  "generatedAt": "2026-02-04T05:48:05.902Z",
+  "withCoaching": true
+}

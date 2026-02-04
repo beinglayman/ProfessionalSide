@@ -1,0 +1,47 @@
+{
+  "id": "e76eb422-70a9-47f3-af23-3fe01811bb0c",
+  "journalEntryId": "test-entry-001",
+  "sessionId": "66e002d6-8a9b-4ad7-ae53-99b104a827ea",
+  "title": "Race to Fix Critical Checkout Bug Before Launch",
+  "hook": "At 2:17am, two weeks before Black Friday, six alerts hit my phone in 10 seconds—our checkout was frozen, risking $50K in losses per minute.",
+  "framework": "SOAR",
+  "archetype": "firefighter",
+  "sections": {
+    "situation": {
+      "summary": "Two weeks before our biggest launch, during pre-Black Friday prep, I was alerted to a frozen checkout system at 2:17am. The issue threatened customer transactions, with potential losses of $50K per minute during peak season preparation.",
+      "evidence": [
+        "$50K lost per minute impact",
+        "six alerts in 10 seconds",
+        "Sarah flagged the issue via Slack"
+      ]
+    },
+    "obstacles": {
+      "summary": "The root cause was a race condition in the newly deployed data sync layer, buried across three services in our newly migrated microservices architecture. With limited time and the risk of massive losses, we had to act fast under immense pressure.",
+      "evidence": [
+        "Race condition in data sync layer",
+        "High-stakes $50K/minute scenario",
+        "Complexity of debugging across three services"
+      ]
+    },
+    "actions": {
+      "summary": "I immediately pulled Sarah from platform, Marcus from the orders team, and Dev, a contractor familiar with the legacy system, into an emergency war room. We worked around the clock for 72 hours, tracing the issue through services, testing theories, and deploying a fix by 4:17am on day three.",
+      "evidence": [
+        "Sarah identified frozen checkout",
+        "Marcus contributed orders expertise",
+        "Dev leveraged legacy system knowledge",
+        "Fix deployed at 4:17am"
+      ]
+    },
+    "results": {
+      "summary": "The fix successfully resolved the issue with no customer-facing downtime or double-charges. Post-migration, deployment frequency improved from bi-weekly to 5-10x daily, and the runbook I created for handling similar issues is still in use 18 months later.",
+      "evidence": [
+        "Zero customer-facing incidents",
+        "Deployment frequency increased from bi-weekly to 5-10x daily",
+        "Runbook still utilized 18 months later"
+      ]
+    }
+  },
+  "reasoning": "The story begins with an urgent crisis moment to draw the reader in, details the complexity and stakes involved, highlights decisive and collaborative actions, and concludes with quantified results and lasting impact to emphasize resolution and prevention.",
+  "generatedAt": "2026-02-04T06:05:32.872Z",
+  "withCoaching": true
+}

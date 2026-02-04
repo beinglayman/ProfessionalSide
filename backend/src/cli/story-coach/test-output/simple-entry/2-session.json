@@ -1,0 +1,14 @@
+{
+  "id": "a8fe8d8c-473e-4897-a3f2-adde3277a73e",
+  "journalEntryId": "test-entry-002",
+  "archetype": "detective",
+  "exchanges": [],
+  "extractedContext": {
+    "counterfactual": "Customers would have been significantly impacted"
+  },
+  "currentPhase": "complete",
+  "questionsAsked": 6,
+  "status": "completed",
+  "startedAt": "2026-02-04T05:47:56.797Z",
+  "completedAt": "2026-02-04T05:47:56.797Z"
+}

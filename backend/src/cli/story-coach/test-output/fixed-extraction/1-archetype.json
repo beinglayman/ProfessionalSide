@@ -1,0 +1,29 @@
+{
+  "primary": {
+    "archetype": "firefighter",
+    "confidence": 0.85,
+    "reasoning": "The story's emotional core revolves around a high-pressure crisis moment: discovering a critical race condition at 2am, mobilizing a team, and resolving the issue within 72 hours to prevent customer double-charges. The urgency, time pressure, and successful resolution are hallmarks of the 'firefighter' archetype."
+  },
+  "alternatives": [
+    {
+      "archetype": "detective",
+      "confidence": 0.65,
+      "reasoning": "The story includes elements of systematic problem-solving, such as tracing the issue through three services and finding the root cause of the race condition. However, the crisis response and urgency overshadow the investigative aspects."
+    },
+    {
+      "archetype": "architect",
+      "confidence": 0.5,
+      "reasoning": "The journal entry mentions designing a migration strategy, implementing service boundaries, and achieving lasting impact (e.g., improved deployment frequency and a reusable runbook). However, these elements serve as context rather than the focal point of the story."
+    }
+  ],
+  "signals": {
+    "hasCrisis": true,
+    "hasArchitecture": true,
+    "hasStakeholders": true,
+    "hasMultiplication": true,
+    "hasMystery": true,
+    "hasPioneering": false,
+    "hasTurnaround": false,
+    "hasPrevention": true
+  }
+}

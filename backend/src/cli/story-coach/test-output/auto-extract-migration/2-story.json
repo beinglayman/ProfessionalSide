@@ -1,0 +1,42 @@
+{
+  "id": "a579214e-329c-4166-9df5-d19d7abcd9f4",
+  "journalEntryId": "test-entry-001",
+  "sessionId": "f172d5d7-8580-47b1-8316-28644dc5e209",
+  "title": "Race Against Time: Fixing a Critical Bug Pre-Launch",
+  "hook": "At 2am, two weeks before our biggest launch, I discovered a race condition in the data sync layer that could have double-charged every customer order.",
+  "framework": "SOAR",
+  "archetype": "firefighter",
+  "sections": {
+    "situation": {
+      "summary": "In the middle of a six-month migration of our core platform from a monolithic architecture to microservices, a critical bug emerged. Two weeks before a major launch, I discovered a race condition in the data sync layer that could have caused customers to be double-charged on every order.",
+      "evidence": [
+        "Race condition in data sync layer",
+        "Two weeks before major launch"
+      ]
+    },
+    "obstacles": {
+      "summary": "We were up against a ticking clock to prevent catastrophic financial and reputational damage. The legacy system was complex, and tracing the issue across three newly extracted services added significant challenges. The team had to act swiftly and decisively while balancing the pressures of the impending launch.",
+      "evidence": [
+        "Complex legacy system",
+        "Risk of double-charges across all orders"
+      ]
+    },
+    "actions": {
+      "summary": "I immediately called Sarah from the platform team, Marcus from the orders team, and Dev, a contractor familiar with the legacy codebase. Over 72 hours, we worked tirelessly to trace the issue across three services. After eliminating false leads, we zeroed in on the root cause and deployed the fix at 4:17am on day three.",
+      "evidence": [
+        "72-hour crisis response",
+        "Fix deployed at 4:17am"
+      ]
+    },
+    "results": {
+      "summary": "The fix prevented double-charges for customers and ensured a smooth launch. Post-migration, deployment frequency improved from bi-weekly to 5-10 times daily. Additionally, the runbook I created for handling similar issues is still in use by the team 18 months later, ensuring long-term operational resilience.",
+      "evidence": [
+        "Deployment frequency improved to 5-10x daily",
+        "Runbook still in use 18 months later"
+      ]
+    }
+  },
+  "reasoning": "The story follows the SOAR framework, starting with the moment of crisis to establish urgency. It highlights the obstacle of a ticking clock and technical complexity, showcases decisive actions taken under pressure, and concludes with quantified outcomes and lasting impact. This structure demonstrates the ability to respond effectively in high-stakes situations and deliver meaningful results.",
+  "generatedAt": "2026-02-04T06:25:06.831Z",
+  "withCoaching": true
+}

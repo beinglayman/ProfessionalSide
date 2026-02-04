@@ -1,0 +1,19 @@
+{
+  "id": "9a889974-9384-45d2-a613-27a5d3971439",
+  "journalEntryId": "test-entry-002",
+  "archetype": "detective",
+  "exchanges": [],
+  "extractedContext": {
+    "realStory": "A user dashboard with an 8-second load time was optimized to load in 1.2 seconds by analyzing and improving database queries.",
+    "obstacle": "The dashboard's slow load time of 8 seconds was causing user complaints.",
+    "keyDecision": "The decision to analyze database queries, add indexes, and implement query batching.",
+    "counterfactual": "Without intervention, user frustration would have persisted, potentially impacting user retention.",
+    "metric": "Load time reduced from 8 seconds to 1.2 seconds.",
+    "learning": "Database performance issues can often be resolved by optimizing queries and using indexes effectively."
+  },
+  "currentPhase": "complete",
+  "questionsAsked": 0,
+  "status": "completed",
+  "startedAt": "2026-02-04T05:59:21.906Z",
+  "completedAt": "2026-02-04T05:59:21.907Z"
+}

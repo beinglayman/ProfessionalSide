@@ -1,0 +1,24 @@
+{
+  "id": "1209085e-f780-4f14-879f-e1ad3cb51f41",
+  "journalEntryId": "test-entry-001",
+  "archetype": "firefighter",
+  "exchanges": [],
+  "extractedContext": {
+    "realStory": "Discovered a critical race condition in the data sync layer two weeks before a major launch and led a 72-hour effort to fix it alongside a small team.",
+    "obstacle": "A race condition in the data sync layer that could have caused customer double-charges on every order.",
+    "keyDecision": "Immediately pulled in Sarah, Marcus, and Dev to trace and resolve the issue within 72 hours.",
+    "counterfactual": "Customers would have been double-charged on every order during the launch, potentially causing major financial and reputational damage.",
+    "metric": "Deployment frequency improved from every two weeks to 5-10 times per day; issue resolved within 72 hours and validated in 2 hours.",
+    "namedPeople": [
+      "Sarah",
+      "Marcus",
+      "Dev"
+    ],
+    "learning": "Proactively identifying and resolving critical issues under pressure can prevent major failures and lead to lasting process improvements."
+  },
+  "currentPhase": "complete",
+  "questionsAsked": 0,
+  "status": "completed",
+  "startedAt": "2026-02-04T05:58:56.897Z",
+  "completedAt": "2026-02-04T05:58:56.898Z"
+}

@@ -1,0 +1,34 @@
+{
+  "primary": {
+    "archetype": "firefighter",
+    "confidence": 0.9,
+    "reasoning": "The story's emotional core revolves around a high-pressure crisis: discovering a critical race condition at 2am, assembling a team, and resolving the issue just in time to prevent a major customer-facing disaster. These are hallmark signals of the 'firefighter' archetype."
+  },
+  "alternatives": [
+    {
+      "archetype": "detective",
+      "confidence": 0.65,
+      "reasoning": "The story includes investigative elements, such as tracing the issue through three services and identifying the root cause. However, the urgency and crisis response overshadow the systematic problem-solving aspects."
+    },
+    {
+      "archetype": "architect",
+      "confidence": 0.5,
+      "reasoning": "The migration from monolith to microservices and the creation of a lasting runbook suggest architectural thinking. However, the focus of the story is on the crisis and resolution, not the design and implementation of the system."
+    },
+    {
+      "archetype": "preventer",
+      "confidence": 0.45,
+      "reasoning": "The user identified a risk (race condition) and prevented a disaster (customer double-charges). However, the narrative leans more heavily on the crisis response than on proactive prevention."
+    }
+  ],
+  "signals": {
+    "hasCrisis": true,
+    "hasArchitecture": true,
+    "hasStakeholders": true,
+    "hasMultiplication": true,
+    "hasMystery": true,
+    "hasPioneering": false,
+    "hasTurnaround": false,
+    "hasPrevention": true
+  }
+}

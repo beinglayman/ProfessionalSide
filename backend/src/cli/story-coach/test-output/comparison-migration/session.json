@@ -1,0 +1,16 @@
+{
+  "id": "f5fa7e84-8ea0-40ab-8221-504f7520e38e",
+  "journalEntryId": "test-entry-001",
+  "archetype": "firefighter",
+  "exchanges": [],
+  "extractedContext": {
+    "obstacle": "Got paged at 2am with a critical production issue",
+    "counterfactual": "Customers would have been significantly impacted",
+    "metric": "Saved 72 hours"
+  },
+  "currentPhase": "complete",
+  "questionsAsked": 6,
+  "status": "completed",
+  "startedAt": "2026-02-04T06:25:29.317Z",
+  "completedAt": "2026-02-04T06:25:29.317Z"
+}

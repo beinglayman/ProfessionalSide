@@ -1,0 +1,29 @@
+{
+  "primary": {
+    "archetype": "detective",
+    "confidence": 0.9,
+    "reasoning": "The journal entry focuses on investigating and solving a specific performance issue by analyzing database queries, identifying inefficiencies, and implementing targeted solutions. The core of the story is systematic problem-solving to uncover and address the root cause."
+  },
+  "alternatives": [
+    {
+      "archetype": "turnaround",
+      "confidence": 0.7,
+      "reasoning": "The story involves improving a failing state (8-second load time causing user complaints) and transforming it into a much better state (1.2-second load time). However, the emphasis is more on the investigation process than the broader transformation."
+    },
+    {
+      "archetype": "architect",
+      "confidence": 0.5,
+      "reasoning": "The solution involved optimizing database queries and implementing indexes, which could be seen as designing a more efficient system. However, the focus is not on long-term system design but rather on solving a specific issue."
+    }
+  ],
+  "signals": {
+    "hasCrisis": false,
+    "hasArchitecture": true,
+    "hasStakeholders": false,
+    "hasMultiplication": false,
+    "hasMystery": true,
+    "hasPioneering": false,
+    "hasTurnaround": true,
+    "hasPrevention": false
+  }
+}

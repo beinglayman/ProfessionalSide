@@ -1,0 +1,114 @@
+{
+  "id": "66e002d6-8a9b-4ad7-ae53-99b104a827ea",
+  "journalEntryId": "test-entry-001",
+  "archetype": "firefighter",
+  "exchanges": [
+    {
+      "questionId": "ff-dig-1",
+      "question": "What was the moment you realized something was wrong?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:03:50.108Z"
+    },
+    {
+      "questionId": "ff-dig-1-followup",
+      "question": "What did you type first, and who else did you reach out to immediately?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:03:52.694Z"
+    },
+    {
+      "questionId": "ff-dig-1-followup",
+      "question": "What exactly did you type first, and what was your immediate plan to stop the bleeding?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:03:54.705Z"
+    },
+    {
+      "questionId": "ff-dig-1-followup",
+      "question": "What exactly did you type to start addressing the issue, and did Sarah or anyone else jump in right away?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:03:56.793Z"
+    },
+    {
+      "questionId": "ff-dig-1-followup",
+      "question": "What exactly did you type in Slack or your system to kick off the fix? Was Sarah the first to respond?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:04:23.472Z"
+    },
+    {
+      "questionId": "ff-dig-1-followup",
+      "question": "What did Sarah say next after her initial Slack message—did she propose a solution or escalate the issue?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:04:25.692Z"
+    },
+    {
+      "questionId": "ff-dig-2",
+      "question": "Who did you call first? What did you say to them?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:04:39.355Z"
+    },
+    {
+      "questionId": "ff-dig-3",
+      "question": "What was the hardest part of fixing this?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:04:45.494Z"
+    },
+    {
+      "questionId": "ff-impact-1",
+      "question": "What would have happened if you hadn't caught this?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "impact",
+      "timestamp": "2026-02-04T06:04:46.977Z"
+    },
+    {
+      "questionId": "ff-impact-2",
+      "question": "What's the number that proves you succeeded?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "impact",
+      "timestamp": "2026-02-04T06:04:56.553Z"
+    },
+    {
+      "questionId": "ff-growth-1",
+      "question": "What changed because of this? New process? Runbook? Alert?",
+      "answer": "It was 2:17am on a Tuesday - I remember because my phone screen burned into my half-asleep eyes. I'd gotten 6 alerts in 10 seconds. Sarah from platform had already pinged Slack: 'checkout is completely frozen, customers can't complete purchases.' My stomach dropped. This was two weeks before Black Friday - our biggest launch. Every minute down was potentially 50K dollars in lost sales. I grabbed my laptop and didn't even wait for it to fully boot before I was typing.",
+      "phase": "growth",
+      "timestamp": "2026-02-04T06:04:58.934Z"
+    }
+  ],
+  "extractedContext": {
+    "realStory": "2:17am, six alerts in 10 seconds, Sarah’s Slack message about frozen checkout.",
+    "metric": "$50K lost per minute during downtime two weeks before Black Friday.",
+    "namedPeople": [
+      "Sarah",
+      "flagged",
+      "the",
+      "issue",
+      "on",
+      "Slack",
+      "and",
+      "the",
+      "laptop",
+      "wasn",
+      "fully",
+      "booted",
+      "before",
+      "action",
+      "began"
+    ],
+    "keyDecision": "Sarah flagged the issue on Slack, and the laptop wasn't fully booted before action began.",
+    "obstacle": "The moment was 2:17am, with $50K in losses per minute during a critical pre-Black Friday period.",
+    "counterfactual": "2:17am on a Tuesday, two weeks before Black Friday, $50K lost per minute.",
+    "learning": "6 alerts in 10 seconds and Sarah's message highlighting frozen checkout during peak season prep."
+  },
+  "currentPhase": "growth",
+  "questionsAsked": 11,
+  "status": "completed",
+  "startedAt": "2026-02-04T06:03:47.725Z",
+  "completedAt": "2026-02-04T06:04:58.935Z"
+}

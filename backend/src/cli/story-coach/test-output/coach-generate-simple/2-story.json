@@ -1,0 +1,42 @@
+{
+  "id": "7f521e09-22cb-4af9-99a7-bccfedba92a4",
+  "journalEntryId": "test-entry-002",
+  "sessionId": "9a889974-9384-45d2-a613-27a5d3971439",
+  "title": "Slashed Dashboard Load Time by 85%",
+  "hook": "At 8am, after a surge in user complaints, I discovered the dashboard's load time had ballooned to 8 seconds, risking user retention.",
+  "framework": "SOAR",
+  "archetype": "detective",
+  "sections": {
+    "situation": {
+      "summary": "The user dashboard had a significant problem: an 8-second load time, leading to mounting complaints from users. The slow response risked frustrating users and damaging retention rates.",
+      "evidence": [
+        "User complaints highlighting the slow load time",
+        "Dashboard metrics showing 8-second load times"
+      ]
+    },
+    "obstacles": {
+      "summary": "The root cause was buried in complex database queries. The queries lacked proper indexing and were running redundantly, consuming unnecessary resources and causing delays.",
+      "evidence": [
+        "Database query logs showing inefficiencies",
+        "Absence of indexing in key tables"
+      ]
+    },
+    "actions": {
+      "summary": "I analyzed each query, pinpointing inefficiencies. By adding indexes to critical tables and implementing query batching, I optimized the data retrieval process. Collaboration with the DBA ensured robust indexing strategies.",
+      "evidence": [
+        "Revised queries with optimized indexing",
+        "Batch execution logs showing improved efficiency"
+      ]
+    },
+    "results": {
+      "summary": "The dashboard's load time dropped from 8 seconds to 1.2 seconds, an 85% improvement. User complaints subsided, and retention metrics showed signs of stabilization. The changes are now part of our performance best practices.",
+      "evidence": [
+        "Performance metrics showing 1.2-second load time",
+        "Reduction in user complaints post-implementation"
+      ]
+    }
+  },
+  "reasoning": "The story was structured to show urgency (user complaints and retention risk), technical challenges (database inefficiencies), decisive actions (query optimization and indexing), and measurable outcomes (load time reduction and user impact).",
+  "generatedAt": "2026-02-04T05:59:30.817Z",
+  "withCoaching": true
+}

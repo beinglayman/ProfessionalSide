@@ -1,0 +1,152 @@
+{
+  "journalEntryId": "test-entry-001",
+  "basicStory": {
+    "story": {
+      "id": "66c3033c-50ca-464f-9c3f-8c82d9fb47b8",
+      "journalEntryId": "test-entry-001",
+      "title": "From Monolith to Microservices: A High-Stakes Migration",
+      "hook": "Two weeks before a major launch, I uncovered a critical race condition that demanded immediate resolution to avoid customer-impacting issues.",
+      "framework": "SOAR",
+      "sections": {
+        "situation": {
+          "summary": "Our core platform was built on a monolithic architecture with a 500,000-line codebase that hindered agility and scalability. To meet growing demands and improve deployment frequency, I led a 6-month initiative to break it into 12 independent microservices.",
+          "evidence": [
+            "500,000 lines of code",
+            "12 new independent services",
+            "6-month timeline"
+          ]
+        },
+        "obstacles": {
+          "summary": "Two weeks before our biggest product launch, I discovered a race condition in the data synchronization layer at 2am that posed a risk of double-charging customers for every order. The issue was complex and spanned multiple services, requiring immediate action and cross-team collaboration under intense time pressure.",
+          "evidence": [
+            "Race condition in data sync layer",
+            "Potential customer double-charges",
+            "Critical issue discovered at 2am, two weeks before launch"
+          ]
+        },
+        "actions": {
+          "summary": "I quickly assembled a response team that included Sarah from platform, Marcus from orders, and Dev, a contractor familiar with the legacy system. Over 72 hours, we traced the issue across three services and deployed a fix at 4:17am on day three. I also documented the process in a runbook to ensure future issues could be handled efficiently.",
+          "evidence": [
+            "Team of 3 experts plus contractor assembled",
+            "Issue traced across 3 services",
+            "Fix deployed at 4:17am after 72 hours of work",
+            "Runbook still in use 18 months later"
+          ]
+        },
+        "results": {
+          "summary": "The migration resulted in a dramatic improvement in deployment frequency, going from bi-weekly to 5-10 times daily. Despite the scale and complexity of the project, we achieved zero customer-facing incidents during the migration. The runbook I created continues to serve as a valuable resource for the team.",
+          "evidence": [
+            "Deployment frequency improved from bi-weekly to 5-10x daily",
+            "Zero customer-facing incidents during migration",
+            "Runbook still used 18 months later"
+          ]
+        }
+      },
+      "reasoning": "The story was structured using the SOAR framework to highlight the scale and complexity of the project, the critical challenge faced, the decisive actions taken under pressure, and the measurable outcomes achieved. Each section underscores my leadership, technical expertise, and focus on collaboration and documentation for sustained impact.",
+      "generatedAt": "2026-02-04T06:25:29.316Z",
+      "withCoaching": false
+    },
+    "evaluation": {
+      "storyId": "66c3033c-50ca-464f-9c3f-8c82d9fb47b8",
+      "score": 6.2,
+      "breakdown": {
+        "specificity": 6,
+        "compellingHook": 6.5,
+        "evidenceQuality": 7,
+        "archetypeFit": 5,
+        "actionableImpact": 6
+      },
+      "suggestions": [
+        "Lean into the story type. If it's a crisis story, emphasize the urgency."
+      ],
+      "coachComment": "Good structure. I can see what happened. Now make me care - where's the drama?",
+      "evaluatedAt": "2026-02-04T06:25:29.317Z"
+    }
+  },
+  "enhancedStory": {
+    "story": {
+      "id": "ef860bca-3417-46c2-a3e4-bd5a73574871",
+      "journalEntryId": "test-entry-001",
+      "sessionId": "f5fa7e84-8ea0-40ab-8221-504f7520e38e",
+      "title": "Saved Launch During Microservices Migration",
+      "hook": "At 2am, two weeks before our biggest launch, I discovered a race condition that could have double-charged every customer order...",
+      "framework": "SOAR",
+      "archetype": "firefighter",
+      "sections": {
+        "situation": {
+          "summary": "Two weeks before our largest product launch, I was paged at 2am about a critical race condition in the data sync layer. This issue would have caused customer double-charges for every order, risking significant damage to our reputation and customer trust.",
+          "evidence": [
+            "Got paged at 2am with a critical production issue",
+            "Would have caused customer double-charges"
+          ]
+        },
+        "obstacles": {
+          "summary": "The race condition was buried deep within the newly extracted services, making it difficult to pinpoint the root cause. Time pressure was immense with the launch approaching, and the complexity of tracing interactions between three services added extra layers of difficulty.",
+          "evidence": [
+            "Critical race condition in data sync layer",
+            "72 hours of tracing through three services"
+          ]
+        },
+        "actions": {
+          "summary": "I immediately pulled in Sarah from the platform team, Marcus from the orders team, and Dev, a contractor familiar with the legacy system. Over 72 hours, we worked tirelessly to trace the issue, testing hypotheses and ruling out dead ends. The fix was deployed at 4:17am on day three, followed by two hours of validation to ensure stability.",
+          "evidence": [
+            "Pulled in Sarah, Marcus, and Dev",
+            "Fix deployed at 4:17am after 72 hours"
+          ]
+        },
+        "results": {
+          "summary": "The issue was resolved without customer-facing incidents, and the launch proceeded smoothly. The migration ultimately increased deployment frequency from bi-weekly to 5-10 times daily, and the runbook I wrote for handling similar issues is still in use today, ensuring lasting operational resilience.",
+          "evidence": [
+            "Deployment frequency improved from bi-weekly to 5-10x daily",
+            "Runbook still in use 18 months later"
+          ]
+        }
+      },
+      "reasoning": "The story was structured to highlight the urgency of the crisis, the technical and collaborative actions taken under pressure, and the lasting impact of the resolution. By focusing on specific moments and quantified outcomes, it showcases the ability to respond effectively during high-stakes situations while driving long-term improvements.",
+      "generatedAt": "2026-02-04T06:25:37.585Z",
+      "withCoaching": true
+    },
+    "evaluation": {
+      "storyId": "ef860bca-3417-46c2-a3e4-bd5a73574871",
+      "score": 7.1,
+      "breakdown": {
+        "specificity": 5.5,
+        "compellingHook": 8,
+        "evidenceQuality": 8.5,
+        "archetypeFit": 7,
+        "actionableImpact": 7
+      },
+      "suggestions": [
+        "Add specific numbers: percentages, dollar amounts, time saved, people affected.",
+        "Name the people involved: 'Sarah from platform' not 'the team'."
+      ],
+      "coachComment": "This has a hook. The numbers are there. A few more specific details and it's excellent.",
+      "evaluatedAt": "2026-02-04T06:25:37.585Z"
+    },
+    "session": {
+      "id": "f5fa7e84-8ea0-40ab-8221-504f7520e38e",
+      "journalEntryId": "test-entry-001",
+      "archetype": "firefighter",
+      "exchanges": [],
+      "extractedContext": {
+        "obstacle": "Got paged at 2am with a critical production issue",
+        "counterfactual": "Customers would have been significantly impacted",
+        "metric": "Saved 72 hours"
+      },
+      "currentPhase": "complete",
+      "questionsAsked": 6,
+      "status": "completed",
+      "startedAt": "2026-02-04T06:25:29.317Z",
+      "completedAt": "2026-02-04T06:25:29.317Z"
+    }
+  },
+  "improvement": {
+    "scoreDelta": 0.8999999999999995,
+    "percentImprovement": 14.5,
+    "keyDifferences": [
+      "Enhanced has a more compelling opening",
+      "Hook changed: \"Two weeks before a major launch, I uncovered a cri...\" → \"At 2am, two weeks before our biggest launch, I dis...\""
+    ]
+  },
+  "comparedAt": "2026-02-04T06:25:37.585Z"
+}

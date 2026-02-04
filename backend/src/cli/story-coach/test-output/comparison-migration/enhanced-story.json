@@ -1,0 +1,42 @@
+{
+  "id": "ef860bca-3417-46c2-a3e4-bd5a73574871",
+  "journalEntryId": "test-entry-001",
+  "sessionId": "f5fa7e84-8ea0-40ab-8221-504f7520e38e",
+  "title": "Saved Launch During Microservices Migration",
+  "hook": "At 2am, two weeks before our biggest launch, I discovered a race condition that could have double-charged every customer order...",
+  "framework": "SOAR",
+  "archetype": "firefighter",
+  "sections": {
+    "situation": {
+      "summary": "Two weeks before our largest product launch, I was paged at 2am about a critical race condition in the data sync layer. This issue would have caused customer double-charges for every order, risking significant damage to our reputation and customer trust.",
+      "evidence": [
+        "Got paged at 2am with a critical production issue",
+        "Would have caused customer double-charges"
+      ]
+    },
+    "obstacles": {
+      "summary": "The race condition was buried deep within the newly extracted services, making it difficult to pinpoint the root cause. Time pressure was immense with the launch approaching, and the complexity of tracing interactions between three services added extra layers of difficulty.",
+      "evidence": [
+        "Critical race condition in data sync layer",
+        "72 hours of tracing through three services"
+      ]
+    },
+    "actions": {
+      "summary": "I immediately pulled in Sarah from the platform team, Marcus from the orders team, and Dev, a contractor familiar with the legacy system. Over 72 hours, we worked tirelessly to trace the issue, testing hypotheses and ruling out dead ends. The fix was deployed at 4:17am on day three, followed by two hours of validation to ensure stability.",
+      "evidence": [
+        "Pulled in Sarah, Marcus, and Dev",
+        "Fix deployed at 4:17am after 72 hours"
+      ]
+    },
+    "results": {
+      "summary": "The issue was resolved without customer-facing incidents, and the launch proceeded smoothly. The migration ultimately increased deployment frequency from bi-weekly to 5-10 times daily, and the runbook I wrote for handling similar issues is still in use today, ensuring lasting operational resilience.",
+      "evidence": [
+        "Deployment frequency improved from bi-weekly to 5-10x daily",
+        "Runbook still in use 18 months later"
+      ]
+    }
+  },
+  "reasoning": "The story was structured to highlight the urgency of the crisis, the technical and collaborative actions taken under pressure, and the lasting impact of the resolution. By focusing on specific moments and quantified outcomes, it showcases the ability to respond effectively during high-stakes situations while driving long-term improvements.",
+  "generatedAt": "2026-02-04T06:25:37.585Z",
+  "withCoaching": true
+}

@@ -1,0 +1,107 @@
+{
+  "id": "3f21614c-1b57-43ba-a928-09a985146496",
+  "journalEntryId": "test-entry-002",
+  "archetype": "detective",
+  "exchanges": [
+    {
+      "questionId": "de-dig-1",
+      "question": "What was the mystery? What couldn't anyone explain?",
+      "answer": "Alex Chen, our senior DBA, helped me identify the problematic queries. He had custom profiling scripts that revealed the N+1 query problem - each dashboard widget was making separate database calls instead of batching them.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:20.327Z"
+    },
+    {
+      "questionId": "de-dig-1-followup",
+      "question": "What was the moment you realized how big of a problem the N+1 queries were?",
+      "answer": "It was the 30-day deadline that made this urgent. Our biggest customer Acme Corp had complained directly to our VP during a quarterly business review, threatening to cancel their 200K dollar annual contract.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:26.728Z"
+    },
+    {
+      "questionId": "de-dig-1-followup",
+      "question": "What exactly did the VP say to you after hearing Acme Corp's threat?",
+      "answer": "The mystery was why only certain users experienced the slowdown. It turned out to be data volume - power users with lots of data triggered the worst N+1 patterns.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:29.168Z"
+    },
+    {
+      "questionId": "de-dig-1-followup",
+      "question": "What did the VP say to you when Acme Corp made that threat?",
+      "answer": "We reduced load time from 8 seconds to 1.2 seconds - an 85 percent improvement. Database CPU dropped from 78 percent to 23 percent.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:30.952Z"
+    },
+    {
+      "questionId": "de-dig-1-followup",
+      "question": "What was the conversation like when you shared these results with the VP?",
+      "answer": "The 200K Acme Corp contract was saved and they expanded usage by 40 percent. Support tickets dropped 92 percent, freeing 15 hours per week.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:33.624Z"
+    },
+    {
+      "questionId": "de-dig-1-followup",
+      "question": "What was the VP's reaction specifically when you shared the CPU drop and load time improvement?",
+      "answer": "I learned that premature optimization is real. Alex taught me to profile first. Just 3 queries caused 80 percent of the slowdown.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:35.483Z"
+    },
+    {
+      "questionId": "de-dig-2",
+      "question": "Walk me through your investigation. What did you try first?",
+      "answer": "Yes, measure before optimizing. Set up monitoring first so you have a baseline and can prove improvements with data.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:06:37.369Z"
+    },
+    {
+      "questionId": "de-dig-3",
+      "question": "What was the breakthrough moment? What led you to the answer?",
+      "answer": "The breakthrough was batching the widget queries into a single database round-trip instead of N separate calls.",
+      "phase": "dig",
+      "timestamp": "2026-02-04T06:07:08.310Z"
+    },
+    {
+      "questionId": "de-impact-1",
+      "question": "What was the actual root cause? How surprising was it?",
+      "answer": "First I tried adding database indexes, which helped a little but not enough. Then I looked at caching but that added complexity.",
+      "phase": "impact",
+      "timestamp": "2026-02-04T06:07:16.338Z"
+    },
+    {
+      "questionId": "de-impact-2",
+      "question": "How many people were affected before you solved it?",
+      "answer": "The dead end was when I tried to cache everything - it actually made things worse due to cache invalidation issues.",
+      "phase": "impact",
+      "timestamp": "2026-02-04T06:07:18.237Z"
+    },
+    {
+      "questionId": "de-growth-1",
+      "question": "What debugging skill did you develop from this?",
+      "answer": "Alex showed me how to use EXPLAIN ANALYZE to see the actual query execution plans, which revealed the sequential scans.",
+      "phase": "growth",
+      "timestamp": "2026-02-04T06:07:21.176Z"
+    }
+  ],
+  "extractedContext": {
+    "realStory": "Just 3 queries caused 80 percent of the slowdown.",
+    "metric": "Caching worsened the issue because of cache invalidation problems.",
+    "namedPeople": [
+      "Setting",
+      "up",
+      "monitoring",
+      "to",
+      "establish",
+      "baseline",
+      "before",
+      "optimizing"
+    ],
+    "keyDecision": "Setting up monitoring to establish a baseline before optimizing.",
+    "obstacle": "Batching the widget queries into a single database round-trip.",
+    "counterfactual": "They first tried adding database indexes, which helped slightly, then considered caching but found it added complexity.",
+    "learning": "EXPLAIN ANALYZE revealed sequential scans in query execution plans."
+  },
+  "currentPhase": "growth",
+  "questionsAsked": 11,
+  "status": "completed",
+  "startedAt": "2026-02-04T06:06:17.284Z",
+  "completedAt": "2026-02-04T06:07:21.176Z"
+}

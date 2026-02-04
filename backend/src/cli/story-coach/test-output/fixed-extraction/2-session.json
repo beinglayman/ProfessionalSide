@@ -1,0 +1,24 @@
+{
+  "id": "40a6bc4a-9234-4ec5-ba53-c20b681625e5",
+  "journalEntryId": "test-entry-001",
+  "archetype": "firefighter",
+  "exchanges": [],
+  "extractedContext": {
+    "realStory": "A race condition in the data sync layer was discovered two weeks before a major launch, and a team worked non-stop for 72 hours to fix it, ensuring customer double-charges were avoided.",
+    "obstacle": "A race condition in the data sync layer that could have caused customer double-charges on every order.",
+    "keyDecision": "Pulling in Sarah, Marcus, and Dev to trace the issue across three services and deploying a fix within 72 hours.",
+    "counterfactual": "Customers would have been double-charged on every order, leading to significant financial and reputational damage.",
+    "metric": "Deployment frequency improved from every two weeks to 5-10 times per day.",
+    "namedPeople": [
+      "Sarah",
+      "Marcus",
+      "Dev"
+    ],
+    "learning": "Having a clear runbook and assembling the right team quickly are critical for resolving high-stakes technical issues."
+  },
+  "currentPhase": "complete",
+  "questionsAsked": 0,
+  "status": "completed",
+  "startedAt": "2026-02-04T06:26:58.754Z",
+  "completedAt": "2026-02-04T06:26:58.755Z"
+}
