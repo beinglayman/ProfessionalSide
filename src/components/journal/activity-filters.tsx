@@ -153,6 +153,7 @@ interface SourceFiltersProps {
 
 /**
  * Compact filter chips for source grouping - uses source-specific colors
+ * Wraps to multiple lines when there are many sources
  */
 export function SourceFilters({
   availableSources,
@@ -167,7 +168,7 @@ export function SourceFilters({
   };
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 flex-wrap">
       <button
         onClick={handleClearAll}
         className={cn(

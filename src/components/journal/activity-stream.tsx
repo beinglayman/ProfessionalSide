@@ -317,9 +317,9 @@ export function ActivityStream({
 
   return (
     <div className="space-y-3">
-      {/* Controls: Search + Filters + Expand/Collapse - single line with separators */}
+      {/* Controls: Search + Filters + Expand/Collapse - wraps on small screens */}
       {(showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex items-center gap-2 flex-wrap pb-1">
           {/* Search input */}
           <div className="relative flex-shrink-0">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
