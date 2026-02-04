@@ -46,7 +46,7 @@ export function useActivities(params: GetActivitiesParams = {}) {
         meta: { groupBy: null, sourceMode: isDemoMode() ? 'demo' : 'production' }
       } as FlatActivitiesResponse;
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0, // Always consider data stale - ensures refetch on tab switch
     gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
     // Keep showing previous data while refetching to prevent flash of empty state
     placeholderData: keepPreviousData,
