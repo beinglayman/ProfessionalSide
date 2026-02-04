@@ -21,6 +21,7 @@ import { RefExtractorService, refExtractor } from './ref-extractor.service';
 import { getModelSelector } from '../ai/model-selector.service';
 import { ActivityInput } from './activity-persistence.service';
 import { JournalService } from '../journal.service';
+import { sseService } from '../sse.service';
 
 // =============================================================================
 // CONSTANTS (match seed.service.ts)
@@ -200,12 +201,33 @@ export async function runProductionSync(
   // Step 5: Generate narratives (in background if requested for faster sync response)
   if (options.backgroundNarratives) {
     // Fire and forget - don't await, let it complete in background
+    // Emit per-entry events so frontend can update UI progressively
     log.info('Starting background narrative generation', { entryCount: journalResult.entries.length });
-    generateProductionNarratives(userId, journalResult.entries).catch(err => {
-      log.error('Background narrative generation failed', { error: err.message });
-    });
+    generateProductionNarratives(userId, journalResult.entries, true)
+      .then(() => {
+        // Notify connected clients that ALL narratives are complete
+        log.info('Background narrative generation complete, sending SSE event');
+        sseService.broadcastToUser(userId, {
+          type: 'narratives-complete',
+          data: {
+            entriesUpdated: journalResult.entries.length,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      })
+      .catch(err => {
+        log.error('Background narrative generation failed', { error: err.message });
+        // Still notify so UI can stop showing loading state
+        sseService.broadcastToUser(userId, {
+          type: 'narratives-complete',
+          data: {
+            error: err.message,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      });
   } else {
-    await generateProductionNarratives(userId, journalResult.entries);
+    await generateProductionNarratives(userId, journalResult.entries, false);
   }
 
   log.info('Production sync complete', {
@@ -697,7 +719,8 @@ function getClusterSummary(activities: Array<{ title: string }>): string {
 
 async function generateProductionNarratives(
   userId: string,
-  entries: JournalEntryData[]
+  entries: JournalEntryData[],
+  emitProgressEvents = false
 ): Promise<void> {
   const selector = getModelSelector();
   if (!selector) {
@@ -714,10 +737,35 @@ async function generateProductionNarratives(
       log.debug(`Generating narrative for entry ${entry.id}`);
       await journalService.regenerateNarrative(userId, entry.id, { style: 'professional', maxRetries: 2 });
       log.debug(`Narrative generated for entry ${entry.id}`);
+
+      // Emit SSE event for this entry if background generation
+      if (emitProgressEvents) {
+        sseService.broadcastToUser(userId, {
+          type: 'data-changed',
+          data: {
+            entryId: entry.id,
+            status: 'complete',
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
     } catch (error) {
       log.warn(`Failed to generate narrative for entry ${entry.id}`, {
         error: (error as Error).message,
       });
+
+      // Emit error event for this entry if background generation
+      if (emitProgressEvents) {
+        sseService.broadcastToUser(userId, {
+          type: 'data-changed',
+          data: {
+            entryId: entry.id,
+            status: 'error',
+            error: (error as Error).message,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
     }
   });
 
