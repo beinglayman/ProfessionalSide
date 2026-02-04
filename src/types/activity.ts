@@ -40,7 +40,7 @@ export type TemporalBucket = typeof TEMPORAL_BUCKETS[number];
  * Raw data structure varies by source - typed for UI display
  */
 export interface ActivityRawData {
-  // GitHub
+  // GitHub PR/Issue
   number?: number;
   state?: 'merged' | 'open' | 'closed';
   additions?: number;
@@ -50,15 +50,26 @@ export interface ActivityRawData {
   commits?: number;
   requestedReviewers?: string[];
   author?: string;
+  labels?: string[];
+  isDraft?: boolean;
+  isReviewed?: boolean;
+  reviewers?: string[];
+  body?: string;
+  headRef?: string;
+  baseRef?: string;
+  commentsCount?: number;
+  // GitHub Commit
+  sha?: string;
+  repository?: string;
+  message?: string;
 
-  // Jira
+  // Jira (labels shared with GitHub above)
   key?: string;
   status?: string;
   priority?: 'Critical' | 'High' | 'Medium' | 'Low';
   assignee?: string;
   reporter?: string;
   storyPoints?: number;
-  labels?: string[];
   issueType?: string;
 
   // Confluence
