@@ -539,3 +539,52 @@ export const useSetCareerStoryVisibility = () => {
     },
   });
 };
+
+// =============================================================================
+// FRAMEWORK RECOMMENDATIONS
+// =============================================================================
+
+/**
+ * Framework recommendation response from AI analysis
+ */
+export interface FrameworkRecommendation {
+  framework: NarrativeFramework;
+  confidence: number;
+  reason: string;
+}
+
+export interface FrameworkRecommendationsResponse {
+  primary: FrameworkRecommendation | null;
+  alternatives: FrameworkRecommendation[];
+  recommendedUseCase: {
+    id: string;
+    label: string;
+  } | null;
+}
+
+/**
+ * Get AI-powered framework recommendations for a journal entry.
+ *
+ * Currently returns empty data - AI recommendation endpoint not yet implemented.
+ * The FrameworkPickerModal gracefully handles missing recommendations by
+ * defaulting to manual selection.
+ *
+ * @param entryId - The journal entry ID to analyze
+ * @param enabled - Whether to run the query
+ */
+export const useFrameworkRecommendations = (entryId: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['career-stories', 'framework-recommendations', entryId],
+    queryFn: async (): Promise<FrameworkRecommendationsResponse> => {
+      // TODO: Implement backend endpoint for AI-powered framework recommendations
+      // For now, return empty data - modal handles this gracefully
+      return {
+        primary: null,
+        alternatives: [],
+        recommendedUseCase: null,
+      };
+    },
+    enabled: enabled && !!entryId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - recommendations don't change frequently
+  });
+};
