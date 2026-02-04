@@ -67,6 +67,15 @@ const TEMPORAL_LABELS: Record<TemporalBucket, { label: string; icon: React.FC<{ 
   older: { label: 'Older', icon: History },
 };
 
+/**
+ * Pipe separator component for filter groups
+ */
+export function FilterSeparator() {
+  return (
+    <div className="w-px h-5 bg-gray-200 mx-1 flex-shrink-0" />
+  );
+}
+
 interface TemporalFiltersProps {
   availableBuckets: TemporalBucket[];
   selectedBuckets: TemporalBucket[];
@@ -75,7 +84,7 @@ interface TemporalFiltersProps {
 }
 
 /**
- * Horizontal filter chips for temporal grouping
+ * Compact filter chips for temporal grouping
  */
 export function TemporalFilters({
   availableBuckets,
@@ -85,28 +94,26 @@ export function TemporalFilters({
 }: TemporalFiltersProps) {
   const allSelected = selectedBuckets.length === 0;
 
-  // Handler to clear all selections
   const handleClearAll = () => {
     selectedBuckets.forEach(b => onToggle(b));
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-      {/* All filter */}
+    <div className="flex items-center gap-1">
       <button
         onClick={handleClearAll}
         className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all',
+          'px-2 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap transition-all',
           allSelected
-            ? 'bg-gray-900 text-white'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-primary-500 text-white shadow-sm'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
         )}
       >
         All
       </button>
 
       {availableBuckets.map(bucket => {
-        const { label, icon: Icon } = TEMPORAL_LABELS[bucket];
+        const { label } = TEMPORAL_LABELS[bucket];
         const isSelected = selectedBuckets.includes(bucket);
         const count = counts?.[bucket];
 
@@ -115,17 +122,16 @@ export function TemporalFilters({
             key={bucket}
             onClick={() => onToggle(bucket)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all',
+              'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
               isSelected
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-primary-500 text-white shadow-sm'
+                : 'text-gray-600 hover:text-primary-600 hover:bg-primary-50'
             )}
           >
-            <Icon className="w-3 h-3" />
             {label}
             {count !== undefined && count > 0 && (
               <span className={cn(
-                'ml-0.5 text-[10px]',
+                'text-[10px] tabular-nums',
                 isSelected ? 'text-primary-200' : 'text-gray-400'
               )}>
                 {count}
@@ -146,7 +152,7 @@ interface SourceFiltersProps {
 }
 
 /**
- * Horizontal filter chips for source grouping
+ * Compact filter chips for source grouping - uses source-specific colors
  */
 export function SourceFilters({
   availableSources,
@@ -156,24 +162,22 @@ export function SourceFilters({
 }: SourceFiltersProps) {
   const allSelected = selectedSources.length === 0;
 
-  // Handler to clear all selections
   const handleClearAll = () => {
     selectedSources.forEach(s => onToggle(s));
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-      {/* All filter */}
+    <div className="flex items-center gap-1">
       <button
         onClick={handleClearAll}
         className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all',
+          'px-2 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap transition-all',
           allSelected
-            ? 'bg-gray-900 text-white'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-gray-700 text-white shadow-sm'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
         )}
       >
-        All Sources
+        All
       </button>
 
       {availableSources.map(source => {
@@ -181,25 +185,25 @@ export function SourceFilters({
         const Icon = SourceIcons[source];
         const isSelected = selectedSources.includes(source);
         const count = counts?.[source];
-        const color = sourceInfo?.color || '#888';
+        const color = sourceInfo?.color || '#6B7280';
 
         return (
           <button
             key={source}
             onClick={() => onToggle(source)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all"
             style={{
               backgroundColor: isSelected ? color : undefined,
               color: isSelected ? 'white' : color,
-              border: isSelected ? 'none' : `1px solid ${color}30`,
+              boxShadow: isSelected ? '0 1px 2px rgba(0,0,0,0.1)' : undefined,
             }}
           >
             {Icon && <Icon className="w-3 h-3" />}
             {sourceInfo?.displayName || source}
             {count !== undefined && count > 0 && (
               <span className={cn(
-                'ml-0.5 text-[10px]',
-                isSelected ? 'opacity-70' : 'opacity-50'
+                'text-[10px] tabular-nums',
+                isSelected ? 'opacity-80' : 'opacity-60'
               )}>
                 {count}
               </span>
@@ -211,19 +215,27 @@ export function SourceFilters({
   );
 }
 
-// Story grouping method icons
-const StoryMethodIcons: Record<StoryGroupingMethod, React.FC<{ className?: string }>> = {
-  cluster: GitBranch,
-  time: CalendarDays,
-  manual: Calendar,
-  ai: Clock,
+// Story grouping method icons and colors
+const StoryMethodConfig: Record<StoryGroupingMethod, {
+  icon: React.FC<{ className?: string }>;
+  color: string;
+  bgColor: string;
+}> = {
+  cluster: { icon: GitBranch, color: '#8B5CF6', bgColor: '#F3E8FF' },  // Purple - AI/semantic clusters
+  time: { icon: CalendarDays, color: '#0891B2', bgColor: '#E0F2FE' },  // Cyan - time-based
+  manual: { icon: Calendar, color: '#059669', bgColor: '#D1FAE5' },    // Green - user created
+  ai: { icon: Clock, color: '#7C3AED', bgColor: '#EDE9FE' },           // Violet - AI generated
 };
 
-// Role icons
-const RoleIcons: Record<StoryDominantRole, React.FC<{ className?: string }>> = {
-  Led: Star,
-  Contributed: Users,
-  Participated: Users,
+// Role icons and colors
+const RoleConfig: Record<StoryDominantRole, {
+  icon: React.FC<{ className?: string }>;
+  color: string;
+  bgColor: string;
+}> = {
+  Led: { icon: Star, color: '#D97706', bgColor: '#FEF3C7' },           // Amber - leadership
+  Contributed: { icon: Users, color: '#2563EB', bgColor: '#DBEAFE' },  // Blue - collaboration
+  Participated: { icon: Users, color: '#6B7280', bgColor: '#F3F4F6' }, // Gray - participation
 };
 
 interface StoryFiltersProps {
@@ -234,7 +246,7 @@ interface StoryFiltersProps {
 }
 
 /**
- * Horizontal filter chips for story grouping method
+ * Compact filter chips for story grouping method with method-specific colors
  */
 export function StoryFilters({
   availableMethods,
@@ -244,50 +256,47 @@ export function StoryFilters({
 }: StoryFiltersProps) {
   const allSelected = selectedMethods.length === 0;
 
-  // Handler to clear all selections
   const handleClearAll = () => {
     selectedMethods.forEach(m => onToggle(m));
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-      {/* All filter */}
+    <div className="flex items-center gap-1">
       <button
         onClick={handleClearAll}
         className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all',
+          'px-2 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap transition-all',
           allSelected
-            ? 'bg-gray-900 text-white'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-primary-500 text-white shadow-sm'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
         )}
       >
-        All Stories
+        All
       </button>
 
       {availableMethods.map(method => {
         const { label } = STORY_GROUPING_LABELS[method];
-        const Icon = StoryMethodIcons[method];
+        const { icon: Icon, color, bgColor } = StoryMethodConfig[method];
         const isSelected = selectedMethods.includes(method);
         const count = counts?.[method];
-        const color = method === 'cluster' ? '#8B5CF6' : '#6B7280'; // Purple for cluster, gray for time
 
         return (
           <button
             key={method}
             onClick={() => onToggle(method)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all"
             style={{
-              backgroundColor: isSelected ? color : undefined,
+              backgroundColor: isSelected ? color : bgColor,
               color: isSelected ? 'white' : color,
-              border: isSelected ? 'none' : `1px solid ${color}30`,
+              boxShadow: isSelected ? '0 1px 2px rgba(0,0,0,0.1)' : undefined,
             }}
           >
             <Icon className="w-3 h-3" />
             {label}
             {count !== undefined && count > 0 && (
               <span className={cn(
-                'ml-0.5 text-[10px]',
-                isSelected ? 'opacity-70' : 'opacity-50'
+                'text-[10px] tabular-nums',
+                isSelected ? 'opacity-80' : 'opacity-70'
               )}>
                 {count}
               </span>
@@ -307,7 +316,7 @@ interface RoleFiltersProps {
 }
 
 /**
- * Horizontal filter chips for role filtering (Led/Contributed/Participated)
+ * Compact filter chips for role filtering with role-specific colors
  */
 export function RoleFilters({
   availableRoles,
@@ -317,29 +326,27 @@ export function RoleFilters({
 }: RoleFiltersProps) {
   const allSelected = selectedRoles.length === 0;
 
-  // Handler to clear all selections
   const handleClearAll = () => {
     selectedRoles.forEach(r => onToggle(r));
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-      {/* All filter */}
+    <div className="flex items-center gap-1">
       <button
         onClick={handleClearAll}
         className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all',
+          'px-2 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap transition-all',
           allSelected
-            ? 'bg-gray-900 text-white'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-primary-500 text-white shadow-sm'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
         )}
       >
-        All Roles
+        All
       </button>
 
       {availableRoles.map(role => {
-        const { label, color, bgColor } = STORY_ROLE_LABELS[role];
-        const Icon = RoleIcons[role];
+        const { label } = STORY_ROLE_LABELS[role];
+        const { icon: Icon, color, bgColor } = RoleConfig[role];
         const isSelected = selectedRoles.includes(role);
         const count = counts?.[role];
 
@@ -347,18 +354,19 @@ export function RoleFilters({
           <button
             key={role}
             onClick={() => onToggle(role)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all"
             style={{
               backgroundColor: isSelected ? color : bgColor,
               color: isSelected ? 'white' : color,
+              boxShadow: isSelected ? '0 1px 2px rgba(0,0,0,0.1)' : undefined,
             }}
           >
             <Icon className="w-3 h-3" />
             {label}
             {count !== undefined && count > 0 && (
               <span className={cn(
-                'ml-0.5 text-[10px]',
-                isSelected ? 'opacity-70' : 'opacity-50'
+                'text-[10px] tabular-nums',
+                isSelected ? 'opacity-80' : 'opacity-70'
               )}>
                 {count}
               </span>
