@@ -1,0 +1,32 @@
+{
+  "id": "test-entry-001",
+  "title": "Led migration from monolith to microservices",
+  "description": "6-month project to break up our legacy monolith into microservices architecture",
+  "fullContent": "Led the migration of our core platform from a monolithic architecture to microservices over 6 months. The project involved breaking up a 500k line codebase into 12 independent services.\n\nTwo weeks before our biggest launch, at 2am, I discovered a race condition in the data sync layer that would have caused customer double-charges on every order.\n\nI immediately pulled in Sarah from platform and Marcus from the orders team. We also brought in Dev, a contractor who knew the legacy system. Over 72 hours we traced the issue through three services.\n\nThe fix was deployed at 4:17am on day three. We ran validation for two hours before the all-clear.\n\nThe migration eventually delivered massive improvements to deployment frequency - we went from deploying every two weeks to 5-10 times per day. The runbook I wrote for handling similar issues is still used by the team today.",
+  "category": "architecture",
+  "dominantRole": "Led",
+  "phases": [
+    {
+      "name": "Planning",
+      "summary": "Designed the migration strategy and service boundaries",
+      "activityIds": ["act-1", "act-2"]
+    },
+    {
+      "name": "Execution",
+      "summary": "Implemented service extraction with zero downtime",
+      "activityIds": ["act-3", "act-4", "act-5"]
+    },
+    {
+      "name": "Crisis Response",
+      "summary": "Discovered and fixed critical race condition before launch",
+      "activityIds": ["act-6", "act-7"]
+    }
+  ],
+  "impactHighlights": [
+    "Deployment frequency improved from bi-weekly to 5-10x daily",
+    "Zero customer-facing incidents during migration",
+    "Runbook still in use 18 months later"
+  ],
+  "skills": ["System Design", "Technical Leadership", "Incident Response"],
+  "activityIds": ["act-1", "act-2", "act-3", "act-4", "act-5", "act-6", "act-7"]
+}

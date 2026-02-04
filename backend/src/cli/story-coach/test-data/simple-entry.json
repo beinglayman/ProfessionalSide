@@ -1,0 +1,14 @@
+{
+  "id": "test-entry-002",
+  "title": "Improved dashboard performance",
+  "description": "Optimized database queries for user dashboard",
+  "fullContent": "Optimized database queries for the user dashboard. The page load time was 8 seconds, causing user complaints. I analyzed the queries, added indexes, and implemented query batching. Load time dropped to 1.2 seconds.",
+  "category": "performance",
+  "dominantRole": "Contributed",
+  "phases": null,
+  "impactHighlights": [
+    "Load time reduced from 8s to 1.2s"
+  ],
+  "skills": ["Database Optimization", "Performance Tuning"],
+  "activityIds": ["act-10"]
+}
