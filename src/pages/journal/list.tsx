@@ -77,6 +77,7 @@ import { GroupedActivitiesResponse } from '../../types/activity';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { EnhancingIndicator } from '../../components/ui/enhancing-indicator';
 import { useNarrativePolling } from '../../hooks/useNarrativePolling';
+import { useSSE } from '../../hooks/useSSE';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -126,7 +127,7 @@ export default function JournalPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   /**
    * True while LLM narratives are being generated in the background.
-   * Set after sync completes, cleared after polling timeout (~45s).
+   * Set after sync completes, cleared when SSE sends narratives-complete or polling times out.
    * Used to show EnhancingIndicator in header and on story cards.
    */
   const [narrativesGenerating, setNarrativesGenerating] = useState(false);
@@ -134,17 +135,31 @@ export default function JournalPage() {
   // Regenerate narrative state
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
 
-  // Poll for narrative completion when generating in background
+  // Connect to SSE for real-time updates from backend
+  // SSE automatically invalidates queries when data changes
+  useSSE({
+    enabled: true,
+    onNarrativesComplete: () => {
+      console.log('[Journal] SSE: All narratives complete');
+      setNarrativesGenerating(false);
+    },
+    onDataChanged: (data) => {
+      console.log('[Journal] SSE: Data changed', data);
+      // SSE hook already invalidates queries, this callback is for extra handling
+    },
+  });
+
+  // Fallback polling for narrative completion (in case SSE disconnects)
   // This hook handles interval setup, cleanup, and timeout automatically
   useNarrativePolling({
     isGenerating: narrativesGenerating,
     onPollingComplete: () => setNarrativesGenerating(false),
   });
 
-  // Listen for external data changes to refresh
+  // Listen for external data changes to refresh (browser events, not SSE)
   useEffect(() => {
     const handleDataChanged = () => {
-      console.log('[Journal] Data changed event received, invalidating queries...');
+      console.log('[Journal] Browser event: Data changed, invalidating queries...');
       // Invalidate to mark as stale (bypasses staleTime), React Query will refetch active ones
       queryClient.invalidateQueries({ queryKey: ['journal'] });
       queryClient.invalidateQueries({ queryKey: ['activities'] });
