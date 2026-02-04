@@ -24,6 +24,8 @@ export const SUPPORTED_SOURCES = {
   'google-sheets': { displayName: 'Google Sheets', color: '#0F9D58', icon: 'google-sheets' },
   'google-drive': { displayName: 'Google Drive', color: '#4285F4', icon: 'google-drive' },
   'google-meet': { displayName: 'Google Meet', color: '#00897B', icon: 'google-meet' },
+  // Legacy: generic 'google' source (for existing data, maps to Google Workspace styling)
+  google: { displayName: 'Google', color: '#4285F4', icon: 'google' },
 } as const;
 
 export type ActivitySource = keyof typeof SUPPORTED_SOURCES;

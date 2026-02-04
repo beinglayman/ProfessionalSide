@@ -22,6 +22,7 @@ import {
   SiConfluence,
   SiSlack,
   SiFigma,
+  SiGoogle,
   SiGooglecalendar,
   SiGoogledocs,
   SiGooglesheets,
@@ -83,6 +84,8 @@ export const SourceIcons: Record<string, React.FC<IconProps>> = {
   'google-sheets': ({ className, style }) => <SiGooglesheets className={className} style={style} />,
   'google-drive': ({ className, style }) => <SiGoogledrive className={className} style={style} />,
   'google-meet': ({ className, style }) => <SiGooglemeet className={className} style={style} />,
+  // Legacy: generic 'google' source (for existing data)
+  google: ({ className, style }) => <SiGoogle className={className} style={style} />,
 
   // ═══════════════════════════════════════════════════════════════
   // MICROSOFT 365
