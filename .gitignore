@@ -17,6 +17,7 @@ dist-ssr
 build
 */dist/
 */build/
+docs/cd6
 
 # Environment variables
 .env
