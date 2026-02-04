@@ -2,11 +2,42 @@
  * Sync Service
  *
  * Handles sync operations with real backend calls.
- * Shows honest loading state while sync is in progress.
+ * Shows progressive loading state as sync phases complete.
+ *
+ * Sync Flow:
+ * 1. Fetching - Call backend API to sync activities
+ * 2. Activities Synced - Show imported activity counts by source
+ * 3. Generating Stories - Show draft story titles being created
+ * 4. Complete - All done, narratives generating in background
+ *
+ * After sync completes, narrative generation continues in background.
+ * The frontend polls for updates until narratives are ready (~10-30s).
  */
 
 import { setDemoSyncStatus } from './demo-mode.service';
 import { API_BASE_URL } from '../lib/api';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Minimum time to show fetching spinner so user sees progress */
+export const SYNC_PHASE_DELAY_FETCHING_MS = 800;
+
+/** Time to show activity counts before moving to stories phase */
+export const SYNC_PHASE_DELAY_ACTIVITIES_MS = 1200;
+
+/** Time to show story titles before completing (demo mode) */
+export const SYNC_PHASE_DELAY_STORIES_MS = 1500;
+
+/** Brief delay for live sync story phase */
+export const SYNC_PHASE_DELAY_STORIES_LIVE_MS = 500;
+
+/** Interval for polling backend for narrative completion */
+export const NARRATIVE_POLL_INTERVAL_MS = 5000;
+
+/** Maximum time to poll before giving up (narratives typically complete in 10-30s) */
+export const NARRATIVE_POLL_TIMEOUT_MS = 45000;
 
 /**
  * Integration metadata
@@ -45,7 +76,7 @@ export interface EntryPreview {
   status: 'pending' | 'generating' | 'done';
 }
 
-export type SyncPhase = 'syncing' | 'complete';
+export type SyncPhase = 'fetching' | 'activities-synced' | 'generating-stories' | 'complete';
 
 export interface SyncState {
   phase: SyncPhase;
@@ -67,6 +98,8 @@ export interface SyncResult {
   entryCount: number;
   temporalEntryCount: number;
   clusterEntryCount: number;
+  /** True if narrative generation is happening in background */
+  narrativesGeneratingInBackground?: boolean;
 }
 
 /**
@@ -83,21 +116,21 @@ function buildIntegrations(activitiesBySource: Record<string, number>): SyncInte
 }
 
 /**
- * Run sync - calls backend and waits for completion.
- * Shows honest "syncing" state, then results when done.
+ * Run sync - calls backend with progressive updates.
+ * Phase 1: Fetch activities → refresh Timeline/Source tabs immediately
+ * Phase 2: Generate draft stories → update Drafts tab when complete
  */
 export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
   try {
-    // Show syncing state
+    // Phase 1: Fetching
     callbacks.onStateUpdate({
-      phase: 'syncing',
+      phase: 'fetching',
       integrations: [],
       entries: [],
       totalActivities: 0,
       totalEntries: 0,
     });
 
-    // Call backend
     const token = localStorage.getItem('inchronicle_access_token');
     if (!token) {
       throw new Error('No access token found');
@@ -119,23 +152,55 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
     const data = await response.json();
     const result = data.data || data;
 
-    // Build final state
+    // Ensure minimum time for fetching phase so user sees the spinner
+    await new Promise(resolve => setTimeout(resolve, SYNC_PHASE_DELAY_FETCHING_MS));
+
+    // Build integrations from result
     const integrations = buildIntegrations(result.activitiesBySource);
+
+    // Phase 2: Activities synced - show what was imported
+    callbacks.onStateUpdate({
+      phase: 'activities-synced',
+      integrations,
+      entries: [],
+      totalActivities: result.activityCount,
+      totalEntries: 0,
+    });
+
+    // Let user see the activity counts for a moment
+    await new Promise(resolve => setTimeout(resolve, SYNC_PHASE_DELAY_ACTIVITIES_MS));
+
+    // Notify journal to refresh activities
+    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+
+    // Phase 3: Show generating stories (entries are already created by backend)
     const entries: EntryPreview[] = (result.entryPreviews || []).map((e: EntryPreview) => ({
       ...e,
-      status: 'done' as const,
+      status: 'generating' as const,
     }));
 
-    // Show complete state
     callbacks.onStateUpdate({
-      phase: 'complete',
+      phase: 'generating-stories',
       integrations,
       entries,
       totalActivities: result.activityCount,
       totalEntries: result.entryCount,
     });
 
-    // Notify journal to refresh
+    // Let user see the story titles appearing
+    await new Promise(resolve => setTimeout(resolve, SYNC_PHASE_DELAY_STORIES_MS));
+
+    // Phase 4: Complete
+    const completedEntries = entries.map(e => ({ ...e, status: 'done' as const }));
+    callbacks.onStateUpdate({
+      phase: 'complete',
+      integrations,
+      entries: completedEntries,
+      totalActivities: result.activityCount,
+      totalEntries: result.entryCount,
+    });
+
+    // Notify again for stories
     window.dispatchEvent(new CustomEvent('journal-data-changed'));
 
     // Update local sync status
@@ -154,6 +219,7 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
       entryCount: result.entryCount,
       temporalEntryCount: result.temporalEntryCount,
       clusterEntryCount: result.clusterEntryCount,
+      narrativesGeneratingInBackground: result.narrativesGeneratingInBackground ?? false,
     });
   } catch (error) {
     callbacks.onError(error instanceof Error ? error : new Error('Sync failed'));
@@ -194,20 +260,19 @@ export async function resetDemoData(callbacks: SyncCallbacks): Promise<void> {
 /**
  * Run live sync - fetches real data from connected tools (GitHub, OneDrive)
  * and persists to ToolActivity table, creates journal entries with narratives.
- * This is the production equivalent of runDemoSync - flow matches exactly.
+ * Uses progressive updates to show results as they become available.
  */
 export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
   try {
-    // Show syncing state
+    // Phase 1: Fetching
     callbacks.onStateUpdate({
-      phase: 'syncing',
+      phase: 'fetching',
       integrations: [],
       entries: [],
       totalActivities: 0,
       totalEntries: 0,
     });
 
-    // Call backend
     const token = localStorage.getItem('inchronicle_access_token');
     if (!token) {
       throw new Error('No access token found');
@@ -233,23 +298,49 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
     const data = await response.json();
     const result = data.data || data;
 
-    // Build final state (matches demo sync response format)
+    // Build integrations from result
     const integrations = buildIntegrations(result.activitiesBySource || {});
+
+    // Phase 2: Activities synced - refresh Timeline/Source tabs immediately
+    callbacks.onStateUpdate({
+      phase: 'activities-synced',
+      integrations,
+      entries: [],
+      totalActivities: result.activityCount || 0,
+      totalEntries: 0,
+    });
+
+    // Notify journal to refresh activities immediately
+    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+
+    // Phase 3: Show generating stories
     const entries: EntryPreview[] = (result.entryPreviews || []).map((e: EntryPreview) => ({
       ...e,
-      status: 'done' as const,
+      status: 'generating' as const,
     }));
 
-    // Show complete state
     callbacks.onStateUpdate({
-      phase: 'complete',
+      phase: 'generating-stories',
       integrations,
       entries,
       totalActivities: result.activityCount || 0,
       totalEntries: result.entryCount || 0,
     });
 
-    // Notify journal to refresh
+    // Brief delay to show the generating state
+    await new Promise(resolve => setTimeout(resolve, SYNC_PHASE_DELAY_STORIES_LIVE_MS));
+
+    // Phase 4: Complete
+    const completedEntries = entries.map(e => ({ ...e, status: 'done' as const }));
+    callbacks.onStateUpdate({
+      phase: 'complete',
+      integrations,
+      entries: completedEntries,
+      totalActivities: result.activityCount || 0,
+      totalEntries: result.entryCount || 0,
+    });
+
+    // Notify again for stories
     window.dispatchEvent(new CustomEvent('journal-data-changed'));
 
     callbacks.onComplete({
@@ -258,6 +349,7 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
       entryCount: result.entryCount || 0,
       temporalEntryCount: result.temporalEntryCount || 0,
       clusterEntryCount: result.clusterEntryCount || 0,
+      narrativesGeneratingInBackground: result.narrativesGeneratingInBackground ?? false,
     });
   } catch (error) {
     callbacks.onError(error instanceof Error ? error : new Error('Live sync failed'));
