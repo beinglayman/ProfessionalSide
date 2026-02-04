@@ -20,6 +20,7 @@ import {
   useAvailableWorkspaces,
 } from '../../hooks/useNetwork';
 import { Connection, ConnectionRequest, Follower, NetworkSuggestion } from '../../types/network';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 type NetworkTab = 'core' | 'extended' | 'requests' | 'followers';
 
@@ -417,8 +418,9 @@ const sampleFollowers: Follower[] = [
 ];
 
 export function NetworkPage({}: NetworkPageProps) {
+  useDocumentTitle('Network');
   const [activeTab, setActiveTab] = useState<NetworkTab>('core');
-  
+
   // Enhanced network management state
   const [isManagementMode, setIsManagementMode] = useState(false);
   const [selectedConnections, setSelectedConnections] = useState<Set<string>>(new Set());

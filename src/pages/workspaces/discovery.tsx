@@ -29,6 +29,7 @@ import { Workspace as WorkspaceType } from '../../hooks/useWorkspace';
 import { useOrganizations, useCreateOrganization } from '../../hooks/useOrganization';
 import { usePendingInvitations, useAcceptInvitation, useDeclineInvitation, WorkspaceInvitation } from '../../hooks/useWorkspaceInvitations';
 import { getErrorConsole } from '../../contexts/ErrorConsoleContext';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 // Types
 interface TeamMember {
@@ -94,8 +95,9 @@ const filterOptions = {
 type TabType = 'active' | 'archived';
 
 export default function WorkspaceDiscoveryPage() {
+  useDocumentTitle('Teams');
   const navigate = useNavigate();
-  
+
   // Fetch workspaces from backend
   const { data: workspaces, isLoading, error } = useWorkspaces();
   const createWorkspaceMutation = useCreateWorkspace();

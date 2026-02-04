@@ -34,6 +34,7 @@ import { StoryList } from './StoryList';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -120,6 +121,7 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
  * TODO: Add optimistic updates for better UX during generation
  */
 export function CareerStoriesPage() {
+  useDocumentTitle('Career Stories');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 

@@ -20,6 +20,7 @@ import { useOnboardingOverlay } from '../../hooks/useOnboardingOverlay';
 import { useQuery } from '@tanstack/react-query';
 import { benchmarksService } from '../../services/benchmarks.service';
 import { useSkillsGrowth } from '../../hooks/useDashboard';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 // Component interfaces for skills (dynamic from profile data)
 interface Skill {
@@ -48,6 +49,7 @@ function transformTopSkillsToSkills(topSkills: string[] = []): Skill[] {
 }
 
 export function ProfileViewPage() {
+  useDocumentTitle('Profile');
   const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
   const [activeTab, setActiveTab] = useState('journal');
   const [bioExpanded, setBioExpanded] = useState(false);

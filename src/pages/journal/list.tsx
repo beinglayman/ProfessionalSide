@@ -75,11 +75,13 @@ import { ActivityViewTabs, ActivityViewType } from '../../components/journal/act
 import { ActivityStream } from '../../components/journal/activity-stream';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { GroupedActivitiesResponse } from '../../types/activity';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 // Page Props interface
 interface JournalPageProps {}
 
 export default function JournalPage() {
+  useDocumentTitle('Activity');
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<'workspace' | 'network'>('workspace');
