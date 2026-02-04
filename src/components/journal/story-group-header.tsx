@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ChevronDown, ChevronRight, ChevronUp, BookOpen, Calendar, FileText, CheckCircle, Sparkles, Users, Star, RefreshCw, Loader2, Trash2, ArrowUpRight, MoreHorizontal, Zap, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, BookOpen, Calendar, FileText, CheckCircle, Users, Star, RefreshCw, Loader2, Trash2, ArrowUpRight, MoreHorizontal, Zap, TrendingUp } from 'lucide-react';
 import { StoryMetadata, StoryDominantRole, Activity, ActivityStoryEdge } from '../../types/activity';
 import { cn } from '../../lib/utils';
 import { ActivityCard } from './activity-card';
+import { EnhancingIndicator } from '../ui/enhancing-indicator';
 
 interface StoryGroupHeaderProps {
   storyMetadata: StoryMetadata;
@@ -16,6 +17,8 @@ interface StoryGroupHeaderProps {
   onPromoteToCareerStory?: (entryId: string) => void;
   /** Activities to display when expanded - integrated into the card */
   activities?: Activity[];
+  /** True when narratives are being generated in background after sync */
+  isEnhancingNarratives?: boolean;
 }
 
 /**
@@ -145,7 +148,8 @@ export function StoryGroupHeader({
   isRegenerateLoading,
   onDeleteEntry,
   onPromoteToCareerStory,
-  activities = []
+  activities = [],
+  isEnhancingNarratives
 }: StoryGroupHeaderProps) {
   const {
     title,
@@ -166,6 +170,34 @@ export function StoryGroupHeader({
 
   // State for supporting activities collapse
   const [showSupporting, setShowSupporting] = useState(false);
+
+  // Track content changes to trigger update animation
+  const [justUpdated, setJustUpdated] = useState(false);
+  const prevDescriptionRef = useRef(description);
+  const prevImpactRef = useRef(impactHighlights);
+
+  // Show enhancing indicator only for stories that are actually pending enhancement.
+  // A story is pending if: global generation is active AND this story lacks LLM content.
+  // Stories with description AND impactHighlights are already enhanced.
+  const hasLLMContent = description && impactHighlights && impactHighlights.length > 0;
+  const isPendingEnhancement = isEnhancingNarratives && !hasLLMContent;
+
+  // Detect when story content is enhanced (description or impacts change)
+  useEffect(() => {
+    const descriptionChanged = prevDescriptionRef.current !== description && description;
+    const impactsAdded = (!prevImpactRef.current || prevImpactRef.current.length === 0) &&
+                         impactHighlights && impactHighlights.length > 0;
+
+    if (descriptionChanged || impactsAdded) {
+      setJustUpdated(true);
+      // Clear the animation state after animation completes
+      const timer = setTimeout(() => setJustUpdated(false), 2000);
+      return () => clearTimeout(timer);
+    }
+
+    prevDescriptionRef.current = description;
+    prevImpactRef.current = impactHighlights;
+  }, [description, impactHighlights]);
 
   // Scroll card into view when expanded - keeps focus stable
   useEffect(() => {
@@ -230,7 +262,9 @@ export function StoryGroupHeader({
           'bg-white border',
           isExpanded
             ? 'border-purple-200 shadow-lg'
-            : 'border-gray-100 hover:border-purple-200 hover:shadow-sm cursor-pointer'
+            : 'border-gray-100 hover:border-purple-200 hover:shadow-sm cursor-pointer',
+          // Flash animation when content is enhanced
+          justUpdated && 'animate-highlight-flash animate-border-glow'
         )}
       >
         {/* Collapsed header - clickable */}
@@ -332,6 +366,10 @@ export function StoryGroupHeader({
                   {description}
                 </p>
               )}
+              {/* Enhancing indicator when story is pending LLM enhancement */}
+              {!isExpanded && isPendingEnhancement && (
+                <EnhancingIndicator variant="inline" className="mt-2" />
+              )}
             </div>
 
             {/* Actions menu when collapsed */}
@@ -370,6 +408,10 @@ export function StoryGroupHeader({
                   <p className="text-sm text-gray-600 leading-relaxed animate-in fade-in slide-in-from-left-2 duration-300">
                     {description}
                   </p>
+                )}
+                {/* Enhancing indicator when story is pending LLM enhancement */}
+                {isPendingEnhancement && (
+                  <EnhancingIndicator variant="banner" className="animate-in fade-in slide-in-from-left-2 duration-300" />
                 )}
 
                 {/* Impact highlights */}

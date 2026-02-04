@@ -18,6 +18,8 @@ interface ActivityStreamProps {
   regeneratingEntryId?: string | null;
   onDeleteEntry?: (entryId: string) => void;
   onPromoteToCareerStory?: (entryId: string) => void;
+  /** True when narratives are being generated in background after sync */
+  isEnhancingNarratives?: boolean;
 }
 
 /**
@@ -33,7 +35,8 @@ export function ActivityStream({
   onRegenerateNarrative,
   regeneratingEntryId,
   onDeleteEntry,
-  onPromoteToCareerStory
+  onPromoteToCareerStory,
+  isEnhancingNarratives
 }: ActivityStreamProps) {
   // Filter state
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
@@ -465,6 +468,7 @@ export function ActivityStream({
               regeneratingEntryId={regeneratingEntryId}
               onDeleteEntry={onDeleteEntry}
               onPromoteToCareerStory={onPromoteToCareerStory}
+              isEnhancingNarratives={isEnhancingNarratives}
             />
           ))
         ) : (
@@ -741,9 +745,10 @@ interface StoryGroupSectionProps {
   regeneratingEntryId?: string | null;
   onDeleteEntry?: (entryId: string) => void;
   onPromoteToCareerStory?: (entryId: string) => void;
+  isEnhancingNarratives?: boolean;
 }
 
-function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, onPromoteToCareerStory }: StoryGroupSectionProps) {
+function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, onPromoteToCareerStory, isEnhancingNarratives }: StoryGroupSectionProps) {
   const isUnassigned = group.key === 'unassigned';
   const isExpanded = !isCollapsed;
 
@@ -806,6 +811,7 @@ function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative
           onDeleteEntry={onDeleteEntry}
           onPromoteToCareerStory={onPromoteToCareerStory}
           activities={group.activities}
+          isEnhancingNarratives={isEnhancingNarratives}
         />
       ) : (
         // Fallback minimal header with progressive disclosure
