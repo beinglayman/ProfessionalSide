@@ -526,9 +526,10 @@ export class ActivityService {
         format7Data: true
       },
       orderBy: [
-        // Cluster entries first, then by recency
-        { groupingMethod: 'desc' },
-        { createdAt: 'desc' }
+        // Sort by activity time range (when work was done), not creation time
+        // Most recent work first
+        { timeRangeEnd: 'desc' },
+        { timeRangeStart: 'desc' }
       ]
     });
 
