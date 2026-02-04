@@ -31,6 +31,48 @@ export const SHORT_TITLE_TRUNCATE_LENGTH = 25;
 export const INITIAL_ITEMS_LIMIT = 5;
 
 /**
+ * Resolve specific Google Workspace product from legacy 'google' source.
+ * Detects the product type from sourceId or sourceUrl patterns.
+ *
+ * @param source - The activity source
+ * @param sourceId - The source identifier (e.g., 'gcal-auth-review', 'gdoc-123')
+ * @param sourceUrl - The source URL (e.g., 'https://meet.google.com/...')
+ * @returns The resolved source (e.g., 'google-calendar') or original source
+ */
+export function resolveGoogleSource(
+  source: string,
+  sourceId?: string,
+  sourceUrl?: string | null
+): string {
+  // Only resolve for legacy 'google' source
+  if (source !== 'google') {
+    return source;
+  }
+
+  const id = sourceId?.toLowerCase() || '';
+  const url = sourceUrl?.toLowerCase() || '';
+
+  // Check URL patterns first (most reliable)
+  if (url.includes('meet.google.com')) return 'google-meet';
+  if (url.includes('calendar.google.com')) return 'google-calendar';
+  if (url.includes('docs.google.com/document')) return 'google-docs';
+  if (url.includes('docs.google.com/spreadsheets')) return 'google-sheets';
+  if (url.includes('docs.google.com/presentation')) return 'google-drive'; // Slides -> Drive
+  if (url.includes('drive.google.com')) return 'google-drive';
+
+  // Check sourceId prefixes
+  if (id.startsWith('meet-')) return 'google-meet';
+  if (id.startsWith('gcal-')) return 'google-calendar';
+  if (id.startsWith('gdoc-')) return 'google-docs';
+  if (id.startsWith('gsheet-')) return 'google-sheets';
+  if (id.startsWith('gslides-')) return 'google-drive'; // Slides -> Drive
+  if (id.startsWith('gdrive-')) return 'google-drive';
+
+  // Default to google-calendar for unrecognized patterns (most common)
+  return 'google-calendar';
+}
+
+/**
  * Truncate text to a maximum length with ellipsis suffix.
  * @param text - The text to truncate
  * @param maxLength - Maximum length before truncation

@@ -22,6 +22,7 @@ import {
   getMetadataSummary,
   safeParseTimestamp,
   truncateText,
+  resolveGoogleSource,
 } from './activity-card-utils';
 
 interface ActivityCardProps {
@@ -219,8 +220,10 @@ export function ActivityCard({
 }: ActivityCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const sourceInfo = SUPPORTED_SOURCES[activity.source as ActivitySource];
-  const SourceIcon = SourceIcons[activity.source] || SourceIcons.github;
+  // Resolve Google source to specific product (calendar, docs, sheets, meet, drive)
+  const resolvedSource = resolveGoogleSource(activity.source, activity.sourceId, activity.sourceUrl);
+  const sourceInfo = SUPPORTED_SOURCES[resolvedSource as ActivitySource] || SUPPORTED_SOURCES[activity.source as ActivitySource];
+  const SourceIcon = SourceIcons[resolvedSource] || SourceIcons[activity.source] || SourceIcons.github;
   const sourceColor = sourceInfo?.color || FALLBACK_SOURCE_COLOR;
 
   // Safely parse timestamp with fallback
