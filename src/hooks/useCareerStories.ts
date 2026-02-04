@@ -31,6 +31,11 @@ import {
   GenerateClustersRequest,
   GenerateSTARRequest,
   MergeClustersRequest,
+  CareerStory,
+  CreateCareerStoryRequest,
+  UpdateCareerStoryRequest,
+  StoryVisibility,
+  NarrativeFramework,
 } from '../types/career-stories';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
 // NOTE: DEMO_CLUSTERS and DEMO_STARS removed - CareerStories come from DB only
@@ -393,6 +398,144 @@ export const useDemoActivities = () => {
         return response.data;
       }
       throw new Error(response.error || 'Failed to fetch demo activities');
+    },
+  });
+};
+
+// =============================================================================
+// CAREER STORIES CRUD
+// =============================================================================
+
+/**
+ * List all career stories for the user
+ */
+export const useListCareerStories = () => {
+  return useQuery({
+    queryKey: ['career-stories', 'stories'],
+    queryFn: async () => {
+      const response = await CareerStoriesService.listStories();
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response.error || 'Failed to fetch career stories');
+    },
+  });
+};
+
+/**
+ * Create a new career story
+ */
+export const useCreateCareerStory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateCareerStoryRequest) => CareerStoriesService.createStory(data),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+        queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesStats });
+      }
+    },
+  });
+};
+
+/**
+ * Update a career story
+ */
+export const useUpdateCareerStory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateCareerStoryRequest }) =>
+      CareerStoriesService.updateStory(id, data),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+      }
+    },
+  });
+};
+
+/**
+ * Regenerate a career story with a new framework
+ */
+export const useRegenerateCareerStory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, framework }: { id: string; framework: NarrativeFramework }) =>
+      CareerStoriesService.regenerateStory(id, framework),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+      }
+    },
+  });
+};
+
+/**
+ * Delete a career story
+ */
+export const useDeleteCareerStory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => CareerStoriesService.deleteStory(id),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+        queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesStats });
+      }
+    },
+  });
+};
+
+/**
+ * Publish a career story
+ */
+export const usePublishCareerStory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, visibility }: { id: string; visibility: StoryVisibility }) =>
+      CareerStoriesService.publishStory(id, visibility),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+      }
+    },
+  });
+};
+
+/**
+ * Unpublish a career story
+ */
+export const useUnpublishCareerStory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => CareerStoriesService.unpublishStory(id),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+      }
+    },
+  });
+};
+
+/**
+ * Set visibility on a published story
+ */
+export const useSetCareerStoryVisibility = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, visibility }: { id: string; visibility: StoryVisibility }) =>
+      CareerStoriesService.setStoryVisibility(id, visibility),
+    onSuccess: (response) => {
+      if (response.success) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+      }
     },
   });
 };

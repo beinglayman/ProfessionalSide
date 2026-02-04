@@ -28,6 +28,11 @@ import {
   GenerateSTARResult,
   MergeClustersRequest,
   CareerStoriesStats,
+  CareerStory,
+  CreateCareerStoryRequest,
+  UpdateCareerStoryRequest,
+  StoryVisibility,
+  NarrativeFramework,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -295,6 +300,82 @@ export class CareerStoriesService {
    */
   static async getDemoActivities(): Promise<ApiResponse<ToolActivity[]>> {
     const response = await api.get<ApiResponse<ToolActivity[]>>('/demo/activities');
+    return response.data;
+  }
+
+  // =============================================================================
+  // CAREER STORIES CRUD
+  // =============================================================================
+
+  /**
+   * List all career stories for the user
+   */
+  static async listStories(): Promise<ApiResponse<CareerStory[]>> {
+    const response = await api.get<ApiResponse<CareerStory[]>>('/career-stories/stories');
+    return response.data;
+  }
+
+  /**
+   * Get a single career story by ID
+   */
+  static async getStoryById(id: string): Promise<ApiResponse<CareerStory>> {
+    const response = await api.get<ApiResponse<CareerStory>>(`/career-stories/stories/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Create a new career story
+   */
+  static async createStory(data: CreateCareerStoryRequest): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>('/career-stories/stories', data);
+    return response.data;
+  }
+
+  /**
+   * Update a career story
+   */
+  static async updateStory(id: string, data: UpdateCareerStoryRequest): Promise<ApiResponse<CareerStory>> {
+    const response = await api.patch<ApiResponse<CareerStory>>(`/career-stories/stories/${id}`, data);
+    return response.data;
+  }
+
+  /**
+   * Regenerate a career story with a new framework
+   */
+  static async regenerateStory(id: string, framework: NarrativeFramework): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/regenerate`, { framework });
+    return response.data;
+  }
+
+  /**
+   * Delete a career story
+   */
+  static async deleteStory(id: string): Promise<ApiResponse<null>> {
+    const response = await api.delete<ApiResponse<null>>(`/career-stories/stories/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Publish a career story
+   */
+  static async publishStory(id: string, visibility: StoryVisibility): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/publish`, { visibility });
+    return response.data;
+  }
+
+  /**
+   * Unpublish a career story
+   */
+  static async unpublishStory(id: string): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/unpublish`);
+    return response.data;
+  }
+
+  /**
+   * Set visibility on a published story
+   */
+  static async setStoryVisibility(id: string, visibility: StoryVisibility): Promise<ApiResponse<CareerStory>> {
+    const response = await api.patch<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/visibility`, { visibility });
     return response.data;
   }
 }

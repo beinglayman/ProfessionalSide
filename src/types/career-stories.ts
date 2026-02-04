@@ -223,3 +223,44 @@ export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
   google: { name: 'Google', color: '#4285F4' },
   generic: { name: 'Other', color: '#6B7280' },
 };
+
+// =============================================================================
+// CAREER STORIES
+// =============================================================================
+
+export type StoryVisibility = 'private' | 'workspace' | 'public';
+
+export interface CareerStorySection {
+  summary: string;
+  evidence?: Array<{ activityId: string; description?: string }>;
+}
+
+export interface CareerStory {
+  id: string;
+  userId: string;
+  sourceMode: 'demo' | 'production';
+  title: string;
+  framework: NarrativeFramework;
+  sections: Record<string, CareerStorySection>;
+  activityIds: string[];
+  needsRegeneration: boolean;
+  generatedAt: string;
+  isPublished: boolean;
+  visibility: StoryVisibility;
+  publishedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateCareerStoryRequest {
+  clusterId: string;
+  title: string;
+  framework: NarrativeFramework;
+  sections: Record<string, CareerStorySection>;
+  activityIds: string[];
+}
+
+export interface UpdateCareerStoryRequest {
+  title?: string;
+  sections?: Record<string, CareerStorySection>;
+}
