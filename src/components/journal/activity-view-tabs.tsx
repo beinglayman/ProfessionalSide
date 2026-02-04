@@ -12,8 +12,8 @@ interface ActivityViewTabsProps {
 
 const VIEW_TABS = [
   { id: 'timeline' as const, label: 'Timeline', icon: Clock },
-  { id: 'source' as const, label: 'By Source', icon: Layers },
-  { id: 'story' as const, label: 'By Story', icon: BookOpen },
+  { id: 'source' as const, label: 'Source', icon: Layers },
+  { id: 'story' as const, label: 'Drafts', icon: BookOpen },
 ] as const;
 
 /**
