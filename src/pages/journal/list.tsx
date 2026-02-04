@@ -50,8 +50,7 @@ import {
   Download,
   RepeatIcon,
   Trash2,
-  RefreshCw,
-  Sparkles
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
@@ -69,13 +68,15 @@ import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
-import { runDemoSync, runLiveSync, SyncState } from '../../services/sync.service';
+import { runDemoSync, runLiveSync, SyncState, SyncResult } from '../../services/sync.service';
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 import { ActivityViewTabs, ActivityViewType } from '../../components/journal/activity-view-tabs';
 import { ActivityStream } from '../../components/journal/activity-stream';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { GroupedActivitiesResponse } from '../../types/activity';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { EnhancingIndicator } from '../../components/ui/enhancing-indicator';
+import { useNarrativePolling } from '../../hooks/useNarrativePolling';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -123,14 +124,30 @@ export default function JournalPage() {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  /**
+   * True while LLM narratives are being generated in the background.
+   * Set after sync completes, cleared after polling timeout (~45s).
+   * Used to show EnhancingIndicator in header and on story cards.
+   */
+  const [narrativesGenerating, setNarrativesGenerating] = useState(false);
 
   // Regenerate narrative state
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
 
+  // Poll for narrative completion when generating in background
+  // This hook handles interval setup, cleanup, and timeout automatically
+  useNarrativePolling({
+    isGenerating: narrativesGenerating,
+    onPollingComplete: () => setNarrativesGenerating(false),
+  });
+
   // Listen for external data changes to refresh
   useEffect(() => {
     const handleDataChanged = () => {
+      console.log('[Journal] Data changed event received, invalidating queries...');
+      // Invalidate to mark as stale (bypasses staleTime), React Query will refetch active ones
       queryClient.invalidateQueries({ queryKey: ['journal'] });
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
     };
 
     window.addEventListener('journal-data-changed', handleDataChanged);
@@ -519,9 +536,9 @@ export default function JournalPage() {
       console.log('🔄 Regenerating narrative:', { journalId, isDemoMode: isDemoMode() });
       await JournalService.regenerateNarrative(journalId, 'professional');
       setToastMessage('Narrative regenerated successfully');
-      // Refetch entries to update UI - invalidate both feed and activities queries
-      queryClient.invalidateQueries({ queryKey: ['journal', 'feed'] });
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
+      // Force refetch to update UI
+      queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
+      queryClient.refetchQueries({ queryKey: ['activities'] });
     } catch (error: any) {
       const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
       console.error('❌ Failed to regenerate narrative:', { journalId, error: errorMessage });
@@ -550,7 +567,7 @@ export default function JournalPage() {
       }
 
       // Refetch entries to update UI
-      queryClient.invalidateQueries({ queryKey: ['journal', 'feed'] });
+      queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
     } catch (error) {
       setToastMessage('Failed to update entry');
       console.error('Publish toggle error:', error);
@@ -621,8 +638,11 @@ export default function JournalPage() {
 
       await runDemoSync({
         onStateUpdate: setSyncState,
-        onComplete: () => {
+        onComplete: (result: SyncResult) => {
           setIsSyncing(false);
+          // Enable enhancing indicator - narratives generate in background
+          // Polling is handled by useNarrativePolling hook
+          setNarrativesGenerating(true);
         },
         onError: (error) => {
           console.error('Sync failed:', error);
@@ -641,6 +661,9 @@ export default function JournalPage() {
         onStateUpdate: setSyncState,
         onComplete: () => {
           setIsSyncing(false);
+          // Enable enhancing indicator - narratives generate in background
+          // Polling is handled by useNarrativePolling hook
+          setNarrativesGenerating(true);
         },
         onError: (error) => {
           console.error('Live sync failed:', error);
@@ -653,9 +676,13 @@ export default function JournalPage() {
   };
 
   const handleSyncComplete = () => {
+    console.log('[Journal] handleSyncComplete called');
     setShowSyncModal(false);
-    // Reload to show new data
-    window.location.reload();
+    // Navigate to Story tab to show enhancing animation
+    setActivityView('story');
+    // Invalidate all queries to force fresh fetch (bypasses staleTime)
+    queryClient.invalidateQueries({ queryKey: ['journal'] });
+    queryClient.invalidateQueries({ queryKey: ['activities'] });
   };
 
   // Toggle analytics section
@@ -834,6 +861,11 @@ export default function JournalPage() {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2">
+            {/* Background narrative generation indicator */}
+            {narrativesGenerating && (
+              <EnhancingIndicator variant="inline" text="Enhancing stories..." className="bg-primary-50/80 px-3 py-1.5 rounded-full border border-primary-200" />
+            )}
+
             <Button
               variant="ghost"
               size="sm"
@@ -870,6 +902,7 @@ export default function JournalPage() {
           }
           onRegenerateNarrative={handleRegenerateNarrative}
           regeneratingEntryId={regeneratingEntryId}
+          isEnhancingNarratives={narrativesGenerating}
         />
       </div>
       <NewEntryModal 
