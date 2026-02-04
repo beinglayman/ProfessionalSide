@@ -246,6 +246,8 @@ export interface SeedDemoDataResult {
   /** Entry previews for UI animation */
   entryPreviews: EntryPreview[];
   clusters: InMemoryCluster[];
+  /** True if narrative generation is happening in background */
+  narrativesGeneratingInBackground?: boolean;
 }
 
 // =============================================================================
@@ -256,10 +258,15 @@ export interface SeedDemoDataResult {
  * Seed demo data for a user.
  * Creates mock activities in the demo tables and clusters them.
  *
- * (MF: Now orchestrates smaller, focused functions)
+ * @param userId - User ID
+ * @param options - Optional settings
+ * @param options.backgroundNarratives - Generate narratives in background for faster sync response (default: false)
  */
-export async function seedDemoData(userId: string): Promise<SeedDemoDataResult> {
-  log.info('Starting demo data seed', { userId });
+export async function seedDemoData(
+  userId: string,
+  options: { backgroundNarratives?: boolean } = {}
+): Promise<SeedDemoDataResult> {
+  log.info('Starting demo data seed', { userId, backgroundNarratives: options.backgroundNarratives });
 
   // Step 1: Clear existing data
   await clearDemoData(userId);
@@ -287,8 +294,16 @@ export async function seedDemoData(userId: string): Promise<SeedDemoDataResult> 
   const journalResult = await seedDemoJournalEntries(userId, activities, clusters);
   log.debug(`Created ${journalResult.entries.length} journal entries (${journalResult.temporalCount} temporal, ${journalResult.clusterCount} cluster)`);
 
-  // Step 5: Generate narratives (with timeout)
-  await generateAllNarratives(userId, journalResult.entries);
+  // Step 5: Generate narratives (in background if requested for faster sync response)
+  if (options.backgroundNarratives) {
+    // Fire and forget - don't await, let it complete in background
+    log.info('Starting background narrative generation', { entryCount: journalResult.entries.length });
+    generateAllNarratives(userId, journalResult.entries).catch(err => {
+      log.error('Background narrative generation failed', { error: err.message });
+    });
+  } else {
+    await generateAllNarratives(userId, journalResult.entries);
+  }
 
   log.info('Demo data seed complete', {
     activities: activities.length,
@@ -315,6 +330,7 @@ export async function seedDemoData(userId: string): Promise<SeedDemoDataResult> 
     clusterEntriesCreated: journalResult.clusterCount,
     entryPreviews,
     clusters,
+    narrativesGeneratingInBackground: options.backgroundNarratives ?? false,
   };
 }
 

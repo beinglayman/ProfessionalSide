@@ -80,6 +80,8 @@ export interface ProductionSyncResult {
   temporalEntriesCreated: number;
   clusterEntriesCreated: number;
   entryPreviews: EntryPreview[];
+  /** True if narrative generation is happening in background */
+  narrativesGeneratingInBackground?: boolean;
 }
 
 // =============================================================================
@@ -155,13 +157,15 @@ function buildToolSummary(activities: Array<{ source: string }>): string {
  * @param userId User ID
  * @param activities Pre-fetched activities (from MCP tools)
  * @param options Sync options
+ * @param options.clearExisting - Clear existing data before sync
+ * @param options.backgroundNarratives - Generate narratives in background for faster sync response (default: false)
  */
 export async function runProductionSync(
   userId: string,
   activities: ActivityInput[],
-  options: { clearExisting?: boolean } = {}
+  options: { clearExisting?: boolean; backgroundNarratives?: boolean } = {}
 ): Promise<ProductionSyncResult> {
-  log.info('Starting production sync', { userId, activityCount: activities.length });
+  log.info('Starting production sync', { userId, activityCount: activities.length, backgroundNarratives: options.backgroundNarratives });
 
   const clusteringService = new ClusteringService(prisma);
 
@@ -193,8 +197,16 @@ export async function runProductionSync(
   const journalResult = await createProductionJournalEntries(userId, persistedActivities, clusters);
   log.debug(`Created ${journalResult.entries.length} journal entries (${journalResult.temporalCount} temporal, ${journalResult.clusterCount} cluster)`);
 
-  // Step 5: Generate narratives (with timeout)
-  await generateProductionNarratives(userId, journalResult.entries);
+  // Step 5: Generate narratives (in background if requested for faster sync response)
+  if (options.backgroundNarratives) {
+    // Fire and forget - don't await, let it complete in background
+    log.info('Starting background narrative generation', { entryCount: journalResult.entries.length });
+    generateProductionNarratives(userId, journalResult.entries).catch(err => {
+      log.error('Background narrative generation failed', { error: err.message });
+    });
+  } else {
+    await generateProductionNarratives(userId, journalResult.entries);
+  }
 
   log.info('Production sync complete', {
     activities: persistedActivities.length,
@@ -218,6 +230,7 @@ export async function runProductionSync(
     temporalEntriesCreated: journalResult.temporalCount,
     clusterEntriesCreated: journalResult.clusterCount,
     entryPreviews,
+    narrativesGeneratingInBackground: options.backgroundNarratives ?? false,
   };
 }
 

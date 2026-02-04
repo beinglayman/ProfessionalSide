@@ -731,7 +731,7 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  const result = await seedService.seedDemoData(userId);
+  const result = await seedService.seedDemoData(userId, { backgroundNarratives: true });
   sendSuccess(res, {
     activityCount: result.activitiesSeeded,
     activitiesBySource: result.activitiesBySource,

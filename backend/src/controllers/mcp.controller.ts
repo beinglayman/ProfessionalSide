@@ -1914,9 +1914,9 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
 
     console.log(`[MCP Sync] Total activities fetched: ${allActivities.length}`);
 
-    // Run full production sync (matches demo flow exactly)
-    // This will: persist → cluster → create journal entries → generate narratives
-    const result = await runProductionSync(userId, allActivities as any, { clearExisting: false });
+    // Run production sync (narratives generate in background for fast sync response)
+    // This will: persist → cluster → create journal entries → start background narrative generation
+    const result = await runProductionSync(userId, allActivities as any, { clearExisting: false, backgroundNarratives: true });
 
     console.log(`[MCP Sync] Complete: ${result.activitiesSeeded} activities, ${result.entriesCreated} entries`);
 
