@@ -24,6 +24,8 @@ import {
   truncateText,
   resolveGoogleSource,
 } from './activity-card-utils';
+import { SimpleMarkdown } from '../ui/simple-markdown';
+import { GitHubPRDetails, GitHubCommitDetails, GitHubIssueDetails } from './github-pr-details';
 
 interface ActivityCardProps {
   activity: Activity;
@@ -43,10 +45,34 @@ interface ActivityCardProps {
 function getExpandedDetails(
   source: string,
   rawData?: ActivityRawData | null,
-  description?: string | null
+  description?: string | null,
+  sourceId?: string
 ): React.ReactNode[] {
   const sections: React.ReactNode[] = [];
 
+  // GitHub gets special treatment with dedicated components
+  if (source === 'github' && rawData) {
+    const isCommit = sourceId?.startsWith('commit:');
+    // PRs have commits count or changedFiles; Issues don't
+    const isPR = rawData.commits !== undefined || rawData.changedFiles !== undefined || rawData.headRef !== undefined;
+
+    if (isCommit) {
+      sections.push(
+        <GitHubCommitDetails key="github-commit" rawData={rawData} />
+      );
+    } else if (isPR) {
+      sections.push(
+        <GitHubPRDetails key="github-pr" rawData={rawData} description={description} />
+      );
+    } else {
+      sections.push(
+        <GitHubIssueDetails key="github-issue" rawData={rawData} description={description} />
+      );
+    }
+    return sections;
+  }
+
+  // Non-GitHub sources: render description as plain text
   if (description) {
     sections.push(
       <div key="description" className="text-xs text-gray-600">
@@ -59,24 +85,7 @@ function getExpandedDetails(
 
   switch (source) {
     case 'github': {
-      // Expanded shows: files changed, commits, requested reviewers (NOT state, diff, reviews - those are in summary)
-      const stats: string[] = [];
-      if (rawData.changedFiles) stats.push(`${rawData.changedFiles} files changed`);
-      if (rawData.commits && rawData.commits > 1) stats.push(`${rawData.commits} commits`);
-      if (stats.length > 0) {
-        sections.push(
-          <div key="stats" className="flex items-center gap-3 text-xs text-gray-500">
-            {stats.map((s, i) => <span key={i}>{s}</span>)}
-          </div>
-        );
-      }
-      if (rawData.requestedReviewers && rawData.requestedReviewers.length > 0) {
-        sections.push(
-          <div key="reviewers" className="text-xs text-gray-500">
-            Requested reviewers: {rawData.requestedReviewers.join(', ')}
-          </div>
-        );
-      }
+      // Handled above with dedicated component
       break;
     }
 
@@ -241,7 +250,7 @@ export function ActivityCard({
   const uniqueRefs = getUniqueRefs(activity.crossToolRefs, activity.sourceId);
 
   // Get expanded details
-  const expandedDetails = getExpandedDetails(activity.source, activity.rawData, activity.description);
+  const expandedDetails = getExpandedDetails(activity.source, activity.rawData, activity.description, activity.sourceId);
   const hasExpandableContent = expandedDetails.length > 0 || uniqueRefs.length > 0;
 
   // Get metadata summary for collapsed view
@@ -346,12 +355,8 @@ export function ActivityCard({
                 </span>
               </div>
 
-              {/* Source + metadata row */}
+              {/* Metadata row - sourceId + metadata only (source name is redundant - icon or group header shows it) */}
               <div className="flex items-center gap-1.5 text-[11px] mt-0.5">
-                <span className="font-medium" style={{ color: sourceColor }}>
-                  {sourceInfo?.displayName || activity.source}
-                </span>
-                <span className="text-gray-300">·</span>
                 <span className="font-mono text-gray-400 truncate">
                   {activity.sourceId}
                 </span>
