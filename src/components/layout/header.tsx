@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { UserNav } from './user-nav';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
-import { Bell, Heart, MessageSquare, Users, FileText, UserPlus, Upload, CheckCircle2, Search } from 'lucide-react';
+import { ChevronDown, User, Users, Globe, Search, Activity, FileText } from 'lucide-react';
 import type { NetworkType } from '../../App';
 import { NotificationsDropdown } from '../notifications/notifications-dropdown';
 import { SearchModal } from '../search/search-modal';
@@ -19,9 +20,10 @@ interface HeaderProps {
 export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isPresenceExpanded, setIsPresenceExpanded] = useState(false);
   const location = useLocation();
   const { isAuthenticated } = useAuth();
-  
+
   // Global keyboard shortcut listener
   React.useEffect(() => {
     const handleOpenSearch = () => {
@@ -31,13 +33,22 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
     window.addEventListener('openSearch', handleOpenSearch);
     return () => window.removeEventListener('openSearch', handleOpenSearch);
   }, []);
-  
+
   // Helper function to check if a link is active
   const isActiveLink = (path: string) => {
     if (path === '/workspaces/discovery') {
       return location.pathname.startsWith('/workspaces');
     }
     return location.pathname === path;
+  };
+
+  // Check if any Presence child route is active
+  const isPresenceActive = () => {
+    return (
+      location.pathname.startsWith('/profile') ||
+      location.pathname.startsWith('/workspaces') ||
+      location.pathname.startsWith('/network')
+    );
   };
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-md">
@@ -96,24 +107,8 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
 
             {/* Desktop Navigation - Only show when authenticated */}
             {isAuthenticated && (
-              <nav className="ml-8 hidden lg:flex space-x-1">
-                <Link
-                  to="/workspaces/discovery"
-                  className={cn(
-                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                    isActiveLink('/workspaces/discovery')
-                      ? "text-primary-600"
-                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                  )}
-                >
-                  <span>Workspaces</span>
-                  <div className={cn(
-                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                    isActiveLink('/workspaces/discovery')
-                      ? "scale-x-100"
-                      : "scale-x-0 group-hover:scale-x-100"
-                  )}></div>
-                </Link>
+              <nav className="ml-8 hidden lg:flex items-center space-x-1">
+                {/* Activity */}
                 <Link
                   to="/journal"
                   className={cn(
@@ -123,7 +118,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                       : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                   )}
                 >
-                  <span>Journal</span>
+                  <span>Activity</span>
                   <div className={cn(
                     "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
                     isActiveLink('/journal')
@@ -131,40 +126,8 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                       : "scale-x-0 group-hover:scale-x-100"
                   )}></div>
                 </Link>
-                <Link
-                  to="/network"
-                  className={cn(
-                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                    isActiveLink('/network')
-                      ? "text-primary-600"
-                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                  )}
-                >
-                  <span>Network</span>
-                  <div className={cn(
-                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                    isActiveLink('/network')
-                      ? "scale-x-100"
-                      : "scale-x-0 group-hover:scale-x-100"
-                  )}></div>
-                </Link>
-                <Link
-                  to="/profile"
-                  className={cn(
-                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                    isActiveLink('/profile')
-                      ? "text-primary-600"
-                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                  )}
-                >
-                  <span>Profile</span>
-                  <div className={cn(
-                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                    isActiveLink('/profile')
-                      ? "scale-x-100"
-                      : "scale-x-0 group-hover:scale-x-100"
-                  )}></div>
-                </Link>
+
+                {/* Career Stories */}
                 <Link
                   to="/career-stories"
                   className={cn(
@@ -174,7 +137,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                       : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                   )}
                 >
-                  <span>Stories</span>
+                  <span>Career Stories</span>
                   <div className={cn(
                     "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
                     isActiveLink('/career-stories')
@@ -182,6 +145,79 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                       : "scale-x-0 group-hover:scale-x-100"
                   )}></div>
                 </Link>
+
+                {/* Presence Dropdown */}
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      className={cn(
+                        "relative flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                        isPresenceActive()
+                          ? "text-primary-600"
+                          : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                      )}
+                    >
+                      <span>Presence</span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      <div className={cn(
+                        "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
+                        isPresenceActive()
+                          ? "scale-x-100"
+                          : "scale-x-0 group-hover:scale-x-100"
+                      )}></div>
+                    </button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      className="w-40 rounded-lg border border-gray-200 bg-white p-1 shadow-lg z-50"
+                      align="start"
+                      sideOffset={8}
+                    >
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          to="/profile"
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
+                            isActiveLink('/profile')
+                              ? "bg-primary-50 text-primary-600"
+                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          )}
+                        >
+                          <User className="h-4 w-4" />
+                          Profile
+                        </Link>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          to="/workspaces/discovery"
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
+                            isActiveLink('/workspaces/discovery')
+                              ? "bg-primary-50 text-primary-600"
+                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          )}
+                        >
+                          <Users className="h-4 w-4" />
+                          Teams
+                        </Link>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          to="/network"
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
+                            isActiveLink('/network')
+                              ? "bg-primary-50 text-primary-600"
+                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          )}
+                        >
+                          <Globe className="h-4 w-4" />
+                          Network
+                        </Link>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
               </nav>
             )}
           </div>
@@ -253,21 +289,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
         {isAuthenticated && isMenuOpen && (
           <div className="lg:hidden border-t border-gray-100">
             <nav className="px-4 py-4 space-y-1">
-              <Link
-                to="/workspaces/discovery"
-                className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                  isActiveLink('/workspaces/discovery')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                Workspaces
-              </Link>
+              {/* Activity */}
               <Link
                 to="/journal"
                 className={cn(
@@ -278,41 +300,11 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
-                <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                Journal
+                <Activity className="h-4 w-4 mr-3" />
+                Activity
               </Link>
-              <Link
-                to="/network"
-                className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                  isActiveLink('/network')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 715.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                Network
-              </Link>
-              <Link
-                to="/profile"
-                className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                  isActiveLink('/profile')
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                )}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Profile
-              </Link>
+
+              {/* Career Stories */}
               <Link
                 to="/career-stories"
                 className={cn(
@@ -323,11 +315,84 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
-                <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Stories
+                <FileText className="h-4 w-4 mr-3" />
+                Career Stories
               </Link>
+
+              {/* Presence Accordion */}
+              <div className="border-t border-gray-100 mt-2 pt-2">
+                <button
+                  onClick={() => setIsPresenceExpanded(!isPresenceExpanded)}
+                  className={cn(
+                    "flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                    isPresenceActive()
+                      ? "text-primary-600"
+                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                  )}
+                  aria-expanded={isPresenceExpanded}
+                  aria-controls="mobile-presence-menu"
+                >
+                  <div className="flex items-center">
+                    <Users className="h-4 w-4 mr-3" />
+                    Presence
+                  </div>
+                  <ChevronDown className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    isPresenceExpanded && "rotate-180"
+                  )} />
+                </button>
+
+                {/* Presence child links */}
+                <div
+                  id="mobile-presence-menu"
+                  className={cn(
+                    "overflow-hidden transition-all duration-150",
+                    isPresenceExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                  )}
+                >
+                  <div className="ml-7 mt-1 space-y-1">
+                    <Link
+                      to="/profile"
+                      className={cn(
+                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                        isActiveLink('/profile')
+                          ? "text-primary-600 bg-primary-50"
+                          : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
+                      )}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <User className="h-4 w-4 mr-3" />
+                      Profile
+                    </Link>
+                    <Link
+                      to="/workspaces/discovery"
+                      className={cn(
+                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                        isActiveLink('/workspaces/discovery')
+                          ? "text-primary-600 bg-primary-50"
+                          : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
+                      )}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Users className="h-4 w-4 mr-3" />
+                      Teams
+                    </Link>
+                    <Link
+                      to="/network"
+                      className={cn(
+                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                        isActiveLink('/network')
+                          ? "text-primary-600 bg-primary-50"
+                          : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
+                      )}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Globe className="h-4 w-4 mr-3" />
+                      Network
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </nav>
           </div>
         )}
