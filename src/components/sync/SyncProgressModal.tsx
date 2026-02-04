@@ -134,9 +134,8 @@ export function SyncProgressModal({
 
         {/* Content */}
         {isSyncing ? (
-          <div className="px-4 py-8 text-center">
-            <Loader2 className="w-8 h-8 text-primary-500 animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-600">This may take a moment...</p>
+          <div className="px-4 py-6 text-center">
+            <p className="text-sm text-gray-500">Importing activities and generating stories...</p>
           </div>
         ) : (
           <>
