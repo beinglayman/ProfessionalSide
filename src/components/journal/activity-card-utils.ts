@@ -15,6 +15,32 @@ export const MAX_ATTENDEES_DISPLAY = 5;
 /** Maximum reactions to show in expanded view */
 export const MAX_REACTIONS_DISPLAY = 5;
 
+/** Maximum comment body length before truncation */
+export const MAX_COMMENT_BODY_LENGTH = 100;
+
+/** Maximum sources to show in temporal summary */
+export const MAX_SUMMARY_SOURCES = 3;
+
+/** Maximum title length for preview truncation */
+export const TITLE_TRUNCATE_LENGTH = 30;
+
+/** Short title truncation for compact views */
+export const SHORT_TITLE_TRUNCATE_LENGTH = 25;
+
+/** Number of items to show before "Show more" in progressive disclosure */
+export const INITIAL_ITEMS_LIMIT = 5;
+
+/**
+ * Truncate text to a maximum length with ellipsis suffix.
+ * @param text - The text to truncate
+ * @param maxLength - Maximum length before truncation
+ * @param suffix - Suffix to append when truncated (default: '...')
+ */
+export function truncateText(text: string, maxLength: number, suffix = '...'): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + suffix;
+}
+
 /**
  * Detect the source type of a cross-tool reference from its string pattern.
  *

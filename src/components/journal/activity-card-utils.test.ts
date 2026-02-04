@@ -5,6 +5,12 @@ import {
   getMetadataSummary,
   hasExpandableContent,
   safeParseTimestamp,
+  truncateText,
+  INITIAL_ITEMS_LIMIT,
+  MAX_COMMENT_BODY_LENGTH,
+  MAX_SUMMARY_SOURCES,
+  TITLE_TRUNCATE_LENGTH,
+  SHORT_TITLE_TRUNCATE_LENGTH,
 } from './activity-card-utils';
 import { ActivityRawData } from '../../types/activity';
 
@@ -305,5 +311,57 @@ describe('safeParseTimestamp', () => {
 
   it('returns null for invalid date', () => {
     expect(safeParseTimestamp('Invalid Date')).toBeNull();
+  });
+});
+
+describe('truncateText', () => {
+  it('returns text unchanged when shorter than maxLength', () => {
+    expect(truncateText('short', 10)).toBe('short');
+  });
+
+  it('returns text unchanged when exactly maxLength', () => {
+    expect(truncateText('exact', 5)).toBe('exact');
+  });
+
+  it('truncates and adds ellipsis when longer than maxLength', () => {
+    expect(truncateText('this is a long text', 10)).toBe('this is a ...');
+  });
+
+  it('uses custom suffix when provided', () => {
+    expect(truncateText('this is a long text', 10, '…')).toBe('this is a …');
+  });
+
+  it('handles empty string', () => {
+    expect(truncateText('', 10)).toBe('');
+  });
+
+  it('handles maxLength of 0', () => {
+    expect(truncateText('test', 0)).toBe('...');
+  });
+});
+
+describe('constants', () => {
+  it('INITIAL_ITEMS_LIMIT is defined and positive', () => {
+    expect(INITIAL_ITEMS_LIMIT).toBeGreaterThan(0);
+    expect(INITIAL_ITEMS_LIMIT).toBe(5);
+  });
+
+  it('MAX_COMMENT_BODY_LENGTH is defined and reasonable', () => {
+    expect(MAX_COMMENT_BODY_LENGTH).toBeGreaterThan(0);
+    expect(MAX_COMMENT_BODY_LENGTH).toBe(100);
+  });
+
+  it('MAX_SUMMARY_SOURCES is defined and reasonable', () => {
+    expect(MAX_SUMMARY_SOURCES).toBeGreaterThan(0);
+    expect(MAX_SUMMARY_SOURCES).toBe(3);
+  });
+
+  it('TITLE_TRUNCATE_LENGTH is defined', () => {
+    expect(TITLE_TRUNCATE_LENGTH).toBe(30);
+  });
+
+  it('SHORT_TITLE_TRUNCATE_LENGTH is defined and smaller than TITLE_TRUNCATE_LENGTH', () => {
+    expect(SHORT_TITLE_TRUNCATE_LENGTH).toBe(25);
+    expect(SHORT_TITLE_TRUNCATE_LENGTH).toBeLessThan(TITLE_TRUNCATE_LENGTH);
   });
 });
