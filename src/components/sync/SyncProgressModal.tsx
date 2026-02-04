@@ -3,10 +3,10 @@
  *
  * Shows sync progress:
  * - Syncing: spinner while backend works
- * - Complete: shows what was synced
+ * - Complete: shows what was synced, auto-closes after delay
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, Loader2, Sparkles, Clock, Link2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SyncState, SyncIntegration, EntryPreview } from '../../services/sync.service';
@@ -85,17 +85,58 @@ const IntegrationIcon: React.FC<{ icon: string; className?: string }> = ({ icon,
   }
 };
 
+/**
+ * Get header content based on phase
+ */
+function getHeaderContent(phase: string, totalActivities: number, totalEntries: number): { title: string; subtitle: string } {
+  switch (phase) {
+    case 'fetching':
+      return { title: 'Syncing...', subtitle: 'Fetching activities from connected tools...' };
+    case 'activities-synced':
+      return { title: 'Activities Imported', subtitle: `${totalActivities} activities synced. Identifying draft stories...` };
+    case 'generating-stories':
+      return { title: 'Creating Stories', subtitle: `Organizing ${totalActivities} activities into ${totalEntries} draft stories...` };
+    case 'complete':
+      return { title: 'Sync Complete!', subtitle: `${totalActivities} activities imported. Stories enhancing in background...` };
+    default:
+      return { title: 'Syncing...', subtitle: 'Please wait...' };
+  }
+}
+
 export function SyncProgressModal({
   open,
   onClose,
   state,
   onComplete,
 }: SyncProgressModalProps) {
+  const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-close modal 2.5 seconds after completion
+  useEffect(() => {
+    if (state?.phase === 'complete') {
+      autoCloseTimerRef.current = setTimeout(() => {
+        onComplete?.();
+        onClose();
+      }, 2500);
+    }
+
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+      }
+    };
+  }, [state?.phase, onComplete, onClose]);
+
   if (!open || !state) return null;
 
   const { phase, integrations, entries, totalActivities, totalEntries } = state;
   const isComplete = phase === 'complete';
-  const isSyncing = phase === 'syncing';
+  const isFetching = phase === 'fetching';
+  const showIntegrations = integrations.length > 0 && phase !== 'fetching';
+  const showEntries = entries.length > 0;
+  const isGeneratingStories = phase === 'generating-stories';
+
+  const { title, subtitle } = getHeaderContent(phase, totalActivities, totalEntries);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -120,72 +161,74 @@ export function SyncProgressModal({
               </div>
             )}
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">
-                {isComplete ? 'Sync Complete!' : 'Syncing...'}
-              </h2>
-              <p className="text-xs text-gray-500">
-                {isComplete
-                  ? `${totalActivities} activities, ${totalEntries} stories created`
-                  : 'Importing activities and generating stories...'}
-              </p>
+              <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+              <p className="text-xs text-gray-500">{subtitle}</p>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        {isSyncing ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-sm text-gray-500">Importing activities and generating stories...</p>
-          </div>
-        ) : (
-          <>
-            {/* Integrations */}
-            {integrations.length > 0 && (
-              <div className="px-4 py-3 border-b border-gray-100">
-                <div className="text-xs font-medium text-gray-500 mb-2">Activities Imported</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {integrations.map((integration) => (
-                    <div
-                      key={integration.id}
-                      className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-green-50 text-green-700 text-xs"
-                    >
-                      <IntegrationIcon icon={integration.icon} />
-                      <span className="font-medium truncate">{integration.name}</span>
-                      <span className="ml-auto text-green-600">{integration.itemCount}</span>
-                    </div>
-                  ))}
-                </div>
+        <>
+          {/* Integrations - show immediately when activities are synced */}
+          {showIntegrations && (
+            <div className={cn("px-4 py-3", showEntries && "border-b border-gray-100")}>
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                Activities Imported
               </div>
-            )}
-
-            {/* Entries */}
-            {entries.length > 0 && (
-              <div className="px-4 py-3">
-                <div className="text-xs font-medium text-gray-500 mb-2">Stories Created</div>
-                <div className="space-y-1 max-h-36 overflow-y-auto">
-                  {entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-green-50 text-green-700 text-xs"
-                    >
-                      {entry.groupingMethod === 'time' ? (
-                        <Clock className="w-3.5 h-3.5" />
-                      ) : (
-                        <Link2 className="w-3.5 h-3.5" />
-                      )}
-                      <span className="font-medium truncate flex-1">{entry.title}</span>
-                      <span className="text-green-600">{entry.activityCount}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {integrations.map((integration) => (
+                  <div
+                    key={integration.id}
+                    className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-gray-50 text-gray-700 text-xs"
+                  >
+                    <IntegrationIcon icon={integration.icon} />
+                    <span className="font-medium truncate">{integration.name}</span>
+                    <span className="ml-auto font-medium text-gray-900">{integration.itemCount}</span>
+                  </div>
+                ))}
               </div>
-            )}
-          </>
-        )}
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-          {isComplete ? (
+          {/* Entries - show with generating/done status */}
+          {showEntries && (
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2">
+                {isGeneratingStories ? (
+                  <Loader2 className="w-3.5 h-3.5 text-primary-500 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                )}
+                Draft Stories {isGeneratingStories ? 'Identified' : 'Created'}
+              </div>
+              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                {entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-2 py-1.5 px-2 text-xs text-gray-700"
+                  >
+                    {entry.groupingMethod === 'time' ? (
+                      <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    ) : (
+                      <Link2 className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
+                    )}
+                    <span className="truncate flex-1">{entry.title}</span>
+                    {entry.status === 'generating' ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-primary-500 flex-shrink-0" />
+                    ) : (
+                      <span className="text-gray-500 flex-shrink-0">{entry.activityCount}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+
+        {/* Footer - only show when complete */}
+        {isComplete && (
+          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
             <button
               onClick={() => {
                 onComplete?.();
@@ -195,10 +238,8 @@ export function SyncProgressModal({
             >
               View Your Journal
             </button>
-          ) : (
-            <div className="h-9" />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
