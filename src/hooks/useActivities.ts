@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { ActivityService, ActivitiesResponse } from '../services/activity.service';
 import { GetActivitiesParams, GroupedActivitiesResponse, FlatActivitiesResponse } from '../types/activity';
 import { isDemoMode } from '../services/demo-mode.service';
@@ -48,6 +48,8 @@ export function useActivities(params: GetActivitiesParams = {}) {
     },
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
+    // Keep showing previous data while refetching to prevent flash of empty state
+    placeholderData: keepPreviousData,
   });
 }
 
