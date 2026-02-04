@@ -51,6 +51,7 @@ import walletRoutes from './routes/wallet.routes';
 import careerStoriesRoutes from './routes/career-stories.routes';
 import demoRoutes from './routes/demo.routes';
 import activityRoutes from './routes/activity.routes';
+import eventsRoutes from './routes/events.routes';
 
 // Conditionally import MCP routes (only in production to avoid tsx issues)
 let mcpRoutes: any = null;
@@ -828,6 +829,7 @@ app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/career-stories', careerStoriesRoutes);
 app.use('/api/v1/demo', demoRoutes);
+app.use('/api/v1/events', eventsRoutes);
 
 // MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
 if (mcpRoutes) {
