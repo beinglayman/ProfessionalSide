@@ -450,7 +450,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Google Meet: User joined a meeting about their PR
     {
-      source: 'google',
+      source: 'google-meet',
       sourceId: 'meet-xyz-uvwx-stu',
       sourceUrl: 'https://meet.google.com/xyz-uvwx-stu',
       title: 'Backend PR Review - Performance Optimization',
@@ -466,7 +466,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Google Docs: User was tagged for feedback on a design doc
     {
-      source: 'google',
+      source: 'google-docs',
       sourceId: 'gdoc-1AbC123XYZ456_defGHI789jkl',
       sourceUrl: 'https://docs.google.com/document/d/1AbC123XYZ456_defGHI789jkl/edit',
       title: 'Microservices Migration Plan',
@@ -486,7 +486,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Google Calendar: User organized a meeting (links to auth work)
     {
-      source: 'google',
+      source: 'google-calendar',
       sourceId: 'gcal-auth-review-meeting',
       sourceUrl: 'https://calendar.google.com/calendar/event?eid=YXV0aC1yZXZpZXctbWVldGluZw',
       title: 'AUTH-123 Security Review - OAuth2 Implementation',
@@ -504,7 +504,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Google Calendar: User was invited as attendee
     {
-      source: 'google',
+      source: 'google-calendar',
       sourceId: 'gcal-perf-standup',
       sourceUrl: 'https://calendar.google.com/calendar/event?eid=cGVyZi1zdGFuZHVw',
       title: 'PERF-456 Daily Standup',
@@ -521,7 +521,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Google Sheets: User created a spreadsheet for tracking
     {
-      source: 'google',
+      source: 'google-sheets',
       sourceId: 'gsheet-perf-metrics',
       sourceUrl: 'https://docs.google.com/spreadsheets/d/1PerfMetricsSheet_abcdefghij123/edit',
       title: 'PERF-456 Performance Metrics Dashboard',
@@ -537,7 +537,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Google Sheets: User was tagged in a comment
     {
-      source: 'google',
+      source: 'google-sheets',
       sourceId: 'gsheet-capacity-planning',
       sourceUrl: 'https://docs.google.com/spreadsheets/d/1CapacityPlanSheet_xyz789012345/edit',
       title: 'Q1 Capacity Planning',
@@ -554,9 +554,9 @@ export function generateMockActivities(): ActivityInput[] {
       },
     },
 
-    // Google Slides: User created a presentation
+    // Google Slides: User created a presentation (using google-drive as generic doc source)
     {
-      source: 'google',
+      source: 'google-drive',
       sourceId: 'gslides-auth-overview',
       sourceUrl: 'https://docs.google.com/presentation/d/1AuthOverviewSlides_abcdef12345/edit',
       title: 'OAuth2 Architecture Overview',
@@ -747,7 +747,7 @@ export function generateMockActivities(): ActivityInput[] {
 
     // Q4 Planning activities (30-35 days ago)
     {
-      source: 'google',
+      source: 'google-docs',
       sourceId: 'gdoc-q4-okrs',
       sourceUrl: 'https://docs.google.com/document/d/1Q4OKRs_planning_doc_xyz/edit',
       title: 'Q4 Engineering OKRs',

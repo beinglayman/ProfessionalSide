@@ -8,11 +8,13 @@ import { z } from 'zod';
  * Supported activity sources with display metadata
  */
 export const SUPPORTED_SOURCES = {
+  // Dev tools
   github: {
     displayName: 'GitHub',
     color: '#24292e',
     icon: 'github'
   },
+  // Atlassian
   jira: {
     displayName: 'Jira',
     color: '#0052CC',
@@ -23,6 +25,7 @@ export const SUPPORTED_SOURCES = {
     color: '#172B4D',
     icon: 'confluence'
   },
+  // Microsoft 365
   teams: {
     displayName: 'Microsoft Teams',
     color: '#6264a7',
@@ -33,21 +36,54 @@ export const SUPPORTED_SOURCES = {
     color: '#0078d4',
     icon: 'outlook'
   },
+  onedrive: {
+    displayName: 'OneDrive',
+    color: '#0078d4',
+    icon: 'onedrive'
+  },
+  sharepoint: {
+    displayName: 'SharePoint',
+    color: '#036C70',
+    icon: 'sharepoint'
+  },
+  // Communication
   slack: {
     displayName: 'Slack',
     color: '#4A154B',
     icon: 'slack'
   },
+  // Design
   figma: {
     displayName: 'Figma',
     color: '#F24E1E',
     icon: 'figma'
   },
+  // Google Workspace
   'google-calendar': {
     displayName: 'Google Calendar',
     color: '#4285F4',
     icon: 'google-calendar'
-  }
+  },
+  'google-docs': {
+    displayName: 'Google Docs',
+    color: '#4285F4',
+    icon: 'google-docs'
+  },
+  'google-sheets': {
+    displayName: 'Google Sheets',
+    color: '#0F9D58',
+    icon: 'google-sheets'
+  },
+  'google-drive': {
+    displayName: 'Google Drive',
+    color: '#4285F4',
+    icon: 'google-drive'
+  },
+  'google-meet': {
+    displayName: 'Google Meet',
+    color: '#00897B',
+    icon: 'google-meet'
+  },
 } as const;
 
 export type ActivitySource = keyof typeof SUPPORTED_SOURCES;
