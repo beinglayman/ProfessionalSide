@@ -42,7 +42,7 @@ export const frameworkNameSchema = z.enum([
  * Schema for POST /wizard/analyze request body
  */
 export const analyzeRequestSchema = z.object({
-  journalEntryId: z.string().uuid('Invalid journal entry ID'),
+  journalEntryId: z.string().min(1, 'Journal entry ID is required'),
 }).strict();
 
 export type AnalyzeRequestInput = z.infer<typeof analyzeRequestSchema>;
@@ -65,7 +65,7 @@ export type WizardAnswerInput = z.infer<typeof wizardAnswerSchema>;
  * Schema for POST /wizard/generate request body
  */
 export const generateRequestSchema = z.object({
-  journalEntryId: z.string().uuid('Invalid journal entry ID'),
+  journalEntryId: z.string().min(1, 'Journal entry ID is required'),
   answers: z.record(z.string(), wizardAnswerSchema),
   archetype: storyArchetypeSchema,
   framework: frameworkNameSchema,

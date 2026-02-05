@@ -31,6 +31,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 import {
   createCareerStoryService,
   FrameworkName,
@@ -490,11 +491,24 @@ export class StoryWizardService {
     // Evaluate
     const evaluation = evaluateStory(sections, extractedContext);
 
-    // Save to DB via existing service
-    const careerStoryService = createCareerStoryService(this.isDemoMode);
-    const saveResult = await careerStoryService.createFromJournalEntry(userId, journalEntryId, framework);
+    // Save to DB directly - we have pre-generated sections from wizard
+    // Using prisma directly since createStory requires activities which may not exist
+    const story = await prisma.careerStory.create({
+      data: {
+        userId,
+        sourceMode: this.isDemoMode ? 'demo' : 'production',
+        title: entry.title || 'Career Story',
+        activityIds: entry.activityIds,
+        framework,
+        sections: sections as unknown as Prisma.InputJsonValue,
+        generatedAt: new Date(),
+        needsRegeneration: false,
+        visibility: 'private',
+        isPublished: false,
+      },
+    });
 
-    const storyId = saveResult.story?.id || `wizard-${Date.now()}`;
+    const storyId = story.id;
 
     console.log(`${this.logPrefix} generateStory complete`, {
       storyId,
