@@ -1183,6 +1183,14 @@ export class CareerStoryService {
     };
   }
 
+  async getStoryById(storyId: string, userId: string): Promise<CareerStoryRecord | null> {
+    const story = await prisma.careerStory.findFirst({
+      where: { id: storyId, userId, sourceMode: this.sourceMode },
+    });
+
+    return story ? this.mapStory(story) : null;
+  }
+
   async publish(
     storyId: string,
     userId: string,

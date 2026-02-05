@@ -14,6 +14,7 @@ import {
   getExpectedClusters,
   createStoryPublishingService,
   Visibility,
+  createCareerStoryService,
 } from '../services/career-stories';
 import * as seedService from '../services/career-stories/seed.service';
 import { DEFAULT_SEED_PERSONA, SeedServiceError } from '../services/career-stories/seed.service';
@@ -903,6 +904,224 @@ export const getDemoStory = asyncHandler(async (req: Request, res: Response): Pr
   }
 
   sendSuccess(res, result);
+});
+
+// ============================================================================
+// CAREER STORIES CRUD (Unified - uses sourceMode from request)
+// ============================================================================
+
+/**
+ * GET /api/v1/career-stories/stories
+ * List all career stories for the current user.
+ */
+export const listStories = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createCareerStoryService(isDemoMode);
+  const result = await service.listStories(userId);
+
+  sendSuccess(res, result);
+});
+
+/**
+ * GET /api/v1/career-stories/stories/:id
+ * Get a single career story by ID.
+ */
+export const getStoryById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createCareerStoryService(isDemoMode);
+  const story = await service.getStoryById(id, userId);
+
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  sendSuccess(res, story);
+});
+
+/**
+ * POST /api/v1/career-stories/stories
+ * Create a new career story.
+ */
+export const createStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createCareerStoryService(isDemoMode);
+  const story = await service.createStory(userId, req.body);
+
+  sendSuccess(res, story, 'Story created', 201);
+});
+
+/**
+ * PUT /api/v1/career-stories/stories/:id
+ * Update an existing career story.
+ */
+export const updateStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createCareerStoryService(isDemoMode);
+
+  // updateStory already checks existence and returns error
+  const result = await service.updateStory(id, userId, req.body);
+  if (!result.success) {
+    const status = result.error === 'Story not found' ? 404 : 400;
+    return void sendError(res, result.error || 'Update failed', status);
+  }
+
+  sendSuccess(res, result.story, 'Story updated');
+});
+
+/**
+ * DELETE /api/v1/career-stories/stories/:id
+ * Delete a career story.
+ */
+export const deleteStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createCareerStoryService(isDemoMode);
+
+  // deleteStory already checks existence
+  const result = await service.deleteStory(id, userId);
+  if (!result.success) {
+    return void sendError(res, result.error || 'Delete failed', 404);
+  }
+
+  sendSuccess(res, { deleted: true }, 'Story deleted');
+});
+
+/**
+ * POST /api/v1/career-stories/stories/:id/regenerate
+ * Regenerate a career story with optional new framework.
+ */
+export const regenerateStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+  const { framework } = req.body;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createCareerStoryService(isDemoMode);
+
+  // regenerate already checks existence
+  const result = await service.regenerate(id, userId, framework);
+  if (!result.success) {
+    const status = result.error === 'Story not found' ? 404 : 500;
+    return void sendError(res, result.error || 'Regeneration failed', status);
+  }
+
+  sendSuccess(res, result.story, 'Story regenerated');
+});
+
+/**
+ * POST /api/v1/career-stories/stories/:id/publish
+ * Publish a career story.
+ */
+export const publishStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+  const { visibility = 'private' } = req.body;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createStoryPublishingService(isDemoMode);
+  const result = await service.publish(id, userId, visibility as Visibility);
+
+  if (!result.success) {
+    const status = result.error === 'Story not found' ? 404 :
+                   result.error?.includes('own') ? 403 :
+                   result.missingFields ? 400 : 500;
+    return void sendError(res, result.error || 'Publish failed', status, {
+      missingFields: result.missingFields,
+    });
+  }
+
+  sendSuccess(res, result, 'Story published');
+});
+
+/**
+ * POST /api/v1/career-stories/stories/:id/unpublish
+ * Unpublish a career story.
+ */
+export const unpublishStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createStoryPublishingService(isDemoMode);
+  const result = await service.unpublish(id, userId);
+
+  if (!result.success) {
+    return void sendError(res, result.error || 'Unpublish failed', 404);
+  }
+
+  sendSuccess(res, result, 'Story unpublished');
+});
+
+/**
+ * PUT /api/v1/career-stories/stories/:id/visibility
+ * Update story visibility.
+ */
+export const setStoryVisibility = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+  const { visibility } = req.body;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  if (!visibility || !['public', 'workspace', 'private'].includes(visibility)) {
+    return void sendError(res, 'Invalid visibility value', 400);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const service = createStoryPublishingService(isDemoMode);
+  const result = await service.setVisibility(id, userId, visibility as Visibility);
+
+  if (!result.success) {
+    return void sendError(res, result.error || 'Update failed', 404);
+  }
+
+  sendSuccess(res, result, 'Visibility updated');
 });
 
 // ============================================================================

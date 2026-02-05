@@ -373,4 +373,63 @@ describe('CareerStoryService', () => {
       expect(prodResult.stories).toHaveLength(0);
     });
   });
+
+  describe('getStoryById', () => {
+    it('returns story when it exists and belongs to user', async () => {
+      const activity = await createTestActivity();
+      const service = createCareerStoryService(true);
+
+      const createResult = await service.createStory(TEST_USER_ID, {
+        activityIds: [activity.id],
+        title: 'My Story',
+      });
+
+      const story = await service.getStoryById(createResult.story!.id, TEST_USER_ID);
+
+      expect(story).not.toBeNull();
+      expect(story?.id).toBe(createResult.story!.id);
+      expect(story?.title).toBe('My Story');
+    });
+
+    it('returns null for non-existent story', async () => {
+      const service = createCareerStoryService(true);
+
+      const story = await service.getStoryById('non-existent-id', TEST_USER_ID);
+
+      expect(story).toBeNull();
+    });
+
+    it('returns null for story belonging to different user', async () => {
+      const activity = await createTestActivity();
+      const service = createCareerStoryService(true);
+
+      const createResult = await service.createStory(TEST_USER_ID, {
+        activityIds: [activity.id],
+        title: 'My Story',
+      });
+
+      const story = await service.getStoryById(createResult.story!.id, 'different-user-id');
+
+      expect(story).toBeNull();
+    });
+
+    it('respects sourceMode isolation', async () => {
+      const activity = await createTestActivity();
+      const demoService = createCareerStoryService(true);
+      const prodService = createCareerStoryService(false);
+
+      const createResult = await demoService.createStory(TEST_USER_ID, {
+        activityIds: [activity.id],
+        title: 'Demo Story',
+      });
+
+      // Demo service should find it
+      const demoStory = await demoService.getStoryById(createResult.story!.id, TEST_USER_ID);
+      expect(demoStory).not.toBeNull();
+
+      // Production service should not find it
+      const prodStory = await prodService.getStoryById(createResult.story!.id, TEST_USER_ID);
+      expect(prodStory).toBeNull();
+    });
+  });
 });

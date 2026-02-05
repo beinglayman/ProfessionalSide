@@ -32,11 +32,21 @@ import {
   getDemoClusterById,
   generateDemoStar,
   clearDemoData,
-  // Story Publishing (Demo Mode)
+  // Story Publishing (Demo Mode - legacy)
   publishDemoStory,
   unpublishDemoStory,
   setDemoStoryVisibility,
   getDemoStory,
+  // Stories CRUD (unified)
+  listStories,
+  getStoryById,
+  createStory,
+  updateStory,
+  deleteStory,
+  regenerateStory,
+  publishStory,
+  unpublishStory,
+  setStoryVisibility,
   // Profile: Published Stories
   getPublishedStories,
 } from '../controllers/career-stories.controller';
@@ -90,6 +100,21 @@ router.get('/demo/clusters', getDemoClusters);
 router.get('/demo/clusters/:id', getDemoClusterById);
 router.post('/demo/clusters/:id/generate-star', generateDemoStar);
 // Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/all with X-Demo-Mode header
+
+// ============================================================================
+// CAREER STORIES CRUD (Unified - uses x-demo-mode header for demo/prod routing)
+// ============================================================================
+router.get('/stories', listStories);
+router.get('/stories/:id', getStoryById);
+router.post('/stories', createStory);
+router.put('/stories/:id', updateStory);
+router.patch('/stories/:id', updateStory);  // Support both PUT and PATCH
+router.delete('/stories/:id', deleteStory);
+router.post('/stories/:id/regenerate', regenerateStory);
+router.post('/stories/:id/publish', publishStory);
+router.post('/stories/:id/unpublish', unpublishStory);
+router.put('/stories/:id/visibility', setStoryVisibility);
+router.patch('/stories/:id/visibility', setStoryVisibility);  // Support both PUT and PATCH
 
 // ============================================================================
 // STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)
