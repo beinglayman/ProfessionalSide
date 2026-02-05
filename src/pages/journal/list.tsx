@@ -143,7 +143,11 @@ export default function JournalPage() {
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
 
   // Connect to SSE for real-time updates from backend
-  // SSE automatically invalidates queries when data changes
+  // SSE automatically invalidates queries when data changes (debounced 500ms)
+  // We DON'T remove entry IDs on data-changed because the invalidation is debounced.
+  // Instead, we rely on the hasLLMContent fallback in StoryGroupHeader to stop
+  // the animation once the refetched data shows the entry has LLM content.
+  // Only narratives-complete clears all pending IDs (immediate invalidation).
   useSSE({
     enabled: true,
     onNarrativesComplete: () => {
@@ -153,15 +157,9 @@ export default function JournalPage() {
     },
     onDataChanged: (data) => {
       console.log('[Journal] SSE: Data changed', data);
-      // Remove completed entry from pending set
-      const entryId = data.entryId as string | undefined;
-      if (entryId) {
-        setPendingEnhancementIds(prev => {
-          const next = new Set(prev);
-          next.delete(entryId);
-          return next;
-        });
-      }
+      // Don't remove from pendingEnhancementIds here - the query invalidation
+      // is debounced, so we let the data refresh happen first. The StoryGroupHeader
+      // will stop showing the animation once hasLLMContent becomes true.
     },
   });
 

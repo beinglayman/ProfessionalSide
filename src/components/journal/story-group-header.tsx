@@ -181,10 +181,14 @@ export function StoryGroupHeader({
   const prevImpactRef = useRef(impactHighlights);
 
   // Determine if this story is pending enhancement:
-  // - If isPendingEnhancementProp is provided (per-entry tracking), use it
-  // - Otherwise fall back to the old heuristic (global flag + no LLM content)
+  // A story shows the enhancing indicator if:
+  // 1. It's in the pending set (per-entry tracking) AND doesn't have LLM content yet
+  // 2. OR (fallback) global generation is active AND no LLM content
+  // Once LLM content arrives (description + impactHighlights), animation stops.
   const hasLLMContent = description && impactHighlights && impactHighlights.length > 0;
-  const isPendingEnhancement = isPendingEnhancementProp ?? (isEnhancingNarratives && !hasLLMContent);
+  const isPendingEnhancement = hasLLMContent
+    ? false  // Already has content, not pending
+    : (isPendingEnhancementProp ?? (isEnhancingNarratives ?? false));
 
   // Detect when story content is enhanced (description or impacts change)
   useEffect(() => {
