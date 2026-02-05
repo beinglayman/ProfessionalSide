@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import { ArrowLeft, CheckCircle2, Clock, Lightbulb, Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility } from '../../types/career-stories';
@@ -147,6 +148,40 @@ export function CareerStoriesPage() {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   // Track demo mode state
   const [showingDemo, setShowingDemo] = useState(isDemoMode());
+  // Celebration state for newly created stories
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  // Trigger confetti when celebration starts
+  useEffect(() => {
+    if (!showCelebration) return;
+
+    // Fire confetti burst
+    const duration = 2000;
+    const end = Date.now() + duration;
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#22c55e', '#10b981', '#059669', '#fbbf24', '#f59e0b'],
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#22c55e', '#10b981', '#059669', '#fbbf24', '#f59e0b'],
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    frame();
+  }, [showCelebration]);
   // Track saved stories by cluster
   const [savedStories, setSavedStories] = useState<Record<string, CareerStory>>({});
 
@@ -269,12 +304,27 @@ export function CareerStoriesPage() {
       setFramework(newFramework);
       localStorage.setItem('career-stories-framework', newFramework);
 
+      // Regenerate story if one is directly selected (from wizard)
+      if (selectedStoryDirect) {
+        regenerateStoryMutation.mutate(
+          { id: selectedStoryDirect.id, framework: newFramework },
+          {
+            onSuccess: (response) => {
+              if (response.success && response.data) {
+                setSelectedStoryDirect(response.data);
+              }
+            },
+          }
+        );
+        return;
+      }
+
       // Regenerate if a cluster is selected
       if (selectedCluster) {
         handleGenerateStar(selectedCluster.id, newFramework);
       }
     },
-    [selectedCluster, handleGenerateStar]
+    [selectedCluster, selectedStoryDirect, handleGenerateStar, regenerateStoryMutation]
   );
 
   const handleSelectCluster = useCallback((cluster: Cluster) => {
@@ -308,11 +358,20 @@ export function CareerStoriesPage() {
     const storyId = searchParams.get('storyId');
     const clusterId = searchParams.get('clusterId');
 
+    // Check for celebrate param (from wizard flow)
+    const shouldCelebrate = searchParams.get('celebrate') === 'true';
+
     // If we have a storyId (from promote flow), find and select the story
     if (storyId && existingStories?.stories) {
       const matchingStory = existingStories.stories.find((s) => s.id === storyId);
       if (matchingStory && !selectedStoryDirect) {
         handleSelectStory(matchingStory);
+        // Show celebration if this is a new story from wizard
+        if (shouldCelebrate) {
+          setShowCelebration(true);
+          // Auto-hide after 5 seconds
+          setTimeout(() => setShowCelebration(false), 5000);
+        }
         setSearchParams({}, { replace: true });
         return;
       }
@@ -692,6 +751,24 @@ export function CareerStoriesPage() {
           </div>
         </div>
       </header>
+
+      {/* Celebration Banner - shown when a new story is created via wizard */}
+      {showCelebration && (
+        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-500">
+              <span className="text-xl">🎉</span>
+              <span>Career story created! Your draft story has been promoted.</span>
+              <button
+                onClick={() => setShowCelebration(false)}
+                className="ml-2 text-white/80 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Bar */}
       {(clusters.length > 0 || (existingStories?.stories?.length ?? 0) > 0) && (
