@@ -87,7 +87,7 @@ function ActionsMenu({
 
       {isOpen && (
         <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-          {onPromote && !isPublished && (
+          {onPromote && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -307,8 +307,8 @@ export function StoryGroupHeader({
                   )}
                 </div>
 
-                {/* CTA at top-right when expanded */}
-                {isExpanded && !isPublished && onPromoteToCareerStory && (
+                {/* CTA at top-right when expanded - always show for draft entries */}
+                {isExpanded && onPromoteToCareerStory && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
