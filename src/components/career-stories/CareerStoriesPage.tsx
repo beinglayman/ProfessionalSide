@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle2, Clock, Lightbulb, Link2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, FileText, Search, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
@@ -32,10 +32,12 @@ import {
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
 import { StoryList } from './StoryList';
+import { StoryViewTabs, StoryViewType } from './StoryViewTabs';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { cn } from '../../lib/utils';
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -150,6 +152,10 @@ export function CareerStoriesPage() {
   const [showingDemo, setShowingDemo] = useState(isDemoMode());
   // Celebration state for newly created stories
   const [showCelebration, setShowCelebration] = useState(false);
+  // Story view filter
+  const [storyView, setStoryView] = useState<StoryViewType>('all');
+  // Search query for stories
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -527,6 +533,39 @@ export function CareerStoriesPage() {
   }, [selectedStoryDirect]);
 
   // Compute stats for the stats bar - include both clusters and standalone stories
+  // Story view counts for tabs
+  const storyCounts = useMemo(() => {
+    const stories = existingStories?.stories || [];
+    return {
+      all: stories.length,
+      published: stories.filter((s) => s.isPublished).length,
+      drafts: stories.filter((s) => !s.isPublished).length,
+    };
+  }, [existingStories]);
+
+  // Filter stories based on view and search
+  const filteredStories = useMemo(() => {
+    let stories = existingStories?.stories || [];
+
+    // Filter by view
+    if (storyView === 'published') {
+      stories = stories.filter((s) => s.isPublished);
+    } else if (storyView === 'drafts') {
+      stories = stories.filter((s) => !s.isPublished);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      stories = stories.filter((s) =>
+        s.title.toLowerCase().includes(query) ||
+        s.framework.toLowerCase().includes(query)
+      );
+    }
+
+    return stories;
+  }, [existingStories, storyView, searchQuery]);
+
   const stats = useMemo(() => {
     let complete = 0;
     let inProgress = 0;
@@ -729,76 +768,106 @@ export function CareerStoriesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50" data-testid="career-stories-page">
-      {/* Header */}
+      {/* Header - matches journal page style */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate(-1)}
-                className="lg:hidden"
+                className="lg:hidden -ml-2"
                 aria-label="Go back"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <h1 className="text-xl font-semibold text-gray-900">
-                Career Stories
-              </h1>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
+                  <FileText className="h-4 w-4 text-primary-600" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">
+                    Career Stories
+                  </h1>
+                </div>
+              </div>
             </div>
-            {/* Generate Clusters button hidden - clusters are internal implementation detail */}
+
+            {/* Stats inline - compact */}
+            <div className="hidden md:flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="font-medium text-gray-700">{storyCounts.published}</span>
+                <span>published</span>
+              </div>
+              <div className="w-px h-4 bg-gray-200" />
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-medium text-gray-700">{storyCounts.drafts}</span>
+                <span>drafts</span>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Celebration Banner - shown when a new story is created via wizard */}
       {showCelebration && (
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+        <div className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-500">
-              <span className="text-xl">🎉</span>
-              <span>Career story created! Your draft story has been promoted.</span>
+              <CheckCircle2 className="h-5 w-5" />
+              <span>Career story created! Your draft has been promoted.</span>
               <button
                 onClick={() => setShowCelebration(false)}
                 className="ml-2 text-white/80 hover:text-white transition-colors"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stats Bar */}
-      {(clusters.length > 0 || (existingStories?.stories?.length ?? 0) > 0) && (
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex items-center justify-center gap-6 text-sm">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <span className="font-semibold text-gray-900">{stats.complete}</span>
-                <span className="text-gray-500">Complete</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-amber-500" />
-                <span className="font-semibold text-gray-900">{stats.inProgress}</span>
-                <span className="text-gray-500">In Progress</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Lightbulb className="h-4 w-4 text-gray-400" />
-                <span className="font-semibold text-gray-900">{stats.draft}</span>
-                <span className="text-gray-500">Draft</span>
-              </div>
-              <div className="hidden sm:flex items-center gap-1.5">
-                <Link2 className="h-4 w-4 text-blue-500" />
-                <span className="font-semibold text-gray-900">{stats.totalActivities}</span>
-                <span className="text-gray-500">Activities</span>
-              </div>
+      {/* Toolbar - tabs and search */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Tabs */}
+            <StoryViewTabs
+              activeView={storyView}
+              onViewChange={setStoryView}
+              counts={storyCounts}
+            />
+
+            {/* Search */}
+            <div className="relative max-w-xs flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search stories..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={cn(
+                  'w-full pl-9 pr-8 py-1.5 text-sm rounded-lg',
+                  'border border-gray-200 bg-gray-50',
+                  'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:bg-white',
+                  'placeholder:text-gray-400 transition-colors'
+                )}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto">
@@ -807,7 +876,7 @@ export function CareerStoriesPage() {
           {/* Left column: Story list (primary) - shows stories from promote flow */}
           <div className="lg:col-span-4 bg-white rounded-lg border border-gray-200 overflow-hidden">
             <StoryList
-              stories={existingStories?.stories || []}
+              stories={filteredStories}
               selectedStoryId={selectedStoryDirect?.id || null}
               isLoading={isLoadingClusters}
               onSelectStory={handleSelectStory}
@@ -845,7 +914,7 @@ export function CareerStoriesPage() {
         {/* Mobile: Full-width story list */}
         <div className="lg:hidden">
           <StoryList
-            stories={existingStories?.stories || []}
+            stories={filteredStories}
             selectedStoryId={selectedStoryDirect?.id || null}
             isLoading={isLoadingClusters}
             onSelectStory={handleSelectStory}

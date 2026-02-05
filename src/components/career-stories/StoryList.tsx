@@ -41,9 +41,11 @@ function StoryCard({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left p-4 border-b border-gray-100 transition-colors',
+        'w-full text-left px-4 py-3 transition-all duration-150',
         'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500',
-        isSelected && 'bg-primary-50 border-l-2 border-l-primary-500'
+        isSelected
+          ? 'bg-primary-50/70 border-l-2 border-l-primary-500'
+          : 'border-l-2 border-l-transparent'
       )}
       data-testid={`story-card-${story.id}`}
       aria-selected={isSelected}
@@ -52,47 +54,53 @@ function StoryCard({
         {/* Icon */}
         <div
           className={cn(
-            'flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center',
+            'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors',
             isSelected ? 'bg-primary-100' : 'bg-gray-100'
           )}
         >
           <FileText
             className={cn(
               'w-4 h-4',
-              isSelected ? 'text-primary-600' : 'text-gray-500'
+              isSelected ? 'text-primary-600' : 'text-gray-400'
             )}
           />
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 py-0.5">
           <div className="flex items-center gap-2">
             <h3
               className={cn(
-                'font-medium truncate',
+                'text-sm font-medium truncate leading-tight',
                 isSelected ? 'text-primary-900' : 'text-gray-900'
               )}
             >
               {story.title}
             </h3>
             {story.isPublished && (
-              <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
             )}
           </div>
 
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-            <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">
+          <div className="flex items-center gap-2 mt-1.5">
+            <span
+              className={cn(
+                'px-2 py-0.5 text-xs font-medium rounded-full',
+                isSelected
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-gray-100 text-gray-600'
+              )}
+            >
               {frameworkInfo?.name || story.framework}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 text-xs text-gray-400">
               <Clock className="w-3 h-3" />
               {createdDate}
             </span>
-          </div>
-
-          {/* Activity count */}
-          <div className="mt-1 text-xs text-gray-400">
-            {story.activityIds.length} activities
+            <span className="text-xs text-gray-300">•</span>
+            <span className="text-xs text-gray-400">
+              {story.activityIds.length} activities
+            </span>
           </div>
         </div>
       </div>
@@ -105,14 +113,13 @@ function StoryCard({
  */
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-        <BookOpen className="w-6 h-6 text-gray-400" />
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+      <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center mb-4">
+        <BookOpen className="w-7 h-7 text-gray-400" />
       </div>
-      <h3 className="text-lg font-medium text-gray-900 mb-1">No stories yet</h3>
-      <p className="text-sm text-gray-500 max-w-xs">
-        Promote journal entries to career stories from the Journal page to see
-        them here.
+      <h3 className="text-base font-semibold text-gray-900 mb-1">No stories yet</h3>
+      <p className="text-sm text-gray-500 max-w-[280px] leading-relaxed">
+        Promote journal entries to career stories from the Journal page to see them here.
       </p>
     </div>
   );
