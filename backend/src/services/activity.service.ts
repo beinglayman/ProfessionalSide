@@ -38,8 +38,9 @@ const MAX_SOURCES = 20;
 
 /** Cache control values */
 export const CACHE_CONTROL = {
-  ACTIVITIES: 'private, max-age=30',
-  STATS: 'private, max-age=60'
+  // Disabled caching during development - was causing stale data after sync
+  ACTIVITIES: 'no-store',
+  STATS: 'no-store'
 } as const;
 
 /** Default fallback color for unknown sources */
@@ -504,6 +505,8 @@ export class ActivityService {
     userId: string,
     fetchedActivities: any[]
   ): Promise<ActivityGroup[]> {
+    console.log('[ActivityService] getStoryGroupsFromEntries - userId:', userId, 'sourceMode:', this.sourceMode);
+
     // Fetch ALL journal entries for user (both temporal and cluster)
     const journalEntries = await prisma.journalEntry.findMany({
       where: {
@@ -532,6 +535,8 @@ export class ActivityService {
         { timeRangeStart: 'desc' }
       ]
     });
+
+    console.log('[ActivityService] getStoryGroupsFromEntries - found', journalEntries.length, 'journal entries');
 
     // Get ALL activity IDs from all journal entries
     const allEntryActivityIds = new Set<string>();
