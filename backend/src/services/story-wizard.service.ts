@@ -103,7 +103,6 @@ export interface GenerateResult {
   };
   evaluation: {
     score: number;
-    breakdown: Record<string, number>;
     suggestions: string[];
     coachComment: string;
   };
@@ -146,6 +145,41 @@ const QUESTION_OPTIONS = {
   ],
 } as const;
 
+/** Question ID patterns for mapping answers to context fields */
+const QUESTION_PATTERNS = {
+  DIG_1: 'dig-1',
+  DIG_2: 'dig-2',
+  DIG_3: 'dig-3',
+  IMPACT_1: 'impact-1',
+  IMPACT_2: 'impact-2',
+  GROWTH: 'growth',
+} as const;
+
+/** Default hooks per archetype - Story Coach voice */
+const ARCHETYPE_HOOKS: Record<StoryArchetype, string> = {
+  firefighter: 'When the alert came in, everything changed.',
+  architect: 'I saw what needed to be built, and I built it to last.',
+  diplomat: 'Two teams, opposing views, one path forward.',
+  multiplier: 'What started as my solution became everyone\'s solution.',
+  detective: 'No one could figure out why. Until I traced it back.',
+  pioneer: 'No documentation. No playbook. Just a problem that needed solving.',
+  turnaround: 'I inherited a mess. Here\'s how I turned it around.',
+  preventer: 'I noticed something others missed. It saved us.',
+};
+
+/** Common words to filter from name extraction (sentence starters, question words, verbs) */
+const COMMON_WORDS = new Set([
+  // Question words and pronouns
+  'The', 'This', 'That', 'When', 'What', 'Where', 'How', 'Why', 'Who',
+  // Common sentence starters / past tense verbs
+  'Worked', 'Called', 'Created', 'Built', 'Fixed', 'Made', 'Started', 'Helped',
+  'Found', 'Asked', 'Told', 'Saw', 'Got', 'Had', 'Was', 'Did', 'Used', 'Went',
+  // Time/place words
+  'After', 'Before', 'During', 'While', 'Then', 'Now', 'Here', 'There',
+  // Other common starters
+  'Our', 'Their', 'Some', 'Most', 'Many', 'Each', 'Every', 'Both',
+]);
+
 // ============================================================================
 // CUSTOM ERRORS
 // ============================================================================
@@ -187,9 +221,9 @@ function transformQuestions(archetype: StoryArchetype): WizardQuestion[] {
     };
 
     // Add options for specific question types
-    if (q.phase === 'impact' && q.id.includes('impact-1')) {
+    if (q.phase === 'impact' && q.id.includes(QUESTION_PATTERNS.IMPACT_1)) {
       wizardQ.options = [...QUESTION_OPTIONS.IMPACT_TYPES];
-    } else if (q.phase === 'dig' && q.id.includes('dig-1')) {
+    } else if (q.phase === 'dig' && q.id.includes(QUESTION_PATTERNS.DIG_1)) {
       wizardQ.options = [...QUESTION_OPTIONS.DISCOVERY_METHODS];
     }
 
@@ -198,47 +232,50 @@ function transformQuestions(archetype: StoryArchetype): WizardQuestion[] {
 }
 
 /**
+ * Safely combine selected options and free text into a single string.
+ */
+function combineAnswerParts(answer: WizardAnswer | undefined): string {
+  const selected = Array.isArray(answer?.selected) ? answer.selected : [];
+  const freeText = typeof answer?.freeText === 'string' ? answer.freeText : '';
+  return [...selected, freeText].filter(Boolean).join('. ');
+}
+
+/**
+ * Extract proper names from text (capitalized words, filtering common words).
+ * Returns undefined if no names found.
+ */
+export function extractNamedPeople(text: string): string[] | undefined {
+  const namePattern = /\b([A-Z][a-z]{1,})\b/g;
+  const matches = text.match(namePattern);
+  if (!matches) return undefined;
+
+  const names = matches.filter((name) => !COMMON_WORDS.has(name));
+  return names.length > 0 ? Array.from(new Set(names)) : undefined;
+}
+
+/**
  * Transform wizard answers to ExtractedContext.
  * Maps question IDs to context fields based on D-I-G protocol phases.
- *
- * TODO: Consider making question ID → context field mapping configurable
- * TODO: Add support for extracting metrics/numbers from free text answers
  */
-function answersToContext(answers: Record<string, WizardAnswer>): ExtractedContext {
+export function answersToContext(answers: Record<string, WizardAnswer>): ExtractedContext {
   const context: ExtractedContext = {};
 
   for (const [questionId, answer] of Object.entries(answers)) {
-    // Safely handle missing or malformed answers
-    const selected = Array.isArray(answer?.selected) ? answer.selected : [];
-    const freeText = typeof answer?.freeText === 'string' ? answer.freeText : '';
-
-    const combined = [...selected, freeText].filter(Boolean).join('. ');
+    const combined = combineAnswerParts(answer);
     if (!combined) continue;
 
-    // Map question IDs to context fields based on D-I-G phases
-    if (questionId.includes('dig-1')) {
+    if (questionId.includes(QUESTION_PATTERNS.DIG_1)) {
       context.realStory = combined;
-    } else if (questionId.includes('dig-2')) {
+    } else if (questionId.includes(QUESTION_PATTERNS.DIG_2)) {
       context.keyDecision = combined;
-      // Extract proper names (capitalized words 2+ chars, not common words)
-      // Pattern: Capital letter followed by lowercase, min 2 chars total
-      const namePattern = /\b([A-Z][a-z]{1,})\b/g;
-      const matches = combined.match(namePattern);
-      if (matches) {
-        // Filter out common words that match the pattern
-        const commonWords = new Set(['The', 'This', 'That', 'When', 'What', 'Where', 'How', 'Why', 'Who']);
-        const names = matches.filter((name) => !commonWords.has(name));
-        if (names.length > 0) {
-          context.namedPeople = Array.from(new Set(names));
-        }
-      }
-    } else if (questionId.includes('dig-3')) {
+      context.namedPeople = extractNamedPeople(combined);
+    } else if (questionId.includes(QUESTION_PATTERNS.DIG_3)) {
       context.obstacle = combined;
-    } else if (questionId.includes('impact-1')) {
+    } else if (questionId.includes(QUESTION_PATTERNS.IMPACT_1)) {
       context.counterfactual = combined;
-    } else if (questionId.includes('impact-2')) {
+    } else if (questionId.includes(QUESTION_PATTERNS.IMPACT_2)) {
       context.metric = combined;
-    } else if (questionId.includes('growth')) {
+    } else if (questionId.includes(QUESTION_PATTERNS.GROWTH)) {
       context.learning = combined;
     }
   }
@@ -313,14 +350,7 @@ function evaluateStory(
 
   return {
     score,
-    breakdown: {
-      specificity: context.metric ? 8 : 5,
-      compellingHook: context.realStory ? 7 : 5,
-      evidenceQuality: 6,
-      archetypeFit: 7,
-      actionableImpact: context.counterfactual ? 8 : 5,
-    },
-    suggestions: suggestions.slice(0, 3), // Max 3 suggestions per invariants
+    suggestions: suggestions.slice(0, 3),
     coachComment,
   };
 }
@@ -551,17 +581,7 @@ export class StoryWizardService {
   }
 
   private getDefaultHook(archetype: StoryArchetype): string {
-    const hooks: Record<StoryArchetype, string> = {
-      firefighter: 'When the alert came in, everything changed.',
-      architect: 'I saw what needed to be built, and I built it to last.',
-      diplomat: 'Two teams, opposing views, one path forward.',
-      multiplier: 'What started as my solution became everyone\'s solution.',
-      detective: 'No one could figure out why. Until I traced it back.',
-      pioneer: 'No documentation. No playbook. Just a problem that needed solving.',
-      turnaround: 'I inherited a mess. Here\'s how I turned it around.',
-      preventer: 'I noticed something others missed. It saved us.',
-    };
-    return hooks[archetype];
+    return ARCHETYPE_HOOKS[archetype];
   }
 }
 

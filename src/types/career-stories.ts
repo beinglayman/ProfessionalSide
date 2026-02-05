@@ -315,7 +315,6 @@ export interface WizardGenerateRequest {
 
 export interface StoryEvaluation {
   score: number;
-  breakdown: Record<string, number>;
   suggestions: string[];
   coachComment: string;
 }

@@ -19,6 +19,8 @@ import {
   WizardError,
   StoryArchetype,
   WizardAnswer,
+  answersToContext,
+  extractNamedPeople,
 } from './story-wizard.service';
 
 // Mock the LLM-dependent modules
@@ -283,7 +285,6 @@ describe('StoryWizardService', () => {
       expect(result.evaluation).toBeDefined();
       expect(result.evaluation.score).toBeGreaterThanOrEqual(1.0);
       expect(result.evaluation.score).toBeLessThanOrEqual(9.5);
-      expect(result.evaluation.breakdown).toBeDefined();
       expect(result.evaluation.suggestions).toBeInstanceOf(Array);
       expect(result.evaluation.suggestions.length).toBeLessThanOrEqual(3);
       expect(result.evaluation.coachComment).toBeTruthy();
@@ -376,6 +377,84 @@ describe('StoryWizardService', () => {
 // =============================================================================
 // UNIT TESTS FOR HELPER FUNCTIONS
 // =============================================================================
+
+// =============================================================================
+// UNIT TESTS FOR EXPORTED HELPERS
+// =============================================================================
+
+describe('extractNamedPeople', () => {
+  it('should extract capitalized names', () => {
+    const result = extractNamedPeople('Worked with Sarah and Marcus on the project');
+    expect(result).toEqual(['Sarah', 'Marcus']);
+  });
+
+  it('should filter out common words', () => {
+    const result = extractNamedPeople('The project started When Sarah arrived');
+    expect(result).toEqual(['Sarah']);
+    expect(result).not.toContain('The');
+    expect(result).not.toContain('When');
+  });
+
+  it('should return undefined for no names', () => {
+    const result = extractNamedPeople('worked on the project');
+    expect(result).toBeUndefined();
+  });
+
+  it('should dedupe duplicate names', () => {
+    const result = extractNamedPeople('Sarah helped Sarah and Sarah again');
+    expect(result).toEqual(['Sarah']);
+  });
+});
+
+describe('answersToContext', () => {
+  it('should map dig-1 answers to realStory', () => {
+    const result = answersToContext({
+      'firefighter-dig-1': { selected: ['paged'], freeText: 'Got alerted at 2am' },
+    });
+    expect(result.realStory).toBe('paged. Got alerted at 2am');
+  });
+
+  it('should map dig-2 answers to keyDecision and extract names', () => {
+    const result = answersToContext({
+      'firefighter-dig-2': { selected: [], freeText: 'Called Sarah for help' },
+    });
+    expect(result.keyDecision).toBe('Called Sarah for help');
+    expect(result.namedPeople).toEqual(['Sarah']);
+  });
+
+  it('should map impact-1 to counterfactual', () => {
+    const result = answersToContext({
+      'any-impact-1': { selected: ['revenue_risk'], freeText: 'Would have lost $500K' },
+    });
+    expect(result.counterfactual).toBe('revenue_risk. Would have lost $500K');
+  });
+
+  it('should map impact-2 to metric', () => {
+    const result = answersToContext({
+      'any-impact-2': { selected: [], freeText: 'Fixed in 3 hours' },
+    });
+    expect(result.metric).toBe('Fixed in 3 hours');
+  });
+
+  it('should map growth answers to learning', () => {
+    const result = answersToContext({
+      'any-growth-1': { selected: [], freeText: 'Learned to monitor better' },
+    });
+    expect(result.learning).toBe('Learned to monitor better');
+  });
+
+  it('should handle empty answers gracefully', () => {
+    const result = answersToContext({});
+    expect(result).toEqual({});
+  });
+
+  it('should handle malformed answers', () => {
+    const result = answersToContext({
+      'test': { selected: null as unknown as string[], freeText: undefined },
+    });
+    expect(result).toEqual({});
+  });
+});
 
 describe('answersToContext (via integration)', () => {
   beforeAll(async () => {
