@@ -71,6 +71,8 @@ export function ActivityStream({
       if (tabChanged) {
         setLastGroupBy(groupBy);
       }
+      // Scroll to top when tab changes or first load
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [groups, groupBy, lastGroupBy, isInitialized]);
 
@@ -268,18 +270,18 @@ export function ActivityStream({
   }, []);
 
   // Expand/collapse all - check against filtered groups
-  const allCollapsed = filteredGroups.length > 0 && filteredGroups.every(g => collapsedGroups.has(g.key));
-  const allExpanded = filteredGroups.length > 0 && filteredGroups.every(g => !collapsedGroups.has(g.key));
+  // "any expanded" = at least one group is NOT in collapsedGroups
+  const anyExpanded = filteredGroups.length > 0 && filteredGroups.some(g => !collapsedGroups.has(g.key));
 
   const toggleAll = useCallback(() => {
-    if (allExpanded) {
-      // Collapse all
+    if (anyExpanded) {
+      // Collapse all (if any are expanded)
       setCollapsedGroups(new Set(filteredGroups.map(g => g.key)));
     } else {
-      // Expand all
+      // Expand all (if all are collapsed)
       setCollapsedGroups(new Set());
     }
-  }, [allExpanded, filteredGroups]);
+  }, [anyExpanded, filteredGroups]);
 
   // Loading state
   if (isLoading) {
@@ -401,12 +403,12 @@ export function ActivityStream({
             onClick={toggleAll}
             className={cn(
               "flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors flex-shrink-0",
-              allExpanded
+              anyExpanded
                 ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 : "text-primary-600 bg-primary-50 hover:bg-primary-100"
             )}
           >
-            {allExpanded ? (
+            {anyExpanded ? (
               <>
                 <Minus className="w-3 h-3" />
                 <span className="hidden sm:inline">Collapse</span>
