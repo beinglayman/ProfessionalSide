@@ -33,11 +33,11 @@ export const SYNC_PHASE_DELAY_STORIES_MS = 1500;
 /** Brief delay for live sync story phase */
 export const SYNC_PHASE_DELAY_STORIES_LIVE_MS = 500;
 
-/** Interval for polling backend for narrative completion */
-export const NARRATIVE_POLL_INTERVAL_MS = 5000;
+/** Interval for polling backend for narrative completion (increased to reduce API load) */
+export const NARRATIVE_POLL_INTERVAL_MS = 10000; // 10 seconds (was 5s)
 
 /** Maximum time to poll before giving up (narratives typically complete in 10-30s) */
-export const NARRATIVE_POLL_TIMEOUT_MS = 45000;
+export const NARRATIVE_POLL_TIMEOUT_MS = 60000; // 60 seconds (was 45s)
 
 /**
  * Integration metadata

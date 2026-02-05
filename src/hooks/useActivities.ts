@@ -11,16 +11,21 @@ export function useActivities(params: GetActivitiesParams = {}) {
   // Include demo mode in query key so cache invalidates on mode change
   const queryKey = ['activities', params, isDemoMode()];
 
+  // Debug: Log when hook is called to track re-renders
+  console.log('[useActivities] Hook called with params:', JSON.stringify(params), 'queryKey:', JSON.stringify(queryKey));
+
   return useQuery({
     queryKey,
     queryFn: async (): Promise<ActivitiesResponse> => {
+      console.log('[useActivities] queryFn EXECUTING - this means React Query decided to fetch');
+      console.trace('[useActivities] Stack trace:');
       // Default timezone to user's local timezone
       const paramsWithTimezone: GetActivitiesParams = {
         ...params,
         timezone: params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       };
 
-      console.log('[useActivities] Fetching activities with params:', paramsWithTimezone);
+      console.log('[useActivities] Fetching activities with params:', paramsWithTimezone, 'at', new Date().toISOString());
       const response = await ActivityService.getActivities(paramsWithTimezone);
       console.log('[useActivities] Response:', response);
 
@@ -46,8 +51,10 @@ export function useActivities(params: GetActivitiesParams = {}) {
         meta: { groupBy: null, sourceMode: isDemoMode() ? 'demo' : 'production' }
       } as FlatActivitiesResponse;
     },
-    staleTime: 0, // Always consider data stale - ensures refetch on tab switch
-    gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
+    staleTime: 30 * 1000, // 30 seconds - data is considered fresh for this long
+    refetchOnWindowFocus: false, // Disable - we use SSE for updates
+    refetchOnMount: true, // Only refetch if stale (default behavior)
+    gcTime: 5 * 60 * 1000, // 5 minutes cache retention
     // Keep showing previous data while refetching to prevent flash of empty state
     placeholderData: keepPreviousData,
   });

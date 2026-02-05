@@ -34,9 +34,14 @@ export const useJournalEntries = (params: GetJournalEntriesParams = {}, enabled:
 // Get user feed (includes rechronicles)
 // Demo mode is now handled by backend via X-Demo-Mode header
 export const useUserFeed = (params: GetJournalEntriesParams = {}) => {
+  // Debug: Log when hook is called
+  console.log('[useUserFeed] Hook called with params:', JSON.stringify(params));
+
   return useQuery({
     queryKey: ['journal', 'feed', params, isDemoMode()],
     queryFn: async () => {
+      console.log('[useUserFeed] queryFn EXECUTING - React Query decided to fetch');
+      console.trace('[useUserFeed] Stack trace:');
       // Backend automatically routes to demo/real tables based on X-Demo-Mode header
       const response = await JournalService.getUserFeed(params);
       if (response.success && response.data) {
@@ -51,6 +56,8 @@ export const useUserFeed = (params: GetJournalEntriesParams = {}) => {
       }
       throw new Error(response.error || 'Failed to fetch user feed');
     },
+    staleTime: 30 * 1000, // 30 seconds - data is considered fresh, prevents refetch storms
+    refetchOnWindowFocus: false, // Disable - SSE handles updates
   });
 };
 
