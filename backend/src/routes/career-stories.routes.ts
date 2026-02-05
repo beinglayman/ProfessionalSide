@@ -40,6 +40,10 @@ import {
   // Profile: Published Stories
   getPublishedStories,
 } from '../controllers/career-stories.controller';
+import {
+  analyzeEntry,
+  generateStory,
+} from '../controllers/story-wizard.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -100,5 +104,13 @@ router.put('/demo/stories/:id/visibility', setDemoStoryVisibility);
 // Single endpoint - demo/prod routing based on isDemoMode from request context
 // ============================================================================
 router.get('/users/:userId/published-stories', getPublishedStories);
+
+// ============================================================================
+// STORY WIZARD (Two-step promotion flow)
+// Step 1: Analyze journal entry → archetype + questions
+// Step 2: Generate story with answers → story + evaluation
+// ============================================================================
+router.post('/wizard/analyze', analyzeEntry);
+router.post('/wizard/generate', generateStory);
 
 export default router;

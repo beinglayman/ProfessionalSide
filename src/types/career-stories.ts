@@ -264,3 +264,70 @@ export interface UpdateCareerStoryRequest {
   title?: string;
   sections?: Record<string, CareerStorySection>;
 }
+
+// =============================================================================
+// STORY WIZARD (Promotion Flow)
+// =============================================================================
+
+export type StoryArchetype =
+  | 'firefighter'
+  | 'architect'
+  | 'diplomat'
+  | 'multiplier'
+  | 'detective'
+  | 'pioneer'
+  | 'turnaround'
+  | 'preventer';
+
+export interface WizardQuestion {
+  id: string;
+  question: string;
+  phase: 'dig' | 'impact' | 'growth';
+  hint?: string;
+  options?: Array<{ label: string; value: string }>;
+  allowFreeText: boolean;
+}
+
+export interface ArchetypeResult {
+  detected: StoryArchetype;
+  confidence: number;
+  reasoning: string;
+  alternatives: Array<{ archetype: StoryArchetype; confidence: number }>;
+}
+
+export interface WizardAnalyzeResponse {
+  archetype: ArchetypeResult;
+  questions: WizardQuestion[];
+  journalEntry: { id: string; title: string };
+}
+
+export interface WizardAnswer {
+  selected: string[];
+  freeText?: string;
+}
+
+export interface WizardGenerateRequest {
+  journalEntryId: string;
+  answers: Record<string, WizardAnswer>;
+  archetype: StoryArchetype;
+  framework: NarrativeFramework;
+}
+
+export interface StoryEvaluation {
+  score: number;
+  breakdown: Record<string, number>;
+  suggestions: string[];
+  coachComment: string;
+}
+
+export interface WizardGenerateResponse {
+  story: {
+    id: string;
+    title: string;
+    hook: string;
+    framework: NarrativeFramework;
+    archetype: StoryArchetype;
+    sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }>;
+  };
+  evaluation: StoryEvaluation;
+}

@@ -34,9 +34,43 @@ export interface JournalEntryContent {
   activityIds: string[];
 }
 
+/**
+ * Story archetypes that shape the narrative voice and structure.
+ * Detected from journal content or selected by user.
+ */
+export type StoryArchetype =
+  | 'firefighter'   // Crisis response
+  | 'architect'     // System design
+  | 'diplomat'      // Stakeholder alignment
+  | 'multiplier'    // Force multiplication
+  | 'detective'     // Investigation
+  | 'pioneer'       // New territory
+  | 'turnaround'    // Inherited mess
+  | 'preventer';    // Risk prevention
+
+/**
+ * Context extracted from user via D-I-G (Dig-Impact-Growth) questioning.
+ * Enriches the story with details the user knows but didn't write.
+ */
+export interface ExtractedContext {
+  realStory?: string;        // The buried lede
+  obstacle?: string;         // What almost went wrong
+  keyDecision?: string;      // Hardest choice made
+  namedPeople?: string[];    // Specific individuals involved
+  counterfactual?: string;   // What would have happened
+  metric?: string;           // Quantified impact
+  evidence?: string;         // Where it's documented
+  learning?: string;         // Key learning
+  impactType?: 'performance' | 'cost' | 'capability' | 'risk' | 'experience';
+}
+
 export interface CareerStoryPromptParams {
   journalEntry: JournalEntryContent;
   framework: FrameworkName;
+  /** Optional: Story archetype for narrative shaping */
+  archetype?: StoryArchetype;
+  /** Optional: Extracted context from Story Coach D-I-G questions */
+  extractedContext?: ExtractedContext;
 }
 
 export interface CareerStorySection {
@@ -82,6 +116,21 @@ const SECTION_GUIDELINES: Record<string, string> = {
   results: 'Outcomes achieved, including quantified impact where possible',
   context: 'Background information and the problem space',
   evaluation: 'Your assessment of what worked, what could improve, and lessons learned',
+};
+
+/**
+ * Archetype-specific narrative guidance.
+ * Shapes the voice and emphasis of the generated story.
+ */
+const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
+  firefighter: 'This is a CRISIS RESPONSE story. Emphasize: urgency, quick thinking, disaster averted. The drama is in what almost went wrong. Use time markers ("At 2am...", "With 48 hours left..."). Show the moment of realization.',
+  architect: 'This is a SYSTEM DESIGN story. Emphasize: vision, trade-offs, lasting impact. The value is in what was built to last. Show the design decisions and their rationale. Mention adoption ("5 teams now use...", "still the foundation...").',
+  diplomat: 'This is a STAKEHOLDER ALIGNMENT story. Emphasize: competing interests, influence, consensus building. The skill is in bridging divides. Name the stakeholders and their concerns. Show how you found common ground.',
+  multiplier: 'This is a FORCE MULTIPLICATION story. Emphasize: creating leverage, adoption by others, compound impact. The value scales beyond the individual. Quantify the multiplication ("20 engineers now use...", "saved 10 hours/week each").',
+  detective: 'This is an INVESTIGATION story. Emphasize: mystery, dead ends, breakthrough moment. The skill is in finding the root cause. Walk through the investigation. Show the "aha" moment when you found it.',
+  pioneer: 'This is a FIRST MOVER story. Emphasize: no documentation, learning by doing, trail left for others. The courage is in exploring unknown territory. Show what you tried that didn\'t work. Highlight the guide you created for others.',
+  turnaround: 'This is a RECOVERY story. Emphasize: inherited mess, diagnosis, systematic fix. Show the before/after transformation with specific metrics. Be honest about how bad it was initially.',
+  preventer: 'This is a RISK PREVENTION story. Emphasize: noticing what others missed, raising the alarm, disaster averted. The value is in what didn\'t happen. Paint the picture of the counterfactual disaster.',
 };
 
 // =============================================================================
@@ -152,20 +201,70 @@ export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): strin
 
 /**
  * Build messages array for career story generation.
+ * Supports optional archetype and extractedContext for enhanced prompts.
  */
 export function buildCareerStoryMessages(
   params: CareerStoryPromptParams
 ): ChatCompletionMessageParam[] {
+  let systemContent = getCareerStorySystemPrompt();
+
+  // Add archetype guidance if provided
+  if (params.archetype) {
+    const guidance = ARCHETYPE_GUIDANCE[params.archetype];
+    if (guidance) {
+      systemContent = `## Story Archetype: ${params.archetype.toUpperCase()}\n\n${guidance}\n\n---\n\n${systemContent}`;
+    }
+  }
+
+  let userContent = getCareerStoryUserPrompt(params);
+
+  // Add extracted context if provided
+  if (params.extractedContext && Object.keys(params.extractedContext).length > 0) {
+    userContent += formatExtractedContext(params.extractedContext);
+  }
+
   return [
     {
       role: 'system',
-      content: getCareerStorySystemPrompt(),
+      content: systemContent,
     },
     {
       role: 'user',
-      content: getCareerStoryUserPrompt(params),
+      content: userContent,
     },
   ];
+}
+
+/**
+ * Format extracted context for inclusion in the prompt.
+ */
+function formatExtractedContext(ctx: ExtractedContext): string {
+  const sections: string[] = ['\n\n## Extracted Context from Story Coach\n'];
+  sections.push('The user revealed these additional details. Use them to enrich the story:\n');
+
+  if (ctx.realStory) {
+    sections.push(`### The Real Story\n${ctx.realStory}\n`);
+  }
+  if (ctx.obstacle) {
+    sections.push(`### What Almost Went Wrong\n${ctx.obstacle}\n`);
+  }
+  if (ctx.keyDecision) {
+    sections.push(`### Key Decision\n${ctx.keyDecision}\n`);
+  }
+  if (ctx.namedPeople?.length) {
+    sections.push(`### Key People Involved\n${ctx.namedPeople.map(p => `- ${p}`).join('\n')}\n`);
+  }
+  if (ctx.counterfactual) {
+    sections.push(`### What Would Have Happened (Counterfactual)\n${ctx.counterfactual}\n`);
+  }
+  if (ctx.metric) {
+    sections.push(`### Quantified Impact\n${ctx.metric}\n`);
+  }
+  if (ctx.learning) {
+    sections.push(`### Key Learning\n${ctx.learning}\n`);
+  }
+
+  return sections.join('\n');
 }
 
 /**

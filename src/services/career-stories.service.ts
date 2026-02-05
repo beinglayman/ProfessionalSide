@@ -33,6 +33,9 @@ import {
   UpdateCareerStoryRequest,
   StoryVisibility,
   NarrativeFramework,
+  WizardAnalyzeResponse,
+  WizardGenerateRequest,
+  WizardGenerateResponse,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -376,6 +379,32 @@ export class CareerStoriesService {
    */
   static async setStoryVisibility(id: string, visibility: StoryVisibility): Promise<ApiResponse<CareerStory>> {
     const response = await api.patch<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/visibility`, { visibility });
+    return response.data;
+  }
+
+  // =============================================================================
+  // STORY WIZARD (Promotion Flow)
+  // =============================================================================
+
+  /**
+   * Analyze journal entry → detect archetype + return D-I-G questions
+   */
+  static async wizardAnalyze(journalEntryId: string): Promise<ApiResponse<WizardAnalyzeResponse>> {
+    const response = await api.post<ApiResponse<WizardAnalyzeResponse>>(
+      '/career-stories/wizard/analyze',
+      { journalEntryId }
+    );
+    return response.data;
+  }
+
+  /**
+   * Generate story with user answers → return story + evaluation
+   */
+  static async wizardGenerate(data: WizardGenerateRequest): Promise<ApiResponse<WizardGenerateResponse>> {
+    const response = await api.post<ApiResponse<WizardGenerateResponse>>(
+      '/career-stories/wizard/generate',
+      data
+    );
     return response.data;
   }
 }
