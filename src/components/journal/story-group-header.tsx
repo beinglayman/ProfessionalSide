@@ -17,8 +17,10 @@ interface StoryGroupHeaderProps {
   onPromoteToCareerStory?: (entryId: string) => void;
   /** Activities to display when expanded - integrated into the card */
   activities?: Activity[];
-  /** True when narratives are being generated in background after sync */
+  /** @deprecated Use isPendingEnhancement instead */
   isEnhancingNarratives?: boolean;
+  /** True if THIS specific story is pending enhancement (per-entry tracking) */
+  isPendingEnhancement?: boolean;
 }
 
 /**
@@ -149,9 +151,11 @@ export function StoryGroupHeader({
   onDeleteEntry,
   onPromoteToCareerStory,
   activities = [],
-  isEnhancingNarratives
+  isEnhancingNarratives,
+  isPendingEnhancement: isPendingEnhancementProp
 }: StoryGroupHeaderProps) {
   const {
+    id,
     title,
     description,
     timeRangeStart,
@@ -176,11 +180,11 @@ export function StoryGroupHeader({
   const prevDescriptionRef = useRef(description);
   const prevImpactRef = useRef(impactHighlights);
 
-  // Show enhancing indicator only for stories that are actually pending enhancement.
-  // A story is pending if: global generation is active AND this story lacks LLM content.
-  // Stories with description AND impactHighlights are already enhanced.
+  // Determine if this story is pending enhancement:
+  // - If isPendingEnhancementProp is provided (per-entry tracking), use it
+  // - Otherwise fall back to the old heuristic (global flag + no LLM content)
   const hasLLMContent = description && impactHighlights && impactHighlights.length > 0;
-  const isPendingEnhancement = isEnhancingNarratives && !hasLLMContent;
+  const isPendingEnhancement = isPendingEnhancementProp ?? (isEnhancingNarratives && !hasLLMContent);
 
   // Detect when story content is enhanced (description or impacts change)
   useEffect(() => {

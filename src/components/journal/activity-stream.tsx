@@ -20,6 +20,8 @@ interface ActivityStreamProps {
   onPromoteToCareerStory?: (entryId: string) => void;
   /** True when narratives are being generated in background after sync */
   isEnhancingNarratives?: boolean;
+  /** Set of entry IDs that are pending enhancement (for per-entry tracking) */
+  pendingEnhancementIds?: Set<string>;
 }
 
 /**
@@ -36,7 +38,8 @@ export function ActivityStream({
   regeneratingEntryId,
   onDeleteEntry,
   onPromoteToCareerStory,
-  isEnhancingNarratives
+  isEnhancingNarratives,
+  pendingEnhancementIds
 }: ActivityStreamProps) {
   // Filter state
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
@@ -469,6 +472,7 @@ export function ActivityStream({
               onDeleteEntry={onDeleteEntry}
               onPromoteToCareerStory={onPromoteToCareerStory}
               isEnhancingNarratives={isEnhancingNarratives}
+              pendingEnhancementIds={pendingEnhancementIds}
             />
           ))
         ) : (
@@ -746,9 +750,10 @@ interface StoryGroupSectionProps {
   onDeleteEntry?: (entryId: string) => void;
   onPromoteToCareerStory?: (entryId: string) => void;
   isEnhancingNarratives?: boolean;
+  pendingEnhancementIds?: Set<string>;
 }
 
-function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, onPromoteToCareerStory, isEnhancingNarratives }: StoryGroupSectionProps) {
+function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, onPromoteToCareerStory, isEnhancingNarratives, pendingEnhancementIds }: StoryGroupSectionProps) {
   const isUnassigned = group.key === 'unassigned';
   const isExpanded = !isCollapsed;
 
@@ -812,6 +817,7 @@ function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative
           onPromoteToCareerStory={onPromoteToCareerStory}
           activities={group.activities}
           isEnhancingNarratives={isEnhancingNarratives}
+          isPendingEnhancement={pendingEnhancementIds?.has(group.storyMetadata.id) ?? false}
         />
       ) : (
         // Fallback minimal header with progressive disclosure

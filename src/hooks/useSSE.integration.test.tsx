@@ -100,6 +100,8 @@ describe('SSE Per-Story Updates', () => {
   });
 
   afterEach(() => {
+    // Flush any pending timers before cleanup
+    vi.runOnlyPendingTimers();
     vi.useRealTimers();
     vi.clearAllMocks();
   });
@@ -114,6 +116,11 @@ describe('SSE Per-Story Updates', () => {
       );
 
       const sse = MockEventSource.getLatestInstance()!;
+
+      // Simulate successful connection
+      act(() => {
+        sse.simulateOpen();
+      });
 
       // Simulate backend completing narrative for entry-123
       act(() => {
@@ -143,6 +150,9 @@ describe('SSE Per-Story Updates', () => {
       );
 
       const sse = MockEventSource.getLatestInstance()!;
+      act(() => {
+        sse.simulateOpen();
+      });
 
       // Simulate 3 entries completing in sequence
       act(() => {
@@ -182,6 +192,9 @@ describe('SSE Per-Story Updates', () => {
       );
 
       const sse = MockEventSource.getLatestInstance()!;
+      act(() => {
+        sse.simulateOpen();
+      });
 
       act(() => {
         sse.simulateEvent('data-changed', {

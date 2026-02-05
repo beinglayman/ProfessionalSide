@@ -128,9 +128,16 @@ export default function JournalPage() {
   /**
    * True while LLM narratives are being generated in the background.
    * Set after sync completes, cleared when SSE sends narratives-complete or polling times out.
-   * Used to show EnhancingIndicator in header and on story cards.
+   * Used to show EnhancingIndicator in header.
    */
   const [narrativesGenerating, setNarrativesGenerating] = useState(false);
+
+  /**
+   * Set of entry IDs that are currently pending enhancement.
+   * Tracks per-entry status so completing one entry doesn't affect others.
+   * Entries are removed when SSE sends data-changed with their ID.
+   */
+  const [pendingEnhancementIds, setPendingEnhancementIds] = useState<Set<string>>(new Set());
 
   // Regenerate narrative state
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
@@ -142,10 +149,19 @@ export default function JournalPage() {
     onNarrativesComplete: () => {
       console.log('[Journal] SSE: All narratives complete');
       setNarrativesGenerating(false);
+      setPendingEnhancementIds(new Set()); // Clear all pending
     },
     onDataChanged: (data) => {
       console.log('[Journal] SSE: Data changed', data);
-      // SSE hook already invalidates queries, this callback is for extra handling
+      // Remove completed entry from pending set
+      const entryId = data.entryId as string | undefined;
+      if (entryId) {
+        setPendingEnhancementIds(prev => {
+          const next = new Set(prev);
+          next.delete(entryId);
+          return next;
+        });
+      }
     },
   });
 
@@ -153,7 +169,10 @@ export default function JournalPage() {
   // This hook handles interval setup, cleanup, and timeout automatically
   useNarrativePolling({
     isGenerating: narrativesGenerating,
-    onPollingComplete: () => setNarrativesGenerating(false),
+    onPollingComplete: () => {
+      setNarrativesGenerating(false);
+      setPendingEnhancementIds(new Set()); // Clear all pending on timeout
+    },
   });
 
   // Listen for external data changes to refresh (browser events, not SSE)
@@ -652,7 +671,14 @@ export default function JournalPage() {
       setShowSyncModal(true);
 
       await runDemoSync({
-        onStateUpdate: setSyncState,
+        onStateUpdate: (state) => {
+          setSyncState(state);
+          // Capture entry IDs from sync state for per-entry tracking
+          if (state?.entries) {
+            const pendingIds = new Set(state.entries.map(e => e.id));
+            setPendingEnhancementIds(pendingIds);
+          }
+        },
         onComplete: (result: SyncResult) => {
           setIsSyncing(false);
           // Enable enhancing indicator - narratives generate in background
@@ -673,7 +699,14 @@ export default function JournalPage() {
       setShowSyncModal(true);
 
       await runLiveSync({
-        onStateUpdate: setSyncState,
+        onStateUpdate: (state) => {
+          setSyncState(state);
+          // Capture entry IDs from sync state for per-entry tracking
+          if (state?.entries) {
+            const pendingIds = new Set(state.entries.map(e => e.id));
+            setPendingEnhancementIds(pendingIds);
+          }
+        },
         onComplete: () => {
           setIsSyncing(false);
           // Enable enhancing indicator - narratives generate in background
@@ -918,6 +951,7 @@ export default function JournalPage() {
           onRegenerateNarrative={handleRegenerateNarrative}
           regeneratingEntryId={regeneratingEntryId}
           isEnhancingNarratives={narrativesGenerating}
+          pendingEnhancementIds={pendingEnhancementIds}
         />
       </div>
       <NewEntryModal 
