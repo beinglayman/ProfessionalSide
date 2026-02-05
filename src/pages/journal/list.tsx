@@ -76,7 +76,7 @@ import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { GroupedActivitiesResponse } from '../../types/activity';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { EnhancingIndicator } from '../../components/ui/enhancing-indicator';
-import { useNarrativePolling } from '../../hooks/useNarrativePolling';
+// useNarrativePolling removed - SSE handles updates, polling was hammering backend
 import { useSSE } from '../../hooks/useSSE';
 
 // Page Props interface
@@ -151,7 +151,7 @@ export default function JournalPage() {
   useSSE({
     enabled: true,
     onNarrativesComplete: () => {
-      console.log('[Journal] SSE: All narratives complete');
+      console.log('[Journal] SSE: All narratives complete - setting narrativesGenerating=false (should stop polling)');
       setNarrativesGenerating(false);
       setPendingEnhancementIds(new Set()); // Clear all pending
     },
@@ -163,15 +163,22 @@ export default function JournalPage() {
     },
   });
 
-  // Fallback polling for narrative completion (in case SSE disconnects)
-  // This hook handles interval setup, cleanup, and timeout automatically
-  useNarrativePolling({
-    isGenerating: narrativesGenerating,
-    onPollingComplete: () => {
+  // Safety timeout: if SSE doesn't send narratives-complete within 90s, stop the indicator
+  // This is a fallback, not polling. SSE is the primary mechanism.
+  useEffect(() => {
+    if (!narrativesGenerating) return;
+
+    const timeout = setTimeout(() => {
+      console.log('[Journal] Safety timeout (90s) - stopping narrativesGenerating');
       setNarrativesGenerating(false);
-      setPendingEnhancementIds(new Set()); // Clear all pending on timeout
-    },
-  });
+      setPendingEnhancementIds(new Set());
+      // One final refetch in case SSE missed something
+      queryClient.refetchQueries({ queryKey: ['journal'] });
+      queryClient.refetchQueries({ queryKey: ['activities'] });
+    }, 90000);
+
+    return () => clearTimeout(timeout);
+  }, [narrativesGenerating, queryClient]);
 
   // Listen for external data changes to refresh (browser events, not SSE)
   useEffect(() => {
@@ -197,16 +204,21 @@ export default function JournalPage() {
     limit: 100, // Increase limit to get more entries
   }), [searchQuery, selectedWorkspace, selectedCategory, sortBy]);
 
-  const { data, isLoading, isError, error } = useUserFeed(baseQueryParams);
+  // NOTE: useUserFeed removed - data not used in current UI (only ActivityStream is rendered)
+  // const { data, isLoading, isError, error } = useUserFeed(baseQueryParams);
   const { data: userWorkspaces, isLoading: workspacesLoading } = useWorkspaces();
 
   // Fetch activities for the stream view - maps activityView to API groupBy param
   const activityGroupBy = activityView === 'timeline' ? 'temporal' : activityView;
+  const activityParams = useMemo(() => ({
+    groupBy: activityGroupBy,
+    limit: 100
+  }), [activityGroupBy]);
   const {
     data: activitiesData,
     isLoading: activitiesLoading,
     error: activitiesError
-  } = useActivities({ groupBy: activityGroupBy, limit: 100 });
+  } = useActivities(activityParams);
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
   const rechronicleMutation = useRechronicleEntry();
@@ -285,77 +297,7 @@ export default function JournalPage() {
     }
   };
 
-  // Get the actual journal entries from the API response
-  const rawJournals = data?.entries || [];
-  
-  // Update journal entries with onboarding profile image for current user's posts
-  const journals = useMemo(() => {
-    if (!onboardingProfileImage || !user) return rawJournals;
-    
-    return rawJournals.map(journal => {
-      let updatedJournal = { ...journal };
-      
-      // Update author avatar if this is the current user
-      if (journal.author.name === user.name) {
-        updatedJournal.author = {
-          ...journal.author,
-          avatar: onboardingProfileImage
-        };
-      }
-      
-      // Update collaborators avatars if current user is a collaborator
-      if (journal.collaborators?.length > 0) {
-        updatedJournal.collaborators = journal.collaborators.map(collaborator => {
-          if (collaborator.name === user.name) {
-            return {
-              ...collaborator,
-              avatar: onboardingProfileImage
-            };
-          }
-          return collaborator;
-        });
-      }
-      
-      // Update reviewers avatars if current user is a reviewer
-      if (journal.reviewers?.length > 0) {
-        updatedJournal.reviewers = journal.reviewers.map(reviewer => {
-          if (reviewer.name === user.name) {
-            return {
-              ...reviewer,
-              avatar: onboardingProfileImage
-            };
-          }
-          return reviewer;
-        });
-      }
-      
-      // Update rechronicled by avatar if current user rechronicled
-      if (journal.rechronicledBy?.name === user.name) {
-        updatedJournal.rechronicledBy = {
-          ...journal.rechronicledBy,
-          avatar: onboardingProfileImage
-        };
-      }
-      
-      // Update discussions avatars if current user is a discussion author
-      if (journal.discussions?.length > 0) {
-        updatedJournal.discussions = journal.discussions.map(discussion => {
-          if (discussion.author.name === user.name) {
-            return {
-              ...discussion,
-              author: {
-                ...discussion.author,
-                avatar: onboardingProfileImage
-              }
-            };
-          }
-          return discussion;
-        });
-      }
-      
-      return updatedJournal;
-    });
-  }, [rawJournals, onboardingProfileImage, user]);
+  // NOTE: Journal entries code removed - useUserFeed data not used (only ActivityStream renders)
 
   // Close publish menus when clicking outside
   useEffect(() => {
@@ -388,122 +330,17 @@ export default function JournalPage() {
 
   // Reset workspace filter if the selected workspace doesn't exist
   useEffect(() => {
-    if (selectedWorkspace !== 'all' && workspaces.length > 0 && !isLoading && !workspacesLoading) {
+    if (selectedWorkspace !== 'all' && workspaces.length > 0 && !workspacesLoading) {
       const workspaceExists = workspaces.some(ws => ws.id === selectedWorkspace);
       if (!workspaceExists) {
         console.warn('⚠️ Selected workspace not found, resetting to "all":', selectedWorkspace);
         setSelectedWorkspace('all');
       }
     }
-  }, [selectedWorkspace, workspaces, isLoading, workspacesLoading]);
+  }, [selectedWorkspace, workspaces, workspacesLoading]);
 
-  // Debug: Log API data and filtering
-  React.useEffect(() => {
-    console.log('📊 Journal List Debug:', {
-      isLoading,
-      hasData: !!data,
-      totalEntries: journals.length,
-      viewMode,
-      baseQueryParams,
-      selectedWorkspace,
-      workspaces: workspaces.map(w => ({ id: w.id, name: w.name }))
-    });
-    if (journals.length > 0) {
-      console.log('📊 Sample entries:', journals.slice(0, 3).map(j => ({
-        id: j.id,
-        title: j.title,
-        visibility: j.visibility,
-        isPublished: j.isPublished,
-        workspaceId: j.workspaceId,
-        appreciates: j.appreciates,
-        hasAppreciated: j.hasAppreciated
-      })));
-    }
-    if (isError) {
-      console.error('❌ Journal API Error:', {
-        error: error?.message,
-        baseQueryParams,
-        selectedWorkspace
-      });
-    }
-  }, [journals, viewMode, isLoading, data, isError, error, selectedWorkspace, workspaces, baseQueryParams]);
-
-  // Get unique skills and categories
-  const allSkills = useMemo(() => {
-    const skills = new Set<string>();
-    journals.forEach(journal => {
-      journal.skills.forEach(skill => skills.add(skill));
-    });
-    return Array.from(skills).sort();
-  }, [journals]);
-
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    journals.forEach(journal => cats.add(journal.category));
-    return Array.from(cats).sort();
-  }, [journals]);
-
-  // Filter journals
-  const filteredJournals = useMemo(() => {
-    console.log(`🔍 Filtering ${journals.length} journals for viewMode: ${viewMode}`);
-
-    const filtered = journals.filter(journal => {
-      // Exclude auto-generated entries - they should only appear on workspace page
-      if (journal.tags?.includes('auto-generated')) {
-        console.log(`❌ Excluding "${journal.title}" from journal list (auto-generated)`);
-        return false;
-      }
-      // In network view, only show entries with visibility='network' or generateNetworkEntry=true
-      if (viewMode === 'network' && !journal.generateNetworkEntry && journal.visibility !== 'network') {
-        console.log(`❌ Excluding "${journal.title}" from network view (visibility: ${journal.visibility})`);
-        return false;
-      }
-      // Search filter
-      if (searchQuery) {
-        const searchLower = searchQuery.toLowerCase();
-        const matchesSearch = 
-          journal.title.toLowerCase().includes(searchLower) ||
-          journal.description.toLowerCase().includes(searchLower) ||
-          journal.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
-          journal.skills.some(skill => skill.toLowerCase().includes(searchLower));
-        if (!matchesSearch) return false;
-      }
-      // Workspace filter
-      if (selectedWorkspace !== 'all' && journal.workspaceId !== selectedWorkspace) {
-        return false;
-      }
-      // Category filter
-      if (selectedCategory !== 'all' && journal.category !== selectedCategory) {
-        return false;
-      }
-      // Skills filter
-      if (selectedSkills.length > 0) {
-        const hasSelectedSkill = selectedSkills.some(skill => 
-          journal.skills.includes(skill)
-        );
-        if (!hasSelectedSkill) return false;
-      }
-      return true;
-    });
-    
-    console.log(`✅ Filtered result: ${filtered.length} journals after filtering`);
-    return filtered;
-  }, [journals, viewMode, searchQuery, selectedWorkspace, selectedCategory, selectedSkills]);
-
-  // Sort journals
-  const sortedJournals = useMemo(() => {
-    const sorted = [...filteredJournals];
-    if (sortBy === 'recent') {
-      sorted.sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-    } else {
-      sorted.sort((a, b) => (b._count?.likes || 0) - (a._count?.likes || 0));
-    }
-    return sorted;
-  }, [filteredJournals, sortBy]);
+  // NOTE: Debug logging, skills/categories, filtering, and sorting removed
+  // These were for useUserFeed data which is no longer used
 
   // Toggle skill selection
   const toggleSkill = (skill: string) => {
@@ -680,8 +517,11 @@ export default function JournalPage() {
         onComplete: (result: SyncResult) => {
           setIsSyncing(false);
           // Enable enhancing indicator - narratives generate in background
-          // Polling is handled by useNarrativePolling hook
           setNarrativesGenerating(true);
+          // Invalidate all activity queries - they'll refetch when their tab is viewed
+          // Using invalidate (not refetch) because tabs mount different queries
+          queryClient.invalidateQueries({ queryKey: ['journal'] });
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
         },
         onError: (error) => {
           console.error('Sync failed:', error);
@@ -708,8 +548,10 @@ export default function JournalPage() {
         onComplete: () => {
           setIsSyncing(false);
           // Enable enhancing indicator - narratives generate in background
-          // Polling is handled by useNarrativePolling hook
           setNarrativesGenerating(true);
+          // Invalidate all activity queries - they'll refetch when their tab is viewed
+          queryClient.invalidateQueries({ queryKey: ['journal'] });
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
         },
         onError: (error) => {
           console.error('Live sync failed:', error);
@@ -726,7 +568,8 @@ export default function JournalPage() {
     setShowSyncModal(false);
     // Navigate to Story tab to show enhancing animation
     setActivityView('story');
-    // Invalidate all queries to force fresh fetch (bypasses staleTime)
+    // Invalidate queries - they'll refetch when component re-renders with new view
+    // Note: invalidate (not refetch) because the story query might not exist yet
     queryClient.invalidateQueries({ queryKey: ['journal'] });
     queryClient.invalidateQueries({ queryKey: ['activities'] });
   };
@@ -742,144 +585,6 @@ export default function JournalPage() {
       }
       return newSet;
     });
-  };
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 pb-12">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (isError) {
-    return (
-      <div className="min-h-screen bg-gray-50 pb-12">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800">
-                  Unable to load journal entries
-                </h3>
-                <div className="text-sm text-red-700 mt-1">
-                  {error?.message}
-                  {selectedWorkspace !== 'all' && (
-                    <div className="mt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedWorkspace('all')}
-                        className="text-red-600 border-red-200 hover:bg-red-100"
-                      >
-                        View All Workspaces
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render journal card or rechronicle card based on entry type
-  const renderJournalCard = (journal: JournalEntry) => {
-    // If it's a rechronicle, render RechronicleCard
-    if (journal.isRechronicle) {
-      return (
-        <div key={journal.id}>
-          <RechronicleCard
-            entry={journal}
-            viewMode={viewMode}
-            showPublishMenu={openPublishMenus.has(journal.id)}
-            onPublishToggle={handlePublishToggle}
-            onDeleteEntry={handleDeleteEntry}
-            onAppreciate={() => handleAppreciate(journal.id)}
-            onReChronicle={handleReChronicle}
-            onToggleAnalytics={toggleAnalytics}
-            onTogglePublishMenu={togglePublishMenu}
-            isAnalyticsOpen={openAnalytics.has(journal.id)}
-            showUserProfile={false}
-            isRechronicleLoading={rechronicleMutation.isPending}
-          />
-
-          {openPublishMenus.has(journal.id) && (
-            <div
-              className="fixed inset-0 z-5"
-              onClick={() => togglePublishMenu(journal.id)}
-            />
-          )}
-        </div>
-      );
-    }
-
-    // If it has valid format7Data with entry_metadata, render JournalEnhanced
-    if (journal.format7Data?.entry_metadata?.title) {
-      // Use network view data when in network mode, fallback to workspace view
-      const entryData = viewMode === 'network' && journal.format7DataNetwork
-        ? journal.format7DataNetwork
-        : journal.format7Data;
-      const isDraft = journal.visibility !== 'network'; // Not yet shared to network
-      const isOwner = user && journal.author.id === user.id;
-      return (
-        <div key={journal.id}>
-          <JournalEnhanced
-            entry={entryData}
-            workspaceName={journal.workspaceName}
-            onAppreciate={() => handleAppreciate(journal.id)}
-            correlations={entryData?.correlations}
-            categories={entryData?.categories}
-            isDraft={isDraft}
-            onPublish={isDraft && isOwner ? () => handlePublishToggle(journal) : undefined}
-          />
-        </div>
-      );
-    }
-
-    // Otherwise, render regular JournalCard
-    // Check if entry has both workspace and network views (published to network)
-    const hasMultipleVisibilities = !!(journal.abstractContent && journal.visibility === 'network');
-    const currentViewMode = entryViewModes[journal.id] || 'workspace';
-
-    return (
-      <div key={journal.id}>
-        <JournalCard
-          journal={journal}
-          viewMode={currentViewMode}
-          hasMultipleVisibilities={hasMultipleVisibilities}
-          onToggleViewMode={hasMultipleVisibilities ? () => toggleEntryViewMode(journal.id) : undefined}
-          showPublishMenu={openPublishMenus.has(journal.id)}
-          onPublishToggle={handlePublishToggle}
-          onDeleteEntry={handleDeleteEntry}
-          onRegenerateNarrative={handleRegenerateNarrative}
-          onAppreciate={() => handleAppreciate(journal.id)}
-          onReChronicle={() => handleOpenReChronicle(journal)}
-          onToggleAnalytics={toggleAnalytics}
-          onTogglePublishMenu={togglePublishMenu}
-          isAnalyticsOpen={openAnalytics.has(journal.id)}
-          showUserProfile={false}
-          isRechronicleLoading={rechronicleMutation.isPending}
-          isRegenerateLoading={regeneratingEntryId === journal.id}
-        />
-
-        {openPublishMenus.has(journal.id) && (
-          <div
-            className="fixed inset-0 z-5"
-            onClick={() => togglePublishMenu(journal.id)}
-          />
-        )}
-      </div>
-    );
   };
 
   // Get activity count for display
