@@ -9,6 +9,10 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 
+// Debounce delay for query invalidations (ms)
+// Prevents rapid-fire invalidations when multiple SSE events arrive
+const INVALIDATION_DEBOUNCE_MS = 500;
+
 export type SSEEventType =
   | 'narratives-complete'
   | 'data-changed'
@@ -47,6 +51,19 @@ export function useSSE({
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const invalidationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced invalidation to prevent rapid-fire refetches
+  const invalidateQueries = useCallback(() => {
+    if (invalidationTimeoutRef.current) {
+      clearTimeout(invalidationTimeoutRef.current);
+    }
+    invalidationTimeoutRef.current = setTimeout(() => {
+      console.log('[SSE] Debounced query invalidation triggered');
+      queryClient.invalidateQueries({ queryKey: ['journal'] });
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    }, INVALIDATION_DEBOUNCE_MS);
+  }, [queryClient]);
 
   // Store callbacks in refs to avoid reconnecting when they change
   const onNarrativesCompleteRef = useRef(onNarrativesComplete);
@@ -100,7 +117,13 @@ export function useSSE({
         const data = JSON.parse(event.data) as SSEEventData;
         console.log('[SSE] Narratives complete:', data);
 
-        // Invalidate queries to refresh data
+        // Clear any pending debounced invalidation
+        if (invalidationTimeoutRef.current) {
+          clearTimeout(invalidationTimeoutRef.current);
+          invalidationTimeoutRef.current = null;
+        }
+
+        // Final invalidation - immediate, not debounced
         queryClient.invalidateQueries({ queryKey: ['journal'] });
         queryClient.invalidateQueries({ queryKey: ['activities'] });
 
@@ -116,9 +139,9 @@ export function useSSE({
         const data = JSON.parse(event.data) as SSEEventData;
         console.log('[SSE] Data changed:', data);
 
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ queryKey: ['journal'] });
-        queryClient.invalidateQueries({ queryKey: ['activities'] });
+        // Use debounced invalidation for per-entry updates
+        // This prevents rapid-fire refetches when multiple entries complete
+        invalidateQueries();
 
         // Call user callback
         onDataChangedRef.current?.(data.data);
@@ -130,7 +153,7 @@ export function useSSE({
     eventSource.addEventListener('heartbeat', () => {
       // Heartbeat received - connection is alive
     });
-  }, [token, enabled, isAuthenticated, queryClient]);
+  }, [token, enabled, isAuthenticated, queryClient, invalidateQueries]);
 
   // Connect/disconnect based on auth state
   useEffect(() => {
@@ -147,6 +170,10 @@ export function useSSE({
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
+      }
+      if (invalidationTimeoutRef.current) {
+        clearTimeout(invalidationTimeoutRef.current);
+        invalidationTimeoutRef.current = null;
       }
     };
   }, [enabled, isAuthenticated, token, connect]);
