@@ -58,7 +58,8 @@ interface StoryWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   journalEntryId: string;
-  journalEntryTitle: string;
+  /** Optional - will be fetched from analyze response if not provided */
+  journalEntryTitle?: string;
   onStoryCreated?: (storyId: string) => void;
 }
 
@@ -173,7 +174,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
             Promote to Career Story
           </DialogTitle>
           <DialogDescription className="text-sm text-gray-500">
-            Transform "{journalEntryTitle}" into a compelling career story
+            Transform "{journalEntryTitle || analyzeResult?.journalEntry.title || 'your draft'}" into a compelling career story
           </DialogDescription>
         </DialogHeader>
 

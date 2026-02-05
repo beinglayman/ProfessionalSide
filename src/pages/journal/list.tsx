@@ -73,6 +73,7 @@ import { runDemoSync, runLiveSync, SyncState, SyncResult } from '../../services/
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 import { ActivityViewTabs, ActivityViewType } from '../../components/journal/activity-view-tabs';
 import { ActivityStream } from '../../components/journal/activity-stream';
+import { StoryWizardModal } from '../../components/story-wizard';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { GroupedActivitiesResponse } from '../../types/activity';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -144,6 +145,9 @@ export default function JournalPage() {
 
   // Regenerate narrative state
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
+
+  // Story Wizard modal state
+  const [storyWizardEntryId, setStoryWizardEntryId] = useState<string | null>(null);
 
   // Integration detection for first-time user experience
   const { data: integrationsData } = useMCPIntegrations();
@@ -403,6 +407,21 @@ export default function JournalPage() {
       console.error('❌ Failed to delete journal:', { journalId, error: errorMessage });
       setToastMessage(`Failed to delete: ${errorMessage}`);
     }
+  };
+
+  // Handle promote to career story - opens the Story Wizard modal
+  const handlePromoteToCareerStory = (journalId: string) => {
+    console.log('[Journal] Opening Story Wizard for entry:', journalId);
+    setStoryWizardEntryId(journalId);
+  };
+
+  // Handle Story Wizard completion
+  const handleStoryWizardComplete = (storyId: string) => {
+    console.log('[Journal] Story Wizard completed, storyId:', storyId);
+    setStoryWizardEntryId(null);
+    setToastMessage('Career story created successfully!');
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ['activities'] });
   };
 
   // Handle regenerate narrative
@@ -705,6 +724,8 @@ export default function JournalPage() {
           }
           onRegenerateNarrative={handleRegenerateNarrative}
           regeneratingEntryId={regeneratingEntryId}
+          onDeleteEntry={handleDeleteEntry}
+          onPromoteToCareerStory={handlePromoteToCareerStory}
           isEnhancingNarratives={narrativesGenerating}
           pendingEnhancementIds={pendingEnhancementIds}
         />
@@ -753,6 +774,16 @@ export default function JournalPage() {
         state={syncState}
         onComplete={handleSyncComplete}
       />
+
+      {/* Story Wizard Modal */}
+      {storyWizardEntryId && (
+        <StoryWizardModal
+          isOpen={true}
+          onClose={() => setStoryWizardEntryId(null)}
+          journalEntryId={storyWizardEntryId}
+          onStoryCreated={handleStoryWizardComplete}
+        />
+      )}
     </div>
   );
 }
