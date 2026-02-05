@@ -22,6 +22,7 @@ import { generateMockActivities } from './mock-data.service';
 import { ClusteringService } from './clustering.service';
 import { RefExtractorService } from './ref-extractor.service';
 import { getModelSelector } from '../ai/model-selector.service';
+import { sseService } from '../sse.service';
 // NOTE: ModelSelectorService, ChatCompletionMessageParam removed
 // Narrative generation now lives in JournalService.regenerateNarrative()
 
@@ -297,12 +298,33 @@ export async function seedDemoData(
   // Step 5: Generate narratives (in background if requested for faster sync response)
   if (options.backgroundNarratives) {
     // Fire and forget - don't await, let it complete in background
+    // Emit per-entry events so frontend can update UI progressively
     log.info('Starting background narrative generation', { entryCount: journalResult.entries.length });
-    generateAllNarratives(userId, journalResult.entries).catch(err => {
-      log.error('Background narrative generation failed', { error: err.message });
-    });
+    generateAllNarratives(userId, journalResult.entries, true)
+      .then(() => {
+        // Notify connected clients that ALL narratives are complete
+        log.info('Background narrative generation complete, sending SSE event');
+        sseService.broadcastToUser(userId, {
+          type: 'narratives-complete',
+          data: {
+            entriesUpdated: journalResult.entries.length,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      })
+      .catch(err => {
+        log.error('Background narrative generation failed', { error: err.message });
+        // Still notify so UI can stop showing loading state
+        sseService.broadcastToUser(userId, {
+          type: 'narratives-complete',
+          data: {
+            error: err.message,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      });
   } else {
-    await generateAllNarratives(userId, journalResult.entries);
+    await generateAllNarratives(userId, journalResult.entries, false);
   }
 
   log.info('Demo data seed complete', {
@@ -438,7 +460,8 @@ function clusterDemoActivities(
  */
 async function generateAllNarratives(
   userId: string,
-  entries: DemoJournalEntryData[]
+  entries: DemoJournalEntryData[],
+  emitProgressEvents = false
 ): Promise<void> {
   const selector = getModelSelector();
   if (!selector) {
@@ -453,10 +476,35 @@ async function generateAllNarratives(
       log.debug(`Generating narrative for entry ${entry.id}`);
       await regenerateDemoJournalNarrative(userId, entry.id, { style: 'professional' });
       log.debug(`Narrative generated for entry ${entry.id}`);
+
+      // Emit SSE event for this entry if background generation
+      if (emitProgressEvents) {
+        sseService.broadcastToUser(userId, {
+          type: 'data-changed',
+          data: {
+            entryId: entry.id,
+            status: 'complete',
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
     } catch (error) {
       log.warn(`Failed to generate narrative for entry ${entry.id}`, {
         error: (error as Error).message,
       });
+
+      // Emit error event for this entry if background generation
+      if (emitProgressEvents) {
+        sseService.broadcastToUser(userId, {
+          type: 'data-changed',
+          data: {
+            entryId: entry.id,
+            status: 'error',
+            error: (error as Error).message,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
     }
   });
 
