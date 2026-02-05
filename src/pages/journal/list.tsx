@@ -415,13 +415,12 @@ export default function JournalPage() {
     setStoryWizardEntryId(journalId);
   };
 
-  // Handle Story Wizard completion
+  // Handle Story Wizard completion - navigate to career stories page with the new story
   const handleStoryWizardComplete = (storyId: string) => {
     console.log('[Journal] Story Wizard completed, storyId:', storyId);
     setStoryWizardEntryId(null);
-    setToastMessage('Career story created successfully!');
-    // Refresh data
-    queryClient.invalidateQueries({ queryKey: ['activities'] });
+    // Navigate to career stories page with the new story selected
+    navigate(`/career-stories?storyId=${storyId}&celebrate=true`);
   };
 
   // Handle regenerate narrative
