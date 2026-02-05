@@ -701,4 +701,4 @@ program
   .option('-d, --output-dir <dir>', 'Output directory', './results')
   .action(async (entry, options) => { await pipelineCommand(entry, options); });
 
-program.parse();
+program.parse(process.argv);
