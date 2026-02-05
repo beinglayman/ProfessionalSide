@@ -9,9 +9,28 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 
-// Debounce delay for query invalidations (ms)
-// Prevents rapid-fire invalidations when multiple SSE events arrive
-const INVALIDATION_DEBOUNCE_MS = 500;
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Debounce delay for query invalidations (ms). Prevents rapid-fire invalidations when multiple SSE events arrive */
+export const INVALIDATION_DEBOUNCE_MS = 500;
+
+/** Base delay between reconnection attempts (ms). Multiplied by attempt number for linear backoff */
+export const RECONNECT_DELAY_MS = 3000;
+
+/** Maximum number of reconnection attempts before giving up */
+export const MAX_RECONNECT_ATTEMPTS = 5;
+
+/** API base URL for SSE endpoint */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+/** SSE stream endpoint path */
+const SSE_ENDPOINT = '/api/v1/events/stream';
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 export type SSEEventType =
   | 'narratives-complete'
@@ -19,12 +38,12 @@ export type SSEEventType =
   | 'sync-progress'
   | 'heartbeat';
 
-interface SSEEventData {
+export interface SSEEventData {
   type: SSEEventType;
   data: Record<string, unknown>;
 }
 
-interface UseSSEOptions {
+export interface UseSSEOptions {
   /** Called when narratives complete generating */
   onNarrativesComplete?: (data: Record<string, unknown>) => void;
   /** Called when data changes (should trigger refresh) */
@@ -33,9 +52,12 @@ interface UseSSEOptions {
   enabled?: boolean;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-const RECONNECT_DELAY_MS = 3000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+export interface UseSSEReturn {
+  /** Manually trigger a reconnection (resets attempt counter) */
+  reconnect: () => void;
+  /** Whether currently connected */
+  isConnected: boolean;
+}
 
 /**
  * Connect to SSE stream for real-time updates.
@@ -45,11 +67,16 @@ export function useSSE({
   onNarrativesComplete,
   onDataChanged,
   enabled = true,
-}: UseSSEOptions = {}) {
+}: UseSSEOptions = {}): UseSSEReturn {
   const { token, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+
+  // Connection state refs
   const eventSourceRef = useRef<EventSource | null>(null);
+  const isConnectedRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
+
+  // Timer refs for cleanup
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const invalidationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -84,17 +111,19 @@ export function useSSE({
 
     // Create SSE connection with auth token
     // Note: EventSource doesn't support custom headers, so we use query param
-    const url = `${API_BASE}/api/v1/events/stream?token=${encodeURIComponent(token)}`;
+    const url = `${API_BASE}${SSE_ENDPOINT}?token=${encodeURIComponent(token)}`;
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
       console.log('[SSE] Connected');
+      isConnectedRef.current = true;
       reconnectAttemptsRef.current = 0;
     };
 
     eventSource.onerror = (error) => {
       console.error('[SSE] Connection error:', error);
+      isConnectedRef.current = false;
       eventSource.close();
 
       // Attempt reconnect with backoff
@@ -184,5 +213,8 @@ export function useSSE({
     connect();
   }, [connect]);
 
-  return { reconnect };
+  return {
+    reconnect,
+    isConnected: isConnectedRef.current,
+  };
 }

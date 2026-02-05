@@ -7,6 +7,17 @@
 
 import { Response } from 'express';
 
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Heartbeat interval to keep connections alive (ms) */
+export const HEARTBEAT_INTERVAL_MS = 30000;
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
 export type SSEEventType =
   | 'narratives-complete'
   | 'data-changed'
@@ -128,7 +139,7 @@ class SSEService {
           data: { timestamp: new Date().toISOString() },
         });
       }
-    }, 30000);
+    }, HEARTBEAT_INTERVAL_MS);
   }
 
   /**
