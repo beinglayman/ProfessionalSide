@@ -30,6 +30,9 @@ import {
   Mic,
   FileText,
   Linkedin,
+  HelpCircle,
+  X,
+  Type,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -82,6 +85,80 @@ function mapSectionToStarKey(sectionKey: string): 'situation' | 'task' | 'action
   };
   return mapping[sectionKey.toLowerCase()] || 'result';
 }
+
+// Delivery cues for narrative sections - storytelling techniques
+const DELIVERY_CUES: Record<string, { openingCue: string; closingCue: string; emphasis: string[] }> = {
+  situation: {
+    openingCue: '[PAUSE] Set the scene...',
+    closingCue: '[BRIEF PAUSE] before transitioning',
+    emphasis: ['team size', 'timeline', 'stakes', 'scope', 'company', 'revenue', 'users'],
+  },
+  context: {
+    openingCue: '[PAUSE] Paint the picture...',
+    closingCue: '[BRIEF PAUSE]',
+    emphasis: ['team size', 'timeline', 'stakes', 'scope', 'company', 'revenue', 'users'],
+  },
+  challenge: {
+    openingCue: '[LEAN IN] Here was the problem...',
+    closingCue: '[PAUSE for effect]',
+    emphasis: ['broken', 'failing', 'blocked', 'urgent', 'critical', 'impossible'],
+  },
+  problem: {
+    openingCue: '[LEAN IN] Here was the problem...',
+    closingCue: '[PAUSE for effect]',
+    emphasis: ['broken', 'failing', 'blocked', 'urgent', 'critical', 'impossible'],
+  },
+  task: {
+    openingCue: '[CONFIDENT TONE] My responsibility was...',
+    closingCue: '[BRIEF PAUSE]',
+    emphasis: ['I', 'my', 'led', 'owned', 'responsible', 'accountable'],
+  },
+  objective: {
+    openingCue: '[CONFIDENT TONE] My goal was...',
+    closingCue: '[BRIEF PAUSE]',
+    emphasis: ['I', 'my', 'led', 'owned', 'responsible', 'accountable'],
+  },
+  obstacles: {
+    openingCue: '[SLOWER PACE] The challenges were...',
+    closingCue: '[PAUSE] But here\'s what I did...',
+    emphasis: ['blocked', 'failed', 'struggled', 'difficult', 'complex'],
+  },
+  hindrances: {
+    openingCue: '[SLOWER PACE] The blockers were...',
+    closingCue: '[PAUSE] Here\'s how I overcame them...',
+    emphasis: ['blocked', 'failed', 'struggled', 'difficult', 'complex'],
+  },
+  action: {
+    openingCue: '[ENERGETIC] Here\'s what I did...',
+    closingCue: '[BRIEF PAUSE before results]',
+    emphasis: ['built', 'designed', 'implemented', 'created', 'refactored', 'optimized', 'led'],
+  },
+  actions: {
+    openingCue: '[ENERGETIC] Here\'s what I did...',
+    closingCue: '[BRIEF PAUSE before results]',
+    emphasis: ['built', 'designed', 'implemented', 'created', 'refactored', 'optimized', 'led'],
+  },
+  result: {
+    openingCue: '[PROUD TONE] The impact was...',
+    closingCue: '[PAUSE] [SMILE]',
+    emphasis: ['%', 'x', 'reduced', 'increased', 'saved', 'improved', 'revenue', 'users'],
+  },
+  results: {
+    openingCue: '[PROUD TONE] The impact was...',
+    closingCue: '[PAUSE] [SMILE]',
+    emphasis: ['%', 'x', 'reduced', 'increased', 'saved', 'improved', 'revenue', 'users'],
+  },
+  learning: {
+    openingCue: '[REFLECTIVE] What I learned...',
+    closingCue: '[THOUGHTFUL PAUSE]',
+    emphasis: ['learned', 'realized', 'discovered', 'now I', 'differently'],
+  },
+  evaluation: {
+    openingCue: '[REFLECTIVE] Looking back...',
+    closingCue: '[THOUGHTFUL PAUSE]',
+    emphasis: ['worked', 'didn\'t', 'better', 'next time', 'improved'],
+  },
+};
 
 // Section descriptions and coaching tips for interviews
 const SECTION_COACHING: Record<string, { description: string; tip: string; interviewNote: string }> = {
@@ -216,11 +293,19 @@ const StatusBadge: React.FC<{ status: StoryStatus }> = ({ status }) => {
 };
 
 // =============================================================================
-// PRACTICE MODE TIMER
+// PRACTICE MODE TIMER WITH SECTION BREAKDOWN
 // =============================================================================
+
+interface SectionTiming {
+  key: string;
+  label: string;
+  seconds: number;
+  percentage: number;
+}
 
 interface PracticeTimerProps {
   totalSeconds: number;
+  sectionTimings: SectionTiming[];
   isActive: boolean;
   onToggle: () => void;
   onReset: () => void;
@@ -228,6 +313,7 @@ interface PracticeTimerProps {
 
 const PracticeTimer: React.FC<PracticeTimerProps> = ({
   totalSeconds,
+  sectionTimings,
   isActive,
   onToggle,
   onReset,
@@ -252,31 +338,186 @@ const PracticeTimer: React.FC<PracticeTimerProps> = ({
   const isOverTime = elapsed > totalSeconds;
   const idealRange = elapsed >= totalSeconds * 0.8 && elapsed <= totalSeconds * 1.2;
 
+  // Calculate which section we should be in based on elapsed time
+  const getCurrentSection = (): string | null => {
+    let cumulative = 0;
+    for (const section of sectionTimings) {
+      cumulative += section.seconds;
+      if (elapsed < cumulative) {
+        return section.key;
+      }
+    }
+    return null;
+  };
+
+  const currentSection = getCurrentSection();
+
+  // Section colors for visual distinction
+  const sectionColors: Record<string, string> = {
+    situation: 'bg-blue-500',
+    context: 'bg-blue-500',
+    challenge: 'bg-blue-500',
+    problem: 'bg-blue-500',
+    task: 'bg-amber-500',
+    objective: 'bg-amber-500',
+    obstacles: 'bg-amber-500',
+    hindrances: 'bg-amber-500',
+    action: 'bg-green-500',
+    actions: 'bg-green-500',
+    result: 'bg-purple-500',
+    results: 'bg-purple-500',
+    learning: 'bg-indigo-500',
+    evaluation: 'bg-indigo-500',
+  };
+
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
-      <Mic className={cn('h-3.5 w-3.5', isActive ? 'text-red-500 animate-pulse' : 'text-gray-400')} />
-      <div className="flex items-center gap-2">
-        <span className={cn(
-          'font-mono text-sm font-semibold',
-          isOverTime ? 'text-red-500' : idealRange ? 'text-green-600' : 'text-gray-900'
-        )}>
-          {formatTime(elapsed)}
-        </span>
-        <span className="text-xs text-gray-400">/ {formatTime(totalSeconds)}</span>
+    <div className="flex items-center gap-3">
+      {/* Timer + Controls - all inline */}
+      <Mic className={cn('h-3.5 w-3.5 flex-shrink-0', isActive ? 'text-red-500 animate-pulse' : 'text-gray-400')} />
+      <span className={cn(
+        'font-mono text-sm font-semibold tabular-nums',
+        isOverTime ? 'text-red-500' : idealRange ? 'text-green-600' : 'text-gray-900'
+      )}>
+        {formatTime(elapsed)}
+      </span>
+      <span className="text-xs text-gray-400">/ {formatTime(totalSeconds)}</span>
+
+      {/* Section progress bar - inline, compact */}
+      <div className="flex-1 h-1.5 rounded-full bg-gray-200 flex overflow-hidden" title="Section timing">
+        {sectionTimings.map((section) => (
+          <div
+            key={section.key}
+            className={cn(
+              'h-full transition-opacity',
+              sectionColors[section.key] || 'bg-gray-400',
+              currentSection === section.key && isActive ? 'opacity-100' : 'opacity-50'
+            )}
+            style={{ width: `${section.percentage}%` }}
+            title={`${section.label}: ${formatTime(section.seconds)}`}
+          />
+        ))}
       </div>
-      <div className="flex items-center gap-1 ml-auto">
-        <button
-          onClick={onToggle}
-          className={cn(
-            'p-1.5 rounded transition-colors',
-            isActive ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-600'
-          )}
-        >
-          {isActive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-        </button>
-        <button onClick={handleReset} className="p-1.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-          <RotateCcw className="h-3.5 w-3.5" />
-        </button>
+
+      {/* Play/Pause + Reset */}
+      <button
+        onClick={onToggle}
+        className={cn(
+          'p-1.5 rounded transition-colors',
+          isActive ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-600'
+        )}
+        title={isActive ? 'Pause' : 'Start practice'}
+      >
+        {isActive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+      </button>
+      <button onClick={handleReset} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Reset">
+        <RotateCcw className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+};
+
+// =============================================================================
+// DELIVERY HELP MODAL
+// =============================================================================
+
+interface DeliveryHelpModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const DeliveryHelpModal: React.FC<DeliveryHelpModalProps> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="text-base font-semibold text-gray-900">Practice Mode Guide</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Delivery Markers */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Delivery Markers</h4>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Opening Cue</p>
+                  <p className="text-xs text-gray-500">How to start each section — set your tone, energy, and pace.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Transition Cue</p>
+                  <p className="text-xs text-gray-500">When to pause before moving to the next section. Let key points land.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Typography Pattern */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Text Styling</h4>
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-3">
+                <mark className="font-bold bg-amber-100 text-amber-900 px-1 rounded-sm text-sm">40%</mark>
+                <div className="flex-1">
+                  <span className="text-sm text-gray-900">Metrics</span>
+                  <span className="text-xs text-gray-500 ml-2">— memorize these</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <mark className="bg-emerald-100 text-emerald-800 font-medium px-1 rounded-sm text-sm">pattern</mark>
+                <div className="flex-1">
+                  <span className="text-sm text-gray-900">Patterns</span>
+                  <span className="text-xs text-gray-500 ml-2">— golden nuggets</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <strong className="font-semibold text-indigo-700 text-sm">built</strong>
+                <div className="flex-1">
+                  <span className="text-sm text-gray-900">Actions</span>
+                  <span className="text-xs text-gray-500 ml-2">— ownership</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="border-b border-dotted border-gray-500 text-sm">API</span>
+                <div className="flex-1">
+                  <span className="text-sm text-gray-900">Tech</span>
+                  <span className="text-xs text-gray-500 ml-2">— hover for info</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pro Tips */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">💡 Pro Tips</h4>
+            <ul className="space-y-1.5 text-xs text-gray-600">
+              <li>• <strong>2-minute rule:</strong> Keep each story under 2 minutes initially</li>
+              <li>• <strong>Pause power:</strong> Strategic pauses show confidence, not hesitation</li>
+              <li>• <strong>Numbers first:</strong> Lead with impact metrics when asked "tell me about..."</li>
+              <li>• <strong>Practice out loud:</strong> Reading silently is not the same as speaking</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Got it
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -368,6 +609,8 @@ interface NarrativeSectionProps {
   sourceIds?: string[];
   isFirst?: boolean;
   showCoaching?: boolean;
+  showDeliveryCues?: boolean; // Pause/transition cues (practice mode)
+  showEmphasis?: boolean; // Text highlighting (action verbs, emphasis words)
 }
 
 const NarrativeSection: React.FC<NarrativeSectionProps> = ({
@@ -382,26 +625,291 @@ const NarrativeSection: React.FC<NarrativeSectionProps> = ({
   sourceIds = [],
   isFirst = false,
   showCoaching = false,
+  showDeliveryCues = false,
+  showEmphasis = true, // On by default
 }) => {
   const [showEvidence, setShowEvidence] = useState(false);
   const sourceActivities = activities.filter((a) => sourceIds.includes(a.id));
   const hasEvidence = sourceActivities.length > 0;
   const coaching = SECTION_COACHING[sectionKey.toLowerCase()];
+  const deliveryCue = DELIVERY_CUES[sectionKey.toLowerCase()];
 
-  // Highlight metrics in text
+  /*
+   * Typography Pattern for Narrative Content:
+   * ==========================================
+   * 1. BOLD + HIGHLIGHT (bg-amber)  → Metrics/Numbers (memorize these)
+   * 2. BOLD + GREEN BG              → Design patterns & techniques (golden nuggets)
+   * 3. BOLD INDIGO                  → Action verbs (shows what YOU did)
+   * 4. UNDERLINE                    → Emphasis words (stress when speaking)
+   * 5. DOTTED UNDERLINE             → Technical terms (hover for definition)
+   */
+
+  // Design patterns, methodologies, and techniques (green highlight - golden nuggets)
+  const designPatterns: Record<string, string> = {
+    // Database patterns
+    'shadow table': 'Safe migration pattern - write to both tables during transition',
+    'blue-green deployment': 'Zero-downtime deployment with instant rollback',
+    'canary release': 'Gradual rollout to subset of users first',
+    'feature flag': 'Toggle features without deployment',
+    'circuit breaker': 'Prevent cascade failures in distributed systems',
+    'bulkhead pattern': 'Isolate failures to prevent system-wide impact',
+    'saga pattern': 'Manage distributed transactions across services',
+    'cqrs': 'Separate read and write models for scalability',
+    'event sourcing': 'Store state changes as sequence of events',
+    'strangler fig': 'Gradually replace legacy system',
+    // Architecture patterns
+    'domain-driven design': 'Model software around business domains',
+    'hexagonal architecture': 'Ports and adapters for testability',
+    'clean architecture': 'Dependency rule - inner layers don\'t know outer',
+    'event-driven': 'Async communication via events',
+    'pub-sub': 'Publisher-subscriber messaging pattern',
+    'api gateway': 'Single entry point for microservices',
+    'service mesh': 'Infrastructure layer for service-to-service communication',
+    'sidecar pattern': 'Deploy helper container alongside main container',
+    // Data patterns
+    'write-ahead log': 'Durability pattern for databases',
+    'read replica': 'Scale reads by replicating data',
+    'sharding': 'Horizontal partitioning for scale',
+    'denormalization': 'Trade storage for query performance',
+    'materialized view': 'Pre-computed query results',
+    'change data capture': 'Track and propagate data changes',
+    'eventual consistency': 'Data converges over time, not instantly',
+    // Testing & quality
+    'test-driven development': 'Write tests before code',
+    'behavior-driven development': 'Tests in business language',
+    'contract testing': 'Verify API contracts between services',
+    'chaos engineering': 'Deliberately inject failures to test resilience',
+    'load shedding': 'Gracefully degrade under heavy load',
+    // Process patterns
+    'trunk-based development': 'Short-lived branches, frequent integration',
+    'gitflow': 'Branch model with develop/release/hotfix',
+    'pair programming': 'Two developers, one workstation',
+    'mob programming': 'Whole team works together on one task',
+    'blameless postmortem': 'Learn from failures without blame',
+  };
+
+  // Technical terms with definitions (dotted underline + tooltip)
+  const technicalTerms: Record<string, string> = {
+    'api': 'Application Programming Interface',
+    'aws': 'Amazon Web Services',
+    'gcp': 'Google Cloud Platform',
+    'azure': 'Microsoft Azure',
+    'ci/cd': 'Continuous Integration/Deployment',
+    'docker': 'Container platform',
+    'kubernetes': 'Container orchestration',
+    'k8s': 'Kubernetes',
+    'react': 'Frontend framework',
+    'node': 'JavaScript runtime',
+    'python': 'Programming language',
+    'golang': 'Go programming language',
+    'rust': 'Systems programming language',
+    'sql': 'Database query language',
+    'nosql': 'Non-relational databases',
+    'postgresql': 'Relational database',
+    'mysql': 'Relational database',
+    'mongodb': 'Document database',
+    'redis': 'In-memory cache',
+    'kafka': 'Distributed streaming platform',
+    'rabbitmq': 'Message broker',
+    'elasticsearch': 'Search and analytics engine',
+    'graphql': 'API query language',
+    'grpc': 'High-performance RPC framework',
+    'rest': 'API architecture style',
+    'microservices': 'Distributed architecture',
+    'monolith': 'Single-deployment architecture',
+    'terraform': 'Infrastructure as code',
+    'ansible': 'Configuration management',
+    'jenkins': 'CI/CD automation',
+    'github actions': 'CI/CD platform',
+    'agile': 'Iterative development',
+    'scrum': 'Agile framework',
+    'kanban': 'Visual workflow management',
+    'sprint': 'Time-boxed iteration',
+    'mvp': 'Minimum Viable Product',
+    'kpi': 'Key Performance Indicator',
+    'okr': 'Objectives and Key Results',
+    'saas': 'Software as a Service',
+    'paas': 'Platform as a Service',
+    'iaas': 'Infrastructure as a Service',
+    'latency': 'Response time delay',
+    'throughput': 'Processing capacity',
+    'scalability': 'Growth handling ability',
+    'availability': 'Uptime reliability',
+    'sla': 'Service Level Agreement',
+    'slo': 'Service Level Objective',
+    'sli': 'Service Level Indicator',
+    'p99': '99th percentile latency',
+    'rps': 'Requests per second',
+    'qps': 'Queries per second',
+  };
+
+  // Action verbs that show ownership (italic)
+  const actionVerbs = [
+    'led', 'built', 'designed', 'implemented', 'created', 'developed',
+    'architected', 'optimized', 'refactored', 'deployed', 'launched',
+    'managed', 'owned', 'drove', 'spearheaded', 'established',
+    'reduced', 'increased', 'improved', 'eliminated', 'automated',
+    'migrated', 'scaled', 'integrated', 'streamlined', 'transformed',
+  ];
+
+  // Render content with typography pattern
   const renderContent = (text: string) => {
+    // Pattern 1: Metrics (bold + highlight)
     const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?))/gi;
+
+    // Pattern 2: Action verbs (bold indigo) - when emphasis is on
+    const actionPattern = showEmphasis
+      ? new RegExp(`\\b(${actionVerbs.join('|')})\\b`, 'gi')
+      : null;
+
+    // Pattern 3: Emphasis words from delivery cues (underline) - when emphasis is on
+    const emphasisWords = showEmphasis && deliveryCue?.emphasis
+      ? deliveryCue.emphasis.filter(w => w.length > 1 && !actionVerbs.includes(w.toLowerCase()))
+      : [];
+    const emphasisPattern = emphasisWords.length > 0
+      ? new RegExp(`\\b(${emphasisWords.join('|')})\\b`, 'gi')
+      : null;
+
+    // Pattern 4: Design patterns (green highlight - golden nuggets)
+    const patternKeys = Object.keys(designPatterns).sort((a, b) => b.length - a.length);
+    const patternRegex = showEmphasis && patternKeys.length > 0
+      ? new RegExp(`(${patternKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
+      : null;
+
+    // Pattern 5: Technical terms (dotted underline)
+    const techTermKeys = Object.keys(technicalTerms).sort((a, b) => b.length - a.length);
+    const techPattern = new RegExp(`\\b(${techTermKeys.join('|')})\\b`, 'gi');
+
+    // Split by metrics first (highest priority)
     const parts = text.split(metricPattern);
 
     return parts.map((part, idx) => {
+      // Metrics: bold + amber highlight
       if (metricPattern.test(part)) {
         return (
-          <span key={idx} className="font-semibold text-primary-700 bg-primary-50/70 px-0.5 rounded">
+          <mark key={idx} className="font-bold bg-amber-100 text-amber-900 px-0.5 rounded-sm" title="Key metric">
             {part}
-          </span>
+          </mark>
         );
       }
-      return part;
+
+      // Process remaining text through other patterns
+      let processedParts: React.ReactNode[] = [part];
+
+      // Design patterns: green highlight with tooltip (golden nuggets)
+      const applyDesignPatterns = (parts: React.ReactNode[]): React.ReactNode[] => {
+        if (!patternRegex) return parts;
+        const newParts: React.ReactNode[] = [];
+        parts.forEach((p, pIdx) => {
+          if (typeof p !== 'string') {
+            newParts.push(p);
+            return;
+          }
+          const subParts = p.split(patternRegex);
+          subParts.forEach((subPart, subIdx) => {
+            const lowerPart = subPart.toLowerCase();
+            if (designPatterns[lowerPart]) {
+              newParts.push(
+                <span key={`${idx}-pat-${pIdx}-${subIdx}`} className="relative group/pattern cursor-help">
+                  <mark className="bg-emerald-100 text-emerald-800 font-medium px-0.5 rounded-sm">{subPart}</mark>
+                  <span className="absolute bottom-full left-0 mb-1 hidden group-hover/pattern:block z-20 px-2 py-1 text-[10px] bg-emerald-900 text-white rounded max-w-[200px] shadow-lg">
+                    <span className="font-semibold">Pattern:</span> {designPatterns[lowerPart]}
+                  </span>
+                </span>
+              );
+            } else {
+              newParts.push(subPart);
+            }
+          });
+        });
+        return newParts;
+      };
+
+      // Technical terms: dotted underline + tooltip
+      const applyTechTerms = (parts: React.ReactNode[]): React.ReactNode[] => {
+        const newParts: React.ReactNode[] = [];
+        parts.forEach((p, pIdx) => {
+          if (typeof p !== 'string') {
+            newParts.push(p);
+            return;
+          }
+          const subParts = p.split(techPattern);
+          subParts.forEach((subPart, subIdx) => {
+            const lowerPart = subPart.toLowerCase();
+            if (technicalTerms[lowerPart]) {
+              newParts.push(
+                <span key={`${idx}-tech-${pIdx}-${subIdx}`} className="relative group/term cursor-help">
+                  <span className="border-b border-dotted border-gray-500">{subPart}</span>
+                  <span className="absolute bottom-full left-0 mb-1 hidden group-hover/term:block z-20 px-2 py-1 text-[10px] bg-gray-900 text-white rounded whitespace-nowrap shadow-lg">
+                    {technicalTerms[lowerPart]}
+                  </span>
+                </span>
+              );
+            } else {
+              newParts.push(subPart);
+            }
+          });
+        });
+        return newParts;
+      };
+
+      // Action verbs: bold + colored (shows ownership)
+      const applyActionVerbs = (parts: React.ReactNode[]): React.ReactNode[] => {
+        if (!actionPattern) return parts;
+        const newParts: React.ReactNode[] = [];
+        parts.forEach((p, pIdx) => {
+          if (typeof p !== 'string') {
+            newParts.push(p);
+            return;
+          }
+          const subParts = p.split(actionPattern);
+          subParts.forEach((subPart, subIdx) => {
+            if (actionPattern.test(subPart)) {
+              newParts.push(
+                <strong key={`${idx}-act-${pIdx}-${subIdx}`} className="font-semibold text-indigo-700" title="Action verb - shows ownership">
+                  {subPart}
+                </strong>
+              );
+            } else {
+              newParts.push(subPart);
+            }
+          });
+        });
+        return newParts;
+      };
+
+      // Emphasis words: solid underline (stress when speaking)
+      const applyEmphasis = (parts: React.ReactNode[]): React.ReactNode[] => {
+        if (!emphasisPattern) return parts;
+        const newParts: React.ReactNode[] = [];
+        parts.forEach((p, pIdx) => {
+          if (typeof p !== 'string') {
+            newParts.push(p);
+            return;
+          }
+          const subParts = p.split(emphasisPattern);
+          subParts.forEach((subPart, subIdx) => {
+            if (emphasisPattern.test(subPart)) {
+              newParts.push(
+                <span key={`${idx}-em-${pIdx}-${subIdx}`} className="underline decoration-primary-400 decoration-2 underline-offset-2" title="Emphasize">
+                  {subPart}
+                </span>
+              );
+            } else {
+              newParts.push(subPart);
+            }
+          });
+        });
+        return newParts;
+      };
+
+      // Apply patterns in order: design patterns → tech terms → action verbs → emphasis
+      processedParts = applyDesignPatterns(processedParts);
+      processedParts = applyTechTerms(processedParts);
+      processedParts = applyActionVerbs(processedParts);
+      processedParts = applyEmphasis(processedParts);
+
+      return <React.Fragment key={idx}>{processedParts}</React.Fragment>;
     });
   };
 
@@ -455,9 +963,25 @@ const NarrativeSection: React.FC<NarrativeSectionProps> = ({
             </div>
           ) : (
             <div className="relative">
+              {/* Opening delivery cue - subtle */}
+              {showDeliveryCues && deliveryCue && (
+                <div className="mb-1.5 text-[10px] text-gray-400 italic flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                  {deliveryCue.openingCue}
+                </div>
+              )}
+
               <p className="text-[14px] leading-[1.7] text-gray-700">
                 {renderContent(content)}
               </p>
+
+              {/* Closing delivery cue - subtle */}
+              {showDeliveryCues && deliveryCue && (
+                <div className="mt-1.5 text-[10px] text-gray-400 italic flex items-center gap-1 justify-end">
+                  {deliveryCue.closingCue}
+                  <span className="w-1 h-1 rounded-full bg-amber-400" />
+                </div>
+              )}
 
               {/* Evidence toggle */}
               {hasEvidence && (
@@ -579,9 +1103,11 @@ export function NarrativePreview({
   const [copied, setCopied] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [showCopyMenu, setShowCopyMenu] = useState(false);
-  const [practiceMode, setPracticeMode] = useState(true); // On by default
+  const [practiceMode, setPracticeMode] = useState(false); // Timer off by default
   const [timerActive, setTimerActive] = useState(false);
-  const [showCoaching, setShowCoaching] = useState(true); // On by default
+  const [showCoaching, setShowCoaching] = useState(true); // Tips on by default
+  const [showEmphasis, setShowEmphasis] = useState(true); // Text emphasis on by default
+  const [showDeliveryHelp, setShowDeliveryHelp] = useState(false);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
 
@@ -606,6 +1132,43 @@ export function NarrativePreview({
 
   const keyMetrics = useMemo(() => extractMetrics(allText), [allText]);
   const estimatedTime = useMemo(() => estimateSpeakingTime(allText), [allText]);
+
+  // Compute section timings for practice mode
+  const sectionTimings = useMemo((): SectionTiming[] => {
+    const timings: SectionTiming[] = [];
+    let totalWords = 0;
+
+    // First pass: count words per section
+    const sectionWordCounts: { key: string; label: string; words: number }[] = [];
+    for (const key of sectionKeys) {
+      let text = '';
+      if (useStorySections && story?.sections?.[key]) {
+        text = story.sections[key].summary || '';
+      } else if (star) {
+        const starKey = mapSectionToStarKey(key);
+        text = star[starKey]?.text || '';
+      }
+      const words = text.trim().split(/\s+/).filter(Boolean).length;
+      sectionWordCounts.push({ key, label: capitalizeFirst(key), words });
+      totalWords += words;
+    }
+
+    // Second pass: calculate seconds and percentages
+    if (totalWords > 0) {
+      for (const section of sectionWordCounts) {
+        const seconds = Math.ceil((section.words / 150) * 60);
+        const percentage = Math.round((section.words / totalWords) * 100);
+        timings.push({
+          key: section.key,
+          label: section.label,
+          seconds,
+          percentage,
+        });
+      }
+    }
+
+    return timings;
+  }, [sectionKeys, useStorySections, story, star]);
 
   // Close copy menu on outside click
   useEffect(() => {
@@ -817,15 +1380,16 @@ export function NarrativePreview({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview">
-      {/* Compact Header */}
-      <div className="px-4 py-3 border-b border-gray-100">
+      {/* Header with integrated toolbar */}
+      <div className="px-4 py-2.5 border-b border-gray-100">
         <div className="flex items-center justify-between gap-3">
+          {/* Left: Title + Meta */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-gray-900 truncate">{clusterName}</h2>
+              <h2 className="text-sm font-semibold text-gray-900 truncate">{clusterName}</h2>
               <StatusBadge status={storyStatus} />
             </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
               <span>{activityCount} activities</span>
               {formatDateRange() && (
                 <>
@@ -835,114 +1399,131 @@ export function NarrativePreview({
               )}
               <span className="text-gray-300">•</span>
               <span>~{formatTime(estimatedTime)}</span>
+              {keyMetrics.length > 0 && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span className="font-medium text-primary-600">{keyMetrics.slice(0, 2).join(', ')}</span>
+                </>
+              )}
             </div>
           </div>
-          <FrameworkSelector
-            value={framework}
-            onChange={onFrameworkChange}
-            disabled={isLoading}
-          />
-        </div>
 
-        {/* Key Metrics inline */}
-        {keyMetrics.length > 0 && !isEditing && (
-          <div className="mt-2 pt-2 border-t border-gray-50">
-            <KeyMetrics metrics={keyMetrics} />
-          </div>
-        )}
-      </div>
-
-      {/* Compact Toolbar */}
-      <div className="px-4 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRegenerate}
-            disabled={isLoading}
-            className="h-7 text-xs text-gray-600"
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5 mr-1', isLoading && 'animate-spin')} />
-            Regenerate
-          </Button>
-          <Button
-            variant={isEditing ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-            disabled={isSaving}
-            className={cn('h-7 text-xs', !isEditing && 'text-gray-600')}
-          >
-            {isEditing ? (isSaving ? 'Saving...' : 'Save') : 'Edit'}
-          </Button>
-          {isEditing && (
-            <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-7 text-xs text-gray-500">
-              Cancel
-            </Button>
-          )}
-          <div className="w-px h-5 bg-gray-200 mx-1" />
-          <button
-            onClick={() => setShowCoaching(!showCoaching)}
-            className={cn(
-              'h-7 px-2 rounded text-xs font-medium transition-colors',
-              showCoaching ? 'bg-amber-100 text-amber-700' : 'text-gray-500 hover:bg-gray-100'
-            )}
-            title="Show interview coaching tips"
-          >
-            <Lightbulb className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => { setPracticeMode(!practiceMode); setTimerActive(false); }}
-            className={cn(
-              'h-7 px-2 rounded text-xs font-medium transition-colors',
-              practiceMode ? 'bg-primary-100 text-primary-700' : 'text-gray-500 hover:bg-gray-100'
-            )}
-            title="Practice mode with timer"
-          >
-            <Mic className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div className="flex items-center gap-0.5">
-          <div className="relative" ref={copyMenuRef}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowCopyMenu(!showCopyMenu)}
-              className={cn('h-7 px-2', copied ? 'text-green-500' : 'text-gray-500')}
-              title="Copy to clipboard"
+          {/* Right: All actions in one row */}
+          <div className="flex items-center gap-1">
+            <FrameworkSelector
+              value={framework}
+              onChange={onFrameworkChange}
+              disabled={isLoading}
+            />
+            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            <button
+              onClick={onRegenerate}
+              disabled={isLoading}
+              className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              title="Regenerate"
             >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </Button>
-            <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
+              <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+            </button>
+            <button
+              onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+              disabled={isSaving}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                isEditing ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+              )}
+              title={isEditing ? 'Save' : 'Edit'}
+            >
+              {isEditing ? <Check className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+            </button>
+            {isEditing && (
+              <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            <button
+              onClick={() => setShowCoaching(!showCoaching)}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                showCoaching ? 'bg-amber-100 text-amber-600' : 'text-gray-400 hover:bg-gray-100'
+              )}
+              title="Interview tips"
+            >
+              <Lightbulb className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setShowEmphasis(!showEmphasis)}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                showEmphasis ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100'
+              )}
+              title="Text emphasis (action verbs, key terms)"
+            >
+              <Type className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => { setPracticeMode(!practiceMode); setTimerActive(false); }}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                practiceMode ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:bg-gray-100'
+              )}
+              title="Practice timer"
+            >
+              <Mic className="h-3.5 w-3.5" />
+            </button>
+            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            <div className="relative" ref={copyMenuRef}>
+              <button
+                onClick={() => setShowCopyMenu(!showCopyMenu)}
+                className={cn('p-1.5 rounded transition-colors', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
+                title="Copy"
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+              <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
+            </div>
+            {story?.isPublished ? (
+              <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50" title="Unpublish">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+            ) : onPublish && (
+              <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">
+                <Share2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={onDelete} disabled={isDeleting} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Delete">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {practiceMode && (
+              <button
+                onClick={() => setShowDeliveryHelp(true)}
+                className="p-1.5 rounded text-gray-400 hover:bg-gray-100"
+                title="Practice guide"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          {story?.isPublished ? (
-            <Button variant="ghost" size="sm" onClick={() => onUnpublish?.()} disabled={isPublishing} className="h-7 px-2 text-green-600" title="Unpublish">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </Button>
-          ) : onPublish && (
-            <Button variant="ghost" size="sm" onClick={() => onPublish('private', edits)} disabled={isPublishing} className="h-7 px-2 text-gray-500" title="Publish">
-              <Share2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {onDelete && (
-            <Button variant="ghost" size="sm" onClick={onDelete} disabled={isDeleting} className="h-7 px-2 text-gray-400 hover:text-red-500" title="Delete">
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* Practice Timer (only when active) */}
+      {/* Practice Timer - compact single line */}
       {practiceMode && (
-        <div className="px-4 py-2 border-b border-gray-100">
+        <div className="px-4 py-1.5 border-b border-gray-100 bg-gray-50/30">
           <PracticeTimer
             totalSeconds={estimatedTime}
+            sectionTimings={sectionTimings}
             isActive={timerActive}
             onToggle={() => setTimerActive(!timerActive)}
             onReset={() => setTimerActive(false)}
           />
         </div>
       )}
+
+      {/* Delivery Help Modal */}
+      <DeliveryHelpModal isOpen={showDeliveryHelp} onClose={() => setShowDeliveryHelp(false)} />
 
       {/* Narrative Content - with editorial margin layout when coaching is on */}
       <div className={cn(
@@ -977,6 +1558,8 @@ export function NarrativePreview({
               sourceIds={component.sources}
               isFirst={idx === 0}
               showCoaching={showCoaching}
+              showDeliveryCues={practiceMode}
+              showEmphasis={showEmphasis}
             />
           );
         })}
