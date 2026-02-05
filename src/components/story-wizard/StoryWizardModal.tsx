@@ -91,6 +91,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
   // Questions state
   const [answers, setAnswers] = useState<Record<string, WizardAnswer>>({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   // Generate state
   const [generateResult, setGenerateResult] = useState<WizardGenerateResponse | null>(null);
@@ -103,6 +104,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
       setSelectedArchetype(null);
       setSelectedFramework('STAR');
       setAnswers({});
+      setCurrentQuestionIndex(0);
       setGenerateResult(null);
       setError(null);
     }
@@ -248,6 +250,23 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
                 questions={analyzeResult.questions}
                 answers={answers}
                 onAnswerChange={handleAnswerChange}
+                currentQuestionIndex={currentQuestionIndex}
+                onNext={() => {
+                  if (currentQuestionIndex < analyzeResult.questions.length - 1) {
+                    setCurrentQuestionIndex((i) => i + 1);
+                  } else {
+                    // Last question - trigger generate
+                    handleGenerate();
+                  }
+                }}
+                onPrev={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                onSkip={() => {
+                  if (currentQuestionIndex < analyzeResult.questions.length - 1) {
+                    setCurrentQuestionIndex((i) => i + 1);
+                  } else {
+                    handleGenerate();
+                  }
+                }}
               />
             </div>
           )}
@@ -264,9 +283,17 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
           <Button
             variant="ghost"
             onClick={() => {
-              if (step === 'questions') setStep('analyze');
-              else if (step === 'generate') setStep('questions');
-              else onClose();
+              if (step === 'questions') {
+                if (currentQuestionIndex > 0) {
+                  setCurrentQuestionIndex((i) => i - 1);
+                } else {
+                  setStep('analyze');
+                }
+              } else if (step === 'generate') {
+                setStep('questions');
+              } else {
+                onClose();
+              }
             }}
             disabled={isLoading}
           >
@@ -285,24 +312,11 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
             </Button>
           )}
 
-          {step === 'questions' && (
-            <Button
-              onClick={handleGenerate}
-              disabled={isLoading}
-              className="bg-primary-500 hover:bg-primary-600 text-white"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generate Story
-                </>
-              )}
-            </Button>
+          {step === 'questions' && isLoading && (
+            <div className="flex items-center gap-2 text-primary-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Generating your story...</span>
+            </div>
           )}
 
           {step === 'generate' && (
@@ -440,47 +454,185 @@ interface QuestionsStepProps {
   questions: WizardQuestion[];
   answers: Record<string, WizardAnswer>;
   onAnswerChange: (questionId: string, answer: WizardAnswer) => void;
+  currentQuestionIndex: number;
+  onNext: () => void;
+  onPrev: () => void;
+  onSkip: () => void;
 }
 
-const QuestionsStep: React.FC<QuestionsStepProps> = ({ questions, answers, onAnswerChange }) => {
-  const phases = ['dig', 'impact', 'growth'] as const;
-  const phaseLabels = { dig: 'Dig Deeper', impact: 'Show Impact', growth: 'Growth & Learning' };
-  const phaseColors = {
-    dig: 'bg-blue-50 border-blue-200',
-    impact: 'bg-green-50 border-green-200',
-    growth: 'bg-purple-50 border-purple-200',
+const QuestionsStep: React.FC<QuestionsStepProps> = ({
+  questions,
+  answers,
+  onAnswerChange,
+  currentQuestionIndex,
+  onNext,
+  onPrev,
+  onSkip,
+}) => {
+  const phaseConfig = {
+    dig: { label: 'Context', color: 'bg-blue-500', bgColor: 'from-blue-50 to-slate-50 border-blue-100' },
+    impact: { label: 'Impact', color: 'bg-emerald-500', bgColor: 'from-emerald-50 to-slate-50 border-emerald-100' },
+    growth: { label: 'Growth', color: 'bg-violet-500', bgColor: 'from-violet-50 to-slate-50 border-violet-100' },
   };
 
+  const currentQuestion = questions[currentQuestionIndex];
+  const currentAnswer = answers[currentQuestion?.id] || { selected: [] };
+  const hasAnswer = currentAnswer.selected.length > 0 || (currentAnswer.freeText && currentAnswer.freeText.trim().length > 0);
+  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+  const answeredCount = questions.filter((q) => {
+    const a = answers[q.id];
+    return a?.selected.length > 0 || (a?.freeText && a.freeText.trim().length > 0);
+  }).length;
+
+  if (!currentQuestion) return null;
+
+  const phase = phaseConfig[currentQuestion.phase];
+  const textareaId = `question-${currentQuestion.id}-text`;
+
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Answer these questions to help craft a more compelling story. The more detail you provide, the better your story will be.
-      </p>
+    <div className="space-y-5">
+      {/* Compact progress header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">
+            {currentQuestionIndex + 1}
+            <span className="text-gray-400 font-normal"> / {questions.length}</span>
+          </span>
+          <span className={`text-xs px-2 py-0.5 rounded-full text-white ${phase.color}`}>
+            {phase.label}
+          </span>
+        </div>
+        <span className="text-xs text-gray-400">
+          {answeredCount} answered
+        </span>
+      </div>
 
-      {phases.map((phase, phaseIdx) => {
-        const phaseQuestions = questions.filter((q) => q.phase === phase);
-        if (phaseQuestions.length === 0) return null;
+      {/* Single progress bar - clean, no dots */}
+      <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500 ease-out"
+          style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+        />
+      </div>
 
-        return (
-          <div
-            key={phase}
-            className={`p-4 rounded-xl border ${phaseColors[phase]} animate-in fade-in slide-in-from-bottom-2 duration-300`}
-            style={{ animationDelay: `${phaseIdx * 100}ms` }}
-          >
-            <h4 className="font-medium text-sm text-gray-700 mb-3">{phaseLabels[phase]}</h4>
-            <div className="space-y-4">
-              {phaseQuestions.map((question) => (
-                <QuestionItem
-                  key={question.id}
-                  question={question}
-                  answer={answers[question.id] || { selected: [] }}
-                  onChange={(answer) => onAnswerChange(question.id, answer)}
-                />
-              ))}
-            </div>
+      {/* Question card - cleaner styling */}
+      <div
+        key={currentQuestion.id}
+        className={`p-6 rounded-2xl border bg-gradient-to-br ${phase.bgColor} animate-in fade-in slide-in-from-right-4 duration-300`}
+      >
+        <div className="space-y-5">
+          {/* Question text */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 leading-relaxed">
+              {currentQuestion.question}
+            </h3>
+            {currentQuestion.hint && (
+              <p className="text-sm text-gray-500 mt-2">{currentQuestion.hint}</p>
+            )}
           </div>
-        );
-      })}
+
+          {/* Options as accessible chips */}
+          {currentQuestion.options && currentQuestion.options.length > 0 && (
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Select options that apply"
+            >
+              {currentQuestion.options.map((opt) => {
+                const isSelected = currentAnswer.selected.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    onClick={() => {
+                      const newSelected = isSelected
+                        ? currentAnswer.selected.filter((v) => v !== opt.value)
+                        : [...currentAnswer.selected, opt.value];
+                      onAnswerChange(currentQuestion.id, { ...currentAnswer, selected: newSelected });
+                    }}
+                    className={`px-4 py-2.5 text-sm rounded-full border-2 transition-all duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                      isSelected
+                        ? 'bg-primary-50 border-primary-500 text-primary-700 font-medium'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {isSelected && (
+                      <CheckCircle2 className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
+                    )}
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Free text input with label */}
+          {currentQuestion.allowFreeText && (
+            <div className="space-y-2">
+              <label
+                htmlFor={textareaId}
+                className="text-sm font-medium text-gray-600"
+              >
+                Add your own context
+              </label>
+              <textarea
+                id={textareaId}
+                value={currentAnswer.freeText || ''}
+                onChange={(e) => onAnswerChange(currentQuestion.id, { ...currentAnswer, freeText: e.target.value })}
+                placeholder="What else is relevant here?"
+                className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-all duration-150 bg-white"
+                rows={3}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Navigation - cleaner layout */}
+      <div className="flex items-center justify-between pt-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onPrev}
+          disabled={currentQuestionIndex === 0}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Previous
+        </Button>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSkip}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            Skip
+          </Button>
+
+          {isLastQuestion ? (
+            <Button
+              onClick={onNext}
+              className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-sm"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Story
+            </Button>
+          ) : (
+            <Button
+              onClick={onNext}
+              variant={hasAnswer ? 'default' : 'secondary'}
+              className={hasAnswer ? 'bg-primary-500 hover:bg-primary-600 text-white' : ''}
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
