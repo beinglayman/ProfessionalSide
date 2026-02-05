@@ -68,12 +68,16 @@ export function useNarrativePolling({
   // Only re-run when isGenerating changes, not on every render
   useEffect(() => {
     if (!isGenerating) {
+      console.log('[NarrativePolling] Stopped - isGenerating is false');
       cleanup();
       return;
     }
 
+    console.log('[NarrativePolling] Started - polling every', NARRATIVE_POLL_INTERVAL_MS, 'ms for max', NARRATIVE_POLL_TIMEOUT_MS, 'ms');
+
     // Start polling - invalidate queries every interval
     pollIntervalRef.current = setInterval(() => {
+      console.log('[NarrativePolling] Polling tick - invalidating queries');
       queryKeys.forEach((key) => {
         queryClient.invalidateQueries({ queryKey: key });
       });
@@ -81,6 +85,7 @@ export function useNarrativePolling({
 
     // Set timeout to stop polling after max duration
     timeoutRef.current = setTimeout(() => {
+      console.log('[NarrativePolling] Timeout reached - stopping polling');
       cleanup();
       // Final refresh
       queryKeys.forEach((key) => {
