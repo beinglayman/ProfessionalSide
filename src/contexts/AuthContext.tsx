@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  token: string | null;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -64,6 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     onSuccess: (response) => {
       if (response.success && response.data) {
         setIsAuthenticated(true);
+        // Sync token state with localStorage (set by AuthService)
+        setToken(localStorage.getItem('inchronicle_access_token'));
         queryClient.setQueryData(QueryKeys.currentUser, response.data.user);
       } else {
         throw new Error(response.error || 'Login failed');
@@ -72,6 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     onError: (error: any) => {
       console.error('Login error:', error);
       setIsAuthenticated(false);
+      setToken(null);
     },
   });
 
@@ -81,6 +85,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     onSuccess: (response) => {
       if (response.success && response.data) {
         setIsAuthenticated(true);
+        // Sync token state with localStorage (set by AuthService)
+        setToken(localStorage.getItem('inchronicle_access_token'));
         queryClient.setQueryData(QueryKeys.currentUser, response.data.user);
       } else {
         throw new Error(response.error || 'Registration failed');
@@ -89,6 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     onError: (error: any) => {
       console.error('Registration error:', error);
       setIsAuthenticated(false);
+      setToken(null);
     },
   });
 
@@ -97,12 +104,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     mutationFn: AuthService.logout,
     onSuccess: () => {
       setIsAuthenticated(false);
+      setToken(null);
       queryClient.clear(); // Clear all cached data
     },
     onError: (error: any) => {
       console.error('Logout error:', error);
       // Even if logout API fails, clear local state
       setIsAuthenticated(false);
+      setToken(null);
       queryClient.clear();
     },
   });
@@ -179,10 +188,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [queryClient]);
 
+  // Get token from localStorage - use state to ensure stable reference
+  const [token, setToken] = useState<string | null>(() =>
+    typeof window !== 'undefined'
+      ? localStorage.getItem('inchronicle_access_token')
+      : null
+  );
+
+  // Sync token state with localStorage changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'inchronicle_access_token') {
+        setToken(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const value: AuthContextType = {
     user: user || null,
     isAuthenticated,
     isLoading: isLoading || loginMutation.isPending || registerMutation.isPending,
+    token,
     login,
     register,
     logout,
