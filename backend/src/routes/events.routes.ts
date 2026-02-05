@@ -53,19 +53,25 @@ const authenticateSSE = async (
     }
 
     // Verify JWT token
+    console.log('[SSE Auth] Verifying token...');
     const decoded: JwtPayload = verifyToken(token);
+    console.log('[SSE Auth] Token decoded:', { userId: decoded.userId, type: decoded.type });
 
     if (decoded.type !== 'access') {
+      console.log('[SSE Auth] Invalid token type:', decoded.type);
       res.status(401).json({ error: 'Invalid token type' });
       return;
     }
 
+    console.log('[SSE Auth] Looking up user:', decoded.userId);
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: { id: true, email: true, name: true, avatar: true, isActive: true }
     });
+    console.log('[SSE Auth] User found:', !!user, 'isActive:', user?.isActive);
 
     if (!user || !user.isActive) {
+      console.log('[SSE Auth] User not found or inactive');
       res.status(401).json({ error: 'User not found or inactive' });
       return;
     }
@@ -78,9 +84,10 @@ const authenticateSSE = async (
     };
 
     next();
-  } catch (error) {
-    console.error('[SSE Auth] Error:', error);
-    res.status(401).json({ error: 'Invalid or expired token' });
+  } catch (error: any) {
+    console.error('[SSE Auth] Error:', error?.message || error);
+    console.error('[SSE Auth] Token (first 50 chars):', token?.substring(0, 50));
+    res.status(401).json({ error: 'Invalid or expired token', details: error?.message });
   }
 };
 
