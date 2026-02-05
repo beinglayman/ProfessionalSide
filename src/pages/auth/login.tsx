@@ -23,7 +23,7 @@ export function LoginPage() {
 
     try {
       await login(formData);
-      navigate('/'); // Redirect to home page after successful login
+      navigate('/journal'); // Redirect to journal page after successful login
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.response?.data?.error || error.message || 'Login failed. Please try again.');

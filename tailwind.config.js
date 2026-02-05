@@ -8,6 +8,10 @@ export default {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        'pulse-subtle': {
+          '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(99, 102, 241, 0.4)' },
+          '50%': { opacity: '0.9', boxShadow: '0 0 0 4px rgba(99, 102, 241, 0)' },
+        },
         'sparkle-float': {
           '0%, 100%': { transform: 'translateY(0) rotate(0deg)', opacity: '1' },
           '50%': { transform: 'translateY(-3px) rotate(10deg)', opacity: '0.8' },
@@ -30,6 +34,7 @@ export default {
       },
       animation: {
         shimmer: 'shimmer 2s linear infinite',
+        'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
         'sparkle-float': 'sparkle-float 1.5s ease-in-out infinite',
         'text-shimmer': 'text-shimmer 3s ease infinite',
         'highlight-flash': 'highlight-flash 2s ease-out forwards',

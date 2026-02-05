@@ -76,23 +76,23 @@ const AppRoutes: React.FC = () => {
           path="/"
           element={
             isAuthenticated ? (
-              <ActivityFeedPage />
+              <Navigate to="/journal" replace />
             ) : (
               <HomePage />
             )
           }
         />
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
-          } 
+            isAuthenticated ? <Navigate to="/journal" replace /> : <LoginPage />
+          }
         />
-        <Route 
-          path="/register" 
+        <Route
+          path="/register"
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />
-          } 
+            isAuthenticated ? <Navigate to="/journal" replace /> : <RegisterPage />
+          }
         />
         <Route 
           path="/onboarding" 

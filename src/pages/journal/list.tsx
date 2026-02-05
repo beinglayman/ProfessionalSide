@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   Search,
@@ -78,6 +79,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { EnhancingIndicator } from '../../components/ui/enhancing-indicator';
 // useNarrativePolling removed - SSE handles updates, polling was hammering backend
 import { useSSE } from '../../hooks/useSSE';
+import { useMCPIntegrations } from '../../hooks/useMCP';
 
 // Page Props interface
 interface JournalPageProps {}
@@ -85,6 +87,7 @@ interface JournalPageProps {}
 export default function JournalPage() {
   useDocumentTitle('Activity');
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<'workspace' | 'network'>('workspace');
   const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
@@ -141,6 +144,17 @@ export default function JournalPage() {
 
   // Regenerate narrative state
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
+
+  // Integration detection for first-time user experience
+  const { data: integrationsData } = useMCPIntegrations();
+  const hasIntegrations = integrationsData?.integrations?.some((i: { isConnected: boolean }) => i.isConnected) ?? false;
+
+  // Track initial load pulse (3 seconds for returning users with data)
+  const [showInitialPulse, setShowInitialPulse] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowInitialPulse(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Connect to SSE for real-time updates from backend
   // SSE automatically invalidates queries when data changes (debounced 500ms)
@@ -592,6 +606,18 @@ export default function JournalPage() {
     ? activitiesData.pagination.total
     : 0;
 
+  // Determine if there are activities (for empty state detection)
+  const hasActivities = activitiesData && isGroupedResponse(activitiesData)
+    && activitiesData.groups.length > 0;
+
+  // Determine if sync button should pulse:
+  // - Has integrations but no data: persistent pulse
+  // - Has data: pulse for first 3 seconds on page load
+  const shouldPulseSync = hasIntegrations && (!hasActivities || showInitialPulse);
+
+  // Check if this is empty state (no activities)
+  const isEmpty = !activitiesLoading && !hasActivities;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -620,9 +646,12 @@ export default function JournalPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-gray-900"
               onClick={handleSync}
               disabled={isSyncing}
+              className={cn(
+                "text-gray-600 hover:text-gray-900",
+                shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
+              )}
             >
               <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
             </Button>
@@ -637,6 +666,29 @@ export default function JournalPage() {
             </Button>
           </div>
         </div>
+
+        {/* First-time user CTA: No integrations connected */}
+        {!hasIntegrations && isEmpty && (
+          <div className="bg-gradient-to-r from-primary-50 to-primary-100 border border-primary-200 rounded-xl p-6 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white rounded-lg shadow-sm">
+                <Link2 className="h-6 w-6 text-primary-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">Connect your tools</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Link GitHub, Jira, or other tools to automatically import your work activity
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate('/settings?tab=integrations')}
+                className="bg-primary-600 hover:bg-primary-700 text-white"
+              >
+                Set Up Integrations
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Activity Stream */}
         <ActivityStream

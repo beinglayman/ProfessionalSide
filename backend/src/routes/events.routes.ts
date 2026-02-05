@@ -23,10 +23,11 @@ const authenticateSSE = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  // Get token from query param (SSE workaround) or Authorization header
+  const token = (req.query.token as string) ||
+    req.headers.authorization?.replace('Bearer ', '');
+
   try {
-    // Get token from query param (SSE workaround) or Authorization header
-    const token = (req.query.token as string) ||
-      req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
       res.status(401).json({ error: 'Access token required' });
