@@ -805,6 +805,9 @@ app.use('/api/v1/auth', authRoutes);
 console.log('Auth routes mounted');
 app.use('/api/v1/users', userRoutes);
 console.log('User routes mounted');
+// SSE events routes MUST be before activityRoutes (which has /api/v1 catch-all with authenticate middleware)
+app.use('/api/v1/events', eventsRoutes);
+console.log('Events routes mounted');
 app.use('/api/v1/journal', journalRoutes);
 app.use('/api/v1', activityRoutes); // Activity routes: /journal-entries/:id/activities, /activity-stats
 app.use('/api/v1/network', networkRoutes);
@@ -829,7 +832,7 @@ app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/career-stories', careerStoriesRoutes);
 app.use('/api/v1/demo', demoRoutes);
-app.use('/api/v1/events', eventsRoutes);
+// Note: eventsRoutes moved earlier (before activityRoutes) to avoid auth middleware interception
 
 // MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
 if (mcpRoutes) {
