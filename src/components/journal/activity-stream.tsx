@@ -817,7 +817,13 @@ function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative
           onPromoteToCareerStory={onPromoteToCareerStory}
           activities={group.activities}
           isEnhancingNarratives={isEnhancingNarratives}
-          isPendingEnhancement={pendingEnhancementIds?.has(group.storyMetadata.id) ?? false}
+          isPendingEnhancement={
+            // Only pass explicit boolean when Set has entries (per-entry tracking active)
+            // Otherwise pass undefined to allow fallback heuristic in StoryGroupHeader
+            pendingEnhancementIds && pendingEnhancementIds.size > 0
+              ? pendingEnhancementIds.has(group.storyMetadata.id)
+              : undefined
+          }
         />
       ) : (
         // Fallback minimal header with progressive disclosure
