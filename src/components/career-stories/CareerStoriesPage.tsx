@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, FileText, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, FileText, X, Sparkles, BookOpen, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
@@ -31,7 +31,7 @@ import {
 } from '../../hooks/useCareerStories';
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
-import { StoryTimeline } from './StoryTimeline';
+import { StoryCard } from './StoryCard';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
@@ -733,19 +733,54 @@ export function CareerStoriesPage() {
     }
   }, [savedStories, selectedCluster, selectedStoryDirect, setVisibilityMutation]);
 
-  // Sidebar collapsed state - auto-collapse when story is selected
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // View mode: 'list' shows cards, 'detail' shows full story
+  const viewMode = selectedStoryDirect ? 'detail' : 'list';
 
-  // Auto-collapse sidebar when a story is selected on desktop
+  // Handle Escape key to close detail view
   useEffect(() => {
-    if (selectedStoryDirect && window.innerWidth >= BREAKPOINTS.DESKTOP) {
-      setSidebarCollapsed(true);
-    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedStoryDirect) {
+        e.preventDefault();
+        setSelectedStoryDirect(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedStoryDirect]);
 
+  // Group stories by year for timeline
+  const storiesByYear = useMemo(() => {
+    const groups = new Map<string, CareerStory[]>();
+    const sorted = [...allStories].sort((a, b) => {
+      const dateA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+      const dateB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+    sorted.forEach((story) => {
+      const year = story.generatedAt
+        ? new Date(story.generatedAt).getFullYear().toString()
+        : 'Draft';
+      const existing = groups.get(year) || [];
+      groups.set(year, [...existing, story]);
+    });
+    return groups;
+  }, [allStories]);
+
+  const years = useMemo(() =>
+    Array.from(storiesByYear.keys()).sort((a, b) =>
+      a === 'Draft' ? 1 : b === 'Draft' ? -1 : parseInt(b) - parseInt(a)
+    ),
+    [storiesByYear]
+  );
+
+  // Close detail view
+  const handleCloseDetail = useCallback(() => {
+    setSelectedStoryDirect(null);
+  }, []);
+
   return (
-    <div className="h-full bg-gray-50 flex" data-testid="career-stories-page">
-      {/* Celebration toast - positioned fixed */}
+    <div className="h-full bg-gray-50" data-testid="career-stories-page">
+      {/* Celebration toast */}
       {showCelebration && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-primary-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm animate-in fade-in slide-in-from-top-2">
           <CheckCircle2 className="h-4 w-4" />
@@ -756,118 +791,152 @@ export function CareerStoriesPage() {
         </div>
       )}
 
-      {/* Desktop: Sidebar + Main content - seamless with header */}
-      <div className="hidden lg:flex flex-1 overflow-hidden">
-        {/* Collapsible sidebar with timeline - no extra header */}
-        <div
-          className={cn(
-            'flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 overflow-hidden',
-            sidebarCollapsed ? 'w-0' : 'w-64'
-          )}
-        >
-          <div className="w-64 h-full overflow-y-auto">
-            <StoryTimeline
-              stories={allStories}
-              selectedStoryId={selectedStoryDirect?.id || null}
-              isLoading={isLoadingClusters}
-              onSelectStory={handleSelectStory}
-            />
-          </div>
-        </div>
+      {/* Main content area - same width as Activity tab (max-w-7xl) */}
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+          {/* Detail View: Full story with back button */}
+          {viewMode === 'detail' && selectedStoryDirect && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+              {/* Back button */}
+              <button
+                onClick={handleCloseDetail}
+                className="mb-4 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to stories</span>
+                <span className="text-xs text-gray-400 ml-2">(Esc)</span>
+              </button>
 
-        {/* Toggle button - thin rail */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className={cn(
-            'flex-shrink-0 w-4 bg-gray-100/50 border-r border-gray-200 flex items-center justify-center',
-            'text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors'
+              {/* Full story preview */}
+              <NarrativePreview
+                clusterName={selectedStoryDirect.title}
+                activityCount={selectedStoryDirect.activityIds.length}
+                dateRange={selectedCluster?.metrics?.dateRange}
+                toolTypes={selectedToolTypes}
+                activities={clusterWithActivities?.activities}
+                result={storyAsResult || selectedClusterState?.result || null}
+                isLoading={selectedClusterState?.status === 'generating' || regenerateStoryMutation.isPending}
+                polishEnabled={polishEnabled}
+                onPolishToggle={setPolishEnabled}
+                framework={selectedStoryDirect.framework || framework}
+                onFrameworkChange={handleFrameworkChange}
+                onRegenerate={handleRegenerate}
+                story={selectedStory}
+                onSave={handleSaveStory}
+                onPublish={handlePublishStory}
+                onUnpublish={handleUnpublishStory}
+                onVisibilityChange={handleVisibilityChange}
+                isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
+                isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
+                onDelete={handleDeleteStory}
+                isDeleting={deleteStoryMutation.isPending}
+              />
+            </div>
           )}
-          title={sidebarCollapsed ? 'Show stories' : 'Hide stories'}
-        >
-          {sidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-        </button>
 
-        {/* Main content - full width for story focus */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="w-full px-6 py-4">
-            <NarrativePreview
-              clusterName={selectedStoryDirect?.title || selectedCluster?.name || `Cluster ${selectedCluster?.id?.slice(-6) || ''}`}
-              activityCount={selectedStoryDirect?.activityIds.length || selectedCluster?.activityCount || 0}
-              dateRange={selectedCluster?.metrics?.dateRange}
-              toolTypes={selectedToolTypes}
-              activities={clusterWithActivities?.activities}
-              result={storyAsResult || selectedClusterState?.result || null}
-              isLoading={selectedClusterState?.status === 'generating' || regenerateStoryMutation.isPending}
-              polishEnabled={polishEnabled}
-              onPolishToggle={setPolishEnabled}
-              framework={selectedStoryDirect?.framework || framework}
-              onFrameworkChange={handleFrameworkChange}
-              onRegenerate={handleRegenerate}
-              story={selectedStory}
-              onSave={handleSaveStory}
-              onPublish={handlePublishStory}
-              onUnpublish={handleUnpublishStory}
-              onVisibilityChange={handleVisibilityChange}
-              isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
-              isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
-              onDelete={selectedStoryDirect ? handleDeleteStory : undefined}
-              isDeleting={deleteStoryMutation.isPending}
-            />
-          </div>
+          {/* List View: Story cards grouped by year */}
+          {viewMode === 'list' && (
+            <div className="space-y-4">
+              {/* Intro banner - only if stories exist */}
+              {allStories.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-xl p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1">Your Career Stories</h3>
+                      <p className="text-xs text-gray-600">
+                        Click any story to edit and practice. Use these for interviews, promotions, and 1:1s.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading state */}
+              {isLoadingClusters && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!isLoadingClusters && allStories.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                    <BookOpen className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">No stories yet</h3>
+                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                    Promote journal entries from the Journal page to create career stories.
+                  </p>
+                </div>
+              )}
+
+              {/* Stories grouped by year */}
+              {years.map((year) => {
+                const yearStories = storiesByYear.get(year) || [];
+                return (
+                  <div key={year}>
+                    {/* Year header */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs font-bold text-gray-600">{year}</span>
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-[10px] text-gray-400">
+                        {yearStories.length} {yearStories.length === 1 ? 'story' : 'stories'}
+                      </span>
+                    </div>
+
+                    {/* Story cards */}
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      {yearStories.map((story) => (
+                        <StoryCard
+                          key={story.id}
+                          story={story}
+                          isSelected={false}
+                          onClick={() => handleSelectStory(story)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Spacer for scroll */}
+              <div className="h-[30vh]" aria-hidden="true" />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Mobile: Full-width layout */}
-      <div className="lg:hidden flex-1 overflow-hidden flex flex-col">
-        {/* Mobile header */}
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <FileText className="h-4 w-4 text-primary-600" />
-          <span className="text-sm font-semibold text-gray-900">Stories</span>
-        </div>
-
-        {/* Mobile timeline */}
-        <div className="flex-1 overflow-y-auto bg-white">
-          <StoryTimeline
-            stories={allStories}
-            selectedStoryId={selectedStoryDirect?.id || null}
-            isLoading={isLoadingClusters}
-            onSelectStory={handleSelectStory}
-          />
-        </div>
-
-        {/* Mobile: Bottom sheet for STAR preview */}
-        <MobileSheet
-          isOpen={mobileSheetOpen && (selectedCluster !== null || selectedStoryDirect !== null)}
-          onClose={() => setMobileSheetOpen(false)}
-        >
-          <NarrativePreview
-            clusterName={selectedStoryDirect?.title || selectedCluster?.name || `Cluster ${selectedCluster?.id?.slice(-6) || ''}`}
-            activityCount={selectedStoryDirect?.activityIds.length || selectedCluster?.activityCount || 0}
-            dateRange={selectedCluster?.metrics?.dateRange}
-            toolTypes={selectedToolTypes}
-            activities={clusterWithActivities?.activities}
-            result={storyAsResult || selectedClusterState?.result || null}
-            isLoading={selectedClusterState?.status === 'generating' || regenerateStoryMutation.isPending}
-            polishEnabled={polishEnabled}
-            onPolishToggle={setPolishEnabled}
-            framework={selectedStoryDirect?.framework || framework}
-            onFrameworkChange={handleFrameworkChange}
-            onRegenerate={handleRegenerate}
-            story={selectedStory}
-            onSave={handleSaveStory}
-            onPublish={handlePublishStory}
-            onUnpublish={handleUnpublishStory}
-            onVisibilityChange={handleVisibilityChange}
-            isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
-            isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
-            onDelete={selectedStoryDirect ? handleDeleteStory : undefined}
-            isDeleting={deleteStoryMutation.isPending}
-          />
-        </MobileSheet>
-      </div>
+      {/* Mobile: Bottom sheet for STAR preview (legacy support) */}
+      <MobileSheet
+        isOpen={mobileSheetOpen && selectedCluster !== null}
+        onClose={() => setMobileSheetOpen(false)}
+      >
+        <NarrativePreview
+          clusterName={selectedCluster?.name || ''}
+          activityCount={selectedCluster?.activityCount || 0}
+          dateRange={selectedCluster?.metrics?.dateRange}
+          toolTypes={selectedToolTypes}
+          activities={clusterWithActivities?.activities}
+          result={selectedClusterState?.result || null}
+          isLoading={selectedClusterState?.status === 'generating'}
+          polishEnabled={polishEnabled}
+          onPolishToggle={setPolishEnabled}
+          framework={framework}
+          onFrameworkChange={handleFrameworkChange}
+          onRegenerate={handleRegenerate}
+          story={selectedStory}
+          onSave={handleSaveStory}
+          onPublish={handlePublishStory}
+          onUnpublish={handleUnpublishStory}
+          onVisibilityChange={handleVisibilityChange}
+          isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
+          isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
+        />
+      </MobileSheet>
     </div>
   );
 }
