@@ -1,61 +1,202 @@
 /**
  * NarrativePreview Component
  *
- * Displays career story narratives with dynamic framework support.
- * Supports STAR, SOAR, CAR, PAR, SHARE, CARL and other frameworks.
- *
- * States:
- * - Loading: Shows skeleton placeholders during generation
- * - Error: Shows validation failure message with failed gates
- * - Placeholder: Shows when no story is selected
- * - Success: Shows full narrative with edit capabilities
+ * Displays career story narratives with a clean, story-focused design.
+ * Built for real-world use: job negotiations, promotions, and 1:1s.
+ * Emphasizes readability, narrative flow, and interview preparation.
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
-import { RefreshCw, Check, Edit2, Copy, AlertTriangle, Lightbulb, CheckCircle2, Clock, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import {
+  RefreshCw,
+  Check,
+  Copy,
+  AlertTriangle,
+  Lightbulb,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  Trash2,
+  Share2,
+  TrendingUp,
+  MessageSquare,
+  Play,
+  Pause,
+  RotateCcw,
+  Mic,
+  FileText,
+  Linkedin,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { STARComponent, ToolType, GenerateSTARResult, NarrativeFramework, ToolActivity, CareerStory, StoryVisibility } from '../../types/career-stories';
+import {
+  STARComponent,
+  ToolType,
+  GenerateSTARResult,
+  NarrativeFramework,
+  ToolActivity,
+  CareerStory,
+  StoryVisibility,
+} from '../../types/career-stories';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ToolIcon } from './ToolIcon';
 import { FrameworkSelector } from './FrameworkSelector';
 import { TIMING, DISPLAY_LIMITS, CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
 
 // =============================================================================
-// STORY STATUS
+// TYPES & HELPERS
 // =============================================================================
 
 type StoryStatus = 'complete' | 'in-progress' | 'draft';
 
-/**
- * Derive story status from overall confidence.
- * - Complete: >= 0.8
- * - In Progress: >= 0.5
- * - Draft: < 0.5
- */
 function getStoryStatus(confidence: number): StoryStatus {
   if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'complete';
   if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'in-progress';
   return 'draft';
 }
 
-const StoryStatusBadge: React.FC<{ status: StoryStatus }> = ({ status }) => {
+function capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function mapSectionToStarKey(sectionKey: string): 'situation' | 'task' | 'action' | 'result' {
+  const mapping: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
+    situation: 'situation',
+    task: 'task',
+    action: 'action',
+    result: 'result',
+    context: 'situation',
+    challenge: 'situation',
+    problem: 'situation',
+    obstacles: 'task',
+    hindrances: 'task',
+    actions: 'action',
+    objective: 'task',
+    results: 'result',
+    outcome: 'result',
+    learning: 'result',
+    evaluation: 'result',
+  };
+  return mapping[sectionKey.toLowerCase()] || 'result';
+}
+
+// Section descriptions and coaching tips for interviews
+const SECTION_COACHING: Record<string, { description: string; tip: string; interviewNote: string }> = {
+  situation: {
+    description: 'Set the scene and context',
+    tip: 'Keep it brief — 2-3 sentences max. Focus on business impact.',
+    interviewNote: 'Interviewers want to understand scope. Mention team size, timeline, stakes.',
+  },
+  context: {
+    description: 'Set the scene and context',
+    tip: 'Keep it brief — 2-3 sentences max. Focus on business impact.',
+    interviewNote: 'Interviewers want to understand scope. Mention team size, timeline, stakes.',
+  },
+  task: {
+    description: 'Your specific responsibility',
+    tip: 'Be clear about YOUR role, not the team\'s. Use "I", not "we".',
+    interviewNote: 'This shows ownership. What were YOU accountable for?',
+  },
+  objective: {
+    description: 'Your specific responsibility',
+    tip: 'Be clear about YOUR role, not the team\'s. Use "I", not "we".',
+    interviewNote: 'This shows ownership. What were YOU accountable for?',
+  },
+  action: {
+    description: 'Steps you took',
+    tip: 'This is the meat. Be specific. What tools, frameworks, approaches?',
+    interviewNote: 'Hiring managers want to see HOW you think. Technical depth matters here.',
+  },
+  actions: {
+    description: 'Steps you took',
+    tip: 'This is the meat. Be specific. What tools, frameworks, approaches?',
+    interviewNote: 'Hiring managers want to see HOW you think. Technical depth matters here.',
+  },
+  result: {
+    description: 'Outcomes and impact',
+    tip: 'Quantify everything. Revenue, time saved, users impacted, % improvements.',
+    interviewNote: 'Numbers are memorable. "Reduced load time 40%" sticks; "made it faster" doesn\'t.',
+  },
+  results: {
+    description: 'Outcomes and impact',
+    tip: 'Quantify everything. Revenue, time saved, users impacted, % improvements.',
+    interviewNote: 'Numbers are memorable. "Reduced load time 40%" sticks; "made it faster" doesn\'t.',
+  },
+  obstacles: {
+    description: 'Challenges you faced',
+    tip: 'Show problem-solving ability. What was blocking progress?',
+    interviewNote: 'This demonstrates resilience. Every good story has conflict.',
+  },
+  hindrances: {
+    description: 'Challenges you faced',
+    tip: 'Show problem-solving ability. What was blocking progress?',
+    interviewNote: 'This demonstrates resilience. Every good story has conflict.',
+  },
+  learning: {
+    description: 'What you learned',
+    tip: 'Show growth mindset. What would you do differently?',
+    interviewNote: 'Senior roles require reflection. This shows maturity.',
+  },
+  evaluation: {
+    description: 'Reflection on the outcome',
+    tip: 'Be honest. What worked, what didn\'t?',
+    interviewNote: 'Self-awareness is a senior trait. Don\'t oversell.',
+  },
+  challenge: {
+    description: 'The problem to solve',
+    tip: 'Frame it as a business problem, not a technical one.',
+    interviewNote: 'Show you understand why this mattered to the business.',
+  },
+  problem: {
+    description: 'The problem to solve',
+    tip: 'Frame it as a business problem, not a technical one.',
+    interviewNote: 'Show you understand why this mattered to the business.',
+  },
+};
+
+// Extract metrics from text
+function extractMetrics(text: string): string[] {
+  const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?|calls?|transactions?))/gi;
+  const matches = text.match(metricPattern) || [];
+  return [...new Set(matches)].slice(0, 6); // Dedupe and limit
+}
+
+// Estimate speaking time (avg 150 words per minute)
+function estimateSpeakingTime(text: string): number {
+  const words = text.trim().split(/\s+/).length;
+  return Math.ceil((words / 150) * 60); // seconds
+}
+
+// Format time as mm:ss
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// =============================================================================
+// STATUS BADGE
+// =============================================================================
+
+const StatusBadge: React.FC<{ status: StoryStatus }> = ({ status }) => {
   const config = {
     complete: {
-      label: 'Complete',
+      label: 'Interview Ready',
       icon: CheckCircle2,
-      className: 'bg-green-100 text-green-700 border-green-200',
+      className: 'bg-green-50 text-green-700 border-green-200',
     },
     'in-progress': {
-      label: 'In Progress',
+      label: 'Needs Polish',
       icon: Clock,
-      className: 'bg-amber-100 text-amber-700 border-amber-200',
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     draft: {
       label: 'Draft',
       icon: Lightbulb,
-      className: 'bg-gray-100 text-gray-600 border-gray-200',
+      className: 'bg-gray-50 text-gray-600 border-gray-200',
     },
   };
 
@@ -64,719 +205,350 @@ const StoryStatusBadge: React.FC<{ status: StoryStatus }> = ({ status }) => {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
+        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border',
         className
       )}
     >
-      <Icon className="h-3 w-3" />
+      <Icon className="h-3.5 w-3.5" />
       {label}
     </span>
   );
 };
 
 // =============================================================================
-// STAR PROGRESS BAR
+// PRACTICE MODE TIMER
 // =============================================================================
 
-interface STARProgressBarProps {
-  situation: number;
-  task: number;
-  action: number;
-  result: number;
+interface PracticeTimerProps {
+  totalSeconds: number;
+  isActive: boolean;
+  onToggle: () => void;
+  onReset: () => void;
 }
 
-/**
- * Get component status based on confidence threshold.
- */
-function getComponentStatus(confidence: number): 'complete' | 'partial' | 'pending' {
-  if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'complete';
-  if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'partial';
-  return 'pending';
-}
-
-const STARProgressBar: React.FC<STARProgressBarProps> = ({
-  situation,
-  task,
-  action,
-  result,
+const PracticeTimer: React.FC<PracticeTimerProps> = ({
+  totalSeconds,
+  isActive,
+  onToggle,
+  onReset,
 }) => {
-  // Calculate overall progress (average of all components, scaled to percentage)
-  const overallProgress = Math.round(((situation + task + action + result) / 4) * 100);
+  const [elapsed, setElapsed] = useState(0);
 
-  const components = [
-    { letter: 'S', confidence: situation },
-    { letter: 'T', confidence: task },
-    { letter: 'A', confidence: action },
-    { letter: 'R', confidence: result },
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isActive) {
+      interval = setInterval(() => {
+        setElapsed((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isActive]);
+
+  const handleReset = () => {
+    setElapsed(0);
+    onReset();
+  };
+
+  const isOverTime = elapsed > totalSeconds;
+  const idealRange = elapsed >= totalSeconds * 0.8 && elapsed <= totalSeconds * 1.2;
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+      <Mic className={cn('h-3.5 w-3.5', isActive ? 'text-red-500 animate-pulse' : 'text-gray-400')} />
+      <div className="flex items-center gap-2">
+        <span className={cn(
+          'font-mono text-sm font-semibold',
+          isOverTime ? 'text-red-500' : idealRange ? 'text-green-600' : 'text-gray-900'
+        )}>
+          {formatTime(elapsed)}
+        </span>
+        <span className="text-xs text-gray-400">/ {formatTime(totalSeconds)}</span>
+      </div>
+      <div className="flex items-center gap-1 ml-auto">
+        <button
+          onClick={onToggle}
+          className={cn(
+            'p-1.5 rounded transition-colors',
+            isActive ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-600'
+          )}
+        >
+          {isActive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+        </button>
+        <button onClick={handleReset} className="p-1.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// =============================================================================
+// KEY METRICS (Compact inline)
+// =============================================================================
+
+interface KeyMetricsProps {
+  metrics: string[];
+}
+
+const KeyMetrics: React.FC<KeyMetricsProps> = ({ metrics }) => {
+  if (metrics.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+        <TrendingUp className="h-3 w-3" />
+        Key numbers:
+      </span>
+      {metrics.slice(0, 4).map((metric, idx) => (
+        <span
+          key={idx}
+          className="inline-flex items-center px-2 py-0.5 bg-primary-50 rounded text-xs font-semibold text-primary-700"
+        >
+          {metric}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+// =============================================================================
+// COPY FORMAT SELECTOR
+// =============================================================================
+
+type CopyFormat = 'interview' | 'linkedin' | 'resume' | 'raw';
+
+interface CopyMenuProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCopy: (format: CopyFormat) => void;
+}
+
+const CopyMenu: React.FC<CopyMenuProps> = ({ isOpen, onClose, onCopy }) => {
+  if (!isOpen) return null;
+
+  const formats: { id: CopyFormat; label: string; icon: React.ElementType; description: string }[] = [
+    { id: 'interview', label: 'Interview Format', icon: MessageSquare, description: 'Full STAR with context' },
+    { id: 'linkedin', label: 'LinkedIn Post', icon: Linkedin, description: 'Engaging story format' },
+    { id: 'resume', label: 'Resume Bullet', icon: FileText, description: 'Concise achievement' },
+    { id: 'raw', label: 'Plain Text', icon: Copy, description: 'Just the content' },
   ];
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          STAR Progress
-        </span>
-        <span className="text-sm font-semibold text-gray-700">{overallProgress}%</span>
-      </div>
-      {/* Progress bar */}
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-          style={{ width: `${overallProgress}%` }}
-        />
-      </div>
-      {/* S-T-A-R breakdown */}
-      <div className="flex items-center justify-center gap-2">
-        {components.map(({ letter, confidence }) => {
-          const status = getComponentStatus(confidence);
-          const statusStyles = {
-            complete: 'bg-green-500 text-white border-green-500',
-            partial: 'bg-amber-100 text-amber-700 border-amber-300',
-            pending: 'bg-gray-100 text-gray-400 border-gray-200',
-          };
-          return (
-            <span
-              key={letter}
-              className={cn(
-                'w-7 h-7 flex items-center justify-center text-xs font-bold rounded border',
-                statusStyles[status]
-              )}
-              title={`${letter}: ${Math.round(confidence * 100)}% confidence`}
-            >
-              {letter}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// =============================================================================
-// FRAMEWORK PROGRESS BAR (Dynamic)
-// =============================================================================
-
-interface FrameworkProgressBarProps {
-  sections: string[];
-  getSectionConfidence: (section: string) => number;
-}
-
-/**
- * Dynamic progress bar that shows letters for any framework's sections.
- */
-const FrameworkProgressBar: React.FC<FrameworkProgressBarProps> = ({
-  sections,
-  getSectionConfidence,
-}) => {
-  const confidences = sections.map((s) => getSectionConfidence(s));
-  const overallProgress = Math.round(
-    (confidences.reduce((sum, c) => sum + c, 0) / confidences.length) * 100
-  );
-
-  return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          {sections.map((s) => s[0].toUpperCase()).join('')} Progress
-        </span>
-        <span className="text-sm font-semibold text-gray-700">{overallProgress}%</span>
-      </div>
-      {/* Progress bar */}
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-          style={{ width: `${overallProgress}%` }}
-        />
-      </div>
-      {/* Section letters breakdown */}
-      <div className="flex items-center justify-center gap-2">
-        {sections.map((section, idx) => {
-          const confidence = confidences[idx];
-          const status = getComponentStatus(confidence);
-          const statusStyles = {
-            complete: 'bg-green-500 text-white border-green-500',
-            partial: 'bg-amber-100 text-amber-700 border-amber-300',
-            pending: 'bg-gray-100 text-gray-400 border-gray-200',
-          };
-          return (
-            <span
-              key={section}
-              className={cn(
-                'w-7 h-7 flex items-center justify-center text-xs font-bold rounded border',
-                statusStyles[status]
-              )}
-              title={`${capitalizeFirst(section)}: ${Math.round(confidence * 100)}% confidence`}
-            >
-              {section[0].toUpperCase()}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// =============================================================================
-// HELPER FUNCTIONS
-// =============================================================================
-
-/** Capitalize first letter of a string */
-function capitalizeFirst(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-/**
- * Map framework section key to STAR component key for fallback.
- * Used when story.sections doesn't have framework-specific data.
- * Note: This is a best-effort approximation - SHARE/SOAR sections
- * like hindrances, obstacles, evaluation have different semantics than STAR.
- */
-function mapSectionToStarKey(sectionKey: string): 'situation' | 'task' | 'action' | 'result' {
-  const mapping: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
-    // STAR sections
-    situation: 'situation',
-    task: 'task',
-    action: 'action',
-    result: 'result',
-    // Context/challenge variants → situation
-    context: 'situation',
-    challenge: 'situation',
-    problem: 'situation',
-    // SOAR obstacles → task (represents the difficulty to overcome)
-    obstacles: 'task',
-    // SHARE hindrances → task (represents challenges that impacted progress)
-    hindrances: 'task',
-    // Action variants
-    actions: 'action',
-    objective: 'task',
-    // Result variants
-    results: 'result',
-    outcome: 'result',
-    // Learning/evaluation → result (reflection on outcomes)
-    learning: 'result',
-    evaluation: 'result',
-  };
-  return mapping[sectionKey.toLowerCase()] || 'result';
-}
-
-// =============================================================================
-// SUGGESTED EDITS (What's Missing)
-// =============================================================================
-
-interface SuggestedEditsProps {
-  edits: string[];
-}
-
-const SuggestedEdits: React.FC<SuggestedEditsProps> = ({ edits }) => {
-  if (!edits || edits.length === 0) return null;
-
-  return (
-    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-      <h4 className="flex items-center gap-1.5 text-sm font-medium text-amber-800 mb-2">
-        <Lightbulb className="h-4 w-4" />
-        What's Missing
-      </h4>
-      <ul className="space-y-1">
-        {edits.map((edit, idx) => (
-          <li key={idx} className="text-sm text-amber-700 pl-5 relative">
-            <span className="absolute left-0">•</span>
-            {edit}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
-
-// =============================================================================
-// EVIDENCE CHIPS
-// =============================================================================
-
-interface EvidenceChipsProps {
-  sourceIds: string[];
-  activities: ToolActivity[];
-  maxDisplay?: number;
-}
-
-/**
- * Display clickable chips for source activities.
- * Shows tool icon + truncated title for each activity.
- */
-const EvidenceChips: React.FC<EvidenceChipsProps> = ({
-  sourceIds,
-  activities,
-  maxDisplay = 3,
-}) => {
-  if (!sourceIds || sourceIds.length === 0 || !activities || activities.length === 0) {
-    return null;
-  }
-
-  // Create lookup map for activities
-  const activityMap = useMemo(() => {
-    const map = new Map<string, ToolActivity>();
-    activities.forEach((a) => map.set(a.id, a));
-    return map;
-  }, [activities]);
-
-  // Get activities for source IDs
-  const sourceActivities = sourceIds
-    .map((id) => activityMap.get(id))
-    .filter((a): a is ToolActivity => a !== undefined);
-
-  if (sourceActivities.length === 0) return null;
-
-  const displayActivities = sourceActivities.slice(0, maxDisplay);
-  const remainingCount = sourceActivities.length - maxDisplay;
-
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-2">
-      {displayActivities.map((activity) => (
-        <a
-          key={activity.id}
-          href={activity.sourceUrl || '#'}
-          target={activity.sourceUrl ? '_blank' : undefined}
-          rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
-          className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full',
-            'bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors',
-            'max-w-[200px] truncate',
-            !activity.sourceUrl && 'cursor-default'
-          )}
-          title={activity.title}
-          onClick={(e) => !activity.sourceUrl && e.preventDefault()}
+    <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2">
+      {formats.map((fmt) => (
+        <button
+          key={fmt.id}
+          onClick={() => { onCopy(fmt.id); onClose(); }}
+          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
         >
-          <ToolIcon tool={activity.source} className="w-3 h-3 text-[6px] flex-shrink-0" />
-          <span className="truncate">{activity.title}</span>
-          {activity.sourceUrl && (
-            <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 text-gray-400" />
-          )}
-        </a>
-      ))}
-      {remainingCount > 0 && (
-        <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">
-          +{remainingCount} more
-        </span>
-      )}
-    </div>
-  );
-};
-
-// Confidence dot component
-const ConfidenceDot: React.FC<{ confidence: number }> = ({ confidence }) => {
-  const getColor = () => {
-    if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'bg-green-500';
-    if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  return (
-    <span
-      className={cn('inline-block w-2 h-2 rounded-full', getColor())}
-      title={`Confidence: ${Math.round(confidence * 100)}%`}
-      aria-label={`Confidence: ${Math.round(confidence * 100)}%`}
-    />
-  );
-};
-
-/**
- * Parse text content and render with rich formatting.
- * Supports: bullet points, metrics highlighting, paragraphs.
- */
-const RichTextContent: React.FC<{ text: string }> = ({ text }) => {
-  // Check if content has bullet points
-  const lines = text.split('\n').filter((line) => line.trim());
-  const hasBullets = lines.some((line) => /^[-•*]\s/.test(line.trim()));
-
-  if (hasBullets) {
-    const bullets: string[] = [];
-    let currentParagraph = '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (/^[-•*]\s/.test(trimmed)) {
-        if (currentParagraph) {
-          bullets.push(currentParagraph);
-          currentParagraph = '';
-        }
-        bullets.push(trimmed.replace(/^[-•*]\s+/, ''));
-      } else {
-        currentParagraph += (currentParagraph ? ' ' : '') + trimmed;
-      }
-    }
-    if (currentParagraph) bullets.push(currentParagraph);
-
-    return (
-      <ul className="space-y-2">
-        {bullets.map((bullet, idx) => (
-          <li key={idx} className="flex items-start gap-2">
-            <span className="text-blue-500 mt-1.5">•</span>
-            <span className="text-sm text-gray-700">{highlightMetrics(bullet)}</span>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  // Regular paragraphs
-  return (
-    <div className="space-y-2">
-      {lines.map((line, idx) => (
-        <p key={idx} className="text-sm text-gray-700">
-          {highlightMetrics(line)}
-        </p>
+          <fmt.icon className="h-4 w-4 text-gray-400" />
+          <div>
+            <div className="text-sm font-medium text-gray-900">{fmt.label}</div>
+            <div className="text-xs text-gray-500">{fmt.description}</div>
+          </div>
+        </button>
       ))}
     </div>
   );
 };
 
-/**
- * Highlight metrics/numbers in text (e.g., "85%", "3x", "$10K").
- */
-function highlightMetrics(text: string): React.ReactNode {
-  const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:\.\d+)?[KMB]?|\d+(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?))/g;
-  const parts = text.split(metricPattern);
+// =============================================================================
+// NARRATIVE SECTION (Main content block)
+// =============================================================================
 
-  return parts.map((part, idx) => {
-    if (metricPattern.test(part)) {
-      return (
-        <span key={idx} className="font-semibold text-green-700 bg-green-50 px-1 rounded">
-          {part}
-        </span>
-      );
-    }
-    return part;
-  });
-}
-
-// STAR section component with enhanced rendering
-interface STARSectionProps {
+interface NarrativeSectionProps {
+  sectionKey: string;
   label: string;
-  component: STARComponent;
+  content: string;
+  confidence: number;
   isEditing: boolean;
   editValue: string;
   onEditChange: (value: string) => void;
   activities?: ToolActivity[];
-  /** Optional evidence descriptions from story sections */
-  evidenceDescriptions?: Array<{ activityId: string; description?: string }>;
+  sourceIds?: string[];
+  isFirst?: boolean;
+  showCoaching?: boolean;
 }
 
-const STARSection: React.FC<STARSectionProps> = ({
+const NarrativeSection: React.FC<NarrativeSectionProps> = ({
+  sectionKey,
   label,
-  component,
+  content,
+  confidence,
   isEditing,
   editValue,
   onEditChange,
   activities = [],
-  evidenceDescriptions = [],
+  sourceIds = [],
+  isFirst = false,
+  showCoaching = false,
 }) => {
-  // Match source IDs to activities for display
-  const sourceActivities = activities.filter((a) => component.sources.includes(a.id));
-  const hasEvidence = sourceActivities.length > 0 || evidenceDescriptions.length > 0;
+  const [showEvidence, setShowEvidence] = useState(false);
+  const sourceActivities = activities.filter((a) => sourceIds.includes(a.id));
+  const hasEvidence = sourceActivities.length > 0;
+  const coaching = SECTION_COACHING[sectionKey.toLowerCase()];
+
+  // Highlight metrics in text
+  const renderContent = (text: string) => {
+    const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?))/gi;
+    const parts = text.split(metricPattern);
+
+    return parts.map((part, idx) => {
+      if (metricPattern.test(part)) {
+        return (
+          <span key={idx} className="font-semibold text-primary-700 bg-primary-50/70 px-0.5 rounded">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
 
   return (
-    <div className="mb-5">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-          {label}
-        </h4>
-        {/* Show confidence dot only - no numeric score to avoid confusing users */}
-        <ConfidenceDot confidence={component.confidence} />
-      </div>
-      {isEditing ? (
-        <textarea
-          value={editValue}
-          onChange={(e) => onEditChange(e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          rows={4}
-        />
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          {/* Main content */}
-          <div className="p-4">
-            <RichTextContent text={component.text} />
+    <div className={cn('relative', !isFirst && 'pt-4')}>
+      {/* Editorial layout: margin notes + main content */}
+      <div className={cn('flex gap-4', showCoaching ? 'flex-row' : 'flex-col')}>
+        {/* Margin notes (coaching tips) - only shown when coaching enabled */}
+        {showCoaching && coaching && (
+          <div className="hidden lg:block w-40 flex-shrink-0 -ml-2">
+            <div className="sticky top-20 text-[11px] leading-relaxed text-gray-500 italic">
+              <p className="mb-2">{coaching.tip}</p>
+              <p className="text-amber-700/80 not-italic font-medium">
+                {coaching.interviewNote}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          {/* Section header */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-semibold text-gray-900">{label}</span>
+            {coaching?.description && !showCoaching && (
+              <span className="text-xs text-gray-400 hidden sm:inline">
+                — {coaching.description}
+              </span>
+            )}
           </div>
 
-          {/* Evidence/Provenance section */}
-          {hasEvidence && (
-            <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2">
-                <LinkIcon className="w-3 h-3" />
-                <span className="font-medium">Evidence</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {sourceActivities.slice(0, 5).map((activity) => {
-                  const desc = evidenceDescriptions.find((e) => e.activityId === activity.id);
-                  return (
-                    <a
-                      key={activity.id}
-                      href={activity.sourceUrl || '#'}
-                      target={activity.sourceUrl ? '_blank' : undefined}
-                      rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-md',
-                        'bg-white border border-gray-200 text-gray-700',
-                        'hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors',
-                        'max-w-[250px]',
-                        !activity.sourceUrl && 'cursor-default hover:bg-white hover:border-gray-200 hover:text-gray-700'
-                      )}
-                      title={desc?.description || activity.title}
-                      onClick={(e) => !activity.sourceUrl && e.preventDefault()}
-                    >
-                      <ToolIcon tool={activity.source} className="w-3.5 h-3.5 text-[7px] flex-shrink-0" />
-                      <span className="truncate">{activity.title}</span>
-                      {activity.sourceUrl && (
-                        <ExternalLink className="h-3 w-3 flex-shrink-0 text-gray-400" />
-                      )}
-                    </a>
-                  );
-                })}
-                {sourceActivities.length > 5 && (
-                  <span className="inline-flex items-center px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-500">
-                    +{sourceActivities.length - 5} more
-                  </span>
+          {/* Content */}
+          {isEditing ? (
+            <div>
+              <textarea
+                value={editValue}
+                onChange={(e) => onEditChange(e.target.value)}
+                className={cn(
+                  'w-full p-3 border border-gray-200 rounded-lg text-sm resize-none',
+                  'focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
+                  'bg-white transition-shadow'
                 )}
-              </div>
+                rows={3}
+                placeholder={`Describe the ${label.toLowerCase()}...`}
+              />
+              {coaching && (
+                <p className="mt-1.5 text-[11px] text-gray-500 italic">
+                  {coaching.tip}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="relative">
+              <p className="text-[14px] leading-[1.7] text-gray-700">
+                {renderContent(content)}
+              </p>
+
+              {/* Evidence toggle */}
+              {hasEvidence && (
+                <button
+                  onClick={() => setShowEvidence(!showEvidence)}
+                  className={cn(
+                    'mt-2 inline-flex items-center gap-1 text-[11px] font-medium',
+                    'text-gray-400 hover:text-primary-600 transition-colors'
+                  )}
+                >
+                  {showEvidence ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                  {sourceActivities.length} source{sourceActivities.length > 1 ? 's' : ''}
+                </button>
+              )}
+
+              {/* Evidence list - compact */}
+              {showEvidence && hasEvidence && (
+                <div className="mt-2 pl-3 border-l border-gray-200">
+                  <div className="space-y-1">
+                    {sourceActivities.slice(0, 4).map((activity) => (
+                      <a
+                        key={activity.id}
+                        href={activity.sourceUrl || '#'}
+                        target={activity.sourceUrl ? '_blank' : undefined}
+                        rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
+                        className={cn(
+                          'flex items-center gap-1.5 py-1 text-[11px] text-gray-500',
+                          'hover:text-gray-900 transition-colors group',
+                          !activity.sourceUrl && 'cursor-default hover:text-gray-500'
+                        )}
+                        onClick={(e) => !activity.sourceUrl && e.preventDefault()}
+                      >
+                        <ToolIcon tool={activity.source} className="w-3 h-3 text-[6px]" />
+                        <span className="truncate">{activity.title}</span>
+                        {activity.sourceUrl && (
+                          <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100" />
+                        )}
+                      </a>
+                    ))}
+                    {sourceActivities.length > 4 && (
+                      <span className="text-[10px] text-gray-400">
+                        +{sourceActivities.length - 4} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile coaching tip - shown inline on smaller screens */}
+              {showCoaching && coaching && (
+                <div className="lg:hidden mt-3 p-2 bg-amber-50/50 rounded border-l-2 border-amber-200">
+                  <p className="text-[11px] text-amber-800 italic">{coaching.interviewNote}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
-    </div>
-  );
-};
-
-// Import shared use-case frameworks from FrameworkPickerModal
-import { USE_CASE_FRAMEWORKS } from './FrameworkPickerModal';
-
-/**
- * Regenerate button with framework selection dropdown.
- * Shows use-case focused options and all frameworks.
- */
-interface RegenerateButtonProps {
-  currentFramework: NarrativeFramework;
-  onRegenerate: () => void;
-  onFrameworkChange: (framework: NarrativeFramework) => void;
-  isLoading: boolean;
-}
-
-const RegenerateButton: React.FC<RegenerateButtonProps> = ({
-  currentFramework,
-  onRegenerate,
-  onFrameworkChange,
-  isLoading,
-}) => {
-  const [showOptions, setShowOptions] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'useCases' | 'allFormats'>('useCases');
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    if (!showOptions) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowOptions(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showOptions]);
-
-  const handleRegenerateWithFramework = (framework: NarrativeFramework) => {
-    setShowOptions(false);
-    if (framework !== currentFramework) {
-      onFrameworkChange(framework);
-    }
-    // Trigger regeneration after framework change
-    setTimeout(() => onRegenerate(), 100);
-  };
-
-  const handleQuickRegenerate = () => {
-    if (window.confirm(`Regenerate with ${currentFramework} format? This will replace the current content.`)) {
-      onRegenerate();
-    }
-  };
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <div className="flex items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleQuickRegenerate}
-          disabled={isLoading}
-          className="rounded-r-none border-r-0"
-          data-testid="regenerate-star"
-        >
-          <RefreshCw className={cn("h-4 w-4 mr-1", isLoading && "animate-spin")} />
-          Regenerate
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowOptions(!showOptions)}
-          disabled={isLoading}
-          className="rounded-l-none px-2"
-          aria-label="More regenerate options"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </Button>
       </div>
-
-      {/* Dropdown with use-case and framework options */}
-      {showOptions && (
-        <div className="absolute right-0 mt-1 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setSelectedTab('useCases')}
-              className={cn(
-                'flex-1 px-4 py-2 text-sm font-medium transition-colors',
-                selectedTab === 'useCases'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              )}
-            >
-              For Use Case
-            </button>
-            <button
-              onClick={() => setSelectedTab('allFormats')}
-              className={cn(
-                'flex-1 px-4 py-2 text-sm font-medium transition-colors',
-                selectedTab === 'allFormats'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              )}
-            >
-              All Formats
-            </button>
-          </div>
-
-          <div className="max-h-72 overflow-y-auto">
-            {selectedTab === 'useCases' ? (
-              /* Use-case focused view */
-              <div className="p-2 space-y-1">
-                {Object.entries(USE_CASE_FRAMEWORKS).map(([key, useCase]) => (
-                  <div key={key} className="rounded-lg border border-gray-100 overflow-hidden">
-                    <div className="px-3 py-2 bg-gray-50 flex items-center gap-2">
-                      <span className="text-lg">{useCase.icon}</span>
-                      <div>
-                        <div className="font-medium text-gray-900 text-sm">{useCase.label}</div>
-                        <div className="text-xs text-gray-500">{useCase.description}</div>
-                      </div>
-                    </div>
-                    <div className="px-3 py-2 flex flex-wrap gap-1.5">
-                      {useCase.frameworks.map((fw, idx) => {
-                        const meta = NARRATIVE_FRAMEWORKS[fw];
-                        const isCurrent = fw === currentFramework;
-                        return (
-                          <button
-                            key={fw}
-                            onClick={() => handleRegenerateWithFramework(fw)}
-                            className={cn(
-                              'px-2.5 py-1 text-xs rounded-md transition-colors',
-                              isCurrent
-                                ? 'bg-blue-100 text-blue-700 font-medium'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                              idx === 0 && !isCurrent && 'ring-1 ring-amber-300 bg-amber-50'
-                            )}
-                            title={meta.description}
-                          >
-                            {meta.label}
-                            {idx === 0 && !isCurrent && ' ⭐'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              /* All formats view */
-              <div className="py-1">
-                {(Object.keys(NARRATIVE_FRAMEWORKS) as NarrativeFramework[]).map((fw) => {
-                  const meta = NARRATIVE_FRAMEWORKS[fw];
-                  const isCurrent = fw === currentFramework;
-                  return (
-                    <button
-                      key={fw}
-                      onClick={() => handleRegenerateWithFramework(fw)}
-                      className={cn(
-                        'w-full px-3 py-2 text-left hover:bg-gray-50 flex items-start gap-3',
-                        isCurrent && 'bg-blue-50'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5',
-                        isCurrent ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                      )}>
-                        {isCurrent && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{meta.label}</span>
-                          {isCurrent && (
-                            <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500">{meta.description}</div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-interface STARPreviewProps {
-  /** Display name for the cluster */
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
+interface NarrativePreviewProps {
   clusterName: string;
-  /** Number of activities in the cluster */
   activityCount: number;
-  /** Date range of activities (ISO strings) */
   dateRange?: { earliest: string; latest: string };
-  /** Tool types for displaying icons */
   toolTypes: ToolType[];
-  /** Activities in the cluster for evidence linking */
   activities?: ToolActivity[];
-  /** Generation result - null when not yet generated */
   result: GenerateSTARResult | null;
-  /** Whether STAR is currently being generated */
   isLoading: boolean;
-  /** Whether AI polish is enabled for regeneration */
   polishEnabled: boolean;
-  /** Callback when polish toggle changes */
   onPolishToggle: (enabled: boolean) => void;
-  /** Currently selected narrative framework */
   framework: NarrativeFramework;
-  /** Callback when framework changes - triggers regeneration */
   onFrameworkChange: (framework: NarrativeFramework) => void;
-  /** Callback to regenerate the STAR */
   onRegenerate: () => void;
-  /** Callback to save user edits */
-  onSave?: (edits: { situation?: string; task?: string; action?: string; result?: string }) => void;
-  /** Saved career story metadata (if persisted) */
+  onSave?: (edits: Record<string, string>) => void;
   story?: CareerStory | null;
-  /** Publish a story with visibility */
-  onPublish?: (visibility: StoryVisibility, edits: { situation?: string; task?: string; action?: string; result?: string }) => void;
-  /** Unpublish a story */
+  onPublish?: (visibility: StoryVisibility, edits: Record<string, string>) => void;
   onUnpublish?: () => void;
-  /** Update visibility on published story */
   onVisibilityChange?: (visibility: StoryVisibility) => void;
-  /** Loading state for save */
   isSaving?: boolean;
-  /** Loading state for publish actions */
   isPublishing?: boolean;
-  /** Callback to delete the story */
   onDelete?: () => void;
-  /** Loading state for delete */
   isDeleting?: boolean;
 }
 
@@ -802,36 +574,59 @@ export function NarrativePreview({
   isPublishing = false,
   onDelete,
   isDeleting = false,
-}: STARPreviewProps) {
+}: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
-  const [selectedVisibility, setSelectedVisibility] = useState<StoryVisibility>(story?.visibility || 'private');
   const [edits, setEdits] = useState<Record<string, string>>({});
-
-  // Ref to track timeout for cleanup
+  const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const [practiceMode, setPracticeMode] = useState(true); // On by default
+  const [timerActive, setTimerActive] = useState(false);
+  const [showCoaching, setShowCoaching] = useState(true); // On by default
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const copyMenuRef = useRef<HTMLDivElement>(null);
 
   const star = result?.star;
-
-  // Get framework sections from constants
   const frameworkMeta = NARRATIVE_FRAMEWORKS[framework];
   const sectionKeys = frameworkMeta?.sections || ['situation', 'task', 'action', 'result'];
-
-  // Determine if we should render from story.sections (dynamic) or star (hardcoded STAR)
   const useStorySections = story && story.sections && Object.keys(story.sections).length > 0;
 
-  // Initialize edits when star or story is loaded
+  // Extract all text for metrics and timing
+  const allText = useMemo(() => {
+    const parts: string[] = [];
+    for (const key of sectionKeys) {
+      if (useStorySections && story?.sections?.[key]) {
+        parts.push(story.sections[key].summary || '');
+      } else if (star) {
+        const starKey = mapSectionToStarKey(key);
+        parts.push(star[starKey]?.text || '');
+      }
+    }
+    return parts.join(' ');
+  }, [sectionKeys, useStorySections, story, star]);
+
+  const keyMetrics = useMemo(() => extractMetrics(allText), [allText]);
+  const estimatedTime = useMemo(() => estimateSpeakingTime(allText), [allText]);
+
+  // Close copy menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (copyMenuRef.current && !copyMenuRef.current.contains(e.target as Node)) {
+        setShowCopyMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Initialize edits when data changes
   useEffect(() => {
     if (useStorySections && story?.sections) {
-      // Initialize from story sections (dynamic framework)
       const newEdits: Record<string, string> = {};
       for (const key of sectionKeys) {
         newEdits[key] = story.sections[key]?.summary || '';
       }
       setEdits(newEdits);
     } else if (star) {
-      // Fallback to STAR structure
       setEdits({
         situation: star.situation.text,
         task: star.task.text,
@@ -842,17 +637,8 @@ export function NarrativePreview({
   }, [star, story, useStorySections, sectionKeys.join(',')]);
 
   useEffect(() => {
-    if (story?.visibility) {
-      setSelectedVisibility(story.visibility);
-    }
-  }, [story?.visibility]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
     return () => {
-      if (copyTimeoutRef.current) {
-        clearTimeout(copyTimeoutRef.current);
-      }
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
     };
   }, []);
 
@@ -861,276 +647,195 @@ export function NarrativePreview({
     try {
       const earliest = new Date(dateRange.earliest);
       const latest = new Date(dateRange.latest);
-      // Validate dates are valid
-      if (isNaN(earliest.getTime()) || isNaN(latest.getTime())) {
-        return '';
-      }
-      return `${format(earliest, 'MMM d')} - ${format(latest, 'MMM d')}`;
+      if (isNaN(earliest.getTime()) || isNaN(latest.getTime())) return '';
+      return `${format(earliest, 'MMM d')} - ${format(latest, 'MMM d, yyyy')}`;
     } catch {
       return '';
     }
   };
 
-  /**
-   * Copy narrative to clipboard using the current framework's sections.
-   * Handles clipboard API failures gracefully.
-   */
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async (format: CopyFormat = 'raw') => {
     if (!star && !story?.sections) return;
 
-    // Build copy text using framework-aware sections
-    const textParts: string[] = [];
-
-    for (const sectionKey of sectionKeys) {
-      const label = sectionKey.toUpperCase();
-      let content = '';
-
-      // Try story.sections first (framework-specific)
-      if (useStorySections && story?.sections?.[sectionKey]) {
-        content = story.sections[sectionKey].summary || '';
+    const getSectionContent = (key: string): string => {
+      if (useStorySections && story?.sections?.[key]) {
+        return story.sections[key].summary || '';
       } else if (star) {
-        // Fallback to STAR structure with mapping
-        const starKey = mapSectionToStarKey(sectionKey);
-        content = star[starKey]?.text || '';
+        const starKey = mapSectionToStarKey(key);
+        return star[starKey]?.text || '';
       }
+      return '';
+    };
 
-      if (content) {
-        textParts.push(`${label}:\n${content}`);
+    let textToCopy = '';
+
+    switch (format) {
+      case 'interview': {
+        // Full structured format for interview prep
+        const parts: string[] = [`# ${clusterName}`, ''];
+        for (const key of sectionKeys) {
+          const content = getSectionContent(key);
+          if (content) {
+            parts.push(`## ${capitalizeFirst(key)}`);
+            parts.push(content);
+            parts.push('');
+          }
+        }
+        if (keyMetrics.length > 0) {
+          parts.push('## Key Numbers to Remember');
+          parts.push(keyMetrics.join(' | '));
+        }
+        textToCopy = parts.join('\n');
+        break;
+      }
+      case 'linkedin': {
+        // Engaging story format for LinkedIn
+        const situation = getSectionContent('situation') || getSectionContent('context') || getSectionContent('challenge');
+        const action = getSectionContent('action') || getSectionContent('actions');
+        const result = getSectionContent('result') || getSectionContent('results');
+
+        const parts = [
+          `🎯 ${clusterName}`,
+          '',
+          situation ? `The challenge: ${situation}` : '',
+          '',
+          action ? `What I did: ${action}` : '',
+          '',
+          result ? `The result: ${result}` : '',
+          '',
+          keyMetrics.length > 0 ? `📊 ${keyMetrics.slice(0, 3).join(' • ')}` : '',
+          '',
+          '#careerjourney #techleadership #growthmindset',
+        ].filter(Boolean);
+        textToCopy = parts.join('\n');
+        break;
+      }
+      case 'resume': {
+        // Single powerful bullet point
+        const action = getSectionContent('action') || getSectionContent('actions');
+        const result = getSectionContent('result') || getSectionContent('results');
+        const metrics = keyMetrics.slice(0, 2).join(', ');
+
+        const actionVerb = action.split(' ')[0] || 'Led';
+        const resultSummary = result.split('.')[0] || result;
+
+        textToCopy = `• ${actionVerb} ${clusterName.toLowerCase()}, resulting in ${resultSummary}${metrics ? ` (${metrics})` : ''}`;
+        break;
+      }
+      default: {
+        // Raw format
+        const parts: string[] = [];
+        for (const key of sectionKeys) {
+          const content = getSectionContent(key);
+          if (content) parts.push(`${capitalizeFirst(key)}:\n${content}`);
+        }
+        textToCopy = parts.join('\n\n');
       }
     }
-
-    const text = textParts.join('\n\n');
 
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
-      setCopyError(false);
-
-      // Clear any existing timeout
-      if (copyTimeoutRef.current) {
-        clearTimeout(copyTimeoutRef.current);
-      }
-
-      // Reset copied state after delay
-      copyTimeoutRef.current = setTimeout(() => {
-        setCopied(false);
-      }, TIMING.COPY_FEEDBACK_MS);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), TIMING.COPY_FEEDBACK_MS);
     } catch (err) {
-      // Clipboard API can fail due to permissions or browser support
-      console.warn('Failed to copy to clipboard:', err);
-      setCopyError(true);
-
-      // Reset error state after delay
-      copyTimeoutRef.current = setTimeout(() => {
-        setCopyError(false);
-      }, TIMING.COPY_FEEDBACK_MS);
+      console.warn('Failed to copy:', err);
     }
-  };
+  }, [star, story, useStorySections, sectionKeys, clusterName, keyMetrics]);
 
   const handleSave = () => {
-    if (onSave) {
-      onSave(edits);
-    }
+    onSave?.(edits);
     setIsEditing(false);
-  };
-
-  const handlePublish = () => {
-    if (onPublish) {
-      onPublish(selectedVisibility, edits);
-    }
-  };
-
-  const handleVisibilityChange = (value: StoryVisibility) => {
-    setSelectedVisibility(value);
-    if (story?.isPublished && onVisibilityChange) {
-      onVisibilityChange(value);
-    }
   };
 
   // Loading state
   if (isLoading) {
     return (
-      <Card data-testid="star-preview-loading">
-        <CardHeader>
-          <CardTitle className="text-lg">{clusterName}</CardTitle>
-          <p className="text-sm text-gray-500">Generating STAR...</p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {['SITUATION', 'TASK', 'ACTION', 'RESULT'].map((section) => (
-              <div key={section}>
-                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2" />
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
-                  <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
-                  <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
-                </div>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview-loading">
+        <div className="p-6 border-b border-gray-100">
+          <div className="h-6 w-48 bg-gray-100 rounded animate-pulse" />
+          <div className="h-4 w-32 bg-gray-100 rounded animate-pulse mt-2" />
+        </div>
+        <div className="p-6 space-y-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="space-y-3">
+              <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-gray-100 rounded animate-pulse" />
+                <div className="h-4 w-full bg-gray-100 rounded animate-pulse" />
+                <div className="h-4 w-3/4 bg-gray-100 rounded animate-pulse" />
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
-  // Validation failed state
+  // Error state
   if (result && !star) {
     return (
-      <Card data-testid="star-preview-error">
-        <CardHeader>
-          <CardTitle className="text-lg">{clusterName}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Can't generate STAR
-            </h3>
-            <p className="text-sm text-gray-600 mb-4 max-w-sm">
-              This cluster needs more data to create a meaningful story.
-            </p>
-            {result.failedGates && result.failedGates.length > 0 && (
-              <ul className="text-sm text-gray-600 list-disc list-inside mb-4">
-                {result.failedGates.map((gate, idx) => (
-                  <li key={idx}>{gate}</li>
-                ))}
-              </ul>
-            )}
-            <p className="text-sm text-gray-500">
-              Try adding more related work or merging with another cluster.
-            </p>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview-error">
+        <div className="p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="h-7 w-7 text-amber-500" />
           </div>
-        </CardContent>
-      </Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Can't generate story</h3>
+          <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+            This entry needs more details to create a meaningful narrative.
+          </p>
+          {result.failedGates && result.failedGates.length > 0 && (
+            <div className="text-sm text-gray-500 mb-4">
+              {result.failedGates.map((gate, idx) => (
+                <div key={idx}>• {gate}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     );
   }
 
-  // No result yet (placeholder)
+  // Placeholder state
   if (!result || !star) {
     return (
-      <Card data-testid="star-preview-placeholder">
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <span className="text-3xl">📁</span>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview-placeholder">
+        <div className="p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Select a cluster to preview
-          </h3>
-          <p className="text-sm text-gray-500 max-w-xs">
-            Choose a cluster from the list and generate a STAR narrative for your interview preparation.
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a story</h3>
+          <p className="text-sm text-gray-500 max-w-xs mx-auto">
+            Choose a story from the list to preview and edit your career narrative.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
-  // Compute story status from confidence
   const storyStatus = getStoryStatus(star.overallConfidence);
 
-  // Full STAR display
   return (
-    <Card data-testid="star-preview" aria-live="polite">
-      {/* Compact Header with all actions */}
-      <CardHeader className="pb-2">
-        {/* Row 1: Title + Status + Actions */}
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview">
+      {/* Compact Header */}
+      <div className="px-4 py-3 border-b border-gray-100">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <CardTitle className="text-lg truncate">{clusterName}</CardTitle>
-            <StoryStatusBadge status={storyStatus} />
-          </div>
-          {/* All actions in header - subtle */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <RegenerateButton
-              currentFramework={framework}
-              onRegenerate={onRegenerate}
-              onFrameworkChange={onFrameworkChange}
-              isLoading={isLoading}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(!isEditing)}
-              data-testid="edit-star"
-              title="Edit"
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCopy}
-              data-testid="copy-star"
-              title={copied ? 'Copied!' : 'Copy to clipboard'}
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-green-500" />
-              ) : copyError ? (
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-              ) : (
-                <Copy className="h-4 w-4" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-gray-900 truncate">{clusterName}</h2>
+              <StatusBadge status={storyStatus} />
+            </div>
+            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+              <span>{activityCount} activities</span>
+              {formatDateRange() && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span>{formatDateRange()}</span>
+                </>
               )}
-            </Button>
-            {onPublish && (
-              <>
-                {story?.isPublished ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onUnpublish?.()}
-                    disabled={isPublishing}
-                    title="Unpublish"
-                    className="text-green-600"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handlePublish}
-                    disabled={isPublishing}
-                    title="Publish"
-                  >
-                    {isPublishing ? <RefreshCw className="h-4 w-4 animate-spin" /> : '📤'}
-                  </Button>
-                )}
-              </>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDelete}
-                disabled={isDeleting}
-                title="Delete"
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              >
-                🗑️
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Row 2: Meta info + Framework selector */}
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>{activityCount} activities</span>
-            {formatDateRange() && (
-              <>
-                <span>•</span>
-                <span>{formatDateRange()}</span>
-              </>
-            )}
-            {toolTypes.length > 0 && (
-              <>
-                <span>•</span>
-                <div className="flex items-center gap-1">
-                  {toolTypes.slice(0, DISPLAY_LIMITS.TOOL_ICONS_PREVIEW).map((tool, idx) => (
-                    <ToolIcon key={`${tool}-${idx}`} tool={tool} className="w-4 h-4 text-[8px]" />
-                  ))}
-                </div>
-              </>
-            )}
+              <span className="text-gray-300">•</span>
+              <span>~{formatTime(estimatedTime)}</span>
+            </div>
           </div>
           <FrameworkSelector
             value={framework}
@@ -1139,103 +844,163 @@ export function NarrativePreview({
           />
         </div>
 
-        {/* Progress Bar - compact */}
-        <div className="mt-3">
-          <FrameworkProgressBar
-            sections={sectionKeys}
-            getSectionConfidence={(key) => {
-              if (useStorySections && story?.sections?.[key]) {
-                return story.sections[key].summary ? 0.8 : 0.3;
-              }
-              const starKey = key as keyof Pick<typeof star, 'situation' | 'task' | 'action' | 'result'>;
-              return star?.[starKey]?.confidence ?? 0.3;
-            }}
+        {/* Key Metrics inline */}
+        {keyMetrics.length > 0 && !isEditing && (
+          <div className="mt-2 pt-2 border-t border-gray-50">
+            <KeyMetrics metrics={keyMetrics} />
+          </div>
+        )}
+      </div>
+
+      {/* Compact Toolbar */}
+      <div className="px-4 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRegenerate}
+            disabled={isLoading}
+            className="h-7 text-xs text-gray-600"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5 mr-1', isLoading && 'animate-spin')} />
+            Regenerate
+          </Button>
+          <Button
+            variant={isEditing ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+            disabled={isSaving}
+            className={cn('h-7 text-xs', !isEditing && 'text-gray-600')}
+          >
+            {isEditing ? (isSaving ? 'Saving...' : 'Save') : 'Edit'}
+          </Button>
+          {isEditing && (
+            <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-7 text-xs text-gray-500">
+              Cancel
+            </Button>
+          )}
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <button
+            onClick={() => setShowCoaching(!showCoaching)}
+            className={cn(
+              'h-7 px-2 rounded text-xs font-medium transition-colors',
+              showCoaching ? 'bg-amber-100 text-amber-700' : 'text-gray-500 hover:bg-gray-100'
+            )}
+            title="Show interview coaching tips"
+          >
+            <Lightbulb className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => { setPracticeMode(!practiceMode); setTimerActive(false); }}
+            className={cn(
+              'h-7 px-2 rounded text-xs font-medium transition-colors',
+              practiceMode ? 'bg-primary-100 text-primary-700' : 'text-gray-500 hover:bg-gray-100'
+            )}
+            title="Practice mode with timer"
+          >
+            <Mic className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-0.5">
+          <div className="relative" ref={copyMenuRef}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCopyMenu(!showCopyMenu)}
+              className={cn('h-7 px-2', copied ? 'text-green-500' : 'text-gray-500')}
+              title="Copy to clipboard"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+            <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
+          </div>
+          {story?.isPublished ? (
+            <Button variant="ghost" size="sm" onClick={() => onUnpublish?.()} disabled={isPublishing} className="h-7 px-2 text-green-600" title="Unpublish">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : onPublish && (
+            <Button variant="ghost" size="sm" onClick={() => onPublish('private', edits)} disabled={isPublishing} className="h-7 px-2 text-gray-500" title="Publish">
+              <Share2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="ghost" size="sm" onClick={onDelete} disabled={isDeleting} className="h-7 px-2 text-gray-400 hover:text-red-500" title="Delete">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Practice Timer (only when active) */}
+      {practiceMode && (
+        <div className="px-4 py-2 border-b border-gray-100">
+          <PracticeTimer
+            totalSeconds={estimatedTime}
+            isActive={timerActive}
+            onToggle={() => setTimerActive(!timerActive)}
+            onReset={() => setTimerActive(false)}
           />
         </div>
-      </CardHeader>
+      )}
 
-      <CardContent className="pt-2">
-
-        {/* Render sections dynamically based on framework */}
-        {sectionKeys.map((sectionKey) => {
-          // Get section data from story or star
+      {/* Narrative Content - with editorial margin layout when coaching is on */}
+      <div className={cn(
+        'py-4 divide-y divide-gray-100',
+        showCoaching ? 'px-4 lg:pl-6 lg:pr-4' : 'px-4'
+      )}>
+        {sectionKeys.map((sectionKey, idx) => {
           let component: STARComponent;
           if (useStorySections && story?.sections?.[sectionKey]) {
             const section = story.sections[sectionKey];
             component = {
-              text: section.summary || `${sectionKey}: details pending`,
+              text: section.summary || `Details pending...`,
               sources: section.evidence?.map((e) => e.activityId) || [],
               confidence: section.summary ? 0.8 : 0.3,
             };
           } else {
-            // Fallback to STAR structure with mapping
             const starKey = mapSectionToStarKey(sectionKey);
-            component = star?.[starKey] || { text: `${sectionKey}: details pending`, sources: [], confidence: 0.3 };
+            component = star?.[starKey] || { text: 'Details pending...', sources: [], confidence: 0.3 };
           }
 
-          // Get evidence descriptions from story sections if available
-          const evidenceDescriptions = useStorySections && story?.sections?.[sectionKey]?.evidence
-            ? story.sections[sectionKey].evidence
-            : [];
-
           return (
-            <STARSection
+            <NarrativeSection
               key={sectionKey}
+              sectionKey={sectionKey}
               label={capitalizeFirst(sectionKey)}
-              component={component}
+              content={component.text}
+              confidence={component.confidence}
               isEditing={isEditing}
               editValue={edits[sectionKey] || ''}
               onEditChange={(v) => setEdits({ ...edits, [sectionKey]: v })}
               activities={activities}
-              evidenceDescriptions={evidenceDescriptions}
+              sourceIds={component.sources}
+              isFirst={idx === 0}
+              showCoaching={showCoaching}
             />
           );
         })}
+      </div>
 
-        {/* Suggested Edits (What's Missing) - only show if there are suggestions */}
-        {star?.suggestedEdits && star.suggestedEdits.length > 0 && (
-          <SuggestedEdits edits={star.suggestedEdits} />
-        )}
-
-        {/* Minimal footer - edit save button + polish indicator */}
-        <div className="flex items-center justify-between pt-3 mt-2 border-t border-gray-100">
-          <div className="flex items-center gap-3">
-            {isEditing && (
-              <Button
-                size="sm"
-                onClick={handleSave}
-                data-testid="save-star"
-                disabled={isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            )}
-            {isEditing && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditing(false)}
-              >
-                Cancel
-              </Button>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-xs text-gray-400">
+      {/* Footer */}
+      {(star?.suggestedEdits?.length > 0 || result.polishStatus === 'success') && (
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center justify-between text-xs text-gray-500">
             {result.polishStatus === 'success' && (
-              <span className="flex items-center gap-1">
-                <Check className="h-3 w-3 text-green-500" />
-                AI polished
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary-500" />
+                AI-enhanced narrative
               </span>
             )}
-            {story?.isPublished && (
-              <span className="flex items-center gap-1 text-green-600">
-                <CheckCircle2 className="h-3 w-3" />
-                Published
+            {star?.suggestedEdits?.length > 0 && (
+              <span className="flex items-center gap-1.5 text-amber-600">
+                <Lightbulb className="h-3.5 w-3.5" />
+                {star.suggestedEdits.length} suggestion{star.suggestedEdits.length > 1 ? 's' : ''} to improve
               </span>
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

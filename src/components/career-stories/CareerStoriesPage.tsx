@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle2, Clock, FileText, Search, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, FileText, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
@@ -31,8 +31,7 @@ import {
 } from '../../hooks/useCareerStories';
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
-import { StoryList } from './StoryList';
-import { StoryViewTabs, StoryViewType } from './StoryViewTabs';
+import { StoryTimeline } from './StoryTimeline';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
@@ -152,10 +151,6 @@ export function CareerStoriesPage() {
   const [showingDemo, setShowingDemo] = useState(isDemoMode());
   // Celebration state for newly created stories
   const [showCelebration, setShowCelebration] = useState(false);
-  // Story view filter
-  const [storyView, setStoryView] = useState<StoryViewType>('all');
-  // Search query for stories
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -533,38 +528,10 @@ export function CareerStoriesPage() {
   }, [selectedStoryDirect]);
 
   // Compute stats for the stats bar - include both clusters and standalone stories
-  // Story view counts for tabs
-  const storyCounts = useMemo(() => {
-    const stories = existingStories?.stories || [];
-    return {
-      all: stories.length,
-      published: stories.filter((s) => s.isPublished).length,
-      drafts: stories.filter((s) => !s.isPublished).length,
-    };
+  // Get all stories for timeline
+  const allStories = useMemo(() => {
+    return existingStories?.stories || [];
   }, [existingStories]);
-
-  // Filter stories based on view and search
-  const filteredStories = useMemo(() => {
-    let stories = existingStories?.stories || [];
-
-    // Filter by view
-    if (storyView === 'published') {
-      stories = stories.filter((s) => s.isPublished);
-    } else if (storyView === 'drafts') {
-      stories = stories.filter((s) => !s.isPublished);
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      stories = stories.filter((s) =>
-        s.title.toLowerCase().includes(query) ||
-        s.framework.toLowerCase().includes(query)
-      );
-    }
-
-    return stories;
-  }, [existingStories, storyView, searchQuery]);
 
   const stats = useMemo(() => {
     let complete = 0;
@@ -766,125 +733,63 @@ export function CareerStoriesPage() {
     }
   }, [savedStories, selectedCluster, selectedStoryDirect, setVisibilityMutation]);
 
+  // Sidebar collapsed state - auto-collapse when story is selected
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Auto-collapse sidebar when a story is selected on desktop
+  useEffect(() => {
+    if (selectedStoryDirect && window.innerWidth >= BREAKPOINTS.DESKTOP) {
+      setSidebarCollapsed(true);
+    }
+  }, [selectedStoryDirect]);
+
   return (
-    <div className="min-h-screen bg-gray-50" data-testid="career-stories-page">
-      {/* Header - matches journal page style */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="lg:hidden -ml-2"
-                aria-label="Go back"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-primary-600" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900">
-                    Career Stories
-                  </h1>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats inline - compact */}
-            <div className="hidden md:flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <span className="font-medium text-gray-700">{storyCounts.published}</span>
-                <span>published</span>
-              </div>
-              <div className="w-px h-4 bg-gray-200" />
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <Clock className="h-4 w-4 text-amber-500" />
-                <span className="font-medium text-gray-700">{storyCounts.drafts}</span>
-                <span>drafts</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Celebration Banner - shown when a new story is created via wizard */}
+    <div className="h-full bg-gray-50 flex" data-testid="career-stories-page">
+      {/* Celebration toast - positioned fixed */}
       {showCelebration && (
-        <div className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex items-center justify-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-500">
-              <CheckCircle2 className="h-5 w-5" />
-              <span>Career story created! Your draft has been promoted.</span>
-              <button
-                onClick={() => setShowCelebration(false)}
-                className="ml-2 text-white/80 hover:text-white transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-primary-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm animate-in fade-in slide-in-from-top-2">
+          <CheckCircle2 className="h-4 w-4" />
+          <span>Story created!</span>
+          <button onClick={() => setShowCelebration(false)} className="ml-2 hover:text-white/80">
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
-      {/* Toolbar - tabs and search */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between gap-4">
-            {/* Tabs */}
-            <StoryViewTabs
-              activeView={storyView}
-              onViewChange={setStoryView}
-              counts={storyCounts}
-            />
-
-            {/* Search */}
-            <div className="relative max-w-xs flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search stories..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={cn(
-                  'w-full pl-9 pr-8 py-1.5 text-sm rounded-lg',
-                  'border border-gray-200 bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:bg-white',
-                  'placeholder:text-gray-400 transition-colors'
-                )}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto">
-        {/* Desktop: Two-column layout */}
-        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6 lg:p-6 min-h-[calc(100vh-4rem)]">
-          {/* Left column: Story list (primary) - shows stories from promote flow */}
-          <div className="lg:col-span-4 bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <StoryList
-              stories={filteredStories}
+      {/* Desktop: Sidebar + Main content - seamless with header */}
+      <div className="hidden lg:flex flex-1 overflow-hidden">
+        {/* Collapsible sidebar with timeline - no extra header */}
+        <div
+          className={cn(
+            'flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 overflow-hidden',
+            sidebarCollapsed ? 'w-0' : 'w-64'
+          )}
+        >
+          <div className="w-64 h-full overflow-y-auto">
+            <StoryTimeline
+              stories={allStories}
               selectedStoryId={selectedStoryDirect?.id || null}
               isLoading={isLoadingClusters}
               onSelectStory={handleSelectStory}
             />
           </div>
+        </div>
 
-          {/* Right column: STAR preview */}
-          <div className="lg:col-span-8">
+        {/* Toggle button - thin rail */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className={cn(
+            'flex-shrink-0 w-4 bg-gray-100/50 border-r border-gray-200 flex items-center justify-center',
+            'text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors'
+          )}
+          title={sidebarCollapsed ? 'Show stories' : 'Hide stories'}
+        >
+          {sidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
+
+        {/* Main content - full width for story focus */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="w-full px-6 py-4">
             <NarrativePreview
               clusterName={selectedStoryDirect?.title || selectedCluster?.name || `Cluster ${selectedCluster?.id?.slice(-6) || ''}`}
               activityCount={selectedStoryDirect?.activityIds.length || selectedCluster?.activityCount || 0}
@@ -910,11 +815,23 @@ export function CareerStoriesPage() {
             />
           </div>
         </div>
+      </div>
 
-        {/* Mobile: Full-width story list */}
-        <div className="lg:hidden">
-          <StoryList
-            stories={filteredStories}
+      {/* Mobile: Full-width layout */}
+      <div className="lg:hidden flex-1 overflow-hidden flex flex-col">
+        {/* Mobile header */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <FileText className="h-4 w-4 text-primary-600" />
+          <span className="text-sm font-semibold text-gray-900">Stories</span>
+        </div>
+
+        {/* Mobile timeline */}
+        <div className="flex-1 overflow-y-auto bg-white">
+          <StoryTimeline
+            stories={allStories}
             selectedStoryId={selectedStoryDirect?.id || null}
             isLoading={isLoadingClusters}
             onSelectStory={handleSelectStory}
@@ -950,7 +867,7 @@ export function CareerStoriesPage() {
             isDeleting={deleteStoryMutation.isPending}
           />
         </MobileSheet>
-      </main>
+      </div>
     </div>
   );
 }
