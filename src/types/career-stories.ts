@@ -230,7 +230,7 @@ export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
 // CAREER STORIES
 // =============================================================================
 
-export type StoryVisibility = 'private' | 'workspace' | 'public';
+export type StoryVisibility = 'private' | 'workspace' | 'network';
 
 export interface CareerStorySection {
   summary: string;

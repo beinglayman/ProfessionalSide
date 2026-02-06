@@ -1116,7 +1116,7 @@ export const setStoryVisibility = asyncHandler(async (req: Request, res: Respons
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  if (!visibility || !['public', 'workspace', 'private'].includes(visibility)) {
+  if (!visibility || !['network', 'workspace', 'private'].includes(visibility)) {
     return void sendError(res, 'Invalid visibility value', 400);
   }
 
