@@ -80,6 +80,43 @@ export const generateStarSchema = z.object({
 export type GenerateStarInput = z.infer<typeof generateStarSchema>;
 
 // =============================================================================
+// REGENERATE STORY SCHEMAS
+// =============================================================================
+
+import { frameworkNameSchema } from './story-wizard.schemas';
+
+export const writingStyleSchema = z.enum([
+  'professional',
+  'casual',
+  'technical',
+  'storytelling',
+]);
+
+export type WritingStyle = z.infer<typeof writingStyleSchema>;
+
+/** Max length for user prompt to prevent excessively long LLM inputs */
+export const USER_PROMPT_MAX_LENGTH = 500;
+
+/**
+ * Schema for POST /stories/:id/regenerate request body
+ */
+export const regenerateStorySchema = z.object({
+  framework: frameworkNameSchema.optional(),
+  style: writingStyleSchema.optional(),
+  userPrompt: z
+    .string()
+    .max(USER_PROMPT_MAX_LENGTH)
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const trimmed = val.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    }),
+}).strict();
+
+export type RegenerateStoryInput = z.infer<typeof regenerateStorySchema>;
+
+// =============================================================================
 // HELPER
 // =============================================================================
 

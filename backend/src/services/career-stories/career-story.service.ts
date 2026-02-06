@@ -30,6 +30,7 @@ import {
   FrameworkName as PromptFrameworkName,
   JournalEntryContent,
   FRAMEWORK_SECTIONS,
+  WritingStyle,
 } from '../ai/prompts/career-story.prompt';
 
 /** Simplified Format7Data type for journal content extraction */
@@ -407,7 +408,9 @@ export class CareerStoryService {
     content: JournalContent,
     framework: FrameworkName,
     title: string,
-    activityIds: string[]
+    activityIds: string[],
+    style?: WritingStyle,
+    userPrompt?: string
   ): Promise<NarrativeSections | null> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
@@ -438,6 +441,8 @@ export class CareerStoryService {
     const messages = buildCareerStoryMessages({
       journalEntry,
       framework: framework as PromptFrameworkName,
+      style,
+      userPrompt,
     });
 
     try {
@@ -1068,7 +1073,9 @@ export class CareerStoryService {
   async regenerate(
     storyId: string,
     userId: string,
-    framework?: FrameworkName
+    framework?: FrameworkName,
+    style?: WritingStyle,
+    userPrompt?: string
   ): Promise<StoryResult> {
     const story = await prisma.careerStory.findFirst({
       where: { id: storyId, userId, sourceMode: this.sourceMode },
@@ -1113,7 +1120,9 @@ export class CareerStoryService {
         journalContent,
         nextFramework,
         journalEntry.title || story.title,
-        story.activityIds
+        story.activityIds,
+        style,
+        userPrompt
       );
 
       if (llmSections) {

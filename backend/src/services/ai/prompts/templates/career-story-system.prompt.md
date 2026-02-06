@@ -220,6 +220,10 @@ Each framework structures the story differently to emphasize different aspects:
 }
 ```
 
+## Writing Style
+
+When a writing style is specified, adapt the tone accordingly while maintaining the chosen framework structure. Default to professional if no style is specified.
+
 ## Output Requirements
 
 You MUST return valid JSON matching the exact schema provided. Do not include markdown code blocks.

@@ -64,9 +64,16 @@ export interface ExtractedContext {
   impactType?: 'performance' | 'cost' | 'capability' | 'risk' | 'experience';
 }
 
+import type { WritingStyle } from '../../../controllers/career-stories.schemas';
+export type { WritingStyle };
+
 export interface CareerStoryPromptParams {
   journalEntry: JournalEntryContent;
   framework: FrameworkName;
+  /** Optional: Writing style for tone adaptation */
+  style?: WritingStyle;
+  /** Optional: Free-text user instructions for regeneration */
+  userPrompt?: string;
   /** Optional: Story archetype for narrative shaping */
   archetype?: StoryArchetype;
   /** Optional: Extracted context from Story Coach D-I-G questions */
@@ -173,7 +180,7 @@ export function getCareerStorySystemPrompt(): string {
  * Get the user prompt for career story generation.
  */
 export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): string {
-  const { journalEntry, framework } = params;
+  const { journalEntry, framework, style, userPrompt } = params;
   const sectionKeys = FRAMEWORK_SECTIONS[framework];
   const sectionsList = sectionKeys.join(', ');
 
@@ -196,6 +203,8 @@ export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): strin
     sectionKeys,
     sectionsList,
     sectionGuidelines,
+    style: style || undefined,
+    userPrompt: userPrompt || undefined,
   });
 }
 

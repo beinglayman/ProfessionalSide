@@ -15,6 +15,7 @@ import {
   extractSkillsFromContent,
   withTimeout,
   SeedServiceError,
+  DemoServiceError,
 } from './seed.service';
 
 // =============================================================================
@@ -740,7 +741,7 @@ describe('DemoServiceError', () => {
     const error = new DemoServiceError('Not found', 'ENTRY_NOT_FOUND');
     expect(error.message).toBe('Not found');
     expect(error.code).toBe('ENTRY_NOT_FOUND');
-    expect(error.name).toBe('DemoServiceError');
+    expect(error.name).toBe('SeedServiceError');
   });
 
   it('is instanceof Error', () => {

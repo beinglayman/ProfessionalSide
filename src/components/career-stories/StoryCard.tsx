@@ -16,13 +16,15 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { CareerStory } from '../../types/career-stories';
+import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
 import { NARRATIVE_FRAMEWORKS } from './constants';
+import { FormatChip } from './FormatChip';
 
 interface StoryCardProps {
   story: CareerStory;
   isSelected: boolean;
   onClick: () => void;
+  onFormatChange?: (storyId: string, framework: NarrativeFramework, style: WritingStyle) => void;
 }
 
 // Status badge component
@@ -95,7 +97,7 @@ function estimateSpeakingTime(story: CareerStory): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function StoryCard({ story, isSelected, onClick }: StoryCardProps) {
+export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryCardProps) {
   const frameworkInfo = NARRATIVE_FRAMEWORKS[story.framework];
   const formattedDate = story.generatedAt
     ? format(new Date(story.generatedAt), 'MMM d, yyyy')
@@ -137,12 +139,20 @@ export function StoryCard({ story, isSelected, onClick }: StoryCardProps) {
 
           {/* Meta row */}
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className={cn(
-              'px-1.5 py-0.5 rounded font-medium',
-              isSelected ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'
-            )}>
-              {frameworkInfo?.label || story.framework}
-            </span>
+            {onFormatChange ? (
+              <FormatChip
+                currentFramework={story.framework}
+                currentStyle="professional"
+                onFormatChange={(framework, style) => onFormatChange(story.id, framework, style)}
+              />
+            ) : (
+              <span className={cn(
+                'px-1.5 py-0.5 rounded font-medium',
+                isSelected ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'
+              )}>
+                {frameworkInfo?.label || story.framework}
+              </span>
+            )}
             <span>{story.activityIds.length} activities</span>
             <span className="text-gray-300">•</span>
             <span>~{speakingTime}</span>

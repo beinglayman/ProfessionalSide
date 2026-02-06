@@ -126,6 +126,22 @@ export const ARCHETYPE_GROUPS: Record<ArchetypeGroup, { label: string; descripti
 };
 
 // =============================================================================
+// WRITING STYLES
+// =============================================================================
+
+import type { WritingStyle } from '../../types/career-stories';
+
+export const WRITING_STYLES: { value: WritingStyle; label: string; description: string }[] = [
+  { value: 'professional', label: 'Professional', description: 'Formal, achievement-focused' },
+  { value: 'casual', label: 'Casual', description: 'Conversational, natural' },
+  { value: 'technical', label: 'Technical', description: 'Engineering-focused, detailed' },
+  { value: 'storytelling', label: 'Storytelling', description: 'Narrative-driven, engaging' },
+];
+
+/** Max length for user prompt to prevent excessively long LLM inputs */
+export const USER_PROMPT_MAX_LENGTH = 500;
+
+// =============================================================================
 // CAREER QUOTES
 // =============================================================================
 

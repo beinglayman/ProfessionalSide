@@ -501,6 +501,34 @@ function DraftsBanner({ storyGroups, showDraftsOnly, onToggle }: DraftsBannerPro
   }
   const totalActivities = uniqueActivityIds.size;
 
+  // Compute overall time span across all drafts
+  let minTime = Infinity;
+  let maxTime = -Infinity;
+  for (const g of storyGroups) {
+    const meta = g.storyMetadata;
+    if (!meta) continue;
+    if (meta.timeRangeStart) {
+      const t = new Date(meta.timeRangeStart).getTime();
+      if (t < minTime) minTime = t;
+    }
+    if (meta.timeRangeEnd) {
+      const t = new Date(meta.timeRangeEnd).getTime();
+      if (t > maxTime) maxTime = t;
+    }
+  }
+  // Format as "Jan 4 – Feb 5" or just "Feb 5" if same day
+  let timeSpan = '';
+  if (minTime !== Infinity && maxTime !== -Infinity) {
+    const startDate = new Date(minTime);
+    const endDate = new Date(maxTime);
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (startDate.toDateString() === endDate.toDateString()) {
+      timeSpan = fmt(endDate);
+    } else {
+      timeSpan = `${fmt(startDate)} – ${fmt(endDate)}`;
+    }
+  }
+
   // Collect top topics/skills across all drafts (deduplicated, max 3)
   const topicSet = new Set<string>();
   for (const g of storyGroups) {
@@ -528,24 +556,34 @@ function DraftsBanner({ storyGroups, showDraftsOnly, onToggle }: DraftsBannerPro
           showDraftsOnly ? 'text-purple-200' : 'text-purple-500'
         )} aria-hidden="true" />
         <div className="min-w-0">
-          <span className={cn(
-            'text-base font-semibold',
-            showDraftsOnly ? 'text-white' : 'text-gray-900'
-          )}>
-            {draftCount} draft {draftCount === 1 ? 'story' : 'stories'}
-          </span>
-          <span className={cn(
-            'text-sm ml-2',
-            showDraftsOnly ? 'text-purple-200' : 'text-gray-600'
-          )}>
-            from {totalActivities} {totalActivities === 1 ? 'activity' : 'activities'}
-            {topTopics.length > 0 && (
-              <>
-                <span className={showDraftsOnly ? 'text-purple-300 mx-1.5' : 'text-gray-400 mx-1.5'}>&middot;</span>
-                {topTopics.join(', ')}
-              </>
-            )}
-          </span>
+          <div>
+            <span className={cn(
+              'text-base font-semibold',
+              showDraftsOnly ? 'text-white' : 'text-gray-900'
+            )}>
+              {draftCount} draft {draftCount === 1 ? 'story' : 'stories'}
+            </span>
+            <span className={cn(
+              'text-sm',
+              showDraftsOnly ? 'text-purple-200' : 'text-gray-600'
+            )}>
+              {' '}covering {totalActivities} {totalActivities === 1 ? 'activity' : 'activities'}
+              {timeSpan && (
+                <>
+                  <span className={showDraftsOnly ? 'text-purple-300 mx-1' : 'text-gray-400 mx-1'}>&middot;</span>
+                  {timeSpan}
+                </>
+              )}
+            </span>
+          </div>
+          {topTopics.length > 0 && (
+            <div className={cn(
+              'text-xs mt-0.5',
+              showDraftsOnly ? 'text-purple-200' : 'text-gray-500'
+            )}>
+              {topTopics.join(', ')}
+            </div>
+          )}
         </div>
       </div>
       <button

@@ -53,7 +53,11 @@ describe('Pipeline Integration', () => {
       expect(sourcesWithRefs.get('confluence')).toBeGreaterThan(0);
       expect(sourcesWithRefs.get('slack')).toBeGreaterThan(0);
       expect(sourcesWithRefs.get('outlook')).toBeGreaterThan(0);
-      expect(sourcesWithRefs.get('google')).toBeGreaterThan(0);
+      // Google sources use specific sub-types (google-meet, google-docs, etc.)
+      const googleSources = [...sourcesWithRefs.entries()]
+        .filter(([key]) => key.startsWith('google-'))
+        .reduce((sum, [, val]) => sum + val, 0);
+      expect(googleSources).toBeGreaterThan(0);
       expect(sourcesWithRefs.get('figma')).toBeGreaterThan(0);
     });
 

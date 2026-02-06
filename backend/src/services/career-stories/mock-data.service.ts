@@ -854,7 +854,7 @@ export function getExpectedClusters(): { name: string; sharedRefs: string[]; act
         'acme/backend#42', 'meeting-67890', 'thread-reply-xyz', '987654',
         'AUTH-123', 'AUTH-124', 'SEC-100', 'acme/backend#75',
         'gcal-auth-review-meeting', 'gslides-auth-overview', 'ONCALL-101',
-        'acme/backend#70', 'DesignFile999XYZ',
+        'acme/backend#70', 'DesignFile999XYZ', 'commit:a1b2c3d',
         // Epic
         'EPIC-Q4-100',
         // Performance work
@@ -881,6 +881,7 @@ export function getExpectedClusters(): { name: string; sharedRefs: string[]; act
  */
 export function getExpectedUnclustered(): string[] {
   return [
+    'commit:e4f5g6h',    // Token refresh commit, no cross-project refs
     'DOC-789',           // Standalone documentation
     'acme/backend#60',   // Dependency update, no ticket refs
     'Abc123XYZ',         // Mobile redesign Figma, no cross-refs

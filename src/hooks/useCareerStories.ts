@@ -36,6 +36,7 @@ import {
   UpdateCareerStoryRequest,
   StoryVisibility,
   NarrativeFramework,
+  WritingStyle,
 } from '../types/career-stories';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
 // NOTE: DEMO_CLUSTERS and DEMO_STARS removed - CareerStories come from DB only
@@ -457,14 +458,14 @@ export const useUpdateCareerStory = () => {
 };
 
 /**
- * Regenerate a career story with a new framework
+ * Regenerate a career story with a new framework and optional writing style
  */
 export const useRegenerateCareerStory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, framework }: { id: string; framework: NarrativeFramework }) =>
-      CareerStoriesService.regenerateStory(id, framework),
+    mutationFn: ({ id, framework, style, userPrompt }: { id: string; framework: NarrativeFramework; style?: WritingStyle; userPrompt?: string }) =>
+      CareerStoriesService.regenerateStory(id, framework, style, userPrompt),
     onSuccess: (response) => {
       if (response.success) {
         queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });

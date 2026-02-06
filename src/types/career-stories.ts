@@ -170,6 +170,8 @@ export interface GenerateClustersResponse {
 
 export type NarrativeFramework = 'STAR' | 'STARL' | 'CAR' | 'PAR' | 'SAR' | 'SOAR' | 'SHARE' | 'CARL';
 
+export type WritingStyle = 'professional' | 'casual' | 'technical' | 'storytelling';
+
 export interface GenerateSTARRequest {
   personaId?: string;
   options?: {

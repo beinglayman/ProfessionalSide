@@ -37,6 +37,22 @@ Transform this journal entry into a "{{framework}}" career story.
 {{skills}}
 {{/if}}
 
+{{#if style}}
+## Writing Style
+Write in a **{{style}}** tone:
+- professional: formal, achievement-focused, suitable for resumes and reviews
+- casual: conversational, natural storytelling, suitable for 1:1s and networking
+- technical: detailed, engineering-focused, suitable for tech presentations
+- storytelling: narrative-driven, engaging, suitable for interviews and all-hands
+{{/if}}
+
+{{#if userPrompt}}
+## Additional Instructions from User
+The user has provided the following specific instructions for this regeneration. Follow them carefully:
+
+> {{userPrompt}}
+{{/if}}
+
 ## Target Framework: {{framework}}
 
 Generate sections for the {{framework}} framework:
