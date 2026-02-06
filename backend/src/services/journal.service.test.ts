@@ -36,11 +36,50 @@ async function getOrCreateTestUser(): Promise<string> {
       id: 'test-user-journal-' + Date.now(),
       email: `test-journal-${Date.now()}@example.com`,
       name: 'Journal Test User',
-      passwordHash: 'test-hash',
+      password: 'test-hash',
     },
   });
 
   return testUser.id;
+}
+
+/**
+ * Ensures the test user has a workspace, creating user + workspace if needed.
+ * Handles FK constraint by ensuring user row exists before workspace member creation.
+ */
+async function getOrCreateWorkspaceForUser(userId: string) {
+  let workspace = await prisma.workspace.findFirst({
+    where: { members: { some: { userId } } },
+  });
+
+  if (!workspace) {
+    // Ensure the user exists (may have been deleted by concurrent test cleanup)
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      await prisma.user.create({
+        data: {
+          id: userId,
+          email: `${userId}@test.com`,
+          name: 'Recreated Test User',
+          password: 'test-hash',
+        },
+      });
+    }
+
+    workspace = await prisma.workspace.create({
+      data: {
+        name: 'Test Workspace',
+        members: {
+          create: {
+            userId,
+            role: 'owner',
+          },
+        },
+      },
+    });
+  }
+
+  return workspace;
 }
 
 beforeAll(async () => {
@@ -441,24 +480,7 @@ describe('deleteJournalEntry', () => {
     const demoService = new JournalService(true);
 
     it('deletes entry from unified JournalEntry table when isDemoMode=true', async () => {
-      // First ensure we have a workspace for the test user
-      let workspace = await prisma.workspace.findFirst({
-        where: { members: { some: { userId: TEST_USER_ID } } },
-      });
-
-      if (!workspace) {
-        workspace = await prisma.workspace.create({
-          data: {
-            name: 'Test Workspace',
-            members: {
-              create: {
-                userId: TEST_USER_ID,
-                role: 'owner',
-              },
-            },
-          },
-        });
-      }
+      const workspace = await getOrCreateWorkspaceForUser(TEST_USER_ID);
 
       // Create a demo entry to delete using unified JournalEntry table with sourceMode: 'demo'
       const demoEntry = await prisma.journalEntry.create({
@@ -489,24 +511,7 @@ describe('deleteJournalEntry', () => {
     });
 
     it('throws "Access denied" when user does not own the entry', async () => {
-      // First ensure we have a workspace for the test user
-      let workspace = await prisma.workspace.findFirst({
-        where: { members: { some: { userId: TEST_USER_ID } } },
-      });
-
-      if (!workspace) {
-        workspace = await prisma.workspace.create({
-          data: {
-            name: 'Test Workspace',
-            members: {
-              create: {
-                userId: TEST_USER_ID,
-                role: 'owner',
-              },
-            },
-          },
-        });
-      }
+      const workspace = await getOrCreateWorkspaceForUser(TEST_USER_ID);
 
       // Create entry owned by test user using unified JournalEntry table
       const demoEntry = await prisma.journalEntry.create({
@@ -575,24 +580,7 @@ describe('getJournalEntryById', () => {
     });
 
     it('transforms demo entry to response format with all required fields', async () => {
-      // First ensure we have a workspace for the test user
-      let workspace = await prisma.workspace.findFirst({
-        where: { members: { some: { userId: TEST_USER_ID } } },
-      });
-
-      if (!workspace) {
-        workspace = await prisma.workspace.create({
-          data: {
-            name: 'Test Workspace',
-            members: {
-              create: {
-                userId: TEST_USER_ID,
-                role: 'owner',
-              },
-            },
-          },
-        });
-      }
+      const workspace = await getOrCreateWorkspaceForUser(TEST_USER_ID);
 
       // Create a demo entry using unified JournalEntry table
       const demoEntry = await prisma.journalEntry.create({

@@ -1025,7 +1025,7 @@ export const deleteStory = asyncHandler(async (req: Request, res: Response): Pro
 export const regenerateStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
-  const { framework } = req.body;
+  const { framework, style, userPrompt } = req.body;
 
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
@@ -1034,8 +1034,10 @@ export const regenerateStory = asyncHandler(async (req: Request, res: Response):
   const isDemoMode = isDemoModeRequest(req);
   const service = createCareerStoryService(isDemoMode);
 
-  // regenerate already checks existence
-  const result = await service.regenerate(id, userId, framework);
+  // Truncate userPrompt to prevent excessively long LLM inputs
+  const sanitizedPrompt = typeof userPrompt === 'string' ? userPrompt.slice(0, 500).trim() || undefined : undefined;
+
+  const result = await service.regenerate(id, userId, framework, style, sanitizedPrompt);
   if (!result.success) {
     const status = result.error === 'Story not found' ? 404 : 500;
     return void sendError(res, result.error || 'Regeneration failed', status);

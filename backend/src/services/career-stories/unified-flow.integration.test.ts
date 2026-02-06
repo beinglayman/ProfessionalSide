@@ -363,7 +363,7 @@ describe('Unified Flow Integration', () => {
       expect(result.success).toBe(true);
       expect(result.story!.framework).toBe('SOAR');
       expect(result.story!.activityIds.length).toBeGreaterThan(0);
-    });
+    }, 120_000);
 
     it('story shows needsRegeneration after activity edit', async () => {
       const storyService = createCareerStoryService(true);
@@ -406,7 +406,7 @@ describe('Unified Flow Integration', () => {
       );
 
       expect(regenResult.story!.needsRegeneration).toBe(false);
-    });
+    }, 120_000);
 
     it('stories are isolated by sourceMode', async () => {
       const demoService = createCareerStoryService(true);
@@ -648,6 +648,6 @@ describe('Unified Flow Integration', () => {
       expect(regenResult.story!.framework).toBe('CAR');
       expect(Object.keys(regenResult.story!.sections)).toContain('challenge');
       expect(Object.keys(regenResult.story!.sections)).not.toContain('situation');
-    });
+    }, 120_000);
   });
 });

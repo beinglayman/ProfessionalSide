@@ -11,7 +11,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, FileText, X, Sparkles, BookOpen, Loader2, Filter } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility } from '../../types/career-stories';
+import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
 import {
   useClusters,
@@ -32,6 +32,7 @@ import {
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
 import { StoryCard } from './StoryCard';
+import { FormatSwitchModal } from './FormatSwitchModal';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
@@ -151,6 +152,13 @@ export function CareerStoriesPage() {
   const [showingDemo, setShowingDemo] = useState(isDemoMode());
   // Celebration state for newly created stories
   const [showCelebration, setShowCelebration] = useState(false);
+  // Format switch modal state
+  const [formatSwitchState, setFormatSwitchState] = useState<{
+    storyId: string;
+    framework: NarrativeFramework;
+    style: WritingStyle;
+    userPrompt: string;
+  } | null>(null);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -299,24 +307,20 @@ export function CareerStoriesPage() {
     [generateStarMutation, polishEnabled, framework]
   );
 
-  // Handle framework change - save to localStorage and regenerate
+  // Handle framework change - save to localStorage and open modal or regenerate
   const handleFrameworkChange = useCallback(
     (newFramework: NarrativeFramework) => {
       setFramework(newFramework);
       localStorage.setItem('career-stories-framework', newFramework);
 
-      // Regenerate story if one is directly selected (from wizard)
+      // Open format switch modal if a story is directly selected
       if (selectedStoryDirect) {
-        regenerateStoryMutation.mutate(
-          { id: selectedStoryDirect.id, framework: newFramework },
-          {
-            onSuccess: (response) => {
-              if (response.success && response.data) {
-                setSelectedStoryDirect(response.data);
-              }
-            },
-          }
-        );
+        setFormatSwitchState({
+          storyId: selectedStoryDirect.id,
+          framework: newFramework,
+          style: 'professional',
+          userPrompt: '',
+        });
         return;
       }
 
@@ -325,7 +329,7 @@ export function CareerStoriesPage() {
         handleGenerateStar(selectedCluster.id, newFramework);
       }
     },
-    [selectedCluster, selectedStoryDirect, handleGenerateStar, regenerateStoryMutation]
+    [selectedCluster, selectedStoryDirect, handleGenerateStar]
   );
 
   const handleSelectCluster = useCallback((cluster: Cluster) => {
@@ -411,27 +415,60 @@ export function CareerStoriesPage() {
   }, [generateClustersMutation]);
 
   const handleRegenerate = useCallback(() => {
-    // If a story is selected directly, regenerate it via API
+    // If a story is selected directly, open the format switch modal
     if (selectedStoryDirect) {
-      // Use the current framework from state, not the story's saved framework
-      // This allows regenerating with a different framework (e.g., STAR → SHARE)
-      regenerateStoryMutation.mutate(
-        { id: selectedStoryDirect.id, framework },
-        {
-          onSuccess: (response) => {
-            if (response.success && response.data) {
-              setSelectedStoryDirect(response.data);
-            }
-          },
-        }
-      );
+      setFormatSwitchState({
+        storyId: selectedStoryDirect.id,
+        framework: selectedStoryDirect.framework || framework,
+        style: 'professional',
+        userPrompt: '',
+      });
       return;
     }
     // Otherwise, regenerate via cluster
     if (selectedCluster) {
       handleGenerateStar(selectedCluster.id);
     }
-  }, [selectedCluster, selectedStoryDirect, handleGenerateStar, regenerateStoryMutation, framework]);
+  }, [selectedCluster, selectedStoryDirect, handleGenerateStar, framework]);
+
+  // Format switch handlers
+  const handleFormatSwitch = useCallback((storyId: string, newFramework: NarrativeFramework, style: WritingStyle) => {
+    setFormatSwitchState({ storyId, framework: newFramework, style, userPrompt: '' });
+  }, []);
+
+  const formatSwitchStory = useMemo(() => {
+    if (!formatSwitchState) return null;
+    return existingStories?.stories?.find((s) => s.id === formatSwitchState.storyId) || null;
+  }, [formatSwitchState, existingStories]);
+
+  const handleFormatRegenerate = useCallback(async () => {
+    if (!formatSwitchState) return;
+    return new Promise<void>((resolve, reject) => {
+      regenerateStoryMutation.mutate(
+        {
+          id: formatSwitchState.storyId,
+          framework: formatSwitchState.framework,
+          style: formatSwitchState.style,
+          userPrompt: formatSwitchState.userPrompt || undefined,
+        },
+        {
+          onSuccess: (response) => {
+            if (response.success && response.data) {
+              // If this story is currently selected, update it
+              if (selectedStoryDirect?.id === formatSwitchState.storyId) {
+                setSelectedStoryDirect(response.data);
+              }
+            }
+            setFormatSwitchState(null);
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        }
+      );
+    });
+  }, [formatSwitchState, regenerateStoryMutation, selectedStoryDirect]);
 
   const handleDeleteStory = useCallback(() => {
     if (selectedStoryDirect) {
@@ -942,6 +979,7 @@ export function CareerStoriesPage() {
                           story={story}
                           isSelected={false}
                           onClick={() => handleSelectStory(story)}
+                          onFormatChange={handleFormatSwitch}
                         />
                       ))}
                     </div>
@@ -983,6 +1021,23 @@ export function CareerStoriesPage() {
           isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
         />
       </MobileSheet>
+
+      {/* Format Switch Modal */}
+      {formatSwitchStory && formatSwitchState && (
+        <FormatSwitchModal
+          isOpen={!!formatSwitchState}
+          onClose={() => setFormatSwitchState(null)}
+          story={formatSwitchStory}
+          selectedFramework={formatSwitchState.framework}
+          selectedStyle={formatSwitchState.style}
+          onFrameworkChange={(fw) => setFormatSwitchState((prev) => prev ? { ...prev, framework: fw } : null)}
+          onStyleChange={(st) => setFormatSwitchState((prev) => prev ? { ...prev, style: st } : null)}
+          userPrompt={formatSwitchState.userPrompt}
+          onUserPromptChange={(prompt) => setFormatSwitchState((prev) => prev ? { ...prev, userPrompt: prompt } : null)}
+          onRegenerate={handleFormatRegenerate}
+          isRegenerating={regenerateStoryMutation.isPending}
+        />
+      )}
     </div>
   );
 }
