@@ -133,6 +133,7 @@ export interface CreateStoryInput {
   activityIds: string[];
   framework?: FrameworkName;
   sections?: Record<string, InputSection>;
+  archetype?: string;
 }
 
 export interface EditActivitiesInput {
@@ -715,6 +716,7 @@ export class CareerStoryService {
         needsRegeneration: false,
         visibility: 'private',
         isPublished: false,
+        archetype: input.archetype || null,
       },
     });
 
@@ -1075,7 +1077,8 @@ export class CareerStoryService {
     userId: string,
     framework?: FrameworkName,
     style?: WritingStyle,
-    userPrompt?: string
+    userPrompt?: string,
+    archetype?: string
   ): Promise<StoryResult> {
     const story = await prisma.careerStory.findFirst({
       where: { id: storyId, userId, sourceMode: this.sourceMode },
@@ -1158,6 +1161,7 @@ export class CareerStoryService {
         sections: sections as unknown as Prisma.InputJsonValue,
         needsRegeneration: false,
         generatedAt: new Date(),
+        ...(archetype ? { archetype } : {}),
       },
     });
 

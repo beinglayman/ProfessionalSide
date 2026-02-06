@@ -103,6 +103,10 @@ export const USER_PROMPT_MAX_LENGTH = 500;
 export const regenerateStorySchema = z.object({
   framework: frameworkNameSchema.optional(),
   style: writingStyleSchema.optional(),
+  archetype: z.enum([
+    'firefighter', 'architect', 'diplomat', 'multiplier',
+    'detective', 'pioneer', 'turnaround', 'preventer',
+  ]).optional(),
   userPrompt: z
     .string()
     .max(USER_PROMPT_MAX_LENGTH)

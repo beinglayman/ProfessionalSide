@@ -505,6 +505,8 @@ export class StoryWizardService {
         needsRegeneration: false,
         visibility: 'private',
         isPublished: false,
+        archetype: archetype || null,
+        journalEntryId: journalEntryId || null,
       },
     });
 

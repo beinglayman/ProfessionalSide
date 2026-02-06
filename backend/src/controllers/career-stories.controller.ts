@@ -1037,12 +1037,12 @@ export const regenerateStory = asyncHandler(async (req: Request, res: Response):
     return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
   }
 
-  const { framework, style, userPrompt } = parseResult.data;
+  const { framework, style, userPrompt, archetype } = parseResult.data;
 
   const isDemoMode = isDemoModeRequest(req);
   const service = createCareerStoryService(isDemoMode);
 
-  const result = await service.regenerate(id, userId, framework, style, userPrompt);
+  const result = await service.regenerate(id, userId, framework, style, userPrompt, archetype);
   if (!result.success) {
     const status = result.error === 'Story not found' ? 404 : 500;
     return void sendError(res, result.error || 'Regeneration failed', status);
