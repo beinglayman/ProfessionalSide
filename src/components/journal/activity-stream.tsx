@@ -8,6 +8,7 @@ import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES, truncateText, TITLE_TRUNCATE_
 
 interface ActivityStreamProps {
   groups: ActivityGroup[];
+  storyGroups?: ActivityGroup[];
   isLoading?: boolean;
   error?: string | null;
   emptyMessage?: string;
@@ -25,6 +26,7 @@ interface ActivityStreamProps {
  */
 export function ActivityStream({
   groups,
+  storyGroups = [],
   isLoading,
   error,
   emptyMessage = 'No activities found',
@@ -39,6 +41,7 @@ export function ActivityStream({
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
   const [selectedSources, setSelectedSources] = useState<ActivitySource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDraftsOnly, setShowDraftsOnly] = useState(false);
 
   // Global expand/collapse state - track which groups are collapsed.
   // Starts null (= treat everything as collapsed) so nothing flashes expanded
@@ -230,6 +233,10 @@ export function ActivityStream({
   const showTemporalFilters = availableTemporalBuckets.length > 1;
   const showFilters = showTemporalFilters;
 
+  // Determine which group is first (non-collapsed) to place drafts there
+  const firstExpandedKey = filteredGroups.find(g => !isGroupCollapsed(g.key))?.key
+    ?? filteredGroups[0]?.key;
+
   return (
     <div className="space-y-3">
       {/* Controls: Search + Filters + Expand/Collapse - wraps on small screens */}
@@ -304,19 +311,36 @@ export function ActivityStream({
         </div>
       )}
 
+      {/* Drafts banner */}
+      <DraftsBanner
+        draftCount={storyGroups.length}
+        showDraftsOnly={showDraftsOnly}
+        onToggle={() => setShowDraftsOnly(prev => !prev)}
+      />
+
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className={cn(
         'space-y-4',
         'min-h-[calc(100vh-12rem)]' // Ensures enough scroll space for bottom items
       )}>
-        {filteredGroups.map((group) => (
-          <ActivityGroupSection
-            key={group.key}
-            group={group}
-            isCollapsed={isGroupCollapsed(group.key)}
-            onToggle={() => toggleGroup(group.key)}
-          />
-        ))}
+        {filteredGroups.map((group) => {
+          // Show all drafts in the first expanded group
+          const drafts = group.key === firstExpandedKey ? storyGroups : undefined;
+          // In drafts-only mode, skip groups that aren't the drafts host
+          if (showDraftsOnly && group.key !== firstExpandedKey) return null;
+
+          return (
+            <ActivityGroupSection
+              key={group.key}
+              group={group}
+              isCollapsed={isGroupCollapsed(group.key)}
+              onToggle={() => toggleGroup(group.key)}
+              inlineDrafts={drafts}
+              onPromoteToCareerStory={onPromoteToCareerStory}
+              showDraftsOnly={showDraftsOnly}
+            />
+          );
+        })}
 
         {/* Spacer to allow bottom items to scroll to top position */}
         <div className="h-[50vh]" aria-hidden="true" />
@@ -325,10 +349,111 @@ export function ActivityStream({
   );
 }
 
+/**
+ * Inline draft story card — purple left border, sparkle icon, CTA.
+ */
+interface InlineDraftCardProps {
+  group: ActivityGroup;
+  onPromoteToCareerStory?: (entryId: string) => void;
+}
+
+function InlineDraftCard({ group, onPromoteToCareerStory }: InlineDraftCardProps) {
+  const meta = group.storyMetadata;
+  if (!meta) return null;
+
+  const sources = [...new Set(group.activities.map(a => a.source))];
+  const sourceNames = sources
+    .map(s => SUPPORTED_SOURCES[s as ActivitySource]?.displayName || s)
+    .slice(0, 3);
+  const roleLabel = meta.dominantRole
+    ? STORY_ROLE_LABELS[meta.dominantRole]?.label
+    : null;
+
+  return (
+    <article
+      className="border-l-4 border-purple-400 bg-gradient-to-r from-purple-50/40 to-transparent rounded-r-lg p-4 hover:shadow-sm transition-shadow"
+      aria-label={`Draft story: ${meta.title} — ${group.count} activities, create career story available`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-purple-500 flex-shrink-0" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-gray-900 truncate">
+              {meta.title}
+            </h3>
+            {roleLabel && (
+              <span className="text-[10px] font-medium text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded flex-shrink-0">
+                {roleLabel}
+              </span>
+            )}
+          </div>
+          {meta.description && (
+            <p className="text-xs text-gray-600 line-clamp-2 mb-2">
+              {meta.description}
+            </p>
+          )}
+          <div className="flex items-center gap-2 text-[11px] text-gray-500">
+            <span>{group.count} activities</span>
+            <span className="text-gray-300">&middot;</span>
+            <span>{sourceNames.join(', ')}</span>
+          </div>
+        </div>
+        <button
+          onClick={() => meta.id && onPromoteToCareerStory?.(meta.id)}
+          className="flex-shrink-0 text-xs font-medium text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap"
+        >
+          Create Career Story &rarr;
+        </button>
+      </div>
+    </article>
+  );
+}
+
+interface DraftsBannerProps {
+  draftCount: number;
+  showDraftsOnly: boolean;
+  onToggle: () => void;
+}
+
+function DraftsBanner({ draftCount, showDraftsOnly, onToggle }: DraftsBannerProps) {
+  if (draftCount === 0) return null;
+
+  return (
+    <div className={cn(
+      'flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors',
+      showDraftsOnly
+        ? 'bg-purple-100 border border-purple-200'
+        : 'bg-purple-50/60 border border-purple-100'
+    )}>
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-purple-500" aria-hidden="true" />
+        <span className="text-sm font-medium text-gray-800">
+          {draftCount} draft {draftCount === 1 ? 'story' : 'stories'} ready for review
+        </span>
+      </div>
+      <button
+        onClick={onToggle}
+        className={cn(
+          'text-xs font-medium px-2.5 py-1 rounded-md transition-colors',
+          showDraftsOnly
+            ? 'text-purple-700 bg-purple-200 hover:bg-purple-300'
+            : 'text-purple-600 hover:bg-purple-100'
+        )}
+        aria-pressed={showDraftsOnly}
+      >
+        {showDraftsOnly ? 'Show all' : 'Review drafts'}
+      </button>
+    </div>
+  );
+}
+
 interface ActivityGroupSectionProps {
   group: ActivityGroup;
   isCollapsed: boolean;
   onToggle: () => void;
+  inlineDrafts?: ActivityGroup[];
+  onPromoteToCareerStory?: (entryId: string) => void;
+  showDraftsOnly?: boolean;
 }
 
 /**
@@ -362,7 +487,7 @@ function generateTemporalSummary(activities: Activity[]): string {
   return parts.join(', ');
 }
 
-function ActivityGroupSection({ group, isCollapsed, onToggle }: ActivityGroupSectionProps) {
+function ActivityGroupSection({ group, isCollapsed, onToggle, inlineDrafts, onPromoteToCareerStory, showDraftsOnly }: ActivityGroupSectionProps) {
   // Progressive disclosure - track how many items to show
   const [showAll, setShowAll] = useState(false);
 
@@ -436,29 +561,47 @@ function ActivityGroupSection({ group, isCollapsed, onToggle }: ActivityGroupSec
         )}
       </button>
 
-      {/* Activities - progressive disclosure with "Show more" */}
+      {/* Content when expanded */}
       {!isCollapsed && (
-        <div className="bg-white rounded-lg border border-gray-100">
-          {visibleActivities.map((activity) => (
-            <ActivityCard
-              key={activity.id}
-              activity={activity}
-              showStoryBadge={true}
-              showSourceIcon={true}
-            />
-          ))}
-
-          {/* Show more button */}
-          {hasMore && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
-            >
-              <Plus className="w-3 h-3" />
-              Show {hiddenCount} more
-            </button>
+        <>
+          {/* Inline draft cards — above activity rows */}
+          {inlineDrafts && inlineDrafts.length > 0 && (
+            <div className="space-y-2 mb-2">
+              {inlineDrafts.map(draft => (
+                <InlineDraftCard
+                  key={draft.key}
+                  group={draft}
+                  onPromoteToCareerStory={onPromoteToCareerStory}
+                />
+              ))}
+            </div>
           )}
-        </div>
+
+          {/* Activity rows — hidden in drafts-only mode */}
+          {!showDraftsOnly && (
+            <div className="bg-white rounded-lg border border-gray-100">
+              {visibleActivities.map((activity) => (
+                <ActivityCard
+                  key={activity.id}
+                  activity={activity}
+                  showStoryBadge={true}
+                  showSourceIcon={true}
+                />
+              ))}
+
+              {/* Show more button */}
+              {hasMore && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-3 h-3" />
+                  Show {hiddenCount} more
+                </button>
+              )}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

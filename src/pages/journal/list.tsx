@@ -235,11 +235,25 @@ export default function JournalPage() {
     error: activitiesError
   } = useActivities(activityParams);
 
+  // Fetch story groups for inline draft cards
+  const storyParams = useMemo(() => ({
+    groupBy: 'story' as const,
+    limit: 100
+  }), []);
+  const {
+    data: storyData,
+  } = useActivities(storyParams);
+
+  // Extract story groups (drafts) — filter out 'unassigned' (raw activities, not drafts)
+  const storyGroups = useMemo(() => {
+    if (!storyData || !isGroupedResponse(storyData)) return [];
+    return storyData.groups.filter(g => g.key !== 'unassigned');
+  }, [storyData]);
+
   // Build journal entry metadata for Story Wizard loading facts
   const wizardEntryMeta = useMemo<JournalEntryMeta | undefined>(() => {
-    if (!storyWizardEntryId || !activitiesData) return undefined;
-    const groups = isGroupedResponse(activitiesData) ? activitiesData.groups : [];
-    const group = groups.find(
+    if (!storyWizardEntryId) return undefined;
+    const group = storyGroups.find(
       (g) => g.storyMetadata?.id === storyWizardEntryId
     );
     if (!group?.storyMetadata) return undefined;
@@ -255,7 +269,7 @@ export default function JournalPage() {
       impactHighlights: meta.impactHighlights,
       skills: meta.skills,
     };
-  }, [storyWizardEntryId, activitiesData]);
+  }, [storyWizardEntryId, storyGroups]);
 
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
@@ -726,6 +740,7 @@ export default function JournalPage() {
         {/* Activity Stream */}
         <ActivityStream
           groups={activitiesData && isGroupedResponse(activitiesData) ? activitiesData.groups : []}
+          storyGroups={storyGroups}
           isLoading={activitiesLoading}
           error={activitiesError ? String(activitiesError) : null}
           emptyMessage="No activities yet. Sync your tools to see your work history."
