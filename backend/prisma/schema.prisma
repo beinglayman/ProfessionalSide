@@ -483,6 +483,9 @@ model JournalEntry {
   // Analytics
   analytics JournalEntryAnalytics[]
 
+  // Career stories promoted from this journal entry
+  careerStories CareerStory[]
+
   @@index([authorId, sourceMode])
   @@index([sourceMode])
   @@map("journal_entries")
@@ -1446,6 +1449,15 @@ model CareerStory {
   generatedAt       DateTime?
   needsRegeneration Boolean   @default(false)
 
+  // Story classification
+  archetype      String?  // firefighter, architect, diplomat, multiplier, detective, pioneer, turnaround, preventer
+  category       String?  // projects-impact, leadership, growth, external (brag doc category)
+  role           String?  // led, contributed, participated (auto-detected by LLM)
+
+  // Provenance: link back to source journal entry
+  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
   // Publishing fields
   visibility  String   @default("private") // "private" | "workspace" | "network"
   isPublished Boolean  @default(false)
@@ -1461,6 +1473,7 @@ model CareerStory {
   @@index([isPublished])
   @@index([visibility])
   @@index([isPublished, visibility])
+  @@index([journalEntryId])
   @@map("career_stories")
 }
 
