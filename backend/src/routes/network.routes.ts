@@ -623,4 +623,97 @@ router.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
+// =============================================================================
+// FEED ROUTES
+// =============================================================================
+
+// Network feed: stories from people I follow
+router.get('/feed', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+
+    const follows = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const followingIds = follows.map(f => f.followingId);
+
+    if (followingIds.length === 0) {
+      return sendSuccess(res, { stories: [], total: 0, page, pageSize });
+    }
+
+    const [stories, total] = await Promise.all([
+      prisma.careerStory.findMany({
+        where: {
+          userId: { in: followingIds },
+          isPublished: true,
+          visibility: 'network',
+        },
+        orderBy: { publishedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.careerStory.count({
+        where: {
+          userId: { in: followingIds },
+          isPublished: true,
+          visibility: 'network',
+        },
+      }),
+    ]);
+
+    sendSuccess(res, { stories, total, page, pageSize });
+  } catch (error) {
+    console.error('Error fetching feed:', error);
+    sendError(res, 'Failed to fetch feed', 500);
+  }
+});
+
+// Suggested users (most active publishers)
+router.get('/suggested-users', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const follows = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const excludeIds = [userId, ...follows.map(f => f.followingId)];
+
+    const suggestions = await prisma.careerStory.groupBy({
+      by: ['userId'],
+      where: {
+        isPublished: true,
+        visibility: 'network',
+        userId: { notIn: excludeIds },
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: limit,
+    });
+
+    const userIds = suggestions.map(s => s.userId);
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, title: true },
+    });
+
+    const result = suggestions.map(s => ({
+      user: users.find(u => u.id === s.userId),
+      publishedCount: s._count.id,
+    }));
+
+    sendSuccess(res, { suggestions: result });
+  } catch (error) {
+    console.error('Error fetching suggested users:', error);
+    sendError(res, 'Failed to fetch suggestions', 500);
+  }
+});
+
 export default router;
