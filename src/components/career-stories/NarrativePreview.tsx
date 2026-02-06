@@ -1390,6 +1390,16 @@ export function NarrativePreview({
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900 truncate">{clusterName}</h2>
               <StatusBadge status={storyStatus} />
+              {story?.archetype && (
+                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 capitalize">
+                  {story.archetype}
+                </span>
+              )}
+              {story?.role && (
+                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 capitalize">
+                  {story.role}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
               <span>{activityCount} activities</span>
