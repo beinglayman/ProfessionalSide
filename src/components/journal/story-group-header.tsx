@@ -21,6 +21,8 @@ interface StoryGroupHeaderProps {
   isEnhancingNarratives?: boolean;
   /** True if THIS specific story is pending enhancement (per-entry tracking) */
   isPendingEnhancement?: boolean;
+  /** 'draft' renders a dashed border with a draft badge */
+  variant?: 'default' | 'draft';
 }
 
 /**
@@ -152,7 +154,8 @@ export function StoryGroupHeader({
   onPromoteToCareerStory,
   activities = [],
   isEnhancingNarratives,
-  isPendingEnhancement: isPendingEnhancementProp
+  isPendingEnhancement: isPendingEnhancementProp,
+  variant = 'default'
 }: StoryGroupHeaderProps) {
   const {
     id,
@@ -278,10 +281,15 @@ export function StoryGroupHeader({
       <div
         className={cn(
           'relative rounded-xl transition-all duration-300 overflow-hidden',
-          'bg-white border',
+          'border',
+          variant === 'draft'
+            ? 'bg-purple-50/60 border-dashed border-purple-300'
+            : 'bg-white',
           isExpanded
-            ? 'border-purple-200 shadow-lg'
-            : 'border-gray-100 hover:border-purple-200 hover:shadow-sm cursor-pointer',
+            ? cn(variant === 'draft' ? 'border-purple-400 shadow-lg' : 'border-purple-200 shadow-lg')
+            : cn(variant === 'draft'
+                ? 'hover:border-purple-400 hover:shadow-sm cursor-pointer'
+                : 'border-gray-100 hover:border-purple-200 hover:shadow-sm cursor-pointer'),
           // Flash animation when content is enhanced
           justUpdated && 'animate-highlight-flash animate-border-glow'
         )}
@@ -306,6 +314,12 @@ export function StoryGroupHeader({
               {/* Title row with CTA */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
+                  {variant === 'draft' && !isPublished && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-dashed border-gray-300">
+                      <FileText className="w-3 h-3" />
+                      Draft
+                    </span>
+                  )}
                   <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-tight">
                     {title}
                   </h3>

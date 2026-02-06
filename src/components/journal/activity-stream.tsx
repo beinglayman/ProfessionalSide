@@ -1,16 +1,17 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Clock, Layers, BookOpen, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, FileText, MessageSquare } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, MoreHorizontal } from 'lucide-react';
 import { ActivityCard } from './activity-card';
-import { StoryGroupHeader, UnassignedGroupHeader } from './story-group-header';
-import { TemporalFilters, SourceFilters, StoryFilters, RoleFilters, FilterSeparator } from './activity-filters';
-import { SourceIcons } from './source-icons';
-import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, TemporalBucket, TEMPORAL_BUCKETS, StoryGroupingMethod, StoryDominantRole, STORY_ROLE_LABELS } from '../../types/activity';
+import { StoryGroupHeader } from './story-group-header';
+import { getSourceIcon } from './source-icons';
+import { TemporalFilters, FilterSeparator } from './activity-filters';
+import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, TemporalBucket } from '../../types/activity';
 import { cn } from '../../lib/utils';
-import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES, truncateText, TITLE_TRUNCATE_LENGTH, SHORT_TITLE_TRUNCATE_LENGTH } from './activity-card-utils';
+import { useDropdown } from '../../hooks/useDropdown';
+import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES } from './activity-card-utils';
 
 interface ActivityStreamProps {
   groups: ActivityGroup[];
-  groupBy: 'temporal' | 'source' | 'story';
+  storyGroups?: ActivityGroup[];
   isLoading?: boolean;
   error?: string | null;
   emptyMessage?: string;
@@ -18,19 +19,17 @@ interface ActivityStreamProps {
   regeneratingEntryId?: string | null;
   onDeleteEntry?: (entryId: string) => void;
   onPromoteToCareerStory?: (entryId: string) => void;
-  /** True when narratives are being generated in background after sync */
   isEnhancingNarratives?: boolean;
-  /** Set of entry IDs that are pending enhancement (for per-entry tracking) */
   pendingEnhancementIds?: Set<string>;
 }
 
 /**
- * Display grouped activities in a clean, modern stream layout
- * Supports temporal, source, and story grouping modes with smart filters
+ * Display grouped activities in a clean, modern stream layout.
+ * Temporal grouping only — source/story views removed (header nav handles page switching).
  */
 export function ActivityStream({
   groups,
-  groupBy,
+  storyGroups = [],
   isLoading,
   error,
   emptyMessage = 'No activities found',
@@ -44,18 +43,17 @@ export function ActivityStream({
   // Filter state
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
   const [selectedSources, setSelectedSources] = useState<ActivitySource[]>([]);
-  const [selectedStoryMethods, setSelectedStoryMethods] = useState<StoryGroupingMethod[]>([]);
-  const [selectedRoles, setSelectedRoles] = useState<StoryDominantRole[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDraftsOnly, setShowDraftsOnly] = useState(false);
 
   // Global expand/collapse state - track which groups are collapsed.
   // Starts null (= treat everything as collapsed) so nothing flashes expanded
   // before the initialization effect sets the correct state.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
 
-  // Build a stable fingerprint of group keys + groupBy to detect real data changes.
+  // Build a stable fingerprint of group keys to detect real data changes.
   // This avoids re-initializing from stale placeholder data (keepPreviousData).
-  const groupFingerprint = `${groupBy}:${groups.map(g => g.key).join(',')}`;
+  const groupFingerprint = groups.map(g => g.key).join(',');
   const lastFingerprintRef = React.useRef<string>('');
 
   // Initialize / re-initialize collapsed state whenever the actual group data changes
@@ -65,11 +63,8 @@ export function ActivityStream({
 
     lastFingerprintRef.current = groupFingerprint;
 
-    // Sources tab: collapse ALL groups
-    // Other tabs: collapse all except first
-    const initialCollapsed = groupBy === 'source'
-      ? new Set(groups.map(g => g.key))
-      : new Set(groups.slice(1).map(g => g.key));
+    // Collapse all except first
+    const initialCollapsed = new Set(groups.slice(1).map(g => g.key));
     setCollapsedGroups(initialCollapsed);
 
     // Scroll to top on first load or tab change.
@@ -78,83 +73,33 @@ export function ActivityStream({
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }, 350);
-  }, [groupFingerprint, groups, groupBy]);
+  }, [groupFingerprint, groups]);
 
   // Compute available filters from groups
   const availableTemporalBuckets = useMemo(() => {
-    if (groupBy !== 'temporal') return [];
     return groups.map(g => g.key as TemporalBucket);
-  }, [groups, groupBy]);
-
-  const availableSources = useMemo(() => {
-    if (groupBy !== 'source') return [];
-    return groups.map(g => g.key as ActivitySource);
-  }, [groups, groupBy]);
+  }, [groups]);
 
   // Compute counts for filters
   const temporalCounts = useMemo(() => {
-    if (groupBy !== 'temporal') return {};
     return groups.reduce((acc, g) => {
       acc[g.key as TemporalBucket] = g.count;
       return acc;
     }, {} as Record<TemporalBucket, number>);
-  }, [groups, groupBy]);
+  }, [groups]);
 
-  const sourceCounts = useMemo(() => {
-    if (groupBy !== 'source') return {};
-    return groups.reduce((acc, g) => {
-      acc[g.key as ActivitySource] = g.count;
-      return acc;
-    }, {} as Record<ActivitySource, number>);
-  }, [groups, groupBy]);
-
-  // Compute available story methods and counts
-  const availableStoryMethods = useMemo(() => {
-    if (groupBy !== 'story') return [];
-    const methods = new Set<StoryGroupingMethod>();
-    groups.forEach(g => {
-      if (g.storyMetadata?.groupingMethod) {
-        methods.add(g.storyMetadata.groupingMethod);
+  // Compute available sources from all temporal groups' activities
+  const availableSources = useMemo(() => {
+    const sourceCounts = new Map<string, number>();
+    for (const g of groups) {
+      for (const a of g.activities) {
+        sourceCounts.set(a.source, (sourceCounts.get(a.source) || 0) + 1);
       }
-    });
-    return Array.from(methods);
-  }, [groups, groupBy]);
-
-  const storyMethodCounts = useMemo(() => {
-    if (groupBy !== 'story') return {};
-    return groups.reduce((acc, g) => {
-      const method = g.storyMetadata?.groupingMethod;
-      if (method) {
-        acc[method] = (acc[method] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<StoryGroupingMethod, number>);
-  }, [groups, groupBy]);
-
-  // Compute available roles and counts (for story view)
-  const availableRoles = useMemo(() => {
-    if (groupBy !== 'story') return [];
-    const roles = new Set<StoryDominantRole>();
-    groups.forEach(g => {
-      if (g.storyMetadata?.dominantRole) {
-        roles.add(g.storyMetadata.dominantRole);
-      }
-    });
-    // Sort by importance: Led > Contributed > Participated
-    const roleOrder: StoryDominantRole[] = ['Led', 'Contributed', 'Participated'];
-    return roleOrder.filter(r => roles.has(r));
-  }, [groups, groupBy]);
-
-  const roleCounts = useMemo(() => {
-    if (groupBy !== 'story') return {};
-    return groups.reduce((acc, g) => {
-      const role = g.storyMetadata?.dominantRole;
-      if (role) {
-        acc[role] = (acc[role] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<StoryDominantRole, number>);
-  }, [groups, groupBy]);
+    }
+    return Array.from(sourceCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source: source as ActivitySource, count }));
+  }, [groups]);
 
   // Helper to check if text matches search query
   const matchesSearch = useCallback((text: string | null | undefined): boolean => {
@@ -178,32 +123,27 @@ export function ActivityStream({
   const filteredGroups = useMemo(() => {
     let result = groups;
 
-    // Apply chip filters first
-    if (groupBy === 'temporal' && selectedTemporalBuckets.length > 0) {
+    // Apply temporal bucket filter
+    if (selectedTemporalBuckets.length > 0) {
       result = result.filter(g => selectedTemporalBuckets.includes(g.key as TemporalBucket));
     }
-    if (groupBy === 'source' && selectedSources.length > 0) {
-      result = result.filter(g => selectedSources.includes(g.key as ActivitySource));
-    }
-    if (groupBy === 'story' && selectedStoryMethods.length > 0) {
-      result = result.filter(g => {
-        if (g.key === 'unassigned') return true;
-        return g.storyMetadata?.groupingMethod && selectedStoryMethods.includes(g.storyMetadata.groupingMethod);
-      });
-    }
-    if (groupBy === 'story' && selectedRoles.length > 0) {
-      result = result.filter(g => {
-        if (g.key === 'unassigned') return true; // Always show unassigned
-        return g.storyMetadata?.dominantRole && selectedRoles.includes(g.storyMetadata.dominantRole);
-      });
+
+    // Apply source filter within temporal groups
+    if (selectedSources.length > 0) {
+      result = result.map(group => {
+        const filtered = group.activities.filter(a =>
+          selectedSources.includes(a.source as ActivitySource)
+        );
+        if (filtered.length === 0) return null;
+        return { ...group, activities: filtered, count: filtered.length };
+      }).filter((g): g is ActivityGroup => g !== null);
     }
 
     // Apply search filter
     if (searchQuery.trim()) {
       result = result.map(group => {
         // Check if group label/title matches
-        const groupMatches = matchesSearch(group.label) ||
-          (groupBy === 'story' && matchesSearch(group.storyMetadata?.description));
+        const groupMatches = matchesSearch(group.label);
 
         // Filter activities within the group
         const matchingActivities = group.activities.filter(activityMatchesSearch);
@@ -221,7 +161,7 @@ export function ActivityStream({
     }
 
     return result;
-  }, [groups, groupBy, selectedTemporalBuckets, selectedSources, selectedStoryMethods, selectedRoles, searchQuery, matchesSearch, activityMatchesSearch]);
+  }, [groups, selectedTemporalBuckets, selectedSources, searchQuery, matchesSearch, activityMatchesSearch]);
 
   // Toggle handlers for filters
   const handleTemporalToggle = (bucket: TemporalBucket) => {
@@ -239,24 +179,6 @@ export function ActivityStream({
         return prev.filter(s => s !== source);
       }
       return [...prev, source];
-    });
-  };
-
-  const handleStoryMethodToggle = (method: StoryGroupingMethod) => {
-    setSelectedStoryMethods(prev => {
-      if (prev.includes(method)) {
-        return prev.filter(m => m !== method);
-      }
-      return [...prev, method];
-    });
-  };
-
-  const handleRoleToggle = (role: StoryDominantRole) => {
-    setSelectedRoles(prev => {
-      if (prev.includes(role)) {
-        return prev.filter(r => r !== role);
-      }
-      return [...prev, role];
     });
   };
 
@@ -292,6 +214,61 @@ export function ActivityStream({
     }
   }, [anyExpanded, filteredGroups]);
 
+  // Map each draft story to the temporal group whose date range contains it.
+  // Uses each temporal group's activity timestamps to derive bucket boundaries.
+  const draftsByBucket = useMemo(() => {
+    const map = new Map<string, ActivityGroup[]>();
+    if (storyGroups.length === 0 || groups.length === 0) return map;
+
+    // Build date ranges from each temporal group's activities
+    const bucketRanges = groups.map(g => {
+      let min = Infinity;
+      let max = -Infinity;
+      for (const a of g.activities) {
+        const t = new Date(a.timestamp).getTime();
+        if (t < min) min = t;
+        if (t > max) max = t;
+      }
+      return { key: g.key, min, max };
+    });
+
+    for (const draft of storyGroups) {
+      const endStr = draft.storyMetadata?.timeRangeEnd ?? draft.storyMetadata?.timeRangeStart;
+      if (!endStr) {
+        // No time info — place in first bucket
+        const first = groups[0].key;
+        map.set(first, [...(map.get(first) || []), draft]);
+        continue;
+      }
+      const draftTime = new Date(endStr).getTime();
+
+      // Find the bucket whose range contains this draft's end time
+      let matched = false;
+      for (const range of bucketRanges) {
+        if (range.min <= draftTime && draftTime <= range.max) {
+          map.set(range.key, [...(map.get(range.key) || []), draft]);
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        // Fallback: find the closest bucket by distance
+        let closest = bucketRanges[0];
+        let closestDist = Infinity;
+        for (const range of bucketRanges) {
+          const dist = Math.min(Math.abs(draftTime - range.min), Math.abs(draftTime - range.max));
+          if (dist < closestDist) {
+            closestDist = dist;
+            closest = range;
+          }
+        }
+        map.set(closest.key, [...(map.get(closest.key) || []), draft]);
+      }
+    }
+    return map;
+  }, [storyGroups, groups]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -316,9 +293,7 @@ export function ActivityStream({
     return (
       <div className="text-center py-12">
         <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-          {groupBy === 'temporal' && <Clock className="w-5 h-5 text-gray-400" />}
-          {groupBy === 'source' && <Layers className="w-5 h-5 text-gray-400" />}
-          {groupBy === 'story' && <BookOpen className="w-5 h-5 text-gray-400" />}
+          <Clock className="w-5 h-5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500">{emptyMessage}</p>
       </div>
@@ -326,11 +301,8 @@ export function ActivityStream({
   }
 
   // Check if we should show filters (multiple options available)
-  const showTemporalFilters = groupBy === 'temporal' && availableTemporalBuckets.length > 1;
-  const showSourceFilters = groupBy === 'source' && availableSources.length > 1;
-  const showStoryFilters = groupBy === 'story' && availableStoryMethods.length > 1;
-  const showRoleFilters = groupBy === 'story' && availableRoles.length > 1;
-  const showFilters = showTemporalFilters || showSourceFilters || showStoryFilters || showRoleFilters;
+  const showTemporalFilters = availableTemporalBuckets.length > 1;
+  const showFilters = showTemporalFilters;
 
   return (
     <div className="space-y-3">
@@ -375,33 +347,16 @@ export function ActivityStream({
                   counts={temporalCounts}
                 />
               )}
-              {showSourceFilters && (
-                <SourceFilters
-                  availableSources={availableSources}
-                  selectedSources={selectedSources}
-                  onToggle={handleSourceToggle}
-                  counts={sourceCounts}
-                />
-              )}
-              {showStoryFilters && (
-                <StoryFilters
-                  availableMethods={availableStoryMethods}
-                  selectedMethods={selectedStoryMethods}
-                  onToggle={handleStoryMethodToggle}
-                  counts={storyMethodCounts}
-                />
-              )}
-              {/* Separator between story types and roles */}
-              {showStoryFilters && showRoleFilters && <FilterSeparator />}
-              {showRoleFilters && (
-                <RoleFilters
-                  availableRoles={availableRoles}
-                  selectedRoles={selectedRoles}
-                  onToggle={handleRoleToggle}
-                  counts={roleCounts}
-                />
-              )}
             </>
+          )}
+
+          {/* Source filter chips — inline next to temporal filters */}
+          {availableSources.length > 1 && (
+            <SourceFilterChips
+              availableSources={availableSources}
+              selectedSources={selectedSources}
+              onToggle={handleSourceToggle}
+            />
           )}
 
           {/* Spacer */}
@@ -432,71 +387,46 @@ export function ActivityStream({
         </div>
       )}
 
-      {/* Story Drafts explanation banner - sticky below header */}
-      {groupBy === 'story' && filteredGroups.length > 0 && (
-        <div className="sticky top-16 z-10 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-xl p-3 sm:p-4 mb-3 shadow-sm">
-          <div className="flex items-start gap-2 sm:gap-3">
-            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1">
-                Story Drafts
-              </h3>
-              <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed hidden sm:block">
-                We spotted achievements in your recent work and turned them into draft stories.
-                Review each one, add your perspective, then promote the best to polished career stories.
-              </p>
-              <p className="text-[11px] text-gray-600 leading-relaxed sm:hidden">
-                Draft stories from your work — review and promote the best ones.
-              </p>
-              <div className="hidden sm:flex items-center gap-4 mt-2 text-[11px] text-gray-500">
-                <span className="flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
-                  Tap to preview
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="w-3 h-3" />
-                  Promote to refine and save
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Drafts banner */}
+      <DraftsBanner
+        storyGroups={storyGroups}
+        showDraftsOnly={showDraftsOnly}
+        onToggle={() => setShowDraftsOnly(prev => !prev)}
+      />
 
       {/* Groups - min-height ensures bottom items can scroll to top */}
-      <div className={cn(
-        'space-y-4',
-        groupBy === 'story' && 'space-y-3',
-        'min-h-[calc(100vh-12rem)]' // Ensures enough scroll space for bottom items
-      )}>
-        {groupBy === 'story' ? (
-          filteredGroups.map((group) => (
-            <StoryGroupSection
-              key={group.key}
-              group={group}
-              isCollapsed={isGroupCollapsed(group.key)}
-              onToggle={() => toggleGroup(group.key)}
-              onRegenerateNarrative={onRegenerateNarrative}
-              regeneratingEntryId={regeneratingEntryId}
-              onDeleteEntry={onDeleteEntry}
-              onPromoteToCareerStory={onPromoteToCareerStory}
-              isEnhancingNarratives={isEnhancingNarratives}
-              pendingEnhancementIds={pendingEnhancementIds}
-            />
-          ))
-        ) : (
-          filteredGroups.map((group) => (
-            <ActivityGroupSection
-              key={group.key}
-              group={group}
-              groupBy={groupBy}
-              isCollapsed={isGroupCollapsed(group.key)}
-              onToggle={() => toggleGroup(group.key)}
-            />
-          ))
-        )}
+      <div className="min-h-[calc(100vh-12rem)]">
+        {(() => {
+          // Pre-filter to know which groups are visible (for isLast)
+          const visibleGroups = filteredGroups.filter(group => {
+            if (showDraftsOnly) {
+              const drafts = draftsByBucket.get(group.key);
+              return drafts && drafts.length > 0;
+            }
+            return true;
+          });
+
+          return visibleGroups.map((group, idx) => {
+            const drafts = draftsByBucket.get(group.key);
+            return (
+              <ActivityGroupSection
+                key={group.key}
+                group={group}
+                isCollapsed={isGroupCollapsed(group.key)}
+                onToggle={() => toggleGroup(group.key)}
+                inlineDrafts={drafts}
+                onPromoteToCareerStory={onPromoteToCareerStory}
+                onRegenerateNarrative={onRegenerateNarrative}
+                regeneratingEntryId={regeneratingEntryId}
+                onDeleteEntry={onDeleteEntry}
+                isEnhancingNarratives={isEnhancingNarratives}
+                pendingEnhancementIds={pendingEnhancementIds}
+                showDraftsOnly={showDraftsOnly}
+                isLast={idx === visibleGroups.length - 1}
+              />
+            );
+          });
+        })()}
 
         {/* Spacer to allow bottom items to scroll to top position */}
         <div className="h-[50vh]" aria-hidden="true" />
@@ -505,11 +435,258 @@ export function ActivityStream({
   );
 }
 
+/**
+ * Inline draft story card — renders StoryGroupHeader directly.
+ * Expands to show two-column layout with narrative and activities.
+ */
+interface InlineDraftCardProps {
+  group: ActivityGroup;
+  onPromoteToCareerStory?: (entryId: string) => void;
+  onRegenerateNarrative?: (entryId: string) => void;
+  regeneratingEntryId?: string | null;
+  onDeleteEntry?: (entryId: string) => void;
+  isEnhancingNarratives?: boolean;
+  pendingEnhancementIds?: Set<string>;
+}
+
+function InlineDraftCard({
+  group,
+  onPromoteToCareerStory,
+  onRegenerateNarrative,
+  regeneratingEntryId,
+  onDeleteEntry,
+  isEnhancingNarratives,
+  pendingEnhancementIds
+}: InlineDraftCardProps) {
+  const meta = group.storyMetadata;
+  if (!meta) return null;
+
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <StoryGroupHeader
+      variant="draft"
+      storyMetadata={meta}
+      activityCount={group.count}
+      isExpanded={isExpanded}
+      onToggle={() => setIsExpanded(prev => !prev)}
+      onRegenerateNarrative={onRegenerateNarrative}
+      isRegenerateLoading={regeneratingEntryId === meta.id}
+      onDeleteEntry={onDeleteEntry}
+      onPromoteToCareerStory={onPromoteToCareerStory}
+      activities={group.activities}
+      isEnhancingNarratives={isEnhancingNarratives}
+      isPendingEnhancement={
+        pendingEnhancementIds && pendingEnhancementIds.size > 0
+          ? pendingEnhancementIds.has(meta.id)
+          : undefined
+      }
+    />
+  );
+}
+
+interface DraftsBannerProps {
+  storyGroups: ActivityGroup[];
+  showDraftsOnly: boolean;
+  onToggle: () => void;
+}
+
+function DraftsBanner({ storyGroups, showDraftsOnly, onToggle }: DraftsBannerProps) {
+  if (storyGroups.length === 0) return null;
+
+  // Compute unique activity count across all drafts (activities can appear in multiple stories)
+  const uniqueActivityIds = new Set<string>();
+  for (const g of storyGroups) {
+    for (const a of g.activities) uniqueActivityIds.add(a.id);
+  }
+  const totalActivities = uniqueActivityIds.size;
+
+  // Collect top topics/skills across all drafts (deduplicated, max 3)
+  const topicSet = new Set<string>();
+  for (const g of storyGroups) {
+    const meta = g.storyMetadata;
+    if (!meta) continue;
+    for (const t of (meta.topics || [])) topicSet.add(t);
+    if (topicSet.size >= 3) break;
+    for (const s of (meta.skills || [])) topicSet.add(s);
+    if (topicSet.size >= 3) break;
+  }
+  const topTopics = Array.from(topicSet).slice(0, 3);
+
+  const draftCount = storyGroups.length;
+
+  return (
+    <div className={cn(
+      'flex items-center justify-between px-5 py-3.5 rounded-xl transition-colors',
+      showDraftsOnly
+        ? 'bg-purple-600 border border-purple-700'
+        : 'bg-purple-100 border border-purple-200'
+    )}>
+      <div className="flex items-center gap-3 min-w-0">
+        <Sparkles className={cn(
+          'w-5 h-5 flex-shrink-0',
+          showDraftsOnly ? 'text-purple-200' : 'text-purple-500'
+        )} aria-hidden="true" />
+        <div className="min-w-0">
+          <span className={cn(
+            'text-base font-semibold',
+            showDraftsOnly ? 'text-white' : 'text-gray-900'
+          )}>
+            {draftCount} draft {draftCount === 1 ? 'story' : 'stories'}
+          </span>
+          <span className={cn(
+            'text-sm ml-2',
+            showDraftsOnly ? 'text-purple-200' : 'text-gray-600'
+          )}>
+            from {totalActivities} {totalActivities === 1 ? 'activity' : 'activities'}
+            {topTopics.length > 0 && (
+              <>
+                <span className={showDraftsOnly ? 'text-purple-300 mx-1.5' : 'text-gray-400 mx-1.5'}>&middot;</span>
+                {topTopics.join(', ')}
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={onToggle}
+        className={cn(
+          'text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0',
+          showDraftsOnly
+            ? 'text-purple-600 bg-white hover:bg-purple-50'
+            : 'text-white bg-purple-600 hover:bg-purple-700'
+        )}
+        aria-pressed={showDraftsOnly}
+      >
+        {showDraftsOnly ? 'Show all' : 'Review drafts'}
+      </button>
+    </div>
+  );
+}
+
+const MAX_VISIBLE_SOURCES = 4;
+
+interface SourceFilterChipsProps {
+  availableSources: { source: ActivitySource; count: number }[];
+  selectedSources: ActivitySource[];
+  onToggle: (source: ActivitySource) => void;
+}
+
+function SourceFilterChips({ availableSources, selectedSources, onToggle }: SourceFilterChipsProps) {
+  const { isOpen, toggle, close, containerRef } = useDropdown();
+
+  // Sources already sorted by count desc from parent. Split into visible + overflow.
+  const visible = availableSources.slice(0, MAX_VISIBLE_SOURCES);
+  const overflow = availableSources.slice(MAX_VISIBLE_SOURCES);
+  const overflowSelectedCount = overflow.filter(s => selectedSources.includes(s.source)).length;
+
+  return (
+    <div className="flex items-center gap-1">
+      {/* Visible source chips — icon + short name */}
+      {visible.map(({ source, count }) => {
+        const sourceInfo = SUPPORTED_SOURCES[source];
+        const isSelected = selectedSources.includes(source);
+        const Icon = getSourceIcon(source);
+
+        return (
+          <button
+            key={source}
+            onClick={() => onToggle(source)}
+            aria-pressed={isSelected}
+            title={`${sourceInfo?.displayName || source} (${count})`}
+            className={cn(
+              'flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
+              isSelected
+                ? 'bg-primary-500 text-white shadow-sm'
+                : 'text-gray-600 hover:text-primary-600 hover:bg-primary-50'
+            )}
+          >
+            <Icon
+              className="w-3.5 h-3.5 flex-shrink-0"
+              style={isSelected ? undefined : { color: sourceInfo?.color }}
+            />
+            {count > 0 && (
+              <span className={cn(
+                'text-[10px] tabular-nums',
+                isSelected ? 'text-primary-200' : 'text-gray-400'
+              )}>
+                {count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+
+      {/* Overflow dropdown for remaining sources */}
+      {overflow.length > 0 && (
+        <div className="relative" ref={containerRef}>
+          <button
+            onClick={toggle}
+            className={cn(
+              'flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
+              overflowSelectedCount > 0
+                ? 'bg-primary-500 text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            )}
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" />
+            <span className="text-[10px]">+{overflow.length}</span>
+          </button>
+
+          {isOpen && (
+            <div
+              className="absolute top-full mt-1 left-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[180px]"
+              role="listbox"
+              aria-label="More sources"
+            >
+              {overflow.map(({ source, count }) => {
+                const sourceInfo = SUPPORTED_SOURCES[source];
+                const isSelected = selectedSources.includes(source);
+                const Icon = getSourceIcon(source);
+                return (
+                  <button
+                    key={source}
+                    onClick={() => onToggle(source)}
+                    className={cn(
+                      'w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] transition-colors',
+                      isSelected ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50'
+                    )}
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <Icon
+                      className="w-3.5 h-3.5 flex-shrink-0"
+                      style={isSelected ? undefined : { color: sourceInfo?.color }}
+                    />
+                    <span className="flex-1 text-left font-medium">{sourceInfo?.displayName || source}</span>
+                    <span className="text-[10px] tabular-nums text-gray-400">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ActivityGroupSectionProps {
   group: ActivityGroup;
-  groupBy: 'temporal' | 'source';
   isCollapsed: boolean;
   onToggle: () => void;
+  inlineDrafts?: ActivityGroup[];
+  onPromoteToCareerStory?: (entryId: string) => void;
+  onRegenerateNarrative?: (entryId: string) => void;
+  regeneratingEntryId?: string | null;
+  onDeleteEntry?: (entryId: string) => void;
+  isEnhancingNarratives?: boolean;
+  pendingEnhancementIds?: Set<string>;
+  showDraftsOnly?: boolean;
+  /** Last group in the list — timeline line stops here */
+  isLast?: boolean;
 }
 
 /**
@@ -543,111 +720,17 @@ function generateTemporalSummary(activities: Activity[]): string {
   return parts.join(', ');
 }
 
-/**
- * Generate a concise summary of activities in a source group.
- * Shows key themes/topics based on source type.
- */
-function generateSourceSummary(activities: Activity[], source: string): string {
-  if (activities.length === 0) return '';
-
-  const titles = activities.map(a => a.title);
-
-  switch (source) {
-    case 'jira': {
-      // Extract issue types or statuses
-      const types = new Set<string>();
-      activities.forEach(a => {
-        if (a.rawData?.issueType) types.add(a.rawData.issueType);
-        if (a.rawData?.status) types.add(a.rawData.status);
-      });
-      if (types.size > 0) {
-        return Array.from(types).slice(0, MAX_SUMMARY_SOURCES).join(', ');
-      }
-      // Fallback to title snippets
-      return titles.slice(0, 2).map(t => truncateText(t, TITLE_TRUNCATE_LENGTH)).join('; ') +
-             (titles.length > 2 ? '...' : '');
-    }
-
-    case 'github': {
-      // Count PRs by state
-      const states: Record<string, number> = {};
-      activities.forEach(a => {
-        const state = a.rawData?.state || 'open';
-        states[state] = (states[state] || 0) + 1;
-      });
-      const parts: string[] = [];
-      if (states.merged) parts.push(`${states.merged} merged`);
-      if (states.open) parts.push(`${states.open} open`);
-      if (states.closed) parts.push(`${states.closed} closed`);
-      return parts.length > 0
-        ? parts.join(', ')
-        : titles.slice(0, 2).map(t => truncateText(t, TITLE_TRUNCATE_LENGTH)).join('; ');
-    }
-
-    case 'slack': {
-      // Show channel names
-      const channels = new Set<string>();
-      activities.forEach(a => {
-        if (a.rawData?.channelName) channels.add(a.rawData.channelName);
-      });
-      if (channels.size > 0) {
-        return 'in ' + Array.from(channels).slice(0, MAX_SUMMARY_SOURCES).join(', ');
-      }
-      return `${activities.length} messages`;
-    }
-
-    case 'confluence':
-      return `${activities.length} page${activities.length > 1 ? 's' : ''} updated`;
-
-    case 'outlook':
-    case 'teams':
-    case 'google-calendar':
-    case 'google-meet': {
-      // Show meeting count and duration
-      let totalDuration = 0;
-      activities.forEach(a => {
-        if (a.rawData?.duration) totalDuration += a.rawData.duration;
-      });
-      const hours = Math.round(totalDuration / 60);
-      return hours > 0
-        ? `${activities.length} meetings, ~${hours}h`
-        : `${activities.length} meeting${activities.length > 1 ? 's' : ''}`;
-    }
-
-    default: {
-      // Generic: show first few title snippets
-      if (titles.length <= 2) {
-        return titles.map(t => truncateText(t, 40)).join('; ');
-      }
-      return titles.slice(0, 2).map(t => truncateText(t, SHORT_TITLE_TRUNCATE_LENGTH)).join('; ') +
-             ` +${titles.length - 2} more`;
-    }
-  }
-}
-
-function ActivityGroupSection({ group, groupBy, isCollapsed, onToggle }: ActivityGroupSectionProps) {
+function ActivityGroupSection({ group, isCollapsed, onToggle, inlineDrafts, onPromoteToCareerStory, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, isEnhancingNarratives, pendingEnhancementIds, showDraftsOnly, isLast }: ActivityGroupSectionProps) {
   // Progressive disclosure - track how many items to show
   const [showAll, setShowAll] = useState(false);
 
-  // Get color and icon based on groupBy type
-  const sourceInfo = groupBy === 'source' ? SUPPORTED_SOURCES[group.key as ActivitySource] : null;
-  const SourceIcon = groupBy === 'source' ? SourceIcons[group.key] : null;
-  // Use source color for source tab, primary purple for timeline tab
-  const labelColor = groupBy === 'source'
-    ? (sourceInfo?.color || '#6B7280')
-    : '#5D259F'; // Primary brand color for temporal groups
+  const labelColor = '#5D259F'; // Primary brand color for temporal groups
 
   // Generate summary for collapsed state
   const collapsedSummary = useMemo(() => {
     if (!isCollapsed) return '';
-    if (groupBy === 'source') {
-      return generateSourceSummary(group.activities, group.key);
-    }
-    if (groupBy === 'temporal') {
-      return generateTemporalSummary(group.activities);
-    }
-    return '';
-  }, [groupBy, isCollapsed, group.activities, group.key]);
+    return generateTemporalSummary(group.activities);
+  }, [isCollapsed, group.activities]);
 
   // Progressive disclosure: show limited items initially
   const visibleActivities = showAll
@@ -664,218 +747,118 @@ function ActivityGroupSection({ group, groupBy, isCollapsed, onToggle }: Activit
   }, [isCollapsed]);
 
   return (
-    <section>
-      {/* Group header with summary when collapsed */}
-      <button
-        onClick={onToggle}
-        className={cn(
-          'flex items-center gap-2.5 w-full text-left transition-all rounded-lg',
-          isCollapsed
-            ? 'bg-white border border-gray-100 px-3 py-2.5 hover:border-gray-200 hover:shadow-sm mb-2'
-            : 'mb-2 group'
-        )}
-      >
-        {/* Chevron */}
-        <div className="flex-shrink-0">
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+    <section className="relative flex gap-4">
+      {/* Timeline spine */}
+      <div className="flex flex-col items-center flex-shrink-0 w-5">
+        {/* Dot marker at the group header */}
+        <div
+          className={cn(
+            'w-3 h-3 rounded-full mt-2 flex-shrink-0 ring-4 ring-white z-10',
+            isCollapsed ? 'bg-gray-300' : 'bg-primary-500'
           )}
-        </div>
-
-        {/* Source icon for Sources tab */}
-        {groupBy === 'source' && SourceIcon && (
-          <div
-            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-white"
-            style={{ backgroundColor: labelColor }}
-          >
-            <SourceIcon className="w-3.5 h-3.5" />
-          </div>
-        )}
-
-        {/* Label and count */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span
-            className="text-sm font-semibold"
-            style={{ color: labelColor }}
-          >
-            {group.label}
-          </span>
-          <span className="text-[11px] text-gray-400 tabular-nums">
-            {group.count}
-          </span>
-        </div>
-
-        {/* Summary when collapsed - LEFT aligned after count */}
-        {isCollapsed && collapsedSummary && (
-          <span className="text-[11px] text-gray-500 truncate">
-            <span className="text-gray-300 mx-1.5">·</span>
-            {collapsedSummary}
-          </span>
-        )}
-
-        {/* Spacer for expanded state */}
-        {!isCollapsed && (
-          <div className="flex-1 h-px bg-gray-100" />
-        )}
-      </button>
-
-      {/* Activities - progressive disclosure with "Show more" */}
-      {!isCollapsed && (
-        <div className="bg-white rounded-lg border border-gray-100">
-          {visibleActivities.map((activity) => (
-            <ActivityCard
-              key={activity.id}
-              activity={activity}
-              showStoryBadge={true}
-              showSourceIcon={groupBy !== 'source'}
-            />
-          ))}
-
-          {/* Show more button */}
-          {hasMore && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
-            >
-              <Plus className="w-3 h-3" />
-              Show {hiddenCount} more
-            </button>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-/**
- * Story group section with collapsible header showing story card
- */
-interface StoryGroupSectionProps {
-  group: ActivityGroup;
-  isCollapsed: boolean;
-  onToggle: () => void;
-  onRegenerateNarrative?: (entryId: string) => void;
-  regeneratingEntryId?: string | null;
-  onDeleteEntry?: (entryId: string) => void;
-  onPromoteToCareerStory?: (entryId: string) => void;
-  isEnhancingNarratives?: boolean;
-  pendingEnhancementIds?: Set<string>;
-}
-
-function StoryGroupSection({ group, isCollapsed, onToggle, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, onPromoteToCareerStory, isEnhancingNarratives, pendingEnhancementIds }: StoryGroupSectionProps) {
-  const isUnassigned = group.key === 'unassigned';
-  const isExpanded = !isCollapsed;
-
-  // Progressive disclosure for unassigned activities
-  const [showAllUnassigned, setShowAllUnassigned] = useState(false);
-  const visibleUnassignedActivities = showAllUnassigned
-    ? group.activities
-    : group.activities.slice(0, INITIAL_ITEMS_LIMIT);
-  const hiddenUnassignedCount = Math.max(0, group.activities.length - INITIAL_ITEMS_LIMIT);
-  const hasMoreUnassigned = hiddenUnassignedCount > 0 && !showAllUnassigned;
-
-  // Reset when collapsed
-  React.useEffect(() => {
-    if (isCollapsed) {
-      setShowAllUnassigned(false);
-    }
-  }, [isCollapsed]);
-
-  return (
-    <section>
-      {/* Story Header with integrated activities */}
-      {isUnassigned ? (
-        <>
-          <UnassignedGroupHeader
-            activityCount={group.count}
-            isExpanded={isExpanded}
-            onToggle={onToggle}
-          />
-          {/* Unassigned activities with progressive disclosure */}
-          {isExpanded && group.activities.length > 0 && (
-            <div className="mt-2 bg-white rounded-lg border border-gray-100">
-              {visibleUnassignedActivities.map((activity) => (
-                <ActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  showStoryBadge={false}
-                />
-              ))}
-              {/* Show more button */}
-              {hasMoreUnassigned && (
-                <button
-                  onClick={() => setShowAllUnassigned(true)}
-                  className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-3 h-3" />
-                  Show {hiddenUnassignedCount} more
-                </button>
-              )}
-            </div>
-          )}
-        </>
-      ) : group.storyMetadata ? (
-        <StoryGroupHeader
-          storyMetadata={group.storyMetadata}
-          activityCount={group.count}
-          isExpanded={isExpanded}
-          onToggle={onToggle}
-          onRegenerateNarrative={onRegenerateNarrative}
-          isRegenerateLoading={regeneratingEntryId === group.storyMetadata.id}
-          onDeleteEntry={onDeleteEntry}
-          onPromoteToCareerStory={onPromoteToCareerStory}
-          activities={group.activities}
-          isEnhancingNarratives={isEnhancingNarratives}
-          isPendingEnhancement={
-            // Only pass explicit boolean when Set has entries (per-entry tracking active)
-            // Otherwise pass undefined to allow fallback heuristic in StoryGroupHeader
-            pendingEnhancementIds && pendingEnhancementIds.size > 0
-              ? pendingEnhancementIds.has(group.storyMetadata.id)
-              : undefined
-          }
         />
-      ) : (
-        // Fallback minimal header with progressive disclosure
-        <>
-          <button
-            onClick={onToggle}
-            className="flex items-center gap-2 w-full text-left"
-          >
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-            )}
-            <span className="text-sm font-semibold text-purple-600">{group.label}</span>
-            <span className="text-xs text-gray-400">{group.count}</span>
-            <div className="flex-1 h-px bg-gray-100" />
-          </button>
-          {isExpanded && group.activities.length > 0 && (
-            <div className="mt-2 bg-white rounded-lg border border-gray-100">
-              {visibleUnassignedActivities.map((activity) => (
-                <ActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  showStoryBadge={false}
-                />
-              ))}
-              {/* Show more button */}
-              {hasMoreUnassigned && (
-                <button
-                  onClick={() => setShowAllUnassigned(true)}
-                  className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-3 h-3" />
-                  Show {hiddenUnassignedCount} more
-                </button>
-              )}
-            </div>
+        {/* Vertical line extending down — hidden on last group when collapsed */}
+        {!(isLast && isCollapsed) && (
+          <div className="w-px flex-1 bg-gray-200" />
+        )}
+      </div>
+
+      {/* Content column */}
+      <div className="flex-1 min-w-0 pb-6">
+        {/* Group header */}
+        <button
+          onClick={onToggle}
+          className={cn(
+            'flex items-center gap-2 w-full text-left transition-all rounded-lg',
+            isCollapsed
+              ? 'py-1 hover:bg-gray-50 mb-1'
+              : 'mb-2 group'
           )}
-        </>
-      )}
+        >
+          {/* Chevron */}
+          <div className="flex-shrink-0">
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            )}
+          </div>
+
+          {/* Label and count */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span
+              className="text-sm font-semibold"
+              style={{ color: labelColor }}
+            >
+              {group.label}
+            </span>
+            <span className="text-[11px] text-gray-400 tabular-nums">
+              {group.count}
+            </span>
+          </div>
+
+          {/* Summary when collapsed */}
+          {isCollapsed && collapsedSummary && (
+            <span className="text-[11px] text-gray-500 truncate">
+              <span className="text-gray-300 mx-1.5">&middot;</span>
+              {collapsedSummary}
+            </span>
+          )}
+
+          {/* Spacer for expanded state */}
+          {!isCollapsed && (
+            <div className="flex-1 h-px bg-gray-100" />
+          )}
+        </button>
+
+        {/* Content when expanded */}
+        {!isCollapsed && (
+          <>
+            {/* Inline draft cards — above activity rows */}
+            {inlineDrafts && inlineDrafts.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {inlineDrafts.map(draft => (
+                  <InlineDraftCard
+                    key={draft.key}
+                    group={draft}
+                    onPromoteToCareerStory={onPromoteToCareerStory}
+                    onRegenerateNarrative={onRegenerateNarrative}
+                    regeneratingEntryId={regeneratingEntryId}
+                    onDeleteEntry={onDeleteEntry}
+                    isEnhancingNarratives={isEnhancingNarratives}
+                    pendingEnhancementIds={pendingEnhancementIds}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Activity rows — hidden in drafts-only mode */}
+            {!showDraftsOnly && (
+              <div className="bg-white rounded-lg border border-gray-100">
+                {visibleActivities.map((activity) => (
+                  <ActivityCard
+                    key={activity.id}
+                    activity={activity}
+                    showStoryBadge={true}
+                    showSourceIcon={true}
+                  />
+                ))}
+
+                {/* Show more button */}
+                {hasMore && (
+                  <button
+                    onClick={() => setShowAll(true)}
+                    className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Show {hiddenCount} more
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }
-

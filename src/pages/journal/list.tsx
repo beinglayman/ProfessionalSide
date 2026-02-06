@@ -71,7 +71,7 @@ import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
 import { runDemoSync, runLiveSync, SyncState, SyncResult } from '../../services/sync.service';
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
-import { ActivityViewTabs, ActivityViewType } from '../../components/journal/activity-view-tabs';
+
 import { ActivityStream } from '../../components/journal/activity-stream';
 import { StoryWizardModal } from '../../components/story-wizard';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
@@ -94,9 +94,6 @@ export default function JournalPage() {
   const [viewMode, setViewMode] = useState<'workspace' | 'network'>('workspace');
   const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Activity stream view state
-  const [activityView, setActivityView] = useState<ActivityViewType>('timeline');
 
   // Toggle view mode for individual entry
   const toggleEntryViewMode = (entryId: string) => {
@@ -227,23 +224,36 @@ export default function JournalPage() {
   // const { data, isLoading, isError, error } = useUserFeed(baseQueryParams);
   const { data: userWorkspaces, isLoading: workspacesLoading } = useWorkspaces();
 
-  // Fetch activities for the stream view - maps activityView to API groupBy param
-  const activityGroupBy = activityView === 'timeline' ? 'temporal' : activityView;
+  // Fetch activities for the stream view - always temporal grouping
   const activityParams = useMemo(() => ({
-    groupBy: activityGroupBy,
+    groupBy: 'temporal' as const,
     limit: 100
-  }), [activityGroupBy]);
+  }), []);
   const {
     data: activitiesData,
     isLoading: activitiesLoading,
     error: activitiesError
   } = useActivities(activityParams);
 
+  // Fetch story groups for inline draft cards
+  const storyParams = useMemo(() => ({
+    groupBy: 'story' as const,
+    limit: 100
+  }), []);
+  const {
+    data: storyData,
+  } = useActivities(storyParams);
+
+  // Extract story groups (drafts) — filter out 'unassigned' (raw activities, not drafts)
+  const storyGroups = useMemo(() => {
+    if (!storyData || !isGroupedResponse(storyData)) return [];
+    return storyData.groups.filter(g => g.key !== 'unassigned');
+  }, [storyData]);
+
   // Build journal entry metadata for Story Wizard loading facts
   const wizardEntryMeta = useMemo<JournalEntryMeta | undefined>(() => {
-    if (!storyWizardEntryId || !activitiesData) return undefined;
-    const groups = isGroupedResponse(activitiesData) ? activitiesData.groups : [];
-    const group = groups.find(
+    if (!storyWizardEntryId) return undefined;
+    const group = storyGroups.find(
       (g) => g.storyMetadata?.id === storyWizardEntryId
     );
     if (!group?.storyMetadata) return undefined;
@@ -259,7 +269,7 @@ export default function JournalPage() {
       impactHighlights: meta.impactHighlights,
       skills: meta.skills,
     };
-  }, [storyWizardEntryId, activitiesData]);
+  }, [storyWizardEntryId, storyGroups]);
 
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
@@ -622,9 +632,7 @@ export default function JournalPage() {
   const handleSyncComplete = () => {
     console.log('[Journal] handleSyncComplete called');
     setShowSyncModal(false);
-    // Navigate to Story tab to show enhancing animation
-    setActivityView('story');
-    // Invalidate queries - they'll refetch when component re-renders with new view
+    // Invalidate queries - they'll refetch
     // Note: invalidate (not refetch) because the story query might not exist yet
     queryClient.invalidateQueries({ queryKey: ['journal'] });
     queryClient.invalidateQueries({ queryKey: ['activities'] });
@@ -665,12 +673,9 @@ export default function JournalPage() {
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Compact Header: Tabs + Count + Actions in one row */}
         <div className="flex items-center justify-between gap-4 mb-5">
-          {/* Left: Tabs with integrated count */}
-          <div className="flex items-center gap-4">
-            <ActivityViewTabs
-              activeView={activityView}
-              onViewChange={setActivityView}
-            />
+          {/* Left: Page title with count */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-gray-900">Timeline</h1>
             {activityCount > 0 && (
               <span className="text-sm text-gray-400">
                 {activityCount} activities
@@ -735,16 +740,10 @@ export default function JournalPage() {
         {/* Activity Stream */}
         <ActivityStream
           groups={activitiesData && isGroupedResponse(activitiesData) ? activitiesData.groups : []}
-          groupBy={activityGroupBy}
+          storyGroups={storyGroups}
           isLoading={activitiesLoading}
           error={activitiesError ? String(activitiesError) : null}
-          emptyMessage={
-            activityView === 'timeline'
-              ? 'No activities yet. Sync your tools to see your work history.'
-              : activityView === 'source'
-              ? 'No activities from connected sources. Try syncing your tools.'
-              : 'No stories created yet. Activities will be grouped once you create draft stories.'
-          }
+          emptyMessage="No activities yet. Sync your tools to see your work history."
           onRegenerateNarrative={handleRegenerateNarrative}
           regeneratingEntryId={regeneratingEntryId}
           onDeleteEntry={handleDeleteEntry}
