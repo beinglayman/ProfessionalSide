@@ -47,7 +47,7 @@ const makeStoryGroup = (key: string, title: string): ActivityGroup => ({
     title,
     description: 'A draft story about work',
     timeRangeStart: '2026-02-03T00:00:00Z',
-    timeRangeEnd: '2026-02-05T00:00:00Z',
+    timeRangeEnd: '2026-02-05T08:00:00Z',
     category: null,
     skills: [],
     createdAt: '2026-02-05T09:00:00Z',
@@ -78,7 +78,7 @@ describe('ActivityStream — inline drafts', () => {
         ]}
       />
     );
-    expect(screen.getByText(/2 draft stories ready for review/)).toBeInTheDocument();
+    expect(screen.getByText(/2 draft stories/)).toBeInTheDocument();
   });
 
   it('hides drafts banner when no storyGroups', () => {
@@ -91,13 +91,16 @@ describe('ActivityStream — inline drafts', () => {
     expect(screen.queryByText(/draft stor/i)).not.toBeInTheDocument();
   });
 
-  it('renders Create Career Story CTA on draft cards', () => {
+  it('renders Create Career Story CTA when draft card is expanded', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
         storyGroups={[makeStoryGroup('auth', 'Auth Overhaul')]}
+        onPromoteToCareerStory={vi.fn()}
       />
     );
+    // Expand the draft card by clicking the title
+    fireEvent.click(screen.getByText('Auth Overhaul'));
     expect(screen.getByText(/Create Career Story/)).toBeInTheDocument();
   });
 
@@ -110,6 +113,9 @@ describe('ActivityStream — inline drafts', () => {
         onPromoteToCareerStory={onPromote}
       />
     );
+    // Expand the draft card first
+    fireEvent.click(screen.getByText('Auth Overhaul'));
+    // Click the CTA button
     fireEvent.click(screen.getByText(/Create Career Story/));
     expect(onPromote).toHaveBeenCalledWith('story-auth');
   });
