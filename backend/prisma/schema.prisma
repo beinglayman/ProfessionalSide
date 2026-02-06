@@ -115,6 +115,10 @@ model User {
   // Clustering is now stored inline in JournalEntry.activityIds + groupingMethod
   // Use unified models with sourceMode field instead
 
+  // Follow relationships (one-way, capped at 100)
+  following  Follow[] @relation("Follower")
+  followers  Follow[] @relation("Following")
+
   @@map("users")
 }
 
@@ -1475,6 +1479,25 @@ model CareerStory {
   @@index([isPublished, visibility])
   @@index([journalEntryId])
   @@map("career_stories")
+}
+
+// ============================================================================
+// FOLLOW (one-way, capped at 100 per user)
+// ============================================================================
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
 }
 
 // ============================================================================
