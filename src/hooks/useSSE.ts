@@ -182,9 +182,8 @@ export function useSSE({
         const data = JSON.parse(event.data) as SSEEventData;
         console.log('[SSE] Data changed:', data);
 
-        // DON'T invalidate here - let the callback handle UI updates
-        // The narratives-complete event will trigger the final refetch
-        // This prevents hammering the backend with 8+ refetches during generation
+        // Debounced invalidation — coalesces rapid data-changed events
+        invalidateQueries();
 
         // Call user callback (for UI state like pending indicators)
         onDataChangedRef.current?.(data.data);

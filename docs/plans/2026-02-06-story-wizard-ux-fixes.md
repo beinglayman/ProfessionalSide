@@ -240,13 +240,13 @@ Part of `WizardLoadingState` component:
 - Bottom zone: curated quote card with `< >` manual navigation
   - `< >` buttons are tab-focusable with `aria-label`
   - Left/Right arrow keys navigate when focused
-- Pool of 25+ quotes (hardcoded in `constants.ts`) about:
-  - Career storytelling and narrative craft
-  - Perception building and personal branding
-  - Publishing original thought and sharing work
-  - Professional growth and coaching wisdom
+- 50 curated quotes from `docs/plans/career-quotes.md` (properly attributed)
+  - Sources: Austin Kleon, Cal Newport, Seth Godin, Dorie Clark, Naval Ravikant, Julia Evans, Sheryl Sandberg
+  - Themes: Publishing work, Thinking about work, Narrating your story, Building perception, Career capital, Evidence, Skills, Progression
+- Hardcoded in `constants.ts` as `{ text: string; attribution: string; theme: string }[]`
 - Quote format: `"Quote text" — Attribution`
 - Randomly selected starting quote, sequential navigation from there
+- Theme shown as subtle label above quote (e.g., "On Publishing Your Work")
 - Disappears when loading completes
 
 ### Questions Step Layout

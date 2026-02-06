@@ -7,7 +7,7 @@
  * 3. Generate: Story + evaluation score
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,18 +20,11 @@ import {
   Sparkles,
   ChevronRight,
   ChevronLeft,
-  Loader2,
   CheckCircle2,
   AlertCircle,
-  Flame,
-  Building2,
-  Users,
-  Zap,
-  Search,
-  Compass,
-  RefreshCw,
-  Shield,
+  HelpCircle,
 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { CareerStoriesService } from '../../services/career-stories.service';
 import {
   StoryArchetype,
@@ -40,19 +33,11 @@ import {
   WizardGenerateResponse,
   WizardQuestion,
   WizardAnswer,
+  JournalEntryMeta,
 } from '../../types/career-stories';
-
-// Archetype icons and colors
-const ARCHETYPE_CONFIG: Record<StoryArchetype, { icon: React.ElementType; color: string; label: string }> = {
-  firefighter: { icon: Flame, color: 'text-red-500', label: 'Firefighter' },
-  architect: { icon: Building2, color: 'text-blue-500', label: 'Architect' },
-  diplomat: { icon: Users, color: 'text-green-500', label: 'Diplomat' },
-  multiplier: { icon: Zap, color: 'text-yellow-500', label: 'Multiplier' },
-  detective: { icon: Search, color: 'text-purple-500', label: 'Detective' },
-  pioneer: { icon: Compass, color: 'text-orange-500', label: 'Pioneer' },
-  turnaround: { icon: RefreshCw, color: 'text-cyan-500', label: 'Turnaround' },
-  preventer: { icon: Shield, color: 'text-emerald-500', label: 'Preventer' },
-};
+import { WizardLoadingState } from './WizardLoadingState';
+import { ArchetypeSelector, ARCHETYPE_CONFIG } from './ArchetypeSelector';
+import { FrameworkSelector } from '../career-stories/FrameworkSelector';
 
 interface StoryWizardModalProps {
   isOpen: boolean;
@@ -60,23 +45,19 @@ interface StoryWizardModalProps {
   journalEntryId: string;
   /** Optional - will be fetched from analyze response if not provided */
   journalEntryTitle?: string;
+  /** Metadata for loading state facts */
+  journalEntryMeta?: JournalEntryMeta;
   onStoryCreated?: (storyId: string) => void;
 }
 
 type WizardStep = 'analyze' | 'questions' | 'generate';
-
-const FRAMEWORKS: Array<{ value: NarrativeFramework; label: string; description: string }> = [
-  { value: 'STAR', label: 'STAR', description: 'Situation, Task, Action, Result' },
-  { value: 'SOAR', label: 'SOAR', description: 'Situation, Obstacles, Actions, Results' },
-  { value: 'CAR', label: 'CAR', description: 'Challenge, Action, Result' },
-  { value: 'STARL', label: 'STARL', description: 'STAR + Learning' },
-];
 
 export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   isOpen,
   onClose,
   journalEntryId,
   journalEntryTitle,
+  journalEntryMeta,
   onStoryCreated,
 }) => {
   // State
@@ -96,9 +77,17 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   // Generate state
   const [generateResult, setGenerateResult] = useState<WizardGenerateResponse | null>(null);
 
+  // Guard against state updates after close/unmount
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   // Reset on close
   useEffect(() => {
     if (!isOpen) {
+      mountedRef.current = false;
       setStep('analyze');
       setAnalyzeResult(null);
       setSelectedArchetype(null);
@@ -107,6 +96,8 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
       setCurrentQuestionIndex(0);
       setGenerateResult(null);
       setError(null);
+    } else {
+      mountedRef.current = true;
     }
   }, [isOpen]);
 
@@ -122,6 +113,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     setError(null);
     try {
       const response = await CareerStoriesService.wizardAnalyze(journalEntryId);
+      if (!mountedRef.current) return;
       if (response.success && response.data) {
         setAnalyzeResult(response.data);
         setSelectedArchetype(response.data.archetype.detected);
@@ -129,15 +121,17 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
         setError(response.error || 'Failed to analyze entry');
       }
     } catch (err) {
+      if (!mountedRef.current) return;
       setError('Failed to analyze entry');
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
   };
 
   const handleGenerate = async () => {
     if (!selectedArchetype) return;
 
+    setStep('generate'); // Show loading immediately
     setIsLoading(true);
     setError(null);
     try {
@@ -147,17 +141,18 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
         archetype: selectedArchetype,
         framework: selectedFramework,
       });
+      if (!mountedRef.current) return;
       if (response.success && response.data) {
         setGenerateResult(response.data);
-        setStep('generate');
         onStoryCreated?.(response.data.story.id);
       } else {
         setError(response.error || 'Failed to generate story');
       }
     } catch (err) {
+      if (!mountedRef.current) return;
       setError('Failed to generate story');
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
   };
 
@@ -166,10 +161,17 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   };
 
   const stepIndex = ['analyze', 'questions', 'generate'].indexOf(step);
+  const isLastQuestion = analyzeResult
+    ? currentQuestionIndex === analyzeResult.questions.length - 1
+    : false;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className={cn(
+        'max-w-2xl max-h-[85vh] flex flex-col',
+        // Allow dropdowns to overflow on analyze step; clip on other steps
+        step === 'analyze' ? 'overflow-visible' : 'overflow-hidden'
+      )}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary-500" />
@@ -223,14 +225,29 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
         {/* Error message */}
         {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm animate-in fade-in duration-200">
+          <div role="alert" className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm animate-in fade-in duration-200">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
+            <span className="flex-1">{error}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                if (step === 'analyze') handleAnalyze();
+                else if (step === 'generate') handleGenerate();
+              }}
+              className="text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2 flex-shrink-0"
+            >
+              Retry
+            </button>
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto min-h-[300px]">
+        <div className={cn(
+          'flex-1',
+          // Analyze step: no scroll so dropdown menus aren't clipped
+          step === 'analyze' ? 'overflow-visible' : 'overflow-y-auto min-h-[300px]'
+        )}>
           {step === 'analyze' && (
             <div className="space-y-6 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <AnalyzeStep
@@ -240,6 +257,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
                 onArchetypeChange={setSelectedArchetype}
                 selectedFramework={selectedFramework}
                 onFrameworkChange={setSelectedFramework}
+                journalMeta={journalEntryMeta}
               />
             </div>
           )}
@@ -251,84 +269,112 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
                 answers={answers}
                 onAnswerChange={handleAnswerChange}
                 currentQuestionIndex={currentQuestionIndex}
-                onNext={() => {
-                  if (currentQuestionIndex < analyzeResult.questions.length - 1) {
-                    setCurrentQuestionIndex((i) => i + 1);
-                  } else {
-                    // Last question - trigger generate
-                    handleGenerate();
-                  }
-                }}
-                onPrev={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
-                onSkip={() => {
-                  if (currentQuestionIndex < analyzeResult.questions.length - 1) {
-                    setCurrentQuestionIndex((i) => i + 1);
-                  } else {
-                    handleGenerate();
-                  }
-                }}
               />
             </div>
           )}
 
-          {step === 'generate' && generateResult && (
+          {step === 'generate' && isLoading && (
+            <div className="py-4 animate-in fade-in duration-200">
+              <WizardLoadingState mode="generate" journalMeta={journalEntryMeta} />
+            </div>
+          )}
+
+          {step === 'generate' && !isLoading && generateResult && (
             <div className="space-y-6 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <GenerateStep result={generateResult} />
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-          <Button
-            variant="ghost"
-            onClick={() => {
-              if (step === 'questions') {
-                if (currentQuestionIndex > 0) {
-                  setCurrentQuestionIndex((i) => i - 1);
-                } else {
-                  setStep('analyze');
+        {/* Footer — unified navigation */}
+        {!(step === 'generate' && isLoading) && (
+          <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (step === 'analyze') {
+                  onClose();
+                } else if (step === 'questions') {
+                  if (currentQuestionIndex > 0) {
+                    setCurrentQuestionIndex((i) => i - 1);
+                  } else {
+                    setStep('analyze');
+                  }
+                } else if (step === 'generate' && analyzeResult) {
+                  // Back from generate result → last question
+                  setStep('questions');
+                  setCurrentQuestionIndex(analyzeResult.questions.length - 1);
                 }
-              } else if (step === 'generate') {
-                setStep('questions');
-              } else {
-                onClose();
-              }
-            }}
-            disabled={isLoading}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            {step === 'analyze' ? 'Cancel' : 'Back'}
-          </Button>
-
-          {step === 'analyze' && (
-            <Button
-              onClick={() => setStep('questions')}
-              disabled={isLoading || !analyzeResult}
-              className="bg-primary-500 hover:bg-primary-600 text-white"
+              }}
+              disabled={isLoading}
             >
-              Continue
-              <ChevronRight className="h-4 w-4 ml-1" />
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              {step === 'analyze' ? 'Cancel' : 'Back'}
             </Button>
-          )}
 
-          {step === 'questions' && isLoading && (
-            <div className="flex items-center gap-2 text-primary-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Generating your story...</span>
+            <div className="flex items-center gap-3">
+              {/* Skip (questions only) */}
+              {step === 'questions' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!analyzeResult) return;
+                    if (currentQuestionIndex < analyzeResult.questions.length - 1) {
+                      setCurrentQuestionIndex((i) => i + 1);
+                    } else {
+                      handleGenerate();
+                    }
+                  }}
+                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Skip
+                </button>
+              )}
+
+              {/* Primary action */}
+              {step === 'analyze' && (
+                <Button
+                  onClick={() => setStep('questions')}
+                  disabled={isLoading || !analyzeResult}
+                  className="bg-primary-500 hover:bg-primary-600 text-white"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+
+              {step === 'questions' && !isLastQuestion && (
+                <Button
+                  onClick={() => setCurrentQuestionIndex((i) => i + 1)}
+                  className="bg-primary-500 hover:bg-primary-600 text-white"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+
+              {step === 'questions' && isLastQuestion && (
+                <Button
+                  onClick={handleGenerate}
+                  className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate
+                </Button>
+              )}
+
+              {step === 'generate' && !isLoading && (
+                <Button
+                  onClick={onClose}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Done
+                </Button>
+              )}
             </div>
-          )}
-
-          {step === 'generate' && (
-            <Button
-              onClick={onClose}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Done
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -345,6 +391,7 @@ interface AnalyzeStepProps {
   onArchetypeChange: (archetype: StoryArchetype) => void;
   selectedFramework: NarrativeFramework;
   onFrameworkChange: (framework: NarrativeFramework) => void;
+  journalMeta?: JournalEntryMeta;
 }
 
 const AnalyzeStep: React.FC<AnalyzeStepProps> = ({
@@ -354,17 +401,10 @@ const AnalyzeStep: React.FC<AnalyzeStepProps> = ({
   onArchetypeChange,
   selectedFramework,
   onFrameworkChange,
+  journalMeta,
 }) => {
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <div className="relative">
-          <Loader2 className="h-12 w-12 text-primary-500 animate-spin" />
-          <div className="absolute inset-0 rounded-full border-2 border-primary-200 animate-ping opacity-50" />
-        </div>
-        <p className="text-gray-500 text-sm">Analyzing your story...</p>
-      </div>
-    );
+    return <WizardLoadingState mode="analyze" journalMeta={journalMeta} />;
   }
 
   if (!result) return null;
@@ -390,60 +430,26 @@ const AnalyzeStep: React.FC<AnalyzeStepProps> = ({
             <p className="text-sm text-gray-600">{result.archetype.reasoning}</p>
           </div>
         </div>
-      </div>
 
-      {/* Alternative Archetypes */}
-      {result.archetype.alternatives.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Or choose another archetype
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[result.archetype.detected, ...result.archetype.alternatives.map((a) => a.archetype)].map(
-              (archetype) => {
-                const cfg = ARCHETYPE_CONFIG[archetype];
-                const AltIcon = cfg.icon;
-                const isSelected = selectedArchetype === archetype;
-                return (
-                  <button
-                    key={archetype}
-                    onClick={() => onArchetypeChange(archetype)}
-                    className={`p-3 rounded-lg border-2 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
-                      isSelected
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <AltIcon className={`h-5 w-5 mx-auto mb-1 ${cfg.color}`} />
-                    <span className="text-xs font-medium text-gray-700">{cfg.label}</span>
-                  </button>
-                );
-              }
-            )}
+        {/* Selectors — integrated inside the card */}
+        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-primary-100/50">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">Archetype</span>
+            <ArchetypeSelector
+              value={selectedArchetype || result.archetype.detected}
+              onChange={onArchetypeChange}
+              detected={result.archetype.detected}
+              alternatives={result.archetype.alternatives}
+            />
           </div>
-        </div>
-      )}
-
-      {/* Framework Selection */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Narrative Framework
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {FRAMEWORKS.map((fw) => (
-            <button
-              key={fw.value}
-              onClick={() => onFrameworkChange(fw.value)}
-              className={`p-3 rounded-lg border-2 text-left transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] ${
-                selectedFramework === fw.value
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
-            >
-              <span className="font-medium text-sm text-gray-900">{fw.label}</span>
-              <p className="text-xs text-gray-500 mt-0.5">{fw.description}</p>
-            </button>
-          ))}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">Format</span>
+            <FrameworkSelector
+              value={selectedFramework}
+              onChange={onFrameworkChange}
+              align="left"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -455,9 +461,6 @@ interface QuestionsStepProps {
   answers: Record<string, WizardAnswer>;
   onAnswerChange: (questionId: string, answer: WizardAnswer) => void;
   currentQuestionIndex: number;
-  onNext: () => void;
-  onPrev: () => void;
-  onSkip: () => void;
 }
 
 const QuestionsStep: React.FC<QuestionsStepProps> = ({
@@ -465,49 +468,24 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
   answers,
   onAnswerChange,
   currentQuestionIndex,
-  onNext,
-  onPrev,
-  onSkip,
 }) => {
-  const phaseConfig = {
-    dig: { label: 'Context', color: 'bg-blue-500', bgColor: 'from-blue-50 to-slate-50 border-blue-100' },
-    impact: { label: 'Impact', color: 'bg-emerald-500', bgColor: 'from-emerald-50 to-slate-50 border-emerald-100' },
-    growth: { label: 'Growth', color: 'bg-violet-500', bgColor: 'from-violet-50 to-slate-50 border-violet-100' },
-  };
+  const [showHint, setShowHint] = useState(false);
+
+  // Reset hint when question changes
+  useEffect(() => {
+    setShowHint(false);
+  }, [currentQuestionIndex]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswer = answers[currentQuestion?.id] || { selected: [] };
-  const hasAnswer = currentAnswer.selected.length > 0 || (currentAnswer.freeText && currentAnswer.freeText.trim().length > 0);
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const answeredCount = questions.filter((q) => {
-    const a = answers[q.id];
-    return a?.selected.length > 0 || (a?.freeText && a.freeText.trim().length > 0);
-  }).length;
 
   if (!currentQuestion) return null;
 
-  const phase = phaseConfig[currentQuestion.phase];
   const textareaId = `question-${currentQuestion.id}-text`;
 
   return (
-    <div className="space-y-5">
-      {/* Compact progress header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">
-            {currentQuestionIndex + 1}
-            <span className="text-gray-400 font-normal"> / {questions.length}</span>
-          </span>
-          <span className={`text-xs px-2 py-0.5 rounded-full text-white ${phase.color}`}>
-            {phase.label}
-          </span>
-        </div>
-        <span className="text-xs text-gray-400">
-          {answeredCount} answered
-        </span>
-      </div>
-
-      {/* Single progress bar - clean, no dots */}
+    <div className="space-y-4">
+      {/* Thin progress bar */}
       <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500 ease-out"
@@ -515,176 +493,95 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
         />
       </div>
 
-      {/* Question card - cleaner styling */}
+      {/* Question card */}
       <div
         key={currentQuestion.id}
-        className={`p-6 rounded-2xl border bg-gradient-to-br ${phase.bgColor} animate-in fade-in slide-in-from-right-4 duration-300`}
+        className="rounded-2xl border border-gray-100 bg-white p-5 animate-in fade-in slide-in-from-right-4 duration-300"
       >
-        <div className="space-y-5">
-          {/* Question text */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 leading-relaxed">
+        <div className="space-y-4">
+          {/* Question text + hint toggle */}
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-base font-semibold text-gray-900 leading-relaxed">
               {currentQuestion.question}
             </h3>
             {currentQuestion.hint && (
-              <p className="text-sm text-gray-500 mt-2">{currentQuestion.hint}</p>
+              <button
+                type="button"
+                onClick={() => setShowHint(!showHint)}
+                className="flex-shrink-0 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label="Show hint"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
             )}
           </div>
 
-          {/* Options as accessible chips */}
-          {currentQuestion.options && currentQuestion.options.length > 0 && (
-            <div
-              className="flex flex-wrap gap-2"
-              role="group"
-              aria-label="Select options that apply"
-            >
-              {currentQuestion.options.map((opt) => {
-                const isSelected = currentAnswer.selected.includes(opt.value);
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="checkbox"
-                    aria-checked={isSelected}
-                    onClick={() => {
-                      const newSelected = isSelected
-                        ? currentAnswer.selected.filter((v) => v !== opt.value)
-                        : [...currentAnswer.selected, opt.value];
-                      onAnswerChange(currentQuestion.id, { ...currentAnswer, selected: newSelected });
-                    }}
-                    className={`px-4 py-2.5 text-sm rounded-full border-2 transition-all duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                      isSelected
-                        ? 'bg-primary-50 border-primary-500 text-primary-700 font-medium'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {isSelected && (
-                      <CheckCircle2 className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
-                    )}
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Hint (click-to-toggle) */}
+          {showHint && currentQuestion.hint && (
+            <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2 animate-in fade-in duration-200">
+              {currentQuestion.hint}
+            </p>
           )}
 
-          {/* Free text input with label */}
-          {currentQuestion.allowFreeText && (
-            <div className="space-y-2">
-              <label
-                htmlFor={textareaId}
-                className="text-sm font-medium text-gray-600"
+          {/* Side-by-side: chips + textarea */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Chips (left, 40%) */}
+            {currentQuestion.options && currentQuestion.options.length > 0 && (
+              <div
+                className="sm:w-2/5 flex flex-wrap sm:flex-col gap-1.5"
+                role="group"
+                aria-label="Select options that apply"
               >
-                Add your own context
-              </label>
-              <textarea
-                id={textareaId}
-                value={currentAnswer.freeText || ''}
-                onChange={(e) => onAnswerChange(currentQuestion.id, { ...currentAnswer, freeText: e.target.value })}
-                placeholder="What else is relevant here?"
-                className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-all duration-150 bg-white"
-                rows={3}
-              />
-            </div>
-          )}
+                {currentQuestion.options.map((opt) => {
+                  const isSelected = currentAnswer.selected.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      onClick={() => {
+                        const newSelected = isSelected
+                          ? currentAnswer.selected.filter((v) => v !== opt.value)
+                          : [...currentAnswer.selected, opt.value];
+                        onAnswerChange(currentQuestion.id, { ...currentAnswer, selected: newSelected });
+                      }}
+                      className={cn(
+                        'px-3 py-1.5 text-xs rounded-full border transition-all duration-150 active:scale-95 text-left',
+                        isSelected
+                          ? 'bg-primary-50 border-primary-500 text-primary-700 font-medium'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                      )}
+                    >
+                      {isSelected && <CheckCircle2 className="inline h-3 w-3 mr-1 -mt-0.5" />}
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Textarea (right, 60% or full-width if no chips) */}
+            {currentQuestion.allowFreeText && (
+              <div className={cn(
+                currentQuestion.options?.length ? 'sm:w-3/5' : 'w-full'
+              )}>
+                <textarea
+                  id={textareaId}
+                  value={currentAnswer.freeText || ''}
+                  onChange={(e) => {
+                    onAnswerChange(currentQuestion.id, { ...currentAnswer, freeText: e.target.value });
+                    if (showHint) setShowHint(false);
+                  }}
+                  placeholder={currentQuestion.hint || 'Add your thoughts...'}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-all duration-150 bg-white"
+                  rows={4}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Navigation - cleaner layout */}
-      <div className="flex items-center justify-between pt-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onPrev}
-          disabled={currentQuestionIndex === 0}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Previous
-        </Button>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSkip}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            Skip
-          </Button>
-
-          {isLastQuestion ? (
-            <Button
-              onClick={onNext}
-              className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-sm"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Generate Story
-            </Button>
-          ) : (
-            <Button
-              onClick={onNext}
-              variant={hasAnswer ? 'default' : 'secondary'}
-              className={hasAnswer ? 'bg-primary-500 hover:bg-primary-600 text-white' : ''}
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface QuestionItemProps {
-  question: WizardQuestion;
-  answer: WizardAnswer;
-  onChange: (answer: WizardAnswer) => void;
-}
-
-const QuestionItem: React.FC<QuestionItemProps> = ({ question, answer, onChange }) => {
-  const toggleOption = (value: string) => {
-    const newSelected = answer.selected.includes(value)
-      ? answer.selected.filter((v) => v !== value)
-      : [...answer.selected, value];
-    onChange({ ...answer, selected: newSelected });
-  };
-
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-800">{question.question}</p>
-      {question.hint && <p className="text-xs text-gray-500 italic">{question.hint}</p>}
-
-      {/* Options (checkboxes) */}
-      {question.options && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {question.options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => toggleOption(opt.value)}
-              className={`px-3 py-1.5 text-xs rounded-full border transition-all duration-150 active:scale-95 ${
-                answer.selected.includes(opt.value)
-                  ? 'bg-primary-100 border-primary-400 text-primary-700'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Free text */}
-      {question.allowFreeText && (
-        <textarea
-          value={answer.freeText || ''}
-          onChange={(e) => onChange({ ...answer, freeText: e.target.value })}
-          placeholder="Add more details..."
-          className="w-full mt-2 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-shadow duration-150"
-          rows={2}
-        />
-      )}
     </div>
   );
 };

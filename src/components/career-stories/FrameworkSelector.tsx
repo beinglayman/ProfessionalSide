@@ -5,67 +5,40 @@
  * Groups frameworks by category with descriptions.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { NarrativeFramework } from '../../types/career-stories';
 import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup } from './constants';
+import { useDropdown } from '../../hooks/useDropdown';
 
 interface FrameworkSelectorProps {
   value: NarrativeFramework;
   onChange: (framework: NarrativeFramework) => void;
   disabled?: boolean;
+  /** Dropdown alignment relative to trigger (default: 'right') */
+  align?: 'left' | 'right';
 }
 
 export const FrameworkSelector: React.FC<FrameworkSelectorProps> = ({
   value,
   onChange,
   disabled = false,
+  align = 'right',
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
-
-  // Close on Escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isOpen]);
+  const { isOpen, toggle, close, containerRef } = useDropdown();
 
   const handleSelect = (framework: NarrativeFramework) => {
     onChange(framework);
-    setIsOpen(false);
+    close();
   };
-
-  const currentFramework = NARRATIVE_FRAMEWORKS[value];
 
   return (
     <div ref={containerRef} className="relative inline-block">
       {/* Trigger Button - compact */}
       <button
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => !disabled && toggle()}
         disabled={disabled}
         className={cn(
           'flex items-center gap-1 px-1.5 py-1 text-xs font-medium rounded transition-colors',
@@ -87,7 +60,10 @@ export const FrameworkSelector: React.FC<FrameworkSelectorProps> = ({
         <div
           role="listbox"
           aria-label="Select narrative format"
-          className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50"
+          className={cn(
+            'absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50',
+            align === 'left' ? 'left-0' : 'right-0'
+          )}
         >
           <div className="flex gap-4">
             {(Object.keys(FRAMEWORK_GROUPS) as FrameworkGroup[]).map((groupKey) => {

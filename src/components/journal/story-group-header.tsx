@@ -171,6 +171,8 @@ export function StoryGroupHeader({
 
   // Ref for scroll-into-view behavior
   const cardRef = useRef<HTMLDivElement>(null);
+  // Track whether initial expand has been handled (skip scrollIntoView on first render)
+  const hasInitialized = useRef(false);
 
   // State for supporting activities collapse
   const [showSupporting, setShowSupporting] = useState(false);
@@ -207,18 +209,27 @@ export function StoryGroupHeader({
     prevImpactRef.current = impactHighlights;
   }, [description, impactHighlights]);
 
-  // Scroll card into view when expanded - keeps focus stable
+  // Scroll card into view when user manually expands (not on initial auto-expand)
   useEffect(() => {
     if (isExpanded && cardRef.current) {
-      // Small delay to allow expansion animation to start
+      if (!hasInitialized.current) {
+        // Skip scroll on initial render / tab switch auto-expand
+        hasInitialized.current = true;
+        return;
+      }
+      // Brief delay so the expansion animation starts before scrolling
+      const SCROLL_DELAY_MS = 50;
       const timer = setTimeout(() => {
         cardRef.current?.scrollIntoView({
           behavior: 'smooth',
-          block: 'start',
-          inline: 'nearest'
+          block: 'nearest',
         });
-      }, 50);
+      }, SCROLL_DELAY_MS);
       return () => clearTimeout(timer);
+    }
+    // Mark as initialized even if collapsed on first render
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
     }
   }, [isExpanded]);
 

@@ -71,8 +71,14 @@ export function ActivityStream({
       if (tabChanged) {
         setLastGroupBy(groupBy);
       }
-      // Scroll to top when tab changes or first load
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      // Scroll to top when tab changes or first load.
+      // Use double-rAF so the scroll fires after the browser has painted the
+      // expanded first card content — prevents the first-visit "scroll to bottom" glitch.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        });
+      });
     }
   }, [groups, groupBy, lastGroupBy, isInitialized]);
 

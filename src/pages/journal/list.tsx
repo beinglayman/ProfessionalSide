@@ -76,6 +76,7 @@ import { ActivityStream } from '../../components/journal/activity-stream';
 import { StoryWizardModal } from '../../components/story-wizard';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { GroupedActivitiesResponse } from '../../types/activity';
+import { JournalEntryMeta } from '../../types/career-stories';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { EnhancingIndicator } from '../../components/ui/enhancing-indicator';
 // useNarrativePolling removed - SSE handles updates, polling was hammering backend
@@ -237,6 +238,29 @@ export default function JournalPage() {
     isLoading: activitiesLoading,
     error: activitiesError
   } = useActivities(activityParams);
+
+  // Build journal entry metadata for Story Wizard loading facts
+  const wizardEntryMeta = useMemo<JournalEntryMeta | undefined>(() => {
+    if (!storyWizardEntryId || !activitiesData) return undefined;
+    const groups = isGroupedResponse(activitiesData) ? activitiesData.groups : [];
+    const group = groups.find(
+      (g) => g.storyMetadata?.id === storyWizardEntryId
+    );
+    if (!group?.storyMetadata) return undefined;
+    const meta = group.storyMetadata;
+    return {
+      title: meta.title,
+      dateRange: meta.timeRangeStart && meta.timeRangeEnd
+        ? `${new Date(meta.timeRangeStart).toLocaleDateString()} - ${new Date(meta.timeRangeEnd).toLocaleDateString()}`
+        : undefined,
+      activityCount: group.count,
+      tools: [...new Set(group.activities.map((a) => a.source))],
+      topics: meta.topics,
+      impactHighlights: meta.impactHighlights,
+      skills: meta.skills,
+    };
+  }, [storyWizardEntryId, activitiesData]);
+
   const toggleAppreciateMutation = useToggleAppreciate();
   const toggleLikeMutation = useToggleLike();
   const rechronicleMutation = useRechronicleEntry();
@@ -780,6 +804,7 @@ export default function JournalPage() {
           isOpen={true}
           onClose={() => setStoryWizardEntryId(null)}
           journalEntryId={storyWizardEntryId}
+          journalEntryMeta={wizardEntryMeta}
           onStoryCreated={handleStoryWizardComplete}
         />
       )}

@@ -6,7 +6,7 @@
  * that reveals a grouped 3-column view of all archetypes.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Flame,
   Building2,
@@ -22,8 +22,9 @@ import {
 import { cn } from '../../lib/utils';
 import { StoryArchetype } from '../../types/career-stories';
 import { ARCHETYPE_METADATA, ARCHETYPE_GROUPS, ArchetypeGroup } from '../career-stories/constants';
+import { useDropdown } from '../../hooks/useDropdown';
 
-const ARCHETYPE_CONFIG: Record<StoryArchetype, { icon: React.ElementType; color: string; label: string }> = {
+export const ARCHETYPE_CONFIG: Record<StoryArchetype, { icon: React.ElementType; color: string; label: string }> = {
   firefighter: { icon: Flame, color: 'text-red-500', label: 'Firefighter' },
   architect: { icon: Building2, color: 'text-blue-500', label: 'Architect' },
   diplomat: { icon: Users, color: 'text-green-500', label: 'Diplomat' },
@@ -40,6 +41,8 @@ interface ArchetypeSelectorProps {
   detected: StoryArchetype;
   alternatives: Array<{ archetype: StoryArchetype; confidence: number }>;
   disabled?: boolean;
+  /** Dropdown alignment relative to trigger (default: 'left') */
+  align?: 'left' | 'right';
 }
 
 export const ArchetypeSelector: React.FC<ArchetypeSelectorProps> = ({
@@ -48,42 +51,16 @@ export const ArchetypeSelector: React.FC<ArchetypeSelectorProps> = ({
   detected,
   alternatives,
   disabled = false,
+  align = 'left',
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
-
-  // Close on Escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isOpen]);
+  const { isOpen, toggle, close, containerRef } = useDropdown({
+    onClose: () => setShowAll(false),
+  });
 
   const handleSelect = (archetype: StoryArchetype) => {
     onChange(archetype);
-    setIsOpen(false);
+    close();
   };
 
   const currentConfig = ARCHETYPE_CONFIG[value];
@@ -143,7 +120,7 @@ export const ArchetypeSelector: React.FC<ArchetypeSelectorProps> = ({
       {/* Trigger Button - compact */}
       <button
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => !disabled && toggle()}
         disabled={disabled}
         className={cn(
           'flex items-center gap-1 px-1.5 py-1 text-xs font-medium rounded transition-colors',
@@ -165,7 +142,10 @@ export const ArchetypeSelector: React.FC<ArchetypeSelectorProps> = ({
         <div
           role="listbox"
           aria-label="Select story archetype"
-          className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50"
+          className={cn(
+            'absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50',
+            align === 'left' ? 'left-0' : 'right-0'
+          )}
         >
           {showAll ? (
             /* Grouped 3-column view */

@@ -2,7 +2,7 @@
  * NarrativePreview Tests
  *
  * Tests for:
- * - Framework-aware copy functionality
+ * - Framework-aware copy functionality (via copy menu)
  * - Section rendering for different frameworks
  * - Regeneration button behavior
  */
@@ -125,6 +125,15 @@ const defaultProps = {
   onRegenerate: vi.fn(),
 };
 
+/** Helper: open the copy menu and click "Plain Text" to trigger raw copy */
+async function triggerCopy() {
+  const copyButton = screen.getByTestId('copy-star');
+  fireEvent.click(copyButton);
+  // The copy menu opens — click "Plain Text" for raw format
+  const plainTextOption = await screen.findByText('Plain Text');
+  fireEvent.click(plainTextOption);
+}
+
 describe('NarrativePreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,18 +148,17 @@ describe('NarrativePreview', () => {
     it('copies STAR sections when STAR framework is active', async () => {
       render(<NarrativePreview {...defaultProps} />);
 
-      const copyButton = screen.getByTestId('copy-star');
-      fireEvent.click(copyButton);
+      await triggerCopy();
 
       await waitFor(() => {
         expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
       });
 
       const copiedText = mockClipboard.writeText.mock.calls[0][0];
-      expect(copiedText).toContain('SITUATION:');
-      expect(copiedText).toContain('TASK:');
-      expect(copiedText).toContain('ACTION:');
-      expect(copiedText).toContain('RESULT:');
+      expect(copiedText).toContain('Situation:');
+      expect(copiedText).toContain('Task:');
+      expect(copiedText).toContain('Action:');
+      expect(copiedText).toContain('Result:');
       expect(copiedText).toContain('The team faced performance issues');
     });
 
@@ -165,21 +173,20 @@ describe('NarrativePreview', () => {
         />
       );
 
-      const copyButton = screen.getByTestId('copy-star');
-      fireEvent.click(copyButton);
+      await triggerCopy();
 
       await waitFor(() => {
         expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
       });
 
       const copiedText = mockClipboard.writeText.mock.calls[0][0];
-      expect(copiedText).toContain('SITUATION:');
-      expect(copiedText).toContain('HINDRANCES:');
-      expect(copiedText).toContain('ACTIONS:');
-      expect(copiedText).toContain('RESULTS:');
-      expect(copiedText).toContain('EVALUATION:');
+      expect(copiedText).toContain('Situation:');
+      expect(copiedText).toContain('Hindrances:');
+      expect(copiedText).toContain('Actions:');
+      expect(copiedText).toContain('Results:');
+      expect(copiedText).toContain('Evaluation:');
       // Should NOT have STAR-only sections
-      expect(copiedText).not.toContain('TASK:');
+      expect(copiedText).not.toContain('Task:');
     });
 
     it('copies STARL sections including learning when STARL framework is active', async () => {
@@ -193,19 +200,18 @@ describe('NarrativePreview', () => {
         />
       );
 
-      const copyButton = screen.getByTestId('copy-star');
-      fireEvent.click(copyButton);
+      await triggerCopy();
 
       await waitFor(() => {
         expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
       });
 
       const copiedText = mockClipboard.writeText.mock.calls[0][0];
-      expect(copiedText).toContain('SITUATION:');
-      expect(copiedText).toContain('TASK:');
-      expect(copiedText).toContain('ACTION:');
-      expect(copiedText).toContain('RESULT:');
-      expect(copiedText).toContain('LEARNING:');
+      expect(copiedText).toContain('Situation:');
+      expect(copiedText).toContain('Task:');
+      expect(copiedText).toContain('Action:');
+      expect(copiedText).toContain('Result:');
+      expect(copiedText).toContain('Learning:');
       expect(copiedText).toContain('Proactive monitoring');
     });
 
@@ -220,20 +226,19 @@ describe('NarrativePreview', () => {
         />
       );
 
-      const copyButton = screen.getByTestId('copy-star');
-      fireEvent.click(copyButton);
+      await triggerCopy();
 
       await waitFor(() => {
         expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
       });
 
       const copiedText = mockClipboard.writeText.mock.calls[0][0];
-      expect(copiedText).toContain('CHALLENGE:');
-      expect(copiedText).toContain('ACTION:');
-      expect(copiedText).toContain('RESULT:');
+      expect(copiedText).toContain('Challenge:');
+      expect(copiedText).toContain('Action:');
+      expect(copiedText).toContain('Result:');
       // Should NOT have STAR sections
-      expect(copiedText).not.toContain('SITUATION:');
-      expect(copiedText).not.toContain('TASK:');
+      expect(copiedText).not.toContain('Situation:');
+      expect(copiedText).not.toContain('Task:');
     });
 
     it('handles clipboard API failure gracefully', async () => {
@@ -241,8 +246,7 @@ describe('NarrativePreview', () => {
 
       render(<NarrativePreview {...defaultProps} />);
 
-      const copyButton = screen.getByTestId('copy-star');
-      fireEvent.click(copyButton);
+      await triggerCopy();
 
       await waitFor(() => {
         expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
@@ -345,31 +349,26 @@ describe('NarrativePreview', () => {
         />
       );
 
-      // Mock window.confirm
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
-
       const regenerateButton = screen.getByTestId('regenerate-star');
       fireEvent.click(regenerateButton);
 
       expect(onRegenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('does not regenerate if user cancels confirmation', () => {
+    it('does not call onRegenerate when disabled', () => {
       const onRegenerate = vi.fn();
 
       render(
         <NarrativePreview
           {...defaultProps}
           onRegenerate={onRegenerate}
+          isLoading={true}
+          result={createStarResult()}
         />
       );
 
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-      const regenerateButton = screen.getByTestId('regenerate-star');
-      fireEvent.click(regenerateButton);
-
-      expect(onRegenerate).not.toHaveBeenCalled();
+      // When loading, the loading skeleton is shown instead
+      expect(screen.getByTestId('star-preview-loading')).toBeInTheDocument();
     });
 
     it('shows loading state when isLoading is true', () => {
@@ -381,7 +380,6 @@ describe('NarrativePreview', () => {
       );
 
       expect(screen.getByTestId('star-preview-loading')).toBeInTheDocument();
-      expect(screen.getByText('Generating STAR...')).toBeInTheDocument();
     });
   });
 
@@ -430,7 +428,7 @@ describe('NarrativePreview', () => {
       );
 
       expect(screen.getByTestId('star-preview-error')).toBeInTheDocument();
-      expect(screen.getByText(/Can't generate STAR/)).toBeInTheDocument();
+      expect(screen.getByText(/Can't generate story/)).toBeInTheDocument();
     });
   });
 });

@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, FileText, X, Sparkles, BookOpen, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, FileText, X, Sparkles, BookOpen, Loader2, Filter } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
@@ -736,6 +736,9 @@ export function CareerStoriesPage() {
   // View mode: 'list' shows cards, 'detail' shows full story
   const viewMode = selectedStoryDirect ? 'detail' : 'list';
 
+  // Source filter for timeline view - 'all' shows everything, or filter by sourceMode
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'demo' | 'production'>('all');
+
   // Handle Escape key to close detail view
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -748,10 +751,22 @@ export function CareerStoriesPage() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedStoryDirect]);
 
+  // Filter stories by source
+  const filteredStories = useMemo(() => {
+    if (sourceFilter === 'all') return allStories;
+    return allStories.filter(story => story.sourceMode === sourceFilter);
+  }, [allStories, sourceFilter]);
+
+  // Get unique sources for filter options
+  const availableSources = useMemo(() => {
+    const sources = new Set(allStories.map(s => s.sourceMode));
+    return Array.from(sources);
+  }, [allStories]);
+
   // Group stories by year for timeline
   const storiesByYear = useMemo(() => {
     const groups = new Map<string, CareerStory[]>();
-    const sorted = [...allStories].sort((a, b) => {
+    const sorted = [...filteredStories].sort((a, b) => {
       const dateA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
       const dateB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
       return dateB - dateA;
@@ -764,7 +779,7 @@ export function CareerStoriesPage() {
       groups.set(year, [...existing, story]);
     });
     return groups;
-  }, [allStories]);
+  }, [filteredStories]);
 
   const years = useMemo(() =>
     Array.from(storiesByYear.keys()).sort((a, b) =>
@@ -837,20 +852,32 @@ export function CareerStoriesPage() {
           {/* List View: Story cards grouped by year */}
           {viewMode === 'list' && (
             <div className="space-y-4">
-              {/* Intro banner - only if stories exist */}
+              {/* Header with filter - only if stories exist */}
               {allStories.length > 0 && (
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-xl p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1">Your Career Stories</h3>
-                      <p className="text-xs text-gray-600">
-                        Click any story to edit and practice. Use these for interviews, promotions, and 1:1s.
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between gap-4 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <h2 className="text-sm font-semibold text-gray-900">Your Career Stories</h2>
+                    <span className="text-xs text-gray-400">
+                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                    </span>
                   </div>
+
+                  {/* Source filter dropdown */}
+                  {availableSources.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-3.5 h-3.5 text-gray-400" />
+                      <select
+                        value={sourceFilter}
+                        onChange={(e) => setSourceFilter(e.target.value as 'all' | 'demo' | 'production')}
+                        className="text-xs bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="all">All Sources</option>
+                        {availableSources.includes('demo') && <option value="demo">Demo</option>}
+                        {availableSources.includes('production') && <option value="production">Real Data</option>}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -861,7 +888,7 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
-              {/* Empty state */}
+              {/* Empty state - no stories at all */}
               {!isLoadingClusters && allStories.length === 0 && (
                 <div className="text-center py-12">
                   <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
@@ -871,6 +898,25 @@ export function CareerStoriesPage() {
                   <p className="text-xs text-gray-500 max-w-xs mx-auto">
                     Promote journal entries from the Journal page to create career stories.
                   </p>
+                </div>
+              )}
+
+              {/* Empty state - filtered results empty */}
+              {!isLoadingClusters && allStories.length > 0 && filteredStories.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                    <Filter className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">No matching stories</h3>
+                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                    No stories match the current filter. Try selecting "All Sources".
+                  </p>
+                  <button
+                    onClick={() => setSourceFilter('all')}
+                    className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    Clear filter
+                  </button>
                 </div>
               )}
 

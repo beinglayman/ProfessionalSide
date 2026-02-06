@@ -99,4 +99,90 @@ describe('ArchetypeSelector', () => {
     expect(screen.getByText('Detective')).toBeInTheDocument();
     expect(screen.getByText('Diplomat')).toBeInTheDocument();
   });
+
+  it('closes dropdown on click outside', async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <div data-testid="outside">Outside</div>
+        <ArchetypeSelector
+          value="architect"
+          onChange={() => {}}
+          detected="architect"
+          alternatives={mockAlternatives}
+        />
+      </div>
+    );
+    await user.click(screen.getByTestId('archetype-selector'));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    await user.click(screen.getByTestId('outside'));
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('resets showAll state when reopened', async () => {
+    const user = userEvent.setup();
+    render(
+      <ArchetypeSelector
+        value="architect"
+        onChange={() => {}}
+        detected="architect"
+        alternatives={mockAlternatives}
+      />
+    );
+    // Open, show all, close via Escape
+    await user.click(screen.getByTestId('archetype-selector'));
+    await user.click(screen.getByText(/show all/i));
+    expect(screen.getByText('Pioneer')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    // Reopen — should show default view (not "show all")
+    await user.click(screen.getByTestId('archetype-selector'));
+    expect(screen.queryByText('Pioneer')).not.toBeInTheDocument();
+    expect(screen.getByText(/show all/i)).toBeInTheDocument();
+  });
+
+  it('handles empty alternatives gracefully', async () => {
+    const user = userEvent.setup();
+    render(
+      <ArchetypeSelector
+        value="architect"
+        onChange={() => {}}
+        detected="architect"
+        alternatives={[]}
+      />
+    );
+    await user.click(screen.getByTestId('archetype-selector'));
+    // Should only show the detected archetype
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+  });
+
+  it('does not open when disabled', async () => {
+    const user = userEvent.setup();
+    render(
+      <ArchetypeSelector
+        value="architect"
+        onChange={() => {}}
+        detected="architect"
+        alternatives={mockAlternatives}
+        disabled
+      />
+    );
+    await user.click(screen.getByTestId('archetype-selector'));
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('shows archetype descriptions in dropdown', async () => {
+    const user = userEvent.setup();
+    render(
+      <ArchetypeSelector
+        value="architect"
+        onChange={() => {}}
+        detected="architect"
+        alternatives={mockAlternatives}
+      />
+    );
+    await user.click(screen.getByTestId('archetype-selector'));
+    expect(screen.getByText('Designs lasting solutions')).toBeInTheDocument();
+    expect(screen.getByText('Crisis response')).toBeInTheDocument();
+  });
 });

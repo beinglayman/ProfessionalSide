@@ -1421,6 +1421,7 @@ export function NarrativePreview({
               disabled={isLoading}
               className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               title="Regenerate"
+              data-testid="regenerate-star"
             >
               <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
             </button>
@@ -1477,6 +1478,7 @@ export function NarrativePreview({
                 onClick={() => setShowCopyMenu(!showCopyMenu)}
                 className={cn('p-1.5 rounded transition-colors', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
                 title="Copy"
+                data-testid="copy-star"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
