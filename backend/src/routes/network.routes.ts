@@ -507,6 +507,19 @@ router.get('/follow/:userId/status', async (req: Request, res: Response) => {
   }
 });
 
+// Get follower/following counts for any user
+router.get('/follow/:userId/counts', async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    const followerCount = await followService.getFollowerCount(userId);
+    const followingCount = await followService.getFollowingCount(userId);
+    sendSuccess(res, { followerCount, followingCount });
+  } catch (error) {
+    console.error('Error fetching follow counts:', error);
+    sendError(res, 'Failed to fetch follow counts', 500);
+  }
+});
+
 // Get network suggestions
 router.get('/suggestions', async (req: Request, res: Response) => {
   try {
