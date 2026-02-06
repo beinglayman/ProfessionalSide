@@ -10,6 +10,9 @@ import { MapPin, Building2, Calendar, ChevronDown, ChevronUp, UserPlus, Send, Us
 import { cn } from '../../lib/utils';
 import { profileApiService, ProfileData } from '../../services/profile-api.service';
 import { JournalService } from '../../services/journal.service';
+import { CareerStoriesService } from '../../services/career-stories.service';
+import { CareerStory } from '../../types/career-stories';
+import { BRAG_DOC_CATEGORIES } from '../../components/career-stories/constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_BASE_URL } from '../../lib/api';
 
@@ -47,6 +50,10 @@ export function PublicProfilePage() {
   const [isLoadingJournalEntries, setIsLoadingJournalEntries] = useState(false);
   const [achievementsError, setAchievementsError] = useState<string | null>(null);
   const [journalEntriesError, setJournalEntriesError] = useState<string | null>(null);
+
+  // Published career stories state
+  const [publishedStories, setPublishedStories] = useState<CareerStory[]>([]);
+  const [isLoadingStories, setIsLoadingStories] = useState(false);
   
   // Connection states
   const [connectionStatus, setConnectionStatus] = useState<'none' | 'connected' | 'pending_connection'>('none');
@@ -217,6 +224,21 @@ export function PublicProfilePage() {
     }
   };
 
+  // Fetch published career stories for this user's profile
+  const fetchPublishedStories = async (profileUserId: string) => {
+    setIsLoadingStories(true);
+    try {
+      const response = await CareerStoriesService.getPublishedStories(profileUserId);
+      if (response.success && response.data) {
+        setPublishedStories(response.data.stories);
+      }
+    } catch (error) {
+      console.error('Failed to fetch published stories:', error);
+    } finally {
+      setIsLoadingStories(false);
+    }
+  };
+
   // Fetch public achievements for this user
   const fetchPublicAchievements = async () => {
     if (!userId) return;
@@ -263,6 +285,7 @@ export function PublicProfilePage() {
     if (profileData && userId) {
       fetchPublicJournalEntries();
       fetchPublicAchievements();
+      fetchPublishedStories(userId);
     }
   }, [profileData, userId]);
 
@@ -722,33 +745,56 @@ export function PublicProfilePage() {
                     )}
                   </Tabs.Content>
 
-                  <Tabs.Content value="journal" className="space-y-4">
-                    {isLoadingJournalEntries ? (
+                  <Tabs.Content value="journal" className="space-y-6">
+                    {isLoadingStories ? (
                       <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                        <p className="text-gray-500">Loading published work...</p>
+                        <p className="text-gray-500">Loading published stories...</p>
                       </div>
-                    ) : journalEntriesError ? (
-                      <div className="text-center py-8 text-red-500">
-                        <p>Error loading published work: {journalEntriesError}</p>
-                      </div>
-                    ) : filteredJournalEntries.length > 0 ? (
-                      filteredJournalEntries.map((entry) => (
-                        <JournalEntry key={entry.id} entry={entry} viewMode="network" />
-                      ))
-                    ) : (
+                    ) : publishedStories.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
-                        <p>
-                          {selectedSkills.size === 0
-                            ? 'No published work available'
-                            : 'No published work found for the selected skills'}
-                        </p>
+                        <p>No published stories yet.</p>
                         <p className="text-sm mt-2">
-                          {selectedSkills.size === 0 
-                            ? 'This user hasn\'t published any work to their network yet.'
-                            : 'Try adjusting your skill filters to see more content.'}
+                          This user hasn't published any career stories to their network yet.
                         </p>
                       </div>
+                    ) : (
+                      BRAG_DOC_CATEGORIES.map((cat) => {
+                        const stories = publishedStories.filter(s => s.category === cat.value);
+                        if (stories.length === 0) return null;
+                        return (
+                          <div key={cat.value} className="space-y-3">
+                            <h3 className="text-sm font-semibold text-gray-700">{cat.label}</h3>
+                            <div className="space-y-2">
+                              {stories.map((story) => (
+                                <div key={story.id} className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-medium text-gray-900">{story.title}</h4>
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 rounded">
+                                      {story.framework}
+                                    </span>
+                                    {story.archetype && (
+                                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-700 rounded capitalize">
+                                        {story.archetype}
+                                      </span>
+                                    )}
+                                    {story.role && (
+                                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded capitalize">
+                                        {story.role}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {story.sections && Object.values(story.sections)[0]?.summary && (
+                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                      {Object.values(story.sections)[0].summary}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </Tabs.Content>
                 </div>

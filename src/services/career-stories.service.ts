@@ -390,6 +390,17 @@ export class CareerStoriesService {
   /**
    * Analyze journal entry → detect archetype + return D-I-G questions
    */
+  static async getPublishedStories(userId: string): Promise<ApiResponse<{
+    stories: CareerStory[];
+    totalCount: number;
+    viewerAccess: string;
+  }>> {
+    const response = await api.get<ApiResponse<{ stories: CareerStory[]; totalCount: number; viewerAccess: string }>>(
+      `/career-stories/users/${userId}/published-stories`
+    );
+    return response.data;
+  }
+
   static async wizardAnalyze(journalEntryId: string): Promise<ApiResponse<WizardAnalyzeResponse>> {
     const response = await api.post<ApiResponse<WizardAnalyzeResponse>>(
       '/career-stories/wizard/analyze',
