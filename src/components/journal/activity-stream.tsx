@@ -52,15 +52,22 @@ export function ActivityStream({
   // Starts null (= treat everything as collapsed) so nothing flashes expanded
   // before the initialization effect sets the correct state.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
-  const [lastGroupBy, setLastGroupBy] = useState(groupBy);
+  const lastGroupByRef = React.useRef(groupBy);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize collapsed state when groups load or tab changes
+  // Reset collapsed state immediately when tab changes so groups stay
+  // collapsed while new data loads (prevents flash of all-expanded).
   React.useEffect(() => {
-    const tabChanged = groupBy !== lastGroupBy;
+    if (groupBy !== lastGroupByRef.current) {
+      lastGroupByRef.current = groupBy;
+      setCollapsedGroups(null);
+      setIsInitialized(false);
+    }
+  }, [groupBy]);
 
-    // Only initialize on first load or tab change
-    if (groups.length > 0 && (tabChanged || !isInitialized)) {
+  // Initialize collapsed state when groups data arrives
+  React.useEffect(() => {
+    if (groups.length > 0 && !isInitialized) {
       // Sources tab: collapse ALL groups
       // Other tabs: collapse all except first
       const initialCollapsed = groupBy === 'source'
@@ -68,9 +75,6 @@ export function ActivityStream({
         : new Set(groups.slice(1).map(g => g.key));
       setCollapsedGroups(initialCollapsed);
       setIsInitialized(true);
-      if (tabChanged) {
-        setLastGroupBy(groupBy);
-      }
       // Scroll to top when tab changes or first load.
       // Fire immediately AND after the card expand transition (300ms) to ensure
       // the scroll sticks even as the first expanded card animates to full height.
@@ -79,7 +83,7 @@ export function ActivityStream({
         window.scrollTo({ top: 0, behavior: 'instant' });
       }, 350);
     }
-  }, [groups, groupBy, lastGroupBy, isInitialized]);
+  }, [groups, groupBy, isInitialized]);
 
   // Compute available filters from groups
   const availableTemporalBuckets = useMemo(() => {
