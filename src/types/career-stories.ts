@@ -330,3 +330,14 @@ export interface WizardGenerateResponse {
   };
   evaluation: StoryEvaluation;
 }
+
+/** Metadata passed to Story Wizard for loading state facts */
+export interface JournalEntryMeta {
+  title: string;
+  dateRange?: string;
+  activityCount?: number;
+  tools?: string[];
+  topics?: string[];
+  impactHighlights?: string[];
+  skills?: string[];
+}

@@ -5,6 +5,10 @@ import {
   DISPLAY_LIMITS,
   CONFIDENCE_THRESHOLDS,
   MOBILE_SHEET_MAX_HEIGHT_VH,
+  ARCHETYPE_METADATA,
+  ARCHETYPE_GROUPS,
+  CAREER_QUOTES,
+  WIZARD_LOADING_FACTS,
 } from './constants';
 
 describe('Career Stories Constants', () => {
@@ -72,6 +76,47 @@ describe('Career Stories Constants', () => {
     it('is a reasonable viewport height percentage', () => {
       expect(MOBILE_SHEET_MAX_HEIGHT_VH).toBeGreaterThan(50);
       expect(MOBILE_SHEET_MAX_HEIGHT_VH).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe('ARCHETYPE_METADATA', () => {
+    it('has metadata for all 8 archetypes', () => {
+      expect(Object.keys(ARCHETYPE_METADATA)).toHaveLength(8);
+    });
+
+    it('each archetype has description and group', () => {
+      Object.values(ARCHETYPE_METADATA).forEach(meta => {
+        expect(meta.description).toBeTruthy();
+        expect(['proactive', 'reactive', 'people']).toContain(meta.group);
+      });
+    });
+  });
+
+  describe('ARCHETYPE_GROUPS', () => {
+    it('covers all archetypes', () => {
+      const allArchetypes = Object.values(ARCHETYPE_GROUPS).flatMap(g => g.archetypes);
+      expect(allArchetypes.sort()).toEqual(Object.keys(ARCHETYPE_METADATA).sort());
+    });
+  });
+
+  describe('CAREER_QUOTES', () => {
+    it('has at least 25 quotes', () => {
+      expect(CAREER_QUOTES.length).toBeGreaterThanOrEqual(25);
+    });
+
+    it('each quote has text, attribution, and theme', () => {
+      CAREER_QUOTES.forEach(q => {
+        expect(q.text).toBeTruthy();
+        expect(q.attribution).toBeTruthy();
+        expect(q.theme).toBeTruthy();
+      });
+    });
+  });
+
+  describe('WIZARD_LOADING_FACTS', () => {
+    it('has facts for both modes', () => {
+      expect(WIZARD_LOADING_FACTS.analyze.length).toBeGreaterThan(0);
+      expect(WIZARD_LOADING_FACTS.generate.length).toBeGreaterThan(0);
     });
   });
 });
