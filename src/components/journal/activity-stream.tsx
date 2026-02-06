@@ -4,6 +4,7 @@ import { ActivityCard } from './activity-card';
 import { TemporalFilters, FilterSeparator } from './activity-filters';
 import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, TemporalBucket, TEMPORAL_BUCKETS, STORY_ROLE_LABELS } from '../../types/activity';
 import { cn } from '../../lib/utils';
+import { useDropdown } from '../../hooks/useDropdown';
 import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES, truncateText, TITLE_TRUNCATE_LENGTH, SHORT_TITLE_TRUNCATE_LENGTH } from './activity-card-utils';
 
 interface ActivityStreamProps {
@@ -83,6 +84,19 @@ export function ActivityStream({
       acc[g.key as TemporalBucket] = g.count;
       return acc;
     }, {} as Record<TemporalBucket, number>);
+  }, [groups]);
+
+  // Compute available sources from all temporal groups' activities
+  const availableSources = useMemo(() => {
+    const sourceCounts = new Map<string, number>();
+    for (const g of groups) {
+      for (const a of g.activities) {
+        sourceCounts.set(a.source, (sourceCounts.get(a.source) || 0) + 1);
+      }
+    }
+    return Array.from(sourceCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source: source as ActivitySource, count }));
   }, [groups]);
 
   // Helper to check if text matches search query
@@ -283,6 +297,18 @@ export function ActivityStream({
             </>
           )}
 
+          {/* Source filter dropdown */}
+          {availableSources.length > 1 && (
+            <>
+              <FilterSeparator />
+              <SourceFilterDropdown
+                availableSources={availableSources}
+                selectedSources={selectedSources}
+                onToggle={handleSourceToggle}
+              />
+            </>
+          )}
+
           {/* Spacer */}
           <div className="flex-1 min-w-2" />
 
@@ -443,6 +469,74 @@ function DraftsBanner({ draftCount, showDraftsOnly, onToggle }: DraftsBannerProp
       >
         {showDraftsOnly ? 'Show all' : 'Review drafts'}
       </button>
+    </div>
+  );
+}
+
+interface SourceFilterDropdownProps {
+  availableSources: { source: ActivitySource; count: number }[];
+  selectedSources: ActivitySource[];
+  onToggle: (source: ActivitySource) => void;
+}
+
+function SourceFilterDropdown({ availableSources, selectedSources, onToggle }: SourceFilterDropdownProps) {
+  const { isOpen, toggle, close, containerRef } = useDropdown();
+  const hasFilter = selectedSources.length > 0;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        onClick={toggle}
+        className={cn(
+          'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
+          hasFilter
+            ? 'bg-primary-500 text-white shadow-sm'
+            : 'text-gray-600 hover:text-primary-600 hover:bg-primary-50'
+        )}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+      >
+        <Layers className="w-3 h-3" />
+        {hasFilter ? `Sources (${selectedSources.length})` : 'Sources'}
+        <ChevronDown className={cn('w-3 h-3 transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute top-full mt-1 left-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[160px]"
+          role="listbox"
+          aria-label="Filter by source"
+        >
+          {hasFilter && (
+            <button
+              onClick={() => { selectedSources.forEach(s => onToggle(s)); close(); }}
+              className="w-full text-left px-3 py-1.5 text-[11px] text-gray-500 hover:bg-gray-50"
+            >
+              Clear filters
+            </button>
+          )}
+          {availableSources.map(({ source, count }) => {
+            const sourceInfo = SUPPORTED_SOURCES[source];
+            const isSelected = selectedSources.includes(source);
+            return (
+              <button
+                key={source}
+                onClick={() => onToggle(source)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors',
+                  isSelected ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50'
+                )}
+                role="option"
+                aria-selected={isSelected}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sourceInfo?.color || '#6B7280' }} />
+                <span className="flex-1 text-left font-medium">{sourceInfo?.displayName || source}</span>
+                <span className="text-[10px] tabular-nums text-gray-400">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,9 @@
 /**
  * useDropdown Hook
  *
- * Shared dropdown behavior: open/close state, click-outside, and Escape key.
- * Used by ArchetypeSelector and FrameworkSelector.
+ * Shared dropdown behavior: open/close state, click-outside, Escape key,
+ * and arrow key navigation for role="option" elements.
+ * Used by ArchetypeSelector, FrameworkSelector, and SourceFilterDropdown.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -49,13 +50,42 @@ export function useDropdown({ onClose }: UseDropdownOptions = {}): UseDropdownRe
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, close]);
 
-  // Close on Escape
+  // Keyboard: Escape to close, ArrowUp/ArrowDown to navigate options, Enter to activate
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         close();
+        // Return focus to trigger button
+        const trigger = containerRef.current?.querySelector<HTMLElement>('[aria-haspopup]');
+        trigger?.focus();
+        return;
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const container = containerRef.current;
+        if (!container) return;
+
+        const options = Array.from(container.querySelectorAll<HTMLElement>('[role="option"]'));
+        if (options.length === 0) return;
+
+        const currentIndex = options.findIndex(opt => opt === document.activeElement);
+        let nextIndex: number;
+
+        if (e.key === 'ArrowDown') {
+          nextIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0;
+        } else {
+          nextIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1;
+        }
+
+        options[nextIndex].focus();
+      }
+
+      if (e.key === 'Enter' && document.activeElement?.getAttribute('role') === 'option') {
+        e.preventDefault();
+        (document.activeElement as HTMLElement).click();
       }
     };
 
