@@ -48,10 +48,10 @@ export function ActivityStream({
   const [selectedRoles, setSelectedRoles] = useState<StoryDominantRole[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Global expand/collapse state - track which groups are collapsed
-  // Sources tab: all collapsed by default
-  // Other tabs: all collapsed except first
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Global expand/collapse state - track which groups are collapsed.
+  // Starts null (= treat everything as collapsed) so nothing flashes expanded
+  // before the initialization effect sets the correct state.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
   const [lastGroupBy, setLastGroupBy] = useState(groupBy);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -261,10 +261,15 @@ export function ActivityStream({
     });
   };
 
+  // Helper: check if a group is collapsed (null state = all collapsed)
+  const isGroupCollapsed = useCallback((key: string) => {
+    return collapsedGroups === null || collapsedGroups.has(key);
+  }, [collapsedGroups]);
+
   // Toggle single group
   const toggleGroup = useCallback((key: string) => {
     setCollapsedGroups(prev => {
-      const next = new Set(prev);
+      const next = new Set(prev ?? []);
       if (next.has(key)) {
         next.delete(key);
       } else {
@@ -275,8 +280,8 @@ export function ActivityStream({
   }, []);
 
   // Expand/collapse all - check against filtered groups
-  // "any expanded" = at least one group is NOT in collapsedGroups
-  const anyExpanded = filteredGroups.length > 0 && filteredGroups.some(g => !collapsedGroups.has(g.key));
+  // "any expanded" = at least one group is NOT collapsed
+  const anyExpanded = filteredGroups.length > 0 && filteredGroups.some(g => !isGroupCollapsed(g.key));
 
   const toggleAll = useCallback(() => {
     if (anyExpanded) {
@@ -472,7 +477,7 @@ export function ActivityStream({
             <StoryGroupSection
               key={group.key}
               group={group}
-              isCollapsed={collapsedGroups.has(group.key)}
+              isCollapsed={isGroupCollapsed(group.key)}
               onToggle={() => toggleGroup(group.key)}
               onRegenerateNarrative={onRegenerateNarrative}
               regeneratingEntryId={regeneratingEntryId}
@@ -488,7 +493,7 @@ export function ActivityStream({
               key={group.key}
               group={group}
               groupBy={groupBy}
-              isCollapsed={collapsedGroups.has(group.key)}
+              isCollapsed={isGroupCollapsed(group.key)}
               onToggle={() => toggleGroup(group.key)}
             />
           ))
