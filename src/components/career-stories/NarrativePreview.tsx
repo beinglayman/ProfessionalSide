@@ -1070,6 +1070,7 @@ interface NarrativePreviewProps {
   onPublish?: (visibility: StoryVisibility, edits: Record<string, string>) => void;
   onUnpublish?: () => void;
   onVisibilityChange?: (visibility: StoryVisibility) => void;
+  onOpenPublishModal?: () => void;
   isSaving?: boolean;
   isPublishing?: boolean;
   onDelete?: () => void;
@@ -1094,6 +1095,7 @@ export function NarrativePreview({
   onPublish,
   onUnpublish,
   onVisibilityChange,
+  onOpenPublishModal,
   isSaving = false,
   isPublishing = false,
   onDelete,
@@ -1487,6 +1489,10 @@ export function NarrativePreview({
             {story?.isPublished ? (
               <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50" title="Unpublish">
                 <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+            ) : onOpenPublishModal ? (
+              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">
+                <Share2 className="h-3.5 w-3.5" />
               </button>
             ) : onPublish && (
               <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">

@@ -33,6 +33,8 @@ import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
 import { StoryCard } from './StoryCard';
 import { FormatSwitchModal } from './FormatSwitchModal';
+import { PublishModal } from './PublishModal';
+import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
@@ -158,6 +160,8 @@ export function CareerStoriesPage() {
     framework: NarrativeFramework;
     style: WritingStyle;
   } | null>(null);
+  // Publish modal state
+  const [publishModalStoryId, setPublishModalStoryId] = useState<string | null>(null);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -738,6 +742,27 @@ export function CareerStoriesPage() {
     }
   }, [savedStories, selectedCluster, selectedStoryDirect, unpublishStoryMutation]);
 
+  const handlePublishWithCategory = useCallback(async (category: BragDocCategory) => {
+    if (!publishModalStoryId) return;
+    try {
+      const response = await publishStoryMutation.mutateAsync({
+        id: publishModalStoryId,
+        visibility: 'network' as StoryVisibility,
+      });
+      if (response.success && response.data?.story) {
+        if (selectedStoryDirect) {
+          setSelectedStoryDirect(response.data.story);
+        } else if (selectedCluster) {
+          setSavedStories((prev) => ({ ...prev, [selectedCluster.id]: response.data!.story! }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to publish story:', error);
+    } finally {
+      setPublishModalStoryId(null);
+    }
+  }, [publishModalStoryId, publishStoryMutation, selectedCluster, selectedStoryDirect]);
+
   const handleVisibilityChange = useCallback(async (visibility: StoryVisibility) => {
     // Get the current story - either directly selected or from cluster
     const story = selectedStoryDirect || (selectedCluster ? savedStories[selectedCluster.id] : null);
@@ -865,6 +890,7 @@ export function CareerStoriesPage() {
                 onPublish={handlePublishStory}
                 onUnpublish={handleUnpublishStory}
                 onVisibilityChange={handleVisibilityChange}
+                onOpenPublishModal={() => selectedStoryDirect && setPublishModalStoryId(selectedStoryDirect.id)}
                 isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
                 isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
                 onDelete={handleDeleteStory}
@@ -1004,6 +1030,10 @@ export function CareerStoriesPage() {
           onPublish={handlePublishStory}
           onUnpublish={handleUnpublishStory}
           onVisibilityChange={handleVisibilityChange}
+          onOpenPublishModal={() => {
+            const story = selectedStoryDirect || (selectedCluster ? savedStories[selectedCluster.id] : null);
+            if (story) setPublishModalStoryId(story.id);
+          }}
           isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
           isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
         />
@@ -1021,6 +1051,21 @@ export function CareerStoriesPage() {
           isRegenerating={regenerateStoryMutation.isPending}
         />
       )}
+
+      {/* Publish Modal */}
+      {publishModalStoryId && (() => {
+        const publishStory = existingStories?.stories?.find((s) => s.id === publishModalStoryId);
+        if (!publishStory) return null;
+        return (
+          <PublishModal
+            isOpen={!!publishModalStoryId}
+            onClose={() => setPublishModalStoryId(null)}
+            story={publishStory}
+            onPublish={handlePublishWithCategory}
+            isPublishing={publishStoryMutation.isPending}
+          />
+        );
+      })()}
     </div>
   );
 }
