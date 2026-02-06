@@ -115,6 +115,10 @@ model User {
   // Clustering is now stored inline in JournalEntry.activityIds + groupingMethod
   // Use unified models with sourceMode field instead
 
+  // Follow relationships (one-way, capped at 100)
+  following  Follow[] @relation("Follower")
+  followers  Follow[] @relation("Following")
+
   @@map("users")
 }
 
@@ -482,6 +486,9 @@ model JournalEntry {
 
   // Analytics
   analytics JournalEntryAnalytics[]
+
+  // Career stories promoted from this journal entry
+  careerStories CareerStory[]
 
   @@index([authorId, sourceMode])
   @@index([sourceMode])
@@ -1446,6 +1453,15 @@ model CareerStory {
   generatedAt       DateTime?
   needsRegeneration Boolean   @default(false)
 
+  // Story classification
+  archetype      String?  // firefighter, architect, diplomat, multiplier, detective, pioneer, turnaround, preventer
+  category       String?  // projects-impact, leadership, growth, external (brag doc category)
+  role           String?  // led, contributed, participated (auto-detected by LLM)
+
+  // Provenance: link back to source journal entry
+  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
   // Publishing fields
   visibility  String   @default("private") // "private" | "workspace" | "network"
   isPublished Boolean  @default(false)
@@ -1461,7 +1477,27 @@ model CareerStory {
   @@index([isPublished])
   @@index([visibility])
   @@index([isPublished, visibility])
+  @@index([journalEntryId])
   @@map("career_stories")
+}
+
+// ============================================================================
+// FOLLOW (one-way, capped at 100 per user)
+// ============================================================================
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
 }
 
 // ============================================================================

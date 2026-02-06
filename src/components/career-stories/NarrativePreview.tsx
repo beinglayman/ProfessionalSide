@@ -1070,6 +1070,7 @@ interface NarrativePreviewProps {
   onPublish?: (visibility: StoryVisibility, edits: Record<string, string>) => void;
   onUnpublish?: () => void;
   onVisibilityChange?: (visibility: StoryVisibility) => void;
+  onOpenPublishModal?: () => void;
   isSaving?: boolean;
   isPublishing?: boolean;
   onDelete?: () => void;
@@ -1094,6 +1095,7 @@ export function NarrativePreview({
   onPublish,
   onUnpublish,
   onVisibilityChange,
+  onOpenPublishModal,
   isSaving = false,
   isPublishing = false,
   onDelete,
@@ -1388,6 +1390,16 @@ export function NarrativePreview({
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900 truncate">{clusterName}</h2>
               <StatusBadge status={storyStatus} />
+              {story?.archetype && (
+                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 capitalize">
+                  {story.archetype}
+                </span>
+              )}
+              {story?.role && (
+                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 capitalize">
+                  {story.role}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
               <span>{activityCount} activities</span>
@@ -1487,6 +1499,10 @@ export function NarrativePreview({
             {story?.isPublished ? (
               <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50" title="Unpublish">
                 <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+            ) : onOpenPublishModal ? (
+              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">
+                <Share2 className="h-3.5 w-3.5" />
               </button>
             ) : onPublish && (
               <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">

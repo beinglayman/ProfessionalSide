@@ -230,7 +230,15 @@ export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
 // CAREER STORIES
 // =============================================================================
 
-export type StoryVisibility = 'private' | 'workspace' | 'public';
+export type StoryVisibility = 'private' | 'workspace' | 'network';
+
+export type BragDocCategory =
+  | 'projects-impact'
+  | 'leadership'
+  | 'growth'
+  | 'external';
+
+export type StoryRole = 'led' | 'contributed' | 'participated';
 
 export interface CareerStorySection {
   summary: string;
@@ -252,6 +260,10 @@ export interface CareerStory {
   publishedAt: string | null;
   createdAt?: string;
   updatedAt?: string;
+  archetype?: StoryArchetype | null;
+  category?: BragDocCategory | null;
+  role?: StoryRole | null;
+  journalEntryId?: string | null;
 }
 
 export interface CreateCareerStoryRequest {

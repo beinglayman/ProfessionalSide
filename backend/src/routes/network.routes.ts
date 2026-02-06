@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { sendSuccess, sendError } from '../utils/response.utils';
+import { FollowService } from '../services/follow.service';
 
 const router = Router();
 
@@ -44,11 +45,6 @@ interface StatsConnectionData {
 
 // Empty array types for request/follower placeholders
 interface ConnectionRequest {
-  id: string;
-  // Add other fields as needed when implementing
-}
-
-interface Follower {
   id: string;
   // Add other fields as needed when implementing
 }
@@ -433,30 +429,94 @@ router.get('/requests', async (req: Request, res: Response) => {
   }
 });
 
-// Get followers
+// =============================================================================
+// FOLLOW ROUTES (one-way, 100-cap)
+// =============================================================================
+
+const followService = new FollowService();
+
+// Follow a user
+router.post('/follow/:userId', async (req: Request, res: Response) => {
+  try {
+    const followerId = req.user!.id;
+    const followingId = req.params.userId;
+    const result = await followService.follow(followerId, followingId);
+    if (!result.success) {
+      return void sendError(res, result.error || 'Follow failed', 400);
+    }
+    sendSuccess(res, result, 'Followed successfully');
+  } catch (error) {
+    console.error('Error following user:', error);
+    sendError(res, 'Failed to follow user', 500);
+  }
+});
+
+// Unfollow a user
+router.delete('/follow/:userId', async (req: Request, res: Response) => {
+  try {
+    const followerId = req.user!.id;
+    const followingId = req.params.userId;
+    const result = await followService.unfollow(followerId, followingId);
+    if (!result.success) {
+      return void sendError(res, result.error || 'Unfollow failed', 400);
+    }
+    sendSuccess(res, result, 'Unfollowed successfully');
+  } catch (error) {
+    console.error('Error unfollowing user:', error);
+    sendError(res, 'Failed to unfollow user', 500);
+  }
+});
+
+// List who I follow (max 100)
+router.get('/following', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const following = await followService.getFollowing(userId);
+    sendSuccess(res, { data: following, total: following.length });
+  } catch (error) {
+    console.error('Error fetching following:', error);
+    sendError(res, 'Failed to fetch following list', 500);
+  }
+});
+
+// List who follows me (paginated)
 router.get('/followers', async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { search, skills, department, organization } = req.query;
-
-    // For now, return empty array since followers are not fully implemented
-    // In a real implementation, this would fetch actual followers from database
-    const followers: Follower[] = [];
-
-    const result = {
-      data: followers,
-      pagination: {
-        page: 1,
-        limit: followers.length,
-        total: followers.length,
-        totalPages: 1
-      }
-    };
-
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const result = await followService.getFollowers(userId, page, pageSize);
     sendSuccess(res, result, 'Followers retrieved successfully');
   } catch (error) {
     console.error('Error fetching followers:', error);
     sendError(res, 'Failed to fetch followers', 500);
+  }
+});
+
+// Check if I follow a specific user
+router.get('/follow/:userId/status', async (req: Request, res: Response) => {
+  try {
+    const followerId = req.user!.id;
+    const followingId = req.params.userId;
+    const isFollowing = await followService.isFollowing(followerId, followingId);
+    const followingCount = await followService.getFollowingCount(followerId);
+    sendSuccess(res, { isFollowing, followingCount, maxFollowing: 100 });
+  } catch (error) {
+    console.error('Error checking follow status:', error);
+    sendError(res, 'Failed to check follow status', 500);
+  }
+});
+
+// Get follower/following counts for any user
+router.get('/follow/:userId/counts', async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    const followerCount = await followService.getFollowerCount(userId);
+    const followingCount = await followService.getFollowingCount(userId);
+    sendSuccess(res, { followerCount, followingCount });
+  } catch (error) {
+    console.error('Error fetching follow counts:', error);
+    sendError(res, 'Failed to fetch follow counts', 500);
   }
 });
 
@@ -573,6 +633,99 @@ router.get('/stats', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching network stats:', error);
     sendError(res, 'Failed to fetch network stats', 500);
+  }
+});
+
+// =============================================================================
+// FEED ROUTES
+// =============================================================================
+
+// Network feed: stories from people I follow
+router.get('/feed', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+
+    const follows = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const followingIds = follows.map(f => f.followingId);
+
+    if (followingIds.length === 0) {
+      return sendSuccess(res, { stories: [], total: 0, page, pageSize });
+    }
+
+    const [stories, total] = await Promise.all([
+      prisma.careerStory.findMany({
+        where: {
+          userId: { in: followingIds },
+          isPublished: true,
+          visibility: 'network',
+        },
+        orderBy: { publishedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.careerStory.count({
+        where: {
+          userId: { in: followingIds },
+          isPublished: true,
+          visibility: 'network',
+        },
+      }),
+    ]);
+
+    sendSuccess(res, { stories, total, page, pageSize });
+  } catch (error) {
+    console.error('Error fetching feed:', error);
+    sendError(res, 'Failed to fetch feed', 500);
+  }
+});
+
+// Suggested users (most active publishers)
+router.get('/suggested-users', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const follows = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const excludeIds = [userId, ...follows.map(f => f.followingId)];
+
+    const suggestions = await prisma.careerStory.groupBy({
+      by: ['userId'],
+      where: {
+        isPublished: true,
+        visibility: 'network',
+        userId: { notIn: excludeIds },
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: limit,
+    });
+
+    const userIds = suggestions.map(s => s.userId);
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, title: true },
+    });
+
+    const result = suggestions.map(s => ({
+      user: users.find(u => u.id === s.userId),
+      publishedCount: s._count.id,
+    }));
+
+    sendSuccess(res, { suggestions: result });
+  } catch (error) {
+    console.error('Error fetching suggested users:', error);
+    sendError(res, 'Failed to fetch suggestions', 500);
   }
 });
 

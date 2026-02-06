@@ -53,6 +53,10 @@ export interface PublishedStory {
   isPublished?: boolean;
   needsRegeneration?: boolean;
   generatedAt?: Date | null;
+  archetype?: string | null;
+  category?: string | null;
+  role?: string | null;
+  journalEntryId?: string | null;
 }
 
 export interface PublishedStoriesResult {
@@ -80,6 +84,10 @@ export class StoryPublishingService {
     isPublished: boolean;
     needsRegeneration: boolean;
     generatedAt: Date | null;
+    archetype?: string | null;
+    category?: string | null;
+    role?: string | null;
+    journalEntryId?: string | null;
   }): PublishedStory {
     return {
       id: story.id,
@@ -92,6 +100,10 @@ export class StoryPublishingService {
       isPublished: story.isPublished,
       needsRegeneration: story.needsRegeneration,
       generatedAt: story.generatedAt,
+      archetype: story.archetype,
+      category: story.category,
+      role: story.role,
+      journalEntryId: story.journalEntryId,
     };
   }
 

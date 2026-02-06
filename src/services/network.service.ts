@@ -126,6 +126,27 @@ class NetworkService {
     return response.data;
   }
 
+  // Follow
+  async followUser(userId: string): Promise<ApiResponse<void>> {
+    const response = await api.post<ApiResponse<void>>(`/network/follow/${userId}`);
+    return response.data;
+  }
+
+  async unfollowUser(userId: string): Promise<ApiResponse<void>> {
+    const response = await api.delete<ApiResponse<void>>(`/network/follow/${userId}`);
+    return response.data;
+  }
+
+  async getFollowStatus(userId: string): Promise<ApiResponse<{ isFollowing: boolean; followingCount: number; maxFollowing: number }>> {
+    const response = await api.get<ApiResponse<{ isFollowing: boolean; followingCount: number; maxFollowing: number }>>(`/network/follow/${userId}/status`);
+    return response.data;
+  }
+
+  async getFollowCounts(userId: string): Promise<ApiResponse<{ followerCount: number; followingCount: number }>> {
+    const response = await api.get<ApiResponse<{ followerCount: number; followingCount: number }>>(`/network/follow/${userId}/counts`);
+    return response.data;
+  }
+
   // Utility methods for filters
   async getAvailableSkills(): Promise<ApiResponse<string[]>> {
     const response = await api.get<ApiResponse<string[]>>('/network/filters/skills');

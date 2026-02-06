@@ -346,8 +346,8 @@ export class CareerStoriesService {
   /**
    * Regenerate a career story with a new framework and optional writing style
    */
-  static async regenerateStory(id: string, framework: NarrativeFramework, style?: WritingStyle, userPrompt?: string): Promise<ApiResponse<CareerStory>> {
-    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/regenerate`, { framework, style, userPrompt: userPrompt || undefined });
+  static async regenerateStory(id: string, framework: NarrativeFramework, style?: WritingStyle, userPrompt?: string, archetype?: string): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/regenerate`, { framework, style, userPrompt: userPrompt || undefined, archetype: archetype || undefined });
     return response.data;
   }
 
@@ -390,6 +390,17 @@ export class CareerStoriesService {
   /**
    * Analyze journal entry → detect archetype + return D-I-G questions
    */
+  static async getPublishedStories(userId: string): Promise<ApiResponse<{
+    stories: CareerStory[];
+    totalCount: number;
+    viewerAccess: string;
+  }>> {
+    const response = await api.get<ApiResponse<{ stories: CareerStory[]; totalCount: number; viewerAccess: string }>>(
+      `/career-stories/users/${userId}/published-stories`
+    );
+    return response.data;
+  }
+
   static async wizardAnalyze(journalEntryId: string): Promise<ApiResponse<WizardAnalyzeResponse>> {
     const response = await api.post<ApiResponse<WizardAnalyzeResponse>>(
       '/career-stories/wizard/analyze',

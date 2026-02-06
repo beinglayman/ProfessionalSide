@@ -251,4 +251,30 @@ describe('StoryPublishingService', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('Story not found');
   });
+
+  it('includes archetype, category, role, journalEntryId in published story', async () => {
+    await prisma.careerStory.create({
+      data: {
+        userId: TEST_USER_ID,
+        sourceMode: 'demo',
+        title: 'Classified Story',
+        framework: 'STAR',
+        sections: { situation: { summary: 'test' } },
+        activityIds: ['a1'],
+        isPublished: true,
+        visibility: 'network',
+        publishedAt: new Date(),
+        archetype: 'architect',
+        category: 'projects-impact',
+        role: 'led',
+      },
+    });
+
+    const service = createStoryPublishingService(true);
+    const result = await service.getPublishedStories(TEST_USER_ID, TEST_USER_ID);
+    const story = result.stories[0];
+    expect(story.archetype).toBe('architect');
+    expect(story.category).toBe('projects-impact');
+    expect(story.role).toBe('led');
+  });
 });

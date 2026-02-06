@@ -1,1071 +1,598 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import * as Tabs from '@radix-ui/react-tabs';
 import { Button } from '../../components/ui/button';
-import { AchievementCard } from '../../components/profile/achievement-card';
-import { JournalCard } from '../../components/journal/journal-card';
-import JournalEnhanced from '../../components/format7/journal-enhanced';
-import { JournalEntry as JournalEntryType } from '../../types/journal';
-import { SkillCard } from '../../components/profile/skill-card';
-import { SkillSummary } from '../../components/profile/skill-summary';
-import { SkillsGrowth } from '../../components/dashboard/skills-growth';
-import { Edit, MapPin, Building2, Mail, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Eye, Clock, UserX, Briefcase, Award, Target, Heart, Sparkles, TrendingUp, Users, Code2 } from 'lucide-react';
+import {
+  MapPin,
+  Building2,
+  Edit,
+  Briefcase,
+  GraduationCap,
+  Award,
+  ArrowRight,
+  Target,
+  Heart,
+  Clock,
+  Sparkles,
+  ExternalLink,
+  FileText,
+  PenLine,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useProfile } from '../../hooks/useProfile';
-import { useJournalEntries, useToggleAppreciate, useRechronicleEntry } from '../../hooks/useJournal';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
-import { OnboardingOverlay, ONBOARDING_STEPS } from '../../components/onboarding';
-import { useOnboardingOverlay } from '../../hooks/useOnboardingOverlay';
-import { useQuery } from '@tanstack/react-query';
-import { benchmarksService } from '../../services/benchmarks.service';
-import { useSkillsGrowth } from '../../hooks/useDashboard';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-
-// Component interfaces for skills (dynamic from profile data)
-interface Skill {
-  name: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  endorsements?: number;
-  projects?: number;
-  startDate?: Date;
-  relatedAchievements?: string[];
-  journalCount?: number;
-  isFromProfile?: boolean;
-}
-
-// Transform profile topSkills into skill objects
-function transformTopSkillsToSkills(topSkills: string[] = []): Skill[] {
-  return topSkills.map(skillName => ({
-    name: skillName,
-    level: 'intermediate' as const, // Default level
-    endorsements: Math.floor(Math.random() * 50) + 10, // Placeholder data
-    projects: Math.floor(Math.random() * 10) + 3, // Placeholder data
-    startDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000 * 3), // Random date within 3 years
-    relatedAchievements: [],
-    journalCount: 0,
-    isFromProfile: true
-  }));
-}
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
+import { useListCareerStories } from '../../hooks/useCareerStories';
+import { useFollowCounts } from '../../hooks/usePublicProfile';
+import {
+  BRAG_DOC_CATEGORIES,
+  ARCHETYPE_METADATA,
+  NARRATIVE_FRAMEWORKS,
+} from '../../components/career-stories/constants';
+import type { CareerStory, BragDocCategory } from '../../types/career-stories';
 
 export function ProfileViewPage() {
   useDocumentTitle('Profile');
-  const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
-  const [activeTab, setActiveTab] = useState('journal');
-  const [bioExpanded, setBioExpanded] = useState(false);
-  const [entryViewModes, setEntryViewModes] = useState<Record<string, 'workspace' | 'network'>>({});
-  
-  // Onboarding overlay state
-  const { 
-    shouldShowOverlay, 
-    hideOverlay, 
-    completeOverlay, 
-    skipOverlay 
-  } = useOnboardingOverlay();
-  
-  // Follow/Connection states - In real app, this would come from user context
-  const [isOwnProfile] = useState(true); // Change to false to see follow/connect buttons
-  const [connectionStatus, setConnectionStatus] = useState<'none' | 'following' | 'connected' | 'pending_follow' | 'pending_connection'>('none');
-  const [isLoadingConnection, setIsLoadingConnection] = useState(false);
 
-  // Use production-ready profile hook
-  const { profile, isLoading, error, refetch } = useProfile();
-
-  // Get current user for filtering journal entries
   const { user } = useAuth();
+  const { profile, isLoading, error, refetch } = useProfile();
+  const { data: storiesData } = useListCareerStories();
+  const { data: followCounts } = useFollowCounts(user?.id ?? '');
 
-  // Fetch real journal entries with network visibility only
-  const {
-    data: journalEntriesData,
-    isLoading: isLoadingJournalEntries,
-    error: journalEntriesError
-  } = useJournalEntries({
-    authorId: user?.id,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-    limit: 100
-  });
+  const allStories: CareerStory[] = (storiesData as any)?.stories ?? [];
+  const publishedStories = allStories.filter((s) => s.isPublished);
+  const draftStories = allStories.filter((s) => !s.isPublished);
 
-  // Appreciate mutation for journal entries
-  const toggleAppreciateMutation = useToggleAppreciate();
-
-  const handleAppreciate = async (entryId: string) => {
-    try {
-      await toggleAppreciateMutation.mutateAsync(entryId);
-    } catch (error) {
-      console.error('Failed to toggle appreciate:', error);
+  // Group published stories by brag doc category
+  const storiesByCategory = useMemo(() => {
+    const map = new Map<BragDocCategory | 'other', CareerStory[]>();
+    for (const story of publishedStories) {
+      const key = story.category ?? 'other';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(story);
     }
-  };
+    return map;
+  }, [publishedStories]);
 
-  // ReChronicle mutation for journal entries
-  const rechronicleMutation = useRechronicleEntry();
+  // Story stats
+  const mostRecentPublish = useMemo(() => {
+    const dates = publishedStories
+      .map((s) => s.publishedAt)
+      .filter(Boolean)
+      .sort()
+      .reverse();
+    return dates[0] ? new Date(dates[0]) : null;
+  }, [publishedStories]);
 
-  const handleRechronicle = async (entryId: string) => {
-    try {
-      await rechronicleMutation.mutateAsync({ id: entryId });
-    } catch (error) {
-      console.error('Failed to rechronicle:', error);
-    }
-  };
-
-  const toggleSkill = (skillName: string) => {
-    // Normalize the skill name to ensure consistent selection
-    const normalizedName = skillName.toLowerCase().trim();
-    setSelectedSkills(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(normalizedName)) {
-        newSet.delete(normalizedName);
-      } else {
-        newSet.add(normalizedName);
-      }
-      return newSet;
-    });
-  };
-
-  const clearAllSkills = () => {
-    setSelectedSkills(new Set());
-  };
-
-  const toggleEntryViewMode = (entryId: string) => {
-    setEntryViewModes(prev => ({
-      ...prev,
-      [entryId]: prev[entryId] === 'workspace' ? 'network' : 'workspace'
-    }));
-  };
-
-  // Normalize skill name for consistent matching (case-insensitive, trimmed, hyphens/underscores to spaces)
-  const normalizeSkillName = (name: string): string => {
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[-_]/g, ' ')  // Normalize hyphens and underscores to spaces
-      .replace(/\s+/g, ' ');  // Collapse multiple spaces
-  };
-
-  // Find matching skill key - checks if skill is a component of existing or vice versa
-  // Returns existing key if match found, null otherwise
-  const findMatchingSkillKey = (skillName: string, skillMap: Map<string, any>): string | null => {
-    const normalizedNew = normalizeSkillName(skillName);
-
-    for (const [key, skill] of skillMap.entries()) {
-      const normalizedExisting = normalizeSkillName(skill.name);
-      // Check if one is contained within the other
-      if (normalizedNew.includes(normalizedExisting) || normalizedExisting.includes(normalizedNew)) {
-        return key;
-      }
-    }
-    return null;
-  };
-
-  // Helper to check if a skill matches any selected skill (smart match)
-  const skillMatchesSelected = (skillName: string, selectedSkills: Set<string>): boolean => {
-    const normalizedSkill = normalizeSkillName(skillName);
-    for (const selected of selectedSkills) {
-      if (normalizedSkill.includes(selected) || selected.includes(normalizedSkill)) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Helper to check if a skill is in known categories (prominent skills)
-  const isKnownSkill = (skillName: string): boolean => {
-    const normalized = normalizeSkillName(skillName);
-    const knownSkills = [
-      // Programming Languages
-      'javascript', 'typescript', 'python', 'java', 'c#', 'c++', 'go', 'rust', 'php', 'ruby', 'swift', 'kotlin',
-      // Frontend
-      'react', 'angular', 'vue', 'next.js', 'svelte', 'html', 'css', 'tailwind', 'material ui', 'bootstrap',
-      // Backend
-      'node.js', 'express', 'django', 'flask', 'spring boot', 'asp.net', 'laravel', 'ruby on rails',
-      // Databases
-      'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'sql', 'oracle', 'sqlite',
-      // Cloud & DevOps
-      'aws', 'azure', 'google cloud', 'gcp', 'docker', 'kubernetes', 'jenkins', 'terraform', 'ci/cd',
-      // Tools
-      'git', 'github', 'gitlab', 'jira', 'confluence', 'figma', 'slack',
-      // Product/Project Management
-      'agile', 'scrum', 'kanban', 'product management', 'project management',
-      // Soft Skills (prominent ones only)
-      'leadership', 'team management', 'communication', 'problem solving', 'strategic thinking', 'mentoring'
-    ];
-    return knownSkills.some(known =>
-      normalized.includes(known) || known.includes(normalized)
-    );
-  };
-
-  // Create dynamic skills from profile skills and topSkills combined with journal entries
-  const combinedSkills = useMemo(() => {
-    const realJournalEntries = journalEntriesData?.entries || [];
-    
-    // Get skills from both topSkills and full onboarding skills data
-    const topSkillsData = profile?.topSkills ? transformTopSkillsToSkills(profile.topSkills) : [];
-    const onboardingSkills = profile?.onboardingData?.skills || [];
-    
-    console.log('🔍 Profile topSkills:', profile?.topSkills);
-    console.log('🔍 Profile onboardingData.skills:', onboardingSkills);
-    
-    // Transform onboarding skills to the format we need
-    const fullSkillsData = onboardingSkills.map((skill: any) => ({
-      name: skill.name || skill,
-      level: skill.proficiency || 'intermediate',
-      endorsements: Math.floor(Math.random() * 50) + 10,
-      projects: Math.floor(Math.random() * 10) + 3,
-      startDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000 * 3),
-      relatedAchievements: [],
-      journalCount: 0,
-      isFromProfile: true
-    }));
-    
-    console.log('🔍 Transformed skills data:', fullSkillsData);
-    
-    // Combine both data sources, prioritizing full skills data over topSkills
-    const profileSkills = fullSkillsData.length > 0 ? fullSkillsData : topSkillsData;
-
-    // Create a map to count skill occurrences and merge with profile skills
-    // Use normalized names as keys for consistent matching
-    const skillMap = new Map();
-
-    // Start with profile skills (if they exist)
-    profileSkills.forEach((skill: Skill) => {
-      const normalizedName = normalizeSkillName(skill.name);
-      skillMap.set(normalizedName, {
-        ...skill,
-        normalizedName: normalizedName,
-        journalCount: 0, // Will be updated from journal entries
-      });
-    });
-
-    // Count skills from journal entries - use smart matching
-    realJournalEntries.forEach((entry: JournalEntryType) => {
-      entry.skills.forEach((skillName: string) => {
-        const matchingKey = findMatchingSkillKey(skillName, skillMap);
-
-        if (matchingKey) {
-          // Found a match - increment count, keep longer/more specific name as display
-          const existingSkill = skillMap.get(matchingKey);
-          existingSkill.journalCount = (existingSkill.journalCount || 0) + 1;
-          // If new name is longer (more specific), update display name
-          if (skillName.length > existingSkill.name.length) {
-            existingSkill.name = skillName;
-          }
-        } else {
-          // No match - add as new skill
-          const normalizedName = normalizeSkillName(skillName);
-          skillMap.set(normalizedName, {
-            name: skillName,
-            normalizedName: normalizedName,
-            level: 'beginner' as const, // Default level for journal-only skills
-            endorsements: Math.floor(Math.random() * 20) + 5,
-            projects: Math.floor(Math.random() * 5) + 1,
-            startDate: new Date(), // Use current date for new skills
-            relatedAchievements: [],
-            journalCount: 1,
-            isFromProfile: false
-          });
-        }
-      });
-    });
-    
-    // Filter to only show prominent skills
-    // A skill is prominent if it:
-    // 1. From profile onboarding (isFromProfile: true)
-    // 2. High frequency (journalCount >= 2)
-    // 3. Matches a known skill category
-    const prominentSkills = Array.from(skillMap.values()).filter((skill: any) => {
-      // Keep if from profile onboarding
-      if (skill.isFromProfile) return true;
-      // Keep if mentioned in multiple journal entries
-      if (skill.journalCount >= 2) return true;
-      // Keep if it matches a known skill category
-      if (isKnownSkill(skill.name)) return true;
-      return false;
-    });
-
-    // Sort by journal count (most used first), then by name
-    return prominentSkills.sort((a, b) => {
-      if (b.journalCount !== a.journalCount) {
-        return b.journalCount - a.journalCount; // Sort by journal count desc
-      }
-      return a.name.localeCompare(b.name); // Then by name asc
-    });
-  }, [journalEntriesData, profile?.topSkills]);
-
-  // Enhanced journal entries with dual-view capability
-  const enhancedJournalEntries = useMemo(() => {
-    const realJournalEntries = journalEntriesData?.entries || [];
-
-    // Filter out auto-generated drafts - they should only appear on workspace page
-    const filteredEntries = realJournalEntries.filter((entry: JournalEntryType) => {
-      if (!entry.isPublished && entry.tags?.includes('auto-generated')) {
-        return false;
-      }
-      return true;
-    });
-
-    return filteredEntries.map((entry: JournalEntryType) => {
-      // Check if entry supports dual views (has abstractContent and is published)
-      const hasMultipleVisibilities = !!(entry.abstractContent && entry.visibility === 'network');
-
-      // Set default view mode if not already set for dual-view entries
-      if (hasMultipleVisibilities && !entryViewModes[entry.id]) {
-        setEntryViewModes(prev => ({
-          ...prev,
-          [entry.id]: 'workspace' // Default to workspace view
-        }));
-      }
-
-      return {
-        ...entry,
-        hasMultipleVisibilities,
-        currentViewMode: entryViewModes[entry.id] || 'workspace'
-      };
-    });
-  }, [journalEntriesData, entryViewModes]);
-
-  const selectAllSkills = () => {
-    setSelectedSkills(new Set(combinedSkills.map((skill: any) => skill.normalizedName)));
-  };
-
-  const selectedSkillsData = useMemo(() =>
-    combinedSkills.filter((skill: any) => selectedSkills.has(skill.normalizedName)),
-    [selectedSkills, combinedSkills]
-  );
-
-  const filteredJournalEntries = useMemo(() => {
-    if (selectedSkills.size === 0) return enhancedJournalEntries;
-    return enhancedJournalEntries.filter((entry) =>
-      entry.skills.some((skill: string) => skillMatchesSelected(skill, selectedSkills))
-    );
-  }, [selectedSkills, enhancedJournalEntries]);
-
-  const filteredAchievements = useMemo(() => {
-    // No achievements from profile data yet - return empty array
-    return [];
-  }, [selectedSkills]);
-
-  // Fetch skills growth data from API (same data used by dashboard)
-  const {
-    data: skillsGrowthData,
-    isLoading: skillsGrowthLoading,
-    error: skillsGrowthError
-  } = useSkillsGrowth();
-
-  // Extract periods from API response
-  const dynamicSkillsGrowthData = useMemo(() => {
-    return skillsGrowthData?.periods || [];
-  }, [skillsGrowthData]);
-
-  // Use benchmarks from API response, with fallback to custom fetch for profile-specific skills
-  const {
-    data: realBenchmarks,
-    isLoading: benchmarksLoading,
-    error: benchmarksError
-  } = useQuery({
-    queryKey: ['benchmarks', combinedSkills.map(s => s.name)],
-    queryFn: async () => {
-      if (combinedSkills.length === 0) return {};
-      const skillNames = combinedSkills.map(skill => skill.name);
-      return await benchmarksService.getBenchmarksForSkills(skillNames);
-    },
-    enabled: combinedSkills.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
-  });
-
-  // Merge API benchmarks with profile-specific benchmarks
-  const dynamicSkillsBenchmarks = useMemo(() => {
-    const apiBenchmarks = skillsGrowthData?.benchmarks || {};
-    const profileBenchmarks = realBenchmarks || {};
-    return { ...apiBenchmarks, ...profileBenchmarks };
-  }, [skillsGrowthData, realBenchmarks]);
-
-  const filteredSkillsGrowthData = useMemo(() => {
-    if (selectedSkills.size === 0) return dynamicSkillsGrowthData;
-    return dynamicSkillsGrowthData.map(period => ({
-      ...period,
-      skills: period.skills.filter(skill => skillMatchesSelected(skill.name, selectedSkills))
-    }));
-  }, [selectedSkills, dynamicSkillsGrowthData]);
-
-  // Follow/Connection handlers
-  const handleFollowUser = () => {
-    setIsLoadingConnection(true);
-    setConnectionStatus('pending_follow');
-    
-    // Simulate API call
-    setTimeout(() => {
-      setConnectionStatus('following');
-      setIsLoadingConnection(false);
-    }, 1000);
-  };
-
-  const handleUnfollowUser = () => {
-    setConnectionStatus('none');
-  };
-
-  const handleSendConnectionRequest = () => {
-    setIsLoadingConnection(true);
-    setConnectionStatus('pending_connection');
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoadingConnection(false);
-      // Connection request remains pending until approved
-    }, 1000);
-  };
-
-  const renderConnectionButton = () => {
-    if (isOwnProfile) {
-      return (
-        <Button variant="outline" asChild className="sm:px-4 px-2">
-          <Link to="/profile/edit">
-            <Edit className="sm:mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Edit Profile</span>
-          </Link>
-        </Button>
-      );
-    }
-
-    switch (connectionStatus) {
-      case 'none':
-        return (
-          <Button
-            onClick={handleFollowUser}
-            disabled={isLoadingConnection}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            {isLoadingConnection ? (
-              <Clock className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <UserPlus className="mr-2 h-4 w-4" />
-            )}
-            Follow for Updates
-          </Button>
-        );
-      
-      case 'following':
-        return (
-          <div className="flex gap-2">
-            <Button
-              onClick={handleSendConnectionRequest}
-              disabled={isLoadingConnection}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isLoadingConnection ? (
-                <Clock className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-4 w-4" />
-              )}
-              Send Connect Request
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleUnfollowUser}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <UserX className="mr-2 h-4 w-4" />
-              Unfollow
-            </Button>
-          </div>
-        );
-      
-      case 'connected':
-        return (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <UserCheck className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-700">Connected</span>
-            </div>
-            <Button variant="outline">
-              <Send className="mr-2 h-4 w-4" />
-              Message
-            </Button>
-          </div>
-        );
-      
-      case 'pending_follow':
-        return (
-          <Button disabled className="bg-gray-100 text-gray-500">
-            <Clock className="mr-2 h-4 w-4 animate-spin" />
-            Following...
-          </Button>
-        );
-      
-      case 'pending_connection':
-        return (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <Eye className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-700">Following</span>
-            </div>
-            <Button disabled className="bg-gray-100 text-gray-500">
-              <Clock className="mr-2 h-4 w-4" />
-              Request Sent
-            </Button>
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
-  // Show loading state
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
       </div>
     );
   }
 
-  // Show error state
+  // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Failed to load profile: {error}</p>
-          <Button onClick={refetch}>Try Again</Button>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+        <p className="text-red-600">Failed to load profile: {error}</p>
+        <Button onClick={refetch}>Try Again</Button>
       </div>
     );
   }
 
-  // Show empty state if no profile data
+  // No profile — nudge to onboarding
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center">
-            <div className="mx-auto h-24 w-24 rounded-full bg-gray-100 flex items-center justify-center mb-6">
-              <Users className="h-12 w-12 text-gray-400" />
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl font-semibold text-gray-900">Complete Your Profile</h1>
+        <p className="text-gray-600 max-w-md text-center">
+          Your professional profile is not yet set up. Complete onboarding to get started.
+        </p>
+        <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Link to="/onboarding">Get Started</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const hasAboutMe =
+    profile.yearsOfExperience ||
+    (profile.specializations && profile.specializations.length > 0) ||
+    profile.careerHighlights ||
+    (profile.careerGoals && profile.careerGoals.length > 0) ||
+    (profile.professionalInterests && profile.professionalInterests.length > 0);
+
+  const hasWorkExperience = profile.workExperiences && profile.workExperiences.length > 0;
+  const hasEducation = profile.education && profile.education.length > 0;
+  const hasCertifications = profile.certifications && profile.certifications.length > 0;
+  const hasSkills = profile.topSkills && profile.topSkills.length > 0;
+  const enrichedSkills = profile.onboardingData?.skills as Array<{ name: string; proficiency: string; category: string }> | undefined;
+  const hasProfessionalBackground = hasWorkExperience || hasEducation || hasCertifications || hasSkills;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        {/* ================================================================ */}
+        {/* Section 1: Profile Header                                        */}
+        {/* ================================================================ */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <Link to="/profile/edit" className="relative group flex-shrink-0">
+                <img
+                  src={getAvatarUrl(profile.avatar)}
+                  alt={profile.name || 'Profile'}
+                  className="h-20 w-20 rounded-full object-cover bg-gray-100 ring-2 ring-white group-hover:ring-primary-400 transition-all"
+                  onError={handleAvatarError}
+                />
+                <div className="absolute inset-0 h-20 w-20 rounded-full bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                  <Edit className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </Link>
+              <div className="min-w-0">
+                <Link to="/profile/edit" className="hover:text-primary-600 transition-colors">
+                  <h1 className="text-2xl font-semibold text-gray-900">{profile.name}</h1>
+                </Link>
+                <p className="text-base text-gray-600">{profile.title}</p>
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                  {profile.location && (
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {profile.location}
+                    </span>
+                  )}
+                  {profile.company && (
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {profile.company}
+                    </span>
+                  )}
+                  {profile.industry && (
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                      <Briefcase className="h-3.5 w-3.5" />
+                      {profile.industry}
+                    </span>
+                  )}
+                  {profile.yearsOfExperience != null && profile.yearsOfExperience > 0 && (
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                      <Clock className="h-3.5 w-3.5" />
+                      {profile.yearsOfExperience}y exp
+                    </span>
+                  )}
+                </div>
+                {followCounts && (
+                  <p className="text-sm text-gray-500 mt-1.5">
+                    <span className="font-semibold text-gray-700">{followCounts.followerCount}</span>{' '}
+                    followers{' '}
+                    <span className="mx-1">&middot;</span>{' '}
+                    <span className="font-semibold text-gray-700">{followCounts.followingCount}</span>{' '}
+                    following
+                  </p>
+                )}
+              </div>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Complete Your Profile</h1>
-            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              Your professional profile is not yet set up. Complete the onboarding process to showcase your skills, experience, and achievements.
-            </p>
-            <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 text-lg">
-              <Link to="/onboarding">
-                <Sparkles className="mr-2 h-5 w-5" />
-                Get Started
+
+            <Button variant="outline" asChild className="sm:px-4 px-2 flex-shrink-0">
+              <Link to="/profile/edit">
+                <Edit className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Edit Profile</span>
               </Link>
             </Button>
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-12">
-      {/* Profile Header */}
-      <div className="bg-white shadow-sm border-b border-gray-100">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="py-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="relative">
-                  <Link to="/profile/edit" className="block">
-                    {isLoading ? (
-                      <div className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg bg-gray-200 animate-pulse" />
-                    ) : (
-                      <img
-                        src={getAvatarUrl(profile?.avatar)}
-                        alt={profile?.name || 'Profile'}
-                        className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg hover:ring-primary-500 transition-all duration-200 cursor-pointer object-cover"
-                        onError={handleAvatarError}
-                      />
-                    )}
-                    <div className="absolute inset-0 h-28 w-28 rounded-full bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                      <Edit className="w-6 h-6 text-white opacity-0 hover:opacity-100 transition-opacity duration-200" />
-                    </div>
-                  </Link>
-                  <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-green-600 border-4 border-white shadow-sm"></div>
-                </div>
-                <div>
-                  <div className="flex items-center space-x-3">
-                    <Link to="/profile/edit" className="hover:text-primary-600 transition-colors">
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                        {profile.name}
-                      </h1>
-                    </Link>
-                  </div>
-                  <Link to="/profile/edit" className="hover:text-primary-600 transition-colors">
-                    <p className="text-xl text-gray-600 font-medium">{profile.title}</p>
-                  </Link>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                    {profile.location && (
-                      <div className="flex items-center">
-                        <MapPin className="mr-1 h-4 w-4" />
-                        {profile.location}
-                      </div>
-                    )}
-                    {profile.company && (
-                      <div className="flex items-center">
-                        <Building2 className="mr-1 h-4 w-4" />
-                        {profile.company}
-                      </div>
-                    )}
-                    {profile.industry && (
-                      <div className="flex items-center">
-                        <Briefcase className="mr-1 h-4 w-4" />
-                        {profile.industry}
-                      </div>
-                    )}
-                    {profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null && (
-                      <div className="flex items-center">
-                        <Clock className="mr-1 h-4 w-4" />
-                        {profile.yearsOfExperience} years experience
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {renderConnectionButton()}
-            </div>
-
-
-            {profile.bio && (
-              <div className="mt-8 relative">
-                <div className="bg-gradient-to-br from-primary-25 via-white to-primary-50 rounded-xl p-8 border border-primary-100 shadow-sm relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-25/30 to-transparent opacity-60"></div>
-                  <p className="relative w-full text-gray-700 leading-relaxed text-base">{profile.bio}</p>
-                  <button 
-                    className="absolute -bottom-2 right-4 rounded-full bg-white border border-gray-200 shadow-sm p-2 hover:bg-gray-50 hover:shadow-md transition-all duration-200"
-                    onClick={() => setBioExpanded(!bioExpanded)}
-                    aria-label={bioExpanded ? "Show less" : "Show more"}
-                  >
-                    {bioExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-gray-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {bioExpanded && (
-              <div className="mt-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-8 border border-gray-200 shadow-sm">
-                <div className="flex items-center space-x-3 mb-8">
-                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                  <h3 className="text-xl font-semibold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Professional Profile</h3>
-                </div>
-                
-                {/* Professional Information Display */}
-                <div className="space-y-8">
-
-                  {/* Specializations */}
-                  {profile.specializations && profile.specializations.length > 0 && (
-                    <div className="bg-white rounded-lg p-6 border border-gray-200">
-                      <div className="flex items-center space-x-2 mb-4">
-                        <Target className="w-4 h-4 text-gray-500" />
-                        <h4 className="font-semibold text-gray-900">Specializations</h4>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.specializations.map((spec, index) => (
-                          <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                            {spec}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Career Highlights */}
-                  {profile.careerHighlights && (
-                    <div className="bg-white rounded-lg p-6 border border-gray-200">
-                      <div className="flex items-center space-x-2 mb-4">
-                        <Award className="w-4 h-4 text-gray-500" />
-                        <h4 className="font-semibold text-gray-900">Career Highlights</h4>
-                      </div>
-                      <p className="text-gray-700 leading-relaxed">{profile.careerHighlights}</p>
-                    </div>
-                  )}
-
-                  {/* Work Experience */}
-                  {profile.workExperiences && profile.workExperiences.length > 0 && (
-                    <div className="bg-white rounded-lg p-6 border border-gray-200">
-                      <div className="flex items-center space-x-2 mb-4">
-                        <Briefcase className="w-4 h-4 text-gray-500" />
-                        <h4 className="font-semibold text-gray-900">Work Experience</h4>
-                      </div>
-                      <div className="space-y-4">
-                        {profile.workExperiences.slice(0, 3).map((experience, index) => (
-                          <div key={index} className="border-l-2 border-gray-200 pl-4">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h5 className="font-medium text-gray-900">{experience.title}</h5>
-                                <p className="text-sm text-blue-600 font-medium">{experience.company}</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {experience.startDate && new Date(experience.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                                  {' - '}
-                                  {experience.isCurrentRole ? 'Present' : experience.endDate && new Date(experience.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                                  {experience.location && ` • ${experience.location}`}
-                                </p>
-                              </div>
-                            </div>
-                            {experience.description && (
-                              <p className="text-sm text-gray-600 mt-2 line-clamp-2">{experience.description}</p>
-                            )}
-                          </div>
-                        ))}
-                        {profile.workExperiences.length > 3 && (
-                          <p className="text-sm text-gray-500 italic">
-                            +{profile.workExperiences.length - 3} more positions
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Education */}
-                  {profile.education && profile.education.length > 0 && (
-                    <div className="bg-white rounded-lg p-6 border border-gray-200">
-                      <div className="flex items-center space-x-2 mb-4">
-                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                        </svg>
-                        <h4 className="font-semibold text-gray-900">Education</h4>
-                      </div>
-                      <div className="space-y-3">
-                        {profile.education.slice(0, 2).map((edu, index) => (
-                          <div key={index} className="border-l-2 border-gray-200 pl-4">
-                            <h5 className="font-medium text-gray-900">{edu.degree}</h5>
-                            <p className="text-sm text-blue-600">{edu.fieldOfStudy}</p>
-                            <p className="text-sm text-gray-600">{edu.institution}</p>
-                            <p className="text-xs text-gray-500">
-                              {edu.startYear} - {edu.isCurrentlyStudying ? 'Present' : edu.endYear}
-                              {edu.location && ` • ${edu.location}`}
-                            </p>
-                          </div>
-                        ))}
-                        {profile.education.length > 2 && (
-                          <p className="text-sm text-gray-500 italic">
-                            +{profile.education.length - 2} more qualifications
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Certifications */}
-                  {profile.certifications && profile.certifications.length > 0 && (
-                    <div className="bg-white rounded-lg p-6 border border-gray-200">
-                      <div className="flex items-center space-x-2 mb-4">
-                        <Award className="w-4 h-4 text-gray-500" />
-                        <h4 className="font-semibold text-gray-900">Certifications</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {profile.certifications.slice(0, 4).map((cert, index) => (
-                          <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                            <h5 className="font-medium text-gray-900 text-sm">{cert.name}</h5>
-                            <p className="text-xs text-blue-600">{cert.issuingOrganization}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {cert.issueDate && new Date(cert.issueDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                              {cert.neverExpires ? ' • No Expiration' : cert.expirationDate && ` - ${new Date(cert.expirationDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}
-                            </p>
-                          </div>
-                        ))}
-                        {profile.certifications.length > 4 && (
-                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex items-center justify-center">
-                            <p className="text-sm text-gray-500">+{profile.certifications.length - 4} more</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Career Goals & Professional Interests */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Career Goals */}
-                    {profile.careerGoals && profile.careerGoals.length > 0 && (
-                      <div className="bg-white rounded-lg p-6 border border-gray-200">
-                        <div className="flex items-center space-x-2 mb-4">
-                          <Target className="w-4 h-4 text-gray-500" />
-                          <h4 className="font-semibold text-gray-900">Career Goals</h4>
-                        </div>
-                        <div className="space-y-2">
-                          {profile.careerGoals.map((goal, index) => (
-                            <div key={index} className="flex items-start space-x-2">
-                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                              <p className="text-sm text-gray-700">{goal}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Professional Interests */}
-                    {profile.professionalInterests && profile.professionalInterests.length > 0 && (
-                      <div className="bg-white rounded-lg p-6 border border-gray-200">
-                        <div className="flex items-center space-x-2 mb-4">
-                          <Heart className="w-4 h-4 text-gray-500" />
-                          <h4 className="font-semibold text-gray-900">Professional Interests</h4>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {profile.professionalInterests.map((interest, index) => (
-                            <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
-                              {interest}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Skill Summary - Always show for onboarded users */}
-      <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SkillSummary 
-          selectedSkills={selectedSkillsData} 
-          hasJournalEntries={(journalEntriesData?.entries?.length || 0) > 0}
-          hasOnboardingSkills={combinedSkills.length > 0}
-        />
-      </div>
-
-      {/* Main Content */}
-      <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-          {/* Skills Section - More compact */}
-          {combinedSkills.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Skills Filter</h2>
-                <div className="flex space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={selectAllSkills}
-                    className="text-xs px-2 py-1 h-7"
-                  >
-                    All
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllSkills}
-                    className="text-xs px-2 py-1 h-7"
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {combinedSkills.map((skill) => (
-                  <SkillCard
-                    key={skill.normalizedName}
-                    skill={skill}
-                    selected={selectedSkills.has(skill.normalizedName)}
-                    onClick={() => toggleSkill(skill.name)}
-                  />
-                ))}  
-              </div>
-              <div className="text-xs text-gray-500 border-t pt-2">
-                {selectedSkills.size === 0 
-                  ? "Showing all entries" 
-                  : `Filtered by ${selectedSkills.size} skill${selectedSkills.size !== 1 ? 's' : ''}`
-                }
-              </div>
+          {profile.bio && (
+            <div className="mt-4 bg-gray-50 rounded-lg p-4 border">
+              <p className="text-sm text-gray-700 whitespace-pre-line">{profile.bio}</p>
             </div>
           )}
+        </div>
 
-          {/* Tabs Section */}
-          <div className={combinedSkills.length > 0 ? "lg:col-span-3" : "lg:col-span-4"}>
-            <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-              <Tabs.List className="flex space-x-4 border-b border-gray-200">
-                <Tabs.Trigger
-                  value="achievements"
-                  className={cn(
-                    'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-                    activeTab === 'achievements'
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  )}
-                >
-                  Achievements
-                </Tabs.Trigger>
-                
-                <Tabs.Trigger
-                  value="journal"
-                  className={cn(
-                    'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-                    activeTab === 'journal'
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  )}
-                >
-                  Journal
-                </Tabs.Trigger>
-                
-                <Tabs.Trigger
-                  value="skills-growth"
-                  className={cn(
-                    'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-                    activeTab === 'skills-growth'
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  )}
-                >
-                  Skills Growth
-                </Tabs.Trigger>
-              </Tabs.List>
+        {/* ================================================================ */}
+        {/* Section 2: About Me                                              */}
+        {/* ================================================================ */}
+        {hasAboutMe && (
+          <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-5">
+            <h2 className="text-sm font-semibold text-gray-700">About Me</h2>
 
-              <div className="mt-6">
-                <Tabs.Content value="achievements" className="space-y-6">
-                  {(() => {
-                    // Filter journal entries that have achievement data
-                    const achievementEntries = filteredJournalEntries.filter(entry =>
-                      entry.achievementType && entry.achievementTitle
-                    );
-
-                    if (achievementEntries.length === 0) {
-                      return (
-                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-                          <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                          <p className="text-gray-600">
-                            No achievements available yet. Complete goals through journal entries to see your achievements here.
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    return achievementEntries.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="transform transition-all duration-300 ease-in-out"
-                      >
-                        {entry.format7Data ? (
-                          // Profile is public-facing, use network view when available
-                          (() => {
-                            const entryData = entry.format7DataNetwork || entry.format7Data;
-                            return (
-                              <JournalEnhanced
-                                entry={entryData}
-                                mode="expanded"
-                                workspaceName={entry.workspaceName}
-                                correlations={entryData?.correlations}
-                                categories={entryData?.categories}
-                                onAppreciate={() => handleAppreciate(entry.id)}
-                                onReChronicle={() => handleRechronicle(entry.id)}
-                              />
-                            );
-                          })()
-                        ) : (
-                          <JournalCard
-                            journal={entry}
-                            viewMode={entry.currentViewMode}
-                            showMenuButton={false}
-                            showAnalyticsButton={true}
-                            showUserProfile={false}
-                            hasMultipleVisibilities={entry.hasMultipleVisibilities}
-                            onToggleViewMode={() => toggleEntryViewMode(entry.id)}
-                            onAppreciate={() => handleAppreciate(entry.id)}
-                            onReChronicle={() => handleRechronicle(entry.id)}
-                          />
-                        )}
-                      </div>
-                    ));
-                  })()}
-                </Tabs.Content>
-
-                <Tabs.Content value="journal" className="space-y-6">
-                  {filteredJournalEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="transform transition-all duration-300 ease-in-out"
-                    >
-                      {entry.format7Data ? (
-                        // Profile is public-facing, use network view when available
-                        (() => {
-                          const entryData = entry.format7DataNetwork || entry.format7Data;
-                          return (
-                            <JournalEnhanced
-                              entry={entryData}
-                              mode="expanded"
-                              workspaceName={entry.workspaceName}
-                              correlations={entryData?.correlations}
-                              categories={entryData?.categories}
-                              onAppreciate={() => handleAppreciate(entry.id)}
-                              onReChronicle={() => handleRechronicle(entry.id)}
-                            />
-                          );
-                        })()
-                      ) : (
-                        <JournalCard
-                          journal={entry}
-                          viewMode={entry.currentViewMode}
-                          showMenuButton={false}
-                          showAnalyticsButton={true}
-                          showUserProfile={false}
-                          hasMultipleVisibilities={entry.hasMultipleVisibilities}
-                          onToggleViewMode={() => toggleEntryViewMode(entry.id)}
-                          onAppreciate={() => handleAppreciate(entry.id)}
-                          onReChronicle={() => handleRechronicle(entry.id)}
-                        />
-                      )}
-                    </div>
-                  ))}
-                  {filteredJournalEntries.length === 0 && (
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-                      <div className="w-12 h-12 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                      </div>
-                      <p className="text-gray-600">
-                        {selectedSkills.size === 0
-                          ? 'No journal entries available yet. Start creating journal entries to see them here.'
-                          : 'No journal entries found for the selected skills'}
-                      </p>
-                    </div>
-                  )}
-                </Tabs.Content>
-
-                <Tabs.Content value="skills-growth" className="space-y-6">
-                  {dynamicSkillsGrowthData.length > 0 ? (
-                    <SkillsGrowth periods={filteredSkillsGrowthData} benchmarks={dynamicSkillsBenchmarks} />
-                  ) : (
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-                      <div className="w-12 h-12 mx-auto mb-4 bg-primary-100 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Start Tracking Your Skills Growth</h3>
-                      <p className="text-gray-600 mb-4">
-                        Create journal entries about your work to see how your skills develop over time. We'll automatically track your progress and show industry benchmarks.
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Skills growth data will appear as you document your professional activities and achievements.
-                      </p>
-                    </div>
-                  )}
-                </Tabs.Content>
+            {profile.careerHighlights && (
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
+                  Career Highlights
+                </h3>
+                <p className="text-sm text-gray-700 leading-relaxed">{profile.careerHighlights}</p>
               </div>
-            </Tabs.Root>
+            )}
+
+            {profile.specializations && profile.specializations.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <Target className="h-3 w-3" />
+                  Specializations
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.specializations.map((spec: string, i: number) => (
+                    <span key={i} className="bg-blue-50 text-blue-700 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                      {spec}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {profile.careerGoals && profile.careerGoals.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <Target className="h-3 w-3" />
+                  Career Goals
+                </h3>
+                <ul className="space-y-1">
+                  {profile.careerGoals.map((goal: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+                      {goal}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {profile.professionalInterests && profile.professionalInterests.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <Heart className="h-3 w-3" />
+                  Interests
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.professionalInterests.map((interest: string, i: number) => (
+                    <span key={i} className="bg-purple-50 text-purple-700 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                      {interest}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* Section 3: Career Stories — Stats + Drafts + By-Category          */}
+        {/* ================================================================ */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Career Stories</h2>
+            <Link
+              to="/career-stories"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
+            >
+              View All <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {/* Stats bar */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <span className="inline-flex items-center gap-1.5 text-gray-600">
+              <FileText className="h-3.5 w-3.5 text-primary-500" />
+              <span className="font-semibold text-gray-900">{publishedStories.length}</span> published
+            </span>
+            {draftStories.length > 0 && (
+              <Link
+                to="/career-stories"
+                className="inline-flex items-center gap-1.5 text-gray-600 hover:text-primary-600"
+              >
+                <PenLine className="h-3.5 w-3.5 text-amber-500" />
+                <span className="font-semibold text-gray-900">{draftStories.length}</span> draft{draftStories.length !== 1 && 's'} in progress
+              </Link>
+            )}
+            {mostRecentPublish && (
+              <span className="inline-flex items-center gap-1.5 text-gray-500 text-xs ml-auto">
+                Last published {mostRecentPublish.toLocaleDateString()}
+              </span>
+            )}
+          </div>
+
+          {/* Category breakdown — always show all categories as brag-doc scaffold */}
+          <div className="space-y-4">
+            {BRAG_DOC_CATEGORIES.map((cat) => {
+              const catStories = storiesByCategory.get(cat.value);
+              return (
+                <CategorySection
+                  key={cat.value}
+                  label={cat.label}
+                  description={cat.description}
+                  stories={catStories ?? []}
+                />
+              );
+            })}
+            {storiesByCategory.has('other') && (
+              <CategorySection
+                label="Other"
+                description="Uncategorized stories"
+                stories={storiesByCategory.get('other')!}
+              />
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Onboarding Overlay */}
-      {shouldShowOverlay && (
-        <OnboardingOverlay
-          steps={ONBOARDING_STEPS}
-          onComplete={completeOverlay}
-          onSkip={skipOverlay}
-        />
+        {/* ================================================================ */}
+        {/* Section 4: Professional Background                               */}
+        {/* ================================================================ */}
+        {hasProfessionalBackground && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Professional Background</h2>
+            <div className="space-y-4">
+
+              {/* Work Experience — enriched */}
+              {hasWorkExperience && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                    <Briefcase className="h-4 w-4 text-gray-400" />
+                    Work Experience
+                  </h3>
+                  <div className="space-y-4">
+                    {profile.workExperiences!.slice(0, 3).map((exp: any, i: number) => (
+                      <div key={i} className={cn(i > 0 && 'border-t pt-4')}>
+                        <p className="text-sm font-medium text-gray-900">{exp.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {exp.company}
+                          {exp.location && <> &middot; {exp.location}</>}
+                          {exp.startDate && (
+                            <> &middot; {exp.startDate}{exp.isCurrentRole ? ' - Present' : exp.endDate ? ` - ${exp.endDate}` : ''}</>
+                          )}
+                        </p>
+                        {exp.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-3">{exp.description}</p>
+                        )}
+                        {exp.achievements && exp.achievements.length > 0 && (
+                          <ul className="mt-1.5 space-y-0.5">
+                            {exp.achievements.slice(0, 3).map((ach: string, j: number) => (
+                              <li key={j} className="flex items-start gap-1.5 text-xs text-gray-600">
+                                <span className="mt-1 h-1 w-1 rounded-full bg-green-400 flex-shrink-0" />
+                                {ach}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {exp.skills && exp.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {exp.skills.slice(0, 6).map((s: string) => (
+                              <span key={s} className="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5 text-[10px]">
+                                {s}
+                              </span>
+                            ))}
+                            {exp.skills.length > 6 && (
+                              <span className="text-[10px] text-gray-400">+{exp.skills.length - 6}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {profile.workExperiences!.length > 3 && (
+                      <p className="text-xs text-gray-500 italic">
+                        +{profile.workExperiences!.length - 3} more position{profile.workExperiences!.length - 3 !== 1 && 's'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Education — enriched */}
+              {hasEducation && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                    <GraduationCap className="h-4 w-4 text-gray-400" />
+                    Education
+                  </h3>
+                  <div className="space-y-4">
+                    {profile.education!.slice(0, 2).map((edu: any, i: number) => (
+                      <div key={i} className={cn(i > 0 && 'border-t pt-4')}>
+                        <p className="text-sm font-medium text-gray-900">
+                          {edu.degree}{edu.fieldOfStudy ? `, ${edu.fieldOfStudy}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {edu.institution}
+                          {edu.location && <> &middot; {edu.location}</>}
+                          {edu.startYear && (
+                            <> &middot; {edu.startYear}{edu.isCurrentlyStudying ? ' - Present' : edu.endYear ? ` - ${edu.endYear}` : ''}</>
+                          )}
+                        </p>
+                        {edu.grade && (
+                          <p className="text-xs text-gray-600 mt-0.5">Grade: {edu.grade}</p>
+                        )}
+                        {edu.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{edu.description}</p>
+                        )}
+                        {edu.activities && edu.activities.length > 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Activities: {edu.activities.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {profile.education!.length > 2 && (
+                      <p className="text-xs text-gray-500 italic">
+                        +{profile.education!.length - 2} more
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Certifications — enriched */}
+              {hasCertifications && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                    <Award className="h-4 w-4 text-gray-400" />
+                    Certifications
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {profile.certifications!.map((cert: any, i: number) => (
+                      <div key={i} className="border rounded-lg p-3">
+                        <p className="text-sm font-medium text-gray-900">{cert.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {cert.issuingOrganization}
+                          {cert.issueDate && <> &middot; {cert.issueDate}</>}
+                          {cert.neverExpires ? ' &middot; No Expiration' : cert.expirationDate ? ` - ${cert.expirationDate}` : ''}
+                        </p>
+                        {cert.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{cert.description}</p>
+                        )}
+                        {cert.credentialUrl && (
+                          <a
+                            href={cert.credentialUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 mt-1"
+                          >
+                            View Credential <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Skills — enriched with proficiency when available */}
+              {hasSkills && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Skills</h3>
+                  {enrichedSkills && enrichedSkills.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {enrichedSkills.map((skill, i) => (
+                        <span
+                          key={i}
+                          className={cn(
+                            'rounded-full px-2.5 py-0.5 text-xs font-medium',
+                            skill.proficiency === 'expert' && 'bg-primary-100 text-primary-800',
+                            skill.proficiency === 'advanced' && 'bg-primary-50 text-primary-700',
+                            skill.proficiency === 'intermediate' && 'bg-gray-100 text-gray-700',
+                            (!skill.proficiency || skill.proficiency === 'beginner') && 'bg-gray-50 text-gray-600',
+                          )}
+                          title={skill.proficiency ? `${skill.proficiency}${skill.category ? ` — ${skill.category}` : ''}` : undefined}
+                        >
+                          {skill.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.topSkills!.map((skill: string) => (
+                        <span
+                          key={skill}
+                          className="bg-primary-50 text-primary-700 rounded-full px-2.5 py-0.5 text-xs"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function CategorySection({
+  label,
+  description,
+  stories,
+}: {
+  label: string;
+  description: string;
+  stories: CareerStory[];
+}) {
+  const isEmpty = stories.length === 0;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
+        {!isEmpty && (
+          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+            {stories.length}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mb-2">{description}</p>
+
+      {isEmpty ? (
+        <Link
+          to="/career-stories"
+          className="block border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
+        >
+          <p className="text-xs text-gray-400">
+            No stories yet &middot; <span className="text-primary-500 font-medium">Add one</span>
+          </p>
+        </Link>
+      ) : (
+        <div className="space-y-2">
+          {stories.map((story) => (
+            <StoryCard key={story.id} story={story} />
+          ))}
+        </div>
       )}
     </div>
+  );
+}
+
+function StoryCard({ story }: { story: CareerStory }) {
+  const frameworkMeta = NARRATIVE_FRAMEWORKS[story.framework];
+  const archetypeMeta = story.archetype ? ARCHETYPE_METADATA[story.archetype] : null;
+
+  const firstSectionKey = frameworkMeta?.sections?.[0];
+  const firstSection = firstSectionKey ? story.sections[firstSectionKey] : null;
+  const preview = firstSection?.summary ?? '';
+
+  return (
+    <Link
+      to="/career-stories"
+      className="block bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
+    >
+      <p className="text-sm font-medium text-gray-900">{story.title}</p>
+
+      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
+          {story.framework}
+        </span>
+        {archetypeMeta && story.archetype && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary-50 text-primary-700 capitalize">
+            {story.archetype}
+          </span>
+        )}
+        {story.role && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-50 text-blue-700 capitalize">
+            {story.role}
+          </span>
+        )}
+        {story.visibility && story.visibility !== 'private' && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-50 text-green-700 capitalize">
+            {story.visibility}
+          </span>
+        )}
+      </div>
+
+      {preview && (
+        <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
+      )}
+
+      {story.publishedAt && (
+        <p className="text-xs text-gray-400 mt-2">
+          Published {new Date(story.publishedAt).toLocaleDateString()}
+        </p>
+      )}
+    </Link>
   );
 }

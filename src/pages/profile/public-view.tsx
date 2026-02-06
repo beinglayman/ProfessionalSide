@@ -1,762 +1,345 @@
-import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import * as Tabs from '@radix-ui/react-tabs';
 import { Button } from '../../components/ui/button';
-import { AchievementCard } from '../../components/profile/achievement-card';
-import { JournalEntry } from '../../components/profile/journal-entry';
-import { SkillCard } from '../../components/profile/skill-card';
-import { SkillSummary } from '../../components/profile/skill-summary';
-import { MapPin, Building2, Calendar, ChevronDown, ChevronUp, UserPlus, Send, UserCheck, Clock, UserX, ArrowLeft, Mail } from 'lucide-react';
+import {
+  MapPin,
+  Building2,
+  UserPlus,
+  UserCheck,
+  ArrowLeft,
+  Briefcase,
+  GraduationCap,
+  Award,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { profileApiService, ProfileData } from '../../services/profile-api.service';
-import { JournalService } from '../../services/journal.service';
 import { useAuth } from '../../contexts/AuthContext';
-import { API_BASE_URL } from '../../lib/api';
-
-
-
-interface PrivacySettings {
-  profileVisibility: 'public' | 'network';
-  showEmail: boolean;
-  showLocation: boolean;
-  showCompany: boolean;
-  showConnections: boolean;
-  allowSearchEngineIndexing: boolean;
-}
+import {
+  usePublicProfile,
+  usePublishedStories,
+  useFollowStatus,
+  useFollowCounts,
+  useToggleFollow,
+} from '../../hooks/usePublicProfile';
+import {
+  BRAG_DOC_CATEGORIES,
+  ARCHETYPE_METADATA,
+  NARRATIVE_FRAMEWORKS,
+} from '../../components/career-stories/constants';
+import type { CareerStory, BragDocCategory } from '../../types/career-stories';
 
 export function PublicProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const { user: currentUser } = useAuth();
-  const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
-  const [activeTab, setActiveTab] = useState('achievements');
-  const [bioExpanded, setBioExpanded] = useState(false);
-  
-  // Profile data state
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  
-  // Privacy settings state
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings | null>(null);
-  const [isLoadingPrivacy, setIsLoadingPrivacy] = useState(true);
-  
-  // Achievements and journal entries state
-  const [achievements, setAchievements] = useState<any[]>([]);
-  const [journalEntries, setJournalEntries] = useState<any[]>([]);
-  const [isLoadingAchievements, setIsLoadingAchievements] = useState(false);
-  const [isLoadingJournalEntries, setIsLoadingJournalEntries] = useState(false);
-  const [achievementsError, setAchievementsError] = useState<string | null>(null);
-  const [journalEntriesError, setJournalEntriesError] = useState<string | null>(null);
-  
-  // Connection states
-  const [connectionStatus, setConnectionStatus] = useState<'none' | 'connected' | 'pending_connection'>('none');
-  const [connectionType, setConnectionType] = useState<'core' | 'extended' | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const isOwnProfile = currentUser?.id === userId;
 
-  // Helper function to check if current user is in the profile owner's network
-  const isInNetwork = () => {
-    // TODO: This should be determined from actual network/connection data
-    // For now, assume authenticated users are in network for demo purposes
-    return currentUser && currentUser.id !== userId;
-  };
+  const { data: profile, isLoading, isError } = usePublicProfile(userId!);
+  const { data: stories = [] } = usePublishedStories(userId!);
+  const { data: followStatus } = useFollowStatus(userId!);
+  const { data: followCounts } = useFollowCounts(userId!);
+  const toggleFollow = useToggleFollow(userId!);
 
-  // Helper function to check if profile should be visible
-  const isProfileVisible = () => {
-    if (!privacySettings) return true; // Default to visible while loading
-    
-    // Profile owner can always see their own profile
-    if (currentUser?.id === userId) return true;
-    
-    // Check profile visibility setting
-    if (privacySettings.profileVisibility === 'public') return true;
-    if (privacySettings.profileVisibility === 'network') return isInNetwork();
-    
-    return false;
-  };
-
-  // Function to fetch privacy settings for the profile owner
-  const fetchPrivacySettings = async (profileUserId: string) => {
-    try {
-      setIsLoadingPrivacy(true);
-      
-      // Fetch privacy settings from the backend - this should be a public endpoint
-      // that returns filtered settings based on the viewer's relationship to the profile owner
-      const response = await fetch(`${API_BASE_URL}/users/${profileUserId}/privacy-settings`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(currentUser && {
-            'Authorization': `Bearer ${localStorage.getItem('inchronicle_access_token')}`
-          })
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setPrivacySettings(result.data || result);
-        console.log('🔒 Privacy settings loaded:', result.data || result);
-      } else {
-        // Default privacy settings if fetch fails
-        setPrivacySettings({
-          profileVisibility: 'network',
-          showEmail: false,
-          showLocation: false,
-          showCompany: false,
-          showConnections: false,
-          allowSearchEngineIndexing: false,
-        });
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch privacy settings:', error);
-      // Default to restrictive settings on error
-      setPrivacySettings({
-        profileVisibility: 'network',
-        showEmail: false,
-        showLocation: false,
-        showCompany: false,
-        showConnections: false,
-        allowSearchEngineIndexing: false,
-      });
-    } finally {
-      setIsLoadingPrivacy(false);
-    }
-  };
-
-  // Calculate total years of experience
-  const calculateYearsOfExperience = () => {
-    if (!profileData) return 0;
-    
-    const workExperiences = profileData.workExperiences || profileData.onboardingData?.workExperiences || [];
-    
-    let totalMonths = 0;
-    const now = new Date();
-    
-    workExperiences.forEach((exp: { startDate: string; endDate?: string; isCurrentRole?: boolean }) => {
-      if (!exp.startDate) return;
-      
-      const startDate = new Date(exp.startDate);
-      const endDate = exp.isCurrentRole ? now : (exp.endDate ? new Date(exp.endDate) : now);
-      
-      const diffTime = endDate.getTime() - startDate.getTime();
-      const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Average days per month
-      
-      totalMonths += diffMonths;
-    });
-    
-    return Math.round(totalMonths / 12);
-  };
-
-  // Fetch profile data and privacy settings on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!userId) {
-        setProfileError('User ID is required');
-        setIsLoadingProfile(false);
-        setIsLoadingPrivacy(false);
-        return;
-      }
-
-      try {
-        setIsLoadingProfile(true);
-        setProfileError(null);
-        console.log('🔍 Fetching public profile and privacy settings for userId:', userId);
-        
-        // Fetch privacy settings first to determine visibility
-        await fetchPrivacySettings(userId);
-        
-        // Fetch profile data
-        const data = await profileApiService.getPublicProfile(userId);
-        console.log('✅ Public profile data received:', data);
-        
-        setProfileData(data);
-        
-        // Simulate determining connection status and type
-        // In a real app, this would come from the API response
-        const mockConnectionStatus = 'none'; // Default to 'none' so users can test connect flow
-        const mockConnectionType = Math.random() > 0.5 ? 'core' : 'extended'; // Random for demo
-        
-        if (mockConnectionStatus === 'connected') {
-          setConnectionStatus('connected');
-          setConnectionType(mockConnectionType);
-        }
-      } catch (error) {
-        console.error('❌ Failed to fetch public profile:', error);
-        setProfileError(error instanceof Error ? error.message : 'Failed to load profile');
-      } finally {
-        setIsLoadingProfile(false);
-      }
-    };
-
-    fetchData();
-  }, [userId]);
-
-  // Fetch public journal entries for this user
-  const fetchPublicJournalEntries = async () => {
-    if (!userId) return;
-    
-    try {
-      setIsLoadingJournalEntries(true);
-      setJournalEntriesError(null);
-      
-      // Fetch journal entries with network visibility (public to network)
-      const response = await JournalService.getJournalEntries({
-        authorId: userId,
-        visibility: 'network'
-      });
-      
-      if (response.success && response.data) {
-        setJournalEntries(response.data);
-      } else {
-        setJournalEntries([]);
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch journal entries:', error);
-      setJournalEntriesError(error instanceof Error ? error.message : 'Failed to load published work');
-      setJournalEntries([]);
-    } finally {
-      setIsLoadingJournalEntries(false);
-    }
-  };
-
-  // Fetch public achievements for this user
-  const fetchPublicAchievements = async () => {
-    if (!userId) return;
-    
-    try {
-      setIsLoadingAchievements(true);
-      setAchievementsError(null);
-      
-      // For now, achievements might be embedded in journal entries or come from a separate endpoint
-      // TODO: Replace with actual achievements API when available
-      // Using journal entries as a proxy for achievements for now
-      const response = await JournalService.getJournalEntries({
-        authorId: userId,
-        visibility: 'network',
-        category: 'achievement' // If achievements are stored as a category
-      });
-      
-      if (response.success && response.data) {
-        // Transform journal entries to achievement-like objects
-        const achievementData = response.data.map(entry => ({
-          id: entry.id,
-          title: entry.title,
-          date: entry.createdAt,
-          skills: entry.skills || [],
-          impact: entry.description,
-          status: 'completed' as const,
-          backgroundColor: '#5D259F',
-        }));
-        setAchievements(achievementData);
-      } else {
-        setAchievements([]);
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch achievements:', error);
-      setAchievementsError(error instanceof Error ? error.message : 'Failed to load achievements');
-      setAchievements([]);
-    } finally {
-      setIsLoadingAchievements(false);
-    }
-  };
-
-  // Fetch achievements and journal entries when profile loads
-  useEffect(() => {
-    if (profileData && userId) {
-      fetchPublicJournalEntries();
-      fetchPublicAchievements();
-    }
-  }, [profileData, userId]);
-
-  const toggleSkill = (skillName: string) => {
-    setSelectedSkills(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(skillName)) {
-        newSet.delete(skillName);
-      } else {
-        newSet.add(skillName);
-      }
-      return newSet;
-    });
-  };
-
-  const selectAllSkills = () => {
-    const allSkillNames = availableSkills.map(skill => skill.name);
-    setSelectedSkills(new Set(allSkillNames));
-  };
-
-  const clearAllSkills = () => {
-    setSelectedSkills(new Set());
-  };
-
-  // Get all available skills from various sources
-  const availableSkills = useMemo(() => {
-    if (!profileData) return [];
-    
-    console.log('🔍 Debug - profileData:', profileData);
-    console.log('🔍 Debug - profileData.topSkills:', profileData?.topSkills);
-    console.log('🔍 Debug - profileData.onboardingData:', profileData?.onboardingData);
-    console.log('🔍 Debug - profileData.onboardingData.skills:', profileData?.onboardingData?.skills);
-    console.log('🔍 Debug - profileData.onboardingData.topSkills:', profileData?.onboardingData?.topSkills);
-    
-    // Try multiple sources for skills data
-    let skills = [];
-    
-    // 1. Try topSkills from main profile
-    if (profileData.topSkills && profileData.topSkills.length > 0) {
-      skills = profileData.topSkills.map(skill => ({
-        name: skill,
-        level: 'intermediate' as const,
-        endorsements: 0,
-        projects: 0,
-        startDate: new Date()
-      }));
-      console.log('🎯 Using profileData.topSkills:', skills);
-    }
-    // 2. Try skills from onboardingData
-    else if (profileData.onboardingData?.skills && profileData.onboardingData.skills.length > 0) {
-      skills = profileData.onboardingData.skills.map((skill: string | { name?: string; proficiency?: string; level?: string; endorsements?: number; projects?: number; startDate?: Date }) => {
-        if (typeof skill === 'string') {
-          return {
-            name: skill,
-            level: 'intermediate' as const,
-            endorsements: 0,
-            projects: 0,
-            startDate: new Date()
-          };
-        }
-        return {
-          name: skill.name || String(skill),
-          level: (skill.proficiency || skill.level || 'intermediate') as 'intermediate',
-          endorsements: skill.endorsements || 0,
-          projects: skill.projects || 0,
-          startDate: skill.startDate || new Date()
-        };
-      });
-      console.log('🎯 Using onboardingData.skills:', skills);
-    }
-    // 3. Try topSkills from onboardingData
-    else if (profileData.onboardingData?.topSkills && profileData.onboardingData.topSkills.length > 0) {
-      skills = profileData.onboardingData.topSkills.map(skill => ({
-        name: skill,
-        level: 'intermediate' as const,
-        endorsements: 0,
-        projects: 0,
-        startDate: new Date()
-      }));
-      console.log('🎯 Using onboardingData.topSkills:', skills);
-    }
-    
-    console.log('🛠️ Debug - final availableSkills:', skills);
-    
-    return skills;
-  }, [profileData]);
-
-  const selectedSkillsData = useMemo(() => 
-    availableSkills.filter(skill => selectedSkills.has(skill.name)),
-    [selectedSkills, availableSkills]
-  );
-
-  const filteredJournalEntries = useMemo(() => {
-    if (selectedSkills.size === 0) return journalEntries;
-    return journalEntries.filter(entry =>
-      entry.skills?.some((skill: string) => selectedSkills.has(skill))
-    );
-  }, [selectedSkills, journalEntries]);
-
-  const filteredAchievements = useMemo(() => {
-    if (selectedSkills.size === 0) return achievements;
-    return achievements.filter(achievement =>
-      achievement.skills?.some((skill: string) => selectedSkills.has(skill))
-    );
-  }, [selectedSkills, achievements]);
-
-  // Connection handlers
-  const handleSendConnectionRequest = () => {
-    setIsLoading(true);
-    setConnectionStatus('pending_connection');
-    
-    // Simulate API call to send connection request
-    setTimeout(() => {
-      setIsLoading(false);
-      // User will now appear in the network>followers section of the requester
-    }, 1000);
-  };
-
-  const handleCancelConnectionRequest = () => {
-    setConnectionStatus('none');
-  };
-
-  const renderConnectionButton = () => {
-    switch (connectionStatus) {
-      case 'none':
-        return (
-          <Button
-            onClick={handleSendConnectionRequest}
-            disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {isLoading ? (
-              <Clock className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <UserPlus className="mr-2 h-4 w-4" />
-            )}
-            Connect
-          </Button>
-        );
-      
-      case 'connected': {
-        const networkTypeLabel = connectionType === 'core' ? 'Core Network' : 'Extended Network';
-        const networkTypeColor = connectionType === 'core' 
-          ? 'bg-purple-50 border-purple-200 text-purple-700' 
-          : 'bg-blue-50 border-blue-200 text-blue-700';
-        const iconColor = connectionType === 'core' ? 'text-purple-600' : 'text-blue-600';
-        
-        return (
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${networkTypeColor}`}>
-              <UserCheck className={`h-4 w-4 ${iconColor}`} />
-              <span className="text-sm font-medium">{networkTypeLabel}</span>
-            </div>
-            <Button variant="outline">
-              <Send className="mr-2 h-4 w-4" />
-              Message
-            </Button>
-          </div>
-        );
-      }
-      
-      case 'pending_connection':
-        return (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <Clock className="h-4 w-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-700">Connection Request Sent</span>
-            </div>
-            <Button
-              variant="outline"
-              onClick={handleCancelConnectionRequest}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <UserX className="mr-2 h-4 w-4" />
-              Cancel
-            </Button>
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
-  // Loading state
-  if (isLoadingProfile || isLoadingPrivacy) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
       </div>
     );
   }
 
-  // Privacy check - profile not visible to current user
-  if (!isProfileVisible()) {
+  if (isError || !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto">
-          <div className="mb-4">
-            <div className="mx-auto h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
-              <Clock className="h-8 w-8 text-gray-400" />
-            </div>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Not Available</h2>
-          <p className="text-gray-600 mb-4">
-            This profile is only visible to the user's network connections. 
-            {!currentUser && " Please log in to view network profiles."}
-          </p>
-          <div className="space-x-3">
-            <Button asChild>
-              <Link to="/network">Back to Network</Link>
-            </Button>
-            {!currentUser && (
-              <Button variant="outline" asChild>
-                <Link to="/login">Log In</Link>
-              </Button>
-            )}
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-600">Profile not found</p>
+        <Link to="/network">
+          <Button variant="outline">Back to Network</Button>
+        </Link>
       </div>
     );
   }
 
-  // Error state
-  if (profileError || !profileData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{profileError || 'Profile not found'}</p>
-          <Button asChild>
-            <Link to="/network">Back to Network</Link>
-          </Button>
-        </div>
-      </div>
-    );
+  // Group stories by brag doc category
+  const storiesByCategory = new Map<BragDocCategory | 'other', CareerStory[]>();
+  for (const story of stories) {
+    const key = story.category ?? 'other';
+    if (!storiesByCategory.has(key)) storiesByCategory.set(key, []);
+    storiesByCategory.get(key)!.push(story);
   }
+
+  const hasWorkExperience = profile.workExperiences && profile.workExperiences.length > 0;
+  const hasEducation = profile.education && profile.education.length > 0;
+  const hasCertifications = profile.certifications && profile.certifications.length > 0;
+  const hasSkills = profile.topSkills && profile.topSkills.length > 0;
+  const hasProfessionalBackground = hasWorkExperience || hasEducation || hasCertifications || hasSkills;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Back Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
-          <Button variant="ghost" asChild className="text-gray-600 hover:text-gray-900">
-            <Link to="/network">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Network
-            </Link>
-          </Button>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Back navigation */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
+        <Link
+          to="/network"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Network
+        </Link>
       </div>
 
-      {/* Profile Header */}
-      <div className="bg-white shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <img
-                    src={profileData.avatar || '/default-avatar.png'}
-                    alt={profileData.name}
-                    className="h-20 w-20 rounded-full border-2 border-gray-200"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/default-avatar.png';
-                    }}
-                  />
-                  <div className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-green-500 border-2 border-white"></div>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Section 1: Profile Header */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <img
+                src={profile.avatar || '/default-avatar.png'}
+                alt={profile.name}
+                className="h-20 w-20 rounded-full object-cover bg-gray-100"
+              />
+              <div>
+                <h1 className="text-2xl font-semibold text-gray-900">{profile.name}</h1>
+                <p className="text-base text-gray-600">{profile.title}</p>
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                  {profile.location && (
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {profile.location}
+                    </span>
+                  )}
+                  {profile.company && (
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {profile.company}
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">
-                    {profileData.name}
-                  </h1>
-                  <p className="text-lg text-gray-600">{profileData.title}</p>
-                  <div className="mt-1 flex items-center space-x-3 text-sm text-gray-500">
-                    {profileData.location && privacySettings?.showLocation && (
-                      <div className="flex items-center">
-                        <MapPin className="mr-1 h-3.5 w-3.5" />
-                        {profileData.location}
-                      </div>
-                    )}
-                    {profileData.company && privacySettings?.showCompany && (
-                      <div className="flex items-center">
-                        <Building2 className="mr-1 h-3.5 w-3.5" />
-                        {profileData.company}
-                      </div>
-                    )}
-                    {profileData.email && privacySettings?.showEmail && (
-                      <div className="flex items-center">
-                        <Mail className="mr-1 h-3.5 w-3.5" />
-                        {profileData.email}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {renderConnectionButton()}
-            </div>
-
-            <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
-              <div className="flex items-center">
-                <Calendar className="mr-1 h-3.5 w-3.5" />
-                Member since {new Date().getFullYear()}
-              </div>
-              
-              {/* Public Stats - Using real data where available */}
-              <div className="flex items-center space-x-4">
-                <span>
-                  Work Experience {calculateYearsOfExperience()}+ years
-                </span>
-                {(profileData.industry || profileData.onboardingData?.industry) && (
-                  <span>
-                    {profileData.industry || profileData.onboardingData?.industry}
-                  </span>
+                {followCounts && (
+                  <p className="text-sm text-gray-500 mt-1.5">
+                    <span className="font-semibold text-gray-700">{followCounts.followerCount}</span>{' '}
+                    followers{' '}
+                    <span className="mx-1">&middot;</span>{' '}
+                    <span className="font-semibold text-gray-700">{followCounts.followingCount}</span>{' '}
+                    following
+                  </p>
                 )}
               </div>
             </div>
 
-            <div className="mt-4">
-              <div className="bg-gray-50 rounded-lg p-4 border">
-                <p className="text-gray-700 leading-relaxed">
-                  {profileData.bio || 'No bio available'}
-                </p>
-              </div>
-              
-              {/* Privacy notice */}
-              {privacySettings && (currentUser?.id !== userId) && (
-                <div className="mt-2 text-xs text-gray-500">
-                  {privacySettings.profileVisibility === 'network' && (
-                    <p>🔒 This profile is visible to network connections only</p>
-                  )}
-                  {(!privacySettings.showLocation || !privacySettings.showCompany || !privacySettings.showEmail) && (
-                    <p>ℹ️ Some contact information is hidden based on privacy preferences</p>
-                  )}
+            {!isOwnProfile && followStatus && (
+              <Button
+                variant={followStatus.isFollowing ? 'outline' : 'default'}
+                size="sm"
+                onClick={() => toggleFollow.mutate(followStatus.isFollowing)}
+                disabled={toggleFollow.isPending}
+              >
+                {followStatus.isFollowing ? (
+                  <>
+                    <UserCheck className="h-4 w-4 mr-1.5" />
+                    Following
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4 mr-1.5" />
+                    Follow
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {profile.bio && (
+            <div className="mt-4 bg-gray-50 rounded-lg p-4 border">
+              <p className="text-sm text-gray-700 whitespace-pre-line">{profile.bio}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Section 2: Career Stories */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Career Stories</h2>
+          {stories.length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+              <p className="text-sm text-gray-500">No published stories yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {BRAG_DOC_CATEGORIES.map((cat) => {
+                const catStories = storiesByCategory.get(cat.value);
+                if (!catStories || catStories.length === 0) return null;
+                return (
+                  <CategorySection
+                    key={cat.value}
+                    label={cat.label}
+                    description={cat.description}
+                    stories={catStories}
+                  />
+                );
+              })}
+              {storiesByCategory.has('other') && (
+                <CategorySection
+                  label="Other"
+                  description="Uncategorized stories"
+                  stories={storiesByCategory.get('other')!}
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Section 3: Professional Background */}
+        {hasProfessionalBackground && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Professional Background</h2>
+            <div className="space-y-4">
+              {hasWorkExperience && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                    <Briefcase className="h-4 w-4 text-gray-400" />
+                    Work Experience
+                  </h3>
+                  <div className="space-y-4">
+                    {profile.workExperiences!.slice(0, 3).map((exp: any, i: number) => (
+                      <div key={i} className={cn(i > 0 && 'border-t pt-4')}>
+                        <p className="text-sm font-medium text-gray-900">{exp.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {exp.company}
+                          {exp.startDate && (
+                            <> &middot; {exp.startDate}{exp.isCurrentRole ? ' - Present' : exp.endDate ? ` - ${exp.endDate}` : ''}</>
+                          )}
+                        </p>
+                        {exp.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{exp.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {hasEducation && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                    <GraduationCap className="h-4 w-4 text-gray-400" />
+                    Education
+                  </h3>
+                  <div className="space-y-4">
+                    {profile.education!.slice(0, 2).map((edu: any, i: number) => (
+                      <div key={i} className={cn(i > 0 && 'border-t pt-4')}>
+                        <p className="text-sm font-medium text-gray-900">
+                          {edu.degree}{edu.fieldOfStudy ? `, ${edu.fieldOfStudy}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {edu.institution}
+                          {edu.startYear && (
+                            <> &middot; {edu.startYear}{edu.isCurrentlyStudying ? ' - Present' : edu.endYear ? ` - ${edu.endYear}` : ''}</>
+                          )}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {hasCertifications && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                    <Award className="h-4 w-4 text-gray-400" />
+                    Certifications
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {profile.certifications!.map((cert: any, i: number) => (
+                      <div key={i} className="border rounded-lg p-3">
+                        <p className="text-sm font-medium text-gray-900">{cert.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {cert.issuingOrganization}
+                          {cert.issueDate && <> &middot; {cert.issueDate}</>}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {hasSkills && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Skills</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.topSkills!.map((skill: string) => (
+                      <span
+                        key={skill}
+                        className="bg-primary-50 text-primary-700 rounded-full px-2.5 py-0.5 text-xs"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CategorySection({
+  label,
+  description,
+  stories,
+}: {
+  label: string;
+  description: string;
+  stories: CareerStory[];
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
+      <p className="text-xs text-gray-500 mb-2">{description}</p>
+      <div className="space-y-2">
+        {stories.map((story) => (
+          <StoryCard key={story.id} story={story} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StoryCard({ story }: { story: CareerStory }) {
+  const frameworkMeta = NARRATIVE_FRAMEWORKS[story.framework];
+  const archetypeMeta = story.archetype ? ARCHETYPE_METADATA[story.archetype] : null;
+
+  // Get first section summary as preview
+  const firstSectionKey = frameworkMeta?.sections?.[0];
+  const firstSection = firstSectionKey ? story.sections[firstSectionKey] : null;
+  const preview = firstSection?.summary ?? '';
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
+      <p className="text-sm font-medium text-gray-900">{story.title}</p>
+
+      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
+          {story.framework}
+        </span>
+        {archetypeMeta && story.archetype && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary-50 text-primary-700 capitalize">
+            {story.archetype}
+          </span>
+        )}
+        {story.role && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-50 text-blue-700 capitalize">
+            {story.role}
+          </span>
+        )}
       </div>
 
-      {/* Skills Summary */}
-      <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SkillSummary selectedSkills={selectedSkillsData} />
-      </div>
+      {preview && (
+        <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
+      )}
 
-      {/* Main Content */}
-      <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-          {/* Skills Section */}
-          <div className="space-y-3">
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-medium text-gray-900">Skills</h2>
-                <div className="flex space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={selectAllSkills}
-                    className="text-xs px-2 py-1 h-6"
-                  >
-                    All
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllSkills}
-                    className="text-xs px-2 py-1 h-6"
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {availableSkills.length > 0 ? (
-                  availableSkills.map((skill) => (
-                    <SkillCard
-                      key={skill.name}
-                      skill={skill}
-                      selected={selectedSkills.has(skill.name)}
-                      onClick={() => toggleSkill(skill.name)}
-                    />
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-sm">No skills available</p>
-                )}
-              </div>
-              <div className="text-xs text-gray-500 border-t pt-2 mt-3">
-                {selectedSkills.size === 0 
-                  ? "Showing all content" 
-                  : `Filtered by ${selectedSkills.size} skill${selectedSkills.size !== 1 ? 's' : ''}`
-                }
-              </div>
-            </div>
-          </div>
-
-          {/* Content Section */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg border">
-              <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-                <Tabs.List className="flex border-b border-gray-200 px-4">
-                  <Tabs.Trigger
-                    value="achievements"
-                    className={cn(
-                      'border-b-2 px-3 py-3 text-sm font-medium transition-colors',
-                      activeTab === 'achievements'
-                        ? 'border-purple-500 text-purple-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    )}
-                  >
-                    Achievements
-                  </Tabs.Trigger>
-                  
-                  <Tabs.Trigger
-                    value="journal"
-                    className={cn(
-                      'border-b-2 px-3 py-3 text-sm font-medium transition-colors',
-                      activeTab === 'journal'
-                        ? 'border-purple-500 text-purple-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    )}
-                  >
-                    Published Work
-                  </Tabs.Trigger>
-                </Tabs.List>
-
-                <div className="p-4">
-                  <Tabs.Content value="achievements" className="space-y-4">
-                    {isLoadingAchievements ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                        <p className="text-gray-500">Loading achievements...</p>
-                      </div>
-                    ) : achievementsError ? (
-                      <div className="text-center py-8 text-red-500">
-                        <p>Error loading achievements: {achievementsError}</p>
-                      </div>
-                    ) : filteredAchievements.length > 0 ? (
-                      filteredAchievements.map((achievement) => (
-                        <AchievementCard key={achievement.id} achievement={achievement} />
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>
-                          {selectedSkills.size === 0
-                            ? 'No public achievements available'
-                            : 'No achievements found for the selected skills'}
-                        </p>
-                        <p className="text-sm mt-2">
-                          {selectedSkills.size === 0 
-                            ? 'This user hasn\'t shared any achievements publicly yet.'
-                            : 'Try adjusting your skill filters to see more content.'}
-                        </p>
-                      </div>
-                    )}
-                  </Tabs.Content>
-
-                  <Tabs.Content value="journal" className="space-y-4">
-                    {isLoadingJournalEntries ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                        <p className="text-gray-500">Loading published work...</p>
-                      </div>
-                    ) : journalEntriesError ? (
-                      <div className="text-center py-8 text-red-500">
-                        <p>Error loading published work: {journalEntriesError}</p>
-                      </div>
-                    ) : filteredJournalEntries.length > 0 ? (
-                      filteredJournalEntries.map((entry) => (
-                        <JournalEntry key={entry.id} entry={entry} viewMode="network" />
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>
-                          {selectedSkills.size === 0
-                            ? 'No published work available'
-                            : 'No published work found for the selected skills'}
-                        </p>
-                        <p className="text-sm mt-2">
-                          {selectedSkills.size === 0 
-                            ? 'This user hasn\'t published any work to their network yet.'
-                            : 'Try adjusting your skill filters to see more content.'}
-                        </p>
-                      </div>
-                    )}
-                  </Tabs.Content>
-                </div>
-              </Tabs.Root>
-            </div>
-          </div>
-        </div>
-      </div>
+      {story.publishedAt && (
+        <p className="text-xs text-gray-400 mt-2">
+          Published {new Date(story.publishedAt).toLocaleDateString()}
+        </p>
+      )}
     </div>
   );
 }
