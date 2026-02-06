@@ -4,14 +4,14 @@
 
 **Goal:** Remove the 3-tab in-page switcher (Timeline/Source/Drafts), unify into a single timeline view with inline draft cards, source filtering via dropdown, and a "Drafts (N)" content-level banner.
 
-**Architecture:** The header already provides Activity ↔ Career Stories navigation, so the in-page tab bar is redundant (Tufte review: zero data-ink). We remove `ActivityViewTabs`, always fetch `groupBy: 'temporal'`, add a second `useActivities({ groupBy: 'story' })` call to get draft story groups, and render draft cards inline in the first expanded temporal group. Source filtering uses the existing `useDropdown` hook (not hand-rolled). A content-level "N drafts ready" banner replaces the filter chip.
+**Architecture:** The header already provides Activity ↔ Career Stories navigation, so the in-page tab bar is redundant (Tufte review: zero data-ink). We remove `ActivityViewTabs`, always fetch `groupBy: 'temporal'`, add a second `useActivities({ groupBy: 'story' })` call to get draft story groups, and render draft cards inline in the first expanded temporal group. Source filtering uses the shared `useDropdown` hook (same pattern as ArchetypeSelector + FrameworkSelector), enhanced with ArrowUp/ArrowDown keyboard navigation. A content-level "N drafts ready" banner replaces the filter chip.
 
 **Tech Stack:** React, TypeScript, TanStack Query, Tailwind CSS, Vitest + React Testing Library
 
 **Review feedback incorporated (RJ 6.5/10 + GSE):**
 - Clean up dead code FIRST, then add features (not after)
 - Don't client-side bucket-match drafts to temporal groups — show all drafts in the first expanded group (YAGNI, avoids Sunday/Monday week-start mismatch bug)
-- Use existing `useDropdown` hook (`src/hooks/useDropdown.ts`) for source filter — has Escape + click-outside already
+- Enhance shared `useDropdown` hook (`src/hooks/useDropdown.ts`) with ArrowUp/ArrowDown/Enter keyboard nav — fixes gap in ArchetypeSelector + FrameworkSelector too
 - Delete `SourceFilters` component (YAGNI — dropdown replaces it)
 - Tests use `vi.useFakeTimers()` to avoid time-dependent flakes
 - Tasks 9+10 from v1 eliminated (a11y is inline, verification is `tsc + vitest`)
@@ -515,15 +515,124 @@ git add -A && git commit -m "feat(journal): inline draft cards with banner and d
 ## Task 3: Add Source Filter Dropdown
 
 **Files:**
+- Modify: `src/hooks/useDropdown.ts` (add arrow key navigation — benefits ArchetypeSelector + FrameworkSelector too)
 - Modify: `src/components/journal/activity-stream.tsx` (add SourceFilterDropdown, compute sources, apply filter)
 
-### Step 1: Import useDropdown hook
+### Step 1: Enhance useDropdown with arrow key navigation
+
+The existing `useDropdown` hook has Escape + click-outside but no arrow key support. ArchetypeSelector and FrameworkSelector already use `role="listbox"` with `role="option"` buttons — they all share this gap. Fix it once in the shared hook.
+
+In `src/hooks/useDropdown.ts`, merge the Escape handler with arrow key + Enter support:
+
+```typescript
+/**
+ * useDropdown Hook
+ *
+ * Shared dropdown behavior: open/close state, click-outside, Escape key,
+ * and arrow key navigation for role="option" elements.
+ * Used by ArchetypeSelector, FrameworkSelector, and SourceFilterDropdown.
+ */
+
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+interface UseDropdownOptions {
+  /** Called when the dropdown closes */
+  onClose?: () => void;
+}
+
+interface UseDropdownReturn {
+  isOpen: boolean;
+  toggle: () => void;
+  close: () => void;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+export function useDropdown({ onClose }: UseDropdownOptions = {}): UseDropdownReturn {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    onClose?.();
+  }, [onClose]);
+
+  const toggle = useCallback(() => {
+    setIsOpen((prev) => {
+      if (prev) onClose?.();
+      return !prev;
+    });
+  }, [onClose]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        close();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, close]);
+
+  // Keyboard: Escape to close, ArrowUp/ArrowDown to navigate options, Enter to activate
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        close();
+        // Return focus to trigger button
+        const trigger = containerRef.current?.querySelector<HTMLElement>('[aria-haspopup]');
+        trigger?.focus();
+        return;
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const container = containerRef.current;
+        if (!container) return;
+
+        const options = Array.from(container.querySelectorAll<HTMLElement>('[role="option"]'));
+        if (options.length === 0) return;
+
+        const currentIndex = options.findIndex(opt => opt === document.activeElement);
+        let nextIndex: number;
+
+        if (e.key === 'ArrowDown') {
+          nextIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0;
+        } else {
+          nextIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1;
+        }
+
+        options[nextIndex].focus();
+      }
+
+      if (e.key === 'Enter' && document.activeElement?.getAttribute('role') === 'option') {
+        e.preventDefault();
+        (document.activeElement as HTMLElement).click();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, close]);
+
+  return { isOpen, toggle, close, containerRef };
+}
+```
+
+This is a **drop-in replacement** — ArchetypeSelector and FrameworkSelector already use `role="option"` on their buttons and `aria-haspopup` on triggers, so they get arrow key navigation for free.
+
+### Step 2: Import useDropdown hook in activity-stream.tsx
 
 ```typescript
 import { useDropdown } from '../../hooks/useDropdown';
 ```
 
-### Step 2: Compute available sources from temporal groups' activities
+### Step 3: Compute available sources from temporal groups' activities
 
 Replace the old `availableSources` memo with:
 ```typescript
@@ -540,7 +649,9 @@ const availableSources = useMemo(() => {
 }, [groups]);
 ```
 
-### Step 3: Create SourceFilterDropdown using useDropdown hook
+### Step 4: Create SourceFilterDropdown (same pattern as ArchetypeSelector/FrameworkSelector)
+
+Follows the exact same pattern: `useDropdown` + `role="listbox"` container + `role="option"` buttons + `aria-haspopup="listbox"` trigger. Arrow keys handled by the enhanced hook.
 
 ```tsx
 interface SourceFilterDropdownProps {
@@ -572,7 +683,11 @@ function SourceFilterDropdown({ availableSources, selectedSources, onToggle }: S
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-1 left-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[160px]" role="listbox">
+        <div
+          className="absolute top-full mt-1 left-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[160px]"
+          role="listbox"
+          aria-label="Filter by source"
+        >
           {hasFilter && (
             <button
               onClick={() => { selectedSources.forEach(s => onToggle(s)); close(); }}
@@ -608,7 +723,7 @@ function SourceFilterDropdown({ availableSources, selectedSources, onToggle }: S
 }
 ```
 
-### Step 4: Add dropdown to controls bar
+### Step 5: Add dropdown to controls bar
 
 After temporal filters and before spacer:
 ```tsx
@@ -624,7 +739,7 @@ After temporal filters and before spacer:
 )}
 ```
 
-### Step 5: Apply client-side source filtering in filteredGroups
+### Step 6: Apply client-side source filtering in filteredGroups
 
 In the `filteredGroups` useMemo, after temporal bucket filtering:
 ```typescript
@@ -640,7 +755,7 @@ if (selectedSources.length > 0) {
 }
 ```
 
-### Step 6: Verify
+### Step 7: Verify
 
 Run: `npx tsc --noEmit`
 Expected: Zero errors
@@ -648,10 +763,10 @@ Expected: Zero errors
 Run: `npx vitest run --reporter=verbose 2>&1 | tail -30`
 Expected: All pass
 
-### Step 7: Commit
+### Step 8: Commit
 
 ```bash
-git add -A && git commit -m "feat(journal): add source filter dropdown using useDropdown hook"
+git add -A && git commit -m "feat(journal): add source filter dropdown with arrow key navigation"
 ```
 
 ---
