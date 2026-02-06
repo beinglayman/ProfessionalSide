@@ -28,12 +28,13 @@ interface StoryCardProps {
 }
 
 // Status badge component
-function StatusBadge({ isPublished, needsRegeneration, hasContent }: { isPublished: boolean; needsRegeneration?: boolean; hasContent?: boolean }) {
+function StatusBadge({ isPublished, needsRegeneration, hasContent, visibility }: { isPublished: boolean; needsRegeneration?: boolean; hasContent?: boolean; visibility?: string }) {
   if (isPublished) {
+    const isNetwork = visibility === 'network';
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 rounded-full">
         <CheckCircle2 className="w-3 h-3" />
-        Interview Ready
+        Published{isNetwork ? ' · Network' : ''}
       </span>
     );
   }
@@ -134,7 +135,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
             )}>
               {story.title}
             </h3>
-            <StatusBadge isPublished={story.isPublished} needsRegeneration={story.needsRegeneration} hasContent={hasContent} />
+            <StatusBadge isPublished={story.isPublished} needsRegeneration={story.needsRegeneration} hasContent={hasContent} visibility={story.visibility} />
           </div>
 
           {/* Meta row */}
