@@ -404,9 +404,10 @@ export function StoryGroupHeader({
           </div>
         </div>
 
-        {/* Expanded content with animation */}
+        {/* Expanded content with animation — skip transition on initial auto-expand
+            to prevent the height growth from causing scroll-to-bottom */}
         <div className={cn(
-          'transition-all duration-300 ease-out',
+          hasInitialized.current && 'transition-all duration-300 ease-out',
           isExpanded ? 'opacity-100 max-h-[2000px]' : 'opacity-0 max-h-0 overflow-hidden'
         )}>
           {/* Two-column layout: Story details | Activities */}
