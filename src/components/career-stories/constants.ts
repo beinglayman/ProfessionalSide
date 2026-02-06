@@ -145,6 +145,19 @@ export const USER_PROMPT_MAX_LENGTH = 500;
 // CAREER QUOTES
 // =============================================================================
 
+// =============================================================================
+// BRAG DOCUMENT CATEGORIES
+// =============================================================================
+
+import type { BragDocCategory } from '../../types/career-stories';
+
+export const BRAG_DOC_CATEGORIES: { value: BragDocCategory; label: string; description: string }[] = [
+  { value: 'projects-impact', label: 'Projects & Impact', description: 'Shipped features, solved problems, built systems' },
+  { value: 'leadership', label: 'Leadership & Collaboration', description: 'Mentoring, cross-team alignment, hiring' },
+  { value: 'growth', label: 'Growth & Learning', description: 'New skills, domain expertise, certifications' },
+  { value: 'external', label: 'External', description: 'Talks, blog posts, open source, community' },
+];
+
 export interface CareerQuote {
   text: string;
   attribution: string;
