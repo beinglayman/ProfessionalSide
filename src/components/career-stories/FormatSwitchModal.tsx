@@ -9,8 +9,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, ChevronLeft, ChevronRight, Heart, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, CAREER_QUOTES, WRITING_STYLES, USER_PROMPT_MAX_LENGTH } from './constants';
+import { CareerStory, NarrativeFramework, WritingStyle, StoryArchetype } from '../../types/career-stories';
+import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, CAREER_QUOTES, WRITING_STYLES, USER_PROMPT_MAX_LENGTH, ARCHETYPE_METADATA, ARCHETYPE_GROUPS, ArchetypeGroup } from './constants';
 import { FrameworkSelector } from './FrameworkSelector';
 import { Button } from '../ui/button';
 import {
@@ -32,7 +32,7 @@ interface FormatSwitchModalProps {
   story: CareerStory;
   initialFramework?: NarrativeFramework;
   initialStyle?: WritingStyle;
-  onRegenerate: (framework: NarrativeFramework, style: WritingStyle, userPrompt?: string) => Promise<void>;
+  onRegenerate: (framework: NarrativeFramework, style: WritingStyle, userPrompt?: string, archetype?: string) => Promise<void>;
   isRegenerating: boolean;
 }
 
@@ -225,6 +225,47 @@ function WritingStylePicker({
   );
 }
 
+function ArchetypePicker({
+  value,
+  onChange,
+}: {
+  value: StoryArchetype | null;
+  onChange: (archetype: StoryArchetype | null) => void;
+}) {
+  const groups = Object.entries(ARCHETYPE_GROUPS) as [ArchetypeGroup, typeof ARCHETYPE_GROUPS[ArchetypeGroup]][];
+
+  return (
+    <div className="space-y-2">
+      {groups.map(([groupKey, group]) => (
+        <div key={groupKey}>
+          <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">{group.label}</span>
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {group.archetypes.map((arch) => {
+              const meta = ARCHETYPE_METADATA[arch];
+              return (
+                <button
+                  key={arch}
+                  type="button"
+                  onClick={() => onChange(value === arch ? null : arch as StoryArchetype)}
+                  title={meta?.description}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors capitalize',
+                    value === arch
+                      ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  )}
+                >
+                  {arch}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function GeneratingState({ story, targetFramework }: { story: CareerStory; targetFramework: NarrativeFramework }) {
   const facts = useMemo(() => buildGeneratingFacts(story, targetFramework), [story, targetFramework]);
   const [factIndex, setFactIndex] = useState(0);
@@ -352,6 +393,9 @@ export function FormatSwitchModal({
   const [selectedStyle, setSelectedStyle] = useState<WritingStyle>(
     initialStyle || 'professional'
   );
+  const [selectedArchetype, setSelectedArchetype] = useState<StoryArchetype | null>(
+    story.archetype || null
+  );
   const [userPrompt, setUserPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -360,10 +404,11 @@ export function FormatSwitchModal({
     if (isOpen) {
       setSelectedFramework(initialFramework || story.framework);
       setSelectedStyle(initialStyle || 'professional');
+      setSelectedArchetype(story.archetype || null);
       setUserPrompt('');
       setError(null);
     }
-  }, [isOpen, initialFramework, initialStyle, story.framework]);
+  }, [isOpen, initialFramework, initialStyle, story.framework, story.archetype]);
 
   const handleRegenerate = useCallback(async () => {
     setError(null);
@@ -372,11 +417,12 @@ export function FormatSwitchModal({
         selectedFramework,
         selectedStyle,
         userPrompt.trim() || undefined,
+        selectedArchetype || undefined,
       );
     } catch (err) {
       setError((err as Error).message || 'Regeneration failed. Please try again.');
     }
-  }, [onRegenerate, selectedFramework, selectedStyle, userPrompt]);
+  }, [onRegenerate, selectedFramework, selectedStyle, userPrompt, selectedArchetype]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isRegenerating && onClose()}>
@@ -430,6 +476,14 @@ export function FormatSwitchModal({
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500">Style:</span>
                 <WritingStylePicker value={selectedStyle} onChange={setSelectedStyle} />
+              </div>
+            </div>
+
+            {/* Archetype picker */}
+            <div className="flex-shrink-0 mt-2">
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-gray-500 mt-1">Archetype:</span>
+                <ArchetypePicker value={selectedArchetype} onChange={setSelectedArchetype} />
               </div>
             </div>
 

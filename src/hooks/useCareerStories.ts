@@ -464,8 +464,8 @@ export const useRegenerateCareerStory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, framework, style, userPrompt }: { id: string; framework: NarrativeFramework; style?: WritingStyle; userPrompt?: string }) =>
-      CareerStoriesService.regenerateStory(id, framework, style, userPrompt),
+    mutationFn: ({ id, framework, style, userPrompt, archetype }: { id: string; framework: NarrativeFramework; style?: WritingStyle; userPrompt?: string; archetype?: string }) =>
+      CareerStoriesService.regenerateStory(id, framework, style, userPrompt, archetype),
     onSuccess: (response) => {
       if (response.success) {
         queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });

@@ -444,6 +444,7 @@ export function CareerStoriesPage() {
     fw: NarrativeFramework,
     style: WritingStyle,
     userPrompt?: string,
+    archetype?: string,
   ) => {
     if (!formatSwitchStoryId) return;
     const response = await regenerateStoryMutation.mutateAsync({
@@ -451,6 +452,7 @@ export function CareerStoriesPage() {
       framework: fw,
       style,
       userPrompt,
+      archetype,
     });
     if (response.success && response.data) {
       if (selectedStoryDirect?.id === formatSwitchStoryId) {

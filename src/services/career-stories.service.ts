@@ -346,8 +346,8 @@ export class CareerStoriesService {
   /**
    * Regenerate a career story with a new framework and optional writing style
    */
-  static async regenerateStory(id: string, framework: NarrativeFramework, style?: WritingStyle, userPrompt?: string): Promise<ApiResponse<CareerStory>> {
-    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/regenerate`, { framework, style, userPrompt: userPrompt || undefined });
+  static async regenerateStory(id: string, framework: NarrativeFramework, style?: WritingStyle, userPrompt?: string, archetype?: string): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/regenerate`, { framework, style, userPrompt: userPrompt || undefined, archetype: archetype || undefined });
     return response.data;
   }
 
