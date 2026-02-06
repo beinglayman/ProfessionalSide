@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { NarrativeFramework, WritingStyle } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup } from './constants';
+import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, WRITING_STYLES } from './constants';
 import { useDropdown } from '../../hooks/useDropdown';
 
 interface FormatChipProps {
@@ -20,13 +20,6 @@ interface FormatChipProps {
   onFormatChange: (framework: NarrativeFramework, style: WritingStyle) => void;
   disabled?: boolean;
 }
-
-const WRITING_STYLES: { value: WritingStyle; label: string }[] = [
-  { value: 'professional', label: 'Professional' },
-  { value: 'casual', label: 'Casual' },
-  { value: 'technical', label: 'Technical' },
-  { value: 'storytelling', label: 'Storytelling' },
-];
 
 const GROUP_DESCRIPTIONS: Record<string, string> = {
   popular: 'Most common',

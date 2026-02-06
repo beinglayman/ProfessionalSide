@@ -5,14 +5,14 @@
  * - Phase 1 (Compare): side-by-side panels, framework/style controls, user prompt textarea
  * - Phase 2 (Generating): loading state with story-specific facts and career quotes
  * - Error handling: displays error on regeneration failure, retries work
- * - Modal behavior: cannot close during regeneration, resets error on open
+ * - Modal behavior: cannot close during regeneration, resets state on open
  * - User prompt: textarea accepts input, shows character count, respects maxLength
  * - Edge cases: empty sections, same framework transition, missing frameworkMeta
  */
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FormatSwitchModal } from './FormatSwitchModal';
 import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
@@ -70,12 +70,8 @@ const defaultProps = {
   isOpen: true,
   onClose: vi.fn(),
   story: createTestStory(),
-  selectedFramework: 'SOAR' as NarrativeFramework,
-  selectedStyle: 'professional' as WritingStyle,
-  onFrameworkChange: vi.fn(),
-  onStyleChange: vi.fn(),
-  userPrompt: '',
-  onUserPromptChange: vi.fn(),
+  initialFramework: 'SOAR' as NarrativeFramework,
+  initialStyle: 'professional' as WritingStyle,
   onRegenerate: vi.fn().mockResolvedValue(undefined),
   isRegenerating: false,
 };
@@ -163,21 +159,16 @@ describe('FormatSwitchModal', () => {
       expect(screen.getByText('Additional instructions (optional)')).toBeInTheDocument();
     });
 
-    it('calls onUserPromptChange on typing', async () => {
+    it('shows character count after typing', async () => {
       const user = userEvent.setup();
       render(<FormatSwitchModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/Emphasize the leadership/);
       await user.type(textarea, 'Focus on metrics');
-      expect(defaultProps.onUserPromptChange).toHaveBeenCalled();
-    });
-
-    it('shows character count when prompt is not empty', () => {
-      render(<FormatSwitchModal {...defaultProps} userPrompt="Add more metrics" />);
       expect(screen.getByText('16/500')).toBeInTheDocument();
     });
 
     it('does NOT show character count when prompt is empty', () => {
-      render(<FormatSwitchModal {...defaultProps} userPrompt="" />);
+      render(<FormatSwitchModal {...defaultProps} />);
       expect(screen.queryByText(/\/500/)).not.toBeInTheDocument();
     });
 
@@ -189,26 +180,59 @@ describe('FormatSwitchModal', () => {
   });
 
   describe('Writing style selection', () => {
-    it('calls onStyleChange when clicking a style pill', async () => {
+    it('clicking a style pill updates the preview panel', async () => {
       const user = userEvent.setup();
       render(<FormatSwitchModal {...defaultProps} />);
+      // Initially 'professional' is shown in the preview panel
+      expect(screen.getByText('professional')).toBeInTheDocument();
+      // Click Technical style pill
       await user.click(screen.getByText('Technical'));
-      expect(defaultProps.onStyleChange).toHaveBeenCalledWith('technical');
+      // Preview panel should now show 'technical'
+      expect(screen.getByText('technical')).toBeInTheDocument();
     });
 
-    it('highlights the currently selected style', () => {
-      render(<FormatSwitchModal {...defaultProps} selectedStyle="casual" />);
+    it('highlights the initially selected style', () => {
+      render(<FormatSwitchModal {...defaultProps} initialStyle="casual" />);
       const casualBtn = screen.getByText('Casual');
       expect(casualBtn.className).toContain('bg-primary-100');
     });
   });
 
   describe('Regeneration', () => {
-    it('calls onRegenerate when clicking Regenerate button', async () => {
+    it('calls onRegenerate with framework, style, and prompt when clicking Regenerate', async () => {
       const user = userEvent.setup();
       render(<FormatSwitchModal {...defaultProps} />);
       await user.click(screen.getByText('Regenerate'));
-      expect(defaultProps.onRegenerate).toHaveBeenCalled();
+      expect(defaultProps.onRegenerate).toHaveBeenCalledWith(
+        'SOAR',        // initialFramework
+        'professional', // initialStyle
+        undefined,      // empty prompt → undefined
+      );
+    });
+
+    it('passes user prompt to onRegenerate', async () => {
+      const user = userEvent.setup();
+      render(<FormatSwitchModal {...defaultProps} />);
+      const textarea = screen.getByPlaceholderText(/Emphasize the leadership/);
+      await user.type(textarea, 'Add more metrics');
+      await user.click(screen.getByText('Regenerate'));
+      expect(defaultProps.onRegenerate).toHaveBeenCalledWith(
+        'SOAR',
+        'professional',
+        'Add more metrics',
+      );
+    });
+
+    it('passes selected style to onRegenerate after changing it', async () => {
+      const user = userEvent.setup();
+      render(<FormatSwitchModal {...defaultProps} />);
+      await user.click(screen.getByText('Technical'));
+      await user.click(screen.getByText('Regenerate'));
+      expect(defaultProps.onRegenerate).toHaveBeenCalledWith(
+        'SOAR',
+        'technical',
+        undefined,
+      );
     });
 
     it('calls onClose when clicking Cancel', async () => {
@@ -296,7 +320,7 @@ describe('FormatSwitchModal', () => {
       render(
         <FormatSwitchModal
           {...defaultProps}
-          selectedFramework="STAR"
+          initialFramework="STAR"
         />
       );
       // No "What changes" callout since sections are the same

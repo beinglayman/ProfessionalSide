@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, ChevronLeft, ChevronRight, Heart, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, CAREER_QUOTES } from './constants';
+import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, CAREER_QUOTES, WRITING_STYLES, USER_PROMPT_MAX_LENGTH } from './constants';
 import { FrameworkSelector } from './FrameworkSelector';
 import { Button } from '../ui/button';
 import {
@@ -30,22 +30,11 @@ interface FormatSwitchModalProps {
   isOpen: boolean;
   onClose: () => void;
   story: CareerStory;
-  selectedFramework: NarrativeFramework;
-  selectedStyle: WritingStyle;
-  onFrameworkChange: (framework: NarrativeFramework) => void;
-  onStyleChange: (style: WritingStyle) => void;
-  userPrompt: string;
-  onUserPromptChange: (prompt: string) => void;
-  onRegenerate: () => Promise<void>;
+  initialFramework?: NarrativeFramework;
+  initialStyle?: WritingStyle;
+  onRegenerate: (framework: NarrativeFramework, style: WritingStyle, userPrompt?: string) => Promise<void>;
   isRegenerating: boolean;
 }
-
-const WRITING_STYLES: { value: WritingStyle; label: string; description: string }[] = [
-  { value: 'professional', label: 'Professional', description: 'Formal, achievement-focused' },
-  { value: 'casual', label: 'Casual', description: 'Conversational, natural' },
-  { value: 'technical', label: 'Technical', description: 'Engineering-focused, detailed' },
-  { value: 'storytelling', label: 'Storytelling', description: 'Narrative-driven, engaging' },
-];
 
 const SECTION_GUIDELINES: Record<string, string> = {
   situation: 'Business context, team, and the challenge or opportunity',
@@ -97,9 +86,6 @@ function buildGeneratingFacts(story: CareerStory, targetFramework: NarrativeFram
 
   return facts;
 }
-
-/** Max length for user prompt to prevent excessively long LLM inputs */
-const USER_PROMPT_MAX_LENGTH = 500;
 
 // =============================================================================
 // SUB-COMPONENTS
@@ -354,30 +340,43 @@ export function FormatSwitchModal({
   isOpen,
   onClose,
   story,
-  selectedFramework,
-  selectedStyle,
-  onFrameworkChange,
-  onStyleChange,
-  userPrompt,
-  onUserPromptChange,
+  initialFramework,
+  initialStyle,
   onRegenerate,
   isRegenerating,
 }: FormatSwitchModalProps) {
+  // Internal form state — owned by the modal, reset on open
+  const [selectedFramework, setSelectedFramework] = useState<NarrativeFramework>(
+    initialFramework || story.framework
+  );
+  const [selectedStyle, setSelectedStyle] = useState<WritingStyle>(
+    initialStyle || 'professional'
+  );
+  const [userPrompt, setUserPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Reset error when modal opens
+  // Reset form state when modal opens
   useEffect(() => {
-    if (isOpen) setError(null);
-  }, [isOpen]);
+    if (isOpen) {
+      setSelectedFramework(initialFramework || story.framework);
+      setSelectedStyle(initialStyle || 'professional');
+      setUserPrompt('');
+      setError(null);
+    }
+  }, [isOpen, initialFramework, initialStyle, story.framework]);
 
   const handleRegenerate = useCallback(async () => {
     setError(null);
     try {
-      await onRegenerate();
+      await onRegenerate(
+        selectedFramework,
+        selectedStyle,
+        userPrompt.trim() || undefined,
+      );
     } catch (err) {
       setError((err as Error).message || 'Regeneration failed. Please try again.');
     }
-  }, [onRegenerate]);
+  }, [onRegenerate, selectedFramework, selectedStyle, userPrompt]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isRegenerating && onClose()}>
@@ -425,12 +424,12 @@ export function FormatSwitchModal({
                 <span className="text-xs text-gray-500">Framework:</span>
                 <FrameworkSelector
                   value={selectedFramework}
-                  onChange={onFrameworkChange}
+                  onChange={setSelectedFramework}
                 />
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500">Style:</span>
-                <WritingStylePicker value={selectedStyle} onChange={onStyleChange} />
+                <WritingStylePicker value={selectedStyle} onChange={setSelectedStyle} />
               </div>
             </div>
 
@@ -442,7 +441,7 @@ export function FormatSwitchModal({
               <textarea
                 id="regen-prompt"
                 value={userPrompt}
-                onChange={(e) => onUserPromptChange(e.target.value)}
+                onChange={(e) => setUserPrompt(e.target.value)}
                 placeholder="e.g. Emphasize the leadership aspect, add more metrics, make it more concise..."
                 rows={2}
                 maxLength={USER_PROMPT_MAX_LENGTH}

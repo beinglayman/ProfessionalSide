@@ -31,6 +31,7 @@ import {
   addActivitySchema,
   mergeClustersSchema,
   generateStarSchema,
+  regenerateStorySchema,
   formatZodErrors,
 } from './career-stories.schemas';
 
@@ -1025,19 +1026,23 @@ export const deleteStory = asyncHandler(async (req: Request, res: Response): Pro
 export const regenerateStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
-  const { framework, style, userPrompt } = req.body;
 
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
 
+  // Validate request body with Zod
+  const parseResult = regenerateStorySchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { framework, style, userPrompt } = parseResult.data;
+
   const isDemoMode = isDemoModeRequest(req);
   const service = createCareerStoryService(isDemoMode);
 
-  // Truncate userPrompt to prevent excessively long LLM inputs
-  const sanitizedPrompt = typeof userPrompt === 'string' ? userPrompt.slice(0, 500).trim() || undefined : undefined;
-
-  const result = await service.regenerate(id, userId, framework, style, sanitizedPrompt);
+  const result = await service.regenerate(id, userId, framework, style, userPrompt);
   if (!result.success) {
     const status = result.error === 'Story not found' ? 404 : 500;
     return void sendError(res, result.error || 'Regeneration failed', status);

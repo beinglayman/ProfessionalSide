@@ -64,7 +64,8 @@ export interface ExtractedContext {
   impactType?: 'performance' | 'cost' | 'capability' | 'risk' | 'experience';
 }
 
-export type WritingStyle = 'professional' | 'casual' | 'technical' | 'storytelling';
+import type { WritingStyle } from '../../../controllers/career-stories.schemas';
+export type { WritingStyle };
 
 export interface CareerStoryPromptParams {
   journalEntry: JournalEntryContent;

@@ -152,12 +152,11 @@ export function CareerStoriesPage() {
   const [showingDemo, setShowingDemo] = useState(isDemoMode());
   // Celebration state for newly created stories
   const [showCelebration, setShowCelebration] = useState(false);
-  // Format switch modal state
-  const [formatSwitchState, setFormatSwitchState] = useState<{
-    storyId: string;
+  // Format switch modal state — modal owns its own form state internally
+  const [formatSwitchStoryId, setFormatSwitchStoryId] = useState<string | null>(null);
+  const [formatSwitchInitial, setFormatSwitchInitial] = useState<{
     framework: NarrativeFramework;
     style: WritingStyle;
-    userPrompt: string;
   } | null>(null);
 
   // Trigger confetti when celebration starts
@@ -315,12 +314,8 @@ export function CareerStoriesPage() {
 
       // Open format switch modal if a story is directly selected
       if (selectedStoryDirect) {
-        setFormatSwitchState({
-          storyId: selectedStoryDirect.id,
-          framework: newFramework,
-          style: 'professional',
-          userPrompt: '',
-        });
+        setFormatSwitchStoryId(selectedStoryDirect.id);
+        setFormatSwitchInitial({ framework: newFramework, style: 'professional' });
         return;
       }
 
@@ -417,11 +412,10 @@ export function CareerStoriesPage() {
   const handleRegenerate = useCallback(() => {
     // If a story is selected directly, open the format switch modal
     if (selectedStoryDirect) {
-      setFormatSwitchState({
-        storyId: selectedStoryDirect.id,
+      setFormatSwitchStoryId(selectedStoryDirect.id);
+      setFormatSwitchInitial({
         framework: selectedStoryDirect.framework || framework,
         style: 'professional',
-        userPrompt: '',
       });
       return;
     }
@@ -433,42 +427,35 @@ export function CareerStoriesPage() {
 
   // Format switch handlers
   const handleFormatSwitch = useCallback((storyId: string, newFramework: NarrativeFramework, style: WritingStyle) => {
-    setFormatSwitchState({ storyId, framework: newFramework, style, userPrompt: '' });
+    setFormatSwitchStoryId(storyId);
+    setFormatSwitchInitial({ framework: newFramework, style });
   }, []);
 
   const formatSwitchStory = useMemo(() => {
-    if (!formatSwitchState) return null;
-    return existingStories?.stories?.find((s) => s.id === formatSwitchState.storyId) || null;
-  }, [formatSwitchState, existingStories]);
+    if (!formatSwitchStoryId) return null;
+    return existingStories?.stories?.find((s) => s.id === formatSwitchStoryId) || null;
+  }, [formatSwitchStoryId, existingStories]);
 
-  const handleFormatRegenerate = useCallback(async () => {
-    if (!formatSwitchState) return;
-    return new Promise<void>((resolve, reject) => {
-      regenerateStoryMutation.mutate(
-        {
-          id: formatSwitchState.storyId,
-          framework: formatSwitchState.framework,
-          style: formatSwitchState.style,
-          userPrompt: formatSwitchState.userPrompt || undefined,
-        },
-        {
-          onSuccess: (response) => {
-            if (response.success && response.data) {
-              // If this story is currently selected, update it
-              if (selectedStoryDirect?.id === formatSwitchState.storyId) {
-                setSelectedStoryDirect(response.data);
-              }
-            }
-            setFormatSwitchState(null);
-            resolve();
-          },
-          onError: (error) => {
-            reject(error);
-          },
-        }
-      );
+  const handleFormatRegenerate = useCallback(async (
+    fw: NarrativeFramework,
+    style: WritingStyle,
+    userPrompt?: string,
+  ) => {
+    if (!formatSwitchStoryId) return;
+    const response = await regenerateStoryMutation.mutateAsync({
+      id: formatSwitchStoryId,
+      framework: fw,
+      style,
+      userPrompt,
     });
-  }, [formatSwitchState, regenerateStoryMutation, selectedStoryDirect]);
+    if (response.success && response.data) {
+      if (selectedStoryDirect?.id === formatSwitchStoryId) {
+        setSelectedStoryDirect(response.data);
+      }
+    }
+    setFormatSwitchStoryId(null);
+    setFormatSwitchInitial(null);
+  }, [formatSwitchStoryId, regenerateStoryMutation, selectedStoryDirect]);
 
   const handleDeleteStory = useCallback(() => {
     if (selectedStoryDirect) {
@@ -1023,17 +1010,13 @@ export function CareerStoriesPage() {
       </MobileSheet>
 
       {/* Format Switch Modal */}
-      {formatSwitchStory && formatSwitchState && (
+      {formatSwitchStory && formatSwitchStoryId && (
         <FormatSwitchModal
-          isOpen={!!formatSwitchState}
-          onClose={() => setFormatSwitchState(null)}
+          isOpen={!!formatSwitchStoryId}
+          onClose={() => { setFormatSwitchStoryId(null); setFormatSwitchInitial(null); }}
           story={formatSwitchStory}
-          selectedFramework={formatSwitchState.framework}
-          selectedStyle={formatSwitchState.style}
-          onFrameworkChange={(fw) => setFormatSwitchState((prev) => prev ? { ...prev, framework: fw } : null)}
-          onStyleChange={(st) => setFormatSwitchState((prev) => prev ? { ...prev, style: st } : null)}
-          userPrompt={formatSwitchState.userPrompt}
-          onUserPromptChange={(prompt) => setFormatSwitchState((prev) => prev ? { ...prev, userPrompt: prompt } : null)}
+          initialFramework={formatSwitchInitial?.framework}
+          initialStyle={formatSwitchInitial?.style}
           onRegenerate={handleFormatRegenerate}
           isRegenerating={regenerateStoryMutation.isPending}
         />
