@@ -31,7 +31,7 @@ import { extractSignals } from './signal-extractor';
 // =============================================================================
 
 const MIN_CLUSTER_SIZE = 2;
-const JOURNAL_WINDOW_SIZE_DAYS = 14;
+const JOURNAL_WINDOW_SIZE_DAYS = 7;
 const MIN_ACTIVITIES_PER_ENTRY = 3;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
@@ -589,10 +589,15 @@ async function createProductionJournalEntries(
   });
   const workspaceId = workspace?.id || DEFAULT_PRODUCTION_WORKSPACE_ID;
 
-  // 1. Create temporal entries (14-day windows)
-  const temporalEntries = await createTemporalEntries(userId, activities, workspaceId);
+  // 1. Find orphan activities (not in any cluster after Layer 1 + Layer 2)
+  const clusteredIds = new Set(inMemoryClusters.flatMap(c => c.activityIds));
+  const orphanActivities = activities.filter(a => !clusteredIds.has(a.id));
+  log.debug(`Orphan activities: ${orphanActivities.length} of ${activities.length} (${clusteredIds.size} clustered)`);
 
-  // 2. Create cluster-based entries
+  // 2. Create temporal entries only for orphans (7-day windows)
+  const temporalEntries = await createTemporalEntries(userId, orphanActivities, workspaceId);
+
+  // 3. Create cluster-based entries
   const clusterEntries = await createClusterEntries(userId, workspaceId, inMemoryClusters);
 
   return {
@@ -664,10 +669,20 @@ async function createJournalEntryFromWindow(
 
   const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const title = `Week of ${startStr} - ${endStr}`;
+
+  // Include tool type counts in title for context (e.g., "Week of Jan 5 - Jan 12 (3 github, 2 slack)")
+  const toolCounts: Record<string, number> = {};
+  for (const a of windowActivities) {
+    toolCounts[a.source] = (toolCounts[a.source] || 0) + 1;
+  }
+  const toolCountStr = Object.entries(toolCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([tool, count]) => `${count} ${tool}`)
+    .join(', ');
+  const title = `Week of ${startStr} - ${endStr} (${toolCountStr})`;
 
   const toolSummary = buildToolSummary(windowActivities);
-  const description = `${windowActivities.length} activities across ${toolSummary}`;
+  const description = `${windowActivities.length} orphan activities across ${toolSummary}`;
 
   const combinedContent = `${title} ${description}`;
   const skills = extractSkillsFromContent(combinedContent);
