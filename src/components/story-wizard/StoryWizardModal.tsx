@@ -524,7 +524,7 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
           )}
 
           {/* Side-by-side: chips + textarea */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-stretch gap-4">
             {/* Chips (left, 40%) */}
             {currentQuestion.options && currentQuestion.options.length > 0 && (
               <div
@@ -561,9 +561,10 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
               </div>
             )}
 
-            {/* Textarea (right, 60% or full-width if no chips) */}
+            {/* Textarea (right, 60% or full-width if no chips) — stretches to match pills height */}
             {currentQuestion.allowFreeText && (
               <div className={cn(
+                'flex',
                 currentQuestion.options?.length ? 'sm:w-3/5' : 'w-full'
               )}>
                 <textarea
@@ -574,8 +575,7 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
                     if (showHint) setShowHint(false);
                   }}
                   placeholder={currentQuestion.hint || 'Add your thoughts...'}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-all duration-150 bg-white"
-                  rows={4}
+                  className="w-full h-full min-h-[7rem] px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-all duration-150 bg-white"
                 />
               </div>
             )}
