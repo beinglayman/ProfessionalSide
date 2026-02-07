@@ -7,13 +7,15 @@
  */
 
 import React, { useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isSameMonth } from 'date-fns';
 import {
   CheckCircle2,
   Clock,
   ChevronRight,
   Sparkles,
   AlertCircle,
+  Calendar,
+  GitBranch,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
@@ -87,26 +89,28 @@ function extractKeyMetrics(story: CareerStory): string[] {
   return [...new Set(matches)].slice(0, 3);
 }
 
-// Estimate speaking time
-function estimateSpeakingTime(story: CareerStory): string {
-  const sections = story.sections || {};
-  const allText = Object.values(sections).map(s => s?.summary || '').join(' ');
-  const words = allText.trim().split(/\s+/).length;
-  const seconds = Math.ceil((words / 150) * 60);
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+// Format generatedAt as a week label (e.g. "Week of Feb 3 - Feb 6")
+function formatDateLabel(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
+    if (isSameMonth(weekStart, weekEnd)) {
+      return `Week of ${format(weekStart, 'MMM d')} - ${format(weekEnd, 'd')}`;
+    }
+    return `Week of ${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+  } catch {
+    return '';
+  }
 }
 
 export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryCardProps) {
   const frameworkInfo = NARRATIVE_FRAMEWORKS[story.framework];
-  const formattedDate = story.generatedAt
-    ? format(new Date(story.generatedAt), 'MMM d, yyyy')
-    : '';
+  const dateLabel = story.generatedAt ? formatDateLabel(story.generatedAt) : '';
 
   const preview = useMemo(() => getPreviewText(story), [story]);
   const metrics = useMemo(() => extractKeyMetrics(story), [story]);
-  const speakingTime = useMemo(() => estimateSpeakingTime(story), [story]);
 
   // Check if story has actual content (not just metadata)
   const hasContent = useMemo(() => {
@@ -115,62 +119,89 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
   }, [story]);
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        'w-full text-left p-4 transition-all duration-150 group',
+        'w-full text-left p-4 transition-all duration-150 group cursor-pointer',
         'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500',
         'border-b border-gray-100 last:border-b-0',
         isSelected && 'bg-primary-50 border-l-2 border-l-primary-500'
       )}
       data-testid={`story-card-${story.id}`}
     >
-      {/* Header row: Title + Status + Arrow */}
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className={cn(
-              'text-sm font-semibold truncate',
-              isSelected ? 'text-primary-900' : 'text-gray-900'
-            )}>
-              {story.title}
-            </h3>
-            <StatusBadge isPublished={story.isPublished} needsRegeneration={story.needsRegeneration} hasContent={hasContent} visibility={story.visibility} />
-          </div>
-
-          {/* Meta row */}
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            {onFormatChange ? (
-              <FormatChip
-                currentFramework={story.framework}
-                currentStyle="professional"
-                onFormatChange={(framework, style) => onFormatChange(story.id, framework, style)}
-              />
-            ) : (
-              <span className={cn(
-                'px-1.5 py-0.5 rounded font-medium',
-                isSelected ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'
-              )}>
-                {frameworkInfo?.label || story.framework}
-              </span>
-            )}
-            <span>{story.activityIds.length} activities</span>
-            <span className="text-gray-300">•</span>
-            <span>~{speakingTime}</span>
-            {formattedDate && (
-              <>
-                <span className="text-gray-300">•</span>
-                <span>{formattedDate}</span>
-              </>
-            )}
-          </div>
+      {/* Single-line header: Title + meta chips + status + arrow */}
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <h3 className={cn(
+            'text-sm font-semibold truncate',
+            isSelected ? 'text-primary-900' : 'text-gray-900'
+          )}>
+            {story.title}
+          </h3>
+          {dateLabel && (
+            <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">{dateLabel}</span>
+          )}
         </div>
-
         <ChevronRight className={cn(
-          'w-5 h-5 flex-shrink-0 transition-transform',
-          isSelected ? 'text-primary-500' : 'text-gray-500 group-hover:text-gray-600',
+          'w-4 h-4 flex-shrink-0 transition-transform',
+          isSelected ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-600',
           'group-hover:translate-x-0.5'
         )} />
+      </div>
+
+      {/* Meta row: framework · archetype · status · source coverage — all one line */}
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2 flex-wrap">
+        {onFormatChange ? (
+          <FormatChip
+            currentFramework={story.framework}
+            currentStyle="professional"
+            onFormatChange={(framework, style) => onFormatChange(story.id, framework, style)}
+          />
+        ) : (
+          <span className={cn(
+            'px-1.5 py-0.5 rounded font-medium text-[11px]',
+            isSelected ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'
+          )}>
+            {frameworkInfo?.label || story.framework}
+          </span>
+        )}
+        {story.archetype && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className="capitalize text-[11px]">{story.archetype}</span>
+          </>
+        )}
+        {story.groupingMethod && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className="inline-flex items-center gap-0.5 text-[11px] text-gray-500" title={story.groupingMethod === 'time' ? 'Temporal grouping (weekly)' : story.groupingMethod === 'cluster' ? 'Reference-based grouping' : story.groupingMethod}>
+              {story.groupingMethod === 'time' ? (
+                <><Calendar className="w-3 h-3" /> weekly</>
+              ) : story.groupingMethod === 'cluster' ? (
+                <><GitBranch className="w-3 h-3" /> topic</>
+              ) : (
+                <span className="capitalize">{story.groupingMethod}</span>
+              )}
+            </span>
+          </>
+        )}
+        <span className="text-gray-300">·</span>
+        <StatusBadge isPublished={story.isPublished} needsRegeneration={story.needsRegeneration} hasContent={hasContent} visibility={story.visibility} />
+        {story.sourceCoverage && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className={cn(
+              'text-[11px] font-medium',
+              story.sourceCoverage.sourced === story.sourceCoverage.total ? 'text-green-600' :
+              story.sourceCoverage.sourced > 0 ? 'text-amber-600' : ''
+            )}>
+              {story.sourceCoverage.sourced}/{story.sourceCoverage.total} sourced
+            </span>
+          </>
+        )}
       </div>
 
       {/* Preview text */}
@@ -196,6 +227,6 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
           </div>
         </div>
       )}
-    </button>
+    </div>
   );
 }
