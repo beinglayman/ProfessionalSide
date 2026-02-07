@@ -24,6 +24,7 @@ import { JournalService } from '../journal.service';
 import { sseService } from '../sse.service';
 import { assignClusters } from './cluster-assign.service';
 import type { ClusterSummary, CandidateActivity } from '../ai/prompts/cluster-assign.prompt';
+import { extractSignals } from './signal-extractor';
 
 // =============================================================================
 // CONSTANTS (match seed.service.ts)
@@ -188,16 +189,36 @@ export async function runProductionSync(
   }
   log.debug('Activities by source:', activitiesBySource);
 
-  // Step 3: Cluster activities in-memory (same as demo)
-  const activitiesWithSourceUrl = persistedActivities.map((a) => ({
-    ...a,
-    sourceUrl: a.sourceUrl ?? null,
-  }));
-  let clusters = clusterProductionActivities(activitiesWithSourceUrl, clusteringService);
+  // Step 2c: Extract signals from rawData for multi-signal clustering
+  // TODO: selfIdentifiers should come from CareerPersona; using userId placeholder for now
+  const selfIdentifiers = [userId];
+  const activitiesWithSignals = persistedActivities.map((a) => {
+    const signals = extractSignals(
+      a.source,
+      a.rawData as Record<string, unknown> | null,
+      selfIdentifiers,
+    );
+    return {
+      ...a,
+      sourceUrl: a.sourceUrl ?? null,
+      collaborators: signals.collaborators,
+      container: signals.container,
+    };
+  });
+
+  // Signal instrumentation
+  const signalStats = {
+    withContainer: activitiesWithSignals.filter(a => a.container !== null).length,
+    withCollaborators: activitiesWithSignals.filter(a => a.collaborators.length > 0).length,
+  };
+  log.info('Signal extraction complete', signalStats);
+
+  // Step 3: Cluster activities in-memory with multi-signal edges
+  let clusters = clusterProductionActivities(activitiesWithSignals, clusteringService);
   log.debug(`Created ${clusters.length} in-memory clusters`);
 
   // Step 3b: Layer 2 — LLM cluster refinement
-  clusters = await refineWithLLM(clusters, activitiesWithSourceUrl);
+  clusters = await refineWithLLM(clusters, activitiesWithSignals);
 
   // Step 4: Create journal entries (temporal + cluster-based)
   const journalResult = await createProductionJournalEntries(userId, persistedActivities, clusters);
@@ -297,6 +318,7 @@ async function persistProductionActivities(
   description: string | null;
   timestamp: Date;
   crossToolRefs: string[];
+  rawData: Prisma.JsonValue;
 }>> {
   const activitiesToCreate = activities.map((activity) => {
     const allText = [
@@ -361,6 +383,8 @@ function clusterProductionActivities(
     description: string | null;
     timestamp: Date;
     crossToolRefs: string[];
+    collaborators?: string[];
+    container?: string | null;
   }>,
   clusteringService: ClusteringService
 ): InMemoryCluster[] {
@@ -373,6 +397,8 @@ function clusterProductionActivities(
       description: a.description,
       timestamp: a.timestamp,
       crossToolRefs: a.crossToolRefs,
+      collaborators: a.collaborators,
+      container: a.container,
     })),
     { minClusterSize: MIN_CLUSTER_SIZE }
   );
