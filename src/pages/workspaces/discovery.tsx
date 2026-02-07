@@ -222,7 +222,7 @@ export default function WorkspaceDiscoveryPage() {
         // Navigate to the workspace after successful acceptance
         const invitation = workspaceInvitations.find(inv => inv.id === invitationId);
         if (invitation) {
-          navigate(`/workspaces/${invitation.workspaceId}`);
+          navigate(`/teams/${invitation.workspaceId}`);
         }
       } else {
         await declineInvitationMutation.mutateAsync(invitationId);
@@ -455,7 +455,7 @@ export default function WorkspaceDiscoveryPage() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => navigate(`/workspaces/${workspace.id}`)}
+            onClick={() => navigate(`/teams/${workspace.id}`)}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
             Open Workspace

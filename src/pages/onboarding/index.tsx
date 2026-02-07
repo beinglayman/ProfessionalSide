@@ -77,7 +77,7 @@ export function OnboardingPage() {
   const { profile, updateProfile, refetch } = useProfile();
   
   // Check if we're in edit mode (coming from /profile/edit)
-  const isEditMode = location.pathname === '/profile/edit';
+  const isEditMode = location.pathname === '/me/edit';
 
   // Load existing onboarding data when component mounts
   useEffect(() => {
@@ -243,7 +243,7 @@ export function OnboardingPage() {
       await refetch();
       
       // Navigate to profile page to see the results
-      navigate('/profile');
+      navigate('/me');
       
       // Force page reload to ensure all data is fresh (temporary fix for avatar sync)
       setTimeout(() => {
@@ -252,7 +252,7 @@ export function OnboardingPage() {
     } catch (error) {
       console.error('Error completing onboarding:', error);
       // Still navigate but show error
-      navigate('/profile');
+      navigate('/me');
     }
   };
 
@@ -265,11 +265,11 @@ export function OnboardingPage() {
       await productionOnboardingService.markOnboardingSkipped();
       
       // Navigate to profile where overlay should appear
-      navigate('/profile');
+      navigate('/me');
     } catch (error) {
       console.error('Error skipping onboarding:', error);
       // Still navigate but show error
-      navigate('/profile');
+      navigate('/me');
     }
   };
 

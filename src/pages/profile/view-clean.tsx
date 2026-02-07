@@ -165,7 +165,7 @@ export function ProfileViewPageClean() {
     if (isOwnProfile) {
       return (
         <Button variant="outline" asChild>
-          <Link to="/profile/edit">
+          <Link to="/me/edit">
             <Edit className="mr-2 h-4 w-4" />
             Edit Profile
           </Link>
@@ -315,11 +315,11 @@ export function ProfileViewPageClean() {
               <div className="flex items-center space-x-6">
                 <div className="relative">
                   <img
-                    src={profile.avatar || '/default-avatar.png'}
+                    src={profile.avatar || '/default-avatar.svg'}
                     alt={profile.name}
                     className="h-28 w-28 rounded-full ring-4 ring-white shadow-lg"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/default-avatar.png';
+                      (e.target as HTMLImageElement).src = '/default-avatar.svg';
                     }}
                   />
                   <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-green-600 border-4 border-white shadow-sm"></div>

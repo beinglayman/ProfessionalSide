@@ -36,8 +36,8 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
 
   // Helper function to check if a link is active
   const isActiveLink = (path: string) => {
-    if (path === '/workspaces/discovery') {
-      return location.pathname.startsWith('/workspaces');
+    if (path === '/teams') {
+      return location.pathname.startsWith('/teams');
     }
     return location.pathname === path;
   };
@@ -45,8 +45,8 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
   // Check if any Presence child route is active
   const isPresenceActive = () => {
     return (
-      location.pathname.startsWith('/profile') ||
-      location.pathname.startsWith('/workspaces') ||
+      location.pathname.startsWith('/me') ||
+      location.pathname.startsWith('/teams') ||
       location.pathname.startsWith('/network')
     );
   };
@@ -108,39 +108,39 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
             {/* Desktop Navigation - Only show when authenticated */}
             {isAuthenticated && (
               <nav className="ml-8 hidden lg:flex items-center space-x-1">
-                {/* Activity */}
+                {/* Timeline */}
                 <Link
-                  to="/journal"
+                  to="/timeline"
                   className={cn(
                     "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                    isActiveLink('/journal')
+                    isActiveLink('/timeline')
                       ? "text-primary-600"
                       : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                   )}
                 >
-                  <span>Activity</span>
+                  <span>Timeline</span>
                   <div className={cn(
                     "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                    isActiveLink('/journal')
+                    isActiveLink('/timeline')
                       ? "scale-x-100"
                       : "scale-x-0 group-hover:scale-x-100"
                   )}></div>
                 </Link>
 
-                {/* Career Stories */}
+                {/* Stories */}
                 <Link
-                  to="/career-stories"
+                  to="/stories"
                   className={cn(
                     "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                    isActiveLink('/career-stories')
+                    isActiveLink('/stories')
                       ? "text-primary-600"
                       : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                   )}
                 >
-                  <span>Career Stories</span>
+                  <span>Stories</span>
                   <div className={cn(
                     "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                    isActiveLink('/career-stories')
+                    isActiveLink('/stories')
                       ? "scale-x-100"
                       : "scale-x-0 group-hover:scale-x-100"
                   )}></div>
@@ -175,10 +175,10 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                     >
                       <DropdownMenu.Item asChild>
                         <Link
-                          to="/profile"
+                          to="/me"
                           className={cn(
                             "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
-                            isActiveLink('/profile')
+                            isActiveLink('/me')
                               ? "bg-primary-50 text-primary-600"
                               : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                           )}
@@ -189,10 +189,10 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                       </DropdownMenu.Item>
                       <DropdownMenu.Item asChild>
                         <Link
-                          to="/workspaces/discovery"
+                          to="/teams"
                           className={cn(
                             "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
-                            isActiveLink('/workspaces/discovery')
+                            isActiveLink('/teams')
                               ? "bg-primary-50 text-primary-600"
                               : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                           )}
@@ -289,34 +289,34 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
         {isAuthenticated && isMenuOpen && (
           <div className="lg:hidden border-t border-gray-100">
             <nav className="px-4 py-4 space-y-1">
-              {/* Activity */}
+              {/* Timeline */}
               <Link
-                to="/journal"
+                to="/timeline"
                 className={cn(
                   "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                  isActiveLink('/journal')
+                  isActiveLink('/timeline')
                     ? "text-primary-600"
                     : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
                 <Activity className="h-4 w-4 mr-3" />
-                Activity
+                Timeline
               </Link>
 
-              {/* Career Stories */}
+              {/* Stories */}
               <Link
-                to="/career-stories"
+                to="/stories"
                 className={cn(
                   "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                  isActiveLink('/career-stories')
+                  isActiveLink('/stories')
                     ? "text-primary-600"
                     : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
                 <FileText className="h-4 w-4 mr-3" />
-                Career Stories
+                Stories
               </Link>
 
               {/* Presence Accordion */}
@@ -352,10 +352,10 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 >
                   <div className="ml-7 mt-1 space-y-1">
                     <Link
-                      to="/profile"
+                      to="/me"
                       className={cn(
                         "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActiveLink('/profile')
+                        isActiveLink('/me')
                           ? "text-primary-600 bg-primary-50"
                           : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
                       )}
@@ -365,10 +365,10 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                       Profile
                     </Link>
                     <Link
-                      to="/workspaces/discovery"
+                      to="/teams"
                       className={cn(
                         "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActiveLink('/workspaces/discovery')
+                        isActiveLink('/teams')
                           ? "text-primary-600 bg-primary-50"
                           : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
                       )}

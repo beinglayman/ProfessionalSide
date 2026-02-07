@@ -76,7 +76,7 @@ const AppRoutes: React.FC = () => {
           path="/"
           element={
             isAuthenticated ? (
-              <Navigate to="/journal" replace />
+              <Navigate to="/timeline" replace />
             ) : (
               <HomePage />
             )
@@ -85,13 +85,13 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/login"
           element={
-            isAuthenticated ? <Navigate to="/journal" replace /> : <LoginPage />
+            isAuthenticated ? <Navigate to="/timeline" replace /> : <LoginPage />
           }
         />
         <Route
           path="/register"
           element={
-            isAuthenticated ? <Navigate to="/journal" replace /> : <RegisterPage />
+            isAuthenticated ? <Navigate to="/timeline" replace /> : <RegisterPage />
           }
         />
         <Route 
@@ -112,14 +112,16 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/journal" 
+        <Route
+          path="/timeline"
           element={
             <ProtectedRoute>
               <JournalListPage />
             </ProtectedRoute>
-          } 
+          }
         />
+        {/* Legacy redirect */}
+        <Route path="/journal" element={<Navigate to="/timeline" replace />} />
         <Route 
           path="/network" 
           element={
@@ -136,22 +138,25 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/profile" 
+        <Route
+          path="/me"
           element={
             <ProtectedRoute>
               <ProfileViewPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/profile/edit" 
+        <Route
+          path="/me/edit"
           element={
             <ProtectedRoute>
               <OnboardingPage />
             </ProtectedRoute>
-          } 
+          }
         />
+        {/* Legacy redirects */}
+        <Route path="/profile" element={<Navigate to="/me" replace />} />
+        <Route path="/profile/edit" element={<Navigate to="/me/edit" replace />} />
         <Route 
           path="/profile/:userId" 
           element={
@@ -185,28 +190,33 @@ const AppRoutes: React.FC = () => {
           element={<Format7DesignShowcase />}
         />
         <Route
-          path="/career-stories"
+          path="/stories"
           element={
             <ProtectedRoute>
               <CareerStoriesPage />
             </ProtectedRoute>
           }
         />
+        {/* Legacy redirects */}
+        <Route path="/career-stories" element={<Navigate to="/stories" replace />} />
+        <Route path="/workspaces/discovery" element={<Navigate to="/teams" replace />} />
+        {/* Keep old /workspaces/:id route working (redirect can't forward params) */}
+        <Route path="/workspaces/:workspaceId" element={<ProtectedRoute><WorkspaceDetailPage /></ProtectedRoute>} />
         <Route
-          path="/workspaces/discovery" 
+          path="/teams"
           element={
             <ProtectedRoute>
               <WorkspaceDiscoveryPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/workspaces/:workspaceId" 
+        <Route
+          path="/teams/:workspaceId"
           element={
             <ProtectedRoute>
               <WorkspaceDetailPage />
             </ProtectedRoute>
-          } 
+          }
         />
       </Routes>
     </div>

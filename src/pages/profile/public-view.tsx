@@ -73,7 +73,7 @@ export function PublicProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Back navigation */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <Link
           to="/network"
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
@@ -83,13 +83,13 @@ export function PublicProfilePage() {
         </Link>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Section 1: Profile Header */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
               <img
-                src={profile.avatar || '/default-avatar.png'}
+                src={profile.avatar || '/default-avatar.svg'}
                 alt={profile.name}
                 className="h-20 w-20 rounded-full object-cover bg-gray-100"
               />

@@ -124,7 +124,7 @@ export function ProfileViewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* ================================================================ */}
         {/* Section 1: Profile Header                                        */}
@@ -132,7 +132,7 @@ export function ProfileViewPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
-              <Link to="/profile/edit" className="relative group flex-shrink-0">
+              <Link to="/me/edit" className="relative group flex-shrink-0">
                 <img
                   src={getAvatarUrl(profile.avatar)}
                   alt={profile.name || 'Profile'}
@@ -144,7 +144,7 @@ export function ProfileViewPage() {
                 </div>
               </Link>
               <div className="min-w-0">
-                <Link to="/profile/edit" className="hover:text-primary-600 transition-colors">
+                <Link to="/me/edit" className="hover:text-primary-600 transition-colors">
                   <h1 className="text-2xl font-semibold text-gray-900">{profile.name}</h1>
                 </Link>
                 <p className="text-base text-gray-600">{profile.title}</p>
@@ -187,7 +187,7 @@ export function ProfileViewPage() {
             </div>
 
             <Button variant="outline" asChild className="sm:px-4 px-2 flex-shrink-0">
-              <Link to="/profile/edit">
+              <Link to="/me/edit">
                 <Edit className="sm:mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Edit Profile</span>
               </Link>
@@ -510,7 +510,7 @@ function ProfileCareerStories({
             </div>
           )}
           <Link
-            to="/career-stories"
+            to="/stories"
             className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
           >
             View All <ArrowRight className="h-3.5 w-3.5" />
@@ -526,7 +526,7 @@ function ProfileCareerStories({
         </span>
         {draftStories.length > 0 && (
           <Link
-            to="/career-stories"
+            to="/stories"
             className="inline-flex items-center gap-1.5 text-gray-600 hover:text-primary-600"
           >
             <PenLine className="h-3.5 w-3.5 text-amber-500" />
@@ -598,7 +598,7 @@ function CategorySection({
 
       {isEmpty ? (
         <Link
-          to="/career-stories"
+          to="/stories"
           className="block border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
         >
           <p className="text-xs text-gray-400">
@@ -648,7 +648,7 @@ function TimelineView({
   if (groups.length === 0) {
     return (
       <Link
-        to="/career-stories"
+        to="/stories"
         className="block border border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
       >
         <p className="text-xs text-gray-400">
@@ -887,7 +887,7 @@ function StoryCard({
               </p>
             )}
             <Link
-              to="/career-stories"
+              to="/stories"
               className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
               onClick={(e) => e.stopPropagation()}
             >

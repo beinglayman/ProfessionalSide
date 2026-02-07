@@ -26,8 +26,8 @@ export interface ProfileData {
 
 class ProfileApiService {
   private getFullAvatarUrl(avatarUrl: string): string {
-    if (!avatarUrl || avatarUrl === '/default-avatar.png') {
-      return '/default-avatar.png';
+    if (!avatarUrl || avatarUrl === '/default-avatar.svg') {
+      return '/default-avatar.svg';
     }
     
     // If URL is already absolute, ensure it's HTTPS for Azure domains
@@ -1030,7 +1030,7 @@ class ProfileApiService {
       title: finalTitle,
       company: finalCompany,
       location: finalLocation,
-      avatar: this.getFullAvatarUrl(professionalInfo.profileImageUrl || backendData.avatar || '/default-avatar.png'),
+      avatar: this.getFullAvatarUrl(professionalInfo.profileImageUrl || backendData.avatar || '/default-avatar.svg'),
       bio: finalBio,
       industry: professionalInfo.industry || backendData.industry || '',
       yearsOfExperience: professionalInfo.yearsOfExperience !== undefined ? professionalInfo.yearsOfExperience : (backendData.yearsOfExperience || 0),

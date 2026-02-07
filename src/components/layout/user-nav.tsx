@@ -122,7 +122,7 @@ export function UserNav() {
             </div>
             <DropdownMenu.Item asChild>
               <Link
-                to="/profile"
+                to="/me"
                 className="flex w-full items-center space-x-2 rounded-md p-2 text-sm hover:bg-gray-100"
               >
                 <User className="h-4 w-4" />

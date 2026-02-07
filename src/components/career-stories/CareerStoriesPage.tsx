@@ -1066,7 +1066,7 @@ export function CareerStoriesPage() {
                   ))}
                   {allStories.length < 3 && (
                     <button
-                      onClick={() => navigate('/journal')}
+                      onClick={() => navigate('/timeline')}
                       className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
                     >
                       <p className="text-xs text-gray-400">
@@ -1094,7 +1094,7 @@ export function CareerStoriesPage() {
 
                         {catStories.length === 0 ? (
                           <button
-                            onClick={() => navigate('/journal')}
+                            onClick={() => navigate('/timeline')}
                             className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
                           >
                             <p className="text-xs text-gray-400">

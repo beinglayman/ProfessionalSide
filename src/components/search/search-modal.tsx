@@ -143,7 +143,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         url = `/profile/${result.id}`;
         break;
       case 'workspaces':
-        url = `/workspaces/${result.id}`;
+        url = `/teams/${result.id}`;
         break;
       case 'content':
         url = `/journal/${result.id}`;

@@ -4840,7 +4840,7 @@ export default function WorkspaceDetailPage() {
       uploader: teamMembers.find(m => m.id === file.uploadedById) || {
         id: file.uploadedById || 'unknown',
         name: 'Unknown User',
-        avatar: '/default-avatar.png',
+        avatar: '/default-avatar.svg',
         department: 'Unknown',
         position: 'Unknown'
       },
@@ -4881,7 +4881,7 @@ export default function WorkspaceDetailPage() {
         uploader: teamMembers.find(m => m.id === entry.author?.id) || {
           id: entry.author?.id || 'unknown',
           name: entry.author?.name || 'Unknown Author',
-          avatar: entry.author?.avatar || '/default-avatar.png',
+          avatar: entry.author?.avatar || '/default-avatar.svg',
           department: 'Unknown',
           position: 'Unknown'
         },
@@ -5007,8 +5007,8 @@ export default function WorkspaceDetailPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <p className="text-red-600 mb-4">Error loading workspace</p>
-          <Button onClick={() => navigate('/workspaces')}>
-            Back to Workspaces
+          <Button onClick={() => navigate('/teams')}>
+            Back to Teams
           </Button>
         </div>
       </div>
@@ -5311,10 +5311,10 @@ export default function WorkspaceDetailPage() {
           <div className="mb-4 flex items-center justify-between">
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-              onClick={() => navigate('/workspaces/discovery')}
+              onClick={() => navigate('/teams')}
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="text-sm">Back to Workspaces</span>
+              <span className="text-sm">Back to Teams</span>
             </button>
             <div className="flex items-center gap-2">
               {currentWorkspace.isOwner && (
@@ -5920,7 +5920,7 @@ export default function WorkspaceDetailPage() {
                                   // RouterLink to the workspace where this journal entry is located
                                   const workspaceId = artefact.sourceJournalEntry.workspaceId || artefact.sourceJournalEntry.workspace?.id;
                                   if (workspaceId) {
-                                    window.open(`/workspaces/${workspaceId}`, '_blank');
+                                    window.open(`/teams/${workspaceId}`, '_blank');
                                   } else {
                                     window.open(`/journal/list`, '_blank');
                                   }
@@ -5991,7 +5991,7 @@ export default function WorkspaceDetailPage() {
                                 // RouterLink to the workspace where this journal entry is located
                                 const workspaceId = artefact.sourceJournalEntry.workspaceId || artefact.sourceJournalEntry.workspace?.id;
                                 if (workspaceId) {
-                                  window.open(`/workspaces/${workspaceId}`, '_blank');
+                                  window.open(`/teams/${workspaceId}`, '_blank');
                                 } else {
                                   window.open(`/journal/list`, '_blank');
                                 }
@@ -6742,7 +6742,7 @@ export default function WorkspaceDetailPage() {
             try {
               await workspaceService.archiveWorkspace(workspaceId);
               toast.success('Workspace archived successfully');
-              navigate('/workspaces/discovery');
+              navigate('/teams');
             } catch (error) {
               console.error('Error archiving workspace:', error);
               toast.error('Failed to archive workspace');
