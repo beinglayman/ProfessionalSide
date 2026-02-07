@@ -52,6 +52,8 @@ import {
   // Story Sources
   addStorySource,
   updateStorySource,
+  // Story Derivations
+  deriveStory,
 } from '../controllers/career-stories.controller';
 import {
   analyzeEntry,
@@ -124,6 +126,11 @@ router.patch('/stories/:id/visibility', setStoryVisibility);  // Support both PU
 // ============================================================================
 router.post('/stories/:storyId/sources', addStorySource);
 router.patch('/stories/:storyId/sources/:sourceId', updateStorySource);
+
+// ============================================================================
+// STORY DERIVATIONS
+// ============================================================================
+router.post('/stories/:storyId/derive', deriveStory);
 
 // ============================================================================
 // STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)

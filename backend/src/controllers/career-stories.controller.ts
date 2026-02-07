@@ -34,9 +34,11 @@ import {
   regenerateStorySchema,
   createSourceSchema,
   updateSourceSchema,
+  deriveStorySchema,
   formatZodErrors,
 } from './career-stories.schemas';
 import { storySourceService } from '../services/career-stories/story-source.service';
+import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
@@ -1245,6 +1247,45 @@ export const updateStorySource = asyncHandler(async (req: Request, res: Response
     excludedAt ? new Date(excludedAt) : null
   );
   sendSuccess(res, source, excludedAt ? 'Source excluded' : 'Source restored');
+});
+
+// ============================================================================
+// STORY DERIVATIONS
+// ============================================================================
+
+/**
+ * POST /api/v1/career-stories/stories/:storyId/derive
+ * Generate an ephemeral audience-specific derivation from a story.
+ */
+export const deriveStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = deriveStorySchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { derivation, tone, customPrompt } = parseResult.data;
+  const isDemoMode = isDemoModeRequest(req);
+
+  try {
+    const result = await deriveStoryService(storyId, userId, derivation, isDemoMode, { tone, customPrompt });
+    sendSuccess(res, result);
+  } catch (error) {
+    const message = (error as Error).message;
+    if (message === 'Story not found') {
+      return void sendError(res, 'Story not found', 404);
+    }
+    if (message === 'LLM service not available') {
+      return void sendError(res, 'LLM service not available', 503);
+    }
+    throw error;
+  }
 });
 
 // ============================================================================
