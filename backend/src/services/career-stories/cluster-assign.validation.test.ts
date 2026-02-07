@@ -134,4 +134,70 @@ describe('validateClusterAssignment', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.some(e => e.includes('cluster_999'))).toBe(true);
   });
+
+  it('rejects JSON array response', () => {
+    const rawJson = JSON.stringify([{ 'act-1': 'NEW:Feature X' }]);
+    const result = validateClusterAssignment(rawJson, CANDIDATES, EXISTING_CLUSTER_IDS);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('not a JSON object'))).toBe(true);
+  });
+
+  it('rejects KEEP target that differs from currentClusterId', () => {
+    const rawJson = JSON.stringify({
+      'act-1': 'NEW:Feature X',
+      'act-2': 'KEEP:cluster_b',
+      'act-3': 'KEEP:cluster_b',
+    });
+
+    const result = validateClusterAssignment(rawJson, CANDIDATES, EXISTING_CLUSTER_IDS);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('act-2') && e.includes('MOVE instead'))).toBe(true);
+  });
+
+  it('returns parsed map on valid response', () => {
+    const rawJson = JSON.stringify({
+      'act-1': 'NEW:Feature X',
+      'act-2': 'KEEP:cluster_a',
+      'act-3': 'MOVE:cluster_c',
+    });
+
+    const result = validateClusterAssignment(rawJson, CANDIDATES, EXISTING_CLUSTER_IDS);
+    expect(result.valid).toBe(true);
+    expect(result.parsed).toEqual({
+      'act-1': 'NEW:Feature X',
+      'act-2': 'KEEP:cluster_a',
+      'act-3': 'MOVE:cluster_c',
+    });
+  });
+
+  it('collects multiple errors in one pass', () => {
+    const rawJson = JSON.stringify({
+      'act-1': 'ASSIGN:bad',
+      'act-2': 'MOVE:cluster_a',
+      // act-3 missing
+    });
+
+    const result = validateClusterAssignment(rawJson, CANDIDATES, EXISTING_CLUSTER_IDS);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('handles empty candidates list', () => {
+    const rawJson = JSON.stringify({});
+    const result = validateClusterAssignment(rawJson, [], EXISTING_CLUSTER_IDS);
+    expect(result.valid).toBe(true);
+    expect(result.parsed).toEqual({});
+  });
+
+  it('rejects NEW with whitespace-only name', () => {
+    const rawJson = JSON.stringify({
+      'act-1': 'NEW:   ',
+      'act-2': 'KEEP:cluster_a',
+      'act-3': 'KEEP:cluster_b',
+    });
+
+    const result = validateClusterAssignment(rawJson, CANDIDATES, EXISTING_CLUSTER_IDS);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('empty'))).toBe(true);
+  });
 });

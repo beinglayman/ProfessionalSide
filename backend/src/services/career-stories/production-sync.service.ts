@@ -419,8 +419,11 @@ async function refineWithLLM(
   clusters: InMemoryCluster[],
   allActivities: ActivityWithSourceUrl[],
 ): Promise<InMemoryCluster[]> {
+  // Work on a shallow copy to avoid mutating the input array
+  const result = [...clusters];
+
   // Collect all activity IDs already in a cluster
-  const clusteredIds = new Set(clusters.flatMap(c => c.activityIds));
+  const clusteredIds = new Set(result.flatMap(c => c.activityIds));
 
   // Find unclustered activities
   const unclustered = allActivities.filter(a => !clusteredIds.has(a.id));
@@ -429,8 +432,10 @@ async function refineWithLLM(
     return clusters;
   }
 
-  // Build ClusterSummary[] from existing Layer 1 clusters
-  const existingClusters: ClusterSummary[] = clusters.map((c, idx) => ({
+  // Build ClusterSummary[] from existing Layer 1 clusters.
+  // Synthetic IDs (layer1_0, layer1_1, ...) since in-memory clusters have no DB id yet.
+  // These IDs are used only for MOVE targets and are mapped back to array indices below.
+  const existingClusters: ClusterSummary[] = result.map((c, idx) => ({
     id: `layer1_${idx}`,
     name: c.name || `Cluster ${idx + 1}`,
     activityCount: c.activityIds.length,
@@ -440,7 +445,9 @@ async function refineWithLLM(
     isReferenced: false,
   }));
 
-  // Build CandidateActivity[] from unclustered activities
+  // Build CandidateActivity[] from unclustered activities.
+  // TODO(Phase 2): Also include weak-confidence assignments from Layer 1 for reassignment.
+  // Currently only unclustered activities are sent — KEEP is never valid for these candidates.
   const candidates: CandidateActivity[] = unclustered.map(a => ({
     id: a.id,
     source: a.source,
@@ -453,14 +460,14 @@ async function refineWithLLM(
 
   log.debug(`[Layer 2] Sending ${candidates.length} unclustered activities to LLM (${existingClusters.length} existing clusters)`);
 
-  const result = await assignClusters(existingClusters, candidates);
+  const llmResult = await assignClusters(existingClusters, candidates);
 
-  if (result.fallback) {
+  if (llmResult.fallback) {
     log.warn('[Layer 2] LLM fallback — returning Layer 1 clusters only');
-    return clusters;
+    return result;
   }
 
-  log.debug(`[Layer 2] LLM assigned ${Object.keys(result.assignments).length} activities (model: ${result.model}, ${result.processingTimeMs}ms)`);
+  log.info(`[Layer 2] LLM assigned ${Object.keys(llmResult.assignments).length} activities (model: ${llmResult.model}, ${llmResult.processingTimeMs}ms)`);
 
   // Build index from layer1_N id back to cluster index
   const clusterIdToIndex = new Map<string, number>();
@@ -472,15 +479,15 @@ async function refineWithLLM(
   // Group NEW assignments by target name
   const newClusterGroups = new Map<string, string[]>();
 
-  for (const [actId, assignment] of Object.entries(result.assignments)) {
+  for (const [actId, assignment] of Object.entries(llmResult.assignments)) {
     switch (assignment.action) {
       case 'MOVE': {
         const clusterIdx = clusterIdToIndex.get(assignment.target);
         if (clusterIdx !== undefined) {
           const activity = activityMap.get(actId);
           if (activity) {
-            clusters[clusterIdx].activityIds.push(actId);
-            clusters[clusterIdx].activities.push({
+            result[clusterIdx].activityIds.push(actId);
+            result[clusterIdx].activities.push({
               id: activity.id,
               source: activity.source,
               sourceId: activity.sourceId,
@@ -490,6 +497,10 @@ async function refineWithLLM(
               timestamp: activity.timestamp,
               crossToolRefs: activity.crossToolRefs,
             });
+            // Recalculate dateRange after adding activity
+            result[clusterIdx].metrics.dateRange = computeDateRange(
+              result[clusterIdx].activities.map(a => a.timestamp)
+            );
           }
         }
         break;
@@ -512,7 +523,7 @@ async function refineWithLLM(
 
     if (groupActivities.length === 0) continue;
 
-    clusters.push({
+    result.push({
       name,
       activityIds,
       activities: groupActivities.map(a => ({
@@ -532,7 +543,7 @@ async function refineWithLLM(
     });
   }
 
-  return clusters;
+  return result;
 }
 
 // =============================================================================

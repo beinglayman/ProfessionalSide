@@ -26,6 +26,7 @@ vi.mock('../ai/prompts/cluster-assign.prompt', () => ({
 }));
 
 import { assignClusters, ClusterAssignment } from './cluster-assign.service';
+import { buildClusterAssignMessages } from '../ai/prompts/cluster-assign.prompt';
 import type { ClusterSummary, CandidateActivity } from '../ai/prompts/cluster-assign.prompt';
 
 const CLUSTERS: ClusterSummary[] = [
@@ -124,5 +125,56 @@ describe('assignClusters', () => {
 
     const result = await assignClusters(CLUSTERS, CANDIDATES);
     expect(result.fallback).toBe(true);
+  });
+
+  it('passes clusters and candidates to buildClusterAssignMessages', async () => {
+    mockExecuteTask.mockResolvedValue({
+      content: JSON.stringify({
+        'act-1': 'NEW:Feature X',
+        'act-2': 'NEW:Feature X',
+      }),
+      model: 'haiku',
+    });
+
+    await assignClusters(CLUSTERS, CANDIDATES);
+
+    expect(buildClusterAssignMessages).toHaveBeenCalledWith({
+      existingClusters: CLUSTERS,
+      candidates: CANDIDATES,
+    });
+  });
+
+  it('calls executeTask with correct model params', async () => {
+    mockExecuteTask.mockResolvedValue({
+      content: JSON.stringify({
+        'act-1': 'NEW:Feature X',
+        'act-2': 'NEW:Feature X',
+      }),
+      model: 'haiku',
+    });
+
+    await assignClusters(CLUSTERS, CANDIDATES);
+
+    expect(mockExecuteTask).toHaveBeenCalledWith(
+      'cluster-assign',
+      expect.any(Array),
+      'quick',
+      { maxTokens: 1000, temperature: 0.3 },
+    );
+  });
+
+  it('returns model and processingTimeMs on success', async () => {
+    mockExecuteTask.mockResolvedValue({
+      content: JSON.stringify({
+        'act-1': 'NEW:Feature X',
+        'act-2': 'NEW:Feature X',
+      }),
+      model: 'claude-3-5-haiku-latest',
+    });
+
+    const result = await assignClusters(CLUSTERS, CANDIDATES);
+    expect(result.model).toBe('claude-3-5-haiku-latest');
+    expect(result.processingTimeMs).toBeDefined();
+    expect(typeof result.processingTimeMs).toBe('number');
   });
 });

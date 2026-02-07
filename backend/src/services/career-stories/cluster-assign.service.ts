@@ -36,6 +36,8 @@ export interface AssignResult {
 // SERVICE
 // =============================================================================
 
+// One retry: validation failures are typically format issues that a second attempt can fix.
+// LLM errors (network, timeout) fall back immediately — no retry.
 const MAX_RETRIES = 1;
 
 export async function assignClusters(
@@ -99,6 +101,8 @@ export async function assignClusters(
 // HELPERS
 // =============================================================================
 
+// Split validated "ACTION:target" strings into typed objects.
+// Safe to cast — validation already enforced KEEP|MOVE|NEW format.
 function parseAssignments(parsed: Record<string, string>): Record<string, ClusterAssignment> {
   const assignments: Record<string, ClusterAssignment> = {};
 
