@@ -32,11 +32,43 @@ import {
   mergeClustersSchema,
   generateStarSchema,
   regenerateStorySchema,
+  createSourceSchema,
+  updateSourceSchema,
   formatZodErrors,
 } from './career-stories.schemas';
+import { storySourceService } from '../services/career-stories/story-source.service';
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
+
+/**
+ * Enrich a story object with sources and sourceCoverage.
+ * Used by all endpoints that return a single story.
+ */
+async function enrichStoryWithSources(story: { id: string; framework: string; sections: Record<string, { summary?: string }>; journalEntryId?: string | null }) {
+  try {
+    const sources = await storySourceService.getSourcesForStory(story.id);
+    const { FRAMEWORK_SECTIONS } = await import('../services/ai/prompts/career-story.prompt');
+    const sectionKeys = FRAMEWORK_SECTIONS[story.framework as keyof typeof FRAMEWORK_SECTIONS] || Object.keys(story.sections);
+    const sourceCoverage = storySourceService.computeCoverage(sources, story.sections, sectionKeys);
+
+    // Look up groupingMethod from linked journal entry
+    let groupingMethod: string | null = null;
+    if (story.journalEntryId) {
+      const entry = await prisma.journalEntry.findUnique({
+        where: { id: story.journalEntryId },
+        select: { groupingMethod: true },
+      });
+      groupingMethod = entry?.groupingMethod ?? null;
+    }
+
+    return { ...story, sources, sourceCoverage, groupingMethod };
+  } catch (error) {
+    // Sources are supplementary — don't fail the whole request if enrichment fails
+    console.error(`Failed to enrich story ${story.id} with sources:`, error);
+    return { ...story, sources: [], sourceCoverage: { total: 0, sourced: 0, gaps: [], vagueMetrics: [] } };
+  }
+}
 
 // =============================================================================
 // DEMO MODE DETECTION
@@ -926,7 +958,12 @@ export const listStories = asyncHandler(async (req: Request, res: Response): Pro
   const service = createCareerStoryService(isDemoMode);
   const result = await service.listStories(userId);
 
-  sendSuccess(res, result);
+  // Enrich each story with sources and coverage
+  const enrichedStories = await Promise.all(
+    result.stories.map(async (story) => story ? enrichStoryWithSources(story) : story)
+  );
+
+  sendSuccess(res, { ...result, stories: enrichedStories });
 });
 
 /**
@@ -949,7 +986,9 @@ export const getStoryById = asyncHandler(async (req: Request, res: Response): Pr
     return void sendError(res, 'Story not found', 404);
   }
 
-  sendSuccess(res, story);
+  // Include sources and coverage
+  const enriched = await enrichStoryWithSources(story);
+  sendSuccess(res, enriched);
 });
 
 /**
@@ -992,7 +1031,8 @@ export const updateStory = asyncHandler(async (req: Request, res: Response): Pro
     return void sendError(res, result.error || 'Update failed', status);
   }
 
-  sendSuccess(res, result.story, 'Story updated');
+  const enriched = await enrichStoryWithSources(result.story!);
+  sendSuccess(res, enriched, 'Story updated');
 });
 
 /**
@@ -1048,7 +1088,8 @@ export const regenerateStory = asyncHandler(async (req: Request, res: Response):
     return void sendError(res, result.error || 'Regeneration failed', status);
   }
 
-  sendSuccess(res, result.story, 'Story regenerated');
+  const enriched = await enrichStoryWithSources(result.story!);
+  sendSuccess(res, enriched, 'Story regenerated');
 });
 
 /**
@@ -1129,6 +1170,81 @@ export const setStoryVisibility = asyncHandler(async (req: Request, res: Respons
   }
 
   sendSuccess(res, result.story, 'Visibility updated');
+});
+
+// ============================================================================
+// STORY SOURCES
+// ============================================================================
+
+/**
+ * POST /api/v1/career-stories/stories/:storyId/sources
+ * Add a user note source to a story section.
+ */
+export const addStorySource = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = createSourceSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { sectionKey, content } = parseResult.data;
+
+  // Verify story ownership
+  const isDemoMode = isDemoModeRequest(req);
+  const storyService = createCareerStoryService(isDemoMode);
+  const story = await storyService.getStoryById(storyId, userId);
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  const source = await storySourceService.createUserNote(storyId, sectionKey, content);
+  sendSuccess(res, source, 'Source added', 201);
+});
+
+/**
+ * PATCH /api/v1/career-stories/stories/:storyId/sources/:sourceId
+ * Exclude or restore a source (set excludedAt).
+ */
+export const updateStorySource = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId, sourceId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = updateSourceSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  // Verify story ownership
+  const isDemoMode = isDemoModeRequest(req);
+  const storyService = createCareerStoryService(isDemoMode);
+  const story = await storyService.getStoryById(storyId, userId);
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  // Verify source belongs to story
+  const isOwned = await storySourceService.verifyOwnership(sourceId, storyId);
+  if (!isOwned) {
+    return void sendError(res, 'Source not found', 404);
+  }
+
+  const { excludedAt } = parseResult.data;
+  const source = await storySourceService.updateExcludedAt(
+    sourceId,
+    storyId,
+    excludedAt ? new Date(excludedAt) : null
+  );
+  sendSuccess(res, source, excludedAt ? 'Source excluded' : 'Source restored');
 });
 
 // ============================================================================

@@ -49,6 +49,9 @@ import {
   setStoryVisibility,
   // Profile: Published Stories
   getPublishedStories,
+  // Story Sources
+  addStorySource,
+  updateStorySource,
 } from '../controllers/career-stories.controller';
 import {
   analyzeEntry,
@@ -115,6 +118,12 @@ router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);
 router.patch('/stories/:id/visibility', setStoryVisibility);  // Support both PUT and PATCH
+
+// ============================================================================
+// STORY SOURCES
+// ============================================================================
+router.post('/stories/:storyId/sources', addStorySource);
+router.patch('/stories/:storyId/sources/:sourceId', updateStorySource);
 
 // ============================================================================
 // STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)

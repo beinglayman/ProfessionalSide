@@ -165,6 +165,7 @@ export interface CareerStoryRecord {
   archetype?: string | null;
   category?: string | null;
   role?: string | null;
+  journalEntryId?: string | null;
 }
 
 export interface StoryResult {
@@ -226,6 +227,7 @@ export class CareerStoryService {
     archetype?: string | null;
     category?: string | null;
     role?: string | null;
+    journalEntryId?: string | null;
   }): CareerStoryRecord {
     return {
       id: story.id,
@@ -243,6 +245,7 @@ export class CareerStoryService {
       archetype: story.archetype,
       category: story.category,
       role: story.role,
+      journalEntryId: story.journalEntryId,
     };
   }
 
@@ -729,6 +732,10 @@ export class CareerStoryService {
       },
     });
 
+    // Populate StorySource rows from section evidence
+    const sectionKeys = NARRATIVE_FRAMEWORKS[framework] || [];
+    await this.populateSourcesFromSections(story.id, sections, input.activityIds, userId, sectionKeys);
+
     return { success: true, story: this.mapStory(story) };
   }
 
@@ -860,8 +867,13 @@ export class CareerStoryService {
         needsRegeneration: false,
         visibility: 'private',
         isPublished: false,
+        journalEntryId: entryId,
       },
     });
+
+    // After story creation, populate StorySource rows
+    const sectionKeys = NARRATIVE_FRAMEWORKS[useFramework] || [];
+    await this.populateSourcesFromSections(story.id, sections, entry.activityIds, userId, sectionKeys);
 
     return {
       success: true,
@@ -1078,6 +1090,15 @@ export class CareerStoryService {
       },
     });
 
+    // If sections were rebuilt, re-populate activity sources from new evidence
+    if (sections) {
+      await prisma.storySource.deleteMany({
+        where: { storyId, sourceType: 'activity' },
+      });
+      const sectionKeys = NARRATIVE_FRAMEWORKS[framework] || [];
+      await this.populateSourcesFromSections(storyId, sections, activityIds, userId, sectionKeys);
+    }
+
     return { success: true, story: this.mapStory(updated) };
   }
 
@@ -1099,23 +1120,43 @@ export class CareerStoryService {
 
     const nextFramework = framework || (story.framework as FrameworkName);
 
-    // Try to find the original journal entry for this story's activities
-    // This allows us to use the rich content for LLM generation
-    const journalEntry = await prisma.journalEntry.findFirst({
-      where: {
-        authorId: userId,
-        sourceMode: this.sourceMode,
-        activityIds: { hasSome: story.activityIds },
-      },
-      select: {
-        id: true,
-        title: true,
-        fullContent: true,
-        format7Data: true,
-        description: true,
-        category: true,
-      },
-    });
+    // Try FK first (Bug B fix), fall back to activity overlap for old stories
+    let journalEntry = null;
+    if (story.journalEntryId) {
+      journalEntry = await prisma.journalEntry.findFirst({
+        where: {
+          id: story.journalEntryId,
+          authorId: userId,
+          sourceMode: this.sourceMode,
+        },
+        select: {
+          id: true,
+          title: true,
+          fullContent: true,
+          format7Data: true,
+          description: true,
+          category: true,
+        },
+      });
+    }
+    // Fallback: activity overlap (for stories created before Bug A fix)
+    if (!journalEntry) {
+      journalEntry = await prisma.journalEntry.findFirst({
+        where: {
+          authorId: userId,
+          sourceMode: this.sourceMode,
+          activityIds: { hasSome: story.activityIds },
+        },
+        select: {
+          id: true,
+          title: true,
+          fullContent: true,
+          format7Data: true,
+          description: true,
+          category: true,
+        },
+      });
+    }
 
     let sections: NarrativeSections;
 
@@ -1174,8 +1215,168 @@ export class CareerStoryService {
       },
     });
 
+    // Re-populate activity sources from new sections.
+    // Delete old activity sources and create fresh ones from the new evidence mapping.
+    // User-created sources (user_note, wizard_answer) are NEVER touched (Decision #20).
+    await prisma.storySource.deleteMany({
+      where: { storyId, sourceType: 'activity' },
+    });
+    const sectionKeys = NARRATIVE_FRAMEWORKS[nextFramework] || [];
+    await this.populateSourcesFromSections(storyId, sections, story.activityIds, userId, sectionKeys);
+
+    // Store generation prompt
+    if (userPrompt) {
+      await prisma.careerStory.update({
+        where: { id: storyId },
+        data: { lastGenerationPrompt: userPrompt },
+      });
+    }
+
     return { success: true, story: this.mapStory(updated) };
   }
+
+  /**
+   * Populate StorySource rows from generated sections.
+   * Creates activity-type source rows from evidence in sections.
+   * Handles the defaultEvidence shotgun: if all sections have identical
+   * evidence, assigns sectionKey = "unassigned" instead.
+   */
+  private async populateSourcesFromSections(
+    storyId: string,
+    sections: NarrativeSections,
+    activityIds: string[],
+    userId: string,
+    sectionKeys: string[]
+  ): Promise<void> {
+    // Detect shotgun pattern: if every section has the same evidence array
+    const evidenceArrays = sectionKeys.map((key) =>
+      (sections[key]?.evidence || []).map((e) => e.activityId).sort().join(',')
+    );
+    const isShotgun = new Set(evidenceArrays).size === 1 && evidenceArrays[0] !== '';
+
+    // Fetch activities for hydration
+    const activities = await this.fetchActivitiesWithRefs(userId, activityIds);
+    const activityMap = new Map(activities.map((a) => [a.id, a]));
+
+    const sourcesToCreate: Array<{
+      storyId: string;
+      sectionKey: string;
+      sourceType: string;
+      activityId: string | null;
+      label: string;
+      url: string | null;
+      toolType: string | null;
+      role: string | null;
+      annotation: string | null;
+      sortOrder: number;
+    }> = [];
+
+    // In demo mode, activityId FK can't reference DemoToolActivity — set to null
+    const canSetFk = !this.isDemoMode;
+
+    // Check if LLM evidence IDs actually resolve to real activities
+    const allEvidenceIds: string[] = [];
+    for (const key of sectionKeys) {
+      for (const e of (sections[key]?.evidence || [])) {
+        if (e.activityId) allEvidenceIds.push(e.activityId);
+      }
+    }
+    const resolvedCount = allEvidenceIds.filter((id) => activityMap.has(id)).length;
+    const useFakeIds = resolvedCount === 0 && allEvidenceIds.length > 0 && activities.length > 0;
+
+    if (isShotgun && !useFakeIds) {
+      // Bug C fix: assign all to "unassigned" instead of every section
+      const uniqueActivityIds = [...new Set(activityIds)];
+      for (let i = 0; i < uniqueActivityIds.length; i++) {
+        const activity = activityMap.get(uniqueActivityIds[i]);
+        if (!activity) continue;
+        sourcesToCreate.push({
+          storyId,
+          sectionKey: 'unassigned',
+          sourceType: 'activity',
+          activityId: canSetFk ? uniqueActivityIds[i] : null,
+          label: activity.title,
+          url: activity.sourceUrl || null,
+          toolType: activity.source || null,
+          role: this.detectRole(activity),
+          annotation: null,
+          sortOrder: i,
+        });
+      }
+    } else if (useFakeIds) {
+      // LLM used placeholder IDs — distribute real activities round-robin
+      let activityIdx = 0;
+      const perSection = Math.max(1, Math.ceil(activities.length / sectionKeys.length));
+      for (const sectionKey of sectionKeys) {
+        const evidence = sections[sectionKey]?.evidence || [];
+        const llmDescription = evidence[0]?.description || null;
+        const sectionActivities = activities.slice(activityIdx, activityIdx + perSection);
+        activityIdx += perSection;
+
+        for (let i = 0; i < sectionActivities.length; i++) {
+          const activity = sectionActivities[i];
+          sourcesToCreate.push({
+            storyId,
+            sectionKey,
+            sourceType: 'activity',
+            activityId: canSetFk ? activity.id : null,
+            label: activity.title,
+            url: activity.sourceUrl || null,
+            toolType: activity.source || null,
+            role: this.detectRole(activity),
+            annotation: i === 0 ? llmDescription : null,
+            sortOrder: i,
+          });
+        }
+      }
+    } else {
+      // Normal case: LLM IDs resolved — use standard mapping
+      for (const sectionKey of sectionKeys) {
+        const evidence = sections[sectionKey]?.evidence || [];
+        for (let i = 0; i < evidence.length; i++) {
+          const e = evidence[i];
+          const activity = activityMap.get(e.activityId);
+          if (!activity) continue; // Skip unresolvable
+          sourcesToCreate.push({
+            storyId,
+            sectionKey,
+            sourceType: 'activity',
+            activityId: canSetFk ? e.activityId : null,
+            label: activity.title,
+            url: activity.sourceUrl || null,
+            toolType: activity.source || null,
+            role: this.detectRole(activity),
+            annotation: e.description || null,
+            sortOrder: i,
+          });
+        }
+      }
+    }
+
+    if (sourcesToCreate.length > 0) {
+      await prisma.storySource.createMany({ data: sourcesToCreate });
+    }
+  }
+
+  /**
+   * Detect user's role from activity rawData.
+   */
+  private detectRole(activity: { rawData?: Record<string, unknown> | null } | undefined): string | null {
+    if (!activity?.rawData) return null;
+    const raw = activity.rawData;
+
+    // GitHub signals
+    if (raw.author) return 'authored';
+    if (raw.state === 'APPROVED') return 'approved';
+    if (raw.reviewers) return 'reviewed';
+
+    // Jira signals
+    if (raw.assignee) return 'assigned';
+    if (raw.reporter) return 'reported';
+
+    return 'mentioned';
+  }
+
 
   async deleteStory(storyId: string, userId: string): Promise<{ success: boolean; error?: string }> {
     const story = await prisma.careerStory.findFirst({

@@ -560,24 +560,28 @@ describe('Unified Flow Integration', () => {
       }
     });
 
-    it('activities in story sections have valid evidence', async () => {
+    it('story has StorySource rows for activity evidence', async () => {
       const storyService = createCareerStoryService(true);
-
       const stories = await storyService.listStories(TEST_USER_ID);
       const story = stories.stories.find((s) => s!.activityIds.length > 0);
-
       expect(story).toBeDefined();
 
-      // Each section should have evidence linking to activities
-      Object.values(story!.sections).forEach((section) => {
-        expect(section).toHaveProperty('summary');
-        expect(section).toHaveProperty('evidence');
-        expect(Array.isArray(section.evidence)).toBe(true);
-
-        section.evidence.forEach((evidence) => {
-          expect(story!.activityIds).toContain(evidence.activityId);
-        });
+      // Sources should exist in StorySource table
+      const sources = await prisma.storySource.findMany({
+        where: { storyId: story!.id },
       });
+
+      // At minimum, some sources should exist (either mapped or unassigned)
+      expect(sources.length).toBeGreaterThan(0);
+
+      // All activity sources should reference valid activity IDs or be null (missing activity)
+      const activitySources = sources.filter((s) => s.sourceType === 'activity');
+      for (const source of activitySources) {
+        if (source.activityId) {
+          expect(story!.activityIds).toContain(source.activityId);
+        }
+        expect(source.label).toBeTruthy();
+      }
     });
   });
 

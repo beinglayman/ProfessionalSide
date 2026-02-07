@@ -1392,6 +1392,8 @@ model ToolActivity {
   user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   cluster StoryCluster? @relation(fields: [clusterId], references: [id])
 
+  storySources StorySource[]
+
   @@unique([userId, source, sourceId]) // Prevent duplicates
   @@index([userId, timestamp])
   @@index([clusterId])
@@ -1467,6 +1469,13 @@ model CareerStory {
   isPublished Boolean  @default(false)
   publishedAt DateTime?
 
+  // Generation inputs (what produced the current text)
+  lastGenerationPrompt  String?   // user's regeneration instructions
+  wizardAnswers         Json?     // D-I-G answers from wizard
+
+  // Sources relation
+  sources               StorySource[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1479,6 +1488,47 @@ model CareerStory {
   @@index([isPublished, visibility])
   @@index([journalEntryId])
   @@map("career_stories")
+}
+
+// Story sources — extracted evidence for career stories
+// One table for all three source types: activity, user_note, wizard_answer
+// Sources survive story regeneration (separate from sections text)
+model StorySource {
+  id         String   @id @default(cuid())
+  storyId    String
+  sectionKey String                          // "situation", "action", etc. or "unassigned"
+
+  // What kind of source
+  sourceType String                          // "activity" | "user_note" | "wizard_answer"
+
+  // Pointer to the source (activity sources only)
+  activityId String?                         // FK → ToolActivity (when sourceType = "activity")
+  activity   ToolActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  // Display content
+  label      String                          // display title
+  content    String?                         // the actual text (user note, wizard answer)
+  url        String?                         // external link
+  annotation String?                         // user's note about WHY this source matters
+
+  // Metadata
+  toolType   String?                         // "github" | "jira" | etc.
+  role       String?                         // "authored" | "approved" | "reviewed" | etc.
+  questionId String?                         // for wizard_answer: stable question ID
+  sortOrder  Int      @default(0)            // position within section
+  excludedAt DateTime?                       // null = included, non-null = when excluded
+
+  // verification: reserved for future per-claim fact-checking. See sources-design.md.
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  story      CareerStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([storyId, sectionKey])
+  @@index([activityId])
+  @@map("story_sources")
 }
 
 // ============================================================================

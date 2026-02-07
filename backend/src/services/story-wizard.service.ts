@@ -510,6 +510,127 @@ export class StoryWizardService {
       },
     });
 
+    // Store wizard answers on the story
+    await prisma.careerStory.update({
+      where: { id: story.id },
+      data: { wizardAnswers: answers as any },
+    });
+
+    // Populate activity sources from sections evidence
+    // In demo mode, activityId FK can't reference DemoToolActivity — set to null
+    const canSetFk = !this.isDemoMode;
+    const sectionKeys = FRAMEWORK_SECTIONS[framework as PromptFrameworkName] || [];
+
+    // Fetch ALL story activities for hydration (toolType, url, role)
+    const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
+    const allActivityRows = entry.activityIds.length > 0
+      ? await (activityTable.findMany as Function)({
+          where: { id: { in: entry.activityIds } },
+          select: { id: true, source: true, sourceUrl: true, title: true, rawData: true },
+        })
+      : [];
+    const activityMap = new Map(allActivityRows.map((a: any) => [a.id, a]));
+
+    // Check if LLM evidence IDs actually resolve to real activities
+    const allEvidenceIds: string[] = [];
+    for (const key of sectionKeys) {
+      for (const e of ((sections as any)[key]?.evidence || [])) {
+        if (e.activityId) allEvidenceIds.push(e.activityId);
+      }
+    }
+    const resolvedCount = allEvidenceIds.filter((id) => activityMap.has(id)).length;
+    const useFakeIds = resolvedCount === 0 && allEvidenceIds.length > 0;
+
+    const activitySourceData: any[] = [];
+
+    if (useFakeIds && allActivityRows.length > 0) {
+      // LLM used placeholder IDs — distribute real activities round-robin
+      // Use LLM descriptions as annotations
+      let activityIdx = 0;
+      for (const sectionKey of sectionKeys) {
+        const evidence = (sections as any)[sectionKey]?.evidence || [];
+        // Assign ceil(totalActivities / sections) per section, min 1
+        const perSection = Math.max(1, Math.ceil(allActivityRows.length / sectionKeys.length));
+        const sectionActivities = allActivityRows.slice(activityIdx, activityIdx + perSection);
+        activityIdx += perSection;
+
+        // First source: use LLM description as annotation if available
+        const llmDescription = evidence[0]?.description || null;
+
+        for (let i = 0; i < sectionActivities.length; i++) {
+          const activity = sectionActivities[i];
+          activitySourceData.push({
+            storyId: story.id,
+            sectionKey,
+            sourceType: 'activity',
+            activityId: canSetFk ? activity.id : null,
+            label: activity.title,
+            url: activity.sourceUrl || null,
+            toolType: activity.source || null,
+            role: this.detectRole(activity),
+            annotation: i === 0 ? llmDescription : null,
+            sortOrder: i,
+          });
+        }
+      }
+    } else {
+      // LLM IDs resolved or no activities — use standard mapping
+      for (const sectionKey of sectionKeys) {
+        const evidence = (sections as any)[sectionKey]?.evidence || [];
+        for (let i = 0; i < evidence.length; i++) {
+          const e = evidence[i];
+          if (!e.activityId) continue;
+          const activity = activityMap.get(e.activityId);
+          if (!activity) continue; // Skip unresolvable
+          activitySourceData.push({
+            storyId: story.id,
+            sectionKey,
+            sourceType: 'activity',
+            activityId: canSetFk ? e.activityId : null,
+            label: activity.title,
+            url: activity.sourceUrl || null,
+            toolType: activity.source || null,
+            role: this.detectRole(activity),
+            annotation: e.description || null,
+            sortOrder: i,
+          });
+        }
+      }
+    }
+
+    // Populate wizard_answer sources
+    const QUESTION_SECTION_MAP: Record<string, string> = {
+      'dig-1': 'situation',
+      'dig-2': 'action',
+      'dig-3': sectionKeys.includes('obstacles') ? 'obstacles' : sectionKeys.includes('hindrances') ? 'hindrances' : 'situation',
+      'impact-1': 'result',
+      'impact-2': 'result',
+      'growth': sectionKeys.includes('learning') ? 'learning' : sectionKeys.includes('evaluation') ? 'evaluation' : 'result',
+    };
+
+    for (const [questionId, answer] of Object.entries(answers)) {
+      const combined = [
+        ...(Array.isArray((answer as any).selected) ? (answer as any).selected : []),
+        (answer as any).freeText || '',
+      ].filter(Boolean).join('. ');
+      if (!combined) continue;
+
+      activitySourceData.push({
+        storyId: story.id,
+        sectionKey: QUESTION_SECTION_MAP[questionId] || 'unassigned',
+        sourceType: 'wizard_answer',
+        activityId: null,
+        label: questionId,
+        content: combined,
+        questionId,
+        sortOrder: 0,
+      });
+    }
+
+    if (activitySourceData.length > 0) {
+      await prisma.storySource.createMany({ data: activitySourceData });
+    }
+
     const storyId = story.id;
 
     console.log(`${this.logPrefix} generateStory complete`, {
@@ -598,6 +719,17 @@ export class StoryWizardService {
 
   private getDefaultHook(archetype: StoryArchetype): string {
     return ARCHETYPE_HOOKS[archetype];
+  }
+
+  private detectRole(activity: { rawData?: Record<string, unknown> | null } | undefined): string | null {
+    if (!activity?.rawData) return null;
+    const raw = activity.rawData;
+    if (raw.author) return 'authored';
+    if (raw.state === 'APPROVED') return 'approved';
+    if (raw.reviewers) return 'reviewed';
+    if (raw.assignee) return 'assigned';
+    if (raw.reporter) return 'reported';
+    return 'mentioned';
   }
 }
 

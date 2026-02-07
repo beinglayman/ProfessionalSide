@@ -133,3 +133,27 @@ export const formatZodErrors = (error: z.ZodError) => ({
     message: e.message,
   })),
 });
+
+// =============================================================================
+// STORY SOURCE SCHEMAS
+// =============================================================================
+
+/**
+ * Schema for POST /stories/:storyId/sources (add user note)
+ */
+export const createSourceSchema = z.object({
+  sectionKey: z.string().min(1).max(50),
+  sourceType: z.literal('user_note'),
+  content: z.string().min(1).max(2000),
+}).strict();
+
+export type CreateSourceInput = z.infer<typeof createSourceSchema>;
+
+/**
+ * Schema for PATCH /stories/:storyId/sources/:sourceId (exclude/restore)
+ */
+export const updateSourceSchema = z.object({
+  excludedAt: z.string().datetime().nullable(),
+}).strict();
+
+export type UpdateSourceInput = z.infer<typeof updateSourceSchema>;
