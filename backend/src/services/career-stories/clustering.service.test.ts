@@ -488,3 +488,306 @@ describe('Clustering Algorithm', () => {
     });
   });
 });
+
+// =============================================================================
+// MULTI-SIGNAL CLUSTERING (Phase 2)
+// =============================================================================
+
+import { ClusteringService } from './clustering.service';
+
+/**
+ * Helper to create activities with multi-signal fields for ClusteringService.
+ */
+function makeActivity(overrides: {
+  id: string;
+  crossToolRefs?: string[];
+  timestamp?: Date;
+  collaborators?: string[];
+  container?: string | null;
+}) {
+  return {
+    id: overrides.id,
+    source: 'github',
+    sourceId: overrides.id,
+    title: `Activity ${overrides.id}`,
+    description: null,
+    timestamp: overrides.timestamp ?? new Date('2026-02-01'),
+    crossToolRefs: overrides.crossToolRefs ?? [],
+    collaborators: overrides.collaborators,
+    container: overrides.container ?? undefined,
+  };
+}
+
+describe('Multi-signal clustering (container + collaborator edges)', () => {
+  let service: ClusteringService;
+
+  beforeEach(() => {
+    // ClusteringService constructor requires PrismaClient, but clusterActivitiesInMemory
+    // doesn't use it. Pass null and cast to satisfy the type.
+    service = new ClusteringService(null as any);
+  });
+
+  // ===========================================================================
+  // CONTAINER EDGES
+  // ===========================================================================
+
+  describe('container edges', () => {
+    it('#14: same feature branch creates container edge', () => {
+      const activities = [
+        makeActivity({ id: 'pr-1', container: 'feature/oauth2-auth' }),
+        makeActivity({ id: 'pr-2', container: 'feature/oauth2-auth' }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toContain('pr-1');
+      expect(clusters[0].activityIds).toContain('pr-2');
+    });
+
+    it('different containers do not create edge', () => {
+      const activities = [
+        makeActivity({ id: 'pr-1', container: 'feature/oauth' }),
+        makeActivity({ id: 'pr-2', container: 'feature/payments' }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      // Neither meets min cluster size of 2 via container alone
+      expect(clusters).toHaveLength(0);
+    });
+
+    it('null containers do not create edge', () => {
+      const activities = [
+        makeActivity({ id: 'pr-1', container: null }),
+        makeActivity({ id: 'pr-2', container: null }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+      expect(clusters).toHaveLength(0);
+    });
+
+    it('container edge bridges with ref edges transitively', () => {
+      const activities = [
+        makeActivity({ id: 'A', crossToolRefs: ['AUTH-123'], container: 'feature/auth' }),
+        makeActivity({ id: 'B', crossToolRefs: ['AUTH-123'] }),
+        makeActivity({ id: 'C', container: 'feature/auth' }), // Connected to A via container
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toHaveLength(3);
+    });
+  });
+
+  // ===========================================================================
+  // COLLABORATOR EDGES
+  // ===========================================================================
+
+  describe('collaborator edges', () => {
+    it('#17: >=2 shared collaborators within 30d creates edge', () => {
+      const activities = [
+        makeActivity({
+          id: 'pr-1',
+          collaborators: ['alice', 'bob', 'carol'],
+          timestamp: new Date('2026-02-01'),
+        }),
+        makeActivity({
+          id: 'pr-2',
+          collaborators: ['alice', 'bob', 'dave'],
+          timestamp: new Date('2026-02-07'),
+        }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toContain('pr-1');
+      expect(clusters[0].activityIds).toContain('pr-2');
+    });
+
+    it('#19: only 1 shared collaborator does NOT create edge', () => {
+      const activities = [
+        makeActivity({
+          id: 'pr-1',
+          collaborators: ['alice', 'bob'],
+          timestamp: new Date('2026-02-01'),
+        }),
+        makeActivity({
+          id: 'pr-2',
+          collaborators: ['alice', 'carol'],
+          timestamp: new Date('2026-02-07'),
+        }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      // Only 1 shared (alice) — no edge
+      expect(clusters).toHaveLength(0);
+    });
+
+    it('#18: shared collaborators beyond 30d do NOT create edge', () => {
+      const activities = [
+        makeActivity({
+          id: 'pr-1',
+          collaborators: ['alice', 'bob'],
+          timestamp: new Date('2026-01-01'),
+        }),
+        makeActivity({
+          id: 'pr-2',
+          collaborators: ['alice', 'bob'],
+          timestamp: new Date('2026-03-01'), // 59 days later
+        }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(0);
+    });
+
+    it('collaborator edge at 14d (within both time gates) creates edge', () => {
+      // Within both the 30d collaborator window AND the 14d temporal split threshold
+      const activities = [
+        makeActivity({
+          id: 'pr-1',
+          collaborators: ['alice', 'bob'],
+          timestamp: new Date('2026-02-01'),
+        }),
+        makeActivity({
+          id: 'pr-2',
+          collaborators: ['alice', 'bob'],
+          timestamp: new Date('2026-02-14'), // 13 days — under temporal split
+        }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(1);
+    });
+  });
+
+  // ===========================================================================
+  // TEMPORAL SPLIT
+  // ===========================================================================
+
+  describe('temporal split', () => {
+    it('#21: splits component with >14d gap', () => {
+      // All share same ref, but 20-day gap between groups
+      const activities = [
+        makeActivity({ id: 'jan-1', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-05') }),
+        makeActivity({ id: 'jan-2', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-08') }),
+        makeActivity({ id: 'jan-3', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-10') }),
+        makeActivity({ id: 'feb-1', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-01') }), // 22d gap
+        makeActivity({ id: 'feb-2', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-03') }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(2);
+
+      const janCluster = clusters.find(c => c.activityIds.includes('jan-1'))!;
+      const febCluster = clusters.find(c => c.activityIds.includes('feb-1'))!;
+
+      expect(janCluster.activityIds).toHaveLength(3);
+      expect(febCluster.activityIds).toHaveLength(2);
+    });
+
+    it('#22: no gap preserves single component', () => {
+      const activities = [
+        makeActivity({ id: 'a', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-01') }),
+        makeActivity({ id: 'b', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-05') }),
+        makeActivity({ id: 'c', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-10') }),
+        makeActivity({ id: 'd', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-14') }),
+        makeActivity({ id: 'e', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-18') }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toHaveLength(5);
+    });
+
+    it('#23: multiple gaps create multiple splits', () => {
+      const activities = [
+        makeActivity({ id: 'g1-a', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-01') }),
+        makeActivity({ id: 'g1-b', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-05') }),
+        // 20d gap
+        makeActivity({ id: 'g2-a', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-25') }),
+        makeActivity({ id: 'g2-b', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-28') }),
+        // 18d gap
+        makeActivity({ id: 'g3-a', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-15') }),
+        makeActivity({ id: 'g3-b', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-18') }),
+        makeActivity({ id: 'g3-c', crossToolRefs: ['REF-1'], timestamp: new Date('2026-02-20') }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(3);
+
+      const group1 = clusters.find(c => c.activityIds.includes('g1-a'))!;
+      const group2 = clusters.find(c => c.activityIds.includes('g2-a'))!;
+      const group3 = clusters.find(c => c.activityIds.includes('g3-a'))!;
+
+      expect(group1.activityIds).toHaveLength(2);
+      expect(group2.activityIds).toHaveLength(2);
+      expect(group3.activityIds).toHaveLength(3);
+    });
+
+    it('temporal split respects min cluster size', () => {
+      const activities = [
+        makeActivity({ id: 'jan-solo', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-01') }),
+        // 20d gap — solo activity below min size
+        makeActivity({ id: 'feb-1', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-21') }),
+        makeActivity({ id: 'feb-2', crossToolRefs: ['REF-1'], timestamp: new Date('2026-01-23') }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      // jan-solo is alone after split, below minClusterSize=2
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toContain('feb-1');
+      expect(clusters[0].activityIds).toContain('feb-2');
+    });
+  });
+
+  // ===========================================================================
+  // MIXED SIGNALS
+  // ===========================================================================
+
+  describe('mixed signal types', () => {
+    it('ref edges + container edges + collaborator edges all contribute', () => {
+      const activities = [
+        // A and B connected via ref
+        makeActivity({ id: 'A', crossToolRefs: ['AUTH-123'], timestamp: new Date('2026-02-01') }),
+        makeActivity({ id: 'B', crossToolRefs: ['AUTH-123'], timestamp: new Date('2026-02-02') }),
+        // C connected to A via container
+        makeActivity({ id: 'C', container: 'feature/auth', timestamp: new Date('2026-02-03') }),
+        makeActivity({ id: 'A-prime', container: 'feature/auth', crossToolRefs: ['AUTH-123'], timestamp: new Date('2026-02-01') }),
+        // D connected to B via collaborators
+        makeActivity({ id: 'D', collaborators: ['alice', 'bob'], timestamp: new Date('2026-02-04') }),
+        makeActivity({ id: 'B-prime', collaborators: ['alice', 'bob'], crossToolRefs: ['AUTH-123'], timestamp: new Date('2026-02-02') }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      // All should be connected transitively
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toHaveLength(6);
+    });
+
+    it('existing ref-only tests still pass with new fields absent', () => {
+      // Activities without collaborators/container should work exactly as before
+      const activities = [
+        makeActivity({ id: 'A', crossToolRefs: ['REF-1'] }),
+        makeActivity({ id: 'B', crossToolRefs: ['REF-1', 'REF-2'] }),
+        makeActivity({ id: 'C', crossToolRefs: ['REF-2'] }),
+      ];
+
+      const clusters = service.clusterActivitiesInMemory(activities);
+
+      expect(clusters).toHaveLength(1);
+      expect(clusters[0].activityIds).toHaveLength(3);
+    });
+  });
+});

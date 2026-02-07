@@ -339,7 +339,13 @@ export class ClusteringService {
    * Cluster activities in memory (no database persistence).
    * Useful for demo/sandbox mode where we don't want to touch real tables.
    *
-   * @param activities - Activities to cluster
+   * Uses multi-signal adjacency:
+   * 1. Explicit ref edges (existing — shared crossToolRefs)
+   * 2. Container edges (same feature branch / thread ID / epic)
+   * 3. Collaborator edges (>=2 shared people within 30-day window)
+   * 4. Temporal split post-process (>14d gap breaks components)
+   *
+   * @param activities - Activities to cluster (with optional signal fields)
    * @param options - Clustering options
    * @returns Array of cluster results with activity IDs and suggested names
    */
@@ -352,6 +358,8 @@ export class ClusteringService {
       description: string | null;
       timestamp: Date;
       crossToolRefs: string[];
+      collaborators?: string[];
+      container?: string | null;
     }>,
     options?: { minClusterSize?: number }
   ): Array<{ activityIds: string[]; name: string | null }> {
@@ -361,7 +369,57 @@ export class ClusteringService {
       return [];
     }
 
-    // Build adjacency list
+    const activityMap = new Map(activities.map(a => [a.id, a]));
+
+    // Build multi-signal adjacency list
+    const adjacency = this.buildMultiSignalAdjacency(activities);
+
+    // Find connected components
+    const visited = new Set<string>();
+    const rawComponents: string[][] = [];
+
+    activities.forEach((activity) => {
+      if (!visited.has(activity.id)) {
+        const component: string[] = [];
+        this.dfs(activity.id, adjacency, visited, component);
+        if (component.length > 0) {
+          rawComponents.push(component);
+        }
+      }
+    });
+
+    // Temporal split: break components with >14d gaps
+    const splitComponents = this.splitByTemporalGap(rawComponents, activityMap, 14);
+
+    // Filter by min size and generate names
+    return splitComponents
+      .filter((c) => c.length >= minSize)
+      .map((activityIds) => {
+        // Generate a name based on common refs
+        const commonRefs = this.findCommonRefs(activityIds, activities);
+        return {
+          activityIds,
+          name: commonRefs.length > 0 ? commonRefs[0] : null,
+        };
+      });
+  }
+
+  /**
+   * Build multi-signal adjacency list: ref edges + container edges + collaborator edges.
+   */
+  private buildMultiSignalAdjacency(
+    activities: Array<{
+      id: string;
+      crossToolRefs: string[];
+      timestamp: Date;
+      collaborators?: string[];
+      container?: string | null;
+    }>
+  ): Map<string, Set<string>> {
+    const adjacency = new Map<string, Set<string>>();
+    activities.forEach((a) => adjacency.set(a.id, new Set()));
+
+    // --- 1. Explicit ref edges (existing logic) ---
     const refToActivities = new Map<string, Set<string>>();
     activities.forEach((activity) => {
       const refs = activity.crossToolRefs || [];
@@ -371,11 +429,6 @@ export class ClusteringService {
         }
         refToActivities.get(ref)!.add(activity.id);
       });
-    });
-
-    const adjacency = new Map<string, Set<string>>();
-    activities.forEach((activity) => {
-      adjacency.set(activity.id, new Set());
     });
 
     refToActivities.forEach((activityIds) => {
@@ -388,31 +441,101 @@ export class ClusteringService {
       }
     });
 
-    // Find connected components
-    const visited = new Set<string>();
-    const components: string[][] = [];
+    // --- 2. Container edges (same non-null container) ---
+    const containerToActivities = new Map<string, string[]>();
+    activities.forEach((a) => {
+      if (a.container) {
+        const group = containerToActivities.get(a.container) || [];
+        group.push(a.id);
+        containerToActivities.set(a.container, group);
+      }
+    });
 
-    activities.forEach((activity) => {
-      if (!visited.has(activity.id)) {
-        const component: string[] = [];
-        this.dfs(activity.id, adjacency, visited, component);
-        if (component.length > 0) {
-          components.push(component);
+    containerToActivities.forEach((ids) => {
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          adjacency.get(ids[i])!.add(ids[j]);
+          adjacency.get(ids[j])!.add(ids[i]);
         }
       }
     });
 
-    // Filter by min size and generate names
-    return components
-      .filter((c) => c.length >= minSize)
-      .map((activityIds) => {
-        // Generate a name based on common refs
-        const commonRefs = this.findCommonRefs(activityIds, activities);
-        return {
-          activityIds,
-          name: commonRefs.length > 0 ? commonRefs[0] : null,
-        };
+    // --- 3. Collaborator edges (>=2 shared people + <30d window) ---
+    const COLLAB_THRESHOLD = 2;
+    const COLLAB_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+    for (let i = 0; i < activities.length; i++) {
+      const a = activities[i];
+      if (!a.collaborators || a.collaborators.length === 0) continue;
+
+      const aCollabs = new Set(a.collaborators);
+
+      for (let j = i + 1; j < activities.length; j++) {
+        const b = activities[j];
+        if (!b.collaborators || b.collaborators.length === 0) continue;
+
+        // Time gate: within 30-day window
+        const timeDiff = Math.abs(a.timestamp.getTime() - b.timestamp.getTime());
+        if (timeDiff > COLLAB_WINDOW_MS) continue;
+
+        // Count shared collaborators
+        let shared = 0;
+        for (const collab of b.collaborators) {
+          if (aCollabs.has(collab)) {
+            shared++;
+            if (shared >= COLLAB_THRESHOLD) break;
+          }
+        }
+
+        if (shared >= COLLAB_THRESHOLD) {
+          adjacency.get(a.id)!.add(b.id);
+          adjacency.get(b.id)!.add(a.id);
+        }
+      }
+    }
+
+    return adjacency;
+  }
+
+  /**
+   * Split connected components by temporal gaps >maxGapDays.
+   * For each component, sort by timestamp, walk sequentially,
+   * and split where the gap exceeds the threshold.
+   */
+  private splitByTemporalGap(
+    components: string[][],
+    activityMap: Map<string, { timestamp: Date }>,
+    maxGapDays: number,
+  ): string[][] {
+    const maxGapMs = maxGapDays * 24 * 60 * 60 * 1000;
+    const result: string[][] = [];
+
+    for (const component of components) {
+      // Sort by timestamp
+      const sorted = [...component].sort((a, b) => {
+        const aTime = activityMap.get(a)?.timestamp.getTime() ?? 0;
+        const bTime = activityMap.get(b)?.timestamp.getTime() ?? 0;
+        return aTime - bTime;
       });
+
+      let currentGroup: string[] = [sorted[0]];
+
+      for (let i = 1; i < sorted.length; i++) {
+        const prevTime = activityMap.get(sorted[i - 1])?.timestamp.getTime() ?? 0;
+        const currTime = activityMap.get(sorted[i])?.timestamp.getTime() ?? 0;
+
+        if (currTime - prevTime > maxGapMs) {
+          result.push(currentGroup);
+          currentGroup = [sorted[i]];
+        } else {
+          currentGroup.push(sorted[i]);
+        }
+      }
+
+      result.push(currentGroup);
+    }
+
+    return result;
   }
 
   /**
