@@ -22,6 +22,8 @@ import { getModelSelector } from '../ai/model-selector.service';
 import { ActivityInput } from './activity-persistence.service';
 import { JournalService } from '../journal.service';
 import { sseService } from '../sse.service';
+import { assignClusters } from './cluster-assign.service';
+import type { ClusterSummary, CandidateActivity } from '../ai/prompts/cluster-assign.prompt';
 
 // =============================================================================
 // CONSTANTS (match seed.service.ts)
@@ -191,8 +193,11 @@ export async function runProductionSync(
     ...a,
     sourceUrl: a.sourceUrl ?? null,
   }));
-  const clusters = clusterProductionActivities(activitiesWithSourceUrl, clusteringService);
+  let clusters = clusterProductionActivities(activitiesWithSourceUrl, clusteringService);
   log.debug(`Created ${clusters.length} in-memory clusters`);
+
+  // Step 3b: Layer 2 — LLM cluster refinement
+  clusters = await refineWithLLM(clusters, activitiesWithSourceUrl);
 
   // Step 4: Create journal entries (temporal + cluster-based)
   const journalResult = await createProductionJournalEntries(userId, persistedActivities, clusters);
@@ -393,6 +398,141 @@ function clusterProductionActivities(
       },
     };
   });
+}
+
+// =============================================================================
+// STEP 3b: LAYER 2 — LLM CLUSTER REFINEMENT
+// =============================================================================
+
+type ActivityWithSourceUrl = {
+  id: string;
+  source: string;
+  sourceId: string;
+  sourceUrl: string | null;
+  title: string;
+  description: string | null;
+  timestamp: Date;
+  crossToolRefs: string[];
+};
+
+async function refineWithLLM(
+  clusters: InMemoryCluster[],
+  allActivities: ActivityWithSourceUrl[],
+): Promise<InMemoryCluster[]> {
+  // Collect all activity IDs already in a cluster
+  const clusteredIds = new Set(clusters.flatMap(c => c.activityIds));
+
+  // Find unclustered activities
+  const unclustered = allActivities.filter(a => !clusteredIds.has(a.id));
+  if (unclustered.length === 0) {
+    log.debug('[Layer 2] All activities already clustered, skipping LLM');
+    return clusters;
+  }
+
+  // Build ClusterSummary[] from existing Layer 1 clusters
+  const existingClusters: ClusterSummary[] = clusters.map((c, idx) => ({
+    id: `layer1_${idx}`,
+    name: c.name || `Cluster ${idx + 1}`,
+    activityCount: c.activityIds.length,
+    dateRange: `${c.metrics.dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${c.metrics.dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+    toolSummary: c.metrics.toolTypes.join(', '),
+    topActivities: c.activities.slice(0, 3).map(a => a.title).join(', '),
+    isReferenced: false,
+  }));
+
+  // Build CandidateActivity[] from unclustered activities
+  const candidates: CandidateActivity[] = unclustered.map(a => ({
+    id: a.id,
+    source: a.source,
+    title: a.title,
+    date: a.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    currentClusterId: null,
+    confidence: null,
+    description: a.description,
+  }));
+
+  log.debug(`[Layer 2] Sending ${candidates.length} unclustered activities to LLM (${existingClusters.length} existing clusters)`);
+
+  const result = await assignClusters(existingClusters, candidates);
+
+  if (result.fallback) {
+    log.warn('[Layer 2] LLM fallback — returning Layer 1 clusters only');
+    return clusters;
+  }
+
+  log.debug(`[Layer 2] LLM assigned ${Object.keys(result.assignments).length} activities (model: ${result.model}, ${result.processingTimeMs}ms)`);
+
+  // Build index from layer1_N id back to cluster index
+  const clusterIdToIndex = new Map<string, number>();
+  existingClusters.forEach((c, idx) => clusterIdToIndex.set(c.id, idx));
+
+  // Build activity lookup
+  const activityMap = new Map(allActivities.map(a => [a.id, a]));
+
+  // Group NEW assignments by target name
+  const newClusterGroups = new Map<string, string[]>();
+
+  for (const [actId, assignment] of Object.entries(result.assignments)) {
+    switch (assignment.action) {
+      case 'MOVE': {
+        const clusterIdx = clusterIdToIndex.get(assignment.target);
+        if (clusterIdx !== undefined) {
+          const activity = activityMap.get(actId);
+          if (activity) {
+            clusters[clusterIdx].activityIds.push(actId);
+            clusters[clusterIdx].activities.push({
+              id: activity.id,
+              source: activity.source,
+              sourceId: activity.sourceId,
+              sourceUrl: activity.sourceUrl,
+              title: activity.title,
+              description: activity.description,
+              timestamp: activity.timestamp,
+              crossToolRefs: activity.crossToolRefs,
+            });
+          }
+        }
+        break;
+      }
+      case 'NEW': {
+        const group = newClusterGroups.get(assignment.target) || [];
+        group.push(actId);
+        newClusterGroups.set(assignment.target, group);
+        break;
+      }
+      // KEEP: no-op — already in cluster
+    }
+  }
+
+  // Create new InMemoryCluster entries for NEW groups
+  for (const [name, activityIds] of newClusterGroups) {
+    const groupActivities = activityIds
+      .map(id => activityMap.get(id))
+      .filter((a): a is ActivityWithSourceUrl => a !== undefined);
+
+    if (groupActivities.length === 0) continue;
+
+    clusters.push({
+      name,
+      activityIds,
+      activities: groupActivities.map(a => ({
+        id: a.id,
+        source: a.source,
+        sourceId: a.sourceId,
+        sourceUrl: a.sourceUrl,
+        title: a.title,
+        description: a.description,
+        timestamp: a.timestamp,
+        crossToolRefs: a.crossToolRefs,
+      })),
+      metrics: {
+        dateRange: computeDateRange(groupActivities.map(a => a.timestamp)),
+        toolTypes: extractToolTypes(groupActivities),
+      },
+    });
+  }
+
+  return clusters;
 }
 
 // =============================================================================
