@@ -830,7 +830,7 @@ export const publishDemoStory = asyncHandler(async (req: Request, res: Response)
     });
   }
 
-  sendSuccess(res, result, 'Story published');
+  sendSuccess(res, result.story, 'Story published');
 });
 
 /**
@@ -853,7 +853,7 @@ export const unpublishDemoStory = asyncHandler(async (req: Request, res: Respons
     return void sendError(res, result.error || 'Unpublish failed', status);
   }
 
-  sendSuccess(res, result, 'Story unpublished');
+  sendSuccess(res, result.story, 'Story unpublished');
 });
 
 /**
@@ -882,7 +882,7 @@ export const setDemoStoryVisibility = asyncHandler(async (req: Request, res: Res
     return void sendError(res, result.error || 'Failed to update visibility', status);
   }
 
-  sendSuccess(res, result, 'Visibility updated');
+  sendSuccess(res, result.story, 'Visibility updated');
 });
 
 /**
@@ -1077,7 +1077,7 @@ export const publishStory = asyncHandler(async (req: Request, res: Response): Pr
     });
   }
 
-  sendSuccess(res, result, 'Story published');
+  sendSuccess(res, result.story, 'Story published');
 });
 
 /**
@@ -1100,7 +1100,7 @@ export const unpublishStory = asyncHandler(async (req: Request, res: Response): 
     return void sendError(res, result.error || 'Unpublish failed', 404);
   }
 
-  sendSuccess(res, result, 'Story unpublished');
+  sendSuccess(res, result.story, 'Story unpublished');
 });
 
 /**
@@ -1128,7 +1128,7 @@ export const setStoryVisibility = asyncHandler(async (req: Request, res: Respons
     return void sendError(res, result.error || 'Update failed', 404);
   }
 
-  sendSuccess(res, result, 'Visibility updated');
+  sendSuccess(res, result.story, 'Visibility updated');
 });
 
 // ============================================================================

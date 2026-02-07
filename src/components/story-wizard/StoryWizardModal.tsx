@@ -47,7 +47,7 @@ interface StoryWizardModalProps {
   journalEntryTitle?: string;
   /** Metadata for loading state facts */
   journalEntryMeta?: JournalEntryMeta;
-  onStoryCreated?: (storyId: string) => void;
+  onStoryCreated?: (storyId: string) => void | Promise<void>;
 }
 
 type WizardStep = 'analyze' | 'questions' | 'generate';
@@ -144,7 +144,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
       if (!mountedRef.current) return;
       if (response.success && response.data) {
         setGenerateResult(response.data);
-        onStoryCreated?.(response.data.story.id);
+        await onStoryCreated?.(response.data.story.id);
       } else {
         setError(response.error || 'Failed to generate story');
       }

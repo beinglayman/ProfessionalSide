@@ -217,7 +217,7 @@ export function CareerStoriesPage() {
   // Fetch selected cluster with activities for evidence linking
   const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
   // Fetch existing career stories to hydrate savedStories state
-  const { data: existingStories } = useListCareerStories();
+  const { data: existingStories, isLoading: isLoadingStories } = useListCareerStories();
 
   // Hydrate savedStories from existing career stories on load
   useEffect(() => {
@@ -725,6 +725,15 @@ export function CareerStoriesPage() {
     return created || null;
   }, [handleSaveStory, savedStories, selectedCluster, selectedStoryDirect]);
 
+  // Update the currently selected story (direct or cluster-linked) with fresh data
+  const updateSelectedStory = useCallback((updatedStory: CareerStory) => {
+    if (selectedStoryDirect) {
+      setSelectedStoryDirect(updatedStory);
+    } else if (selectedCluster) {
+      setSavedStories((prev) => ({ ...prev, [selectedCluster.id]: updatedStory }));
+    }
+  }, [selectedCluster, selectedStoryDirect]);
+
   const handlePublishStory = useCallback(async (
     visibility: StoryVisibility,
     edits: { situation?: string; task?: string; action?: string; result?: string }
@@ -734,37 +743,27 @@ export function CareerStoriesPage() {
 
     try {
       const response = await publishStoryMutation.mutateAsync({ id: story.id, visibility });
-      if (response.success && response.data?.story) {
-        // Update the directly selected story if applicable
-        if (selectedStoryDirect) {
-          setSelectedStoryDirect(response.data.story);
-        } else if (selectedCluster) {
-          setSavedStories((prev) => ({ ...prev, [selectedCluster.id]: response.data!.story! }));
-        }
+      if (response.success && response.data) {
+        updateSelectedStory(response.data);
       }
     } catch (error) {
       console.error('Failed to publish story:', error);
     }
-  }, [ensureStory, publishStoryMutation, selectedCluster, selectedStoryDirect]);
+  }, [ensureStory, publishStoryMutation, updateSelectedStory]);
 
   const handleUnpublishStory = useCallback(async () => {
-    // Get the current story - either directly selected or from cluster
     const story = selectedStoryDirect || (selectedCluster ? savedStories[selectedCluster.id] : null);
     if (!story) return;
 
     try {
       const response = await unpublishStoryMutation.mutateAsync(story.id);
-      if (response.success && response.data?.story) {
-        if (selectedStoryDirect) {
-          setSelectedStoryDirect(response.data.story);
-        } else if (selectedCluster) {
-          setSavedStories((prev) => ({ ...prev, [selectedCluster.id]: response.data!.story! }));
-        }
+      if (response.success && response.data) {
+        updateSelectedStory(response.data);
       }
     } catch (error) {
       console.error('Failed to unpublish story:', error);
     }
-  }, [savedStories, selectedCluster, selectedStoryDirect, unpublishStoryMutation]);
+  }, [savedStories, selectedCluster, selectedStoryDirect, unpublishStoryMutation, updateSelectedStory]);
 
   const handlePublishWithCategory = useCallback(async (category: BragDocCategory) => {
     if (!publishModalStoryId) return;
@@ -774,38 +773,29 @@ export function CareerStoriesPage() {
         visibility: 'network' as StoryVisibility,
         category,
       });
-      if (response.success && response.data?.story) {
-        if (selectedStoryDirect) {
-          setSelectedStoryDirect(response.data.story);
-        } else if (selectedCluster) {
-          setSavedStories((prev) => ({ ...prev, [selectedCluster.id]: response.data!.story! }));
-        }
+      if (response.success && response.data) {
+        updateSelectedStory(response.data);
       }
     } catch (error) {
       console.error('Failed to publish story:', error);
     } finally {
       setPublishModalStoryId(null);
     }
-  }, [publishModalStoryId, publishStoryMutation, selectedCluster, selectedStoryDirect]);
+  }, [publishModalStoryId, publishStoryMutation, updateSelectedStory]);
 
   const handleVisibilityChange = useCallback(async (visibility: StoryVisibility) => {
-    // Get the current story - either directly selected or from cluster
     const story = selectedStoryDirect || (selectedCluster ? savedStories[selectedCluster.id] : null);
     if (!story) return;
 
     try {
       const response = await setVisibilityMutation.mutateAsync({ id: story.id, visibility });
-      if (response.success && response.data?.story) {
-        if (selectedStoryDirect) {
-          setSelectedStoryDirect(response.data.story);
-        } else if (selectedCluster) {
-          setSavedStories((prev) => ({ ...prev, [selectedCluster.id]: response.data!.story! }));
-        }
+      if (response.success && response.data) {
+        updateSelectedStory(response.data);
       }
     } catch (error) {
       console.error('Failed to update story visibility:', error);
     }
-  }, [savedStories, selectedCluster, selectedStoryDirect, setVisibilityMutation]);
+  }, [savedStories, selectedCluster, selectedStoryDirect, setVisibilityMutation, updateSelectedStory]);
 
   // View mode: 'list' shows cards, 'detail' shows full story
   const viewMode = selectedStoryDirect ? 'detail' : 'list';
@@ -962,14 +952,14 @@ export function CareerStoriesPage() {
               )}
 
               {/* Loading state */}
-              {isLoadingClusters && (
+              {(isLoadingClusters || isLoadingStories) && (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                 </div>
               )}
 
               {/* Empty state - no stories at all */}
-              {!isLoadingClusters && allStories.length === 0 && (
+              {!isLoadingClusters && !isLoadingStories && allStories.length === 0 && (
                 <div className="text-center py-12">
                   <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                     <BookOpen className="w-6 h-6 text-gray-400" />

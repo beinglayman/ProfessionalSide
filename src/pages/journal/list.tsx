@@ -450,10 +450,12 @@ export default function JournalPage() {
   };
 
   // Handle Story Wizard completion - navigate to career stories page with the new story
-  const handleStoryWizardComplete = (storyId: string) => {
+  const handleStoryWizardComplete = async (storyId: string) => {
     console.log('[Journal] Story Wizard completed, storyId:', storyId);
     setStoryWizardEntryId(null);
-    // Navigate to career stories page with the new story selected
+    // Ensure the career stories cache is fresh before navigating,
+    // otherwise the page may render with stale/empty data
+    await queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
     navigate(`/career-stories?storyId=${storyId}&celebrate=true`);
   };
 
