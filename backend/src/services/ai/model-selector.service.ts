@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
 
-export type TaskType = 'categorize' | 'analyze' | 'correlate' | 'generate' | 'summarize' | 'extract' | 'derive';
+export type TaskType = 'categorize' | 'analyze' | 'correlate' | 'generate' | 'summarize' | 'extract' | 'derive' | 'cluster-assign';
 export type QualityLevel = 'quick' | 'balanced' | 'high';
 export type ProviderType = 'anthropic' | 'openai' | 'azure';
 
@@ -54,7 +54,8 @@ export class ModelSelectorService {
     summarize: 'quick',
     correlate: 'quick',
     generate: 'premium',
-    derive: 'quick'
+    derive: 'quick',
+    'cluster-assign': 'quick',
   };
 
   constructor() {
