@@ -308,7 +308,7 @@ export class LLMPolisherService {
 
     const guideline = componentGuidelines[type] || '';
 
-    const systemPrompt = `You are a career coach helping someone prepare for job interviews.
+    const systemPrompt = `You polish stories like Carmine Gallo coaches TED speakers — make every sentence land in 10 seconds, cut anything the audience won't remember.
 Improve the ${type.toUpperCase()} component of a STAR story for clarity and impact.
 Keep the same facts and meaning, but make it flow naturally and sound professional.
 Keep it concise (1-3 sentences).

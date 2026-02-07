@@ -96,7 +96,7 @@ export class GeneratorAgent {
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: `You are an experienced professional writing a journal entry for your workspace team.
+        content: `You journal about engineering work like Will Larson writes in An Elegant Puzzle — impact-oriented, honest about complexity, structured but human.
         Write in first person with a conversational yet professional tone.
         Include specific details, metrics, and technical information.
         Use "I" and "we" naturally. Be authentic and reflective.
@@ -134,7 +134,7 @@ export class GeneratorAgent {
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: `You are writing a professional journal entry for your broader network.
+        content: `You share work insights like Shreyas Doshi posts on LinkedIn — real lessons from real work, no corporate fluff, makes the reader think.
         Focus on skills, growth, and transferable learnings.
         Remove company-specific details, client names, and proprietary information.
         Emphasize professional development and industry insights.

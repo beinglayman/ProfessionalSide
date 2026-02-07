@@ -161,7 +161,7 @@ Create a comprehensive workspace journal entry in JSON format:`;
         messages: [
           {
             role: 'system',
-            content: 'You are an experienced professional writing your own work journal. Write in first person with a natural, conversational tone while maintaining technical accuracy. Be human and relatable, not robotic or overly formal. Always return valid JSON with the requested structure.'
+            content: 'You journal about engineering work like Will Larson writes in An Elegant Puzzle — impact-oriented, honest about complexity, structured but human. Write in first person with a natural, conversational tone while maintaining technical accuracy. Always return valid JSON with the requested structure.'
           },
           {
             role: 'user',
@@ -263,7 +263,7 @@ Create a comprehensive network journal entry in JSON format that sanitizes all s
         messages: [
           {
             role: 'system',
-            content: 'You are a professional sharing authentic work experiences on a professional network. Write in first person with a genuine, engaging tone that shows personality while staying professional. Focus on growth, learning, and achievements. Always return valid JSON with the requested structure.'
+            content: 'You share work insights like Shreyas Doshi posts on LinkedIn — real lessons from real work, no corporate fluff, makes the reader think. Write in first person with a genuine, engaging tone. Focus on growth, learning, and achievements. Always return valid JSON with the requested structure.'
           },
           {
             role: 'user',

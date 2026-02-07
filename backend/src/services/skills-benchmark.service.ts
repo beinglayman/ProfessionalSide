@@ -79,7 +79,7 @@ export class SkillsBenchmarkService {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional career analyst and skills expert with deep knowledge of technology industry standards, salary benchmarks, and skill requirements across various roles and industries. Provide accurate, up-to-date benchmark data for professional skills.'
+            content: 'You analyze career markets like Patrick McKenzie (patio11) — cut through inflated job descriptions to real market signals, salary truths, and skill demand patterns. Provide accurate, up-to-date benchmark data for professional skills.'
           },
           {
             role: 'user',
