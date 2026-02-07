@@ -1376,42 +1376,54 @@ async function seedTestData() {
     // Create test organization
     const techCorp = await prisma.organization.upsert({
       where: { domain: 'techcorp.com' },
-      update: {},
+      update: {
+        name: 'Inchronicle',
+        description: 'Career intelligence platform — turn daily work into career stories',
+      },
       create: {
-        name: 'TechCorp Solutions',
+        name: 'Inchronicle',
         domain: 'techcorp.com',
-        description: 'Leading technology solutions company'
+        description: 'Career intelligence platform — turn daily work into career stories',
       }
     });
 
     // Create test workspace
     const frontendWorkspace = await prisma.workspace.upsert({
       where: { id: 'frontend-workspace' },
-      update: {},
+      update: {
+        name: 'Product & Engineering',
+        description: 'Building the Inchronicle platform',
+      },
       create: {
         id: 'frontend-workspace',
-        name: 'Frontend Innovation',
-        description: 'Building cutting-edge user interfaces',
+        name: 'Product & Engineering',
+        description: 'Building the Inchronicle platform',
         organizationId: techCorp.id
       }
     });
 
     // Create test user
     const hashedPassword = await hashPassword('password123');
+    const testUserData = {
+      name: 'Ketan Khairnar',
+      title: 'CTO',
+      bio: 'Building Inchronicle — the career intelligence platform that turns your daily work into powerful career stories. 15+ years shipping products across startups and scale-ups. Obsessed with developer tools, AI-assisted workflows, and making invisible work visible.',
+      location: 'San Francisco, CA',
+      company: 'Inchronicle',
+      industry: 'Technology',
+      yearsOfExperience: 15,
+      avatar: 'https://avatars.githubusercontent.com/u/83536?v=4',
+    };
     const testUser = await prisma.user.upsert({
       where: { email: 'test@techcorp.com' },
-      update: {},
+      update: testUserData,
       create: {
-        name: 'Test User',
+        ...testUserData,
         email: 'test@techcorp.com',
         password: hashedPassword,
-        title: 'Senior Developer',
-        bio: 'Test user for development and demonstration purposes',
-        location: 'San Francisco, CA',
-        company: 'TechCorp Inc.',
         profile: {
           create: {
-            profileCompleteness: 85,
+            profileCompleteness: 100,
             showEmail: false,
             showLocation: true,
             showCompany: true,

@@ -550,7 +550,7 @@ export class StoryWizardService {
           select: { id: true, source: true, sourceUrl: true, title: true, rawData: true },
         })
       : [];
-    const activityMap = new Map(allActivityRows.map((a: any) => [a.id, a]));
+    const activityMap = new Map<string, any>(allActivityRows.map((a: any) => [a.id, a]));
 
     // Check if LLM evidence IDs actually resolve to real activities
     const allEvidenceIds: string[] = [];
