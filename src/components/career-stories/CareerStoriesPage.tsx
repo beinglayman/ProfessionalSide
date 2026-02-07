@@ -1018,9 +1018,11 @@ export function CareerStoriesPage() {
                                   onFormatChange={handleFormatSwitch}
                                 />
                               </div>
-                              <p className="text-[11px] text-gray-400 mt-1 ml-1">
-                                {formatTimeSpan(timeRange.earliest, timeRange.latest)}
-                              </p>
+                              {timeRange.earliest.toDateString() !== timeRange.latest.toDateString() && (
+                                <p className="text-[11px] text-gray-400 mt-1 ml-1">
+                                  {formatTimeSpan(timeRange.earliest, timeRange.latest)}
+                                </p>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1041,6 +1043,16 @@ export function CareerStoriesPage() {
                       )}
                     </div>
                   ))}
+                  {allStories.length < 3 && (
+                    <button
+                      onClick={() => navigate('/journal')}
+                      className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
+                    >
+                      <p className="text-xs text-gray-400">
+                        More stories to tell &middot; <span className="text-primary-500 font-medium">Promote from journal</span>
+                      </p>
+                    </button>
+                  )}
                 </>
               ) : (
                 <>

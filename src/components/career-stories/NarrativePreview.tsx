@@ -1391,7 +1391,7 @@ export function NarrativePreview({
               <h2 className="text-sm font-semibold text-gray-900 truncate">{clusterName}</h2>
               <StatusBadge status={storyStatus} />
               {story?.archetype && (
-                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 capitalize">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-purple-50 text-purple-700 border-purple-200 capitalize">
                   {story.archetype}
                 </span>
               )}
@@ -1433,6 +1433,7 @@ export function NarrativePreview({
               disabled={isLoading}
               className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               title="Regenerate"
+              aria-label="Regenerate"
               data-testid="regenerate-star"
             >
               <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
@@ -1441,15 +1442,17 @@ export function NarrativePreview({
               onClick={() => isEditing ? handleSave() : setIsEditing(true)}
               disabled={isSaving}
               className={cn(
-                'p-1.5 rounded transition-colors',
+                'p-1.5 rounded transition-colors inline-flex items-center',
                 isEditing ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
               )}
               title={isEditing ? 'Save' : 'Edit'}
+              aria-label={isEditing ? 'Save' : 'Edit'}
             >
               {isEditing ? <Check className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+              <span className="text-xs ml-1 hidden xl:inline">{isEditing ? 'Save' : 'Edit'}</span>
             </button>
             {isEditing && (
-              <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel">
+              <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel" aria-label="Cancel editing">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
@@ -1461,6 +1464,7 @@ export function NarrativePreview({
                 showCoaching ? 'bg-amber-100 text-amber-600' : 'text-gray-400 hover:bg-gray-100'
               )}
               title="Interview tips"
+              aria-label="Interview tips"
             >
               <Lightbulb className="h-3.5 w-3.5" />
             </button>
@@ -1471,6 +1475,7 @@ export function NarrativePreview({
                 showEmphasis ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100'
               )}
               title="Text emphasis (action verbs, key terms)"
+              aria-label="Text emphasis (action verbs, key terms)"
             >
               <Type className="h-3.5 w-3.5" />
             </button>
@@ -1481,6 +1486,7 @@ export function NarrativePreview({
                 practiceMode ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:bg-gray-100'
               )}
               title="Practice timer"
+              aria-label="Practice timer"
             >
               <Mic className="h-3.5 w-3.5" />
             </button>
@@ -1488,29 +1494,34 @@ export function NarrativePreview({
             <div className="relative" ref={copyMenuRef}>
               <button
                 onClick={() => setShowCopyMenu(!showCopyMenu)}
-                className={cn('p-1.5 rounded transition-colors', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
+                className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
                 title="Copy"
+                aria-label="Copy"
                 data-testid="copy-star"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <span className="text-xs ml-1 hidden xl:inline">Copy</span>
               </button>
               <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
             </div>
             {story?.isPublished ? (
-              <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50" title="Unpublish">
+              <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50 inline-flex items-center" title="Unpublish" aria-label="Unpublish">
                 <CheckCircle2 className="h-3.5 w-3.5" />
+                <span className="text-xs ml-1 hidden xl:inline">Published</span>
               </button>
             ) : onOpenPublishModal ? (
-              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">
+              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
                 <Share2 className="h-3.5 w-3.5" />
+                <span className="text-xs ml-1 hidden xl:inline">Publish</span>
               </button>
             ) : onPublish && (
-              <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Publish">
+              <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
                 <Share2 className="h-3.5 w-3.5" />
+                <span className="text-xs ml-1 hidden xl:inline">Publish</span>
               </button>
             )}
             {onDelete && (
-              <button onClick={onDelete} disabled={isDeleting} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Delete">
+              <button onClick={onDelete} disabled={isDeleting} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Delete" aria-label="Delete story">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
@@ -1519,6 +1530,7 @@ export function NarrativePreview({
                 onClick={() => setShowDeliveryHelp(true)}
                 className="p-1.5 rounded text-gray-400 hover:bg-gray-100"
                 title="Practice guide"
+                aria-label="Practice guide"
               >
                 <HelpCircle className="h-3.5 w-3.5" />
               </button>

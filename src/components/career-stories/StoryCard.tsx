@@ -168,7 +168,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
 
         <ChevronRight className={cn(
           'w-5 h-5 flex-shrink-0 transition-transform',
-          isSelected ? 'text-primary-500' : 'text-gray-300 group-hover:text-gray-400',
+          isSelected ? 'text-primary-500' : 'text-gray-500 group-hover:text-gray-600',
           'group-hover:translate-x-0.5'
         )} />
       </div>

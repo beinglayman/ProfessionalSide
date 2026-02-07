@@ -95,6 +95,7 @@ export function FormatChip({
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        title="Click to change framework"
         data-testid="format-chip"
       >
         <span>{currentFramework}</span>

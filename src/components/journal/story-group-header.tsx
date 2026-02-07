@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ChevronDown, ChevronRight, ChevronUp, BookOpen, Calendar, FileText, CheckCircle, Users, Star, RefreshCw, Loader2, Trash2, ArrowUpRight, MoreHorizontal, Zap, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, BookOpen, Calendar, FileText, CheckCircle, Users, Star, RefreshCw, Loader2, Trash2, ArrowUpRight, MoreHorizontal, Zap, TrendingUp, Sparkles } from 'lucide-react';
 import { StoryMetadata, StoryDominantRole, Activity, ActivityStoryEdge } from '../../types/activity';
 import { cn } from '../../lib/utils';
 import { ActivityCard } from './activity-card';
@@ -28,17 +28,26 @@ interface StoryGroupHeaderProps {
 /**
  * Compact role indicator - just the icon with tooltip
  */
-function RoleIndicator({ role }: { role: StoryDominantRole }) {
+function RoleIndicator({ role, showLabel = false }: { role: StoryDominantRole; showLabel?: boolean }) {
   const config = {
-    Led: { color: 'text-amber-500', label: 'You led this initiative' },
-    Contributed: { color: 'text-blue-500', label: 'Key contributor' },
-    Participated: { color: 'text-gray-400', label: 'Participant' },
+    Led: { color: 'text-amber-500', bg: 'bg-amber-50 border-amber-200', label: 'Led', fullLabel: 'You led this initiative' },
+    Contributed: { color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200', label: 'Contributed', fullLabel: 'Key contributor' },
+    Participated: { color: 'text-gray-400', bg: 'bg-gray-50 border-gray-200', label: 'Participated', fullLabel: 'Participant' },
   };
 
-  const { color, label } = config[role];
+  const { color, bg, label, fullLabel } = config[role];
+
+  if (showLabel) {
+    return (
+      <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border', color, bg)} title={fullLabel}>
+        {role === 'Led' ? <Star className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+        {label}
+      </span>
+    );
+  }
 
   return (
-    <span className={cn('flex-shrink-0', color)} title={label}>
+    <span className={cn('flex-shrink-0', color)} title={fullLabel}>
       {role === 'Led' ? <Star className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
     </span>
   );
@@ -283,7 +292,7 @@ export function StoryGroupHeader({
           'relative rounded-xl transition-all duration-300 overflow-hidden',
           'border',
           variant === 'draft'
-            ? 'bg-purple-50/60 border-dashed border-purple-300'
+            ? 'bg-gradient-to-br from-purple-50 to-purple-100/60 border-dashed border-purple-300 shadow-[0_0_12px_-3px_rgba(147,51,234,0.15)]'
             : 'bg-white',
           isExpanded
             ? cn(variant === 'draft' ? 'border-purple-400 shadow-lg' : 'border-purple-200 shadow-lg')
@@ -315,15 +324,15 @@ export function StoryGroupHeader({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {variant === 'draft' && !isPublished && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-dashed border-gray-300">
-                      <FileText className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded border border-dashed border-purple-300">
+                      <Sparkles className="w-3 h-3" />
                       Draft
                     </span>
                   )}
                   <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-tight">
                     {title}
                   </h3>
-                  {dominantRole && <RoleIndicator role={dominantRole} />}
+                  {dominantRole && <RoleIndicator role={dominantRole} showLabel={variant === 'draft'} />}
                   {isPublished && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
                       <CheckCircle className="w-3 h-3" />
