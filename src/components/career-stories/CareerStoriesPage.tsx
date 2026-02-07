@@ -12,7 +12,7 @@ import confetti from 'canvas-confetti';
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, FileText, X, Sparkles, BookOpen, Loader2, Filter } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
-import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
+import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
 import {
   useClusters,
   useCluster,
@@ -28,6 +28,7 @@ import {
   usePublishCareerStory,
   useUnpublishCareerStory,
   useSetCareerStoryVisibility,
+  useStoryActivityMap,
 } from '../../hooks/useCareerStories';
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
@@ -40,6 +41,20 @@ import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { cn } from '../../lib/utils';
+import {
+  groupStoriesByQuarter,
+  groupStoriesByCategory,
+  formatTimeSpan,
+} from '../../utils/story-timeline';
+// Timeline spine (dot + connecting line) — shared between timeline and category views
+function TimelineSpine({ isLast }: { isLast: boolean }) {
+  return (
+    <div className="flex flex-col items-center flex-shrink-0 w-5">
+      <div className="w-3 h-3 rounded-full mt-4 flex-shrink-0 ring-4 ring-gray-50 z-10 bg-primary-500" />
+      {!isLast && <div className="w-px flex-1 bg-gray-200" />}
+    </div>
+  );
+}
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -563,6 +578,13 @@ export function CareerStoriesPage() {
     return existingStories?.stories || [];
   }, [existingStories]);
 
+  // Story view toggle: timeline (by quarter) vs category (by brag doc)
+  const [storyView, setStoryView] = useState<'timeline' | 'category'>('timeline');
+
+  // Build O(1) activity lookup for timeline quarter grouping
+  const activityMap = useStoryActivityMap(allStories);
+
+
   const stats = useMemo(() => {
     let complete = 0;
     let inProgress = 0;
@@ -750,6 +772,7 @@ export function CareerStoriesPage() {
       const response = await publishStoryMutation.mutateAsync({
         id: publishModalStoryId,
         visibility: 'network' as StoryVisibility,
+        category,
       });
       if (response.success && response.data?.story) {
         if (selectedStoryDirect) {
@@ -814,30 +837,14 @@ export function CareerStoriesPage() {
     return Array.from(sources);
   }, [allStories]);
 
-  // Group stories by year for timeline
-  const storiesByYear = useMemo(() => {
-    const groups = new Map<string, CareerStory[]>();
-    const sorted = [...filteredStories].sort((a, b) => {
-      const dateA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
-      const dateB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
-      return dateB - dateA;
-    });
-    sorted.forEach((story) => {
-      const year = story.generatedAt
-        ? new Date(story.generatedAt).getFullYear().toString()
-        : 'Draft';
-      const existing = groups.get(year) || [];
-      groups.set(year, [...existing, story]);
-    });
-    return groups;
-  }, [filteredStories]);
-
-  const years = useMemo(() =>
-    Array.from(storiesByYear.keys()).sort((a, b) =>
-      a === 'Draft' ? 1 : b === 'Draft' ? -1 : parseInt(b) - parseInt(a)
-    ),
-    [storiesByYear]
+  // Group stories by quarter (activity-timestamp-based)
+  const storiesByQuarter = useMemo(
+    () => groupStoriesByQuarter(filteredStories, activityMap),
+    [filteredStories, activityMap],
   );
+
+  // Group stories by brag doc category
+  const storiesByCategory = useMemo(() => groupStoriesByCategory(filteredStories), [filteredStories]);
 
   // Close detail view
   const handleCloseDetail = useCallback(() => {
@@ -904,7 +911,7 @@ export function CareerStoriesPage() {
           {/* List View: Story cards grouped by year */}
           {viewMode === 'list' && (
             <div className="space-y-4">
-              {/* Header with filter - only if stories exist */}
+              {/* Header with toggle + filter */}
               {allStories.length > 0 && (
                 <div className="flex items-center justify-between gap-4 mb-2">
                   <div className="flex items-center gap-2">
@@ -915,21 +922,42 @@ export function CareerStoriesPage() {
                     </span>
                   </div>
 
-                  {/* Source filter dropdown */}
-                  {availableSources.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-3.5 h-3.5 text-gray-400" />
-                      <select
-                        value={sourceFilter}
-                        onChange={(e) => setSourceFilter(e.target.value as 'all' | 'demo' | 'production')}
-                        className="text-xs bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      >
-                        <option value="all">All Sources</option>
-                        {availableSources.includes('demo') && <option value="demo">Demo</option>}
-                        {availableSources.includes('production') && <option value="production">Real Data</option>}
-                      </select>
+                  <div className="flex items-center gap-3">
+                    {/* Timeline / Category toggle */}
+                    <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
+                      {(['timeline', 'category'] as const).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setStoryView(v)}
+                          aria-pressed={storyView === v}
+                          className={cn(
+                            'text-xs px-2.5 py-1 rounded-full capitalize transition-colors',
+                            storyView === v
+                              ? 'bg-white shadow-sm border text-primary-700'
+                              : 'text-gray-500 hover:text-gray-700',
+                          )}
+                        >
+                          {v}
+                        </button>
+                      ))}
                     </div>
-                  )}
+
+                    {/* Source filter dropdown */}
+                    {availableSources.length > 1 && (
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-3.5 h-3.5 text-gray-400" />
+                        <select
+                          value={sourceFilter}
+                          onChange={(e) => setSourceFilter(e.target.value as 'all' | 'demo' | 'production')}
+                          className="text-xs bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          <option value="all">All Sources</option>
+                          {availableSources.includes('demo') && <option value="demo">Demo</option>}
+                          {availableSources.includes('production') && <option value="production">Real Data</option>}
+                        </select>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -972,35 +1000,125 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
-              {/* Stories grouped by year */}
-              {years.map((year) => {
-                const yearStories = storiesByYear.get(year) || [];
-                return (
-                  <div key={year}>
-                    {/* Year header */}
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs font-bold text-gray-600">{year}</span>
-                      <div className="flex-1 h-px bg-gray-200" />
-                      <span className="text-[10px] text-gray-400">
-                        {yearStories.length} {yearStories.length === 1 ? 'story' : 'stories'}
-                      </span>
-                    </div>
+              {/* Conditional: Timeline (quarters) or Category (brag doc) */}
+              {storyView === 'timeline' ? (
+                <>
+                  {storiesByQuarter.map((group) => (
+                    <div key={group.label}>
+                      {/* Quarter header */}
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold text-gray-600">{group.label}</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                          {group.stories.length}
+                        </span>
+                      </div>
 
-                    {/* Story cards */}
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      {yearStories.map((story) => (
-                        <StoryCard
-                          key={story.id}
-                          story={story}
-                          isSelected={false}
-                          onClick={() => handleSelectStory(story)}
-                          onFormatChange={handleFormatSwitch}
-                        />
-                      ))}
+                      {/* Timeline spine + cards */}
+                      <div>
+                        {group.stories.map(({ story, timeRange }, i) => (
+                          <div key={story.id} className="relative flex gap-4">
+                            <TimelineSpine isLast={i === group.stories.length - 1} />
+                            <div className="flex-1 min-w-0 pb-4">
+                              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                <StoryCard
+                                  story={story}
+                                  isSelected={false}
+                                  onClick={() => handleSelectStory(story)}
+                                  onFormatChange={handleFormatSwitch}
+                                />
+                              </div>
+                              <p className="text-[11px] text-gray-400 mt-1 ml-1">
+                                {formatTimeSpan(timeRange.earliest, timeRange.latest)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Category chips */}
+                      {group.categories.size > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1 ml-9">
+                          {BRAG_DOC_CATEGORIES.filter((c) => group.categories.has(c.value)).map((cat) => (
+                            <span
+                              key={cat.value}
+                              className="bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-[10px]"
+                            >
+                              {cat.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  ))}
+                </>
+              ) : (
+                <>
+                  {BRAG_DOC_CATEGORIES.map((cat) => {
+                    const catStories = storiesByCategory.get(cat.value) ?? [];
+                    return (
+                      <div key={cat.value}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-xs font-bold text-gray-600">{cat.label}</span>
+                          <div className="flex-1 h-px bg-gray-200" />
+                          {catStories.length > 0 && (
+                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                              {catStories.length}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">{cat.description}</p>
+
+                        {catStories.length === 0 ? (
+                          <button
+                            onClick={() => navigate('/journal')}
+                            className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
+                          >
+                            <p className="text-xs text-gray-400">
+                              No stories yet &middot; <span className="text-primary-500 font-medium">Promote from journal</span>
+                            </p>
+                          </button>
+                        ) : (
+                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            {catStories.map((story) => (
+                              <StoryCard
+                                key={story.id}
+                                story={story}
+                                isSelected={false}
+                                onClick={() => handleSelectStory(story)}
+                                onFormatChange={handleFormatSwitch}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {storiesByCategory.has('other') && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold text-gray-600">Other</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                          {storiesByCategory.get('other')!.length}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-2">Uncategorized stories</p>
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        {storiesByCategory.get('other')!.map((story) => (
+                          <StoryCard
+                            key={story.id}
+                            story={story}
+                            isSelected={false}
+                            onClick={() => handleSelectStory(story)}
+                            onFormatChange={handleFormatSwitch}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Spacer for scroll */}
               <div className="h-[30vh]" aria-hidden="true" />

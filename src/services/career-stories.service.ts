@@ -29,6 +29,7 @@ import {
   MergeClustersRequest,
   CareerStoriesStats,
   CareerStory,
+  CareerStoriesListResult,
   CreateCareerStoryRequest,
   UpdateCareerStoryRequest,
   StoryVisibility,
@@ -314,8 +315,8 @@ export class CareerStoriesService {
   /**
    * List all career stories for the user
    */
-  static async listStories(): Promise<ApiResponse<CareerStory[]>> {
-    const response = await api.get<ApiResponse<CareerStory[]>>('/career-stories/stories');
+  static async listStories(): Promise<ApiResponse<CareerStoriesListResult>> {
+    const response = await api.get<ApiResponse<CareerStoriesListResult>>('/career-stories/stories');
     return response.data;
   }
 
@@ -362,8 +363,8 @@ export class CareerStoriesService {
   /**
    * Publish a career story
    */
-  static async publishStory(id: string, visibility: StoryVisibility): Promise<ApiResponse<CareerStory>> {
-    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/publish`, { visibility });
+  static async publishStory(id: string, visibility: StoryVisibility, category?: string): Promise<ApiResponse<CareerStory>> {
+    const response = await api.post<ApiResponse<CareerStory>>(`/career-stories/stories/${id}/publish`, { visibility, category });
     return response.data;
   }
 

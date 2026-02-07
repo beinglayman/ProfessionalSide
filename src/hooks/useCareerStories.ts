@@ -21,6 +21,7 @@
  * TODO: Consider staleTime optimization for frequently accessed data
  */
 
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QueryKeys } from '../lib/queryClient';
 import {
@@ -32,12 +33,15 @@ import {
   GenerateSTARRequest,
   MergeClustersRequest,
   CareerStory,
+  CareerStoriesListResult,
   CreateCareerStoryRequest,
   UpdateCareerStoryRequest,
   StoryVisibility,
   NarrativeFramework,
   WritingStyle,
+  ToolActivity,
 } from '../types/career-stories';
+import { collectActivityIds } from '../utils/story-timeline';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
 // NOTE: DEMO_CLUSTERS and DEMO_STARS removed - CareerStories come from DB only
 
@@ -83,6 +87,24 @@ export const useActivities = (params: GetActivitiesParams = {}, enabled: boolean
     },
     enabled,
   });
+};
+
+/**
+ * Build an O(1) activity lookup map for a set of stories.
+ * Fetches all activities referenced by the stories and returns a Map keyed by activity ID.
+ */
+export const useStoryActivityMap = (stories: CareerStory[]) => {
+  const activityIds = useMemo(() => collectActivityIds(stories), [stories]);
+  const { data: activitiesData } = useActivities({ limit: 500 }, activityIds.size > 0);
+
+  return useMemo(() => {
+    const map = new Map<string, ToolActivity>();
+    if (!activitiesData?.activities) return map;
+    for (const a of activitiesData.activities) {
+      if (activityIds.has(a.id)) map.set(a.id, a);
+    }
+    return map;
+  }, [activitiesData, activityIds]);
 };
 
 /**
@@ -498,8 +520,8 @@ export const usePublishCareerStory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, visibility }: { id: string; visibility: StoryVisibility }) =>
-      CareerStoriesService.publishStory(id, visibility),
+    mutationFn: ({ id, visibility, category }: { id: string; visibility: StoryVisibility; category?: string }) =>
+      CareerStoriesService.publishStory(id, visibility, category),
     onSuccess: (response) => {
       if (response.success) {
         queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });

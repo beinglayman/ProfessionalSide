@@ -266,6 +266,11 @@ export interface CareerStory {
   journalEntryId?: string | null;
 }
 
+export interface CareerStoriesListResult {
+  stories: CareerStory[];
+  total: number;
+}
+
 export interface CreateCareerStoryRequest {
   clusterId: string;
   title: string;

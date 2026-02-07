@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import {
@@ -16,20 +16,29 @@ import {
   ExternalLink,
   FileText,
   PenLine,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useProfile } from '../../hooks/useProfile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
-import { useListCareerStories } from '../../hooks/useCareerStories';
+import { useListCareerStories, useStoryActivityMap } from '../../hooks/useCareerStories';
 import { useFollowCounts } from '../../hooks/usePublicProfile';
 import {
   BRAG_DOC_CATEGORIES,
   ARCHETYPE_METADATA,
   NARRATIVE_FRAMEWORKS,
 } from '../../components/career-stories/constants';
-import type { CareerStory, BragDocCategory } from '../../types/career-stories';
+import { ToolIcon } from '../../components/career-stories/ToolIcon';
+import type { CareerStory, ToolActivity } from '../../types/career-stories';
+import {
+  groupStoriesByQuarter,
+  groupStoriesByCategory,
+  formatTimeSpan,
+  type QuarterGroup,
+} from '../../utils/story-timeline';
 
 export function ProfileViewPage() {
   useDocumentTitle('Profile');
@@ -39,20 +48,21 @@ export function ProfileViewPage() {
   const { data: storiesData } = useListCareerStories();
   const { data: followCounts } = useFollowCounts(user?.id ?? '');
 
-  const allStories: CareerStory[] = (storiesData as any)?.stories ?? [];
-  const publishedStories = allStories.filter((s) => s.isPublished);
-  const draftStories = allStories.filter((s) => !s.isPublished);
+  const allStories: CareerStory[] = storiesData?.stories ?? [];
+  const publishedStories = useMemo(() => allStories.filter((s) => s.isPublished), [allStories]);
+  const draftStories = useMemo(() => allStories.filter((s) => !s.isPublished), [allStories]);
+
+  // Build O(1) activity lookup from published stories
+  const activityMap = useStoryActivityMap(publishedStories);
+
+  // Group published stories by quarter (timeline view)
+  const storiesByQuarter = useMemo(
+    () => groupStoriesByQuarter(publishedStories, activityMap),
+    [publishedStories, activityMap],
+  );
 
   // Group published stories by brag doc category
-  const storiesByCategory = useMemo(() => {
-    const map = new Map<BragDocCategory | 'other', CareerStory[]>();
-    for (const story of publishedStories) {
-      const key = story.category ?? 'other';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(story);
-    }
-    return map;
-  }, [publishedStories]);
+  const storiesByCategory = useMemo(() => groupStoriesByCategory(publishedStories), [publishedStories]);
 
   // Story stats
   const mostRecentPublish = useMemo(() => {
@@ -262,61 +272,14 @@ export function ProfileViewPage() {
         {/* ================================================================ */}
         {/* Section 3: Career Stories — Stats + Drafts + By-Category          */}
         {/* ================================================================ */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Career Stories</h2>
-            <Link
-              to="/career-stories"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
-            >
-              View All <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          {/* Stats bar */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <span className="inline-flex items-center gap-1.5 text-gray-600">
-              <FileText className="h-3.5 w-3.5 text-primary-500" />
-              <span className="font-semibold text-gray-900">{publishedStories.length}</span> published
-            </span>
-            {draftStories.length > 0 && (
-              <Link
-                to="/career-stories"
-                className="inline-flex items-center gap-1.5 text-gray-600 hover:text-primary-600"
-              >
-                <PenLine className="h-3.5 w-3.5 text-amber-500" />
-                <span className="font-semibold text-gray-900">{draftStories.length}</span> draft{draftStories.length !== 1 && 's'} in progress
-              </Link>
-            )}
-            {mostRecentPublish && (
-              <span className="inline-flex items-center gap-1.5 text-gray-500 text-xs ml-auto">
-                Last published {mostRecentPublish.toLocaleDateString()}
-              </span>
-            )}
-          </div>
-
-          {/* Category breakdown — always show all categories as brag-doc scaffold */}
-          <div className="space-y-4">
-            {BRAG_DOC_CATEGORIES.map((cat) => {
-              const catStories = storiesByCategory.get(cat.value);
-              return (
-                <CategorySection
-                  key={cat.value}
-                  label={cat.label}
-                  description={cat.description}
-                  stories={catStories ?? []}
-                />
-              );
-            })}
-            {storiesByCategory.has('other') && (
-              <CategorySection
-                label="Other"
-                description="Uncategorized stories"
-                stories={storiesByCategory.get('other')!}
-              />
-            )}
-          </div>
-        </div>
+        <ProfileCareerStories
+          publishedStories={publishedStories}
+          draftStories={draftStories}
+          activityMap={activityMap}
+          storiesByQuarter={storiesByQuarter}
+          storiesByCategory={storiesByCategory}
+          mostRecentPublish={mostRecentPublish}
+        />
 
         {/* ================================================================ */}
         {/* Section 4: Professional Background                               */}
@@ -505,14 +468,119 @@ export function ProfileViewPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function ProfileCareerStories({
+  publishedStories,
+  draftStories,
+  activityMap,
+  storiesByQuarter,
+  storiesByCategory,
+  mostRecentPublish,
+}: {
+  publishedStories: CareerStory[];
+  draftStories: CareerStory[];
+  activityMap: Map<string, ToolActivity>;
+  storiesByQuarter: QuarterGroup[];
+  storiesByCategory: Map<string, CareerStory[]>;
+  mostRecentPublish: Date | null;
+}) {
+  const [storyView, setStoryView] = useState<'timeline' | 'category'>('timeline');
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Career Stories</h2>
+        <div className="flex items-center gap-3">
+          {publishedStories.length > 0 && (
+            <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
+              {(['timeline', 'category'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setStoryView(v)}
+                  aria-pressed={storyView === v}
+                  className={cn(
+                    'text-xs px-2.5 py-1 rounded-full capitalize transition-colors',
+                    storyView === v
+                      ? 'bg-white shadow-sm border text-primary-700'
+                      : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
+          <Link
+            to="/career-stories"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
+          >
+            View All <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <span className="inline-flex items-center gap-1.5 text-gray-600">
+          <FileText className="h-3.5 w-3.5 text-primary-500" />
+          <span className="font-semibold text-gray-900">{publishedStories.length}</span> published
+        </span>
+        {draftStories.length > 0 && (
+          <Link
+            to="/career-stories"
+            className="inline-flex items-center gap-1.5 text-gray-600 hover:text-primary-600"
+          >
+            <PenLine className="h-3.5 w-3.5 text-amber-500" />
+            <span className="font-semibold text-gray-900">{draftStories.length}</span> draft{draftStories.length !== 1 && 's'} in progress
+          </Link>
+        )}
+        {mostRecentPublish && (
+          <span className="inline-flex items-center gap-1.5 text-gray-500 text-xs ml-auto">
+            Last published {mostRecentPublish.toLocaleDateString()}
+          </span>
+        )}
+      </div>
+
+      {/* Conditional view: Timeline or Category */}
+      {storyView === 'timeline' ? (
+        <TimelineView groups={storiesByQuarter} activityMap={activityMap} />
+      ) : (
+        <div className="space-y-4">
+          {BRAG_DOC_CATEGORIES.map((cat) => {
+            const catStories = storiesByCategory.get(cat.value);
+            return (
+              <CategorySection
+                key={cat.value}
+                label={cat.label}
+                description={cat.description}
+                stories={catStories ?? []}
+                activityMap={activityMap}
+              />
+            );
+          })}
+          {storiesByCategory.has('other') && (
+            <CategorySection
+              label="Other"
+              description="Uncategorized stories"
+              stories={storiesByCategory.get('other')!}
+              activityMap={activityMap}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CategorySection({
   label,
   description,
   stories,
+  activityMap,
 }: {
   label: string;
   description: string;
   stories: CareerStory[];
+  activityMap: Map<string, ToolActivity>;
 }) {
   const isEmpty = stories.length === 0;
 
@@ -538,9 +606,14 @@ function CategorySection({
           </p>
         </Link>
       ) : (
-        <div className="space-y-2">
-          {stories.map((story) => (
-            <StoryCard key={story.id} story={story} />
+        <div>
+          {stories.map((story, i) => (
+            <div key={story.id} className="relative flex gap-4">
+              <TimelineSpine isLast={i === stories.length - 1} />
+              <div className="flex-1 min-w-0 pb-4">
+                <StoryCard story={story} activityMap={activityMap} />
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -548,7 +621,127 @@ function CategorySection({
   );
 }
 
-function StoryCard({ story }: { story: CareerStory }) {
+// ---------------------------------------------------------------------------
+// Shared spine (dot + connecting line)
+// ---------------------------------------------------------------------------
+
+function TimelineSpine({ isLast }: { isLast: boolean }) {
+  return (
+    <div className="flex flex-col items-center flex-shrink-0 w-5">
+      <div className="w-3 h-3 rounded-full mt-4 flex-shrink-0 ring-4 ring-gray-50 z-10 bg-primary-500" />
+      {!isLast && <div className="w-px flex-1 bg-gray-200" />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Timeline sub-components
+// ---------------------------------------------------------------------------
+
+function TimelineView({
+  groups,
+  activityMap,
+}: {
+  groups: QuarterGroup[];
+  activityMap: Map<string, ToolActivity>;
+}) {
+  if (groups.length === 0) {
+    return (
+      <Link
+        to="/career-stories"
+        className="block border border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
+      >
+        <p className="text-xs text-gray-400">
+          No published stories yet &middot;{' '}
+          <span className="text-primary-500 font-medium">Create one</span>
+        </p>
+      </Link>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <QuarterSection
+          key={group.label}
+          group={group}
+          activityMap={activityMap}
+        />
+      ))}
+    </div>
+  );
+}
+
+function QuarterSection({
+  group,
+  activityMap,
+}: {
+  group: QuarterGroup;
+  activityMap: Map<string, ToolActivity>;
+}) {
+  const categoryLabels = useMemo(() => {
+    const labels: string[] = [];
+    for (const cat of BRAG_DOC_CATEGORIES) {
+      if (group.categories.has(cat.value)) labels.push(cat.label);
+    }
+    return labels;
+  }, [group.categories]);
+
+  return (
+    <div>
+      {/* Quarter header */}
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-xs font-bold text-gray-600">{group.label}</span>
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+          {group.stories.length}
+        </span>
+      </div>
+
+      {/* Timeline spine + cards */}
+      <div>
+        {group.stories.map(({ story, timeRange }, i) => (
+          <div key={story.id} className="relative flex gap-4">
+            <TimelineSpine isLast={i === group.stories.length - 1} />
+            <div className="flex-1 min-w-0 pb-4">
+              <StoryCard story={story} activityMap={activityMap} />
+              <p className="text-[11px] text-gray-400 mt-1 ml-1">
+                {formatTimeSpan(timeRange.earliest, timeRange.latest)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Category chips */}
+      {categoryLabels.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-1 ml-9">
+          {categoryLabels.map((label) => (
+            <span
+              key={label}
+              className="bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-[10px]"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// StoryCard
+// ---------------------------------------------------------------------------
+
+function StoryCard({
+  story,
+  activityMap,
+}: {
+  story: CareerStory;
+  activityMap: Map<string, ToolActivity>;
+}) {
+  const [expanded, setExpanded] = useState(false);
   const frameworkMeta = NARRATIVE_FRAMEWORKS[story.framework];
   const archetypeMeta = story.archetype ? ARCHETYPE_METADATA[story.archetype] : null;
 
@@ -556,13 +749,37 @@ function StoryCard({ story }: { story: CareerStory }) {
   const firstSection = firstSectionKey ? story.sections[firstSectionKey] : null;
   const preview = firstSection?.summary ?? '';
 
-  return (
-    <Link
-      to="/career-stories"
-      className="block bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
-    >
-      <p className="text-sm font-medium text-gray-900">{story.title}</p>
+  // Count total unique activities across all sections
+  const totalSources = useMemo(() => {
+    const ids = new Set<string>();
+    for (const id of story.activityIds ?? []) ids.add(id);
+    for (const section of Object.values(story.sections)) {
+      for (const ev of section.evidence ?? []) {
+        if (ev.activityId) ids.add(ev.activityId);
+      }
+    }
+    return ids.size;
+  }, [story]);
 
+  return (
+    <div
+      className={cn(
+        'bg-white rounded-lg border border-gray-200 p-4 transition-colors cursor-pointer',
+        expanded ? 'border-gray-300' : 'hover:border-gray-300',
+      )}
+      onClick={() => setExpanded((prev) => !prev)}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-gray-900">{story.title}</p>
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+        )}
+      </div>
+
+      {/* Badges */}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
           {story.framework}
@@ -584,15 +801,101 @@ function StoryCard({ story }: { story: CareerStory }) {
         )}
       </div>
 
-      {preview && (
-        <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
+      {/* Collapsed: preview + source count */}
+      {!expanded && (
+        <>
+          {preview && (
+            <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
+          )}
+          <div className="flex items-center gap-3 mt-2">
+            {story.publishedAt && (
+              <p className="text-xs text-gray-400">
+                Published {new Date(story.publishedAt).toLocaleDateString()}
+              </p>
+            )}
+            {totalSources > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
+                {totalSources} source{totalSources !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </>
       )}
 
-      {story.publishedAt && (
-        <p className="text-xs text-gray-400 mt-2">
-          Published {new Date(story.publishedAt).toLocaleDateString()}
-        </p>
+      {/* Expanded: all sections with evidence */}
+      {expanded && (
+        <div className="mt-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+          {(frameworkMeta?.sections ?? Object.keys(story.sections)).map((sectionKey) => {
+            const section = story.sections[sectionKey];
+            if (!section) return null;
+
+            const evidenceActivities = (section.evidence ?? [])
+              .map((ev) => (ev.activityId ? activityMap.get(ev.activityId) : undefined))
+              .filter((a): a is ToolActivity => !!a);
+
+            return (
+              <div key={sectionKey}>
+                <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  {sectionKey}
+                </h4>
+                <p className="text-xs text-gray-700 leading-relaxed">{section.summary}</p>
+
+                {/* Evidence citations */}
+                {evidenceActivities.length > 0 && (
+                  <div className="mt-1.5 pl-3 border-l border-gray-200">
+                    <div className="space-y-1">
+                      {evidenceActivities.slice(0, 4).map((activity) => (
+                        <a
+                          key={activity.id}
+                          href={activity.sourceUrl || '#'}
+                          target={activity.sourceUrl ? '_blank' : undefined}
+                          rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
+                          className={cn(
+                            'flex items-center gap-1.5 py-0.5 text-[11px] text-gray-500',
+                            'hover:text-gray-900 transition-colors group',
+                            !activity.sourceUrl && 'cursor-default hover:text-gray-500',
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!activity.sourceUrl) e.preventDefault();
+                          }}
+                        >
+                          <ToolIcon tool={activity.source} className="w-3.5 h-3.5 text-[7px]" />
+                          <span className="truncate">{activity.title}</span>
+                          {activity.sourceUrl && (
+                            <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 opacity-0 group-hover:opacity-100" />
+                          )}
+                        </a>
+                      ))}
+                      {evidenceActivities.length > 4 && (
+                        <span className="text-[10px] text-gray-400">
+                          +{evidenceActivities.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Footer: publish date + link to career stories */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            {story.publishedAt && (
+              <p className="text-xs text-gray-400">
+                Published {new Date(story.publishedAt).toLocaleDateString()}
+              </p>
+            )}
+            <Link
+              to="/career-stories"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View in Career Stories <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
       )}
-    </Link>
+    </div>
   );
 }
