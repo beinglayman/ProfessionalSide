@@ -204,7 +204,7 @@ export function DerivationPreview({
           </div>
         )}
         <div className="text-center text-xs text-gray-400 pt-2">
-          Click Generate to rewrite for this format
+          Hit Generate to rewrite
         </div>
       </div>
     );

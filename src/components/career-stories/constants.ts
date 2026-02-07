@@ -150,12 +150,12 @@ export const DERIVATION_TYPE_META: Record<DerivationType, {
   description: string;
   maxLength?: string;
 }> = {
-  interview: { label: 'Interview Answer', description: '~200 words, spoken format', maxLength: '~200 words' },
-  linkedin: { label: 'LinkedIn Post', description: 'Hook + story + CTA', maxLength: '1300 chars' },
-  resume: { label: 'Resume Bullet', description: 'Action verb + impact', maxLength: '1-2 lines' },
+  interview: { label: 'Interview Answer', description: 'Spoken, ~90 seconds', maxLength: '~200 words' },
+  linkedin: { label: 'LinkedIn Post', description: 'Ready to post', maxLength: '1300 chars' },
+  resume: { label: 'Resume Bullet', description: 'Concise, metric-driven', maxLength: '1-2 lines' },
   'one-on-one': { label: '1:1 Talking Points', description: '3-5 bullets for your manager', maxLength: '3-5 bullets' },
-  'self-assessment': { label: 'Self Assessment', description: 'Evidence-backed paragraph', maxLength: '1 paragraph' },
-  'team-share': { label: 'Team Share', description: '"We" framing, Slack-ready', maxLength: '2-3 sentences' },
+  'self-assessment': { label: 'Self Assessment', description: 'For perf reviews', maxLength: '1 paragraph' },
+  'team-share': { label: 'Team Share', description: 'Slack-ready, team voice', maxLength: '2-3 sentences' },
 };
 
 // =============================================================================

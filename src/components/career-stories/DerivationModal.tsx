@@ -123,7 +123,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
         <DialogHeader>
           <DialogTitle>Share As...</DialogTitle>
           <DialogDescription>
-            Rewrite &ldquo;{story.title.length > 50 ? story.title.slice(0, 47) + '...' : story.title}&rdquo; for a specific audience
+            Rewrite &ldquo;{story.title.length > 50 ? story.title.slice(0, 47) + '...' : story.title}&rdquo; for a different context
           </DialogDescription>
         </DialogHeader>
 
@@ -217,7 +217,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 maxLength={USER_PROMPT_MAX_LENGTH}
-                placeholder="e.g., Emphasize the team collaboration aspect..."
+                placeholder="e.g., Focus on the team collaboration"
                 rows={2}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 autoFocus
