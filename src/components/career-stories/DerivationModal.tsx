@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, RefreshCw, Loader2, PenLine } from 'lucide-react';
+import { Copy, Check, RefreshCw, Loader2, PenLine, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse } from '../../types/career-stories';
 import { useDeriveStory } from '../../hooks/useCareerStories';
@@ -121,10 +121,19 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Share As...</DialogTitle>
-          <DialogDescription>
-            Rewrite &ldquo;{story.title.length > 50 ? story.title.slice(0, 47) + '...' : story.title}&rdquo; for a different context
-          </DialogDescription>
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle className="text-base leading-tight">
+                Rewrite as {DERIVATION_TYPE_META[selectedDerivation].label}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 truncate">
+                {story.title.length > 60 ? story.title.slice(0, 57) + '...' : story.title}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {/* Controls: top-to-bottom flow */}
