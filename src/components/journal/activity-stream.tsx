@@ -306,28 +306,28 @@ export function ActivityStream({
 
   return (
     <div className="space-y-3">
-      {/* Controls: Search + Filters + Expand/Collapse - wraps on small screens */}
+      {/* Controls: Search + Filters + Expand/Collapse */}
       {(showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
-        <div className="flex items-center gap-2 flex-wrap pb-1">
+        <div className="flex items-center gap-2.5 flex-wrap py-2 px-3 bg-white rounded-lg border border-gray-200/80">
           {/* Search input */}
           <div className="relative flex-shrink-0">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
+              placeholder="Search activities..."
               className={cn(
-                "w-24 sm:w-28 pl-7 pr-6 py-1 text-[11px] rounded-md border transition-all",
-                "bg-white border-gray-200 placeholder-gray-400",
-                "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500",
-                searchQuery && "border-primary-300 bg-primary-50/30"
+                "w-36 sm:w-44 pl-8 pr-7 py-1.5 text-xs rounded-md border transition-all",
+                "bg-gray-50 border-gray-200 placeholder-gray-400",
+                "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white",
+                searchQuery && "border-primary-300 bg-white"
               )}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -366,7 +366,7 @@ export function ActivityStream({
           <button
             onClick={toggleAll}
             className={cn(
-              "flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors flex-shrink-0",
+              "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0",
               anyExpanded
                 ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 : "text-primary-600 bg-primary-50 hover:bg-primary-100"

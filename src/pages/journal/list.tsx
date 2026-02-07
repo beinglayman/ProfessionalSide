@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import {
   Search,
   Filter,
@@ -69,7 +69,7 @@ import { profileApiService } from '../../services/profile-api.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
-import { runDemoSync, runLiveSync, SyncState, SyncResult } from '../../services/sync.service';
+import { runDemoSync, runLiveSync, SyncState, SyncResult, getLastSyncAt } from '../../services/sync.service';
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 
 import { ActivityStream } from '../../components/journal/activity-stream';
@@ -87,7 +87,7 @@ import { useMCPIntegrations } from '../../hooks/useMCP';
 interface JournalPageProps {}
 
 export default function JournalPage() {
-  useDocumentTitle('Activity');
+  useDocumentTitle('Timeline');
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -127,6 +127,7 @@ export default function JournalPage() {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAtState] = useState<string | null>(() => getLastSyncAt());
   /**
    * True while LLM narratives are being generated in the background.
    * Set after sync completes, cleared when SSE sends narratives-complete or polling times out.
@@ -456,7 +457,7 @@ export default function JournalPage() {
     // Ensure the career stories cache is fresh before navigating,
     // otherwise the page may render with stale/empty data
     await queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
-    navigate(`/career-stories?storyId=${storyId}&celebrate=true`);
+    navigate(`/stories?storyId=${storyId}&celebrate=true`);
   };
 
   // Handle regenerate narrative
@@ -584,6 +585,7 @@ export default function JournalPage() {
         },
         onComplete: (result: SyncResult) => {
           setIsSyncing(false);
+          setLastSyncAtState(new Date().toISOString());
           // Enable enhancing indicator - narratives generate in background
           setNarrativesGenerating(true);
           // Invalidate all activity queries - they'll refetch when their tab is viewed
@@ -615,6 +617,7 @@ export default function JournalPage() {
         },
         onComplete: () => {
           setIsSyncing(false);
+          setLastSyncAtState(new Date().toISOString());
           // Enable enhancing indicator - narratives generate in background
           setNarrativesGenerating(true);
           // Invalidate all activity queries - they'll refetch when their tab is viewed
@@ -673,46 +676,77 @@ export default function JournalPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Compact Header: Tabs + Count + Actions in one row */}
-        <div className="flex items-center justify-between gap-4 mb-5">
-          {/* Left: Page title with count */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-gray-900">Timeline</h1>
-            {activityCount > 0 && (
-              <span className="text-sm text-gray-400">
-                {activityCount} activities
-              </span>
-            )}
-          </div>
-
-          {/* Right: Actions */}
-          <div className="flex items-center gap-2">
-            {/* Background narrative generation indicator */}
-            {narrativesGenerating && (
-              <EnhancingIndicator variant="inline" text="Enhancing stories..." className="bg-primary-50/80 px-3 py-1.5 rounded-full border border-primary-200" />
-            )}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className={cn(
-                "text-gray-600 hover:text-gray-900",
-                shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Greeting + meta */}
+            <div className="flex items-center gap-3">
+              {onboardingProfileImage ? (
+                <img
+                  src={onboardingProfileImage}
+                  alt=""
+                  className="h-10 w-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center ring-2 ring-white shadow-sm">
+                  <span className="text-sm font-semibold text-white">
+                    {user?.name?.charAt(0) || 'U'}
+                  </span>
+                </div>
               )}
-            >
-              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-            </Button>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900 leading-tight">
+                  {user?.name ? `${user.name.split(' ')[0]}'s Timeline` : 'Your Timeline'}
+                </h1>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {activityCount > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {activityCount} activities
+                    </span>
+                  )}
+                  {lastSyncAt && !isSyncing && (
+                    <>
+                      {activityCount > 0 && <span className="text-gray-300">&middot;</span>}
+                      <span className="text-xs text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
+                        Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
+                      </span>
+                    </>
+                  )}
+                  {narrativesGenerating && (
+                    <>
+                      <span className="text-gray-300">&middot;</span>
+                      <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
 
-            <Button
-              size="sm"
-              className="bg-primary-600 hover:bg-primary-700 text-white"
-              onClick={() => setShowNewEntryModal(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              New
-            </Button>
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSync}
+                disabled={isSyncing}
+                className={cn(
+                  "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                  shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
+                )}
+                title="Sync your tools"
+              >
+                <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+              </Button>
+
+              <Button
+                size="sm"
+                className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm"
+                onClick={() => setShowNewEntryModal(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                New
+              </Button>
+            </div>
           </div>
         </div>
 
