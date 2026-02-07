@@ -17,6 +17,8 @@
 import { setDemoSyncStatus } from './demo-mode.service';
 import { API_BASE_URL } from '../lib/api';
 
+const LAST_SYNC_KEY = 'app-last-sync-at';
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -100,6 +102,24 @@ export interface SyncResult {
   clusterEntryCount: number;
   /** True if narrative generation is happening in background */
   narrativesGeneratingInBackground?: boolean;
+}
+
+/** Get the last sync timestamp (works for both demo and live modes) */
+export function getLastSyncAt(): string | null {
+  try {
+    return localStorage.getItem(LAST_SYNC_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Store the last sync timestamp */
+function setLastSyncAt(): void {
+  try {
+    localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+  } catch {
+    // ignore
+  }
 }
 
 /**
@@ -203,7 +223,8 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
     // Notify again for stories
     window.dispatchEvent(new CustomEvent('journal-data-changed'));
 
-    // Update local sync status
+    // Update sync timestamps
+    setLastSyncAt();
     setDemoSyncStatus({
       hasSynced: true,
       lastSyncAt: new Date().toISOString(),
@@ -342,6 +363,9 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
 
     // Notify again for stories
     window.dispatchEvent(new CustomEvent('journal-data-changed'));
+
+    // Update sync timestamp
+    setLastSyncAt();
 
     callbacks.onComplete({
       activityCount: result.activityCount || 0,

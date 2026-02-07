@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { CheckCircle2, Loader2, Sparkles, Clock, Link2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Sparkles, Clock, Link2, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SyncState, SyncIntegration, EntryPreview } from '../../services/sync.service';
 
@@ -140,10 +140,10 @@ export function SyncProgressModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+      {/* Backdrop - always dismissible */}
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={isComplete ? onClose : undefined}
+        onClick={onClose}
       />
 
       {/* Modal */}
@@ -160,10 +160,17 @@ export function SyncProgressModal({
                 <Loader2 className="w-4 h-4 text-primary-600 animate-spin" />
               </div>
             )}
-            <div>
+            <div className="flex-1 min-w-0">
               <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
               <p className="text-xs text-gray-500">{subtitle}</p>
             </div>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -226,9 +233,9 @@ export function SyncProgressModal({
           )}
         </>
 
-        {/* Footer - only show when complete */}
-        {isComplete && (
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+          {isComplete ? (
             <button
               onClick={() => {
                 onComplete?.();
@@ -238,8 +245,12 @@ export function SyncProgressModal({
             >
               View Your Journal
             </button>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-gray-400 text-center">
+              Sync continues in background if you close this
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
