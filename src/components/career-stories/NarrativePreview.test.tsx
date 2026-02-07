@@ -9,8 +9,23 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NarrativePreview } from './NarrativePreview';
 import { CareerStory, GenerateSTARResult, NarrativeFramework, ToolType } from '../../types/career-stories';
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
+/** Render with QueryClientProvider wrapper */
+function renderWithProviders(ui: React.ReactElement) {
+  return render(ui, { wrapper: createWrapper() });
+}
 
 // Mock clipboard API
 const mockClipboard = {
@@ -146,7 +161,7 @@ describe('NarrativePreview', () => {
 
   describe('Copy Functionality', () => {
     it('copies STAR sections when STAR framework is active', async () => {
-      render(<NarrativePreview {...defaultProps} />);
+      renderWithProviders(<NarrativePreview {...defaultProps} />);
 
       await triggerCopy();
 
@@ -165,7 +180,7 @@ describe('NarrativePreview', () => {
     it('copies SHARE sections when SHARE framework is active with story.sections', async () => {
       const shareStory = createStory('SHARE');
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           framework="SHARE"
@@ -192,7 +207,7 @@ describe('NarrativePreview', () => {
     it('copies STARL sections including learning when STARL framework is active', async () => {
       const starlStory = createStory('STARL');
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           framework="STARL"
@@ -218,7 +233,7 @@ describe('NarrativePreview', () => {
     it('copies CAR sections (3 sections only)', async () => {
       const carStory = createStory('CAR');
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           framework="CAR"
@@ -244,7 +259,7 @@ describe('NarrativePreview', () => {
     it('handles clipboard API failure gracefully', async () => {
       mockClipboard.writeText.mockRejectedValue(new Error('Permission denied'));
 
-      render(<NarrativePreview {...defaultProps} />);
+      renderWithProviders(<NarrativePreview {...defaultProps} />);
 
       await triggerCopy();
 
@@ -260,7 +275,7 @@ describe('NarrativePreview', () => {
     it('renders all SHARE sections when SHARE framework is selected', () => {
       const shareStory = createStory('SHARE');
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           framework="SHARE"
@@ -278,7 +293,7 @@ describe('NarrativePreview', () => {
     it('renders all STARL sections including Learning', () => {
       const starlStory = createStory('STARL');
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           framework="STARL"
@@ -296,7 +311,7 @@ describe('NarrativePreview', () => {
     it('renders SOAR sections with Obstacles instead of Task', () => {
       const soarStory = createStory('SOAR');
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           framework="SOAR"
@@ -317,7 +332,7 @@ describe('NarrativePreview', () => {
     it('calls onFrameworkChange when framework is changed via selector', async () => {
       const onFrameworkChange = vi.fn();
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           onFrameworkChange={onFrameworkChange}
@@ -342,7 +357,7 @@ describe('NarrativePreview', () => {
     it('calls onRegenerate when regenerate button is clicked', () => {
       const onRegenerate = vi.fn();
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           onRegenerate={onRegenerate}
@@ -358,7 +373,7 @@ describe('NarrativePreview', () => {
     it('does not call onRegenerate when disabled', () => {
       const onRegenerate = vi.fn();
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           onRegenerate={onRegenerate}
@@ -372,7 +387,7 @@ describe('NarrativePreview', () => {
     });
 
     it('shows loading state when isLoading is true', () => {
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           isLoading={true}
@@ -390,7 +405,7 @@ describe('NarrativePreview', () => {
         sections: {},
       };
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           story={emptyStory}
@@ -402,7 +417,7 @@ describe('NarrativePreview', () => {
     });
 
     it('handles missing star result and story', () => {
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           result={null}
@@ -420,7 +435,7 @@ describe('NarrativePreview', () => {
         failedGates: ['Insufficient activities'],
       });
 
-      render(
+      renderWithProviders(
         <NarrativePreview
           {...defaultProps}
           result={failedResult}
