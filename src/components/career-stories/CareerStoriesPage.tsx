@@ -35,6 +35,7 @@ import { NarrativePreview } from './NarrativePreview';
 import { StoryCard } from './StoryCard';
 import { FormatSwitchModal } from './FormatSwitchModal';
 import { PublishModal } from './PublishModal';
+import { DerivationModal } from './DerivationModal';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
@@ -177,6 +178,8 @@ export function CareerStoriesPage() {
   } | null>(null);
   // Publish modal state
   const [publishModalStoryId, setPublishModalStoryId] = useState<string | null>(null);
+  // Derivation modal state
+  const [derivationStoryId, setDerivationStoryId] = useState<string | null>(null);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -464,6 +467,11 @@ export function CareerStoriesPage() {
     if (!formatSwitchStoryId) return null;
     return existingStories?.stories?.find((s) => s.id === formatSwitchStoryId) || null;
   }, [formatSwitchStoryId, existingStories]);
+
+  const derivationStory = useMemo(() => {
+    if (!derivationStoryId) return null;
+    return existingStories?.stories?.find((s) => s.id === derivationStoryId) || null;
+  }, [derivationStoryId, existingStories]);
 
   const handleFormatRegenerate = useCallback(async (
     fw: NarrativeFramework,
@@ -906,6 +914,7 @@ export function CareerStoriesPage() {
                 isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
                 onDelete={handleDeleteStory}
                 isDeleting={deleteStoryMutation.isPending}
+                onShareAs={() => selectedStoryDirect && setDerivationStoryId(selectedStoryDirect.id)}
               />
             </div>
           )}
@@ -1202,6 +1211,15 @@ export function CareerStoriesPage() {
           />
         );
       })()}
+
+      {/* Derivation Modal */}
+      {derivationStory && derivationStoryId && (
+        <DerivationModal
+          isOpen={!!derivationStoryId}
+          onClose={() => setDerivationStoryId(null)}
+          story={derivationStory}
+        />
+      )}
     </div>
   );
 }

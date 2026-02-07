@@ -129,7 +129,7 @@ export const ARCHETYPE_GROUPS: Record<ArchetypeGroup, { label: string; descripti
 // WRITING STYLES
 // =============================================================================
 
-import type { WritingStyle } from '../../types/career-stories';
+import type { WritingStyle, DerivationType } from '../../types/career-stories';
 
 export const WRITING_STYLES: { value: WritingStyle; label: string; description: string }[] = [
   { value: 'professional', label: 'Professional', description: 'Formal, achievement-focused' },
@@ -140,6 +140,23 @@ export const WRITING_STYLES: { value: WritingStyle; label: string; description: 
 
 /** Max length for user prompt to prevent excessively long LLM inputs */
 export const USER_PROMPT_MAX_LENGTH = 500;
+
+// =============================================================================
+// DERIVATION TYPE METADATA
+// =============================================================================
+
+export const DERIVATION_TYPE_META: Record<DerivationType, {
+  label: string;
+  description: string;
+  maxLength?: string;
+}> = {
+  interview: { label: 'Interview Answer', description: '~200 words, spoken format', maxLength: '~200 words' },
+  linkedin: { label: 'LinkedIn Post', description: 'Hook + story + CTA', maxLength: '1300 chars' },
+  resume: { label: 'Resume Bullet', description: 'Action verb + impact', maxLength: '1-2 lines' },
+  'one-on-one': { label: '1:1 Talking Points', description: '3-5 bullets for your manager', maxLength: '3-5 bullets' },
+  'self-assessment': { label: 'Self Assessment', description: 'Evidence-backed paragraph', maxLength: '1 paragraph' },
+  'team-share': { label: 'Team Share', description: '"We" framing, Slack-ready', maxLength: '2-3 sentences' },
+};
 
 // =============================================================================
 // CAREER QUOTES

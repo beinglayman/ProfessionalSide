@@ -377,6 +377,32 @@ export interface JournalEntryMeta {
 }
 
 // =============================================================================
+// STORY DERIVATIONS
+// =============================================================================
+
+export type DerivationType = 'interview' | 'linkedin' | 'resume' | 'one-on-one' | 'self-assessment' | 'team-share';
+
+export interface DeriveStoryRequest {
+  derivation: DerivationType;
+  tone?: WritingStyle;
+  customPrompt?: string;
+}
+
+export interface DeriveStoryResponse {
+  text: string;
+  charCount: number;
+  wordCount: number;
+  speakingTimeSec?: number;
+  metadata: {
+    derivation: DerivationType;
+    framework: NarrativeFramework;
+    archetype: string | null;
+    model: string;
+    processingTimeMs: number;
+  };
+}
+
+// =============================================================================
 // STORY SOURCES
 // =============================================================================
 

@@ -39,6 +39,8 @@ import {
   WizardGenerateRequest,
   WizardGenerateResponse,
   StorySource,
+  DeriveStoryRequest,
+  DeriveStoryResponse,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -444,6 +446,21 @@ export class CareerStoriesService {
     const response = await api.patch<ApiResponse<StorySource>>(
       `/career-stories/stories/${storyId}/sources/${sourceId}`,
       { excludedAt }
+    );
+    return response.data;
+  }
+
+  // =============================================================================
+  // STORY DERIVATIONS
+  // =============================================================================
+
+  /**
+   * Generate an ephemeral audience-specific derivation from a story
+   */
+  static async deriveStory(storyId: string, params: DeriveStoryRequest): Promise<ApiResponse<DeriveStoryResponse>> {
+    const response = await api.post<ApiResponse<DeriveStoryResponse>>(
+      `/career-stories/stories/${storyId}/derive`,
+      params
     );
     return response.data;
   }

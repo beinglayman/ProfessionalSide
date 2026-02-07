@@ -21,13 +21,11 @@ import {
   Trash2,
   Share2,
   TrendingUp,
-  MessageSquare,
   Play,
   Pause,
   RotateCcw,
   Mic,
   FileText,
-  Linkedin,
   HelpCircle,
   X,
   Type,
@@ -689,46 +687,7 @@ const KeyMetrics: React.FC<KeyMetricsProps> = ({ metrics }) => {
   );
 };
 
-// =============================================================================
-// COPY FORMAT SELECTOR
-// =============================================================================
-
-type CopyFormat = 'interview' | 'linkedin' | 'resume' | 'raw';
-
-interface CopyMenuProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onCopy: (format: CopyFormat) => void;
-}
-
-const CopyMenu: React.FC<CopyMenuProps> = ({ isOpen, onClose, onCopy }) => {
-  if (!isOpen) return null;
-
-  const formats: { id: CopyFormat; label: string; icon: React.ElementType; description: string }[] = [
-    { id: 'interview', label: 'Interview Format', icon: MessageSquare, description: 'Full STAR with context' },
-    { id: 'linkedin', label: 'LinkedIn Post', icon: Linkedin, description: 'Engaging story format' },
-    { id: 'resume', label: 'Resume Bullet', icon: FileText, description: 'Concise achievement' },
-    { id: 'raw', label: 'Plain Text', icon: Copy, description: 'Just the content' },
-  ];
-
-  return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2">
-      {formats.map((fmt) => (
-        <button
-          key={fmt.id}
-          onClick={() => { onCopy(fmt.id); onClose(); }}
-          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
-        >
-          <fmt.icon className="h-4 w-4 text-gray-400" />
-          <div>
-            <div className="text-sm font-medium text-gray-900">{fmt.label}</div>
-            <div className="text-xs text-gray-500">{fmt.description}</div>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-};
+// CopyMenu removed — replaced by "Share As..." DerivationModal (LLM-powered)
 
 // =============================================================================
 // NARRATIVE SECTION (Main content block)
@@ -1373,6 +1332,7 @@ interface NarrativePreviewProps {
   isDeleting?: boolean;
   sources?: StorySource[];
   sourceCoverage?: SourceCoverage;
+  onShareAs?: () => void;
 }
 
 export function NarrativePreview({
@@ -1400,11 +1360,11 @@ export function NarrativePreview({
   isDeleting = false,
   sources = [],
   sourceCoverage,
+  onShareAs,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
-  const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [practiceMode, setPracticeMode] = useState(false); // Timer off by default
   const [timerActive, setTimerActive] = useState(false);
   const [showCoaching, setShowCoaching] = useState(true); // Tips on by default
@@ -1421,7 +1381,6 @@ export function NarrativePreview({
     });
   }, []);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const copyMenuRef = useRef<HTMLDivElement>(null);
 
   const addSourceMutation = useAddStorySource();
   const updateSourceMutation = useUpdateStorySource();
@@ -1521,17 +1480,6 @@ export function NarrativePreview({
     return timings;
   }, [sectionKeys, useStorySections, story, star]);
 
-  // Close copy menu on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (copyMenuRef.current && !copyMenuRef.current.contains(e.target as Node)) {
-        setShowCopyMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   // Initialize edits when data changes
   useEffect(() => {
     if (useStorySections && story?.sections) {
@@ -1568,7 +1516,7 @@ export function NarrativePreview({
     }
   };
 
-  const handleCopy = useCallback(async (format: CopyFormat = 'raw') => {
+  const handleCopy = useCallback(async () => {
     if (!star && !story?.sections) return;
 
     const getSectionContent = (key: string): string => {
@@ -1581,71 +1529,12 @@ export function NarrativePreview({
       return '';
     };
 
-    let textToCopy = '';
-
-    switch (format) {
-      case 'interview': {
-        // Full structured format for interview prep
-        const parts: string[] = [`# ${clusterName}`, ''];
-        for (const key of sectionKeys) {
-          const content = getSectionContent(key);
-          if (content) {
-            parts.push(`## ${capitalizeFirst(key)}`);
-            parts.push(content);
-            parts.push('');
-          }
-        }
-        if (keyMetrics.length > 0) {
-          parts.push('## Key Numbers to Remember');
-          parts.push(keyMetrics.join(' | '));
-        }
-        textToCopy = parts.join('\n');
-        break;
-      }
-      case 'linkedin': {
-        // Engaging story format for LinkedIn
-        const situation = getSectionContent('situation') || getSectionContent('context') || getSectionContent('challenge');
-        const action = getSectionContent('action') || getSectionContent('actions');
-        const result = getSectionContent('result') || getSectionContent('results');
-
-        const parts = [
-          `🎯 ${clusterName}`,
-          '',
-          situation ? `The challenge: ${situation}` : '',
-          '',
-          action ? `What I did: ${action}` : '',
-          '',
-          result ? `The result: ${result}` : '',
-          '',
-          keyMetrics.length > 0 ? `📊 ${keyMetrics.slice(0, 3).join(' • ')}` : '',
-          '',
-          '#careerjourney #techleadership #growthmindset',
-        ].filter(Boolean);
-        textToCopy = parts.join('\n');
-        break;
-      }
-      case 'resume': {
-        // Single powerful bullet point
-        const action = getSectionContent('action') || getSectionContent('actions');
-        const result = getSectionContent('result') || getSectionContent('results');
-        const metrics = keyMetrics.slice(0, 2).join(', ');
-
-        const actionVerb = action.split(' ')[0] || 'Led';
-        const resultSummary = result.split('.')[0] || result;
-
-        textToCopy = `• ${actionVerb} ${clusterName.toLowerCase()}, resulting in ${resultSummary}${metrics ? ` (${metrics})` : ''}`;
-        break;
-      }
-      default: {
-        // Raw format
-        const parts: string[] = [];
-        for (const key of sectionKeys) {
-          const content = getSectionContent(key);
-          if (content) parts.push(`${capitalizeFirst(key)}:\n${content}`);
-        }
-        textToCopy = parts.join('\n\n');
-      }
+    const parts: string[] = [];
+    for (const key of sectionKeys) {
+      const content = getSectionContent(key);
+      if (content) parts.push(`${capitalizeFirst(key)}:\n${content}`);
     }
+    const textToCopy = parts.join('\n\n');
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -1655,7 +1544,7 @@ export function NarrativePreview({
     } catch (err) {
       console.warn('Failed to copy:', err);
     }
-  }, [star, story, useStorySections, sectionKeys, clusterName, keyMetrics]);
+  }, [star, story, useStorySections, sectionKeys]);
 
   const handleSave = () => {
     onSave?.(edits);
@@ -1832,18 +1721,26 @@ export function NarrativePreview({
               </button>
             )}
             <div className="w-px h-4 bg-gray-200 mx-0.5" />
-            <div className="relative" ref={copyMenuRef}>
+            <button
+              onClick={handleCopy}
+              className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
+              title="Copy plain text"
+              aria-label="Copy plain text"
+              data-testid="copy-star"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+            {onShareAs && (
               <button
-                onClick={() => setShowCopyMenu(!showCopyMenu)}
-                className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
-                title="Copy"
-                aria-label="Copy"
-                data-testid="copy-star"
+                onClick={onShareAs}
+                className="p-1.5 rounded text-gray-400 hover:bg-blue-50 hover:text-blue-600 inline-flex items-center"
+                title="Share As..."
+                aria-label="Share As"
+                data-testid="share-as"
               >
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <Sparkles className="h-3.5 w-3.5" />
               </button>
-              <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
-            </div>
+            )}
             {story?.isPublished ? (
               <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50 inline-flex items-center" title="Unpublish" aria-label="Unpublish">
                 <CheckCircle2 className="h-3.5 w-3.5" />

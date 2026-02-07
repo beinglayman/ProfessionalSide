@@ -41,6 +41,8 @@ import {
   WritingStyle,
   ToolActivity,
   StorySource,
+  DeriveStoryRequest,
+  DeriveStoryResponse,
 } from '../types/career-stories';
 import { collectActivityIds } from '../utils/story-timeline';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
@@ -644,5 +646,20 @@ export const useUpdateStorySource = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
     },
+  });
+};
+
+// =============================================================================
+// STORY DERIVATIONS
+// =============================================================================
+
+/**
+ * Generate an ephemeral derivation from a story.
+ * No cache invalidation — derivations are not stored.
+ */
+export const useDeriveStory = () => {
+  return useMutation({
+    mutationFn: ({ storyId, params }: { storyId: string; params: DeriveStoryRequest }) =>
+      CareerStoriesService.deriveStory(storyId, params),
   });
 };
