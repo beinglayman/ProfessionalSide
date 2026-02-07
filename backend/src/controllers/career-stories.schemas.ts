@@ -135,6 +135,40 @@ export const formatZodErrors = (error: z.ZodError) => ({
 });
 
 // =============================================================================
+// DERIVATION SCHEMAS
+// =============================================================================
+
+export const derivationTypeSchema = z.enum([
+  'interview',
+  'linkedin',
+  'resume',
+  'one-on-one',
+  'self-assessment',
+  'team-share',
+]);
+
+export type DerivationType = z.infer<typeof derivationTypeSchema>;
+
+/**
+ * Schema for POST /stories/:id/derive request body
+ */
+export const deriveStorySchema = z.object({
+  derivation: derivationTypeSchema,
+  tone: writingStyleSchema.optional(),
+  customPrompt: z
+    .string()
+    .max(USER_PROMPT_MAX_LENGTH)
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const trimmed = val.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    }),
+}).strict();
+
+export type DeriveStoryInput = z.infer<typeof deriveStorySchema>;
+
+// =============================================================================
 // STORY SOURCE SCHEMAS
 // =============================================================================
 
