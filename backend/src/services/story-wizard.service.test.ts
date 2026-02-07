@@ -34,11 +34,22 @@ vi.mock('../cli/story-coach/services/archetype-detector', () => ({
     alternatives: [
       { archetype: 'detective', confidence: 0.65, reasoning: 'Investigation elements present' },
     ],
+    signals: {
+      hasCrisis: true,
+      hasArchitecture: false,
+      hasStakeholders: false,
+      hasMultiplication: false,
+      hasMystery: false,
+      hasPioneering: false,
+      hasTurnaround: false,
+      hasPrevention: false,
+    },
   }),
 }));
 
+const mockGetModelSelector = vi.fn().mockReturnValue(null); // Default: use fallback sections
 vi.mock('./ai/model-selector.service', () => ({
-  getModelSelector: vi.fn().mockReturnValue(null), // Use fallback sections
+  getModelSelector: (...args: unknown[]) => mockGetModelSelector(...args),
 }));
 
 const prisma = new PrismaClient();
@@ -238,6 +249,132 @@ describe('StoryWizardService', () => {
         expect(alt).toHaveProperty('archetype');
         expect(alt).toHaveProperty('confidence');
       }
+    });
+  });
+
+  describe('analyzeEntry (dynamic questions)', () => {
+    const VALID_DYNAMIC_QUESTIONS = JSON.stringify([
+      { id: 'ff-dig-1', phase: 'dig', question: 'You mentioned getting paged at 2am — what did the alert say exactly?', hint: 'The specific error message or dashboard.' },
+      { id: 'ff-dig-2', phase: 'dig', question: 'Sarah from platform and Marcus from orders — who did you call first?', hint: 'Name the person and what you said.' },
+      { id: 'ff-dig-3', phase: 'dig', question: 'What was the hardest dead end before you found the race condition?', hint: 'The wrong hypothesis you chased.' },
+      { id: 'ff-impact-1', phase: 'impact', question: 'You said $500K — how did you calculate that number?', hint: 'Revenue per minute, affected transactions.' },
+      { id: 'ff-impact-2', phase: 'impact', question: 'How long from the 2am alert to the fix being deployed?', hint: 'Total minutes or hours.' },
+      { id: 'ff-growth-1', phase: 'growth', question: 'You mentioned comprehensive monitoring — what specifically did you set up after?', hint: 'A concrete runbook or alert that exists today.' },
+    ]);
+
+    afterEach(() => {
+      mockGetModelSelector.mockReturnValue(null);
+    });
+
+    it('should return dynamic questions when LLM succeeds', async () => {
+      mockGetModelSelector.mockReturnValue({
+        executeTask: vi.fn().mockResolvedValue({ content: VALID_DYNAMIC_QUESTIONS }),
+      });
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      expect(result.questions).toHaveLength(6);
+      expect(result.questions[0].question).toContain('2am');
+    });
+
+    it('should add checkbox options to dynamic questions', async () => {
+      mockGetModelSelector.mockReturnValue({
+        executeTask: vi.fn().mockResolvedValue({ content: VALID_DYNAMIC_QUESTIONS }),
+      });
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      const dig1 = result.questions.find((q) => q.id.includes('dig-1'));
+      const impact1 = result.questions.find((q) => q.id.includes('impact-1'));
+      expect(dig1?.options).toBeDefined();
+      expect(dig1?.options?.length).toBeGreaterThan(0);
+      expect(impact1?.options).toBeDefined();
+      expect(impact1?.options?.length).toBeGreaterThan(0);
+    });
+
+    it('should preserve phase distribution (3/2/1) in dynamic questions', async () => {
+      mockGetModelSelector.mockReturnValue({
+        executeTask: vi.fn().mockResolvedValue({ content: VALID_DYNAMIC_QUESTIONS }),
+      });
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      const phases = result.questions.map((q) => q.phase);
+      expect(phases.filter((p) => p === 'dig')).toHaveLength(3);
+      expect(phases.filter((p) => p === 'impact')).toHaveLength(2);
+      expect(phases.filter((p) => p === 'growth')).toHaveLength(1);
+    });
+
+    it('should fall back to static questions when LLM returns invalid JSON', async () => {
+      mockGetModelSelector.mockReturnValue({
+        executeTask: vi.fn().mockResolvedValue({ content: 'not valid json' }),
+      });
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      expect(result.questions).toHaveLength(6);
+      // Static firefighter questions start with "What was the moment"
+      expect(result.questions[0].question).toContain('moment you realized');
+    });
+
+    it('should fall back to static questions when model selector is null', async () => {
+      mockGetModelSelector.mockReturnValue(null);
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      expect(result.questions).toHaveLength(6);
+      expect(result.questions[0].question).toContain('moment you realized');
+    });
+
+    it('should fall back to static questions when LLM throws', async () => {
+      mockGetModelSelector.mockReturnValue({
+        executeTask: vi.fn().mockRejectedValue(new Error('API timeout')),
+      });
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      expect(result.questions).toHaveLength(6);
+      expect(result.questions[0].question).toContain('moment you realized');
+    });
+
+    it('should generate question IDs compatible with answersToContext', async () => {
+      mockGetModelSelector.mockReturnValue({
+        executeTask: vi.fn().mockResolvedValue({ content: VALID_DYNAMIC_QUESTIONS }),
+      });
+
+      const entry = await createTestJournalEntry();
+      const service = createStoryWizardService(true);
+      const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
+
+      // All question IDs should contain the standard patterns
+      const ids = result.questions.map((q) => q.id);
+      expect(ids.some((id) => id.includes('dig-1'))).toBe(true);
+      expect(ids.some((id) => id.includes('dig-2'))).toBe(true);
+      expect(ids.some((id) => id.includes('dig-3'))).toBe(true);
+      expect(ids.some((id) => id.includes('impact-1'))).toBe(true);
+      expect(ids.some((id) => id.includes('impact-2'))).toBe(true);
+      expect(ids.some((id) => id.includes('growth-1'))).toBe(true);
+
+      // Verify answersToContext works with dynamic IDs
+      const answers = {
+        [ids[0]]: { selected: ['paged'], freeText: 'Got paged at 2am' },
+        [ids[3]]: { selected: ['revenue_risk'], freeText: 'Would have lost $500K' },
+      };
+      const context = answersToContext(answers);
+      expect(context.realStory).toBeTruthy();
+      expect(context.counterfactual).toBeTruthy();
     });
   });
 

@@ -50,7 +50,14 @@ import { getModelSelector } from './ai/model-selector.service';
 // Reuse archetype detection and questions from CLI
 import { detectArchetype } from '../cli/story-coach/services/archetype-detector';
 import { ARCHETYPE_QUESTIONS } from '../cli/story-coach/questions';
-import { JournalEntryFile } from '../cli/story-coach/types';
+import { JournalEntryFile, ArchetypeSignals } from '../cli/story-coach/types';
+
+// Dynamic wizard question generation
+import {
+  buildWizardQuestionMessages,
+  parseWizardQuestionsResponse,
+  ARCHETYPE_PREFIXES,
+} from './ai/prompts/wizard-questions.prompt';
 
 // Re-export types for convenience
 export { StoryArchetype, ExtractedContext } from './ai/prompts/career-story.prompt';
@@ -412,13 +419,27 @@ export class StoryWizardService {
     };
 
     const detection = await detectArchetype(entryFile);
-    const questions = transformQuestions(detection.primary.archetype);
+
+    // Try dynamic LLM-generated questions, fall back to static
+    const entryText = [entry.fullContent, entry.description].filter(Boolean).join('\n\n');
+    let questions = await this.generateDynamicQuestions(
+      detection.primary.archetype,
+      detection.primary.reasoning,
+      entry.title || 'Untitled',
+      entryText,
+      detection.signals,
+    );
+    const isDynamic = questions !== null;
+    if (!questions) {
+      questions = transformQuestions(detection.primary.archetype);
+    }
 
     console.log(`${this.logPrefix} analyzeEntry complete`, {
       entryId: entry.id,
       archetype: detection.primary.archetype,
       confidence: detection.primary.confidence,
       questionCount: questions.length,
+      dynamicQuestions: isDynamic,
     });
 
     return {
@@ -652,6 +673,67 @@ export class StoryWizardService {
       },
       evaluation,
     };
+  }
+
+  /**
+   * Generate contextual D-I-G questions via LLM.
+   * Returns null on any failure (caller falls back to static questions).
+   */
+  private async generateDynamicQuestions(
+    archetype: StoryArchetype,
+    archetypeReasoning: string,
+    entryTitle: string,
+    entryContent: string,
+    signals: ArchetypeSignals,
+  ): Promise<WizardQuestion[] | null> {
+    const modelSelector = getModelSelector();
+    if (!modelSelector) return null;
+
+    const prefix = ARCHETYPE_PREFIXES[archetype];
+    const messages = buildWizardQuestionMessages({
+      archetype,
+      archetypeReasoning,
+      entryTitle,
+      entryContent,
+      signals,
+      questionIdPrefix: prefix,
+    });
+
+    try {
+      const result = await modelSelector.executeTask('analyze', messages, 'quick', {
+        maxTokens: 1200,
+        temperature: 0.4,
+      });
+
+      const parsed = parseWizardQuestionsResponse(result.content, prefix);
+      if (!parsed) {
+        console.warn(`${this.logPrefix} Dynamic question parse failed, falling back to static`);
+        return null;
+      }
+
+      // Convert to WizardQuestion[] and add static checkbox options
+      return parsed.map((q) => {
+        const wizardQ: WizardQuestion = {
+          id: q.id,
+          question: q.question,
+          phase: q.phase,
+          hint: q.hint,
+          allowFreeText: true,
+        };
+
+        // TODO: Generate context-appropriate options via LLM in v2 instead of static options
+        if (q.phase === 'impact' && q.id.includes(QUESTION_PATTERNS.IMPACT_1)) {
+          wizardQ.options = [...QUESTION_OPTIONS.IMPACT_TYPES];
+        } else if (q.phase === 'dig' && q.id.includes(QUESTION_PATTERNS.DIG_1)) {
+          wizardQ.options = [...QUESTION_OPTIONS.DISCOVERY_METHODS];
+        }
+
+        return wizardQ;
+      });
+    } catch (error) {
+      console.warn(`${this.logPrefix} Dynamic question generation failed:`, error);
+      return null;
+    }
   }
 
   private async generateSections(
