@@ -63,14 +63,17 @@ export class GitHubTool {
       const endDate = dateRange?.end || new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 day buffer
       const startDate = dateRange?.start || new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-      // Fetch different types of activity in parallel
-      const [userInfo, commits, pullRequests, issues, repos] = await Promise.all([
+      // Stage 1: Fetch user info, repos, PRs, and issues in parallel
+      // (commits depend on repos + userInfo, so they run in stage 2)
+      const [userInfo, repos, pullRequests, issues] = await Promise.all([
         this.fetchUserInfo(),
-        this.fetchCommits(startDate, endDate),
+        this.fetchRepositories(startDate, endDate),
         this.fetchPullRequests(startDate, endDate),
-        this.fetchIssues(startDate, endDate),
-        this.fetchRepositories(startDate, endDate)
+        this.fetchIssues(startDate, endDate)
       ]);
+
+      // Stage 2: Fetch commits using repo list and authenticated user login
+      const commits = await this.fetchCommits(startDate, endDate, repos, userInfo?.login);
 
       // Compile activity data
       const activity: GitHubActivity = {
@@ -153,67 +156,91 @@ export class GitHubTool {
   }
 
   /**
-   * Fetch commits within date range
+   * Fetch commits within date range using per-repo listing.
+   * Uses /repos/{owner}/{repo}/commits with server-side since/until filtering
+   * instead of /user/events which has a 100-event cap across all event types.
    * @param startDate Start date
    * @param endDate End date
+   * @param activeRepos Repos with recent push activity (from fetchRepositories)
+   * @param login Authenticated user's GitHub login (for author filtering)
    * @returns Array of commits
    */
-  private async fetchCommits(startDate: Date, endDate: Date): Promise<any[]> {
-    try {
-      // Get user's recent events
-      const eventsResponse = await this.githubApi.get('/user/events', {
-        params: {
-          per_page: 100
-        }
-      });
-
-      // Filter push events within date range
-      const pushEvents = eventsResponse.data.filter((event: any) => {
-        if (event.type !== 'PushEvent') return false;
-        const eventDate = new Date(event.created_at);
-        return eventDate >= startDate && eventDate <= endDate;
-      });
-
-      // Extract commits from push events
-      const commits: any[] = [];
-      for (const event of pushEvents) {
-        if (event.payload?.commits) {
-          for (const commit of event.payload.commits) {
-            const [owner, repo] = event.repo.name.split('/');
-
-            // Fetch commit details to get file stats
-            let stats = null;
-            try {
-              const commitDetails = await this.githubApi.get(`/repos/${owner}/${repo}/commits/${commit.sha}`);
-              stats = {
-                additions: commitDetails.data.stats?.additions || 0,
-                deletions: commitDetails.data.stats?.deletions || 0,
-                total: commitDetails.data.stats?.total || 0,
-                filesChanged: commitDetails.data.files?.length || 0
-              };
-            } catch (error) {
-              console.error(`[GitHub Tool] Error fetching commit details for ${commit.sha}:`, error);
-              // Continue without stats if request fails
-            }
-
-            commits.push({
-              sha: commit.sha,
-              message: commit.message,
-              author: commit.author?.name || event.actor?.login,
-              timestamp: new Date(event.created_at),
-              url: `https://github.com/${event.repo.name}/commit/${commit.sha}`,
-              repository: event.repo.name,
-              stats: stats
-            });
-          }
-        }
-      }
-
-      return commits;
-    } catch (error) {
-      console.error('[GitHub Tool] Error fetching commits:', error);
+  private async fetchCommits(
+    startDate: Date,
+    endDate: Date,
+    activeRepos: any[],
+    login?: string
+  ): Promise<any[]> {
+    if (!activeRepos.length || !login) {
       return [];
     }
+
+    // Cap at 10 most-recently-pushed repos to avoid rate limit issues
+    const reposToQuery = activeRepos.slice(0, 10);
+    const allCommits: any[] = [];
+    let detailFetchCount = 0;
+    const MAX_DETAIL_FETCHES = 50;
+
+    // Fetch commits from each repo in parallel
+    const repoResults = await Promise.all(
+      reposToQuery.map(async (repo) => {
+        const [owner, repoName] = repo.name.split('/');
+        try {
+          const commitsResponse = await this.githubApi.get(`/repos/${owner}/${repoName}/commits`, {
+            params: {
+              since: startDate.toISOString(),
+              until: endDate.toISOString(),
+              author: login,
+              per_page: 50
+            }
+          });
+
+          return { owner, repoName, fullName: repo.name, commits: commitsResponse.data };
+        } catch (error: any) {
+          console.error(`[GitHub Tool] Error fetching commits for ${repo.name}:`, error.message);
+          return { owner, repoName, fullName: repo.name, commits: [] };
+        }
+      })
+    );
+
+    // Collect commits and fetch details (capped at MAX_DETAIL_FETCHES total)
+    for (const result of repoResults) {
+      for (const commit of result.commits) {
+        // Fetch commit details for stats (additions/deletions/files)
+        let stats = null;
+        if (detailFetchCount < MAX_DETAIL_FETCHES) {
+          try {
+            const commitDetails = await this.githubApi.get(
+              `/repos/${result.owner}/${result.repoName}/commits/${commit.sha}`
+            );
+            stats = {
+              additions: commitDetails.data.stats?.additions || 0,
+              deletions: commitDetails.data.stats?.deletions || 0,
+              total: commitDetails.data.stats?.total || 0,
+              filesChanged: commitDetails.data.files?.length || 0
+            };
+            detailFetchCount++;
+          } catch (error) {
+            console.error(`[GitHub Tool] Error fetching commit details for ${commit.sha}:`, error);
+          }
+        }
+
+        allCommits.push({
+          sha: commit.sha,
+          message: commit.commit?.message || '',
+          author: commit.commit?.author?.name || commit.author?.login || login,
+          timestamp: new Date(commit.commit?.author?.date || commit.commit?.committer?.date),
+          url: commit.html_url || `https://github.com/${result.fullName}/commit/${commit.sha}`,
+          repository: result.fullName,
+          stats
+        });
+      }
+    }
+
+    const reposQueried = repoResults.filter(r => r.commits.length > 0).length;
+    console.log(`[GitHub Tool] Fetched ${allCommits.length} commits from ${reposQueried} repos`);
+
+    return allCommits;
   }
 
   /**
