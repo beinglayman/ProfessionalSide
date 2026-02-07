@@ -198,7 +198,7 @@ describe('buildCareerStoryMessages', () => {
       },
     }));
     const userContent = messages[1].content as string;
-    expect(userContent).toContain('Extracted Context from Story Coach');
+    expect(userContent).toContain('User-Provided Context');
     expect(userContent).toContain('The real hero was the monitoring system I built');
     expect(userContent).toContain('99.99% uptime for 6 months');
   });

@@ -66,7 +66,7 @@ Return a JSON object with these EXACT fields:
   "sections": {
     {{#each sectionKeys}}
     "{{this}}": {
-      "summary": "2-4 sentences for this section, emphasizing the user's contributions",
+      "summary": "1-2 concise sentences. Every sentence must contain a fact, name, or number. No filler.",
       "evidence": [
         {
           "activityId": "activity-id-if-relevant",

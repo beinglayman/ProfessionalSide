@@ -130,14 +130,14 @@ const SECTION_GUIDELINES: Record<string, string> = {
  * Shapes the voice and emphasis of the generated story.
  */
 const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
-  firefighter: 'This is a CRISIS RESPONSE story. Emphasize: urgency, quick thinking, disaster averted. The drama is in what almost went wrong. Use time markers ("At 2am...", "With 48 hours left..."). Show the moment of realization.',
-  architect: 'This is a SYSTEM DESIGN story. Emphasize: vision, trade-offs, lasting impact. The value is in what was built to last. Show the design decisions and their rationale. Mention adoption ("5 teams now use...", "still the foundation...").',
-  diplomat: 'This is a STAKEHOLDER ALIGNMENT story. Emphasize: competing interests, influence, consensus building. The skill is in bridging divides. Name the stakeholders and their concerns. Show how you found common ground.',
-  multiplier: 'This is a FORCE MULTIPLICATION story. Emphasize: creating leverage, adoption by others, compound impact. The value scales beyond the individual. Quantify the multiplication ("20 engineers now use...", "saved 10 hours/week each").',
-  detective: 'This is an INVESTIGATION story. Emphasize: mystery, dead ends, breakthrough moment. The skill is in finding the root cause. Walk through the investigation. Show the "aha" moment when you found it.',
-  pioneer: 'This is a FIRST MOVER story. Emphasize: no documentation, learning by doing, trail left for others. The courage is in exploring unknown territory. Show what you tried that didn\'t work. Highlight the guide you created for others.',
-  turnaround: 'This is a RECOVERY story. Emphasize: inherited mess, diagnosis, systematic fix. Show the before/after transformation with specific metrics. Be honest about how bad it was initially.',
-  preventer: 'This is a RISK PREVENTION story. Emphasize: noticing what others missed, raising the alarm, disaster averted. The value is in what didn\'t happen. Paint the picture of the counterfactual disaster.',
+  firefighter: 'CRISIS RESPONSE. Lead with the time marker ("At 2am...", "With 48h left..."). State what broke, who you called, what you did, what was saved. Keep it tight.',
+  architect: 'SYSTEM DESIGN. State the design decision, the trade-off, and who uses it now. Numbers: "5 teams", "still the foundation 2 years later."',
+  diplomat: 'STAKEHOLDER ALIGNMENT. Name the sides, name their concerns, state how you bridged them. Skip "I learned that influence matters."',
+  multiplier: 'FORCE MULTIPLICATION. State what you built, who adopted it, and the compound math: "20 engineers × 10 hrs/week saved."',
+  detective: 'INVESTIGATION. State the mystery, the dead ends, and the root cause. One sentence for the breakthrough, not three.',
+  pioneer: 'FIRST MOVER. State what was unknown, what you tried that failed, and the trail you left (doc, guide, template).',
+  turnaround: 'RECOVERY. Before/after numbers. State what you inherited, what you diagnosed, what changed.',
+  preventer: 'RISK PREVENTION. State what you noticed, what you did about it, and the disaster that didn\'t happen. Counterfactual in one line.',
 };
 
 // =============================================================================
@@ -248,29 +248,29 @@ export function buildCareerStoryMessages(
  * Format extracted context for inclusion in the prompt.
  */
 function formatExtractedContext(ctx: ExtractedContext): string {
-  const sections: string[] = ['\n\n## Extracted Context from Story Coach\n'];
-  sections.push('The user revealed these additional details. Use them to enrich the story:\n');
+  const sections: string[] = ['\n\n## User-Provided Context\n'];
+  sections.push('Weave these facts into the story. Do not pad or editorialize around them — use them directly.\n');
 
   if (ctx.realStory) {
-    sections.push(`### The Real Story\n${ctx.realStory}\n`);
+    sections.push(`- **Real story:** ${ctx.realStory}`);
   }
   if (ctx.obstacle) {
-    sections.push(`### What Almost Went Wrong\n${ctx.obstacle}\n`);
+    sections.push(`- **Obstacle:** ${ctx.obstacle}`);
   }
   if (ctx.keyDecision) {
-    sections.push(`### Key Decision\n${ctx.keyDecision}\n`);
+    sections.push(`- **Key decision:** ${ctx.keyDecision}`);
   }
   if (ctx.namedPeople?.length) {
-    sections.push(`### Key People Involved\n${ctx.namedPeople.map(p => `- ${p}`).join('\n')}\n`);
+    sections.push(`- **People:** ${ctx.namedPeople.join(', ')}`);
   }
   if (ctx.counterfactual) {
-    sections.push(`### What Would Have Happened (Counterfactual)\n${ctx.counterfactual}\n`);
+    sections.push(`- **Counterfactual:** ${ctx.counterfactual}`);
   }
   if (ctx.metric) {
-    sections.push(`### Quantified Impact\n${ctx.metric}\n`);
+    sections.push(`- **Metric:** ${ctx.metric}`);
   }
   if (ctx.learning) {
-    sections.push(`### Key Learning\n${ctx.learning}\n`);
+    sections.push(`- **Learning:** ${ctx.learning}`);
   }
 
   return sections.join('\n');
