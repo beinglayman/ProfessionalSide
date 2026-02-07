@@ -15,8 +15,6 @@ import {
   AlertTriangle,
   Lightbulb,
   CheckCircle2,
-  Clock,
-  ExternalLink,
   ChevronDown,
   ChevronRight,
   Sparkles,
@@ -43,11 +41,16 @@ import {
   ToolActivity,
   CareerStory,
   StoryVisibility,
+  StorySource,
+  SourceCoverage,
 } from '../../types/career-stories';
-import { Button } from '../ui/button';
+import { SourceList } from './SourceList';
+import { NotesPillBar } from './NotesPillBar';
+import { SourceCoverageHeader } from './SourceCoverageHeader';
+import { useAddStorySource, useUpdateStorySource } from '../../hooks/useCareerStories';
 import { ToolIcon } from './ToolIcon';
 import { FrameworkSelector } from './FrameworkSelector';
-import { TIMING, DISPLAY_LIMITS, CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
+import { TIMING, CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
 
 // =============================================================================
 // TYPES & HELPERS
@@ -234,6 +237,25 @@ const SECTION_COACHING: Record<string, { description: string; tip: string; inter
   },
 };
 
+// Section-specific fix guidance for the coach review panel
+const SECTION_FIX: Record<string, string> = {
+  situation: 'Add concrete stakes — dollars, users, or strategic risk of inaction. Make the reader feel the urgency.',
+  context: 'Add concrete stakes — dollars, users, or strategic risk of inaction. Make the reader feel the urgency.',
+  challenge: 'Frame the business problem, not the technical one. What happens if this doesn\'t get solved?',
+  problem: 'Frame the business problem, not the technical one. What happens if this doesn\'t get solved?',
+  task: 'Be explicit about YOUR role. Use "I", not "we". Name what you were accountable for delivering.',
+  objective: 'Be explicit about YOUR goal. Use "I", not "we". Name the measurable target you owned.',
+  obstacles: 'Make the obstacle specific and real. What exactly was blocking progress, and why was it hard?',
+  hindrances: 'Name the specific blockers. Generic "challenges" don\'t demonstrate problem-solving ability.',
+  action: 'Name the methodology, sample size, tools, and your specific influence on the team\'s direction.',
+  actions: 'Name the methodology, sample size, tools, and your specific influence on the team\'s direction.',
+  result: 'Lead with the quantified outcome: metric + baseline + timeframe. Past tense only. No "will" or "expected to".',
+  results: 'Lead with the quantified outcome: metric + baseline + timeframe. Past tense only. No "will" or "expected to".',
+  learning: 'Show growth mindset — name what you\'d do differently and why. Self-awareness is a senior trait.',
+  evaluation: 'Be honest about what worked and what didn\'t. Overselling is a red flag at senior levels.',
+  outcome: 'Contextualize the impact: metric + baseline + timeframe. "241% of benchmarks" needs a denominator.',
+};
+
 // Extract metrics from text
 function extractMetrics(text: string): string[] {
   const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?|calls?|transactions?))/gi;
@@ -255,39 +277,172 @@ function formatTime(seconds: number): string {
 }
 
 // =============================================================================
+// SHARED SECTION COLOR MAP
+// Single source of truth for section identity colors.
+// Used by PracticeTimer, NarrativeSection (accent), NarrativeSectionHeader.
+// =============================================================================
+
+interface SectionColor {
+  bg: string;       // bg-{color}-500 — dot, progress bar, horizontal rule
+  text: string;     // text-{color}-600 — label
+  topBorder: string; // border-t-{color}-500 — card top accent
+  headerBorder: string; // border-b-{color}-500 — header underline
+  ratingBg: string;  // bg-{color}-50 — rating badge background
+  ratingText: string; // text-{color}-700 — rating badge text
+}
+
+const SECTION_COLORS: Record<string, SectionColor> = {
+  situation:  { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  context:    { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  challenge:  { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  problem:    { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  task:       { bg: 'bg-amber-500',  text: 'text-amber-600',  topBorder: 'border-t-amber-500',  headerBorder: 'border-b-amber-500',  ratingBg: 'bg-amber-50',  ratingText: 'text-amber-700' },
+  objective:  { bg: 'bg-amber-500',  text: 'text-amber-600',  topBorder: 'border-t-amber-500',  headerBorder: 'border-b-amber-500',  ratingBg: 'bg-amber-50',  ratingText: 'text-amber-700' },
+  obstacles:  { bg: 'bg-rose-500',   text: 'text-rose-600',   topBorder: 'border-t-rose-500',   headerBorder: 'border-b-rose-500',   ratingBg: 'bg-rose-50',   ratingText: 'text-rose-700' },
+  hindrances: { bg: 'bg-rose-500',   text: 'text-rose-600',   topBorder: 'border-t-rose-500',   headerBorder: 'border-b-rose-500',   ratingBg: 'bg-rose-50',   ratingText: 'text-rose-700' },
+  action:     { bg: 'bg-purple-500', text: 'text-purple-600', topBorder: 'border-t-purple-500', headerBorder: 'border-b-purple-500', ratingBg: 'bg-purple-50', ratingText: 'text-purple-700' },
+  actions:    { bg: 'bg-purple-500', text: 'text-purple-600', topBorder: 'border-t-purple-500', headerBorder: 'border-b-purple-500', ratingBg: 'bg-purple-50', ratingText: 'text-purple-700' },
+  result:     { bg: 'bg-red-500',    text: 'text-red-600',    topBorder: 'border-t-red-500',    headerBorder: 'border-b-red-500',    ratingBg: 'bg-red-50',    ratingText: 'text-red-700' },
+  results:    { bg: 'bg-red-500',    text: 'text-red-600',    topBorder: 'border-t-red-500',    headerBorder: 'border-b-red-500',    ratingBg: 'bg-red-50',    ratingText: 'text-red-700' },
+  learning:   { bg: 'bg-indigo-500', text: 'text-indigo-600', topBorder: 'border-t-indigo-500', headerBorder: 'border-b-indigo-500', ratingBg: 'bg-indigo-50', ratingText: 'text-indigo-700' },
+  evaluation: { bg: 'bg-indigo-500', text: 'text-indigo-600', topBorder: 'border-t-indigo-500', headerBorder: 'border-b-indigo-500', ratingBg: 'bg-indigo-50', ratingText: 'text-indigo-700' },
+  outcome:    { bg: 'bg-violet-500', text: 'text-violet-600', topBorder: 'border-t-violet-500', headerBorder: 'border-b-violet-500', ratingBg: 'bg-violet-50', ratingText: 'text-violet-700' },
+};
+
+const DEFAULT_SECTION_COLOR: SectionColor = { bg: 'bg-gray-400', text: 'text-gray-600', topBorder: 'border-t-gray-400', headerBorder: 'border-b-gray-400', ratingBg: 'bg-gray-50', ratingText: 'text-gray-600' };
+
+function getSectionColor(key: string): SectionColor {
+  return SECTION_COLORS[key.toLowerCase()] || DEFAULT_SECTION_COLOR;
+}
+
+// =============================================================================
 // STATUS BADGE
 // =============================================================================
 
-const StatusBadge: React.FC<{ status: StoryStatus }> = ({ status }) => {
+interface StatusBadgeProps {
+  status: StoryStatus;
+  confidence?: number;
+  suggestedEdits?: string[];
+}
+
+const STATUS_DESCRIPTIONS: Record<StoryStatus, { summary: string; detail: string }> = {
+  complete: {
+    summary: 'This story is interview-ready.',
+    detail: 'Strong narrative with quantified impact, clear ownership, and specific details. Ready to use in interviews, performance reviews, or promotion packets.',
+  },
+  'in-progress': {
+    summary: 'This story needs more polish before it\'s interview-ready.',
+    detail: 'The narrative structure is there, but some sections lack specifics. Add concrete numbers, clarify your individual role, or strengthen the impact statement.',
+  },
+  draft: {
+    summary: 'This story is still a rough draft.',
+    detail: 'Most sections need more detail. Focus on adding specific metrics, naming the tools and approaches you used, and quantifying your impact.',
+  },
+};
+
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status, confidence, suggestedEdits = [] }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   const config = {
     complete: {
       label: 'Interview Ready',
-      icon: CheckCircle2,
-      className: 'bg-green-50 text-green-700 border-green-200',
+      dotColor: 'bg-emerald-500',
+      pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      barColor: 'bg-emerald-500',
     },
     'in-progress': {
       label: 'Needs Polish',
-      icon: Clock,
-      className: 'bg-amber-50 text-amber-700 border-amber-200',
+      dotColor: 'bg-amber-500',
+      pillClass: 'bg-amber-50/80 text-amber-700 border-amber-200/80',
+      barColor: 'bg-amber-500',
     },
     draft: {
       label: 'Draft',
-      icon: Lightbulb,
-      className: 'bg-gray-50 text-gray-600 border-gray-200',
+      dotColor: 'bg-gray-400',
+      pillClass: 'bg-gray-50 text-gray-500 border-gray-200',
+      barColor: 'bg-gray-400',
     },
   };
 
-  const { label, icon: Icon, className } = config[status];
+  const { label, dotColor, pillClass, barColor } = config[status];
+  const pct = confidence !== undefined ? Math.round(confidence * 100) : 0;
+  const statusInfo = STATUS_DESCRIPTIONS[status];
 
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border',
-        className
-      )}
+      className="relative inline-flex items-center gap-2.5"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
     >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
+      {/* Status pill */}
+      <span className={cn(
+        'inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.5px] rounded border cursor-help',
+        pillClass,
+      )}>
+        <span className={cn('w-[6px] h-[6px] rounded-full', dotColor)} />
+        {label}
+      </span>
+
+      {/* Score bar — compact inline */}
+      {confidence !== undefined && (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-16 h-[5px] rounded-full bg-gray-200 overflow-hidden">
+            <span className={cn('h-full rounded-full transition-all duration-700', barColor)} style={{ width: `${pct}%` }} />
+          </span>
+          <span className={cn('text-[11px] font-semibold tabular-nums', {
+            'text-emerald-600': pct >= 75,
+            'text-amber-600': pct >= 40 && pct < 75,
+            'text-gray-400': pct < 40,
+          })}>{pct}%</span>
+        </span>
+      )}
+
+      {/* Tooltip — always shows context-rich information */}
+      {showTooltip && (
+        <div className="absolute top-full left-0 mt-1.5 z-30 w-80 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+          {/* Header */}
+          <div className={cn(
+            'px-4 py-2.5 border-b',
+            status === 'complete' ? 'bg-emerald-50 border-emerald-100' :
+            status === 'in-progress' ? 'bg-amber-50 border-amber-100' :
+            'bg-gray-50 border-gray-100'
+          )}>
+            <div className="flex items-center gap-2">
+              <span className={cn('w-2 h-2 rounded-full', dotColor)} />
+              <span className="text-sm font-semibold text-gray-900">{label}</span>
+              {confidence !== undefined && (
+                <span className="text-xs text-gray-500 ml-auto">{pct}% confidence</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">{statusInfo.summary}</p>
+          </div>
+
+          {/* Detail */}
+          <div className="px-4 py-3">
+            <p className="text-xs text-gray-500 leading-relaxed">{statusInfo.detail}</p>
+
+            {/* Suggested improvements */}
+            {suggestedEdits.length > 0 && (
+              <div className="mt-3 pt-2 border-t border-gray-100">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 block mb-1.5">
+                  How to improve
+                </span>
+                <ul className="space-y-1">
+                  {suggestedEdits.map((edit, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-gray-600 leading-relaxed">
+                      <span className="text-amber-500 flex-shrink-0">&rarr;</span>
+                      <span>{edit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Arrow */}
+          <div className="absolute -top-1.5 left-6 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45" />
+        </div>
+      )}
     </span>
   );
 };
@@ -352,24 +507,6 @@ const PracticeTimer: React.FC<PracticeTimerProps> = ({
 
   const currentSection = getCurrentSection();
 
-  // Section colors for visual distinction
-  const sectionColors: Record<string, string> = {
-    situation: 'bg-blue-500',
-    context: 'bg-blue-500',
-    challenge: 'bg-blue-500',
-    problem: 'bg-blue-500',
-    task: 'bg-amber-500',
-    objective: 'bg-amber-500',
-    obstacles: 'bg-amber-500',
-    hindrances: 'bg-amber-500',
-    action: 'bg-green-500',
-    actions: 'bg-green-500',
-    result: 'bg-purple-500',
-    results: 'bg-purple-500',
-    learning: 'bg-indigo-500',
-    evaluation: 'bg-indigo-500',
-  };
-
   return (
     <div className="flex items-center gap-3">
       {/* Timer + Controls - all inline */}
@@ -389,7 +526,7 @@ const PracticeTimer: React.FC<PracticeTimerProps> = ({
             key={section.key}
             className={cn(
               'h-full transition-opacity',
-              sectionColors[section.key] || 'bg-gray-400',
+              getSectionColor(section.key).bg,
               currentSection === section.key && isActive ? 'opacity-100' : 'opacity-50'
             )}
             style={{ width: `${section.percentage}%` }}
@@ -605,12 +742,11 @@ interface NarrativeSectionProps {
   isEditing: boolean;
   editValue: string;
   onEditChange: (value: string) => void;
-  activities?: ToolActivity[];
-  sourceIds?: string[];
   isFirst?: boolean;
   showCoaching?: boolean;
   showDeliveryCues?: boolean; // Pause/transition cues (practice mode)
   showEmphasis?: boolean; // Text highlighting (action verbs, emphasis words)
+  hideHeader?: boolean; // Hide section header (when rendered externally)
 }
 
 const NarrativeSection: React.FC<NarrativeSectionProps> = ({
@@ -621,16 +757,13 @@ const NarrativeSection: React.FC<NarrativeSectionProps> = ({
   isEditing,
   editValue,
   onEditChange,
-  activities = [],
-  sourceIds = [],
   isFirst = false,
   showCoaching = false,
   showDeliveryCues = false,
   showEmphasis = true, // On by default
+  hideHeader = false,
 }) => {
-  const [showEvidence, setShowEvidence] = useState(false);
-  const sourceActivities = activities.filter((a) => sourceIds.includes(a.id));
-  const hasEvidence = sourceActivities.length > 0;
+  const [showTip, setShowTip] = useState(false);
   const coaching = SECTION_COACHING[sectionKey.toLowerCase()];
   const deliveryCue = DELIVERY_CUES[sectionKey.toLowerCase()];
 
@@ -755,11 +888,14 @@ const NarrativeSection: React.FC<NarrativeSectionProps> = ({
   // Render content with typography pattern
   const renderContent = (text: string) => {
     // Pattern 1: Metrics (bold + highlight)
-    const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?))/gi;
+    // NOTE: Using 'i' flag only (not 'gi') for split/test patterns to avoid lastIndex state bug.
+    // When a regex has the global flag, .test() advances lastIndex, causing alternating match/miss
+    // on the same string when called repeatedly (e.g., after .split()).
+    const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?))/i;
 
     // Pattern 2: Action verbs (bold indigo) - when emphasis is on
     const actionPattern = showEmphasis
-      ? new RegExp(`\\b(${actionVerbs.join('|')})\\b`, 'gi')
+      ? new RegExp(`\\b(${actionVerbs.join('|')})\\b`, 'i')
       : null;
 
     // Pattern 3: Emphasis words from delivery cues (underline) - when emphasis is on
@@ -767,18 +903,18 @@ const NarrativeSection: React.FC<NarrativeSectionProps> = ({
       ? deliveryCue.emphasis.filter(w => w.length > 1 && !actionVerbs.includes(w.toLowerCase()))
       : [];
     const emphasisPattern = emphasisWords.length > 0
-      ? new RegExp(`\\b(${emphasisWords.join('|')})\\b`, 'gi')
+      ? new RegExp(`\\b(${emphasisWords.join('|')})\\b`, 'i')
       : null;
 
     // Pattern 4: Design patterns (green highlight - golden nuggets)
     const patternKeys = Object.keys(designPatterns).sort((a, b) => b.length - a.length);
     const patternRegex = showEmphasis && patternKeys.length > 0
-      ? new RegExp(`(${patternKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
+      ? new RegExp(`(${patternKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i')
       : null;
 
     // Pattern 5: Technical terms (dotted underline)
     const techTermKeys = Object.keys(technicalTerms).sort((a, b) => b.length - a.length);
-    const techPattern = new RegExp(`\\b(${techTermKeys.join('|')})\\b`, 'gi');
+    const techPattern = new RegExp(`\\b(${techTermKeys.join('|')})\\b`, 'i');
 
     // Split by metrics first (highest priority)
     const parts = text.split(metricPattern);
@@ -913,138 +1049,298 @@ const NarrativeSection: React.FC<NarrativeSectionProps> = ({
     });
   };
 
-  return (
-    <div className={cn('relative', !isFirst && 'pt-4')}>
-      {/* Editorial layout: margin notes + main content */}
-      <div className={cn('flex gap-4', showCoaching ? 'flex-row' : 'flex-col')}>
-        {/* Margin notes (coaching tips) - only shown when coaching enabled */}
-        {showCoaching && coaching && (
-          <div className="hidden lg:block w-40 flex-shrink-0 -ml-2">
-            <div className="sticky top-20 text-[11px] leading-relaxed text-gray-500 italic">
-              <p className="mb-2">{coaching.tip}</p>
-              <p className="text-amber-700/80 not-italic font-medium">
-                {coaching.interviewNote}
-              </p>
-            </div>
-          </div>
-        )}
+  const accent = getSectionColor(sectionKey);
 
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
-          {/* Section header */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-semibold text-gray-900">{label}</span>
-            {coaching?.description && !showCoaching && (
-              <span className="text-xs text-gray-400 hidden sm:inline">
-                — {coaching.description}
-              </span>
+  // Confidence rating label + tooltip text
+  const ratingLabel = confidence >= 0.75 ? 'Strong' : confidence >= 0.5 ? 'Fair' : confidence >= 0.3 ? 'Weak' : 'Missing';
+  const ratingClass = confidence >= 0.75 ? 'bg-emerald-50 text-emerald-700' : confidence >= 0.5 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600';
+  const ratingTooltip = confidence >= 0.75
+    ? `Strong section — specific details, clear ownership, quantified impact.`
+    : confidence >= 0.5
+    ? `Fair section — has structure but needs more specifics. ${coaching?.tip || 'Add concrete numbers and details.'}`
+    : confidence >= 0.3
+    ? `Weak section — too vague for interviews. ${coaching?.tip || 'Be specific about what YOU did and the measurable result.'}`
+    : `Missing content — this section needs to be filled in. ${coaching?.tip || 'Add details to strengthen your story.'}`;
+
+  return (
+    <div className="relative">
+      {/* Section header row — Datawrapper style: label + rating badge */}
+      {!hideHeader && (
+        <div className={cn('flex items-center justify-between pb-3 mb-4 border-b-2', accent.headerBorder)}>
+          <div className="flex items-center gap-2.5">
+            <span className={cn('text-[12px] font-bold uppercase tracking-[1px]', accent.text)}>{label}</span>
+            {showCoaching && coaching && (
+              <button
+                onClick={() => setShowTip(!showTip)}
+                className={cn(
+                  'inline-flex items-center gap-1 text-[11px] rounded px-1.5 py-0.5 transition-colors',
+                  showTip
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'
+                )}
+                aria-expanded={showTip}
+              >
+                <Lightbulb className="w-3 h-3" />
+                <span className="hidden sm:inline">Review</span>
+              </button>
             )}
           </div>
+          <span
+            className={cn('text-[11px] font-semibold px-2.5 py-0.5 rounded cursor-help', ratingClass)}
+            title={ratingTooltip}
+          >
+            {ratingLabel}
+          </span>
+        </div>
+      )}
 
-          {/* Content */}
-          {isEditing ? (
-            <div>
-              <textarea
-                value={editValue}
-                onChange={(e) => onEditChange(e.target.value)}
-                className={cn(
-                  'w-full p-3 border border-gray-200 rounded-lg text-sm resize-none',
-                  'focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
-                  'bg-white transition-shadow'
-                )}
-                rows={3}
-                placeholder={`Describe the ${label.toLowerCase()}...`}
-              />
-              {coaching && (
-                <p className="mt-1.5 text-[11px] text-gray-500 italic">
-                  {coaching.tip}
-                </p>
-              )}
+      {/* Coach review panel — callout box style (matches journal Achievement/Reasoning boxes) */}
+      {showTip && coaching && (
+        <div className="mb-4 bg-amber-50 border border-amber-100 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-amber-800">Interview Coach</span>
+          </div>
+          <ul className="space-y-1.5 ml-6">
+            <li className="text-xs text-amber-700 leading-relaxed">
+              {coaching.tip}
+            </li>
+            <li className="text-xs text-amber-700 leading-relaxed">
+              {coaching.interviewNote}
+            </li>
+          </ul>
+          <div className="mt-3 ml-6 pt-2 border-t border-amber-200/60">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">How to fix</span>
+            <p className="text-xs text-gray-700 leading-relaxed mt-0.5">
+              {SECTION_FIX[sectionKey.toLowerCase()] || 'Be specific and quantify wherever possible.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      {isEditing ? (
+        <div>
+          <textarea
+            value={editValue}
+            onChange={(e) => onEditChange(e.target.value)}
+            className={cn(
+              'w-full p-3.5 border border-gray-200 rounded text-[14px] resize-none',
+              'focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
+              'bg-white transition-shadow'
+            )}
+            rows={4}
+            placeholder={`Describe the ${label.toLowerCase()}...`}
+          />
+          {coaching && (
+            <p className="mt-2 text-[11px] text-gray-500 italic">
+              {coaching.tip}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="relative">
+          {/* Opening delivery cue */}
+          {showDeliveryCues && deliveryCue && (
+            <div className="mb-2.5 text-[10px] text-gray-400 italic flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {deliveryCue.openingCue}
             </div>
-          ) : (
-            <div className="relative">
-              {/* Opening delivery cue - subtle */}
-              {showDeliveryCues && deliveryCue && (
-                <div className="mb-1.5 text-[10px] text-gray-400 italic flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                  {deliveryCue.openingCue}
-                </div>
-              )}
+          )}
 
-              <p className="text-[14px] leading-[1.7] text-gray-700">
-                {renderContent(content)}
-              </p>
+          <p className="text-[14.5px] leading-[1.65] text-gray-700">
+            {renderContent(content)}
+          </p>
 
-              {/* Closing delivery cue - subtle */}
-              {showDeliveryCues && deliveryCue && (
-                <div className="mt-1.5 text-[10px] text-gray-400 italic flex items-center gap-1 justify-end">
-                  {deliveryCue.closingCue}
-                  <span className="w-1 h-1 rounded-full bg-amber-400" />
-                </div>
-              )}
-
-              {/* Evidence toggle */}
-              {hasEvidence && (
-                <button
-                  onClick={() => setShowEvidence(!showEvidence)}
-                  className={cn(
-                    'mt-2 inline-flex items-center gap-1 text-[11px] font-medium',
-                    'text-gray-400 hover:text-primary-600 transition-colors'
-                  )}
-                >
-                  {showEvidence ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3" />
-                  )}
-                  {sourceActivities.length} source{sourceActivities.length > 1 ? 's' : ''}
-                </button>
-              )}
-
-              {/* Evidence list - compact */}
-              {showEvidence && hasEvidence && (
-                <div className="mt-2 pl-3 border-l border-gray-200">
-                  <div className="space-y-1">
-                    {sourceActivities.slice(0, 4).map((activity) => (
-                      <a
-                        key={activity.id}
-                        href={activity.sourceUrl || '#'}
-                        target={activity.sourceUrl ? '_blank' : undefined}
-                        rel={activity.sourceUrl ? 'noopener noreferrer' : undefined}
-                        className={cn(
-                          'flex items-center gap-1.5 py-1 text-[11px] text-gray-500',
-                          'hover:text-gray-900 transition-colors group',
-                          !activity.sourceUrl && 'cursor-default hover:text-gray-500'
-                        )}
-                        onClick={(e) => !activity.sourceUrl && e.preventDefault()}
-                      >
-                        <ToolIcon tool={activity.source} className="w-3 h-3 text-[6px]" />
-                        <span className="truncate">{activity.title}</span>
-                        {activity.sourceUrl && (
-                          <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100" />
-                        )}
-                      </a>
-                    ))}
-                    {sourceActivities.length > 4 && (
-                      <span className="text-[10px] text-gray-400">
-                        +{sourceActivities.length - 4} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Mobile coaching tip - shown inline on smaller screens */}
-              {showCoaching && coaching && (
-                <div className="lg:hidden mt-3 p-2 bg-amber-50/50 rounded border-l-2 border-amber-200">
-                  <p className="text-[11px] text-amber-800 italic">{coaching.interviewNote}</p>
-                </div>
-              )}
+          {/* Closing delivery cue */}
+          {showDeliveryCues && deliveryCue && (
+            <div className="mt-2.5 text-[10px] text-gray-400 italic flex items-center gap-1.5 justify-end">
+              {deliveryCue.closingCue}
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
+  );
+};
+
+// =============================================================================
+// NARRATIVE SECTION HEADER (Standalone, rendered outside the content card)
+// =============================================================================
+
+interface NarrativeSectionHeaderProps {
+  sectionKey: string;
+  label: string;
+  confidence: number;
+  showCoaching?: boolean;
+  sourceCount?: number;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  isLast?: boolean;
+  /** Content (children) rendered below the header when expanded */
+  children?: React.ReactNode;
+}
+
+/** Section-level rating descriptions keyed by confidence tier */
+const SECTION_RATING_INFO: Record<string, { summary: string; detail: string }> = {
+  Strong: {
+    summary: 'This section is interview-ready.',
+    detail: 'Specific details, clear ownership language, and quantified impact. No changes needed.',
+  },
+  Fair: {
+    summary: 'This section needs more specifics.',
+    detail: 'The structure is there, but interviewers want concrete numbers, named tools, and "I" statements. Polish before using in an interview.',
+  },
+  Weak: {
+    summary: 'This section is too vague for interviews.',
+    detail: 'Generic descriptions won\'t survive follow-up questions. Add real metrics, specific approaches, and what YOU did — not the team.',
+  },
+  Missing: {
+    summary: 'This section needs content.',
+    detail: 'An empty section weakens the entire story. Even a single sentence with a concrete number is better than nothing.',
+  },
+};
+
+/**
+ * NarrativeSectionHeader
+ *
+ * Collapsible timeline-spine layout matching the journal ActivityGroupSection pattern:
+ *   dot + vertical line  |  chevron + colored label + line + rating badge
+ *                         |  [content card when expanded]
+ *
+ * Section identity preserved via colored dot + label (blue=situation, amber=task, etc.)
+ */
+const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
+  sectionKey,
+  label,
+  confidence,
+  sourceCount,
+  isCollapsed,
+  onToggle,
+  isLast = false,
+  children,
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const color = getSectionColor(sectionKey);
+  const dotColor = color.bg;
+  const labelColor = color.text;
+  const lineColor = color.bg;
+  const ratingLabel = confidence >= 0.75 ? 'Strong' : confidence >= 0.5 ? 'Fair' : confidence >= 0.3 ? 'Weak' : 'Missing';
+  const ratingClass = confidence >= 0.75 ? 'bg-emerald-50 text-emerald-700' : confidence >= 0.5 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600';
+  const ratingInfo = SECTION_RATING_INFO[ratingLabel];
+  const coaching = SECTION_COACHING[sectionKey.toLowerCase()];
+  const fix = SECTION_FIX[sectionKey.toLowerCase()];
+  const pct = Math.round(confidence * 100);
+
+  return (
+    <section className="relative flex gap-4">
+      {/* Timeline spine — dot + vertical line */}
+      <div className="flex flex-col items-center flex-shrink-0 w-5">
+        <div
+          className={cn(
+            'w-3 h-3 rounded-full mt-2 flex-shrink-0 ring-4 ring-gray-50 z-10',
+            isCollapsed ? 'bg-gray-300' : dotColor,
+          )}
+        />
+        {!(isLast && isCollapsed) && (
+          <div className="w-px flex-1 bg-gray-200" />
+        )}
+      </div>
+
+      {/* Content column */}
+      <div className="flex-1 min-w-0 pb-4">
+        {/* Group header row */}
+        <div className={cn(
+          'flex items-center gap-2 w-full transition-all rounded-lg',
+          isCollapsed ? 'py-1 mb-1' : 'mb-2',
+        )}>
+          {/* Clickable area: chevron + label (toggle collapse) */}
+          <button
+            onClick={onToggle}
+            className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-1 py-0.5 -ml-1 transition-colors"
+          >
+            <div className="flex-shrink-0">
+              {isCollapsed ? (
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
+            </div>
+            <span className={cn('text-sm font-semibold uppercase tracking-[0.5px]', labelColor)}>
+              {label}
+            </span>
+          </button>
+
+          {/* Collapsed summary: rating + source count */}
+          {isCollapsed && (
+            <span className="flex items-center gap-1.5 text-[11px] text-gray-500 truncate">
+              <span className="text-gray-300">&middot;</span>
+              <span className={cn('font-medium px-1.5 py-0.5 rounded', ratingClass)}>{ratingLabel}</span>
+              {sourceCount !== undefined && sourceCount > 0 && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span>{sourceCount} source{sourceCount !== 1 ? 's' : ''}</span>
+                </>
+              )}
+            </span>
+          )}
+
+          {/* Expanded: colored line + rating badge with tooltip */}
+          {!isCollapsed && (
+            <>
+              <div className={cn('flex-1 h-px', lineColor)} />
+              <span
+                className="relative flex-shrink-0"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              >
+                <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded cursor-help', ratingClass)}>
+                  {ratingLabel}
+                </span>
+
+                {/* Rich tooltip */}
+                {showTooltip && (
+                  <div className="absolute top-full right-0 mt-1.5 z-30 w-72 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+                    <div className={cn(
+                      'px-3 py-2 border-b',
+                      ratingLabel === 'Strong' ? 'bg-emerald-50 border-emerald-100' :
+                      ratingLabel === 'Fair' ? 'bg-amber-50 border-amber-100' :
+                      'bg-red-50 border-red-100'
+                    )}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-900">{ratingLabel}</span>
+                        <span className="text-[10px] text-gray-500">{pct}%</span>
+                      </div>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{ratingInfo.summary}</p>
+                    </div>
+                    <div className="px-3 py-2.5">
+                      <p className="text-[11px] text-gray-500 leading-relaxed">{ratingInfo.detail}</p>
+                      {coaching && confidence < 0.75 && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 block mb-1">Interview tip</span>
+                          <p className="text-[11px] text-gray-600 leading-relaxed">{coaching.interviewNote}</p>
+                        </div>
+                      )}
+                      {fix && confidence < 0.75 && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 block mb-1">How to fix</span>
+                          <p className="text-[11px] text-gray-600 leading-relaxed">{fix}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute -top-1.5 right-4 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45" />
+                  </div>
+                )}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Content when expanded */}
+        {!isCollapsed && children}
+      </div>
+    </section>
   );
 };
 
@@ -1075,6 +1371,8 @@ interface NarrativePreviewProps {
   isPublishing?: boolean;
   onDelete?: () => void;
   isDeleting?: boolean;
+  sources?: StorySource[];
+  sourceCoverage?: SourceCoverage;
 }
 
 export function NarrativePreview({
@@ -1100,6 +1398,8 @@ export function NarrativePreview({
   isPublishing = false,
   onDelete,
   isDeleting = false,
+  sources = [],
+  sourceCoverage,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1110,8 +1410,57 @@ export function NarrativePreview({
   const [showCoaching, setShowCoaching] = useState(true); // Tips on by default
   const [showEmphasis, setShowEmphasis] = useState(true); // Text emphasis on by default
   const [showDeliveryHelp, setShowDeliveryHelp] = useState(false);
+  // Section collapse state — all expanded by default (empty set = nothing collapsed)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const toggleSection = useCallback((key: string) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
+
+  const addSourceMutation = useAddStorySource();
+  const updateSourceMutation = useUpdateStorySource();
+
+  // Group sources by sectionKey
+  const sourcesBySection = useMemo(() => {
+    const map: Record<string, StorySource[]> = {};
+    for (const source of sources) {
+      if (!map[source.sectionKey]) map[source.sectionKey] = [];
+      map[source.sectionKey].push(source);
+    }
+    return map;
+  }, [sources]);
+
+  const handleAddNote = useCallback((sectionKey: string, content: string) => {
+    if (story?.id) {
+      addSourceMutation.mutate({ storyId: story.id, sectionKey, content });
+    }
+  }, [story?.id, addSourceMutation]);
+
+  const handleExcludeSource = useCallback((sourceId: string) => {
+    if (story?.id) {
+      updateSourceMutation.mutate({
+        storyId: story.id,
+        sourceId,
+        excludedAt: new Date().toISOString(),
+      });
+    }
+  }, [story?.id, updateSourceMutation]);
+
+  const handleUndoExclude = useCallback((sourceId: string) => {
+    if (story?.id) {
+      updateSourceMutation.mutate({
+        storyId: story.id,
+        sourceId,
+        excludedAt: null,
+      });
+    }
+  }, [story?.id, updateSourceMutation]);
 
   const star = result?.star;
   const frameworkMeta = NARRATIVE_FRAMEWORKS[framework];
@@ -1316,14 +1665,14 @@ export function NarrativePreview({
   // Loading state
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview-loading">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" data-testid="star-preview-loading">
         <div className="p-6 border-b border-gray-100">
-          <div className="h-6 w-48 bg-gray-100 rounded animate-pulse" />
+          <div className="h-5 w-48 bg-gray-100 rounded animate-pulse" />
           <div className="h-4 w-32 bg-gray-100 rounded animate-pulse mt-2" />
         </div>
-        <div className="p-6 space-y-8">
+        <div className="p-6 space-y-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="space-y-3">
+            <div key={i} className="border border-gray-200 rounded-lg p-6 space-y-3">
               <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
               <div className="space-y-2">
                 <div className="h-4 w-full bg-gray-100 rounded animate-pulse" />
@@ -1340,7 +1689,7 @@ export function NarrativePreview({
   // Error state
   if (result && !star) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview-error">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" data-testid="star-preview-error">
         <div className="p-8 text-center">
           <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="h-7 w-7 text-amber-500" />
@@ -1364,7 +1713,7 @@ export function NarrativePreview({
   // Placeholder state
   if (!result || !star) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview-placeholder">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" data-testid="star-preview-placeholder">
         <div className="p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="h-8 w-8 text-gray-400" />
@@ -1381,53 +1730,36 @@ export function NarrativePreview({
   const storyStatus = getStoryStatus(star.overallConfidence);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" data-testid="star-preview">
-      {/* Header with integrated toolbar */}
-      <div className="px-4 py-2.5 border-b border-gray-100">
-        <div className="flex items-center justify-between gap-3">
-          {/* Left: Title + Meta */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-gray-900 truncate">{clusterName}</h2>
-              <StatusBadge status={storyStatus} />
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" data-testid="star-preview">
+      {/* Header — compact: title + all actions top-right */}
+      <div className="px-6 pt-5 pb-4 border-b border-gray-200">
+        {/* Title + all actions */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900 leading-tight mb-1">{clusterName}</h2>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>{frameworkMeta?.label || 'STAR'}</span>
               {story?.archetype && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-purple-50 text-purple-700 border-purple-200 capitalize">
-                  {story.archetype}
-                </span>
-              )}
-              {story?.role && (
-                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 capitalize">
-                  {story.role}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
-              <span>{activityCount} activities</span>
-              {formatDateRange() && (
                 <>
-                  <span className="text-gray-300">•</span>
-                  <span>{formatDateRange()}</span>
+                  <span className="text-gray-300">&middot;</span>
+                  <span className="capitalize">{story.archetype}</span>
                 </>
               )}
-              <span className="text-gray-300">•</span>
-              <span>~{formatTime(estimatedTime)}</span>
-              {keyMetrics.length > 0 && (
+              {story?.role && (
                 <>
-                  <span className="text-gray-300">•</span>
-                  <span className="font-medium text-primary-600">{keyMetrics.slice(0, 2).join(', ')}</span>
+                  <span className="text-gray-300">&middot;</span>
+                  <span className="capitalize">{story.role}</span>
                 </>
               )}
             </div>
           </div>
-
-          {/* Right: All actions in one row */}
-          <div className="flex items-center gap-1">
+          {/* All actions — right-aligned */}
+          <div className="flex items-center gap-0.5 flex-shrink-0 flex-wrap justify-end">
             <FrameworkSelector
               value={framework}
               onChange={onFrameworkChange}
               disabled={isLoading}
             />
-            <div className="w-px h-5 bg-gray-200 mx-0.5" />
             <button
               onClick={onRegenerate}
               disabled={isLoading}
@@ -1449,22 +1781,21 @@ export function NarrativePreview({
               aria-label={isEditing ? 'Save' : 'Edit'}
             >
               {isEditing ? <Check className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-              <span className="text-xs ml-1 hidden xl:inline">{isEditing ? 'Save' : 'Edit'}</span>
             </button>
             {isEditing && (
               <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel" aria-label="Cancel editing">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
-            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            <div className="w-px h-4 bg-gray-200 mx-0.5" />
             <button
               onClick={() => setShowCoaching(!showCoaching)}
               className={cn(
                 'p-1.5 rounded transition-colors',
                 showCoaching ? 'bg-amber-100 text-amber-600' : 'text-gray-400 hover:bg-gray-100'
               )}
-              title="Interview tips"
-              aria-label="Interview tips"
+              title="Coach review"
+              aria-label="Coach review"
             >
               <Lightbulb className="h-3.5 w-3.5" />
             </button>
@@ -1474,8 +1805,8 @@ export function NarrativePreview({
                 'p-1.5 rounded transition-colors',
                 showEmphasis ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100'
               )}
-              title="Text emphasis (action verbs, key terms)"
-              aria-label="Text emphasis (action verbs, key terms)"
+              title="Text emphasis"
+              aria-label="Text emphasis"
             >
               <Type className="h-3.5 w-3.5" />
             </button>
@@ -1490,41 +1821,6 @@ export function NarrativePreview({
             >
               <Mic className="h-3.5 w-3.5" />
             </button>
-            <div className="w-px h-5 bg-gray-200 mx-0.5" />
-            <div className="relative" ref={copyMenuRef}>
-              <button
-                onClick={() => setShowCopyMenu(!showCopyMenu)}
-                className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
-                title="Copy"
-                aria-label="Copy"
-                data-testid="copy-star"
-              >
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                <span className="text-xs ml-1 hidden xl:inline">Copy</span>
-              </button>
-              <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
-            </div>
-            {story?.isPublished ? (
-              <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50 inline-flex items-center" title="Unpublish" aria-label="Unpublish">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span className="text-xs ml-1 hidden xl:inline">Published</span>
-              </button>
-            ) : onOpenPublishModal ? (
-              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
-                <Share2 className="h-3.5 w-3.5" />
-                <span className="text-xs ml-1 hidden xl:inline">Publish</span>
-              </button>
-            ) : onPublish && (
-              <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
-                <Share2 className="h-3.5 w-3.5" />
-                <span className="text-xs ml-1 hidden xl:inline">Publish</span>
-              </button>
-            )}
-            {onDelete && (
-              <button onClick={onDelete} disabled={isDeleting} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Delete" aria-label="Delete story">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
             {practiceMode && (
               <button
                 onClick={() => setShowDeliveryHelp(true)}
@@ -1535,7 +1831,70 @@ export function NarrativePreview({
                 <HelpCircle className="h-3.5 w-3.5" />
               </button>
             )}
+            <div className="w-px h-4 bg-gray-200 mx-0.5" />
+            <div className="relative" ref={copyMenuRef}>
+              <button
+                onClick={() => setShowCopyMenu(!showCopyMenu)}
+                className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
+                title="Copy"
+                aria-label="Copy"
+                data-testid="copy-star"
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+              <CopyMenu isOpen={showCopyMenu} onClose={() => setShowCopyMenu(false)} onCopy={handleCopy} />
+            </div>
+            {story?.isPublished ? (
+              <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50 inline-flex items-center" title="Unpublish" aria-label="Unpublish">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+            ) : onOpenPublishModal ? (
+              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
+                <Share2 className="h-3.5 w-3.5" />
+              </button>
+            ) : onPublish && (
+              <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
+                <Share2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={onDelete} disabled={isDeleting} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Delete" aria-label="Delete story">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* Status + metrics row */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <StatusBadge
+              status={storyStatus}
+              confidence={star.overallConfidence}
+              suggestedEdits={star.suggestedEdits}
+            />
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              {sourceCoverage ? (
+                <SourceCoverageHeader total={sourceCoverage.total} sourced={sourceCoverage.sourced} />
+              ) : (
+                <span>{activityCount} activities</span>
+              )}
+              {formatDateRange() && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span>{formatDateRange()}</span>
+                </>
+              )}
+              <span className="text-gray-300">&middot;</span>
+              <span>~{formatTime(estimatedTime)}</span>
+            </div>
+          </div>
+          {keyMetrics.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <TrendingUp className="h-3 w-3" />
+              <span className="font-medium text-gray-700">{keyMetrics.slice(0, 3).join(' · ')}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1555,11 +1914,8 @@ export function NarrativePreview({
       {/* Delivery Help Modal */}
       <DeliveryHelpModal isOpen={showDeliveryHelp} onClose={() => setShowDeliveryHelp(false)} />
 
-      {/* Narrative Content - with editorial margin layout when coaching is on */}
-      <div className={cn(
-        'py-4 divide-y divide-gray-100',
-        showCoaching ? 'px-4 lg:pl-6 lg:pr-4' : 'px-4'
-      )}>
+      {/* Narrative Content — timeline spine layout */}
+      <div className="py-6 px-6">
         {sectionKeys.map((sectionKey, idx) => {
           let component: STARComponent;
           if (useStorySections && story?.sections?.[sectionKey]) {
@@ -1574,40 +1930,88 @@ export function NarrativePreview({
             component = star?.[starKey] || { text: 'Details pending...', sources: [], confidence: 0.3 };
           }
 
+          const sectionSources = sourcesBySection[sectionKey] || [];
+          const activeSources = sectionSources.filter(s => !s.excludedAt && s.sourceType !== 'wizard_answer');
+          const isSectionCollapsed = collapsedSections.has(sectionKey);
+
           return (
-            <NarrativeSection
+            <NarrativeSectionHeader
               key={sectionKey}
               sectionKey={sectionKey}
               label={capitalizeFirst(sectionKey)}
-              content={component.text}
               confidence={component.confidence}
-              isEditing={isEditing}
-              editValue={edits[sectionKey] || ''}
-              onEditChange={(v) => setEdits({ ...edits, [sectionKey]: v })}
-              activities={activities}
-              sourceIds={component.sources}
-              isFirst={idx === 0}
               showCoaching={showCoaching}
-              showDeliveryCues={practiceMode}
-              showEmphasis={showEmphasis}
-            />
+              sourceCount={activeSources.length}
+              isCollapsed={isSectionCollapsed}
+              onToggle={() => toggleSection(sectionKey)}
+              isLast={idx === sectionKeys.length - 1}
+            >
+              {/* Content card — two-column on desktop when not editing */}
+              <div className={cn(
+                'bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden',
+                !isEditing && 'grid grid-cols-1 lg:grid-cols-[1fr,280px]',
+              )}>
+                {/* Left: narrative content + notes pills */}
+                <div className="p-5">
+                  <NarrativeSection
+                    sectionKey={sectionKey}
+                    label={capitalizeFirst(sectionKey)}
+                    content={component.text}
+                    confidence={component.confidence}
+                    isEditing={isEditing}
+                    editValue={edits[sectionKey] || ''}
+                    onEditChange={(v) => setEdits({ ...edits, [sectionKey]: v })}
+                    isFirst={idx === 0}
+                    showCoaching={showCoaching}
+                    showDeliveryCues={practiceMode}
+                    showEmphasis={showEmphasis}
+                    hideHeader
+                  />
+                  {!isEditing && (
+                    <NotesPillBar
+                      notes={sectionSources.filter((s) => s.sourceType === 'user_note')}
+                      sectionKey={sectionKey}
+                      onAddNote={handleAddNote}
+                      onExclude={handleExcludeSource}
+                      onUndoExclude={handleUndoExclude}
+                    />
+                  )}
+                </div>
+
+                {/* Right: sources panel — always visible on desktop */}
+                {!isEditing && (
+                  <div className="border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50">
+                    <SourceList
+                      sources={sectionSources}
+                      sectionKey={sectionKey}
+                      vagueMetrics={
+                        sourceCoverage?.vagueMetrics.filter((vm) => vm.sectionKey === sectionKey) || []
+                      }
+                      onExclude={handleExcludeSource}
+                      onUndoExclude={handleUndoExclude}
+                      onAddNote={handleAddNote}
+                    />
+                  </div>
+                )}
+              </div>
+            </NarrativeSectionHeader>
           );
         })}
       </div>
 
       {/* Footer */}
       {(star?.suggestedEdits?.length > 0 || result.polishStatus === 'success') && (
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="px-6 py-3 border-t border-gray-100">
+          <div className="flex items-center justify-between text-[11px] text-gray-400">
             {result.polishStatus === 'success' && (
               <span className="flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary-500" />
+                <Sparkles className="h-3 w-3 text-primary-400" />
                 AI-enhanced narrative
               </span>
             )}
             {star?.suggestedEdits?.length > 0 && (
-              <span className="flex items-center gap-1.5 text-amber-600">
-                <Lightbulb className="h-3.5 w-3.5" />
+              <span className="flex items-center gap-1.5 text-amber-500">
+                <Lightbulb className="h-3 w-3" />
                 {star.suggestedEdits.length} suggestion{star.suggestedEdits.length > 1 ? 's' : ''} to improve
               </span>
             )}
