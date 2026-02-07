@@ -26,6 +26,11 @@ export type ToolType =
   | 'slack'
   | 'outlook'
   | 'google'
+  | 'google-calendar'
+  | 'google-docs'
+  | 'google-drive'
+  | 'google-meet'
+  | 'google-sheets'
   | 'generic';
 
 // =============================================================================
@@ -223,6 +228,11 @@ export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
   slack: { name: 'Slack', color: '#4A154B' },
   outlook: { name: 'Outlook', color: '#0078D4' },
   google: { name: 'Google', color: '#4285F4' },
+  'google-calendar': { name: 'Calendar', color: '#4285F4' },
+  'google-docs': { name: 'Docs', color: '#4285F4' },
+  'google-drive': { name: 'Drive', color: '#0F9D58' },
+  'google-meet': { name: 'Meet', color: '#00897B' },
+  'google-sheets': { name: 'Sheets', color: '#0F9D58' },
   generic: { name: 'Other', color: '#6B7280' },
 };
 
@@ -264,6 +274,11 @@ export interface CareerStory {
   category?: BragDocCategory | null;
   role?: StoryRole | null;
   journalEntryId?: string | null;
+  sources?: StorySource[];
+  sourceCoverage?: SourceCoverage;
+  lastGenerationPrompt?: string | null;
+  wizardAnswers?: Record<string, WizardAnswer> | null;
+  groupingMethod?: 'time' | 'cluster' | 'manual' | 'ai' | null;
 }
 
 export interface CareerStoriesListResult {
@@ -359,4 +374,38 @@ export interface JournalEntryMeta {
   topics?: string[];
   impactHighlights?: string[];
   skills?: string[];
+}
+
+// =============================================================================
+// STORY SOURCES
+// =============================================================================
+
+export interface StorySource {
+  id: string;
+  storyId: string;
+  sectionKey: string;
+  sourceType: 'activity' | 'user_note' | 'wizard_answer';
+  activityId: string | null;
+  label: string;
+  content: string | null;
+  url: string | null;
+  annotation: string | null;
+  toolType: string | null;
+  role: string | null;
+  questionId: string | null;
+  sortOrder: number;
+  excludedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceCoverage {
+  total: number;
+  sourced: number;
+  gaps: string[];
+  vagueMetrics: Array<{
+    sectionKey: string;
+    match: string;
+    suggestion: string;
+  }>;
 }

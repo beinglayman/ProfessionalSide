@@ -38,6 +38,7 @@ import {
   WizardAnalyzeResponse,
   WizardGenerateRequest,
   WizardGenerateResponse,
+  StorySource,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -417,6 +418,32 @@ export class CareerStoriesService {
     const response = await api.post<ApiResponse<WizardGenerateResponse>>(
       '/career-stories/wizard/generate',
       data
+    );
+    return response.data;
+  }
+
+  // =============================================================================
+  // STORY SOURCES
+  // =============================================================================
+
+  /**
+   * Add a user note source to a story section
+   */
+  static async addStorySource(storyId: string, sectionKey: string, content: string): Promise<ApiResponse<StorySource>> {
+    const response = await api.post<ApiResponse<StorySource>>(
+      `/career-stories/stories/${storyId}/sources`,
+      { sectionKey, sourceType: 'user_note', content }
+    );
+    return response.data;
+  }
+
+  /**
+   * Exclude or restore a source
+   */
+  static async updateStorySource(storyId: string, sourceId: string, excludedAt: string | null): Promise<ApiResponse<StorySource>> {
+    const response = await api.patch<ApiResponse<StorySource>>(
+      `/career-stories/stories/${storyId}/sources/${sourceId}`,
+      { excludedAt }
     );
     return response.data;
   }

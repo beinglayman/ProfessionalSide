@@ -424,6 +424,16 @@ export function CareerStoriesPage() {
     }
   }, [searchParams, clusters, existingStories, selectedCluster, selectedStoryDirect, handleSelectCluster, handleSelectStory, setSearchParams]);
 
+  // Sync selectedStoryDirect with query cache when story list refetches
+  // (e.g. after adding a note or excluding a source)
+  useEffect(() => {
+    if (!selectedStoryDirect || !existingStories?.stories) return;
+    const fresh = existingStories.stories.find((s) => s.id === selectedStoryDirect.id);
+    if (fresh && fresh !== selectedStoryDirect) {
+      setSelectedStoryDirect(fresh);
+    }
+  }, [existingStories?.stories]);
+
   const handleGenerateClusters = useCallback(() => {
     generateClustersMutation.mutate({});
   }, [generateClustersMutation]);
@@ -885,6 +895,8 @@ export function CareerStoriesPage() {
                 onFrameworkChange={handleFrameworkChange}
                 onRegenerate={handleRegenerate}
                 story={selectedStory}
+                sources={selectedStoryDirect.sources}
+                sourceCoverage={selectedStoryDirect.sourceCoverage}
                 onSave={handleSaveStory}
                 onPublish={handlePublishStory}
                 onUnpublish={handleUnpublishStory}
@@ -1148,6 +1160,8 @@ export function CareerStoriesPage() {
           onFrameworkChange={handleFrameworkChange}
           onRegenerate={handleRegenerate}
           story={selectedStory}
+          sources={selectedStory?.sources}
+          sourceCoverage={selectedStory?.sourceCoverage}
           onSave={handleSaveStory}
           onPublish={handlePublishStory}
           onUnpublish={handleUnpublishStory}

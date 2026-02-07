@@ -40,6 +40,7 @@ import {
   NarrativeFramework,
   WritingStyle,
   ToolActivity,
+  StorySource,
 } from '../types/career-stories';
 import { collectActivityIds } from '../utils/story-timeline';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
@@ -609,5 +610,39 @@ export const useFrameworkRecommendations = (entryId: string, enabled: boolean = 
     },
     enabled: enabled && !!entryId,
     staleTime: 5 * 60 * 1000, // 5 minutes - recommendations don't change frequently
+  });
+};
+
+// =============================================================================
+// STORY SOURCES
+// =============================================================================
+
+/**
+ * Add a user note source to a story section
+ */
+export const useAddStorySource = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, sectionKey, content }: { storyId: string; sectionKey: string; content: string }) =>
+      CareerStoriesService.addStorySource(storyId, sectionKey, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+    },
+  });
+};
+
+/**
+ * Exclude or restore a source (set excludedAt)
+ */
+export const useUpdateStorySource = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, sourceId, excludedAt }: { storyId: string; sourceId: string; excludedAt: string | null }) =>
+      CareerStoriesService.updateStorySource(storyId, sourceId, excludedAt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+    },
   });
 };
