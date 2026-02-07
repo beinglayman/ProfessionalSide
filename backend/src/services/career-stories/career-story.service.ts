@@ -162,6 +162,9 @@ export interface CareerStoryRecord {
   isPublished: boolean;
   visibility: Visibility;
   publishedAt: Date | null;
+  archetype?: string | null;
+  category?: string | null;
+  role?: string | null;
 }
 
 export interface StoryResult {
@@ -220,6 +223,9 @@ export class CareerStoryService {
     isPublished: boolean;
     visibility: string;
     publishedAt: Date | null;
+    archetype?: string | null;
+    category?: string | null;
+    role?: string | null;
   }): CareerStoryRecord {
     return {
       id: story.id,
@@ -234,6 +240,9 @@ export class CareerStoryService {
       isPublished: story.isPublished,
       visibility: story.visibility as Visibility,
       publishedAt: story.publishedAt,
+      archetype: story.archetype,
+      category: story.category,
+      role: story.role,
     };
   }
 

@@ -13,8 +13,7 @@
  */
 
 import { prisma } from '../../lib/prisma';
-import { NARRATIVE_FRAMEWORKS } from './pipeline/narrative-frameworks';
-import { NarrativeFrameworkType } from './pipeline/types';
+import { FRAMEWORK_SECTIONS, FrameworkName } from '../ai/prompts/career-story.prompt';
 
 export type Visibility = 'private' | 'workspace' | 'network';
 
@@ -134,8 +133,8 @@ export class StoryPublishingService {
       return missing;
     }
 
-    const frameworkKey = story.framework as NarrativeFrameworkType;
-    const requiredSections = NARRATIVE_FRAMEWORKS[frameworkKey]?.componentOrder || [];
+    const frameworkKey = story.framework as FrameworkName;
+    const requiredSections = FRAMEWORK_SECTIONS[frameworkKey] || [];
     if (requiredSections.length === 0) {
       return missing;
     }
@@ -162,7 +161,8 @@ export class StoryPublishingService {
   async publish(
     storyId: string,
     userId: string,
-    visibility: Visibility
+    visibility: Visibility,
+    options?: { category?: string; role?: string },
   ): Promise<PublishResult> {
     if (!isValidVisibility(visibility)) {
       return { success: false, error: ERRORS.INVALID_VISIBILITY };
@@ -205,6 +205,8 @@ export class StoryPublishingService {
         isPublished: true,
         visibility,
         publishedAt: story.publishedAt ?? new Date(),
+        ...(options?.category !== undefined ? { category: options.category } : {}),
+        ...(options?.role !== undefined ? { role: options.role } : {}),
       },
     });
 

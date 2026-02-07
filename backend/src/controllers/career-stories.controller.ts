@@ -1058,7 +1058,7 @@ export const regenerateStory = asyncHandler(async (req: Request, res: Response):
 export const publishStory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const { id } = req.params;
-  const { visibility = 'private' } = req.body;
+  const { visibility = 'private', category, role } = req.body;
 
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
@@ -1066,7 +1066,7 @@ export const publishStory = asyncHandler(async (req: Request, res: Response): Pr
 
   const isDemoMode = isDemoModeRequest(req);
   const service = createStoryPublishingService(isDemoMode);
-  const result = await service.publish(id, userId, visibility as Visibility);
+  const result = await service.publish(id, userId, visibility as Visibility, { category, role });
 
   if (!result.success) {
     const status = result.error === 'Story not found' ? 404 :

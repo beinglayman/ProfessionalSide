@@ -654,7 +654,8 @@ router.get('/feed', async (req: Request, res: Response) => {
     const followingIds = follows.map(f => f.followingId);
 
     if (followingIds.length === 0) {
-      return sendSuccess(res, { stories: [], total: 0, page, pageSize });
+      sendSuccess(res, { stories: [], total: 0, page, pageSize });
+      return;
     }
 
     const [stories, total] = await Promise.all([
