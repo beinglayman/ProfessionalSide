@@ -207,6 +207,7 @@ describe('FormatSwitchModal', () => {
         'SOAR',        // initialFramework
         'professional', // initialStyle
         undefined,      // empty prompt → undefined
+        undefined,      // archetype (not set in this test)
       );
     });
 
@@ -220,6 +221,7 @@ describe('FormatSwitchModal', () => {
         'SOAR',
         'professional',
         'Add more metrics',
+        undefined,      // archetype
       );
     });
 
@@ -232,6 +234,7 @@ describe('FormatSwitchModal', () => {
         'SOAR',
         'technical',
         undefined,
+        undefined,      // archetype
       );
     });
 

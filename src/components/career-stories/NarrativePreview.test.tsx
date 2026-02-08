@@ -140,13 +140,10 @@ const defaultProps = {
   onRegenerate: vi.fn(),
 };
 
-/** Helper: open the copy menu and click "Plain Text" to trigger raw copy */
+/** Helper: click the copy button to trigger plain text copy */
 async function triggerCopy() {
   const copyButton = screen.getByTestId('copy-star');
   fireEvent.click(copyButton);
-  // The copy menu opens — click "Plain Text" for raw format
-  const plainTextOption = await screen.findByText('Plain Text');
-  fireEvent.click(plainTextOption);
 }
 
 describe('NarrativePreview', () => {

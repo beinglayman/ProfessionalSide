@@ -100,8 +100,8 @@ describe('ProfileViewPage — Timeline Toggle', () => {
     ];
     renderPage();
 
-    expect(screen.queryByText('timeline')).not.toBeInTheDocument();
-    expect(screen.queryByText('category')).not.toBeInTheDocument();
+    expect(screen.queryByText('Timeline')).not.toBeInTheDocument();
+    expect(screen.queryByText('Category')).not.toBeInTheDocument();
   });
 
   it('shows toggle when published stories exist', () => {
@@ -113,8 +113,8 @@ describe('ProfileViewPage — Timeline Toggle', () => {
     ];
     renderPage();
 
-    expect(screen.getByText('timeline')).toBeInTheDocument();
-    expect(screen.getByText('category')).toBeInTheDocument();
+    expect(screen.getByText('Timeline')).toBeInTheDocument();
+    expect(screen.getByText('Category')).toBeInTheDocument();
   });
 
   it('defaults to timeline view', () => {
@@ -126,11 +126,11 @@ describe('ProfileViewPage — Timeline Toggle', () => {
     ];
     renderPage();
 
-    const timelineBtn = screen.getByText('timeline');
-    expect(timelineBtn).toHaveAttribute('aria-pressed', 'true');
+    const timelineBtn = screen.getByText('Timeline');
+    expect(timelineBtn.closest('button')).toHaveAttribute('aria-pressed', 'true');
 
-    const categoryBtn = screen.getByText('category');
-    expect(categoryBtn).toHaveAttribute('aria-pressed', 'false');
+    const categoryBtn = screen.getByText('Category');
+    expect(categoryBtn.closest('button')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('switches to category view on click', async () => {
@@ -143,7 +143,7 @@ describe('ProfileViewPage — Timeline Toggle', () => {
     ];
     renderPage();
 
-    await user.click(screen.getByText('category'));
+    await user.click(screen.getByText('Category'));
 
     // Category view shows brag doc category labels
     expect(screen.getByText('Projects & Impact')).toBeInTheDocument();
@@ -183,10 +183,10 @@ describe('ProfileViewPage — Timeline Toggle', () => {
     renderPage();
 
     // Switch to category, then back
-    await user.click(screen.getByText('category'));
+    await user.click(screen.getByText('Category'));
     expect(screen.getByText('Projects & Impact')).toBeInTheDocument();
 
-    await user.click(screen.getByText('timeline'));
+    await user.click(screen.getByText('Timeline'));
     expect(screen.getByText('Q1 2026')).toBeInTheDocument();
   });
 });

@@ -19,9 +19,9 @@ describe('ToolIcon', () => {
     });
 
     it('displays letter fallback for tools without SVG', () => {
-      // 'google' and 'outlook' don't have SVG icons
-      render(<ToolIcon tool="google" />);
-      expect(screen.getByText('G')).toBeInTheDocument();
+      // 'generic' has no SVG — falls back to first letter of name ("Other" → "O")
+      render(<ToolIcon tool="generic" />);
+      expect(screen.getByText('O')).toBeInTheDocument();
     });
 
     it('applies tool-specific background color', () => {
