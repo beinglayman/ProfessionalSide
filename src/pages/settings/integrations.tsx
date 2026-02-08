@@ -7,20 +7,21 @@ import { useMCPTools, useMCPPrivacy } from '../../hooks/useMCP';
 import { MCPToolType } from '../../services/mcp.service';
 import { useToast } from '../../contexts/ToastContext';
 import { ToolIcon, type ToolType } from '../../components/icons/ToolIcons';
+import { TOOL_METADATA } from '../../constants/tools';
 
 const toolDescriptions: Record<MCPToolType, string> = {
-  [MCPToolType.GITHUB]: 'Import commits, pull requests, and issues from your repositories',
-  [MCPToolType.JIRA]: 'Import tickets, sprints, and project updates',
-  [MCPToolType.FIGMA]: 'Import design files and component updates',
-  [MCPToolType.OUTLOOK]: 'Import meeting notes and calendar events',
-  [MCPToolType.CONFLUENCE]: 'Import documentation and wiki pages',
-  [MCPToolType.SLACK]: 'Import team discussions and important messages',
-  [MCPToolType.TEAMS]: 'Import Teams chat messages and channel activity',
-  [MCPToolType.SHAREPOINT]: 'Import SharePoint site activity, documents, and list updates',
-  [MCPToolType.ONEDRIVE]: 'Import OneDrive file changes and collaboration activity',
-  [MCPToolType.ONENOTE]: 'Import OneNote pages, notebooks, and note-taking activity',
-  [MCPToolType.ZOOM]: 'Import Zoom meeting recordings, transcripts, and participant data',
-  [MCPToolType.GOOGLE_WORKSPACE]: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings',
+  [MCPToolType.GITHUB]: TOOL_METADATA.github.description,
+  [MCPToolType.JIRA]: TOOL_METADATA.jira.description,
+  [MCPToolType.FIGMA]: TOOL_METADATA.figma.description,
+  [MCPToolType.OUTLOOK]: TOOL_METADATA.outlook.description,
+  [MCPToolType.CONFLUENCE]: TOOL_METADATA.confluence.description,
+  [MCPToolType.SLACK]: TOOL_METADATA.slack.description,
+  [MCPToolType.TEAMS]: TOOL_METADATA.teams.description,
+  [MCPToolType.SHAREPOINT]: TOOL_METADATA.sharepoint.description,
+  [MCPToolType.ONEDRIVE]: TOOL_METADATA.onedrive.description,
+  [MCPToolType.ONENOTE]: TOOL_METADATA.onenote.description,
+  [MCPToolType.ZOOM]: TOOL_METADATA.zoom.description,
+  [MCPToolType.GOOGLE_WORKSPACE]: TOOL_METADATA.google_workspace.description,
 };
 
 const IntegrationsPage: React.FC = () => {

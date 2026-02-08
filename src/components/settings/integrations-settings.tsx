@@ -18,60 +18,22 @@ import { cn } from '../../lib/utils';
 import { useMCPIntegrations, useMCPOAuth, useMCPGroupOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
 import { MCPToolType, MCPIntegrationGroup } from '../../types/mcp.types';
 import { ToolIcon, ToolType } from '../icons/ToolIcons';
+import { TOOL_METADATA } from '../../constants/tools';
 
-// Tool configurations with descriptions
-const toolConfigs: Record<MCPToolType, {
-  name: string;
-  description: string;
-}> = {
-  github: {
-    name: 'GitHub',
-    description: 'Connect your GitHub account to import code contributions, pull requests, and repository activity.'
-  },
-  jira: {
-    name: 'Jira',
-    description: 'Import task completions, story points, and sprint activity from Jira.'
-  },
-  figma: {
-    name: 'Figma',
-    description: 'Sync design contributions, file edits, and comments from Figma projects.'
-  },
-  outlook: {
-    name: 'Outlook',
-    description: 'Import meeting notes, email summaries, and calendar events from Outlook.'
-  },
-  confluence: {
-    name: 'Confluence',
-    description: 'Import documentation updates, page edits, and knowledge base contributions.'
-  },
-  slack: {
-    name: 'Slack',
-    description: 'Import important messages, thread discussions, and team collaboration highlights.'
-  },
-  teams: {
-    name: 'Microsoft Teams',
-    description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.'
-  },
-  onedrive: {
-    name: 'OneDrive',
-    description: 'Import OneDrive file changes and collaboration activity.'
-  },
-  onenote: {
-    name: 'OneNote',
-    description: 'Import OneNote pages, notebooks, and note-taking activity.'
-  },
-  sharepoint: {
-    name: 'SharePoint',
-    description: 'Import SharePoint site activity, documents, and list updates.'
-  },
-  zoom: {
-    name: 'Zoom',
-    description: 'Import Zoom meeting recordings, transcripts, and participant data.'
-  },
-  google_workspace: {
-    name: 'Google Workspace',
-    description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings.'
-  }
+// Names from TOOL_METADATA; descriptions are settings-specific (action-oriented for onboarding)
+const toolConfigs: Record<MCPToolType, { name: string; description: string }> = {
+  github:           { name: TOOL_METADATA.github.name,           description: 'Connect your GitHub account to import code contributions, pull requests, and repository activity.' },
+  jira:             { name: TOOL_METADATA.jira.name,             description: 'Import task completions, story points, and sprint activity from Jira.' },
+  figma:            { name: TOOL_METADATA.figma.name,            description: 'Sync design contributions, file edits, and comments from Figma projects.' },
+  outlook:          { name: TOOL_METADATA.outlook.name,          description: 'Import meeting notes, email summaries, and calendar events from Outlook.' },
+  confluence:       { name: TOOL_METADATA.confluence.name,       description: 'Import documentation updates, page edits, and knowledge base contributions.' },
+  slack:            { name: TOOL_METADATA.slack.name,            description: 'Import important messages, thread discussions, and team collaboration highlights.' },
+  teams:            { name: TOOL_METADATA.teams.name,            description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.' },
+  onedrive:         { name: TOOL_METADATA.onedrive.name,         description: 'Import OneDrive file changes and collaboration activity.' },
+  onenote:          { name: TOOL_METADATA.onenote.name,          description: 'Import OneNote pages, notebooks, and note-taking activity.' },
+  sharepoint:       { name: TOOL_METADATA.sharepoint.name,       description: 'Import SharePoint site activity, documents, and list updates.' },
+  zoom:             { name: TOOL_METADATA.zoom.name,             description: 'Import Zoom meeting recordings, transcripts, and participant data.' },
+  google_workspace: { name: TOOL_METADATA.google_workspace.name, description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings.' },
 };
 
 // Integration groups configuration

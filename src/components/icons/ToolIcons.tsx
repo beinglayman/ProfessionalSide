@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
+import { TOOL_METADATA } from '../../constants/tools';
 
 export type ToolType = 'github' | 'jira' | 'figma' | 'outlook' | 'confluence' | 'slack' | 'teams' | 'onedrive' | 'onenote' | 'sharepoint' | 'zoom' | 'google_workspace';
 
@@ -240,40 +241,10 @@ export const GoogleWorkspaceIcon: React.FC<{ className?: string }> = ({ classNam
   <ToolIcon tool="google_workspace" className={className} />
 );
 
-// Helper to get tool display name
 export function getToolDisplayName(tool: ToolType): string {
-  const names: Record<ToolType, string> = {
-    github: 'GitHub',
-    jira: 'Jira',
-    figma: 'Figma',
-    outlook: 'Outlook',
-    confluence: 'Confluence',
-    slack: 'Slack',
-    teams: 'Microsoft Teams',
-    onedrive: 'OneDrive',
-    onenote: 'OneNote',
-    sharepoint: 'SharePoint',
-    zoom: 'Zoom',
-    google_workspace: 'Google Workspace',
-  };
-  return names[tool];
+  return TOOL_METADATA[tool]?.name ?? tool;
 }
 
-// Helper to get tool description
 export function getToolDescription(tool: ToolType): string {
-  const descriptions: Record<ToolType, string> = {
-    github: 'Code contributions and repositories',
-    jira: 'Task completions and sprint activity',
-    figma: 'Design contributions and projects',
-    outlook: 'Meeting notes and calendar events',
-    confluence: 'Documentation updates',
-    slack: 'Important messages and discussions',
-    teams: 'Meeting notes and chat discussions',
-    onedrive: 'OneDrive file changes and collaboration',
-    onenote: 'OneNote pages, notebooks, and notes',
-    sharepoint: 'SharePoint site activity and documents',
-    zoom: 'Meeting recordings, transcripts, and participant data',
-    google_workspace: 'Google Docs, Sheets, Slides, Drive files, and Meet recordings',
-  };
-  return descriptions[tool];
+  return TOOL_METADATA[tool]?.description ?? '';
 }

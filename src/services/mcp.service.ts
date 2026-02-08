@@ -1,4 +1,5 @@
 import { api } from '../lib/api';
+import { getToolName } from '../constants/tools';
 
 /**
  * MCP Service - Frontend API client for MCP operations
@@ -791,16 +792,7 @@ class MCPService {
    * Format tool display name
    */
   getToolDisplayName(toolType: MCPToolType): string {
-    const names: Record<MCPToolType, string> = {
-      [MCPToolType.GITHUB]: 'GitHub',
-      [MCPToolType.JIRA]: 'Jira',
-      [MCPToolType.FIGMA]: 'Figma',
-      [MCPToolType.OUTLOOK]: 'Outlook',
-      [MCPToolType.CONFLUENCE]: 'Confluence',
-      [MCPToolType.SLACK]: 'Slack',
-      [MCPToolType.TEAMS]: 'Microsoft Teams'
-    };
-    return names[toolType] || toolType;
+    return getToolName(toolType);
   }
 
   /**

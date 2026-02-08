@@ -2,30 +2,29 @@
 
 /**
  * Supported activity sources with display metadata
+ * Derived from TOOL_METADATA (single source of truth in constants/tools.ts)
  */
+import { TOOL_METADATA } from '../constants/tools';
+
+const sourceEntry = (key: keyof typeof TOOL_METADATA) =>
+  ({ displayName: TOOL_METADATA[key].name, color: TOOL_METADATA[key].color, icon: key }) as const;
+
 export const SUPPORTED_SOURCES = {
-  // Dev tools
-  github: { displayName: 'GitHub', color: '#24292e', icon: 'github' },
-  // Atlassian
-  jira: { displayName: 'Jira', color: '#0052CC', icon: 'jira' },
-  confluence: { displayName: 'Confluence', color: '#172B4D', icon: 'confluence' },
-  // Microsoft 365
-  teams: { displayName: 'Microsoft Teams', color: '#6264a7', icon: 'teams' },
-  outlook: { displayName: 'Outlook', color: '#0078d4', icon: 'outlook' },
-  onedrive: { displayName: 'OneDrive', color: '#0078d4', icon: 'onedrive' },
-  sharepoint: { displayName: 'SharePoint', color: '#036C70', icon: 'sharepoint' },
-  // Communication
-  slack: { displayName: 'Slack', color: '#4A154B', icon: 'slack' },
-  // Design
-  figma: { displayName: 'Figma', color: '#F24E1E', icon: 'figma' },
-  // Google Workspace
-  'google-calendar': { displayName: 'Google Calendar', color: '#4285F4', icon: 'google-calendar' },
-  'google-docs': { displayName: 'Google Docs', color: '#4285F4', icon: 'google-docs' },
-  'google-sheets': { displayName: 'Google Sheets', color: '#0F9D58', icon: 'google-sheets' },
-  'google-drive': { displayName: 'Google Drive', color: '#4285F4', icon: 'google-drive' },
-  'google-meet': { displayName: 'Google Meet', color: '#00897B', icon: 'google-meet' },
-  // Legacy: generic 'google' source (for existing data, maps to Google Workspace styling)
-  google: { displayName: 'Google', color: '#4285F4', icon: 'google' },
+  github: sourceEntry('github'),
+  jira: sourceEntry('jira'),
+  confluence: sourceEntry('confluence'),
+  teams: sourceEntry('teams'),
+  outlook: sourceEntry('outlook'),
+  onedrive: sourceEntry('onedrive'),
+  sharepoint: sourceEntry('sharepoint'),
+  slack: sourceEntry('slack'),
+  figma: sourceEntry('figma'),
+  'google-calendar': sourceEntry('google-calendar'),
+  'google-docs': sourceEntry('google-docs'),
+  'google-sheets': sourceEntry('google-sheets'),
+  'google-drive': sourceEntry('google-drive'),
+  'google-meet': sourceEntry('google-meet'),
+  google: sourceEntry('google'),
 } as const;
 
 export type ActivitySource = keyof typeof SUPPORTED_SOURCES;

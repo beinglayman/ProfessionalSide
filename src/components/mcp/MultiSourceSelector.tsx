@@ -4,40 +4,17 @@ import { cn } from '../../lib/utils';
 import { MCPToolType } from '../../types/mcp.types';
 import { Checkbox } from '../ui/checkbox';
 import { ToolIcon, ToolType } from '../icons/ToolIcons';
+import { TOOL_METADATA } from '../../constants/tools';
 
-// Tool configurations with descriptions
-const toolConfigs: Record<MCPToolType, {
-  name: string;
-  description: string;
-}> = {
-  github: {
-    name: 'GitHub',
-    description: 'Code contributions, PRs, and issues'
-  },
-  jira: {
-    name: 'Jira',
-    description: 'Tasks, story points, and sprints'
-  },
-  figma: {
-    name: 'Figma',
-    description: 'Design files, edits, and comments'
-  },
-  outlook: {
-    name: 'Outlook',
-    description: 'Meetings, emails, and calendar'
-  },
-  confluence: {
-    name: 'Confluence',
-    description: 'Documentation and page updates'
-  },
-  slack: {
-    name: 'Slack',
-    description: 'Messages, threads, and discussions'
-  },
-  teams: {
-    name: 'Microsoft Teams',
-    description: 'Meetings, chats, and collaboration'
-  }
+// Names + descriptions from TOOL_METADATA (single source of truth)
+const toolConfigs: Record<MCPToolType, { name: string; description: string }> = {
+  github:     { name: TOOL_METADATA.github.name,     description: TOOL_METADATA.github.description },
+  jira:       { name: TOOL_METADATA.jira.name,       description: TOOL_METADATA.jira.description },
+  figma:      { name: TOOL_METADATA.figma.name,      description: TOOL_METADATA.figma.description },
+  outlook:    { name: TOOL_METADATA.outlook.name,     description: TOOL_METADATA.outlook.description },
+  confluence: { name: TOOL_METADATA.confluence.name,  description: TOOL_METADATA.confluence.description },
+  slack:      { name: TOOL_METADATA.slack.name,       description: TOOL_METADATA.slack.description },
+  teams:      { name: TOOL_METADATA.teams.name,       description: TOOL_METADATA.teams.description },
 };
 
 interface MCPTool {

@@ -14,6 +14,8 @@
  * - backend/src/services/career-stories/pipeline/types/cluster.types.ts
  */
 
+import { TOOL_METADATA } from '../constants/tools';
+
 // =============================================================================
 // TOOL TYPES
 // =============================================================================
@@ -219,21 +221,23 @@ export interface ClusterDisplay extends Cluster {
   dateRangeDisplay: string;
 }
 
-/** Tool icon metadata for display */
+/** Tool icon metadata for display — derived from TOOL_METADATA (single source of truth) */
+const toolEntry = (key: ToolType) => ({ name: TOOL_METADATA[key].name, color: TOOL_METADATA[key].color });
+
 export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
-  jira: { name: 'Jira', color: '#0052CC' },
-  github: { name: 'GitHub', color: '#24292E' },
-  confluence: { name: 'Confluence', color: '#172B4D' },
-  figma: { name: 'Figma', color: '#F24E1E' },
-  slack: { name: 'Slack', color: '#4A154B' },
-  outlook: { name: 'Outlook', color: '#0078D4' },
-  google: { name: 'Google', color: '#4285F4' },
-  'google-calendar': { name: 'Calendar', color: '#4285F4' },
-  'google-docs': { name: 'Docs', color: '#4285F4' },
-  'google-drive': { name: 'Drive', color: '#0F9D58' },
-  'google-meet': { name: 'Meet', color: '#00897B' },
-  'google-sheets': { name: 'Sheets', color: '#0F9D58' },
-  generic: { name: 'Other', color: '#6B7280' },
+  jira: toolEntry('jira'),
+  github: toolEntry('github'),
+  confluence: toolEntry('confluence'),
+  figma: toolEntry('figma'),
+  slack: toolEntry('slack'),
+  outlook: toolEntry('outlook'),
+  google: toolEntry('google'),
+  'google-calendar': toolEntry('google-calendar'),
+  'google-docs': toolEntry('google-docs'),
+  'google-drive': toolEntry('google-drive'),
+  'google-meet': toolEntry('google-meet'),
+  'google-sheets': toolEntry('google-sheets'),
+  generic: toolEntry('generic'),
 };
 
 // =============================================================================
