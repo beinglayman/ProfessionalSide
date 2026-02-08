@@ -407,6 +407,27 @@ export interface DeriveStoryResponse {
 }
 
 // =============================================================================
+// PROMOTION PACKET (Multi-Story Derivation)
+// =============================================================================
+
+export interface DerivePacketRequest {
+  storyIds: string[];
+  tone?: WritingStyle;
+  customPrompt?: string;
+}
+
+export interface DerivePacketResponse {
+  text: string;
+  charCount: number;
+  wordCount: number;
+  metadata: {
+    storyCount: number;
+    model: string;
+    processingTimeMs: number;
+  };
+}
+
+// =============================================================================
 // STORY SOURCES
 // =============================================================================
 

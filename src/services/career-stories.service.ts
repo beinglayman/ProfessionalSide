@@ -41,6 +41,8 @@ import {
   StorySource,
   DeriveStoryRequest,
   DeriveStoryResponse,
+  DerivePacketRequest,
+  DerivePacketResponse,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -460,6 +462,17 @@ export class CareerStoriesService {
   static async deriveStory(storyId: string, params: DeriveStoryRequest): Promise<ApiResponse<DeriveStoryResponse>> {
     const response = await api.post<ApiResponse<DeriveStoryResponse>>(
       `/career-stories/stories/${storyId}/derive`,
+      params
+    );
+    return response.data;
+  }
+
+  /**
+   * Generate a promotion packet from multiple stories
+   */
+  static async derivePacket(params: DerivePacketRequest): Promise<ApiResponse<DerivePacketResponse>> {
+    const response = await api.post<ApiResponse<DerivePacketResponse>>(
+      '/career-stories/derive-packet',
       params
     );
     return response.data;

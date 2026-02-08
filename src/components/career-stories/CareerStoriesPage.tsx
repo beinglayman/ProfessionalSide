@@ -36,6 +36,7 @@ import { StoryCard } from './StoryCard';
 import { FormatSwitchModal } from './FormatSwitchModal';
 import { PublishModal } from './PublishModal';
 import { DerivationModal } from './DerivationModal';
+import { PromotionPacketModal } from './PromotionPacketModal';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
@@ -180,6 +181,8 @@ export function CareerStoriesPage() {
   const [publishModalStoryId, setPublishModalStoryId] = useState<string | null>(null);
   // Derivation modal state
   const [derivationStoryId, setDerivationStoryId] = useState<string | null>(null);
+  // Promotion packet modal state
+  const [showPromotionPacket, setShowPromotionPacket] = useState(false);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -931,6 +934,16 @@ export function CareerStoriesPage() {
                     <span className="text-xs text-gray-400">
                       {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
                     </span>
+                    {allStories.length >= 2 && (
+                      <button
+                        onClick={() => setShowPromotionPacket(true)}
+                        className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors"
+                        title="Build Promotion Packet"
+                      >
+                        <FileText className="w-3 h-3" />
+                        Promotion Packet
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -1222,6 +1235,15 @@ export function CareerStoriesPage() {
           isOpen={!!derivationStoryId}
           onClose={() => setDerivationStoryId(null)}
           story={derivationStory}
+        />
+      )}
+
+      {/* Promotion Packet Modal */}
+      {showPromotionPacket && allStories.length >= 2 && (
+        <PromotionPacketModal
+          isOpen={showPromotionPacket}
+          onClose={() => setShowPromotionPacket(false)}
+          stories={allStories}
         />
       )}
     </div>

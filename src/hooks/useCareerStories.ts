@@ -43,6 +43,8 @@ import {
   StorySource,
   DeriveStoryRequest,
   DeriveStoryResponse,
+  DerivePacketRequest,
+  DerivePacketResponse,
 } from '../types/career-stories';
 import { collectActivityIds } from '../utils/story-timeline';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
@@ -661,5 +663,16 @@ export const useDeriveStory = () => {
   return useMutation({
     mutationFn: ({ storyId, params }: { storyId: string; params: DeriveStoryRequest }) =>
       CareerStoriesService.deriveStory(storyId, params),
+  });
+};
+
+/**
+ * Generate a promotion packet from multiple stories.
+ * No cache invalidation — packets are not stored.
+ */
+export const useDerivePacket = () => {
+  return useMutation({
+    mutationFn: (params: DerivePacketRequest) =>
+      CareerStoriesService.derivePacket(params),
   });
 };
