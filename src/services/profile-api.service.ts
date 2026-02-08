@@ -69,11 +69,9 @@ class ProfileApiService {
     
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       try {
-        console.log(`🔄 ${errorContext}: Attempt ${attempt}/${maxRetries + 1}`);
         const response = await apiCall();
-        
+
         if (response.ok) {
-          console.log(`✅ ${errorContext}: Success on attempt ${attempt}`);
           return response;
         }
         
@@ -85,7 +83,7 @@ class ProfileApiService {
         // For 400 errors, log details and don't retry
         if (response.status === 400) {
           const errorText = await response.text();
-          console.error(`❌ ${errorContext}: 400 error details:`, {
+          console.error(`${errorContext}: 400 error details:`, {
             status: response.status,
             statusText: response.statusText,
             headers: Object.fromEntries(response.headers.entries()),
@@ -96,7 +94,7 @@ class ProfileApiService {
         
         // Retry for server errors and other 400s
         if (attempt <= maxRetries) {
-          console.warn(`⚠️ ${errorContext}: Attempt ${attempt} failed with ${response.status}, retrying...`);
+          console.warn(`${errorContext}: Attempt ${attempt} failed with ${response.status}, retrying...`);
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
           continue;
         }
@@ -105,7 +103,7 @@ class ProfileApiService {
       } catch (error) {
         lastError = error as Error;
         if (attempt <= maxRetries && !lastError.message.includes('401') && !lastError.message.includes('403')) {
-          console.warn(`⚠️ ${errorContext}: Attempt ${attempt} failed, retrying...`, lastError.message);
+          console.warn(`${errorContext}: Attempt ${attempt} failed, retrying...`, lastError.message);
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
         }
@@ -118,8 +116,6 @@ class ProfileApiService {
 
   async getProfile(): Promise<ProfileData> {
     try {
-      console.log('🔍 Starting profile data fetch...');
-      
       // 1. Get basic profile data with retry
       const response = await this.retryApiCall(
         () => fetch(`${API_BASE_URL}/users/profile/me`, {
@@ -139,35 +135,23 @@ class ProfileApiService {
       }
 
       const profileData = await response.json();
-      console.log('🔍 Raw backend profile response:', profileData);
-      console.log('🔍 Backend user fields:', {
-        name: profileData.data?.name,
-        title: profileData.data?.title,
-        company: profileData.data?.company,
-        location: profileData.data?.location,
-        bio: profileData.data?.bio
-      });
 
       // 2. Get skills data from skills API with retry
-      console.log('🔍 Fetching skills data...');
       const skillsData = await this.getUserSkillsWithRetry();
-      
+
       // 3. Get onboarding data from experience field with retry
-      console.log('🔍 Fetching onboarding data...');
       const onboardingData = await this.getStoredOnboardingDataWithRetry(profileData.data || profileData);
       
       // 4. Transform and combine all data
       return this.transformBackendProfileToFrontend(profileData.data || profileData, skillsData, onboardingData);
     } catch (error) {
-      console.error('❌ Failed to fetch profile:', error);
+      console.error('Failed to fetch profile:', error);
       throw error;
     }
   }
 
   async getPublicProfile(userId: string): Promise<ProfileData> {
     try {
-      console.log(`🔍 Fetching public profile for user: ${userId}`);
-      
       // 1. Get public profile data
       const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         headers: {
@@ -187,22 +171,15 @@ class ProfileApiService {
       }
 
       const profileData = await response.json();
-      console.log('🔍 Raw backend public profile response:', profileData);
-      console.log('🔍 Backend skills in profile:', profileData.data?.skills || profileData.skills);
-      console.log('🔍 Backend workExperiences:', profileData.data?.workExperiences || profileData.workExperiences);
-      console.log('🔍 Backend education:', profileData.data?.education || profileData.education);
-      console.log('🔍 Backend certifications:', profileData.data?.certifications || profileData.certifications);
 
       // 2. Get public skills data - use skills from profile response first
       const profileSkills = profileData.data?.skills || profileData.skills || [];
       const skillsData = profileSkills.length > 0 ? profileSkills : await this.getPublicUserSkills(userId);
-      
-      console.log('🔍 Final skills data for transformation:', skillsData);
-      
+
       // 3. Transform and combine public data (no onboarding data for public profiles)
       return this.transformBackendProfileToFrontend(profileData.data || profileData, skillsData, null);
     } catch (error) {
-      console.error('❌ Failed to fetch public profile:', error);
+      console.error('Failed to fetch public profile:', error);
       throw error;
     }
   }
@@ -216,11 +193,10 @@ class ProfileApiService {
       
       if (response.ok) {
         const skillsResponse = await response.json();
-        console.log('🔍 Skills from API:', skillsResponse.data);
         return skillsResponse.data || [];
       }
     } catch (error) {
-      console.error('❌ Failed to fetch skills:', error);
+      console.error('Failed to fetch skills:', error);
     }
     return [];
   }
@@ -236,10 +212,9 @@ class ProfileApiService {
       );
       
       const skillsResponse = await response.json();
-      console.log('🔍 Skills from API:', skillsResponse.data);
       return skillsResponse.data || [];
     } catch (error) {
-      console.error('❌ Failed to fetch skills after retries:', error);
+      console.error('Failed to fetch skills after retries:', error);
       return [];
     }
   }
@@ -255,11 +230,10 @@ class ProfileApiService {
       
       if (response.ok) {
         const skillsResponse = await response.json();
-        console.log('🔍 Public skills from API:', skillsResponse.data);
         return skillsResponse.data || [];
       }
     } catch (error) {
-      console.error('❌ Failed to fetch public skills:', error);
+      console.error('Failed to fetch public skills:', error);
     }
     return [];
   }
@@ -267,8 +241,6 @@ class ProfileApiService {
   // Helper method to extract onboarding data from API database
   private async getStoredOnboardingData(profileData: any): Promise<any | null> {
     try {
-      console.log('🔍 Fetching onboarding data from API database...');
-      
       // Fetch onboarding data from the API database
       const response = await fetch(`${API_BASE_URL}/onboarding/data`, {
         headers: this.getAuthHeaders(),
@@ -277,18 +249,6 @@ class ProfileApiService {
       if (response.ok) {
         const apiData = await response.json();
         if (apiData.success && apiData.data) {
-          console.log('✅ Found onboarding data in API database:', apiData.data);
-          console.log('🔍 API onboarding fields:', {
-            professionalSummary: apiData.data?.professionalSummary ? 'EXISTS' : 'MISSING',
-            specializations: apiData.data?.specializations?.length || 0,
-            skills: typeof apiData.data?.skills === 'object' ? (Array.isArray(apiData.data.skills) ? apiData.data.skills.length : 'JSON_OBJECT') : 0,
-            topSkills: apiData.data?.topSkills?.length || 0,
-            careerGoals: apiData.data?.careerGoals?.length || 0,
-            professionalInterests: apiData.data?.professionalInterests?.length || 0
-          });
-          console.log('🔍 DEBUG API careerGoals:', apiData.data?.careerGoals);
-          console.log('🔍 DEBUG API professionalInterests:', apiData.data?.professionalInterests);
-          
           // Transform API data to frontend format
           const transformedData = {
             fullName: apiData.data.fullName || '',
@@ -319,29 +279,19 @@ class ProfileApiService {
             professionalInterests: apiData.data.professionalInterests || [],
           };
           
-          console.log('🔄 Transformed API data:', transformedData);
           return transformedData;
         }
       }
       
-      console.log('⚠️ No onboarding data found in API, trying localStorage fallback...');
-      
       // Fallback to localStorage (for backward compatibility)
       const storedData = localStorage.getItem('onboarding_complete_data');
-      
+
       if (storedData) {
-        console.log('🔍 Found onboarding data in localStorage, parsing');
         const onboardingData = JSON.parse(storedData);
-        console.log('🔍 Parsed localStorage data:', onboardingData);
-        
         if (onboardingData.type === 'onboarding_data') {
-          console.log('✅ Using localStorage fallback data:', onboardingData.data);
           return onboardingData.data;
         }
       }
-      
-      // If no API or localStorage data, try to construct from user profile data
-      console.log('⚠️ No onboarding data found, constructing from profile');
       
       if (profileData) {
         const constructedData = {
@@ -364,13 +314,10 @@ class ProfileApiService {
           professionalInterests: []
         };
         
-        console.log('🔧 Constructed onboarding data from profile:', constructedData);
         return constructedData;
       }
-      
-      console.log('⚠️ No profile data available for construction');
     } catch (error) {
-      console.error('❌ Failed to fetch onboarding data from API:', error);
+      console.error('Failed to fetch onboarding data from API:', error);
       
       // Try localStorage fallback on API error
       try {
@@ -378,12 +325,11 @@ class ProfileApiService {
         if (storedData) {
           const onboardingData = JSON.parse(storedData);
           if (onboardingData.type === 'onboarding_data') {
-            console.log('✅ Using localStorage fallback after API error:', onboardingData.data);
             return onboardingData.data;
           }
         }
       } catch (localStorageError) {
-        console.error('❌ LocalStorage fallback also failed:', localStorageError);
+        console.error('LocalStorage fallback also failed:', localStorageError);
       }
     }
     return null;
@@ -392,8 +338,6 @@ class ProfileApiService {
   // Helper method to extract onboarding data with retry
   private async getStoredOnboardingDataWithRetry(profileData: any): Promise<any | null> {
     try {
-      console.log('🔍 Fetching onboarding data with retry...');
-      
       // Fetch onboarding data from the API database with retry
       const response = await this.retryApiCall(
         () => fetch(`${API_BASE_URL}/onboarding/data`, {
@@ -404,8 +348,6 @@ class ProfileApiService {
       
       const apiData = await response.json();
       if (apiData.success && apiData.data) {
-        console.log('✅ Found onboarding data in API database:', apiData.data);
-        
         // Transform API data to frontend format
         const transformedData = {
           fullName: apiData.data.fullName || '',
@@ -435,59 +377,35 @@ class ProfileApiService {
           professionalInterests: apiData.data.professionalInterests || [],
         };
         
-        console.log('🔄 Transformed API data with retry:', transformedData);
         return transformedData;
       }
-      
-      console.log('⚠️ No onboarding data in API response, using fallback...');
+
       return this.getStoredOnboardingData(profileData);
     } catch (error) {
-      console.error('❌ Failed to fetch onboarding data after retries:', error);
+      console.error('Failed to fetch onboarding data after retries:', error);
       return this.getStoredOnboardingData(profileData);
     }
   }
 
   async updateProfile(data: Partial<OnboardingData>): Promise<ProfileData> {
-    console.log('🔄 ProfileAPI: Received onboarding data to save:', data);
-    console.log('🔍 ProfileAPI: Data keys:', Object.keys(data));
-    const token = localStorage.getItem('inchronicle_access_token');
-    console.log('🔍 ProfileAPI: Auth token exists:', !!token);
-    console.log('🔍 ProfileAPI: Auth token (first 10 chars):', token ? token.substring(0, 10) + '...' : 'null');
-    console.log('🔍 ProfileAPI: API_BASE_URL:', API_BASE_URL);
-    
     let profileResponse: Response;
-    
+
     try {
       // Transform onboarding data to backend format with relational structure
-      console.log('🔄 ProfileAPI: Transforming data to backend format...');
       const profileData = this.transformOnboardingToBackendFormat(data);
-      console.log('🔄 ProfileAPI: Transformed profile data:', profileData);
 
-      console.log('🔄 ProfileAPI: Making PUT request to /users/profile...');
       profileResponse = await fetch(`${API_BASE_URL}/users/profile`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(profileData),
       });
 
-      console.log('📡 ProfileAPI: Response status:', profileResponse.status);
-      console.log('📡 ProfileAPI: Response headers:', Object.fromEntries(profileResponse.headers.entries()));
-
       if (!profileResponse.ok) {
         const errorText = await profileResponse.text();
-        console.error('❌ ProfileAPI: Profile update failed');
-        console.error('❌ ProfileAPI: Status:', profileResponse.status);
-        console.error('❌ ProfileAPI: Error text:', errorText);
-        console.error('❌ ProfileAPI: Request data was:', profileData);
         throw new Error(`Failed to update profile: ${profileResponse.status} - ${errorText}`);
       }
 
       // Store complete onboarding data for prepopulation (before skills API call)
-      console.log('🔍 DEBUG: About to store onboarding data:', {
-        careerGoals: data.careerGoals,
-        professionalInterests: data.professionalInterests,
-        dataKeys: Object.keys(data)
-      });
       await this.storeOnboardingData(data);
 
       // Update skills using the proper skills API
@@ -496,31 +414,18 @@ class ProfileApiService {
       }
 
       const result = await profileResponse.json();
-      console.log('✅ ProfileAPI: Profile updated successfully');
       return result;
     } catch (error) {
-      console.error('❌ ProfileAPI: Exception during profile update:', error);
+      console.error('Profile update failed:', error);
       throw error;
     }
   }
 
   async uploadAvatar(file: File): Promise<string> {
-    console.log('🔄 Profile API Service: Starting avatar upload');
-    console.log('🔍 File details:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    });
-
     const token = localStorage.getItem('inchronicle_access_token');
-    console.log('🔍 Auth token exists:', !!token);
-    console.log('🔍 API_BASE_URL:', API_BASE_URL);
 
     const formData = new FormData();
     formData.append('avatar', file);
-
-    console.log('🔄 Making request to:', `${API_BASE_URL}/users/avatar`);
 
     try {
       const response = await fetch(`${API_BASE_URL}/users/avatar`, {
@@ -531,32 +436,22 @@ class ProfileApiService {
         body: formData,
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Upload failed with response:', errorText);
         throw new Error(`Failed to upload avatar: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('✅ Upload successful, response:', result);
-      
       const avatarUrl = result.data?.avatarUrl || result.avatarUrl;
-      console.log('🔍 Extracted avatar URL:', avatarUrl);
-      
       return avatarUrl;
     } catch (error) {
-      console.error('❌ Upload error details:', error);
+      console.error('Avatar upload failed:', error);
       throw error;
     }
   }
 
   // Helper method to update skills using the backend's skills API
   private async updateUserSkills(skills: any[], topSkills: string[] = []): Promise<void> {
-    console.log('🔄 Updating skills via backend skills API');
-    
     try {
       // First, get existing skills to avoid duplicates
       const existingSkillsResponse = await fetch(`${API_BASE_URL}/users/skills/my`, {
@@ -581,9 +476,8 @@ class ProfileApiService {
         }
       }
       
-      console.log('✅ Skills updated successfully via skills API');
     } catch (error) {
-      console.error('❌ Failed to update skills via API:', error);
+      console.error('Failed to update skills via API:', error);
       // Don't throw error - continue with profile update even if skills fail
     }
   }
@@ -597,24 +491,12 @@ class ProfileApiService {
     });
     
     if (!response.ok) {
-      console.error('❌ Failed to add skill:', skillData.skillName);
+      console.error('Failed to add skill:', skillData.skillName);
     }
   }
 
   // Helper method to store complete onboarding data in localStorage
   private async storeOnboardingData(data: Partial<OnboardingData>): Promise<void> {
-    console.log('🔄 Storing complete onboarding data in localStorage:', data);
-    console.log('🔍 Onboarding data fields to store:', {
-      professionalSummary: data.professionalSummary ? 'EXISTS' : 'MISSING',
-      specializations: data.specializations?.length || 0,
-      skills: data.skills?.length || 0,
-      topSkills: data.topSkills?.length || 0,
-      careerGoals: data.careerGoals?.length || 0,
-      professionalInterests: data.professionalInterests?.length || 0
-    });
-    console.log('🔍 DEBUG: careerGoals being stored:', data.careerGoals);
-    console.log('🔍 DEBUG: professionalInterests being stored:', data.professionalInterests);
-    
     try {
       // Check if we're trying to overwrite existing goals/interests with empty arrays
       const existingData = localStorage.getItem('onboarding_complete_data');
@@ -629,21 +511,12 @@ class ProfileApiService {
           const newInterestsEmpty = !data.professionalInterests || data.professionalInterests.length === 0;
           
           if ((hasExistingGoals && newGoalsEmpty) || (hasExistingInterests && newInterestsEmpty)) {
-            console.log('🛡️ Preventing overwrite of goals/interests with empty arrays');
-            console.log('🔍 Existing goals:', existing.data.careerGoals?.length || 0, 'New goals:', data.careerGoals?.length || 0);
-            console.log('🔍 Existing interests:', existing.data.professionalInterests?.length || 0, 'New interests:', data.professionalInterests?.length || 0);
-            
             // Preserve existing goals/interests if new ones are empty
             finalData = {
               ...data,
               careerGoals: (hasExistingGoals && newGoalsEmpty) ? existing.data.careerGoals : data.careerGoals,
               professionalInterests: (hasExistingInterests && newInterestsEmpty) ? existing.data.professionalInterests : data.professionalInterests
             };
-            
-            console.log('🔧 Final data with preserved goals/interests:', {
-              careerGoals: finalData.careerGoals?.length || 0,
-              professionalInterests: finalData.professionalInterests?.length || 0
-            });
           }
         }
       }
@@ -656,15 +529,12 @@ class ProfileApiService {
       };
       
       localStorage.setItem('onboarding_complete_data', JSON.stringify(onboardingData));
-      console.log('✅ Onboarding data stored successfully in localStorage');
     } catch (error) {
-      console.error('❌ Error storing onboarding data in localStorage:', error);
+      console.error('Error storing onboarding data in localStorage:', error);
     }
   }
 
   private transformOnboardingToProfile(data: Partial<OnboardingData>) {
-    console.log('🔄 Transforming onboarding data to backend format:', data);
-    
     // Send basic profile fields that the backend accepts
     const backendData: any = {
       ...(data.fullName && { name: data.fullName }),
@@ -696,13 +566,10 @@ class ProfileApiService {
       backendData.bio = baseBio;
     }
 
-    console.log('✅ Basic profile payload:', backendData);
     return backendData;
   }
 
   private transformOnboardingToBackendFormat(data: Partial<OnboardingData>) {
-    console.log('🔄 Transforming onboarding data to new backend format:', data);
-    
     // Send basic profile fields that the backend accepts
     const backendData: any = {
       ...(data.fullName && { name: data.fullName }),
@@ -721,7 +588,6 @@ class ProfileApiService {
 
     // Add relational data
     if (data.workExperiences && Array.isArray(data.workExperiences)) {
-      console.log('🔧 Processing workExperiences:', data.workExperiences);
       backendData.workExperiences = data.workExperiences.map(exp => {
         const experience: any = {
           company: exp.company || '',
@@ -741,7 +607,6 @@ class ProfileApiService {
         
         return experience;
       });
-      console.log('🔧 Transformed workExperiences for backend:', backendData.workExperiences);
     }
 
     if (data.education && Array.isArray(data.education)) {
@@ -768,12 +633,7 @@ class ProfileApiService {
     }
 
     if (data.certifications && Array.isArray(data.certifications)) {
-      console.log('🔧 Processing certifications:', data.certifications);
-      backendData.certifications = data.certifications.map((cert, index) => {
-        console.log(`🔧 Processing certification ${index}:`, cert);
-        console.log(`🔧 expirationDate value:`, cert.expirationDate, 'type:', typeof cert.expirationDate);
-        console.log(`🔧 neverExpires value:`, cert.neverExpires);
-        
+      backendData.certifications = data.certifications.map((cert) => {
         const certification: any = {
           name: cert.name || '',
           issuingOrganization: cert.issuingOrganization || '',
@@ -788,25 +648,16 @@ class ProfileApiService {
         // Only include expirationDate if it has a value and cert doesn't never expire
         if (!cert.neverExpires && cert.expirationDate && cert.expirationDate.trim() !== '') {
           certification.expirationDate = cert.expirationDate;
-          console.log(`🔧 Including expirationDate:`, certification.expirationDate);
-        } else {
-          console.log(`🔧 NOT including expirationDate (neverExpires: ${cert.neverExpires}, expirationDate: "${cert.expirationDate}")`);
         }
-        
-        console.log(`🔧 Final certification object:`, certification);
+
         return certification;
       });
-      console.log('🔧 Final certifications array for backend:', backendData.certifications);
     }
 
-    console.log('✅ Complete backend payload with relational data:', backendData);
     return backendData;
   }
 
   transformProfileToOnboarding(profile: ProfileData): OnboardingData {
-    console.log('🔄 Transforming profile to onboarding format');
-    console.log('📊 Profile data received:', profile);
-    
     // Transform relational data to onboarding format
     const onboardingData = {
       fullName: profile.name || '',
@@ -830,15 +681,10 @@ class ProfileApiService {
       professionalInterests: profile.professionalInterests || [],
     };
     
-    console.log('✅ Transformed onboarding data from relational profile:', onboardingData);
     return onboardingData;
   }
 
   private transformBackendProfileToFrontend(backendData: any, skillsData: any[] = [], onboardingData: any = null): ProfileData {
-    console.log('🔄 Transforming backend data to frontend format:', backendData);
-    console.log('🔄 Skills data received:', skillsData);
-    console.log('🔄 Onboarding data received:', onboardingData);
-    
     // Clean up legacy bio that may have concatenated fields
     let cleanBio = backendData.bio || '';
     if (cleanBio) {
@@ -852,22 +698,7 @@ class ProfileApiService {
     // Use stored onboarding data if available (most complete)
     let professionalInfo: any = {};
     if (onboardingData && Object.keys(onboardingData).length > 0) {
-      console.log('✅ Using stored onboarding data');
-      console.log('🔍 Stored onboarding data keys:', Object.keys(onboardingData));
-      console.log('🔍 Stored data sample:', {
-        professionalSummary: onboardingData.professionalSummary ? 'EXISTS' : 'MISSING',
-        specializations: onboardingData.specializations?.length || 0,
-        skills: onboardingData.skills?.length || 0,
-        workExperiences: onboardingData.workExperiences?.length || 0,
-        education: onboardingData.education?.length || 0,
-        careerGoals: onboardingData.careerGoals?.length || 0,
-        professionalInterests: onboardingData.professionalInterests?.length || 0
-      });
-      console.log('🔍 DEBUG careerGoals in onboardingData:', onboardingData.careerGoals);
-      console.log('🔍 DEBUG professionalInterests in onboardingData:', onboardingData.professionalInterests);
       professionalInfo = onboardingData;
-    } else {
-      console.log('⚠️ No stored onboarding data available, using fallback logic');
     }
     
     // Extract professional info from bio field as fallback
@@ -884,20 +715,15 @@ class ProfileApiService {
             yearsOfExperience: professionalInfo.yearsOfExperience || (experienceMatch ? parseInt(experienceMatch[1]) : 0),
             careerHighlights: professionalInfo.careerHighlights || (highlightsMatch ? highlightsMatch[1].trim() : ''),
           };
-          console.log('📄 Extracted professional info from bio:', professionalInfo);
         }
       }
     }
 
-    // Extract skills and specializations from proper sources
-    console.log('🔍 Extracting skills from multiple sources');
-    
     // Get topSkills - prioritize stored onboarding data, fallback to API skills, then backend skills
     let topSkills = [];
     
     if (professionalInfo.topSkills && professionalInfo.topSkills.length > 0) {
       topSkills = professionalInfo.topSkills;
-      console.log('🎯 Using onboarding topSkills:', topSkills);
     } else if (skillsData && skillsData.length > 0) {
       topSkills = skillsData
         .filter((skill: any) => skill.isVisible !== false)
@@ -910,16 +736,12 @@ class ProfileApiService {
           .map((skill: any) => skill.skill?.name || skill.skillName || skill.name)
           .filter(Boolean);
       }
-      console.log('🎯 Using skills API data:', topSkills);
     } else if (backendData.skills && backendData.skills.length > 0) {
       topSkills = backendData.skills
         .slice(0, 5)
         .map((skill: any) => skill.skill?.name || skill.skillName || skill.name)
         .filter(Boolean);
-      console.log('🎯 Using backend skills directly:', topSkills);
     }
-    
-    console.log('🎯 Final extracted topSkills:', topSkills);
 
     // Get specializations from onboarding data 
     const specializations = professionalInfo.specializations || [];
@@ -929,54 +751,27 @@ class ProfileApiService {
     
     if (professionalInfo.skills && professionalInfo.skills.length > 0) {
       skills = professionalInfo.skills;
-      console.log('🛠️ Using onboarding skills array:', skills);
     } else if (skillsData && skillsData.length > 0) {
       skills = skillsData.map((skill: any) => ({
         name: skill.skill?.name || skill.skillName || skill.name,
         proficiency: skill.level || skill.proficiency || 'intermediate',
         category: skill.skill?.category || skill.category || 'Technical'
       })).filter(skill => skill.name);
-      console.log('🛠️ Using skills API data:', skills);
     } else if (backendData.skills && backendData.skills.length > 0) {
       skills = backendData.skills.map((skill: any) => ({
         name: skill.skill?.name || skill.skillName || skill.name,
         proficiency: skill.level || skill.proficiency || 'intermediate',
         category: skill.skill?.category || skill.category || 'Technical'
       })).filter(skill => skill.name);
-      console.log('🛠️ Using backend skills directly:', skills);
     }
-    
-    console.log('🛠️ Final extracted skills array:', skills);
 
     // Extract additional data fields from stored data OR backend data
     const workExperiences = professionalInfo.workExperiences || backendData.workExperiences || [];
     const education = professionalInfo.education || backendData.education || [];
     const certifications = professionalInfo.certifications || backendData.certifications || [];
-    
-    console.log('📊 Debug - extracted data lengths:', {
-      workExperiences: workExperiences.length,
-      education: education.length,
-      certifications: certifications.length,
-      backendWorkExp: backendData.workExperiences?.length || 0,
-      backendEducation: backendData.education?.length || 0,
-      backendCerts: backendData.certifications?.length || 0
-    });
-    
-    // DEBUG: Check if goals/interests are in professionalInfo
-    console.log('🔍 professionalInfo keys:', Object.keys(professionalInfo));
-    console.log('🔍 professionalInfo careerGoals value:', professionalInfo.careerGoals);
-    console.log('🔍 professionalInfo professionalInterests value:', professionalInfo.professionalInterests);
-    
+
     const careerGoals = professionalInfo.careerGoals || [];
     const professionalInterests = professionalInfo.professionalInterests || [];
-
-    console.log('⭐ Extracted topSkills:', topSkills);
-    console.log('🎯 Extracted specializations:', specializations);
-    console.log('💼 Extracted workExperiences:', workExperiences);
-    console.log('🎓 Extracted education:', education);
-    console.log('🏆 Extracted certifications:', certifications);
-    console.log('🎯 Extracted careerGoals:', careerGoals);
-    console.log('💜 Extracted professionalInterests:', professionalInterests);
 
     // Create complete onboarding data object for the profile
     const completeOnboardingData = professionalInfo && Object.keys(professionalInfo).length > 0 ? professionalInfo : {
@@ -1001,28 +796,14 @@ class ProfileApiService {
       professionalInterests: professionalInterests,
     };
     
-    console.log('📦 Complete onboarding data created:', completeOnboardingData);
-
     // Prioritize professional summary from onboarding data over backend bio
     const finalBio = professionalInfo.professionalSummary || cleanBio || 'No bio available';
-    console.log('🔍 Bio selection process:', {
-      professionalSummary: professionalInfo.professionalSummary ? 'EXISTS' : 'MISSING',
-      cleanBio: cleanBio ? 'EXISTS' : 'MISSING',
-      finalBio: finalBio ? 'EXISTS' : 'MISSING'
-    });
 
     // Prioritize onboarding data for basic profile fields
     const finalName = professionalInfo.fullName || backendData.name || 'No name provided';
     const finalTitle = professionalInfo.currentTitle || backendData.title || 'No title provided';
     const finalCompany = professionalInfo.currentCompany || backendData.company || 'No company provided';
     const finalLocation = professionalInfo.location || backendData.location || 'No location provided';
-    
-    console.log('🔍 Basic profile fields selection:', {
-      name: { onboarding: professionalInfo.fullName || 'MISSING', backend: backendData.name || 'MISSING', final: finalName },
-      title: { onboarding: professionalInfo.currentTitle || 'MISSING', backend: backendData.title || 'MISSING', final: finalTitle },
-      company: { onboarding: professionalInfo.currentCompany || 'MISSING', backend: backendData.company || 'MISSING', final: finalCompany },
-      location: { onboarding: professionalInfo.location || 'MISSING', backend: backendData.location || 'MISSING', final: finalLocation }
-    });
 
     const transformed: ProfileData = {
       id: backendData.id || '',
@@ -1053,7 +834,6 @@ class ProfileApiService {
       }
     };
 
-    console.log('✅ Transformed profile data:', transformed);
     return transformed;
   }
 }
