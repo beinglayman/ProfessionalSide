@@ -7,34 +7,25 @@ import { isDemoMode } from '../services/demo-mode.service';
  * Hook to fetch raw activities with optional grouping
  * Used for journal tab views (Timeline, By Source, By Story)
  */
-export function useActivities(params: GetActivitiesParams = {}) {
+export function useActivities(params: GetActivitiesParams = {}, options?: { enabled?: boolean }) {
   // Include demo mode in query key so cache invalidates on mode change
   const queryKey = ['activities', params, isDemoMode()];
 
-  // Debug: Log when hook is called to track re-renders
-  console.log('[useActivities] Hook called with params:', JSON.stringify(params), 'queryKey:', JSON.stringify(queryKey));
-
   return useQuery({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: async (): Promise<ActivitiesResponse> => {
-      console.log('[useActivities] queryFn EXECUTING - this means React Query decided to fetch');
-      console.trace('[useActivities] Stack trace:');
       // Default timezone to user's local timezone
       const paramsWithTimezone: GetActivitiesParams = {
         ...params,
         timezone: params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       };
 
-      console.log('[useActivities] Fetching activities with params:', paramsWithTimezone, 'at', new Date().toISOString());
       const response = await ActivityService.getActivities(paramsWithTimezone);
-      console.log('[useActivities] Response:', response);
 
       if (response.success && response.data) {
-        console.log('[useActivities] Success, returning data:', response.data);
         return response.data;
       }
-
-      console.log('[useActivities] Error or no data, returning empty response');
 
       // Return empty response on error
       if (params.groupBy) {

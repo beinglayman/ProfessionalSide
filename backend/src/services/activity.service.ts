@@ -505,8 +505,6 @@ export class ActivityService {
     userId: string,
     fetchedActivities: any[]
   ): Promise<ActivityGroup[]> {
-    console.log('[ActivityService] getStoryGroupsFromEntries - userId:', userId, 'sourceMode:', this.sourceMode);
-
     // Fetch ALL journal entries for user (both temporal and cluster)
     const journalEntries = await prisma.journalEntry.findMany({
       where: {
@@ -535,8 +533,6 @@ export class ActivityService {
         { timeRangeStart: 'desc' }
       ]
     });
-
-    console.log('[ActivityService] getStoryGroupsFromEntries - found', journalEntries.length, 'journal entries');
 
     // Get ALL activity IDs from all journal entries
     const allEntryActivityIds = new Set<string>();

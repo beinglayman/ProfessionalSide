@@ -65,7 +65,7 @@ import { JournalEntry } from '../../types/journal';
 import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry, useDeleteJournalEntry } from '../../hooks/useJournal';
 import { useQueryClient } from '@tanstack/react-query';
 import { JournalService } from '../../services/journal.service';
-import { profileApiService } from '../../services/profile-api.service';
+import { useProfile } from '../../hooks/useProfile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
@@ -121,7 +121,7 @@ export default function JournalPage() {
     open: boolean;
     journal: JournalEntry | null;
   }>({ open: false, journal: null });
-  const [onboardingProfileImage, setOnboardingProfileImage] = useState<string | null>(null);
+  const { profile, refetch: refetchProfile } = useProfile();
 
   // Sync modal state
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -168,12 +168,10 @@ export default function JournalPage() {
   useSSE({
     enabled: true,
     onNarrativesComplete: () => {
-      console.log('[Journal] SSE: All narratives complete - setting narrativesGenerating=false (should stop polling)');
       setNarrativesGenerating(false);
       setPendingEnhancementIds(new Set()); // Clear all pending
     },
     onDataChanged: (data) => {
-      console.log('[Journal] SSE: Data changed', data);
       // Don't remove from pendingEnhancementIds here - the query invalidation
       // is debounced, so we let the data refresh happen first. The StoryGroupHeader
       // will stop showing the animation once hasLLMContent becomes true.
@@ -186,7 +184,6 @@ export default function JournalPage() {
     if (!narrativesGenerating) return;
 
     const timeout = setTimeout(() => {
-      console.log('[Journal] Safety timeout (90s) - stopping narrativesGenerating');
       setNarrativesGenerating(false);
       setPendingEnhancementIds(new Set());
       // One final refetch in case SSE missed something
@@ -200,7 +197,6 @@ export default function JournalPage() {
   // Listen for external data changes to refresh (browser events, not SSE)
   useEffect(() => {
     const handleDataChanged = () => {
-      console.log('[Journal] Browser event: Data changed, invalidating queries...');
       // Invalidate to mark as stale (bypasses staleTime), React Query will refetch active ones
       queryClient.invalidateQueries({ queryKey: ['journal'] });
       queryClient.invalidateQueries({ queryKey: ['activities'] });
@@ -236,14 +232,14 @@ export default function JournalPage() {
     error: activitiesError
   } = useActivities(activityParams);
 
-  // Fetch story groups for inline draft cards
+  // Fetch story groups for inline draft cards — deferred until timeline loads
   const storyParams = useMemo(() => ({
     groupBy: 'story' as const,
     limit: 100
   }), []);
   const {
     data: storyData,
-  } = useActivities(storyParams);
+  } = useActivities(storyParams, { enabled: !activitiesLoading });
 
   // Extract story groups (drafts) — filter out 'unassigned' (raw activities, not drafts)
   const storyGroups = useMemo(() => {
@@ -277,55 +273,22 @@ export default function JournalPage() {
   const rechronicleMutation = useRechronicleEntry();
   const deleteMutation = useDeleteJournalEntry();
 
-  // Load profile image from profile service
+  // Re-fetch profile when updated elsewhere (onboarding, settings)
   useEffect(() => {
-    const loadProfileImage = async () => {
-      try {
-        console.log('🔄 Journal: Loading profile data for avatar...');
-        const profileData = await profileApiService.getProfile();
-        console.log('📊 Journal: Profile data received:', {
-          avatar: profileData.avatar,
-          hasOnboardingData: !!profileData.onboardingData
-        });
-        
-        if (profileData.avatar) {
-          setOnboardingProfileImage(profileData.avatar);
-        }
-      } catch (error) {
-        console.error('❌ Journal: Failed to load profile image:', error);
-      }
-    };
-
-    loadProfileImage();
-
-    // Listen for profile data changes
-    const handleProfileDataChange = () => {
-      loadProfileImage();
-    };
-
+    const handleProfileDataChange = () => { refetchProfile(); };
     window.addEventListener('onboardingDataChanged', handleProfileDataChange);
     window.addEventListener('profileUpdated', handleProfileDataChange);
-
     return () => {
       window.removeEventListener('onboardingDataChanged', handleProfileDataChange);
       window.removeEventListener('profileUpdated', handleProfileDataChange);
     };
-  }, []);
+  }, [refetchProfile]);
 
 
   // Handle appreciate toggle
   const handleAppreciate = async (entryId: string) => {
-    console.log('🤍 handleAppreciate called for entry:', entryId);
-    console.log('🤍 Current mutation state:', {
-      isLoading: toggleAppreciateMutation.isPending,
-      isError: toggleAppreciateMutation.isError,
-      error: toggleAppreciateMutation.error
-    });
-
     try {
-      console.log('🤍 Calling toggleAppreciateMutation.mutateAsync...');
-      const result = await toggleAppreciateMutation.mutateAsync(entryId);
-      console.log('✅ Appreciate toggled successfully, result:', result);
+      await toggleAppreciateMutation.mutateAsync(entryId);
     } catch (error) {
       console.error('❌ Failed to toggle appreciate:', error);
       // Show user-friendly error
@@ -337,11 +300,8 @@ export default function JournalPage() {
 
   // Handle like toggle
   const handleLike = async (entryId: string) => {
-    console.log('❤️ handleLike called for entry:', entryId);
-
     try {
-      const result = await toggleLikeMutation.mutateAsync(entryId);
-      console.log('✅ Like toggled successfully, result:', result);
+      await toggleLikeMutation.mutateAsync(entryId);
     } catch (error) {
       console.error('❌ Failed to toggle like:', error);
       if (error instanceof Error) {
@@ -434,7 +394,6 @@ export default function JournalPage() {
     if (!journalId) return;
 
     try {
-      console.log('🗑️ Deleting journal:', { journalId, isDemoMode: isDemoMode() });
       await deleteMutation.mutateAsync(journalId);
       setToastMessage('Journal entry deleted successfully');
     } catch (error: any) {
@@ -446,13 +405,11 @@ export default function JournalPage() {
 
   // Handle promote to career story - opens the Story Wizard modal
   const handlePromoteToCareerStory = (journalId: string) => {
-    console.log('[Journal] Opening Story Wizard for entry:', journalId);
     setStoryWizardEntryId(journalId);
   };
 
   // Handle Story Wizard completion - navigate to career stories page with the new story
   const handleStoryWizardComplete = async (storyId: string) => {
-    console.log('[Journal] Story Wizard completed, storyId:', storyId);
     setStoryWizardEntryId(null);
     // Ensure the career stories cache is fresh before navigating,
     // otherwise the page may render with stale/empty data
@@ -471,7 +428,6 @@ export default function JournalPage() {
     });
 
     try {
-      console.log('🔄 Regenerating narrative:', { journalId, isDemoMode: isDemoMode() });
       await JournalService.regenerateNarrative(journalId, 'professional');
       setToastMessage('Narrative regenerated successfully');
       // Force refetch to update UI
@@ -531,18 +487,9 @@ export default function JournalPage() {
 
   // ReChronicle handler
   const handleReChronicle = async (journalId: string, comment?: string) => {
-    console.log('🔄 handleReChronicle called for entry:', journalId, 'with comment:', comment);
-    console.log('🔄 Current mutation state:', {
-      isLoading: rechronicleMutation.isPending,
-      isError: rechronicleMutation.isError,
-      error: rechronicleMutation.error
-    });
-    
     try {
-      console.log('🔄 Calling rechronicleMutation.mutateAsync...');
-      const result = await rechronicleMutation.mutateAsync({ id: journalId, comment });
-      console.log('✅ ReChronicle toggled successfully, result:', result);
-      
+      await rechronicleMutation.mutateAsync({ id: journalId, comment });
+
       // Show success message
       setToastMessage(comment ? 'Entry rechronicled with your comment!' : 'Entry rechronicled!');
     } catch (error) {
@@ -566,10 +513,8 @@ export default function JournalPage() {
 
   // Handle sync button click
   const handleSync = async () => {
-    console.log('[Journal] handleSync called, isDemoMode:', isDemoMode());
     if (isDemoMode()) {
       // Demo mode: run simulated sync
-      console.log('[Journal] Starting demo sync...');
       setIsSyncing(true);
       setSyncState(null);
       setShowSyncModal(true);
@@ -601,7 +546,6 @@ export default function JournalPage() {
       });
     } else {
       // Live mode: run real sync
-      console.log('[Journal] Starting live sync...');
       setIsSyncing(true);
       setSyncState(null);
       setShowSyncModal(true);
@@ -635,7 +579,6 @@ export default function JournalPage() {
   };
 
   const handleSyncComplete = () => {
-    console.log('[Journal] handleSyncComplete called');
     setShowSyncModal(false);
     // Invalidate queries - they'll refetch
     // Note: invalidate (not refetch) because the story query might not exist yet
@@ -681,9 +624,9 @@ export default function JournalPage() {
           <div className="flex items-center justify-between gap-4">
             {/* Left: Greeting + meta */}
             <div className="flex items-center gap-3">
-              {onboardingProfileImage ? (
+              {profile?.avatar ? (
                 <img
-                  src={onboardingProfileImage}
+                  src={profile.avatar}
                   alt=""
                   className="h-10 w-10 rounded-full object-cover ring-2 ring-white shadow-sm"
                 />
