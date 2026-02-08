@@ -1803,8 +1803,8 @@ export function NarrativePreview({
               <button
                 onClick={onShareAs}
                 className="p-1.5 rounded text-gray-400 hover:bg-blue-50 hover:text-blue-600 inline-flex items-center"
-                title="Share As..."
-                aria-label="Share As"
+                title="Use this story"
+                aria-label="Use this story"
                 data-testid="share-as"
               >
                 <Sparkles className="h-3.5 w-3.5" />

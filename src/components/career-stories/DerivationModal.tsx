@@ -127,7 +127,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base leading-tight">
-                Rewrite as {DERIVATION_TYPE_META[selectedDerivation].label}
+                Get your {DERIVATION_TYPE_META[selectedDerivation].label.toLowerCase()}
               </DialogTitle>
               <DialogDescription className="mt-0.5 truncate">
                 {story.title.length > 60 ? story.title.slice(0, 57) + '...' : story.title}
@@ -168,7 +168,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
 
           {/* Tone pills + Custom instructions pill */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mr-1">Tone</span>
+            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mr-1">Voice</span>
             <button
               type="button"
               onClick={() => setTone('')}
@@ -260,11 +260,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-          <div className="text-xs text-gray-400">
-            {generatedResult?.metadata && (
-              <span>Generated in {(generatedResult.metadata.processingTimeMs / 1000).toFixed(1)}s</span>
-            )}
-          </div>
+          <div className="text-xs text-gray-400" />
           <div className="flex items-center gap-2">
             {hasResult ? (
               <>
@@ -275,7 +271,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
                   disabled={isGenerating}
                 >
                   <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isGenerating && 'animate-spin')} />
-                  Regenerate
+                  Try again
                 </Button>
                 <Button
                   size="sm"
@@ -283,9 +279,9 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
                   className={cn(copied && 'bg-green-600 hover:bg-green-700')}
                 >
                   {copied ? (
-                    <><Check className="h-3.5 w-3.5 mr-1.5" /> Copied</>
+                    <><Check className="h-3.5 w-3.5 mr-1.5" /> Copied — go get 'em</>
                   ) : (
-                    <><Copy className="h-3.5 w-3.5 mr-1.5" /> Copy</>
+                    <><Copy className="h-3.5 w-3.5 mr-1.5" /> Copy to clipboard</>
                   )}
                 </Button>
               </>

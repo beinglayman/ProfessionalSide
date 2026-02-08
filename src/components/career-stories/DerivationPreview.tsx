@@ -204,7 +204,7 @@ export function DerivationPreview({
           </div>
         )}
         <div className="text-center text-xs text-gray-400 pt-2">
-          Hit Generate to rewrite
+          Your story is loaded. Hit Generate.
         </div>
       </div>
     );
@@ -216,7 +216,7 @@ export function DerivationPreview({
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Generating {DERIVATION_TYPE_META[derivation].label.toLowerCase()}...</span>
+          <span>Writing your {DERIVATION_TYPE_META[derivation].label.toLowerCase()}...</span>
         </div>
         <PreviewSkeleton />
       </div>
