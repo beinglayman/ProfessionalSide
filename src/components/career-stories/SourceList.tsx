@@ -12,6 +12,7 @@ interface SourceListProps {
   onExclude: (sourceId: string) => void;
   onUndoExclude: (sourceId: string) => void;
   onAddNote: (sectionKey: string, content: string) => void;
+  onRequestAddNote?: () => void;
   maxVisible?: number;
 }
 
@@ -22,9 +23,10 @@ export function SourceList({
   onExclude,
   onUndoExclude,
   onAddNote,
+  onRequestAddNote,
   maxVisible = 5,
 }: SourceListProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [pendingExclude, setPendingExclude] = useState<string | null>(null);
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -74,27 +76,38 @@ export function SourceList({
   return (
     <div>
       {/* Toggle bar */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          'w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-gray-400 hover:text-gray-600 transition-colors',
-          isOpen ? 'bg-gray-50/80' : 'hover:bg-gray-50/40',
-          !isOpen && 'rounded-b',
+      <div className="flex items-center">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            'flex-1 flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-gray-400 hover:text-gray-600 transition-colors',
+            isOpen ? 'bg-gray-50/80' : 'hover:bg-gray-50/40',
+            !isOpen && 'rounded-b',
+          )}
+          aria-expanded={isOpen}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-3 h-3" />
+          ) : (
+            <ChevronRight className="w-3 h-3" />
+          )}
+          <span>
+            {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+          </span>
+          {vagueMetrics.length > 0 && (
+            <span className="text-amber-500">· gaps</span>
+          )}
+        </button>
+        {onRequestAddNote && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRequestAddNote(); }}
+            className="px-2 py-1 mr-1 text-[10px] text-gray-400 hover:text-primary-600 transition-colors"
+            title="Add note"
+          >
+            + Note
+          </button>
         )}
-        aria-expanded={isOpen}
-      >
-        {isOpen ? (
-          <ChevronDown className="w-3 h-3" />
-        ) : (
-          <ChevronRight className="w-3 h-3" />
-        )}
-        <span>
-          {sourceCount} source{sourceCount !== 1 ? 's' : ''}
-        </span>
-        {vagueMetrics.length > 0 && (
-          <span className="text-amber-500">· gaps</span>
-        )}
-      </button>
+      </div>
 
       {/* Expanded source list */}
       {isOpen && (

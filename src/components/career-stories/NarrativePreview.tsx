@@ -29,6 +29,7 @@ import {
   HelpCircle,
   X,
   Type,
+  Info,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -1372,6 +1373,9 @@ export function NarrativePreview({
   const [showDeliveryHelp, setShowDeliveryHelp] = useState(false);
   // Section collapse state — all expanded by default (empty set = nothing collapsed)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  // Track which sections have note input open (triggered from SourceList "+ Note" button)
+  const [noteInputSections, setNoteInputSections] = useState<Set<string>>(new Set());
+  const [showInfoPopover, setShowInfoPopover] = useState(false);
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections(prev => {
       const next = new Set(prev);
@@ -1620,30 +1624,95 @@ export function NarrativePreview({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" data-testid="star-preview">
-      {/* Header — compact: title + all actions top-right */}
-      <div className="px-6 pt-5 pb-4 border-b border-gray-200">
-        {/* Title + all actions */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 leading-tight mb-1">{clusterName}</h2>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span>{frameworkMeta?.label || 'STAR'}</span>
-              {story?.archetype && (
-                <>
-                  <span className="text-gray-300">&middot;</span>
-                  <span className="capitalize">{story.archetype}</span>
-                </>
+      {/* Header — single dense bar: title + badges + stats + toolbar */}
+      <div className="px-5 py-3 border-b border-gray-200">
+        {/* Row 1: Title + badges + toolbar */}
+        <div className="flex items-center gap-2">
+          {/* Title */}
+          <h2 className="text-base font-semibold text-gray-900 leading-tight truncate">{clusterName}</h2>
+
+          {/* Inline badges + stats — hidden on small screens */}
+          <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0">
+            {story?.archetype && (
+              <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-50 text-purple-600 border border-purple-200/60 capitalize">
+                {story.archetype}
+              </span>
+            )}
+            <StatusBadge
+              status={storyStatus}
+              confidence={star.overallConfidence}
+              suggestedEdits={star.suggestedEdits}
+            />
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-400 ml-1">
+              {sourceCoverage ? (
+                <SourceCoverageHeader total={sourceCoverage.total} sourced={sourceCoverage.sourced} />
+              ) : (
+                <span>{activityCount} activities</span>
               )}
-              {story?.role && (
+              <span>&middot;</span>
+              <span>~{formatTime(estimatedTime)}</span>
+              {keyMetrics.length > 0 && (
                 <>
-                  <span className="text-gray-300">&middot;</span>
-                  <span className="capitalize">{story.role}</span>
+                  <span>&middot;</span>
+                  <span className="font-medium text-gray-500">{keyMetrics.slice(0, 2).join(', ')}</span>
                 </>
               )}
             </div>
           </div>
-          {/* All actions — right-aligned */}
-          <div className="flex items-center gap-0.5 flex-shrink-0 flex-wrap justify-end">
+
+          {/* Mobile: info icon with popover for badges + stats */}
+          <div className="lg:hidden relative flex-shrink-0">
+            <button
+              onClick={() => setShowInfoPopover(!showInfoPopover)}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              aria-label="Story info"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+            {showInfoPopover && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowInfoPopover(false)} />
+                <div className="absolute top-full left-0 mt-1 z-30 w-64 bg-white rounded-lg shadow-xl border border-gray-200 p-3 space-y-2.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {story?.archetype && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-50 text-purple-600 border border-purple-200/60 capitalize">
+                        {story.archetype}
+                      </span>
+                    )}
+                    <StatusBadge
+                      status={storyStatus}
+                      confidence={star.overallConfidence}
+                      suggestedEdits={star.suggestedEdits}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-gray-500 flex-wrap">
+                    {sourceCoverage ? (
+                      <SourceCoverageHeader total={sourceCoverage.total} sourced={sourceCoverage.sourced} />
+                    ) : (
+                      <span>{activityCount} activities</span>
+                    )}
+                    <span>&middot;</span>
+                    <span>~{formatTime(estimatedTime)}</span>
+                  </div>
+                  {keyMetrics.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <TrendingUp className="h-3 w-3 text-gray-400" />
+                      <span className="font-medium text-gray-600">{keyMetrics.slice(0, 3).join(' · ')}</span>
+                    </div>
+                  )}
+                  {formatDateRange() && (
+                    <div className="text-[11px] text-gray-400">{formatDateRange()}</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Toolbar — right-aligned */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
             <FrameworkSelector
               value={framework}
               onChange={onFrameworkChange}
@@ -1761,38 +1830,6 @@ export function NarrativePreview({
             )}
           </div>
         </div>
-
-        {/* Status + metrics row */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <StatusBadge
-              status={storyStatus}
-              confidence={star.overallConfidence}
-              suggestedEdits={star.suggestedEdits}
-            />
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              {sourceCoverage ? (
-                <SourceCoverageHeader total={sourceCoverage.total} sourced={sourceCoverage.sourced} />
-              ) : (
-                <span>{activityCount} activities</span>
-              )}
-              {formatDateRange() && (
-                <>
-                  <span className="text-gray-300">&middot;</span>
-                  <span>{formatDateRange()}</span>
-                </>
-              )}
-              <span className="text-gray-300">&middot;</span>
-              <span>~{formatTime(estimatedTime)}</span>
-            </div>
-          </div>
-          {keyMetrics.length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <TrendingUp className="h-3 w-3" />
-              <span className="font-medium text-gray-700">{keyMetrics.slice(0, 3).join(' · ')}</span>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Practice Timer - compact single line */}
@@ -1871,6 +1908,12 @@ export function NarrativePreview({
                       onAddNote={handleAddNote}
                       onExclude={handleExcludeSource}
                       onUndoExclude={handleUndoExclude}
+                      forceShowInput={noteInputSections.has(sectionKey)}
+                      onInputClosed={() => setNoteInputSections(prev => {
+                        const next = new Set(prev);
+                        next.delete(sectionKey);
+                        return next;
+                      })}
                     />
                   )}
                 </div>
@@ -1887,6 +1930,7 @@ export function NarrativePreview({
                       onExclude={handleExcludeSource}
                       onUndoExclude={handleUndoExclude}
                       onAddNote={handleAddNote}
+                      onRequestAddNote={() => setNoteInputSections(prev => new Set(prev).add(sectionKey))}
                     />
                   </div>
                 )}

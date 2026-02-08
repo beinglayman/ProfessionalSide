@@ -18,6 +18,7 @@ import {
   PenLine,
   ChevronDown,
   ChevronRight,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useProfile } from '../../hooks/useProfile';
@@ -492,19 +493,23 @@ function ProfileCareerStories({
         <div className="flex items-center gap-3">
           {publishedStories.length > 0 && (
             <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
-              {(['timeline', 'category'] as const).map((v) => (
+              {([
+                { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
+                { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
+              ]).map(({ key, label, Icon }) => (
                 <button
-                  key={v}
-                  onClick={() => setStoryView(v)}
-                  aria-pressed={storyView === v}
+                  key={key}
+                  onClick={() => setStoryView(key)}
+                  aria-pressed={storyView === key}
                   className={cn(
-                    'text-xs px-2.5 py-1 rounded-full capitalize transition-colors',
-                    storyView === v
+                    'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition-colors',
+                    storyView === key
                       ? 'bg-white shadow-sm border text-primary-700'
                       : 'text-gray-500 hover:text-gray-700',
                   )}
                 >
-                  {v}
+                  <Icon className="w-3 h-3" />
+                  {label}
                 </button>
               ))}
             </div>

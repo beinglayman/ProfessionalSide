@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, MoreHorizontal } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { StoryGroupHeader } from './story-group-header';
 import { getSourceIcon } from './source-icons';
@@ -45,6 +45,7 @@ export function ActivityStream({
   const [selectedSources, setSelectedSources] = useState<ActivitySource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDraftsOnly, setShowDraftsOnly] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Global expand/collapse state - track which groups are collapsed.
   // Starts null (= treat everything as collapsed) so nothing flashes expanded
@@ -303,42 +304,116 @@ export function ActivityStream({
   // Check if we should show filters (multiple options available)
   const showTemporalFilters = availableTemporalBuckets.length > 1;
   const showFilters = showTemporalFilters;
+  const activeFilterCount = selectedTemporalBuckets.length + selectedSources.length;
 
   return (
     <div className="space-y-3">
       {/* Controls: Search + Filters + Expand/Collapse */}
       {(showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
-        <div className="flex items-center gap-2.5 flex-wrap py-2 px-3 bg-white rounded-lg border border-gray-200/80">
-          {/* Search input */}
-          <div className="relative flex-shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search activities..."
-              className={cn(
-                "w-36 sm:w-44 pl-8 pr-7 py-1.5 text-xs rounded-md border transition-all",
-                "bg-gray-50 border-gray-200 placeholder-gray-400",
-                "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white",
-                searchQuery && "border-primary-300 bg-white"
+        <div className="bg-white rounded-lg border border-gray-200/80">
+          {/* Top row: search + filter toggle (mobile) / inline filters (desktop) + expand/collapse */}
+          <div className="flex items-center gap-2 py-2 px-3">
+            {/* Search input */}
+            <div className="relative flex-1 sm:flex-initial sm:w-44">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search activities..."
+                className={cn(
+                  "w-full pl-8 pr-7 py-1.5 text-xs rounded-md border transition-all",
+                  "bg-gray-50 border-gray-200 placeholder-gray-400",
+                  "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white",
+                  searchQuery && "border-primary-300 bg-white"
+                )}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               )}
-            />
-            {searchQuery && (
+            </div>
+
+            {/* Mobile: filter toggle button */}
+            {(showFilters || availableSources.length > 1) && (
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                className={cn(
+                  "sm:hidden flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0",
+                  mobileFiltersOpen || activeFilterCount > 0
+                    ? "bg-primary-50 text-primary-600"
+                    : "text-gray-500 hover:bg-gray-100"
+                )}
               >
-                <X className="w-3 h-3" />
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 text-[10px] font-bold rounded-full bg-primary-500 text-white flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
             )}
+
+            {/* Desktop: inline filters */}
+            {showFilters && (
+              <div className="hidden sm:flex items-center gap-1">
+                <FilterSeparator />
+                {showTemporalFilters && (
+                  <TemporalFilters
+                    availableBuckets={availableTemporalBuckets}
+                    selectedBuckets={selectedTemporalBuckets}
+                    onToggle={handleTemporalToggle}
+                    counts={temporalCounts}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Desktop: source filter chips */}
+            {availableSources.length > 1 && (
+              <div className="hidden sm:flex items-center">
+                <SourceFilterChips
+                  availableSources={availableSources}
+                  selectedSources={selectedSources}
+                  onToggle={handleSourceToggle}
+                />
+              </div>
+            )}
+
+            {/* Spacer */}
+            <div className="flex-1 min-w-0 hidden sm:block" />
+
+            {/* Expand/Collapse All button */}
+            <button
+              onClick={toggleAll}
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0",
+                anyExpanded
+                  ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  : "text-primary-600 bg-primary-50 hover:bg-primary-100"
+              )}
+            >
+              {anyExpanded ? (
+                <>
+                  <Minus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Collapse</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Expand</span>
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Filters with pipe separators */}
-          {showFilters && (
-            <>
-              <FilterSeparator />
-
+          {/* Mobile: expanded filter drawer */}
+          {mobileFiltersOpen && (
+            <div className="sm:hidden px-3 pb-2.5 pt-0.5 border-t border-gray-100 flex flex-wrap items-center gap-1.5">
               {showTemporalFilters && (
                 <TemporalFilters
                   availableBuckets={availableTemporalBuckets}
@@ -347,43 +422,15 @@ export function ActivityStream({
                   counts={temporalCounts}
                 />
               )}
-            </>
+              {availableSources.length > 1 && (
+                <SourceFilterChips
+                  availableSources={availableSources}
+                  selectedSources={selectedSources}
+                  onToggle={handleSourceToggle}
+                />
+              )}
+            </div>
           )}
-
-          {/* Source filter chips — inline next to temporal filters */}
-          {availableSources.length > 1 && (
-            <SourceFilterChips
-              availableSources={availableSources}
-              selectedSources={selectedSources}
-              onToggle={handleSourceToggle}
-            />
-          )}
-
-          {/* Spacer */}
-          <div className="flex-1 min-w-2" />
-
-          {/* Expand/Collapse All button - right aligned */}
-          <button
-            onClick={toggleAll}
-            className={cn(
-              "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0",
-              anyExpanded
-                ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                : "text-primary-600 bg-primary-50 hover:bg-primary-100"
-            )}
-          >
-            {anyExpanded ? (
-              <>
-                <Minus className="w-3 h-3" />
-                <span className="hidden sm:inline">Collapse</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-3 h-3" />
-                <span className="hidden sm:inline">Expand</span>
-              </>
-            )}
-          </button>
         </div>
       )}
 

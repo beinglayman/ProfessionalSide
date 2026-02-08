@@ -8,6 +8,9 @@ interface NotesPillBarProps {
   onAddNote: (sectionKey: string, content: string) => void;
   onExclude: (sourceId: string) => void;
   onUndoExclude: (sourceId: string) => void;
+  /** Controlled: parent can force the input open (e.g., from SourceList "+ Note" button) */
+  forceShowInput?: boolean;
+  onInputClosed?: () => void;
 }
 
 export function NotesPillBar({
@@ -16,8 +19,15 @@ export function NotesPillBar({
   onAddNote,
   onExclude,
   onUndoExclude,
+  forceShowInput,
+  onInputClosed,
 }: NotesPillBarProps) {
   const [showInput, setShowInput] = useState(false);
+
+  // Sync with parent's controlled state (open when parent says open, close when parent resets)
+  useEffect(() => {
+    if (forceShowInput !== undefined) setShowInput(forceShowInput);
+  }, [forceShowInput]);
   const [noteText, setNoteText] = useState('');
   const [pendingExclude, setPendingExclude] = useState<string | null>(null);
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -28,13 +38,20 @@ export function NotesPillBar({
     };
   }, []);
 
+  const closeInput = useCallback(() => {
+    setShowInput(false);
+    setNoteText('');
+    onInputClosed?.();
+  }, [onInputClosed]);
+
   const handleSubmit = useCallback(() => {
     if (noteText.trim()) {
       onAddNote(sectionKey, noteText.trim());
       setNoteText('');
       setShowInput(false);
+      onInputClosed?.();
     }
-  }, [noteText, sectionKey, onAddNote]);
+  }, [noteText, sectionKey, onAddNote, onInputClosed]);
 
   const handleExclude = useCallback((sourceId: string) => {
     setPendingExclude(sourceId);
@@ -54,19 +71,9 @@ export function NotesPillBar({
 
   const activeNotes = notes.filter((n) => !n.excludedAt);
 
-  // Nothing to show and not adding — render just the + button
+  // Nothing to show and not adding — render nothing (Add Note button is in SourceList header)
   if (activeNotes.length === 0 && !showInput && !pendingExclude) {
-    return (
-      <div className="mt-3 pt-2 border-t border-gray-100">
-        <button
-          onClick={() => setShowInput(true)}
-          className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary-600 transition-colors"
-        >
-          <Plus className="w-3 h-3" />
-          Add note
-        </button>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -94,6 +101,7 @@ export function NotesPillBar({
             <span
               key={note.id}
               className="group inline-flex items-center gap-1 max-w-[240px] px-2.5 py-1 text-[11px] bg-amber-50 text-amber-800 rounded-full border border-amber-200/60"
+              title={note.content}
             >
               <span className="truncate">{note.content}</span>
               <button
@@ -116,7 +124,7 @@ export function NotesPillBar({
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSubmit();
-                if (e.key === 'Escape') { setShowInput(false); setNoteText(''); }
+                if (e.key === 'Escape') closeInput();
               }}
               placeholder="Your note..."
               className="w-40 text-[11px] px-2 py-0.5 border border-gray-200 rounded-full focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
@@ -130,7 +138,7 @@ export function NotesPillBar({
               Add
             </button>
             <button
-              onClick={() => { setShowInput(false); setNoteText(''); }}
+              onClick={closeInput}
               className="text-[11px] px-1.5 py-0.5 text-gray-400 hover:text-gray-600"
             >
               <X className="w-3 h-3" />
