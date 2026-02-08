@@ -595,12 +595,12 @@ function DraftsBanner({ storyGroups, showDraftsOnly, onToggle }: DraftsBannerPro
       'flex items-center justify-between px-5 py-3.5 rounded-xl transition-colors',
       showDraftsOnly
         ? 'bg-purple-600 border border-purple-700'
-        : 'bg-purple-100 border border-purple-200'
+        : 'bg-gray-100 border border-gray-200'
     )}>
       <div className="flex items-center gap-3 min-w-0">
         <Sparkles className={cn(
           'w-5 h-5 flex-shrink-0',
-          showDraftsOnly ? 'text-purple-200' : 'text-purple-500'
+          showDraftsOnly ? 'text-purple-200' : 'text-gray-500'
         )} aria-hidden="true" />
         <div className="min-w-0">
           <div>

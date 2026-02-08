@@ -292,12 +292,12 @@ export function StoryGroupHeader({
           'relative rounded-xl transition-all duration-300 overflow-hidden',
           'border',
           variant === 'draft'
-            ? 'bg-gradient-to-br from-purple-50 to-purple-100/60 border-dashed border-purple-300 shadow-[0_0_12px_-3px_rgba(147,51,234,0.15)]'
+            ? 'bg-white border-dashed border-gray-300'
             : 'bg-white',
           isExpanded
-            ? cn(variant === 'draft' ? 'border-purple-400 shadow-lg' : 'border-purple-200 shadow-lg')
+            ? cn(variant === 'draft' ? 'border-gray-400 shadow-lg' : 'border-purple-200 shadow-lg')
             : cn(variant === 'draft'
-                ? 'hover:border-purple-400 hover:shadow-sm cursor-pointer'
+                ? 'hover:border-gray-400 hover:shadow-sm cursor-pointer'
                 : 'border-gray-100 hover:border-purple-200 hover:shadow-sm cursor-pointer'),
           // Flash animation when content is enhanced
           justUpdated && 'animate-highlight-flash animate-border-glow'
@@ -485,7 +485,7 @@ export function StoryGroupHeader({
                     {(topics || skills).map((item, idx) => (
                       <span
                         key={idx}
-                        className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-600"
+                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700"
                       >
                         {item}
                       </span>
@@ -519,7 +519,7 @@ export function StoryGroupHeader({
                           showStoryBadge={false}
                           compact={useCompactCards}
                           edge={edgeMap.get(activity.id)}
-                          className="bg-white border border-gray-100 rounded-lg hover:border-purple-200 transition-colors"
+                          className="bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-colors"
                         />
                       </div>
                     ))}
@@ -535,7 +535,7 @@ export function StoryGroupHeader({
                             }}
                             className={cn(
                               'w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-500',
-                              'hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors'
+                              'hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors'
                             )}
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
