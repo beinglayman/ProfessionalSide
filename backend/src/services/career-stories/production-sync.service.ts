@@ -612,6 +612,8 @@ async function createTemporalEntries(
   activities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
   workspaceId: string
 ): Promise<JournalEntryData[]> {
+  if (activities.length === 0) return [];
+
   const sorted = [...activities].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
@@ -787,6 +789,8 @@ async function createJournalEntryFromCluster(
   workspaceId: string
 ): Promise<JournalEntryData | null> {
   const activities = cluster.activities;
+  if (activities.length === 0) return null;
+
   const sorted = [...activities].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
