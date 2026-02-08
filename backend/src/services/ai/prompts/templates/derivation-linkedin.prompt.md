@@ -14,11 +14,15 @@ Story archetype: {{archetype}}
 Key metrics: {{metrics}}
 {{/if}}
 
+{{#if dateRange}}
+Time period: {{dateRange}}
+{{/if}}
+
 ## Instructions
 
-- Hook in the first line — a number, a question, or a surprising fact. This line shows before "...see more".
+- First line is the hook — a number, a surprising fact, or a question. This line shows before "...see more". No "I'm excited to share" or "Thrilled to announce".
 - Short paragraphs (1-2 sentences each). White space matters on LinkedIn.
-- End with a call to action or reflection question for the reader.
+- End with an insight or reflection, not a call to action. No "What do you think?" or "Drop a comment below".
 - Add 3-5 relevant hashtags on the last line.
 - Tone: confident but not boastful. Share the learning, not just the win.
 - No emoji spam. One or two if they add meaning, zero is fine.

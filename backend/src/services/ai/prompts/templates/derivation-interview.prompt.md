@@ -14,14 +14,19 @@ Story archetype: {{archetype}}
 Key metrics: {{metrics}}
 {{/if}}
 
+{{#if dateRange}}
+Time period: {{dateRange}}
+{{/if}}
+
 ## Instructions
 
-- Confident and specific. No hedging ("I think", "sort of").
+- Conversational, not scripted. This should sound like a confident person talking, not reading.
+- First sentence is the hook: lead with the result or the stakes. No throat-clearing.
+- Maximum 3 paragraphs. Brief context → what you did → measurable result.
 - Include time markers when the source provides them ("In Q3...", "Over 6 weeks...").
-- Front-load the strongest number or outcome.
-- Structure: brief context → what you did → measurable result.
+- No hedging ("I think", "sort of", "kind of", "basically").
 - End with a takeaway sentence the interviewer will remember.
-- Natural spoken cadence — not bullet points, not an essay.
+- Natural spoken cadence — contractions are fine, bullet points are not.
 
 {{#if tone}}
 Writing tone: {{tone}}

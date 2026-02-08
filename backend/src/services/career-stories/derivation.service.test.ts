@@ -33,6 +33,16 @@ vi.mock('./story-source.service', () => ({
   },
 }));
 
+// Mock demo-tables for date range extraction
+vi.mock('../../lib/demo-tables', () => ({
+  getToolActivityTable: () => ({
+    aggregate: vi.fn().mockResolvedValue({
+      _min: { timestamp: null },
+      _max: { timestamp: null },
+    }),
+  }),
+}));
+
 import { deriveStory, DeriveResult } from './derivation.service';
 
 const MOCK_STORY = {

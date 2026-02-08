@@ -106,9 +106,10 @@ describe('buildDerivationMessages', () => {
     expect(userContent).toContain('50% reduction');
   });
 
-  it('system message contains specialist role instructions', () => {
+  it('system message contains Ann Handley specialist instructions', () => {
     const messages = buildDerivationMessages('interview', createParams());
     const systemContent = messages[0].content as string;
-    expect(systemContent).toContain('career communication specialist');
+    expect(systemContent).toContain('Ann Handley');
+    expect(systemContent).toContain('Return ONLY the derived text');
   });
 });

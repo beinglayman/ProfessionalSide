@@ -13,6 +13,7 @@ import { buildDerivationMessages, DerivationPromptParams } from '../ai/prompts/d
 import type { DerivationType } from '../../controllers/career-stories.schemas';
 import type { WritingStyle } from '../ai/prompts/career-story.prompt';
 import { storySourceService } from './story-source.service';
+import { getToolActivityTable } from '../../lib/demo-tables';
 
 // =============================================================================
 // TYPES
@@ -51,6 +52,44 @@ function extractMetrics(text: string): string[] {
 }
 
 // =============================================================================
+// DATE RANGE EXTRACTION
+// =============================================================================
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatDateRange(minDate: Date, maxDate: Date): string {
+  const minMonth = MONTH_NAMES[minDate.getMonth()];
+  const maxMonth = MONTH_NAMES[maxDate.getMonth()];
+  const minYear = minDate.getFullYear();
+  const maxYear = maxDate.getFullYear();
+
+  if (minYear === maxYear && minDate.getMonth() === maxDate.getMonth()) {
+    return `${minMonth} ${minYear}`;
+  }
+  return `${minMonth} ${minYear} – ${maxMonth} ${maxYear}`;
+}
+
+async function getDateRangeForActivities(activityIds: string[], isDemoMode: boolean): Promise<string | undefined> {
+  if (!activityIds || activityIds.length === 0) return undefined;
+
+  try {
+    const activityTable = getToolActivityTable(isDemoMode);
+    const result = await (activityTable.aggregate as Function)({
+      where: { id: { in: activityIds } },
+      _min: { timestamp: true },
+      _max: { timestamp: true },
+    });
+
+    if (result._min.timestamp && result._max.timestamp) {
+      return formatDateRange(result._min.timestamp, result._max.timestamp);
+    }
+  } catch {
+    // Date range is supplementary — don't fail if unavailable
+  }
+  return undefined;
+}
+
+// =============================================================================
 // SERVICE
 // =============================================================================
 
@@ -83,7 +122,7 @@ export async function deriveStory(
   const allText = Object.values(sections).map(s => s.summary || '').join(' ');
   const metrics = extractMetrics(allText);
 
-  // Get source count for context
+  // Get source count and date range for context
   let sourceCount = 0;
   try {
     const sources = await storySourceService.getSourcesForStory(storyId);
@@ -91,6 +130,8 @@ export async function deriveStory(
   } catch {
     // Sources are supplementary — don't fail if unavailable
   }
+
+  const dateRange = await getDateRangeForActivities(story.activityIds, isDemoMode);
 
   // 3. Build prompt with complete context
   const promptParams: DerivationPromptParams = {
@@ -103,6 +144,7 @@ export async function deriveStory(
     metrics: metrics.length > 0 ? metrics.join(', ') : undefined,
     activityCount: story.activityIds?.length || 0,
     sourceCount,
+    dateRange,
   };
 
   const messages = buildDerivationMessages(derivation, promptParams);

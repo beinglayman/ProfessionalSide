@@ -1,4 +1,4 @@
-Rewrite this career story as 1-2 resume bullet points.
+Rewrite this career story as a single resume bullet point.
 
 ## Source Story: "{{title}}" ({{framework}})
 
@@ -14,14 +14,18 @@ Story archetype: {{archetype}}
 Key metrics: {{metrics}}
 {{/if}}
 
+{{#if dateRange}}
+Time period: {{dateRange}}
+{{/if}}
+
 ## Instructions
 
-- Each bullet: action verb + what you did + result with metric in parentheses.
-- Example format: "Redesigned authentication flow, reducing login failures by 40% (from 12% to 7.2% error rate)"
-- Start with a strong action verb: Led, Designed, Implemented, Reduced, Increased, Built, Migrated, Optimized.
+- XYZ format: "Accomplished [X] by doing [Y], resulting in [Z]". One bullet, max 2 lines.
+- Start with a strong action verb: Led, Designed, Implemented, Reduced, Increased, Built, Migrated, Optimized, Shipped, Architected.
+- No soft verbs: "Helped", "Assisted", "Participated", "Contributed to", "Worked on" are banned.
 - No first person pronouns — resume convention omits "I".
-- If two bullets: first covers what you did, second covers the impact.
-- If one bullet: compress everything into one line under 200 characters.
+- Metric in parentheses at the end: "(40% reduction in login failures, from 12% to 7.2%)"
+- Under 200 characters total. If it doesn't fit, cut process details, keep the outcome.
 - Monochrome and factual. No adjectives without numbers to back them.
 
 {{#if tone}}

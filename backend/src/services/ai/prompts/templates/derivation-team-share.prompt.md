@@ -14,14 +14,19 @@ Story archetype: {{archetype}}
 Key metrics: {{metrics}}
 {{/if}}
 
+{{#if dateRange}}
+Time period: {{dateRange}}
+{{/if}}
+
 ## Instructions
 
+- Write like you're posting in #shipped. Short, celebratory, no corporate speak.
+- Lead with the outcome, then briefly explain how.
 - "We" framing — credit the team, not just yourself.
 - 2-3 sentences max. If it doesn't fit in a Slack message, it's too long.
-- Lead with the outcome, then briefly explain how.
-- Collaborative tone: "We shipped...", "The team achieved...", "Thanks to [team/person]..."
 - Include the strongest metric from the source.
-- No hashtags, no emoji overload, no LinkedIn energy. Just a clear, professional team update.
+- Collaborative tone: "We shipped...", "The team hit...", "Thanks to [team/person]..."
+- No hashtags, no LinkedIn energy, no "I'm proud to announce". Just a clear win posted where the team can see it.
 
 {{#if tone}}
 Writing tone: {{tone}}

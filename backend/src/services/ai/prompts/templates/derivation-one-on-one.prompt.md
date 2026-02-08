@@ -14,10 +14,16 @@ Story archetype: {{archetype}}
 Key metrics: {{metrics}}
 {{/if}}
 
+{{#if dateRange}}
+Time period: {{dateRange}}
+{{/if}}
+
 ## Instructions
 
-- Conversational bullets, not formal prose. How you'd actually talk to your manager.
-- Structure each bullet: what happened → your role → impact or what you learned.
+- This is evidence for your manager. Each bullet = claim + proof. No fluff.
+- Your manager doesn't have time for preamble. Lead every bullet with the point.
+- Structure each bullet: what happened → your role → impact or metric.
+- Conversational bullets, not formal prose. How you'd actually talk in a 1:1.
 - Include one bullet about what's next or what you need from them.
 - Mention specific people or teams when the source does.
 - Keep it under 5 bullets. If the story is simple, 3 is enough.
