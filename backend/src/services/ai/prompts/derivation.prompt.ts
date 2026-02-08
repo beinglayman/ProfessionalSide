@@ -54,12 +54,30 @@ const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
 };
 
 // =============================================================================
+// MULTI-STORY TYPES
+// =============================================================================
+
+export interface PacketStoryInput {
+  title: string;
+  framework: string;
+  sections: Record<string, { summary: string }>;
+  metrics?: string;
+  dateRange?: string;
+}
+
+export interface PacketPromptParams {
+  tone?: WritingStyle;
+  customPrompt?: string;
+}
+
+// =============================================================================
 // TEMPLATE LOADING
 // =============================================================================
 
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
 let systemTemplate: string;
+let packetTemplate: Handlebars.TemplateDelegate;
 const DERIVATION_TEMPLATES: Record<string, Handlebars.TemplateDelegate> = {};
 
 const DERIVATION_TYPES: DerivationType[] = [
@@ -73,6 +91,9 @@ try {
     const raw = readFileSync(join(TEMPLATES_DIR, `derivation-${type}.prompt.md`), 'utf-8');
     DERIVATION_TEMPLATES[type] = Handlebars.compile(raw);
   }
+
+  const packetRaw = readFileSync(join(TEMPLATES_DIR, 'derivation-promotion-packet.prompt.md'), 'utf-8');
+  packetTemplate = Handlebars.compile(packetRaw);
 } catch (error) {
   console.warn('Failed to load derivation prompt templates:', (error as Error).message);
   systemTemplate = 'You are a career communication specialist. Rewrite the story for the specified audience. Return only the derived text.';
@@ -81,6 +102,9 @@ try {
       `Rewrite this story as a {{derivationType}} format.\nTitle: {{title}}\n{{#each sections}}{{@key}}: {{this.summary}}\n{{/each}}`
     );
   }
+  packetTemplate = Handlebars.compile(
+    `Generate a promotion packet from these stories.\n{{#each stories}}Title: {{this.title}}\n{{#each this.sections}}{{@key}}: {{this.summary}}\n{{/each}}\n---\n{{/each}}`
+  );
 }
 
 // =============================================================================
@@ -122,6 +146,29 @@ export function buildDerivationMessages(
 
   return [
     { role: 'system', content: systemContent },
+    { role: 'user', content: userContent },
+  ];
+}
+
+// =============================================================================
+// PROMOTION PACKET PROMPT BUILDER
+// =============================================================================
+
+/**
+ * Build chat messages for a promotion packet (multi-story derivation).
+ */
+export function buildPacketMessages(
+  stories: PacketStoryInput[],
+  params: PacketPromptParams,
+): ChatCompletionMessageParam[] {
+  const userContent = packetTemplate({
+    stories,
+    tone: params.tone || undefined,
+    customPrompt: params.customPrompt || undefined,
+  });
+
+  return [
+    { role: 'system', content: systemTemplate },
     { role: 'user', content: userContent },
   ];
 }

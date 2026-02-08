@@ -54,6 +54,7 @@ import {
   updateStorySource,
   // Story Derivations
   deriveStory,
+  derivePacket,
 } from '../controllers/career-stories.controller';
 import {
   analyzeEntry,
@@ -131,6 +132,7 @@ router.patch('/stories/:storyId/sources/:sourceId', updateStorySource);
 // STORY DERIVATIONS
 // ============================================================================
 router.post('/stories/:storyId/derive', deriveStory);
+router.post('/derive-packet', derivePacket);
 
 // ============================================================================
 // STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)

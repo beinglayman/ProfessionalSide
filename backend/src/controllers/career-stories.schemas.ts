@@ -168,6 +168,25 @@ export const deriveStorySchema = z.object({
 
 export type DeriveStoryInput = z.infer<typeof deriveStorySchema>;
 
+/**
+ * Schema for POST /derive-packet request body (multi-story promotion packet)
+ */
+export const derivePacketSchema = z.object({
+  storyIds: z.array(z.string().min(1)).min(2).max(10),
+  tone: writingStyleSchema.optional(),
+  customPrompt: z
+    .string()
+    .max(USER_PROMPT_MAX_LENGTH)
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const trimmed = val.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    }),
+}).strict();
+
+export type DerivePacketInput = z.infer<typeof derivePacketSchema>;
+
 // =============================================================================
 // STORY SOURCE SCHEMAS
 // =============================================================================

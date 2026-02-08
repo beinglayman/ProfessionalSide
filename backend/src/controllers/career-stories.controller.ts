@@ -35,10 +35,12 @@ import {
   createSourceSchema,
   updateSourceSchema,
   deriveStorySchema,
+  derivePacketSchema,
   formatZodErrors,
 } from './career-stories.schemas';
 import { storySourceService } from '../services/career-stories/story-source.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
+import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
@@ -1280,6 +1282,40 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
     const message = (error as Error).message;
     if (message === 'Story not found') {
       return void sendError(res, 'Story not found', 404);
+    }
+    if (message === 'LLM service not available') {
+      return void sendError(res, 'LLM service not available', 503);
+    }
+    throw error;
+  }
+});
+
+/**
+ * POST /api/v1/career-stories/derive-packet
+ * Generate a promotion packet from multiple stories.
+ */
+export const derivePacket = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = derivePacketSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const { storyIds, tone, customPrompt } = parseResult.data;
+  const isDemoMode = isDemoModeRequest(req);
+
+  try {
+    const result = await derivePacketService(userId, storyIds, isDemoMode, { tone, customPrompt });
+    sendSuccess(res, result);
+  } catch (error) {
+    const message = (error as Error).message;
+    if (message.startsWith('Stories not found')) {
+      return void sendError(res, message, 404);
     }
     if (message === 'LLM service not available') {
       return void sendError(res, 'LLM service not available', 503);
