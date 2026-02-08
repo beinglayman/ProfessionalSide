@@ -694,18 +694,9 @@ export default function JournalPage() {
         </div>
 
         {/* Activity Timeline Info Banner */}
-        <div className="mb-6 p-4 rounded-lg flex items-start gap-3 bg-primary-50 border border-primary-200">
-          <div className="flex-shrink-0">
-            <Clock className="h-5 w-5 text-primary-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-medium text-primary-900">
-              Your Activity Timeline
-            </h3>
-            <p className="mt-1 text-sm text-primary-700">
-              Work activities from your connected tools, organized chronologically. Add context, enhance with AI, and promote standout moments to career stories.
-            </p>
-          </div>
+        <div className="mb-6 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
+          <Clock className="h-4 w-4 text-primary-600 flex-shrink-0" />
+          <p className="text-sm text-primary-700">Add context, enhance with AI, and promote standout moments to career stories.</p>
         </div>
 
         {/* First-time user CTA: No integrations connected */}
