@@ -83,19 +83,11 @@ export const onboardingService = {
   // Save onboarding data (with database persistence)
   saveOnboardingData: async (data: OnboardingData): Promise<void> => {
     try {
-      console.log('=== ONBOARDING SERVICE SAVE START ===');
-      console.log('📊 Data being saved:', data);
-      console.log('📊 Data size:', JSON.stringify(data).length, 'characters');
-      
       // Save onboarding data to API first
-      console.log('🌐 Calling API service...');
       await onboardingApiService.saveOnboardingData(data);
-      console.log('✅ API service completed');
-      
+
       // Also save to localStorage as backup
-      console.log('💾 Saving to localStorage backup...');
-      const success = SafeStorage.setItem(MOCK_ONBOARDING_DATA_KEY, JSON.stringify(data));
-      console.log('💾 LocalStorage backup:', success ? 'success' : 'failed');
+      SafeStorage.setItem(MOCK_ONBOARDING_DATA_KEY, JSON.stringify(data));
       
       // Also update user profile with the avatar and basic info
       if (data.profileImageUrl || data.fullName || data.currentTitle || data.currentCompany || data.location) {
@@ -120,63 +112,33 @@ export const onboardingService = {
         }
       }
     } catch (error) {
-      console.error('❌ API save failed, using localStorage fallback:', error);
-      console.log('💾 Attempting localStorage fallback...');
+      console.error('Onboarding save failed, using localStorage fallback:', error);
       const success = SafeStorage.setItem(MOCK_ONBOARDING_DATA_KEY, JSON.stringify(data));
       if (!success) {
-        console.error('❌ LocalStorage fallback also failed');
         throw new Error('Unable to save onboarding data - storage quota exceeded');
       }
-      console.log('✅ Fallback save successful to localStorage');
     }
-    
-    console.log('=== ONBOARDING SERVICE SAVE END ===');
   },
   
   // Get onboarding data (from database with localStorage fallback)
   getOnboardingData: async (): Promise<OnboardingData | null> => {
-    console.log('=== ONBOARDING SERVICE GET START ===');
-    
     try {
-      console.log('🌐 Attempting to load from API...');
       const apiData = await onboardingApiService.getOnboardingData();
-      if (apiData) {
-        console.log('✅ API data loaded successfully');
-        console.log('📊 API data preview:', {
-          fullName: apiData.fullName,
-          currentTitle: apiData.currentTitle,
-          keys: Object.keys(apiData)
-        });
-        return apiData;
-      } else {
-        console.log('⚠️ API returned null');
-      }
-    } catch (error) {
-      console.error('❌ API failed:', error.message);
+      if (apiData) return apiData;
+    } catch {
+      // API failed — fall through to localStorage
     }
-    
+
     // Check localStorage fallback
-    console.log('💾 Checking localStorage fallback...');
     const keys = [MOCK_ONBOARDING_DATA_KEY, ONBOARDING_DATA_KEY];
     const userId = localStorage.getItem('user_id') || 'demo_user';
     keys.push(`mock_onboarding_${userId}`);
-    
+
     for (const key of keys) {
       const data = SafeStorage.getItem(key);
-      if (data) {
-        console.log(`✅ Found data in localStorage key: ${key}`);
-        const parsed = JSON.parse(data);
-        console.log('📊 LocalStorage data preview:', {
-          fullName: parsed.fullName,
-          currentTitle: parsed.currentTitle,
-          keys: Object.keys(parsed)
-        });
-        return parsed;
-      }
+      if (data) return JSON.parse(data);
     }
-    
-    console.log('❌ No data found anywhere');
-    console.log('=== ONBOARDING SERVICE GET END ===');
+
     return null;
   },
   
@@ -283,14 +245,6 @@ export const onboardingService = {
       achievements: [],
     };
     
-    console.log('Transformed result:', {
-      name: transformed.name,
-      title: transformed.title,
-      location: transformed.location,
-      company: transformed.company,
-      avatar: transformed.avatar
-    });
-    
     return transformed;
   },
   
@@ -308,25 +262,7 @@ export const onboardingService = {
       const existingData = await onboardingService.getOnboardingData();
       if (existingData) {
         const updatedData = { ...existingData, ...basicFields };
-        console.log('=== PATCHING MISSING BASIC FIELDS ===');
-        console.log('Existing data before patch:', {
-          fullName: existingData.fullName,
-          currentTitle: existingData.currentTitle,
-          currentCompany: existingData.currentCompany,
-          location: existingData.location,
-          profileImageUrl: existingData.profileImageUrl
-        });
-        console.log('Fields being patched:', basicFields);
-        console.log('Updated data after patch:', {
-          fullName: updatedData.fullName,
-          currentTitle: updatedData.currentTitle,
-          currentCompany: updatedData.currentCompany,
-          location: updatedData.location,
-          profileImageUrl: updatedData.profileImageUrl
-        });
-        
         await onboardingService.saveOnboardingData(updatedData);
-        console.log('Basic fields patched successfully');
       }
     } catch (error) {
       console.error('Failed to patch missing basic fields:', error);
@@ -467,37 +403,14 @@ export const onboardingService = {
       professionalInterests: ['Artificial Intelligence & Machine Learning', 'Cloud Computing & DevOps']
     };
 
-    console.log('Creating test data with basic info:', {
-      fullName: testData.fullName,
-      currentTitle: testData.currentTitle,
-      currentCompany: testData.currentCompany,
-      location: testData.location,
-      profileImageUrl: testData.profileImageUrl
-    });
-    
     await onboardingService.saveOnboardingData(testData);
-    
-    // Verify the data was saved correctly
-    const savedData = await onboardingService.getOnboardingData();
-    console.log('Verified saved data:', {
-      fullName: savedData?.fullName,
-      currentTitle: savedData?.currentTitle,
-      currentCompany: savedData?.currentCompany,
-      location: savedData?.location,
-      profileImageUrl: savedData?.profileImageUrl
-    });
   },
   
   // Manually sync existing onboarding data to user profile
   syncOnboardingToProfile: async (): Promise<void> => {
     try {
-      console.log('🔄 Manually syncing onboarding data to user profile...');
       const existingData = await onboardingService.getOnboardingData();
-      
-      if (!existingData) {
-        console.log('❌ No onboarding data found to sync');
-        return;
-      }
+      if (!existingData) return;
       
       if (existingData.profileImageUrl || existingData.fullName || existingData.currentTitle || existingData.currentCompany || existingData.location) {
         try {
@@ -508,29 +421,22 @@ export const onboardingService = {
             ...(existingData.location && { location: existingData.location }),
             ...(existingData.profileImageUrl && { avatar: existingData.profileImageUrl })
           });
-          console.log('✅ Onboarding data synced to user profile');
-          
           // Invalidate React Query caches
           try {
             await queryClient.invalidateQueries({ queryKey: ['journal', 'entries'] });
             await queryClient.invalidateQueries({ queryKey: ['user', 'profile'] });
-            console.log('✅ React Query caches invalidated');
-          } catch (cacheError) {
-            console.warn('⚠️ Failed to invalidate caches:', cacheError);
+          } catch {
+            // Cache invalidation is best-effort
           }
           
           // Trigger a custom event to notify components to refresh
           window.dispatchEvent(new CustomEvent('profileUpdated'));
           
         } catch (profileError) {
-          console.error('❌ Failed to sync onboarding data to user profile:', profileError);
           throw profileError;
         }
-      } else {
-        console.log('❌ No profile data to sync');
       }
     } catch (error) {
-      console.error('❌ Failed to sync onboarding data:', error);
       throw error;
     }
   },
@@ -548,14 +454,6 @@ export const onboardingService = {
     SafeStorage.emergencyCleanup();
   },
 };
-
-// Make functions available globally for debugging
-if (typeof window !== 'undefined') {
-  (window as any).syncOnboardingToProfile = onboardingService.syncOnboardingToProfile;
-  (window as any).onboardingStorageInfo = onboardingService.getStorageInfo;
-  (window as any).onboardingCleanup = onboardingService.cleanupStorage;
-  (window as any).onboardingEmergencyCleanup = onboardingService.emergencyCleanupStorage;
-}
 
 // Helper function to format dates
 const formatDate = (dateString: string): string => {
