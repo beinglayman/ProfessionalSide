@@ -26,14 +26,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Inject build timestamp into source
-        run: |
-          BUILD_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "Injecting build timestamp: ${BUILD_TS}"
-          # Update the BUILD_TIMESTAMP constant in list-new.tsx to bust Vite's content hash
-          sed -i "s/const BUILD_TIMESTAMP = '.*'/const BUILD_TIMESTAMP = '${BUILD_TS}'/" src/pages/journal/list-new.tsx
-          grep "BUILD_TIMESTAMP" src/pages/journal/list-new.tsx
-
       - name: Clean build artifacts
         run: |
           rm -rf dist/ node_modules/.vite
