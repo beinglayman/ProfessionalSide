@@ -1,6 +1,0 @@
-<step title="Incoming Request" date="2025-10-30T09:18:11.127" instance="bcf44d" url="/logstream/http" method="GET" type="request" pid="772,1,73" Host="ps-backend-1758551070.scm.azurewebsites.net" User-Agent="AZURECLI/2.75.0 (HOMEBREW)" Accept-Encoding="identity" Authorization="Bas..." x-ms-client-request-id="53729612-b571-11f0-959c-8601b54499bd" X-ARR-LOG-ID="53729612-b571-11f0-959c-8601b54499bd" CLIENT-IP="182.156.21.2:51474" X-SITE-DEPLOYMENT-ID="ps-backend-1758551070" WAS-DEFAULT-HOSTNAME="ps-backend-1758551070.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/logstream/http" X-Client-IP="182.156.21.2" X-Client-Port="51474" >
-  <step title="LogStreamHandlerMiddleware.Invoke" date="2025-10-30T09:18:11.218" >
-    <step title="Error occurred" date="2025-10-30T09:18:13.809" type="error" text="LogStreamManager: ProcessRequest end" /><!-- duration: 10ms -->
-  </step><!-- duration: 2611ms -->
-  <step title="Outgoing response" date="2025-10-30T09:18:13.846" type="response" statusCode="200" statusText="OK" /><!-- duration: 3ms -->
-</step><!-- duration: 2728ms -->

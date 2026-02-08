@@ -1,5 +1,0 @@
-<step title="Startup Request" date="2025-10-29T08:52:07.925" instance="bcf44d" url="/dump" method="GET" type="request" pid="772,1,26" ScmType="None" >
-  <step title="Cleanup Xml Logs" date="2025-10-29T08:52:07.970" >
-    <step title="Cleanup Infos" date="2025-10-29T08:52:07.986" totalFiles="225" totalCleanup="65" /><!-- duration: 50ms -->
-  </step><!-- duration: 90ms -->
-</step><!-- duration: 142ms -->
