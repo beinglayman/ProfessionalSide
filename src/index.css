@@ -33,7 +33,6 @@
 }
 
 .ai-moving-border {
-  position: relative;
   border-color: transparent !important;
   box-shadow: 0 0 15px -3px rgba(124, 58, 237, 0.3);
 }
