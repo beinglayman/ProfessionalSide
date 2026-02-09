@@ -73,5 +73,11 @@ jobs:
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
           echo "=== Final app state ==="
           az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
+          echo "=== Waiting 30s for container to boot ==="
+          sleep 30
+          echo "=== Container logs (last 100 lines) ==="
+          az webapp log tail -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --timeout 15 2>&1 | tail -100 || echo "Could not fetch logs"
+          echo "=== Health check ==="
+          curl -sI "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net" | head -5 || echo "Health check failed"
 
 
