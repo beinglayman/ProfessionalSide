@@ -168,7 +168,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={cn(
-        'max-w-2xl max-h-[85vh] flex flex-col',
+        'max-w-2xl max-h-[85vh] flex flex-col border-2 border-transparent ai-moving-border',
         // Allow dropdowns to overflow on analyze step; clip on other steps
         step === 'analyze' ? 'overflow-visible' : 'overflow-hidden'
       )}>

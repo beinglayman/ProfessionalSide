@@ -18,3 +18,24 @@
   animation: fade-in 0.3s ease-out forwards;
   opacity: 0;
 }
+
+/* AI moving gradient border */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-gradient {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+.ai-moving-border {
+  background:
+    linear-gradient(white, white) padding-box,
+    conic-gradient(from var(--border-angle), #7c3aed, #a855f7, #c084fc, #e9d5ff, #c084fc, #a855f7, #7c3aed) border-box;
+  animation: rotate-gradient 3s linear infinite;
+  box-shadow: 0 0 15px -3px rgba(124, 58, 237, 0.3);
+}
