@@ -1,8 +1,12 @@
 /**
  * Story Timeline Utilities
  *
- * Shared helpers for grouping career stories by quarter (timeline view)
+ * Shared helpers for grouping career stories by time period (timeline view)
  * and by brag doc category (category view).
+ *
+ * Time period grouping uses smart buckets:
+ * - "This Week" / "Last Week" for recent stories (Mon–Sun weeks)
+ * - "Q1 2026" etc. for anything older
  *
  * Key principle: time = when the work happened, derived from
  * ToolActivity.timestamp, NOT story.publishedAt or story.createdAt.
@@ -21,15 +25,18 @@ export interface StoryTimeRange {
   midpoint: Date;
 }
 
-export interface QuarterGroup {
-  /** e.g. "Q1 2026" */
+export interface TimeGroup {
+  /** e.g. "This Week", "Last Week", or "Q1 2026" */
   label: string;
-  /** Numeric sort key — year * 100 + quarter (e.g. 202601) */
+  /** Numeric sort key — 999999 for This Week, 999998 for Last Week, year*100+quarter for older */
   sortKey: number;
   stories: Array<{ story: CareerStory; timeRange: StoryTimeRange }>;
-  /** Set of BragDocCategory values present in this quarter */
+  /** Set of BragDocCategory values present in this group */
   categories: Set<string>;
 }
+
+/** @deprecated Use TimeGroup instead */
+export type QuarterGroup = TimeGroup;
 
 // ---------------------------------------------------------------------------
 // Activity ID collection
@@ -124,6 +131,37 @@ export function getQuarter(date: Date): { label: string; sortKey: number } {
 }
 
 // ---------------------------------------------------------------------------
+// Time period helpers (rolling-week)
+// ---------------------------------------------------------------------------
+
+/**
+ * Return a smart time-period label and sort key for a date.
+ *
+ * Uses rolling 7-day windows from today at midnight:
+ * - "This Week"  = within the last 7 days
+ * - "Last Week"  = 7–14 days ago
+ * - "Q1 2026" etc. for anything older
+ */
+export function getTimePeriod(date: Date): { label: string; sortKey: number } {
+  const now = new Date();
+  now.setHours(23, 59, 59, 999); // end of today so "today" is always included
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const sevenDaysAgo = new Date(now.getTime() - 7 * msPerDay);
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * msPerDay);
+
+  const t = date.getTime();
+  if (t >= sevenDaysAgo.getTime()) return { label: 'This Week', sortKey: 999999 };
+  if (t >= fourteenDaysAgo.getTime()) return { label: 'Last Week', sortKey: 999998 };
+
+  // Fall back to quarter
+  const month = date.getMonth();
+  const year = date.getFullYear();
+  const q = Math.floor(month / 3) + 1;
+  return { label: `Q${q} ${year}`, sortKey: year * 100 + q };
+}
+
+// ---------------------------------------------------------------------------
 // Time span formatting
 // ---------------------------------------------------------------------------
 
@@ -157,19 +195,19 @@ export function formatTimeSpan(start: Date, end: Date): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Group stories by the quarter of their activity midpoint.
+ * Group stories by smart time period (This Week / Last Week / quarter).
  * Returns groups sorted reverse-chronologically, stories within each
  * group sorted newest-first.
  */
-export function groupStoriesByQuarter(
+export function groupStoriesByTimePeriod(
   stories: CareerStory[],
   activityMap: Map<string, ToolActivity>,
-): QuarterGroup[] {
-  const map = new Map<string, QuarterGroup>();
+): TimeGroup[] {
+  const map = new Map<string, TimeGroup>();
 
   for (const story of stories) {
     const timeRange = computeStoryTimeRange(story, activityMap);
-    const { label, sortKey } = getQuarter(timeRange.midpoint);
+    const { label, sortKey } = getTimePeriod(timeRange.midpoint);
 
     if (!map.has(label)) {
       map.set(label, { label, sortKey, stories: [], categories: new Set() });
@@ -189,6 +227,9 @@ export function groupStoriesByQuarter(
 
   return groups;
 }
+
+/** @deprecated Use groupStoriesByTimePeriod instead */
+export const groupStoriesByQuarter = groupStoriesByTimePeriod;
 
 /** Group stories by brag doc category. Uncategorized stories go under 'other'.
  *  Within each category, stories are sorted newest-first by createdAt. */

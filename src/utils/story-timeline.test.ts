@@ -3,8 +3,9 @@ import {
   collectActivityIds,
   computeStoryTimeRange,
   getQuarter,
+  getTimePeriod,
   formatTimeSpan,
-  groupStoriesByQuarter,
+  groupStoriesByTimePeriod,
   groupStoriesByCategory,
 } from './story-timeline';
 import type { CareerStory, ToolActivity } from '../types/career-stories';
@@ -210,6 +211,42 @@ describe('getQuarter', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getTimePeriod
+// ---------------------------------------------------------------------------
+
+describe('getTimePeriod', () => {
+  it('returns "This Week" for a date in the current week', () => {
+    const now = new Date();
+    const { label, sortKey } = getTimePeriod(now);
+    expect(label).toBe('This Week');
+    expect(sortKey).toBe(999999);
+  });
+
+  it('returns "Last Week" for a date 7 days ago', () => {
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const { label, sortKey } = getTimePeriod(lastWeek);
+    expect(label).toBe('Last Week');
+    expect(sortKey).toBe(999998);
+  });
+
+  it('returns quarter label for older dates', () => {
+    const oldDate = new Date('2025-06-15T10:00:00Z');
+    const { label, sortKey } = getTimePeriod(oldDate);
+    expect(label).toBe('Q2 2025');
+    expect(sortKey).toBe(202502);
+  });
+
+  it('sorts This Week before Last Week before quarters', () => {
+    const thisWeek = getTimePeriod(new Date());
+    const lastWeek = getTimePeriod(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const oldQ = getTimePeriod(new Date('2025-06-15T10:00:00Z'));
+    expect(thisWeek.sortKey).toBeGreaterThan(lastWeek.sortKey);
+    expect(lastWeek.sortKey).toBeGreaterThan(oldQ.sortKey);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // formatTimeSpan
 // ---------------------------------------------------------------------------
 
@@ -242,12 +279,12 @@ describe('formatTimeSpan', () => {
 });
 
 // ---------------------------------------------------------------------------
-// groupStoriesByQuarter
+// groupStoriesByTimePeriod
 // ---------------------------------------------------------------------------
 
-describe('groupStoriesByQuarter', () => {
+describe('groupStoriesByTimePeriod', () => {
   it('returns empty array for empty stories', () => {
-    const groups = groupStoriesByQuarter([], new Map());
+    const groups = groupStoriesByTimePeriod([], new Map());
     expect(groups).toEqual([]);
   });
 
@@ -256,7 +293,7 @@ describe('groupStoriesByQuarter', () => {
     const story = makeStory({ activityIds: ['a1'], category: 'projects-impact' });
     const map = buildActivityMap([a1]);
 
-    const groups = groupStoriesByQuarter([story], map);
+    const groups = groupStoriesByTimePeriod([story], map);
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe('Q1 2026');
     expect(groups[0].stories).toHaveLength(1);
@@ -270,7 +307,7 @@ describe('groupStoriesByQuarter', () => {
     const s2 = makeStory({ id: 's2', activityIds: ['a2'] });
     const map = buildActivityMap([a1, a2]);
 
-    const groups = groupStoriesByQuarter([s1, s2], map);
+    const groups = groupStoriesByTimePeriod([s1, s2], map);
     expect(groups).toHaveLength(2);
     // Reverse chronological
     expect(groups[0].label).toBe('Q1 2026');
@@ -290,18 +327,19 @@ describe('groupStoriesByQuarter', () => {
     ];
     const map = buildActivityMap(activities);
 
-    const groups = groupStoriesByQuarter(stories, map);
+    const groups = groupStoriesByTimePeriod(stories, map);
     expect(groups.map((g) => g.label)).toEqual(['Q1 2026', 'Q4 2025', 'Q2 2025']);
   });
 
-  it('sorts stories within quarter by newest midpoint first', () => {
-    const a1 = makeActivity('a1', '2026-01-05T10:00:00Z');
-    const a2 = makeActivity('a2', '2026-02-20T10:00:00Z');
+  it('sorts stories within group by newest midpoint first', () => {
+    // Use dates old enough to always be in quarter grouping
+    const a1 = makeActivity('a1', '2025-04-05T10:00:00Z');
+    const a2 = makeActivity('a2', '2025-05-20T10:00:00Z');
     const s1 = makeStory({ id: 's1', activityIds: ['a1'] });
     const s2 = makeStory({ id: 's2', activityIds: ['a2'] });
     const map = buildActivityMap([a1, a2]);
 
-    const groups = groupStoriesByQuarter([s1, s2], map);
+    const groups = groupStoriesByTimePeriod([s1, s2], map);
     expect(groups).toHaveLength(1);
     expect(groups[0].stories[0].story.id).toBe('s2'); // newer first
     expect(groups[0].stories[1].story.id).toBe('s1');
@@ -314,40 +352,41 @@ describe('groupStoriesByQuarter', () => {
     const story = makeStory({ activityIds: ['a1', 'a2'] });
     const map = buildActivityMap([a1, a2]);
 
-    const groups = groupStoriesByQuarter([story], map);
+    const groups = groupStoriesByTimePeriod([story], map);
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe('Q4 2025');
   });
 
   it('assigns story with midpoint in April to Q2', () => {
-    // Mar 15 – May 15 → midpoint = April 15 → Q2
-    const a1 = makeActivity('a1', '2026-03-15T00:00:00Z');
-    const a2 = makeActivity('a2', '2026-05-15T00:00:00Z');
+    // Mar 15 – May 15, 2025 → midpoint = April 15 → Q2 2025 (old enough to be quarter)
+    const a1 = makeActivity('a1', '2025-03-15T00:00:00Z');
+    const a2 = makeActivity('a2', '2025-05-15T00:00:00Z');
     const story = makeStory({ activityIds: ['a1', 'a2'] });
     const map = buildActivityMap([a1, a2]);
 
-    const groups = groupStoriesByQuarter([story], map);
+    const groups = groupStoriesByTimePeriod([story], map);
     expect(groups).toHaveLength(1);
-    expect(groups[0].label).toBe('Q2 2026');
+    expect(groups[0].label).toBe('Q2 2025');
   });
 
-  it('tracks categories in each quarter', () => {
-    const a1 = makeActivity('a1', '2026-01-10T10:00:00Z');
-    const a2 = makeActivity('a2', '2026-02-10T10:00:00Z');
+  it('tracks categories in each group', () => {
+    // Use dates old enough to always be in the same quarter
+    const a1 = makeActivity('a1', '2025-04-10T10:00:00Z');
+    const a2 = makeActivity('a2', '2025-05-10T10:00:00Z');
     const s1 = makeStory({ id: 's1', activityIds: ['a1'], category: 'projects-impact' });
     const s2 = makeStory({ id: 's2', activityIds: ['a2'], category: 'leadership' });
     const map = buildActivityMap([a1, a2]);
 
-    const groups = groupStoriesByQuarter([s1, s2], map);
+    const groups = groupStoriesByTimePeriod([s1, s2], map);
     expect(groups[0].categories).toEqual(new Set(['projects-impact', 'leadership']));
   });
 
   it('handles stories with no category', () => {
-    const a1 = makeActivity('a1', '2026-01-10T10:00:00Z');
+    const a1 = makeActivity('a1', '2025-04-10T10:00:00Z');
     const story = makeStory({ activityIds: ['a1'], category: null });
     const map = buildActivityMap([a1]);
 
-    const groups = groupStoriesByQuarter([story], map);
+    const groups = groupStoriesByTimePeriod([story], map);
     expect(groups[0].categories.size).toBe(0);
   });
 });

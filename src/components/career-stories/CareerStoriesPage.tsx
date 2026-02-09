@@ -52,7 +52,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useProfile } from '../../hooks/useProfile';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import {
-  groupStoriesByQuarter,
+  groupStoriesByTimePeriod,
   groupStoriesByCategory,
   formatTimeSpan,
 } from '../../utils/story-timeline';
@@ -889,9 +889,9 @@ export function CareerStoriesPage() {
     return Array.from(sources);
   }, [allStories]);
 
-  // Group stories by quarter (activity-timestamp-based)
-  const storiesByQuarter = useMemo(
-    () => groupStoriesByQuarter(filteredStories, activityMap),
+  // Group stories by time period (This Week / Last Week / quarter)
+  const storiesByTimePeriod = useMemo(
+    () => groupStoriesByTimePeriod(filteredStories, activityMap),
     [filteredStories, activityMap],
   );
 
@@ -1138,7 +1138,7 @@ export function CareerStoriesPage() {
               {/* Conditional: Timeline (quarters) or Category (brag doc) */}
               {storyView === 'timeline' ? (
                 <>
-                  {storiesByQuarter.map((group) => (
+                  {storiesByTimePeriod.map((group) => (
                     <div key={group.label}>
                       {/* Quarter header */}
                       <div className="flex items-center gap-3 mb-2">

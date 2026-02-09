@@ -35,10 +35,10 @@ import {
 import { ToolIcon } from '../../components/career-stories/ToolIcon';
 import type { CareerStory, ToolActivity } from '../../types/career-stories';
 import {
-  groupStoriesByQuarter,
+  groupStoriesByTimePeriod,
   groupStoriesByCategory,
   formatTimeSpan,
-  type QuarterGroup,
+  type TimeGroup,
 } from '../../utils/story-timeline';
 
 export function ProfileViewPage() {
@@ -56,9 +56,9 @@ export function ProfileViewPage() {
   // Build O(1) activity lookup from published stories
   const activityMap = useStoryActivityMap(publishedStories);
 
-  // Group published stories by quarter (timeline view)
-  const storiesByQuarter = useMemo(
-    () => groupStoriesByQuarter(publishedStories, activityMap),
+  // Group published stories by time period (timeline view)
+  const storiesByTimePeriod = useMemo(
+    () => groupStoriesByTimePeriod(publishedStories, activityMap),
     [publishedStories, activityMap],
   );
 
@@ -277,7 +277,7 @@ export function ProfileViewPage() {
           publishedStories={publishedStories}
           draftStories={draftStories}
           activityMap={activityMap}
-          storiesByQuarter={storiesByQuarter}
+          storiesByTimePeriod={storiesByTimePeriod}
           storiesByCategory={storiesByCategory}
           mostRecentPublish={mostRecentPublish}
         />
@@ -473,14 +473,14 @@ function ProfileCareerStories({
   publishedStories,
   draftStories,
   activityMap,
-  storiesByQuarter,
+  storiesByTimePeriod,
   storiesByCategory,
   mostRecentPublish,
 }: {
   publishedStories: CareerStory[];
   draftStories: CareerStory[];
   activityMap: Map<string, ToolActivity>;
-  storiesByQuarter: QuarterGroup[];
+  storiesByTimePeriod: TimeGroup[];
   storiesByCategory: Map<string, CareerStory[]>;
   mostRecentPublish: Date | null;
 }) {
@@ -547,7 +547,7 @@ function ProfileCareerStories({
 
       {/* Conditional view: Timeline or Category */}
       {storyView === 'timeline' ? (
-        <TimelineView groups={storiesByQuarter} activityMap={activityMap} />
+        <TimelineView groups={storiesByTimePeriod} activityMap={activityMap} />
       ) : (
         <div className="space-y-4">
           {BRAG_DOC_CATEGORIES.map((cat) => {
@@ -647,7 +647,7 @@ function TimelineView({
   groups,
   activityMap,
 }: {
-  groups: QuarterGroup[];
+  groups: TimeGroup[];
   activityMap: Map<string, ToolActivity>;
 }) {
   if (groups.length === 0) {
@@ -681,7 +681,7 @@ function QuarterSection({
   group,
   activityMap,
 }: {
-  group: QuarterGroup;
+  group: TimeGroup;
   activityMap: Map<string, ToolActivity>;
 }) {
   const categoryLabels = useMemo(() => {
