@@ -51,7 +51,8 @@ import {
   Download,
   RepeatIcon,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
@@ -110,6 +111,7 @@ export default function JournalPage() {
   const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
+  const [showDraftsOnly, setShowDraftsOnly] = useState(false);
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
@@ -699,6 +701,33 @@ export default function JournalPage() {
           <p className="text-sm text-primary-700">Add context, enhance with AI, and promote standout moments to career stories.</p>
         </div>
 
+        {/* Activities / Draft Stories toggle */}
+        {storyGroups.length > 0 && (
+          <div className="flex justify-end mb-4">
+            <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
+              {([
+                { key: false, label: 'Activities', Icon: Clock },
+                { key: true, label: 'Draft Stories', Icon: Sparkles },
+              ] as const).map(({ key, label, Icon }) => (
+                <button
+                  key={label}
+                  onClick={() => setShowDraftsOnly(key)}
+                  aria-pressed={showDraftsOnly === key}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2 sm:px-3 py-1.5 text-xs font-medium transition-all duration-200',
+                    showDraftsOnly === key
+                      ? 'bg-primary-500 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+                  )}
+                >
+                  <Icon className="w-3 h-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* First-time user CTA: No integrations connected */}
         {!hasIntegrations && isEmpty && (
           <div className="bg-gradient-to-r from-primary-50 to-primary-100 border border-primary-200 rounded-xl p-6 mb-6">
@@ -735,6 +764,7 @@ export default function JournalPage() {
           onPromoteToCareerStory={handlePromoteToCareerStory}
           isEnhancingNarratives={narrativesGenerating}
           pendingEnhancementIds={pendingEnhancementIds}
+          showDraftsOnly={showDraftsOnly}
         />
       </div>
       <NewEntryModal 

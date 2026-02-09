@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, MoreHorizontal, SlidersHorizontal, LayoutGrid } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, MoreHorizontal, SlidersHorizontal, LayoutGrid } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { StoryGroupHeader } from './story-group-header';
 import { getSourceIcon } from './source-icons';
@@ -120,6 +120,7 @@ interface ActivityStreamProps {
   onPromoteToCareerStory?: (entryId: string) => void;
   isEnhancingNarratives?: boolean;
   pendingEnhancementIds?: Set<string>;
+  showDraftsOnly?: boolean;
 }
 
 /**
@@ -137,13 +138,13 @@ export function ActivityStream({
   onDeleteEntry,
   onPromoteToCareerStory,
   isEnhancingNarratives,
-  pendingEnhancementIds
+  pendingEnhancementIds,
+  showDraftsOnly = false
 }: ActivityStreamProps) {
   // Filter state
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
   const [selectedSources, setSelectedSources] = useState<ActivitySource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showDraftsOnly, setShowDraftsOnly] = useState(false);
   const [draftsSubView, setDraftsSubView] = useState<'category' | 'timeline'>('category');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -469,8 +470,8 @@ export function ActivityStream({
 
   return (
     <div className="space-y-3">
-      {/* Controls: Search + Filters + Expand/Collapse */}
-      {(showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
+      {/* Controls: Search + Filters + Expand/Collapse (hidden in drafts mode) */}
+      {!showDraftsOnly && (showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
         <div className="bg-white rounded-lg border border-gray-200/80">
           {/* Top row: search + filter toggle (mobile) / inline filters (desktop) + expand/collapse */}
           <div className="flex items-center gap-2 py-2 px-3">
@@ -594,13 +595,6 @@ export function ActivityStream({
           )}
         </div>
       )}
-
-      {/* Drafts banner */}
-      <DraftsBanner
-        storyGroups={storyGroups}
-        showDraftsOnly={showDraftsOnly}
-        onToggle={() => setShowDraftsOnly(prev => !prev)}
-      />
 
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
@@ -779,55 +773,6 @@ function InlineDraftCard({
           : undefined
       }
     />
-  );
-}
-
-interface DraftsBannerProps {
-  storyGroups: ActivityGroup[];
-  showDraftsOnly: boolean;
-  onToggle: () => void;
-}
-
-function DraftsBanner({ storyGroups, showDraftsOnly, onToggle }: DraftsBannerProps) {
-  if (storyGroups.length === 0) return null;
-
-  const draftCount = storyGroups.length;
-
-  return (
-    <div className={cn(
-      'flex items-center justify-between px-4 py-3 rounded-xl border-l-4 transition-colors',
-      showDraftsOnly
-        ? 'bg-purple-600 border border-purple-700 border-l-purple-400'
-        : 'bg-purple-50 border border-purple-100 border-l-purple-400'
-    )}>
-      <div className="flex items-center gap-2.5">
-        <Sparkles className={cn(
-          'w-4 h-4 flex-shrink-0',
-          showDraftsOnly ? 'text-purple-200' : 'text-purple-500'
-        )} aria-hidden="true" />
-        <span className={cn(
-          'text-sm font-medium',
-          showDraftsOnly ? 'text-white' : 'text-gray-800'
-        )}>
-          {showDraftsOnly
-            ? `Reviewing ${draftCount} draft ${draftCount === 1 ? 'story' : 'stories'}`
-            : `You have ${draftCount} ${draftCount === 1 ? 'story' : 'stories'} waiting to be polished`
-          }
-        </span>
-      </div>
-      <button
-        onClick={onToggle}
-        className={cn(
-          'text-sm font-medium flex-shrink-0 transition-colors',
-          showDraftsOnly
-            ? 'text-purple-200 hover:text-white'
-            : 'text-purple-600 hover:text-purple-800'
-        )}
-        aria-pressed={showDraftsOnly}
-      >
-        {showDraftsOnly ? '← Show activities' : 'Review drafts →'}
-      </button>
-    </div>
   );
 }
 

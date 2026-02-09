@@ -982,29 +982,6 @@ export function CareerStoriesPage() {
                         Build Narratives
                       </Button>
                     )}
-                    {/* Timeline / Category toggle */}
-                    <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
-                      {([
-                        { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
-                        { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
-                      ]).map(({ key, label, Icon }) => (
-                        <button
-                          key={key}
-                          onClick={() => setStoryView(key)}
-                          aria-pressed={storyView === key}
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full px-2 sm:px-3 py-1.5 text-xs font-medium transition-all duration-200',
-                            storyView === key
-                              ? 'bg-primary-500 text-white shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
-                          )}
-                        >
-                          <Icon className="w-3 h-3" />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-
                     {/* Source filter dropdown */}
                     {availableSources.length > 1 && (
                       <div className="flex items-center gap-2">
@@ -1061,6 +1038,31 @@ export function CareerStoriesPage() {
               <div className="mb-2 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
                 <BookOpen className="h-4 w-4 text-primary-600 flex-shrink-0" />
                 <p className="text-sm text-primary-700">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
+              </div>
+
+              {/* Timeline / Category toggle */}
+              <div className="flex justify-end mb-2">
+                <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
+                  {([
+                    { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
+                    { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
+                  ]).map(({ key, label, Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => setStoryView(key)}
+                      aria-pressed={storyView === key}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 sm:px-3 py-1.5 text-xs font-medium transition-all duration-200',
+                        storyView === key
+                          ? 'bg-primary-500 text-white shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+                      )}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Loading state */}
@@ -1171,8 +1173,8 @@ export function CareerStoriesPage() {
                   {BRAG_DOC_CATEGORIES.map((cat) => {
                     const catStories = storiesByCategory.get(cat.value) ?? [];
                     return (
-                      <div key={cat.value}>
-                        <div className="flex items-center gap-3 mb-2">
+                      <div key={cat.value} className="pt-4">
+                        <div className="flex items-center gap-3 mb-3">
                           <span className="text-sm font-semibold text-gray-700">{cat.label}</span>
                           <div className="flex-1 h-px bg-gray-200" />
                           {catStories.length > 0 && (
@@ -1234,8 +1236,8 @@ export function CareerStoriesPage() {
                     );
                   })}
                   {storiesByCategory.has('other') && (
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
+                    <div className="pt-4">
+                      <div className="flex items-center gap-3 mb-3">
                         <span className="text-xs font-bold text-gray-600">Other</span>
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">

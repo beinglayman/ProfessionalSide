@@ -341,27 +341,6 @@ export function StoryGroupHeader({
                   )}
                 </div>
 
-                {/* CTA at top-right when expanded - always show for draft entries */}
-                {isExpanded && onPromoteToCareerStory && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPromoteToCareerStory(storyMetadata.id);
-                    }}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
-                      'bg-purple-600 text-white hover:bg-purple-700',
-                      'transition-all duration-200 transform hover:scale-105',
-                      'shadow-sm hover:shadow-md',
-                      'animate-in fade-in slide-in-from-right-2 duration-300'
-                    )}
-                  >
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Create Career Story</span>
-                    <span className="sm:hidden">Publish</span>
-                  </button>
-                )}
-
                 {/* Actions menu when expanded */}
                 {isExpanded && (
                   <ActionsMenu
@@ -371,6 +350,27 @@ export function StoryGroupHeader({
                     isRegenerateLoading={isRegenerateLoading}
                     isPublished={isPublished}
                   />
+                )}
+
+                {/* CTA at top-right when expanded - always show for draft entries */}
+                {isExpanded && onPromoteToCareerStory && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPromoteToCareerStory(storyMetadata.id);
+                    }}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0',
+                      'bg-primary-500 text-white hover:bg-primary-600',
+                      'transition-all duration-200 transform hover:scale-105',
+                      'shadow-sm hover:shadow-md',
+                      'animate-in fade-in slide-in-from-right-2 duration-300'
+                    )}
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Create Career Story</span>
+                    <span className="sm:hidden">Publish</span>
+                  </button>
                 )}
               </div>
 
