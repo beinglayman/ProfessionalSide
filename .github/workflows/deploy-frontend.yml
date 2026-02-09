@@ -55,9 +55,13 @@ jobs:
             --name "${{ secrets.FRONTEND_APPNAME }}" \
             --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:${SHORT_SHA}"
 
-      - name: Set ports and restart
+      - name: Set ports and force cold start
         run: |
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
-          az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+          echo "Stopping web app to force fresh container pull..."
+          az webapp stop -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+          sleep 10
+          echo "Starting web app with new container..."
+          az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
 
 
