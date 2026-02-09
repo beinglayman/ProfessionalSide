@@ -30,6 +30,7 @@ import {
   X,
   Type,
   Info,
+  MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -50,6 +51,13 @@ import { DerivationHistory } from './DerivationHistory';
 import { useAddStorySource, useUpdateStorySource } from '../../hooks/useCareerStories';
 import { ToolIcon } from './ToolIcon';
 import { FrameworkSelector } from './FrameworkSelector';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '../ui/dropdown-menu';
 import { TIMING, CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS } from './constants';
 
 // =============================================================================
@@ -323,6 +331,8 @@ interface StatusBadgeProps {
   status: StoryStatus;
   confidence?: number;
   suggestedEdits?: string[];
+  sourceCoverage?: SourceCoverage | null;
+  estimatedTime?: number;
 }
 
 const STATUS_DESCRIPTIONS: Record<StoryStatus, { summary: string; detail: string }> = {
@@ -340,18 +350,18 @@ const STATUS_DESCRIPTIONS: Record<StoryStatus, { summary: string; detail: string
   },
 };
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ status, confidence, suggestedEdits = [] }) => {
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status, confidence, suggestedEdits = [], sourceCoverage, estimatedTime }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const config = {
     complete: {
-      label: 'Interview Ready',
+      label: 'Ready',
       dotColor: 'bg-emerald-500',
       pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       barColor: 'bg-emerald-500',
     },
     'in-progress': {
-      label: 'Needs Polish',
+      label: 'Polish',
       dotColor: 'bg-amber-500',
       pillClass: 'bg-amber-50/80 text-amber-700 border-amber-200/80',
       barColor: 'bg-amber-500',
@@ -374,7 +384,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, confidence, suggested
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Status pill */}
+      {/* Status pill — just the label, details on hover */}
       <span className={cn(
         'inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.5px] rounded border cursor-help',
         pillClass,
@@ -382,20 +392,6 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, confidence, suggested
         <span className={cn('w-[6px] h-[6px] rounded-full', dotColor)} />
         {label}
       </span>
-
-      {/* Score bar — compact inline */}
-      {confidence !== undefined && (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="w-16 h-[5px] rounded-full bg-gray-200 overflow-hidden">
-            <span className={cn('h-full rounded-full transition-all duration-700', barColor)} style={{ width: `${pct}%` }} />
-          </span>
-          <span className={cn('text-[11px] font-semibold tabular-nums', {
-            'text-emerald-600': pct >= 75,
-            'text-amber-600': pct >= 40 && pct < 75,
-            'text-gray-400': pct < 40,
-          })}>{pct}%</span>
-        </span>
-      )}
 
       {/* Tooltip — always shows context-rich information */}
       {showTooltip && (
@@ -415,7 +411,28 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, confidence, suggested
               )}
             </div>
             <p className="text-xs text-gray-600 mt-1 leading-relaxed">{statusInfo.summary}</p>
+            {confidence !== undefined && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="flex-1 h-[5px] rounded-full bg-gray-200 overflow-hidden">
+                  <span className={cn('h-full rounded-full transition-all duration-700', barColor)} style={{ width: `${pct}%` }} />
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-gray-600">{pct}%</span>
+              </div>
+            )}
           </div>
+
+          {/* Stats row: sources + speaking time */}
+          {(sourceCoverage || estimatedTime) && (
+            <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3 text-xs text-gray-500">
+              {sourceCoverage && sourceCoverage.total > 0 && (
+                <span>{sourceCoverage.sourced} of {sourceCoverage.total} sections sourced</span>
+              )}
+              {sourceCoverage && estimatedTime && <span>&middot;</span>}
+              {estimatedTime !== undefined && (
+                <span>~{formatTime(estimatedTime)} speaking</span>
+              )}
+            </div>
+          )}
 
           {/* Detail */}
           <div className="px-4 py-3">
@@ -1643,22 +1660,9 @@ export function NarrativePreview({
               status={storyStatus}
               confidence={star.overallConfidence}
               suggestedEdits={star.suggestedEdits}
+              sourceCoverage={sourceCoverage}
+              estimatedTime={estimatedTime}
             />
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-400 ml-1">
-              {sourceCoverage ? (
-                <SourceCoverageHeader total={sourceCoverage.total} sourced={sourceCoverage.sourced} />
-              ) : (
-                <span>{activityCount} activities</span>
-              )}
-              <span>&middot;</span>
-              <span>~{formatTime(estimatedTime)}</span>
-              {keyMetrics.length > 0 && (
-                <>
-                  <span>&middot;</span>
-                  <span className="font-medium text-gray-500">{keyMetrics.slice(0, 2).join(', ')}</span>
-                </>
-              )}
-            </div>
           </div>
 
           {/* Mobile: info icon with popover for badges + stats */}
@@ -1686,15 +1690,7 @@ export function NarrativePreview({
                       suggestedEdits={star.suggestedEdits}
                     />
                   </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-gray-500 flex-wrap">
-                    {sourceCoverage ? (
-                      <SourceCoverageHeader total={sourceCoverage.total} sourced={sourceCoverage.sourced} />
-                    ) : (
-                      <span>{activityCount} activities</span>
-                    )}
-                    <span>&middot;</span>
-                    <span>~{formatTime(estimatedTime)}</span>
-                  </div>
+                  {/* Source coverage + time are in the StatusBadge tooltip */}
                   {keyMetrics.length > 0 && (
                     <div className="flex items-center gap-1.5 text-[11px]">
                       <TrendingUp className="h-3 w-3 text-gray-400" />
@@ -1714,11 +1710,57 @@ export function NarrativePreview({
 
           {/* Toolbar — right-aligned */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
+            {/* Primary: Use this story (Share As) — prominent */}
+            {onShareAs && (
+              <button
+                onClick={onShareAs}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                data-testid="share-as"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Use this story
+              </button>
+            )}
+
+            {/* Copy */}
+            <button
+              onClick={handleCopy}
+              className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
+              title="Copy plain text"
+              aria-label="Copy plain text"
+              data-testid="copy-star"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+
+            {/* Edit/Save — only visible when actively editing */}
+            {isEditing && (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="p-1.5 rounded bg-primary-100 text-primary-600 inline-flex items-center"
+                  title="Save"
+                  aria-label="Save"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel" aria-label="Cancel editing">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+
+            <div className="w-px h-4 bg-gray-200 mx-0.5" />
+
+            {/* Framework selector — standalone (has its own dropdown) */}
             <FrameworkSelector
               value={framework}
               onChange={onFrameworkChange}
               disabled={isLoading}
             />
+
+            {/* Regenerate — direct button */}
             <button
               onClick={onRegenerate}
               disabled={isLoading}
@@ -1729,106 +1771,119 @@ export function NarrativePreview({
             >
               <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
             </button>
-            <button
-              onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-              disabled={isSaving}
-              className={cn(
-                'p-1.5 rounded transition-colors inline-flex items-center',
-                isEditing ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-              )}
-              title={isEditing ? 'Save' : 'Edit'}
-              aria-label={isEditing ? 'Save' : 'Edit'}
-            >
-              {isEditing ? <Check className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-            </button>
-            {isEditing && (
-              <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel" aria-label="Cancel editing">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <div className="w-px h-4 bg-gray-200 mx-0.5" />
-            <button
-              onClick={() => setShowCoaching(!showCoaching)}
-              className={cn(
-                'p-1.5 rounded transition-colors',
-                showCoaching ? 'bg-amber-100 text-amber-600' : 'text-gray-400 hover:bg-gray-100'
-              )}
-              title="Coach review"
-              aria-label="Coach review"
-            >
-              <Lightbulb className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setShowEmphasis(!showEmphasis)}
-              className={cn(
-                'p-1.5 rounded transition-colors',
-                showEmphasis ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100'
-              )}
-              title="Text emphasis"
-              aria-label="Text emphasis"
-            >
-              <Type className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => { setPracticeMode(!practiceMode); setTimerActive(false); }}
-              className={cn(
-                'p-1.5 rounded transition-colors',
-                practiceMode ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:bg-gray-100'
-              )}
-              title="Practice timer"
-              aria-label="Practice timer"
-            >
-              <Mic className="h-3.5 w-3.5" />
-            </button>
-            {practiceMode && (
-              <button
-                onClick={() => setShowDeliveryHelp(true)}
-                className="p-1.5 rounded text-gray-400 hover:bg-gray-100"
-                title="Practice guide"
-                aria-label="Practice guide"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <div className="w-px h-4 bg-gray-200 mx-0.5" />
-            <button
-              onClick={handleCopy}
-              className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
-              title="Copy plain text"
-              aria-label="Copy plain text"
-              data-testid="copy-star"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-            {onShareAs && (
-              <button
-                onClick={onShareAs}
-                className="p-1.5 rounded text-gray-400 hover:bg-blue-50 hover:text-blue-600 inline-flex items-center"
-                title="Use this story"
-                aria-label="Use this story"
-                data-testid="share-as"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {story?.isPublished ? (
-              <button onClick={() => onUnpublish?.()} disabled={isPublishing} className="p-1.5 rounded text-green-500 hover:bg-green-50 inline-flex items-center" title="Unpublish" aria-label="Unpublish">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              </button>
-            ) : onOpenPublishModal ? (
-              <button onClick={onOpenPublishModal} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
-                <Share2 className="h-3.5 w-3.5" />
-              </button>
-            ) : onPublish && (
-              <button onClick={() => onPublish('private', edits)} disabled={isPublishing} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 inline-flex items-center" title="Publish" aria-label="Publish">
-                <Share2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {onDelete && (
-              <button onClick={onDelete} disabled={isDeleting} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Delete" aria-label="Delete story">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
+
+            {/* View toggles — coach, emphasis, practice, delivery guide */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    'p-1.5 rounded transition-colors inline-flex items-center',
+                    (showCoaching || showEmphasis || practiceMode)
+                      ? 'bg-amber-100 text-amber-600'
+                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  )}
+                  title="View options"
+                  aria-label="View options"
+                >
+                  <Lightbulb className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onSelect={() => setShowCoaching(!showCoaching)}
+                  className="flex items-center gap-2"
+                >
+                  <Lightbulb className={cn('h-3.5 w-3.5', showCoaching && 'text-amber-500')} />
+                  {showCoaching ? 'Hide coach review' : 'Coach review'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setShowEmphasis(!showEmphasis)}
+                  className="flex items-center gap-2"
+                >
+                  <Type className={cn('h-3.5 w-3.5', showEmphasis && 'text-indigo-500')} />
+                  {showEmphasis ? 'Hide emphasis' : 'Text emphasis'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => { setPracticeMode(!practiceMode); setTimerActive(false); }}
+                  className="flex items-center gap-2"
+                >
+                  <Mic className={cn('h-3.5 w-3.5', practiceMode && 'text-primary-500')} />
+                  {practiceMode ? 'Exit practice' : 'Practice timer'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setShowDeliveryHelp(true)}
+                  className="flex items-center gap-2"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  Delivery guide
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* More — publish, delete */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center"
+                  title="More actions"
+                  aria-label="More actions"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onSelect={() => setIsEditing(true)}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Edit story
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {story?.isPublished ? (
+                  <DropdownMenuItem
+                    onSelect={() => onUnpublish?.()}
+                    disabled={isPublishing}
+                    className="flex items-center gap-2"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    Unpublish
+                  </DropdownMenuItem>
+                ) : onOpenPublishModal ? (
+                  <DropdownMenuItem
+                    onSelect={onOpenPublishModal}
+                    disabled={isPublishing}
+                    className="flex items-center gap-2"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    Publish
+                  </DropdownMenuItem>
+                ) : onPublish ? (
+                  <DropdownMenuItem
+                    onSelect={() => onPublish('private', edits)}
+                    disabled={isPublishing}
+                    className="flex items-center gap-2"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    Publish
+                  </DropdownMenuItem>
+                ) : null}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={onDelete}
+                      disabled={isDeleting}
+                      className="flex items-center gap-2 text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete story
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
