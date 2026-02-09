@@ -193,6 +193,8 @@ export function CareerStoriesPage() {
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
   // Packet view modal state
   const [viewPacket, setViewPacket] = useState<import('../../types/career-stories').StoryDerivation | null>(null);
+  // Saved packets accordion state
+  const [showSavedPackets, setShowSavedPackets] = useState(false);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -968,38 +970,18 @@ export function CareerStoriesPage() {
 
                   {/* Right: Promotion Packet + Toggle + Filter */}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Build Packet button */}
+                    {/* Build Narratives button */}
                     {allStories.length >= 2 && (
-                      <button
+                      <Button
                         onClick={() => setShowPromotionPacket(true)}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors"
-                        title="Build a document from multiple stories"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-purple-700 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:text-purple-800"
                       >
-                        <Briefcase className="w-3 h-3" />
-                        Build Packet
-                        {packets && packets.length > 0 && (
-                          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none bg-purple-200 text-purple-800">
-                            {packets.length}
-                          </span>
-                        )}
-                      </button>
+                        <Briefcase className="w-3.5 h-3.5" />
+                        Build Narratives
+                      </Button>
                     )}
-                    {/* Recent packets */}
-                    {packets && packets.length > 0 && (
-                      <div className="hidden sm:flex items-center gap-1 flex-wrap">
-                        {packets.slice(0, 3).map((p) => (
-                          <button
-                            key={p.id}
-                            onClick={() => setViewPacket(p)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] text-purple-600 bg-white border border-purple-200 rounded-full hover:bg-purple-50 transition-colors max-w-[180px]"
-                          >
-                            <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-                            <span className="truncate">{p.text.slice(0, 25)}{p.text.length > 25 ? '...' : ''}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
                     {/* Timeline / Category toggle */}
                     <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
                       {([
@@ -1042,10 +1024,43 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
+              {/* Saved narratives accordion */}
+              {packets && packets.length > 0 && (
+                <div className="mb-2">
+                  <button
+                    onClick={() => setShowSavedPackets(!showSavedPackets)}
+                    className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors rounded-md hover:bg-purple-50"
+                  >
+                    <ChevronDown className={cn(
+                      'w-3.5 h-3.5 transition-transform duration-200',
+                      !showSavedPackets && '-rotate-90'
+                    )} />
+                    Saved Narratives
+                    <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-purple-100 text-purple-700">
+                      {packets.length}
+                    </span>
+                  </button>
+                  {showSavedPackets && (
+                    <div className="mt-1.5 pl-2 flex flex-wrap gap-1.5">
+                      {packets.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setViewPacket(p)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-purple-600 bg-white border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors max-w-[220px]"
+                        >
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{p.text.slice(0, 30)}{p.text.length > 30 ? '...' : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Educational banner */}
               <div className="mb-2 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
                 <BookOpen className="h-4 w-4 text-primary-600 flex-shrink-0" />
-                <p className="text-sm text-primary-700">Turn your work into polished stories — ready for interviews, LinkedIn, or your next promotion packet.</p>
+                <p className="text-sm text-primary-700">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
               </div>
 
               {/* Loading state */}
@@ -1094,7 +1109,7 @@ export function CareerStoriesPage() {
                     <div key={group.label}>
                       {/* Quarter header */}
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-xs font-bold text-gray-600">{group.label}</span>
+                        <span className="text-sm font-semibold text-gray-700">{group.label}</span>
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
                           {group.stories.length}
@@ -1158,7 +1173,7 @@ export function CareerStoriesPage() {
                     return (
                       <div key={cat.value}>
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="text-xs font-bold text-gray-600">{cat.label}</span>
+                          <span className="text-sm font-semibold text-gray-700">{cat.label}</span>
                           <div className="flex-1 h-px bg-gray-200" />
                           {catStories.length > 0 && (
                             <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">

@@ -151,7 +151,7 @@ export const DERIVATION_TYPE_META: Record<DerivationType, {
   maxLength?: string;
 }> = {
   interview: { label: 'Interview Answer', description: 'Ready to rehearse, ~90 seconds', maxLength: '~200 words' },
-  linkedin: { label: 'LinkedIn Post', description: 'Paste, post, done', maxLength: '1300 chars' },
+  linkedin: { label: 'Professional Post', description: 'Paste, post, done', maxLength: '1300 chars' },
   resume: { label: 'Resume Bullet', description: 'Metric-driven, drop into any resume', maxLength: '1-2 lines' },
   'one-on-one': { label: '1:1 Talking Points', description: 'Walk in with receipts, 3-5 bullets', maxLength: '3-5 bullets' },
   'self-assessment': { label: 'Self Assessment', description: 'Perf review paragraph, evidence-backed', maxLength: '1 paragraph' },
