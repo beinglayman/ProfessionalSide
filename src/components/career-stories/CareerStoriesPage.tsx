@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, Briefcase, CheckCircle2, ChevronDown, ChevronRight, X, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Briefcase, CheckCircle2, ChevronDown, ChevronRight, X, BookOpen, Loader2, Filter, Clock, LayoutGrid, TrendingUp, FileText, Users, Target, ArrowUpRight } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
@@ -25,6 +25,7 @@ import {
   useUpdateCareerStory,
   useRegenerateCareerStory,
   useDeleteCareerStory,
+  useDeleteDerivation,
   usePublishCareerStory,
   useUnpublishCareerStory,
   useSetCareerStoryVisibility,
@@ -41,6 +42,7 @@ import { DerivationViewModal } from './DerivationViewModal';
 import { PromotionPacketModal } from './PromotionPacketModal';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
+import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -54,6 +56,15 @@ import {
   groupStoriesByCategory,
   formatTimeSpan,
 } from '../../utils/story-timeline';
+const PACKET_PILL_META: Record<string, { label: string; Icon: React.FC<{ className?: string }>; detail: string }> = {
+  promotion: { label: 'Promotion', Icon: TrendingUp, detail: 'Promotion-ready document' },
+  'annual-review': { label: 'Review', Icon: Clock, detail: 'Annual review summary' },
+  'skip-level': { label: 'Skip-Level', Icon: ArrowUpRight, detail: 'Skip-level prep' },
+  'portfolio-brief': { label: 'Portfolio', Icon: FileText, detail: 'Portfolio brief' },
+  'self-assessment': { label: 'Assessment', Icon: Target, detail: 'Self-assessment write-up' },
+  'one-on-one': { label: '1:1 Prep', Icon: Users, detail: '1:1 talking points' },
+};
+
 // Timeline spine (dot + connecting line) — shared between timeline and category views
 function TimelineSpine({ isLast }: { isLast: boolean }) {
   return (
@@ -189,6 +200,8 @@ export function CareerStoriesPage() {
   const [publishModalStoryId, setPublishModalStoryId] = useState<string | null>(null);
   // Derivation modal state
   const [derivationStoryId, setDerivationStoryId] = useState<string | null>(null);
+  // Delete confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Promotion packet modal state
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
   // Packet view modal state
@@ -284,6 +297,7 @@ export function CareerStoriesPage() {
   const updateStoryMutation = useUpdateCareerStory();
   const regenerateStoryMutation = useRegenerateCareerStory();
   const deleteStoryMutation = useDeleteCareerStory();
+  const deleteDerivationMutation = useDeleteDerivation();
   const publishStoryMutation = usePublishCareerStory();
   const unpublishStoryMutation = useUnpublishCareerStory();
   const setVisibilityMutation = useSetCareerStoryVisibility();
@@ -514,13 +528,18 @@ export function CareerStoriesPage() {
 
   const handleDeleteStory = useCallback(() => {
     if (selectedStoryDirect) {
-      if (window.confirm('Are you sure you want to delete this story?')) {
-        deleteStoryMutation.mutate(selectedStoryDirect.id, {
-          onSuccess: () => {
-            setSelectedStoryDirect(null);
-          },
-        });
-      }
+      setShowDeleteConfirm(true);
+    }
+  }, [selectedStoryDirect]);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (selectedStoryDirect) {
+      deleteStoryMutation.mutate(selectedStoryDirect.id, {
+        onSuccess: () => {
+          setSelectedStoryDirect(null);
+          setShowDeleteConfirm(false);
+        },
+      });
     }
   }, [selectedStoryDirect, deleteStoryMutation]);
 
@@ -1003,16 +1022,26 @@ export function CareerStoriesPage() {
                         {showSavedPackets && (
                           <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[220px] max-w-[320px]">
                             <div className="flex flex-col gap-1">
-                              {packets.map((p) => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => setViewPacket(p)}
-                                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-left"
-                                >
-                                  <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                  <span className="truncate">{p.text.slice(0, 40)}{p.text.length > 40 ? '...' : ''}</span>
-                                </button>
-                              ))}
+                              {packets.map((p) => {
+                                const meta = PACKET_PILL_META[p.type];
+                                const PillIcon = meta?.Icon || Clock;
+                                const pillLabel = meta?.label || p.type;
+                                const pillDetail = meta?.detail || p.type;
+                                const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                                return (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => setViewPacket(p)}
+                                    title={`${pillDetail} · ${p.wordCount} words · ${date}`}
+                                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-left"
+                                  >
+                                    <PillIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                    <span className="flex-1 truncate">{pillLabel}</span>
+                                    <span className="text-[10px] text-gray-400 flex-shrink-0">{date}</span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1357,8 +1386,25 @@ export function CareerStoriesPage() {
           isOpen={!!viewPacket}
           onClose={() => setViewPacket(null)}
           derivation={viewPacket}
+          onDelete={(id) => {
+            deleteDerivationMutation.mutate(id, {
+              onSuccess: () => setViewPacket(null),
+            });
+          }}
         />
       )}
+
+      {/* Delete Confirmation */}
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Story"
+        description="This will permanently delete this career story and all its sources. This can't be undone."
+        variant="destructive"
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteStoryMutation.isPending}
+      />
     </div>
   );
 }
