@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ChevronDown, ChevronRight, ChevronUp, BookOpen, Calendar, FileText, CheckCircle, Users, Star, RefreshCw, Loader2, Trash2, ArrowUpRight, MoreHorizontal, Zap, TrendingUp, Sparkles } from 'lucide-react';
-import { StoryMetadata, StoryDominantRole, Activity, ActivityStoryEdge } from '../../types/activity';
+import { ChevronDown, ChevronRight, BookOpen, Calendar, CheckCircle, Users, Star, RefreshCw, Loader2, Trash2, ArrowUpRight, MoreHorizontal, Zap, TrendingUp, Sparkles } from 'lucide-react';
+import { StoryMetadata, StoryDominantRole, Activity, ActivityStoryEdge, ActivityStoryEdgeType, ACTIVITY_EDGE_LABELS } from '../../types/activity';
 import { cn } from '../../lib/utils';
 import { ActivityCard } from './activity-card';
 import { EnhancingIndicator } from '../ui/enhancing-indicator';
+
+const EDGE_TYPE_ORDER: ActivityStoryEdgeType[] = ['primary', 'outcome', 'supporting', 'contextual'];
 
 interface StoryGroupHeaderProps {
   storyMetadata: StoryMetadata;
@@ -149,6 +151,58 @@ function ActionsMenu({
 }
 
 /**
+ * Collapsible section for a single edge type within expanded story details
+ */
+function EdgeTypeAccordion({
+  label, color, bgColor, activities, edgeMap, defaultOpen, compact
+}: {
+  label: string;
+  color: string;
+  bgColor: string;
+  activities: Activity[];
+  edgeMap: Map<string, ActivityStoryEdge>;
+  defaultOpen: boolean;
+  compact: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full flex items-center gap-2 py-1.5 text-xs hover:bg-gray-50 rounded transition-colors"
+      >
+        <ChevronRight className={cn("w-3.5 h-3.5 text-gray-400 transition-transform duration-200", isOpen && "rotate-90")} />
+        <span
+          className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+          style={{ color, backgroundColor: bgColor }}
+        >
+          {label}
+        </span>
+        <span className="text-gray-400">{activities.length}</span>
+      </button>
+      {isOpen && (
+        <div className="space-y-1.5 pl-5 mt-1">
+          {activities.map((activity) => (
+            <ActivityCard
+              key={activity.id}
+              activity={activity}
+              showStoryBadge={false}
+              compact={compact}
+              edge={edgeMap.get(activity.id)}
+              className="bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-colors"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Story card - polished, user-focused design for career personas
  * Shows the story value, impact, evidence, and meaningful context as ONE cohesive unit
  */
@@ -185,9 +239,6 @@ export function StoryGroupHeader({
   const cardRef = useRef<HTMLDivElement>(null);
   // Track whether initial expand has been handled (skip scrollIntoView on first render)
   const hasInitialized = useRef(false);
-
-  // State for supporting activities collapse
-  const [showSupporting, setShowSupporting] = useState(false);
 
   // Track content changes to trigger update animation
   const [justUpdated, setJustUpdated] = useState(false);
@@ -245,22 +296,20 @@ export function StoryGroupHeader({
     }
   }, [isExpanded]);
 
-  // Group activities by evidence type
-  const { primary, supporting, edgeMap } = useMemo(() => {
+  // Group activities by edge type (ordered by importance)
+  const { groupedActivities, edgeMap } = useMemo(() => {
     const edgeMap = new Map(activityEdges?.map(e => [e.activityId, e]) ?? []);
-    const primary: Activity[] = [];
-    const supporting: Activity[] = [];
+    const buckets: Record<ActivityStoryEdgeType, Activity[]> = {
+      primary: [], outcome: [], supporting: [], contextual: []
+    };
 
     for (const activity of activities) {
       const edge = edgeMap.get(activity.id);
-      if (!edge || edge.type === 'primary') {
-        primary.push(activity);
-      } else {
-        supporting.push(activity);
-      }
+      const type = edge?.type ?? 'primary';
+      buckets[type].push(activity);
     }
 
-    return { primary, supporting, edgeMap };
+    return { groupedActivities: buckets, edgeMap };
   }, [activities, activityEdges]);
 
   // Format date range nicely
@@ -494,86 +543,27 @@ export function StoryGroupHeader({
                 )}
               </div>
 
-              {/* Right column: Activities */}
+              {/* Right column: Activities by edge type */}
               {activities.length > 0 && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-right-2 duration-300 delay-100">
-                  <div className="text-xs font-medium text-gray-500 mb-2">
-                    Supporting Work
-                  </div>
+                <div className="space-y-1 animate-in fade-in slide-in-from-right-2 duration-300 delay-100">
+                  {EDGE_TYPE_ORDER.map(type => {
+                    const items = groupedActivities[type];
+                    if (items.length === 0) return null;
+                    const meta = ACTIVITY_EDGE_LABELS[type];
 
-                  {/* Grid layout for many activities, stack for few */}
-                  <div className={cn(
-                    useCompactCards && totalActivities > 6
-                      ? 'grid grid-cols-1 gap-1.5 max-h-[400px] overflow-y-auto pr-1'
-                      : 'space-y-1.5'
-                  )}>
-                    {/* Primary activities */}
-                    {primary.map((activity, idx) => (
-                      <div
-                        key={activity.id}
-                        className="animate-in fade-in slide-in-from-bottom-1 duration-200"
-                        style={{ animationDelay: `${150 + idx * 50}ms` }}
-                      >
-                        <ActivityCard
-                          activity={activity}
-                          showStoryBadge={false}
-                          compact={useCompactCards}
-                          edge={edgeMap.get(activity.id)}
-                          className="bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-colors"
-                        />
-                      </div>
-                    ))}
-
-                    {/* Supporting activities */}
-                    {supporting.length > 0 && (
-                      <>
-                        {!showSupporting && supporting.length > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowSupporting(true);
-                            }}
-                            className={cn(
-                              'w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-500',
-                              'hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors'
-                            )}
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />
-                            Show {supporting.length} more
-                          </button>
-                        )}
-
-                        {showSupporting && supporting.map((activity, idx) => (
-                          <div
-                            key={activity.id}
-                            className="animate-in fade-in slide-in-from-bottom-1 duration-200"
-                            style={{ animationDelay: `${idx * 30}ms` }}
-                          >
-                            <ActivityCard
-                              activity={activity}
-                              showStoryBadge={false}
-                              compact={true}
-                              edge={edgeMap.get(activity.id)}
-                              className="bg-gray-50/50 border border-gray-100 rounded-lg"
-                            />
-                          </div>
-                        ))}
-
-                        {showSupporting && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowSupporting(false);
-                            }}
-                            className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-gray-400 hover:text-gray-600"
-                          >
-                            <ChevronUp className="w-3.5 h-3.5" />
-                            Show less
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                    return (
+                      <EdgeTypeAccordion
+                        key={type}
+                        label={meta.label}
+                        color={meta.color}
+                        bgColor={meta.bgColor}
+                        activities={items}
+                        edgeMap={edgeMap}
+                        defaultOpen={type === 'primary'}
+                        compact={useCompactCards}
+                      />
+                    );
+                  })}
                 </div>
               )}
 
