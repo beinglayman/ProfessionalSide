@@ -1073,28 +1073,27 @@ export function CareerStoriesPage() {
               </div>
 
               {/* Timeline / Category toggle */}
-              <div className="flex justify-end mb-2">
-                <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
+              <div className="border-b border-gray-200 mb-2">
+                <nav className="-mb-px flex space-x-1">
                   {([
-                    { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
-                    { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
+                    { key: 'category' as const, label: 'By Category', Icon: LayoutGrid },
+                    { key: 'timeline' as const, label: 'By Timeline', Icon: Clock },
                   ]).map(({ key, label, Icon }) => (
                     <button
                       key={key}
                       onClick={() => setStoryView(key)}
-                      aria-pressed={storyView === key}
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 sm:px-3 py-1.5 text-xs font-medium transition-all duration-200',
+                        'inline-flex items-center gap-2 whitespace-nowrap border-b-2 py-3 px-4 text-sm font-medium transition-all duration-200',
                         storyView === key
-                          ? 'bg-primary-500 text-white shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+                          ? 'border-primary-500 text-primary-600'
+                          : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
                       )}
                     >
-                      <Icon className="w-3 h-3" />
+                      <Icon className="h-4 w-4" />
                       {label}
                     </button>
                   ))}
-                </div>
+                </nav>
               </div>
 
               {/* Loading state */}
