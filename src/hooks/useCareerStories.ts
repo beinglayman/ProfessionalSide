@@ -45,8 +45,10 @@ import {
   DeriveStoryResponse,
   DerivePacketRequest,
   DerivePacketResponse,
+  StoryDerivation,
 } from '../types/career-stories';
 import { collectActivityIds } from '../utils/story-timeline';
+import { QueryKeys as BillingKeys } from '../lib/queryClient';
 import { isDemoMode, DEMO_CLUSTER_DETAILS } from '../services/career-stories-demo-data';
 // NOTE: DEMO_CLUSTERS and DEMO_STARS removed - CareerStories come from DB only
 
@@ -656,23 +658,74 @@ export const useUpdateStorySource = () => {
 // =============================================================================
 
 /**
- * Generate an ephemeral derivation from a story.
- * No cache invalidation — derivations are not stored.
+ * Generate a derivation from a story. Invalidates derivation cache on success.
  */
 export const useDeriveStory = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ storyId, params }: { storyId: string; params: DeriveStoryRequest }) =>
       CareerStoriesService.deriveStory(storyId, params),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations', variables.storyId] });
+      queryClient.invalidateQueries({ queryKey: BillingKeys.walletBalance });
+    },
   });
 };
 
 /**
- * Generate a promotion packet from multiple stories.
- * No cache invalidation — packets are not stored.
+ * Generate a packet from multiple stories. Invalidates derivation cache on success.
  */
 export const useDerivePacket = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (params: DerivePacketRequest) =>
       CareerStoriesService.derivePacket(params),
+    onSuccess: (_data, variables) => {
+      for (const storyId of variables.storyIds) {
+        queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations', storyId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations-by-kind', 'packet'] });
+      queryClient.invalidateQueries({ queryKey: BillingKeys.walletBalance });
+    },
+  });
+};
+
+/**
+ * Fetch saved derivations for a story.
+ */
+export const useStoryDerivations = (storyId: string | undefined) => {
+  return useQuery({
+    queryKey: ['career-stories', 'derivations', storyId],
+    queryFn: () => CareerStoriesService.listDerivations(storyId!),
+    enabled: !!storyId,
+    select: (response) => response.data,
+  });
+};
+
+/**
+ * Delete a saved derivation.
+ */
+export const useDeleteDerivation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => CareerStoriesService.deleteDerivation(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations'] });
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations-by-kind'] });
+    },
+  });
+};
+
+/**
+ * Fetch all packets (multi-story derivations) for the current user.
+ */
+export const usePackets = () => {
+  return useQuery({
+    queryKey: ['career-stories', 'derivations-by-kind', 'packet'],
+    queryFn: () => CareerStoriesService.listDerivationsByKind('packet'),
+    select: (response) => response.data,
   });
 };

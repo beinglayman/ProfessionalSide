@@ -397,6 +397,7 @@ export interface DeriveStoryResponse {
   charCount: number;
   wordCount: number;
   speakingTimeSec?: number;
+  derivationId: string;
   metadata: {
     derivation: DerivationType;
     framework: NarrativeFramework;
@@ -427,11 +428,31 @@ export interface DerivePacketResponse {
   text: string;
   charCount: number;
   wordCount: number;
+  derivationId: string;
   metadata: {
     storyCount: number;
     model: string;
     processingTimeMs: number;
   };
+}
+
+// =============================================================================
+// SAVED DERIVATIONS
+// =============================================================================
+
+export interface StoryDerivation {
+  id: string;
+  kind: 'single' | 'packet';
+  type: string;
+  storyIds: string[];
+  text: string;
+  charCount: number;
+  wordCount: number;
+  speakingTimeSec?: number;
+  tone?: string;
+  customPrompt?: string;
+  creditCost: number;
+  createdAt: string;
 }
 
 // =============================================================================

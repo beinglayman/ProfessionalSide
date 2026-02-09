@@ -56,4 +56,7 @@ export const QueryKeys = {
   careerStoriesCluster: (id: string) => ['career-stories', 'cluster', id] as const,
   careerStoriesActivities: (params: any) => ['career-stories', 'activities', params] as const,
   careerStoriesUnclusteredActivities: ['career-stories', 'activities', 'unclustered'] as const,
+
+  // Billing
+  walletBalance: ['billing', 'wallet'] as const,
 } as const;

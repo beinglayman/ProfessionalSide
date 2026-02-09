@@ -43,6 +43,7 @@ import {
   DeriveStoryResponse,
   DerivePacketRequest,
   DerivePacketResponse,
+  StoryDerivation,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -474,6 +475,36 @@ export class CareerStoriesService {
     const response = await api.post<ApiResponse<DerivePacketResponse>>(
       '/career-stories/derive-packet',
       params
+    );
+    return response.data;
+  }
+
+  /**
+   * List saved derivations for a story
+   */
+  static async listDerivations(storyId: string): Promise<ApiResponse<StoryDerivation[]>> {
+    const response = await api.get<ApiResponse<StoryDerivation[]>>(
+      `/career-stories/stories/${storyId}/derivations`
+    );
+    return response.data;
+  }
+
+  /**
+   * List derivations by kind (e.g. all packets)
+   */
+  static async listDerivationsByKind(kind: 'single' | 'packet'): Promise<ApiResponse<StoryDerivation[]>> {
+    const response = await api.get<ApiResponse<StoryDerivation[]>>(
+      `/career-stories/derivations`, { params: { kind } }
+    );
+    return response.data;
+  }
+
+  /**
+   * Delete a saved derivation
+   */
+  static async deleteDerivation(id: string): Promise<ApiResponse<{ deleted: boolean }>> {
+    const response = await api.delete<ApiResponse<{ deleted: boolean }>>(
+      `/career-stories/derivations/${id}`
     );
     return response.data;
   }
