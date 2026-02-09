@@ -7,6 +7,7 @@
 
 const DEMO_MODE_KEY = 'app-demo-mode';
 const DEMO_SYNC_STATUS_KEY = 'app-demo-sync-status';
+const DEMO_DATASET_KEY = 'app-demo-dataset';
 
 /** SSR guard - returns true if running in Node/SSR environment */
 function isServerSide(): boolean {
@@ -101,5 +102,24 @@ export function clearDemoSyncStatus(): void {
   if (!isServerSide()) {
     localStorage.removeItem(DEMO_SYNC_STATUS_KEY);
     window.dispatchEvent(new CustomEvent('demo-sync-status-changed', { detail: DEFAULT_SYNC_STATUS }));
+  }
+}
+
+// ============================================================================
+// Dataset Selection
+// ============================================================================
+
+export type DemoDataset = 'v1' | 'v2';
+
+export function getDemoDataset(): DemoDataset {
+  if (isServerSide()) return 'v1';
+  const value = localStorage.getItem(DEMO_DATASET_KEY);
+  return value === 'v2' ? 'v2' : 'v1';
+}
+
+export function setDemoDataset(dataset: DemoDataset): void {
+  if (!isServerSide()) {
+    localStorage.setItem(DEMO_DATASET_KEY, dataset);
+    window.dispatchEvent(new CustomEvent('demo-dataset-changed', { detail: { dataset } }));
   }
 }

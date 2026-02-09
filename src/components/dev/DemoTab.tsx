@@ -20,11 +20,15 @@ import {
 import {
   isDemoMode,
   toggleDemoMode,
+  getDemoDataset,
+  setDemoDataset,
+  DemoDataset,
 } from '../../services/demo-mode.service';
 import { fetchStatus, clearDemoData, AppStatus } from '../../services/status.service';
 
 export const DemoTab: React.FC = () => {
   const [isDemo, setIsDemo] = useState(() => isDemoMode());
+  const [dataset, setDataset] = useState<DemoDataset>(() => getDemoDataset());
   const [status, setStatus] = useState<AppStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -92,6 +96,31 @@ export const DemoTab: React.FC = () => {
     }
   };
 
+  const handleDatasetSwitch = async (newDataset: DemoDataset) => {
+    if (newDataset === dataset) return;
+
+    // If there's existing data, offer to clear it first
+    if (hasData) {
+      const shouldClear = confirm('Clear existing demo data before switching? (Cancel to keep it — next Sync will replace it anyway.)');
+      if (shouldClear) {
+        setIsClearing(true);
+        setError(null);
+        try {
+          await clearDemoData();
+          await refreshStatus();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to clear data');
+          setIsClearing(false);
+          return;
+        }
+        setIsClearing(false);
+      }
+    }
+
+    setDemoDataset(newDataset);
+    setDataset(newDataset);
+  };
+
   const hasData = status && (status.activityCount > 0 || status.totalEntries > 0);
 
   return (
@@ -141,6 +170,46 @@ export const DemoTab: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Dataset Selector (only when in demo mode) */}
+      {isDemo && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Dataset</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleDatasetSwitch('v1')}
+              disabled={isClearing}
+              className={`flex-1 p-2.5 rounded-lg border transition-all text-left ${
+                dataset === 'v1'
+                  ? 'border-amber-500 bg-amber-500/10'
+                  : 'border-gray-600 hover:border-gray-500'
+              }`}
+            >
+              <span className={`text-sm font-medium ${dataset === 'v1' ? 'text-amber-400' : 'text-gray-400'}`}>
+                V1 — Auth/Perf
+              </span>
+              <p className="text-xs text-gray-500 mt-0.5">~35 activities, 3 clusters</p>
+            </button>
+            <button
+              onClick={() => handleDatasetSwitch('v2')}
+              disabled={isClearing}
+              className={`flex-1 p-2.5 rounded-lg border transition-all text-left ${
+                dataset === 'v2'
+                  ? 'border-amber-500 bg-amber-500/10'
+                  : 'border-gray-600 hover:border-gray-500'
+              }`}
+            >
+              <span className={`text-sm font-medium ${dataset === 'v2' ? 'text-amber-400' : 'text-gray-400'}`}>
+                V2 — Collab/Incident
+              </span>
+              <p className="text-xs text-gray-500 mt-0.5">49 activities, 4 clusters</p>
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Next Sync on Journal page will use the selected dataset.
+          </p>
+        </div>
+      )}
 
       {/* Demo Data Status (only when in demo mode) */}
       {isDemo && (

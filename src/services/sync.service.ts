@@ -14,7 +14,7 @@
  * The frontend polls for updates until narratives are ready (~10-30s).
  */
 
-import { setDemoSyncStatus } from './demo-mode.service';
+import { setDemoSyncStatus, getDemoDataset } from './demo-mode.service';
 import { API_BASE_URL } from '../lib/api';
 
 const LAST_SYNC_KEY = 'app-last-sync-at';
@@ -156,7 +156,9 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
       throw new Error('No access token found');
     }
 
-    const response = await fetch(`${API_BASE_URL}/demo/sync`, {
+    const dataset = getDemoDataset();
+    const syncUrl = dataset === 'v2' ? `${API_BASE_URL}/demo/sync?dataset=v2` : `${API_BASE_URL}/demo/sync`;
+    const response = await fetch(syncUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
