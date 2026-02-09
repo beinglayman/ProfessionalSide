@@ -58,6 +58,18 @@ async function seedBilling() {
       creditCost: 1,
       description: 'AI-generated insights about your career trajectory and growth areas',
     },
+    {
+      featureCode: 'derive_story',
+      displayName: 'Share As (Single Story)',
+      creditCost: 1,
+      description: 'Generate audience-specific story derivation',
+    },
+    {
+      featureCode: 'derive_packet',
+      displayName: 'Build Packet (Multi-Story)',
+      creditCost: 2,
+      description: 'Generate multi-story document',
+    },
   ];
 
   for (const feature of features) {
@@ -96,7 +108,7 @@ async function seedBilling() {
 
   console.log('\n🎉 Billing seed complete!');
   console.log('   Plans: Free (5 credits/mo), Pro (30 credits/mo)');
-  console.log('   Features: 4 features at 1 credit each');
+  console.log('   Features: 6 features (4 at 1 credit, 1 at 2 credits)');
   console.log('   Top-ups: 10 ($10), 30 ($20), 50 ($30)');
   console.log('\n⚠️  Remember to replace placeholder Razorpay Plan IDs with real ones!');
 }

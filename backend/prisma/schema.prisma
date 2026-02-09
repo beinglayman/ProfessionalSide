@@ -115,6 +115,9 @@ model User {
   // Clustering is now stored inline in JournalEntry.activityIds + groupingMethod
   // Use unified models with sourceMode field instead
 
+  // Story Derivations (persisted Share As / Build Packet outputs)
+  storyDerivations StoryDerivation[]
+
   // Follow relationships (one-way, capped at 100)
   following  Follow[] @relation("Follower")
   followers  Follow[] @relation("Following")
@@ -1529,6 +1532,36 @@ model StorySource {
   @@index([storyId, sectionKey])
   @@index([activityId])
   @@map("story_sources")
+}
+
+// ============================================================================
+// STORY DERIVATIONS (persisted Share As / Build Packet outputs)
+// ============================================================================
+
+model StoryDerivation {
+  id               String   @id @default(cuid())
+  userId           String
+  kind             String   // "single" | "packet"
+  type             String   // derivation/packet type (interview, linkedin, promotion, etc.)
+  storyIds         String[] @default([])
+  text             String   @db.Text
+  charCount        Int
+  wordCount        Int
+  speakingTimeSec  Int?
+  tone             String?
+  customPrompt     String?
+  framework        String?
+  archetype        String?
+  model            String
+  processingTimeMs Int
+  featureCode      String   // "derive_story" | "derive_packet"
+  creditCost       Int      // 1 or 2
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, kind])
+  @@map("story_derivations")
 }
 
 // ============================================================================
