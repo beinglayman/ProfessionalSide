@@ -43,8 +43,8 @@ const MIN_ACTIVITIES_PER_ENTRY = 3;
 /** Milliseconds in a day */
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/** Timeout for all narrative generation (30 seconds) */
-const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
+/** Timeout per narrative generation (70 seconds per entry) */
+const NARRATIVE_GENERATION_TIMEOUT_MS = 70000;
 
 // NOTE: NARRATIVE_TEMPERATURE and NARRATIVE_MAX_TOKENS removed
 // These are now in JournalService
@@ -472,10 +472,17 @@ async function generateAllNarratives(
 
   log.debug('ModelSelector available', selector.getModelInfo());
 
-  const narrativePromises = entries.map(async (entry) => {
+  // Generate narratives sequentially to avoid timeout issues.
+  // With 4 entries (V2), each gets the full per-entry budget (~15s each).
+  log.info(`Generating narratives for ${entries.length} entries sequentially...`);
+  for (const entry of entries) {
     try {
       log.debug(`Generating narrative for entry ${entry.id}`);
-      await regenerateDemoJournalNarrative(userId, entry.id, { style: 'professional' });
+      await withTimeout(
+        regenerateDemoJournalNarrative(userId, entry.id, { style: 'professional' }),
+        NARRATIVE_GENERATION_TIMEOUT_MS,
+        `Narrative for ${entry.title}`
+      );
       log.debug(`Narrative generated for entry ${entry.id}`);
 
       // Emit SSE event for this entry if background generation
@@ -507,14 +514,7 @@ async function generateAllNarratives(
         });
       }
     }
-  });
-
-  log.info('Waiting for narrative generation...');
-  await withTimeout(
-    Promise.allSettled(narrativePromises),
-    NARRATIVE_GENERATION_TIMEOUT_MS,
-    'Narrative generation'
-  );
+  }
   log.info('Narrative generation complete');
 }
 
@@ -541,7 +541,24 @@ async function seedDemoJournalEntries(
   const workspace = await deps.prisma.workspace.findFirst({
     where: { members: { some: { userId } } },
   });
-  const workspaceId = workspace?.id || DEFAULT_DEMO_WORKSPACE_ID;
+  let workspaceId = workspace?.id;
+
+  // Ensure demo workspace exists if user has no workspace (FK constraint)
+  if (!workspaceId) {
+    const demoWorkspace = await deps.prisma.workspace.upsert({
+      where: { id: DEFAULT_DEMO_WORKSPACE_ID },
+      update: {},
+      create: {
+        id: DEFAULT_DEMO_WORKSPACE_ID,
+        name: 'Demo Workspace',
+        isPersonal: true,
+        members: {
+          create: { userId, role: 'owner' },
+        },
+      },
+    });
+    workspaceId = demoWorkspace.id;
+  }
 
   // 1. Create temporal entries (existing logic - 14-day windows)
   const temporalEntries = await createTemporalEntries(userId, activities, workspaceId);

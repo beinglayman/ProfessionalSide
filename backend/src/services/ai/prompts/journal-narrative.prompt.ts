@@ -27,6 +27,7 @@ export interface EnhancedNarrativePromptParams {
   activitiesText: string;
   isCluster: boolean;
   clusterRef?: string;
+  userEmail?: string;
 }
 
 export interface EnhancedActivity {
@@ -166,6 +167,7 @@ export function extractRawDataContext(
   switch (source.toLowerCase()) {
     case 'github': {
       const parts: string[] = [];
+      if (rawData.author) parts.push(`author: ${rawData.author}`);
       if (rawData.state) parts.push(String(rawData.state));
       if (typeof rawData.additions === 'number' || typeof rawData.deletions === 'number') {
         parts.push(`+${rawData.additions || 0}/-${rawData.deletions || 0}`);
@@ -179,11 +181,16 @@ export function extractRawDataContext(
       if (typeof rawData.commits === 'number') {
         parts.push(`${rawData.commits} commits`);
       }
+      if (Array.isArray(rawData.reviewers) && rawData.reviewers.length > 0) {
+        parts.push(`reviewers: ${(rawData.reviewers as string[]).join(', ')}`);
+      }
       return parts.length > 0 ? parts.join(', ') : null;
     }
 
     case 'jira': {
       const parts: string[] = [];
+      if (rawData.assignee) parts.push(`assignee: ${rawData.assignee}`);
+      if (rawData.reporter) parts.push(`reporter: ${rawData.reporter}`);
       if (rawData.status) parts.push(String(rawData.status));
       if (rawData.priority) parts.push(`${rawData.priority} priority`);
       if (typeof rawData.storyPoints === 'number') {
@@ -195,6 +202,7 @@ export function extractRawDataContext(
 
     case 'confluence': {
       const parts: string[] = [];
+      if (rawData.lastModifiedBy) parts.push(`author: ${rawData.lastModifiedBy}`);
       if (rawData.spaceKey) parts.push(`space: ${rawData.spaceKey}`);
       if (typeof rawData.version === 'number') {
         parts.push(`v${rawData.version}`);
@@ -217,9 +225,10 @@ export function extractRawDataContext(
     }
 
     case 'teams':
-    case 'outlook':
-    case 'google-calendar': {
+    case 'outlook': {
       const parts: string[] = [];
+      if (rawData.from) parts.push(`from: ${rawData.from}`);
+      if (Array.isArray(rawData.to)) parts.push(`to: ${(rawData.to as string[]).join(', ')}`);
       if (typeof rawData.duration === 'number') {
         parts.push(`${rawData.duration} min`);
       }
@@ -229,6 +238,31 @@ export function extractRawDataContext(
         parts.push(`${rawData.attendees.length} attendees`);
       }
       if (rawData.userRole) parts.push(String(rawData.userRole));
+      return parts.length > 0 ? parts.join(', ') : null;
+    }
+
+    case 'google-calendar': {
+      const parts: string[] = [];
+      if (rawData.organizer) parts.push(`organizer: ${rawData.organizer}`);
+      if (typeof rawData.duration === 'number') {
+        parts.push(`${rawData.duration} min`);
+      }
+      if (typeof rawData.attendees === 'number') {
+        parts.push(`${rawData.attendees} attendees`);
+      } else if (Array.isArray(rawData.attendees)) {
+        parts.push(`${rawData.attendees.length} attendees`);
+      }
+      if (rawData.userRole) parts.push(String(rawData.userRole));
+      return parts.length > 0 ? parts.join(', ') : null;
+    }
+
+    case 'google-docs':
+    case 'google-sheets': {
+      const parts: string[] = [];
+      if (rawData.owner) parts.push(`owner: ${rawData.owner}`);
+      if (Array.isArray(rawData.contributors) && rawData.contributors.length > 0) {
+        parts.push(`contributors: ${(rawData.contributors as string[]).join(', ')}`);
+      }
       return parts.length > 0 ? parts.join(', ') : null;
     }
 

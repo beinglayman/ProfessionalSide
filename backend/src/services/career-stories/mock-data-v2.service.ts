@@ -2,19 +2,21 @@
  * MockDataV2Service
  *
  * Second-generation mock data for career stories demo.
- * 49 activities spanning ~3 months, clustering into 4 distinct stories
- * plus 12 unclustered ambient activities.
+ * 32 activities spanning ~28 days (2 sprints), clustering into 2 distinct stories
+ * plus 8 unclustered ambient activities.
+ *
+ * Demo pitch: "First, I handled a production crisis. Second, I built a collab
+ * feature. See how all the pieces are here? Jira, PRs, docs, emails, chat —
+ * all connected."
  *
  * Primary persona: ketan2@inchronicle.com
  * Collaborators: honey, priya.sharma, marcus.chen, riya.patel, arjun.desai,
  *               nisha.gupta, vikram.rao, dev.mehta
  *
  * Stories:
- *   1. "Building Real-Time Collaboration Feature" (12 activities)
- *   2. "Credits/Wallet Double-Debit Incident" (11 activities)
- *   3. "Current Sprint Work" (7 activities, last week)
- *   4. "Previous Sprint Work" (7 activities)
- *   + 12 unclustered ambient activities
+ *   1. "Building Real-Time Collaboration Feature" (12 activities, day 28 → day 4)
+ *   2. "Credits/Wallet Double-Debit Incident" (12 activities, day 18 → day 10)
+ *   + 8 unclustered ambient activities
  */
 
 import { ActivityInput } from './activity-persistence.service';
@@ -28,17 +30,17 @@ export function generateMockActivitiesV2(): ActivityInput[] {
     // STORY 1: Building Real-Time Collaboration Feature (12 activities)
     // Anchors: COLLAB-101, COLLAB-102, confluence:112233,
     //          inchronicle/collab-platform#210, #215, inchronicle/collab-ui#88
-    // Span: daysAgo(56) -> daysAgo(22), max gap 4 days
+    // Span: daysAgo(28) -> daysAgo(4)
     // =========================================================================
 
-    // #1 - Confluence design doc
+    // F1 - Confluence design doc (day 28)
     {
       source: 'confluence',
       sourceId: '112233',
       sourceUrl: 'https://inchronicle.atlassian.net/wiki/spaces/ENG/pages/112233/Real-Time+Collaboration+Architecture',
       title: 'Real-Time Collaboration Architecture',
       description: 'Architecture design for COLLAB-101 real-time collaboration feature. Covers WebSocket layer, presence system, and conflict resolution strategy.',
-      timestamp: daysAgo(56),
+      timestamp: daysAgo(28),
       rawData: {
         pageId: '112233',
         spaceKey: 'ENG',
@@ -47,14 +49,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #2 - Jira: main feature ticket
+    // F2 - Jira: main feature ticket (day 26)
     {
       source: 'jira',
       sourceId: 'COLLAB-101',
       sourceUrl: 'https://inchronicle.atlassian.net/browse/COLLAB-101',
       title: 'Implement WebSocket layer for real-time collaboration',
       description: 'Build the WebSocket connection manager and message routing layer. See design: confluence:112233',
-      timestamp: daysAgo(52),
+      timestamp: daysAgo(26),
       rawData: {
         key: 'COLLAB-101',
         status: 'Done',
@@ -66,14 +68,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #3 - Jira: presence indicator ticket
+    // F3 - Jira: presence indicator ticket (day 25)
     {
       source: 'jira',
       sourceId: 'COLLAB-102',
       sourceUrl: 'https://inchronicle.atlassian.net/browse/COLLAB-102',
       title: 'Build presence indicator component',
       description: 'Real-time presence indicators showing who is viewing/editing. Depends on COLLAB-101 WebSocket layer.',
-      timestamp: daysAgo(48),
+      timestamp: daysAgo(25),
       rawData: {
         key: 'COLLAB-102',
         status: 'Done',
@@ -85,14 +87,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #4 - GitHub commit: WebSocket connection manager
+    // F4 - GitHub commit: WebSocket connection manager (day 22)
     {
       source: 'github',
       sourceId: 'commit:f1a2b3c',
       sourceUrl: 'https://github.com/inchronicle/collab-platform/commit/f1a2b3c',
       title: 'feat(ws): add WebSocket connection manager',
       description: 'feat(ws): add WebSocket connection manager\n\nImplements connection lifecycle, heartbeat, and reconnection logic.\n\nRelated to COLLAB-101',
-      timestamp: daysAgo(45),
+      timestamp: daysAgo(22),
       rawData: {
         sha: 'f1a2b3c4d5e6f7a8',
         author: 'ketan2@inchronicle.com',
@@ -104,14 +106,30 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #5 - GitHub PR: real-time collaboration backend
+    // F5 - Calendar: design review (day 21)
+    {
+      source: 'google-calendar',
+      sourceId: 'gcal-collab-design-review',
+      sourceUrl: null,
+      title: 'COLLAB-101 Design Review',
+      description: 'Review WebSocket architecture and presence system design for COLLAB-101.',
+      timestamp: daysAgo(21),
+      rawData: {
+        eventId: 'collab-design-review',
+        organizer: 'ketan2@inchronicle.com',
+        attendees: ['ketan2@inchronicle.com', 'marcus.chen@inchronicle.com', 'priya.sharma@inchronicle.com', 'riya.patel@inchronicle.com'],
+        duration: 60,
+      },
+    },
+
+    // F6 - GitHub PR: real-time collaboration backend (day 19)
     {
       source: 'github',
       sourceId: 'inchronicle/collab-platform#210',
       sourceUrl: 'https://github.com/inchronicle/collab-platform/pull/210',
       title: 'feat(ws): implement real-time collaboration backend',
       description: 'Closes COLLAB-101. Implements WebSocket message routing, room management, and auth integration. Design: confluence:112233',
-      timestamp: daysAgo(40),
+      timestamp: daysAgo(19),
       rawData: {
         number: 210,
         state: 'merged',
@@ -128,30 +146,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #6 - Calendar: design review
-    {
-      source: 'google-calendar',
-      sourceId: 'gcal-collab-design-review',
-      sourceUrl: null,
-      title: 'COLLAB-101 Design Review',
-      description: 'Review WebSocket architecture and presence system design for COLLAB-101.',
-      timestamp: daysAgo(43),
-      rawData: {
-        eventId: 'collab-design-review',
-        organizer: 'ketan2@inchronicle.com',
-        attendees: ['ketan2@inchronicle.com', 'marcus.chen@inchronicle.com', 'priya.sharma@inchronicle.com', 'riya.patel@inchronicle.com'],
-        duration: 60,
-      },
-    },
-
-    // #7 - GitHub PR: presence indicators
+    // F7 - GitHub PR: presence indicators (day 16) — feature continues during crisis
     {
       source: 'github',
       sourceId: 'inchronicle/collab-ui#88',
       sourceUrl: 'https://github.com/inchronicle/collab-ui/pull/88',
       title: 'feat(presence): real-time presence indicators',
       description: 'Implements COLLAB-102 presence UI. Shows active users with avatars, typing indicators, and cursor positions. Requires COLLAB-101 WebSocket layer.',
-      timestamp: daysAgo(36),
+      timestamp: daysAgo(16),
       rawData: {
         number: 88,
         state: 'merged',
@@ -165,14 +167,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #8 - GitHub PR: cursor sharing and conflict resolution
+    // F8 - GitHub PR: cursor sharing and conflict resolution (day 13)
     {
       source: 'github',
       sourceId: 'inchronicle/collab-platform#215',
       sourceUrl: 'https://github.com/inchronicle/collab-platform/pull/215',
       title: 'feat(ws): cursor sharing and conflict resolution',
       description: 'Adds real-time cursor position sharing and OT-based conflict resolution. Builds on inchronicle/collab-platform#210. Part of COLLAB-101.',
-      timestamp: daysAgo(32),
+      timestamp: daysAgo(13),
       rawData: {
         number: 215,
         state: 'merged',
@@ -186,14 +188,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #9 - Calendar: feature demo
+    // F9 - Calendar: feature demo (day 9)
     {
       source: 'google-calendar',
       sourceId: 'gcal-collab-demo',
       sourceUrl: null,
       title: 'Real-Time Collab Feature Demo',
       description: 'Demo of COLLAB-101 real-time collaboration to stakeholders.',
-      timestamp: daysAgo(28),
+      timestamp: daysAgo(9),
       rawData: {
         eventId: 'collab-demo',
         organizer: 'ketan2@inchronicle.com',
@@ -202,14 +204,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #10 - Slack: launch announcement
+    // F10 - Slack: launch announcement (day 7)
     {
       source: 'slack',
       sourceId: 'thread-collab-launch',
       sourceUrl: 'https://inchronicle.slack.com/archives/C0PRODUCTENG/p1700000001',
       title: 'Thread in #product-eng',
       description: 'Real-time collab is live! COLLAB-101 shipped to production. Cursor sharing from inchronicle/collab-platform#215 is getting great feedback.',
-      timestamp: daysAgo(25),
+      timestamp: daysAgo(7),
       rawData: {
         channelId: 'C0PRODUCTENG',
         channelName: 'product-eng',
@@ -220,14 +222,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #11 - Outlook: kudos from VP Engineering
+    // F11 - Outlook: kudos from VP Engineering (day 5)
     {
       source: 'outlook',
       sourceId: 'email-collab-kudos',
       sourceUrl: null,
       title: 'Re: Real-time collaboration launch',
       description: 'Great work on COLLAB-101! The real-time collaboration feature has been a huge hit with early adopters. Well done on the architecture and execution.',
-      timestamp: daysAgo(23),
+      timestamp: daysAgo(5),
       rawData: {
         messageId: 'email-collab-kudos',
         from: 'vikram.rao@inchronicle.com',
@@ -236,14 +238,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #12 - Calendar: retrospective
+    // F12 - Calendar: retrospective (day 4)
     {
       source: 'google-calendar',
       sourceId: 'gcal-collab-retro',
       sourceUrl: null,
       title: 'Collab Feature Retrospective',
       description: 'Retrospective on COLLAB-101 real-time collaboration feature build.',
-      timestamp: daysAgo(22),
+      timestamp: daysAgo(4),
       rawData: {
         eventId: 'collab-retro',
         organizer: 'ketan2@inchronicle.com',
@@ -253,20 +255,39 @@ export function generateMockActivitiesV2(): ActivityInput[] {
     },
 
     // =========================================================================
-    // STORY 2: Credits/Wallet Double-Debit Incident (11 activities)
+    // STORY 2: Credits/Wallet Double-Debit Incident (12 activities)
     // Anchors: BILL-550, BILL-551, BILL-552,
     //          inchronicle/billing-api#140, #145
-    // Span: daysAgo(19) -> daysAgo(12), compressed incident timeline
+    // Span: daysAgo(18) -> daysAgo(10), compressed incident timeline
+    //
+    // Progression: Issue reported → Triage → Work → Post-mortem → Resolved → Closed
     // =========================================================================
 
-    // #13 - Jira: P1 incident
+    // C1 - Email: support escalation — crisis trigger (day 18)
+    {
+      source: 'outlook',
+      sourceId: 'email-support-escalation',
+      sourceUrl: null,
+      title: 'Fwd: Urgent — Duplicate credit deductions reported',
+      description: 'Forwarding from Customer Success: three enterprise accounts reporting duplicate deductions on their wallets. Ticket BILL-550 created. Need immediate investigation.',
+      timestamp: daysAgo(18),
+      rawData: {
+        messageId: 'email-support-escalation',
+        from: 'nisha.gupta@inchronicle.com',
+        to: ['ketan2@inchronicle.com', 'arjun.desai@inchronicle.com'],
+        cc: ['vikram.rao@inchronicle.com'],
+        subject: 'Fwd: Urgent — Duplicate credit deductions reported',
+      },
+    },
+
+    // C2 - Jira: P1 incident (day 18)
     {
       source: 'jira',
       sourceId: 'BILL-550',
       sourceUrl: 'https://inchronicle.atlassian.net/browse/BILL-550',
       title: 'P1 Incident: Credits double-debit on concurrent wallet operations',
       description: 'Users reporting duplicate credit deductions when multiple derivations are triggered simultaneously. Race condition in wallet service.',
-      timestamp: daysAgo(19),
+      timestamp: daysAgo(18),
       rawData: {
         key: 'BILL-550',
         status: 'Done',
@@ -278,14 +299,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #14 - Slack: incident triage
+    // C3 - Slack: incident triage (day 18)
     {
       source: 'slack',
       sourceId: 'thread-incident-triage',
       sourceUrl: 'https://inchronicle.slack.com/archives/C0INCIDENTS/p1700000002',
       title: 'Thread in #incidents',
       description: 'BILL-550 triage: seeing double-debit on wallet operations. Reproduces when two derive calls hit within 50ms. Investigating race condition in optimistic update path.',
-      timestamp: daysAgo(19),
+      timestamp: daysAgo(18),
       rawData: {
         channelId: 'C0INCIDENTS',
         channelName: 'incidents',
@@ -296,14 +317,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #15 - Outlook: incident comms
+    // C4 - Outlook: initial assessment (day 17)
     {
       source: 'outlook',
       sourceId: 'email-incident-comms',
       sourceUrl: null,
       title: 'Incident: Credits double-debit — Initial Assessment',
       description: 'BILL-550 initial assessment: root cause identified as missing row-level locking in wallet debit path. Fix in progress, ETA 4 hours.',
-      timestamp: daysAgo(18),
+      timestamp: daysAgo(17),
       rawData: {
         messageId: 'email-incident-comms',
         from: 'ketan2@inchronicle.com',
@@ -313,14 +334,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #16 - GitHub PR: optimistic locking fix
+    // C5 - GitHub PR: optimistic locking fix (day 16)
     {
       source: 'github',
       sourceId: 'inchronicle/billing-api#140',
       sourceUrl: 'https://github.com/inchronicle/billing-api/pull/140',
       title: 'fix(wallet): add optimistic locking to prevent double-debit',
       description: 'Fixes BILL-550. Adds row-level locking with SELECT FOR UPDATE on wallet balance reads. Includes retry logic for lock contention.',
-      timestamp: daysAgo(18),
+      timestamp: daysAgo(16),
       rawData: {
         number: 140,
         state: 'merged',
@@ -336,14 +357,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #17 - Jira: follow-up idempotency
+    // C6 - Jira: follow-up idempotency (day 15)
     {
       source: 'jira',
       sourceId: 'BILL-551',
       sourceUrl: 'https://inchronicle.atlassian.net/browse/BILL-551',
       title: 'Follow-up: Add idempotency keys to credit operations',
       description: 'Follow-up to BILL-550. Add idempotency keys to all credit debit/credit operations to prevent duplicate processing at the API layer.',
-      timestamp: daysAgo(17),
+      timestamp: daysAgo(15),
       rawData: {
         key: 'BILL-551',
         status: 'Done',
@@ -355,14 +376,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #18 - Jira: revenue config fix
+    // C7 - Jira: revenue config fix (day 15)
     {
       source: 'jira',
       sourceId: 'BILL-552',
       sourceUrl: 'https://inchronicle.atlassian.net/browse/BILL-552',
       title: 'Fix premium packet generation revenue misconfiguration',
       description: 'Discovered during BILL-550 investigation: premium packet credit cost was misconfigured, leading to undercharging.',
-      timestamp: daysAgo(16),
+      timestamp: daysAgo(15),
       rawData: {
         key: 'BILL-552',
         status: 'Done',
@@ -374,14 +395,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #19 - GitHub PR: idempotency + revenue fix
+    // C8 - GitHub PR: idempotency + revenue fix (day 14)
     {
       source: 'github',
       sourceId: 'inchronicle/billing-api#145',
       sourceUrl: 'https://github.com/inchronicle/billing-api/pull/145',
       title: 'fix(wallet): idempotency keys + revenue config corrections',
       description: 'Closes BILL-551 and BILL-552. Adds idempotency key header support for all wallet operations. Fixes premium packet credit cost configuration.',
-      timestamp: daysAgo(15),
+      timestamp: daysAgo(14),
       rawData: {
         number: 145,
         state: 'merged',
@@ -395,14 +416,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #20 - Google Docs: post-mortem
+    // C9 - Google Docs: post-mortem (day 12)
     {
       source: 'google-docs',
       sourceId: 'gdoc-postmortem-doubledebit',
       sourceUrl: 'https://docs.google.com/document/d/1PostMortemBILL550/edit',
       title: 'Incident Post-Mortem: Credits Double-Debit (BILL-550)',
       description: 'Post-mortem for BILL-550. Root cause: missing row-level lock. Fix: inchronicle/billing-api#140 (locking) + inchronicle/billing-api#145 (idempotency). Impact: 23 users affected, $142 in credits refunded.',
-      timestamp: daysAgo(13),
+      timestamp: daysAgo(12),
       rawData: {
         documentId: '1PostMortemBILL550',
         owner: 'ketan2@inchronicle.com',
@@ -410,14 +431,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #21 - Slack: post-mortem review
+    // C10 - Slack: post-mortem review (day 12)
     {
       source: 'slack',
       sourceId: 'thread-postmortem-review',
       sourceUrl: 'https://inchronicle.slack.com/archives/C0ENGALL/p1700000003',
       title: 'Thread in #engineering-all',
       description: 'BILL-550 post-mortem published. Key takeaway: all financial operations need idempotency keys and row-level locking. Great incident response from the team.',
-      timestamp: daysAgo(13),
+      timestamp: daysAgo(12),
       rawData: {
         channelId: 'C0ENGALL',
         channelName: 'engineering-all',
@@ -428,14 +449,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #22 - Outlook: incident resolved
+    // C11 - Outlook: incident resolved (day 11)
     {
       source: 'outlook',
       sourceId: 'email-incident-resolved',
       sourceUrl: null,
       title: 'Incident Resolved: Credits double-debit — lessons learned',
       description: 'BILL-550 resolved. All affected users refunded. New idempotency layer prevents recurrence. Post-mortem action items assigned.',
-      timestamp: daysAgo(12),
+      timestamp: daysAgo(11),
       rawData: {
         messageId: 'email-incident-resolved',
         from: 'ketan2@inchronicle.com',
@@ -444,14 +465,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #23 - Calendar: incident review meeting
+    // C12 - Calendar: incident review meeting (day 10) — crisis ends
     {
       source: 'google-calendar',
       sourceId: 'gcal-incident-review',
       sourceUrl: null,
       title: 'BILL-550 Incident Review Meeting',
       description: 'Review BILL-550 incident response, timeline, and action items.',
-      timestamp: daysAgo(12),
+      timestamp: daysAgo(10),
       rawData: {
         eventId: 'incident-review-bill550',
         organizer: 'ketan2@inchronicle.com',
@@ -461,309 +482,18 @@ export function generateMockActivitiesV2(): ActivityInput[] {
     },
 
     // =========================================================================
-    // STORY 3: Current Sprint Work (7 activities)
-    // Anchors: PLAT-700, PLAT-701, PLAT-702,
-    //          inchronicle/collab-platform#230, #232
-    // Span: daysAgo(7) -> daysAgo(2) — fully within "Last Week" bucket
-    // =========================================================================
-
-    // #24 - Jira: rate limiting
-    {
-      source: 'jira',
-      sourceId: 'PLAT-700',
-      sourceUrl: 'https://inchronicle.atlassian.net/browse/PLAT-700',
-      title: 'Add rate limiting to WebSocket connections',
-      description: 'Implement per-user rate limiting for WebSocket message throughput to prevent abuse and ensure fair resource usage.',
-      timestamp: daysAgo(7),
-      rawData: {
-        key: 'PLAT-700',
-        status: 'Done',
-        priority: 'High',
-        assignee: 'ketan2@inchronicle.com',
-        reporter: 'riya.patel@inchronicle.com',
-        storyPoints: 5,
-        labels: ['platform', 'security'],
-      },
-    },
-
-    // #25 - Jira: connection pooling
-    {
-      source: 'jira',
-      sourceId: 'PLAT-701',
-      sourceUrl: 'https://inchronicle.atlassian.net/browse/PLAT-701',
-      title: 'Implement connection pooling for collaboration service',
-      description: 'Connection pooling to handle WebSocket scale. Related to PLAT-700 rate limiting work.',
-      timestamp: daysAgo(6),
-      rawData: {
-        key: 'PLAT-701',
-        status: 'Done',
-        priority: 'High',
-        assignee: 'ketan2@inchronicle.com',
-        reporter: 'riya.patel@inchronicle.com',
-        storyPoints: 8,
-        labels: ['platform', 'scalability'],
-      },
-    },
-
-    // #26 - GitHub PR: rate limiting
-    {
-      source: 'github',
-      sourceId: 'inchronicle/collab-platform#230',
-      sourceUrl: 'https://github.com/inchronicle/collab-platform/pull/230',
-      title: 'feat(ws): rate limiting for WebSocket connections',
-      description: 'Closes PLAT-700. Implements sliding window rate limiter with per-user quotas and graceful backpressure.',
-      timestamp: daysAgo(5),
-      rawData: {
-        number: 230,
-        state: 'merged',
-        author: 'ketan2@inchronicle.com',
-        additions: 280,
-        deletions: 20,
-        changedFiles: 7,
-        reviews: 2,
-        commits: 4,
-        reviewers: ['marcus.chen@inchronicle.com'],
-      },
-    },
-
-    // #27 - Jira: monitoring dashboards
-    {
-      source: 'jira',
-      sourceId: 'PLAT-702',
-      sourceUrl: 'https://inchronicle.atlassian.net/browse/PLAT-702',
-      title: 'Update monitoring dashboards for collab service',
-      description: 'Add Grafana dashboards for WebSocket connection metrics, rate limiting stats. Related to PLAT-700 and PLAT-701.',
-      timestamp: daysAgo(4),
-      rawData: {
-        key: 'PLAT-702',
-        status: 'In Progress',
-        priority: 'Medium',
-        assignee: 'ketan2@inchronicle.com',
-        reporter: 'arjun.desai@inchronicle.com',
-        storyPoints: 3,
-        labels: ['platform', 'observability'],
-      },
-    },
-
-    // #28 - GitHub PR: connection pooling
-    {
-      source: 'github',
-      sourceId: 'inchronicle/collab-platform#232',
-      sourceUrl: 'https://github.com/inchronicle/collab-platform/pull/232',
-      title: 'feat(ws): connection pooling and health checks',
-      description: 'Closes PLAT-701. Implements connection pool with configurable limits, health check endpoints, and graceful drain on shutdown.',
-      timestamp: daysAgo(3),
-      rawData: {
-        number: 232,
-        state: 'merged',
-        author: 'ketan2@inchronicle.com',
-        additions: 450,
-        deletions: 60,
-        changedFiles: 11,
-        reviews: 3,
-        commits: 7,
-        reviewers: ['marcus.chen@inchronicle.com', 'arjun.desai@inchronicle.com'],
-      },
-    },
-
-    // #29 - Calendar: daily standup
-    {
-      source: 'google-calendar',
-      sourceId: 'gcal-standup-current',
-      sourceUrl: null,
-      title: 'Daily Standup',
-      description: 'Sprint standup — discussed PLAT-700 rate limiting rollout and PLAT-701 connection pooling status.',
-      timestamp: daysAgo(3),
-      rawData: {
-        eventId: 'standup-current',
-        organizer: 'honey@inchronicle.com',
-        attendees: ['ketan2@inchronicle.com', 'priya.sharma@inchronicle.com', 'dev.mehta@inchronicle.com', 'riya.patel@inchronicle.com'],
-        duration: 15,
-      },
-    },
-
-    // #30 - Calendar: sprint retro
-    {
-      source: 'google-calendar',
-      sourceId: 'gcal-retro-current',
-      sourceUrl: null,
-      title: 'Sprint Retrospective',
-      description: 'Sprint retro — reviewed PLAT-700 rate limiting delivery and upcoming monitoring work.',
-      timestamp: daysAgo(2),
-      rawData: {
-        eventId: 'retro-current',
-        organizer: 'honey@inchronicle.com',
-        attendees: ['ketan2@inchronicle.com', 'priya.sharma@inchronicle.com', 'marcus.chen@inchronicle.com', 'riya.patel@inchronicle.com'],
-        duration: 60,
-      },
-    },
-
-    // =========================================================================
-    // STORY 4: Previous Sprint Work (7 activities)
-    // Anchors: PLAT-680, PLAT-681, PLAT-682,
-    //          inchronicle/collab-platform#220, confluence:445566
-    // Span: daysAgo(25) -> daysAgo(14)
-    // =========================================================================
-
-    // #31 - Jira: caching strategy
-    {
-      source: 'jira',
-      sourceId: 'PLAT-680',
-      sourceUrl: 'https://inchronicle.atlassian.net/browse/PLAT-680',
-      title: 'Design caching strategy for collaboration state',
-      description: 'Design and implement caching layer for collaboration session state. Evaluate Redis vs in-memory approaches.',
-      timestamp: daysAgo(25),
-      rawData: {
-        key: 'PLAT-680',
-        status: 'Done',
-        priority: 'High',
-        assignee: 'ketan2@inchronicle.com',
-        reporter: 'marcus.chen@inchronicle.com',
-        storyPoints: 5,
-        labels: ['platform', 'caching'],
-      },
-    },
-
-    // #32 - Confluence: caching design doc
-    {
-      source: 'confluence',
-      sourceId: '445566',
-      sourceUrl: 'https://inchronicle.atlassian.net/wiki/spaces/ENG/pages/445566/Collaboration+State+Caching+Design',
-      title: 'Collaboration State Caching Design',
-      description: 'Design doc for PLAT-680 caching strategy. Covers Redis session cache, TTL policies, and invalidation strategies.',
-      timestamp: daysAgo(24),
-      rawData: {
-        pageId: '445566',
-        spaceKey: 'ENG',
-        version: 4,
-        lastModifiedBy: 'ketan2@inchronicle.com',
-      },
-    },
-
-    // #33 - Jira: Redis session cache
-    {
-      source: 'jira',
-      sourceId: 'PLAT-681',
-      sourceUrl: 'https://inchronicle.atlassian.net/browse/PLAT-681',
-      title: 'Implement Redis-based session cache',
-      description: 'Implement Redis session cache per PLAT-680 design. Key schema, TTL, and connection pooling.',
-      timestamp: daysAgo(22),
-      rawData: {
-        key: 'PLAT-681',
-        status: 'Done',
-        priority: 'High',
-        assignee: 'ketan2@inchronicle.com',
-        reporter: 'ketan2@inchronicle.com',
-        storyPoints: 8,
-        labels: ['platform', 'redis'],
-      },
-    },
-
-    // #34 - Jira: cache invalidation
-    {
-      source: 'jira',
-      sourceId: 'PLAT-682',
-      sourceUrl: 'https://inchronicle.atlassian.net/browse/PLAT-682',
-      title: 'Add cache invalidation for stale sessions',
-      description: 'Implement cache invalidation when sessions end or go stale. Follow-up to PLAT-681.',
-      timestamp: daysAgo(20),
-      rawData: {
-        key: 'PLAT-682',
-        status: 'Done',
-        priority: 'Medium',
-        assignee: 'ketan2@inchronicle.com',
-        reporter: 'ketan2@inchronicle.com',
-        storyPoints: 3,
-        labels: ['platform', 'caching'],
-      },
-    },
-
-    // #35 - GitHub PR: Redis session cache
-    {
-      source: 'github',
-      sourceId: 'inchronicle/collab-platform#220',
-      sourceUrl: 'https://github.com/inchronicle/collab-platform/pull/220',
-      title: 'feat(cache): Redis session cache for collab state',
-      description: 'Closes PLAT-681. Implements Redis-based session cache with configurable TTL, connection pooling, and graceful fallback. Design: PLAT-680.',
-      timestamp: daysAgo(18),
-      rawData: {
-        number: 220,
-        state: 'merged',
-        author: 'ketan2@inchronicle.com',
-        additions: 520,
-        deletions: 40,
-        changedFiles: 14,
-        reviews: 3,
-        commits: 6,
-        reviewers: ['marcus.chen@inchronicle.com', 'arjun.desai@inchronicle.com'],
-      },
-    },
-
-    // #36 - Calendar: sprint planning
-    {
-      source: 'google-calendar',
-      sourceId: 'gcal-sprint-planning-prev',
-      sourceUrl: null,
-      title: 'Sprint Planning',
-      description: 'Sprint planning — scoped PLAT-680 caching work and PLAT-682 invalidation.',
-      timestamp: daysAgo(16),
-      rawData: {
-        eventId: 'sprint-planning-prev',
-        organizer: 'honey@inchronicle.com',
-        attendees: ['ketan2@inchronicle.com', 'priya.sharma@inchronicle.com', 'riya.patel@inchronicle.com'],
-        duration: 90,
-      },
-    },
-
-    // #37 - Calendar: daily standup
-    {
-      source: 'google-calendar',
-      sourceId: 'gcal-standup-prev',
-      sourceUrl: null,
-      title: 'Daily Standup',
-      description: 'Sprint standup — PLAT-681 Redis cache implementation on track.',
-      timestamp: daysAgo(14),
-      rawData: {
-        eventId: 'standup-prev',
-        organizer: 'honey@inchronicle.com',
-        attendees: ['ketan2@inchronicle.com', 'priya.sharma@inchronicle.com', 'dev.mehta@inchronicle.com'],
-        duration: 15,
-      },
-    },
-
-    // =========================================================================
-    // UNCLUSTERED ACTIVITIES (12 activities)
+    // UNCLUSTERED ACTIVITIES (8 activities)
     // No shared refs with any story or each other
     // =========================================================================
 
-    // #38 - GitHub: ESLint config chore
-    {
-      source: 'github',
-      sourceId: 'inchronicle/collab-platform#200',
-      sourceUrl: 'https://github.com/inchronicle/collab-platform/pull/200',
-      title: 'chore: update ESLint config and fix lint warnings',
-      description: 'Updates ESLint to v9, migrates to flat config, fixes 47 lint warnings across the codebase.',
-      timestamp: daysAgo(55),
-      rawData: {
-        number: 200,
-        state: 'merged',
-        author: 'ketan2@inchronicle.com',
-        additions: 120,
-        deletions: 85,
-        changedFiles: 32,
-        reviews: 1,
-        commits: 2,
-      },
-    },
-
-    // #39 - Calendar: 1:1 with EM
+    // U1 - Calendar: 1:1 with EM (day 27)
     {
       source: 'google-calendar',
       sourceId: 'gcal-1on1-manager',
       sourceUrl: null,
       title: '1:1 with Honey (EM)',
       description: 'Weekly 1:1 with engineering manager. Discussed career growth, upcoming project assignments.',
-      timestamp: daysAgo(47),
+      timestamp: daysAgo(27),
       rawData: {
         eventId: '1on1-manager-1',
         organizer: 'honey@inchronicle.com',
@@ -773,46 +503,30 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #40 - Outlook: all-hands
-    {
-      source: 'outlook',
-      sourceId: 'email-allhands',
-      sourceUrl: null,
-      title: 'Engineering All-Hands — Q1 Roadmap',
-      description: 'Q1 engineering all-hands presentation. Roadmap overview, hiring update, and technical debt priorities.',
-      timestamp: daysAgo(42),
-      rawData: {
-        messageId: 'email-allhands',
-        from: 'vikram.rao@inchronicle.com',
-        to: ['eng-all@inchronicle.com'],
-        subject: 'Engineering All-Hands — Q1 Roadmap',
-      },
-    },
-
-    // #41 - Figma: mobile notification redesign
+    // U2 - Figma: mobile notification redesign (day 20)
     {
       source: 'figma',
       sourceId: 'FigMobileNotif',
       sourceUrl: 'https://www.figma.com/file/FigMobileNotif/Mobile-Notification-Redesign',
       title: 'Mobile Notification Redesign Explorations',
       description: 'Early-stage exploration for mobile push notification redesign. Visual concepts and interaction patterns.',
-      timestamp: daysAgo(38),
+      timestamp: daysAgo(20),
       rawData: {
         fileKey: 'FigMobileNotif',
         fileName: 'Mobile-Notification-Redesign',
-        lastModified: daysAgo(38).toISOString(),
+        lastModified: daysAgo(20).toISOString(),
         owner: 'ketan2@inchronicle.com',
       },
     },
 
-    // #42 - Slack: dev tips thread
+    // U3 - Slack: dev tips thread (day 17)
     {
       source: 'slack',
       sourceId: 'thread-random-tips',
       sourceUrl: 'https://inchronicle.slack.com/archives/C0DEVTIPS/p1700000004',
       title: 'Thread in #dev-tips',
       description: 'Shared a tip on using TypeScript discriminated unions for exhaustive pattern matching in API response handlers.',
-      timestamp: daysAgo(33),
+      timestamp: daysAgo(17),
       rawData: {
         channelId: 'C0DEVTIPS',
         channelName: 'dev-tips',
@@ -823,14 +537,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #43 - Google Sheets: interview rubric
+    // U4 - Google Sheets: interview rubric (day 14)
     {
       source: 'google-sheets',
       sourceId: 'gsheet-interview-rubric',
       sourceUrl: 'https://docs.google.com/spreadsheets/d/1InterviewRubric_abc123/edit',
       title: 'Interview Rubric — Backend Engineers',
       description: 'Structured interview rubric for backend engineering candidates. System design, coding, and behavioral assessment criteria.',
-      timestamp: daysAgo(27),
+      timestamp: daysAgo(14),
       rawData: {
         spreadsheetId: '1InterviewRubric_abc123',
         owner: 'ketan2@inchronicle.com',
@@ -839,14 +553,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #44 - GitHub: code review in different repo
+    // U5 - GitHub: code review in different repo (day 11)
     {
       source: 'github',
       sourceId: 'inchronicle/data-pipeline#15',
       sourceUrl: 'https://github.com/inchronicle/data-pipeline/pull/15',
       title: 'review: optimize batch processing queries',
       description: 'Reviewed PR for batch processing query optimization. Suggested index improvements and query plan analysis.',
-      timestamp: daysAgo(21),
+      timestamp: daysAgo(11),
       rawData: {
         number: 15,
         state: 'merged',
@@ -860,14 +574,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #45 - Calendar: skip-level 1:1
+    // U6 - Calendar: skip-level 1:1 (day 8)
     {
       source: 'google-calendar',
       sourceId: 'gcal-1on1-skip',
       sourceUrl: null,
       title: 'Skip-Level 1:1 with VP Engineering',
       description: 'Quarterly skip-level with Vikram. Discussed team health, technical direction, and growth areas.',
-      timestamp: daysAgo(17),
+      timestamp: daysAgo(8),
       rawData: {
         eventId: '1on1-skip-level',
         organizer: 'vikram.rao@inchronicle.com',
@@ -876,29 +590,14 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #46 - Google Docs: reading list
-    {
-      source: 'google-docs',
-      sourceId: 'gdoc-reading-list',
-      sourceUrl: 'https://docs.google.com/document/d/1TeamReadingList_xyz/edit',
-      title: 'Team Reading List — Distributed Systems',
-      description: 'Curated reading list on distributed systems: CRDTs, consensus algorithms, and eventual consistency patterns.',
-      timestamp: daysAgo(9),
-      rawData: {
-        documentId: '1TeamReadingList_xyz',
-        owner: 'ketan2@inchronicle.com',
-        contributors: ['ketan2@inchronicle.com', 'marcus.chen@inchronicle.com'],
-      },
-    },
-
-    // #47 - Calendar: 1:1 with EM (recurring)
+    // U7 - Calendar: 1:1 with EM (day 6) — BILL-550 removed from description
     {
       source: 'google-calendar',
       sourceId: 'gcal-1on1-manager-2',
       sourceUrl: null,
       title: '1:1 with Honey (EM)',
-      description: 'Weekly 1:1 with engineering manager. Sprint progress, incident follow-up from BILL-550.',
-      timestamp: daysAgo(4),
+      description: 'Weekly 1:1 with engineering manager. Sprint progress, growth areas discussion.',
+      timestamp: daysAgo(6),
       rawData: {
         eventId: '1on1-manager-2',
         organizer: 'honey@inchronicle.com',
@@ -908,36 +607,21 @@ export function generateMockActivitiesV2(): ActivityInput[] {
       },
     },
 
-    // #48 - Slack: offsite planning (yesterday)
+    // U8 - Slack: tech talk (day 3) — NEW, stays unclustered
     {
       source: 'slack',
-      sourceId: 'thread-offsite-planning',
-      sourceUrl: 'https://inchronicle.slack.com/archives/C0TEAMSOCIAL/p1700000005',
-      title: 'Thread in #team-social',
-      description: 'Volunteered to organize the Q2 team offsite agenda. Coordinating venue and activities.',
-      timestamp: daysAgo(1),
+      sourceId: 'thread-tech-talk',
+      sourceUrl: 'https://inchronicle.slack.com/archives/C0TECHTALKS/p1700000006',
+      title: 'Thread in #tech-talks',
+      description: 'Shared recording of my lightning talk on WebSocket scaling patterns. Great discussion in the thread about backpressure strategies.',
+      timestamp: daysAgo(3),
       rawData: {
-        channelId: 'C0TEAMSOCIAL',
-        channelName: 'team-social',
-        messageTs: '1700000005.000000',
-        threadTs: '1700000005.000000',
+        channelId: 'C0TECHTALKS',
+        channelName: 'tech-talks',
+        messageTs: '1700000006.000000',
+        threadTs: '1700000006.000000',
         mentions: ['ketan2@inchronicle.com'],
-      },
-    },
-
-    // #49 - Google Drive: expense report (today)
-    {
-      source: 'google-drive',
-      sourceId: 'gdrive-expense-report',
-      sourceUrl: 'https://drive.google.com/file/d/1ExpenseQ4_abc/view',
-      title: 'Q4 Conference Expense Report',
-      description: 'Expense report for KubeCon attendance. Includes travel, accommodation, and registration receipts.',
-      timestamp: daysAgo(0),
-      rawData: {
-        fileId: '1ExpenseQ4_abc',
-        fileName: 'Q4_Conference_Expense_Report.pdf',
-        owner: 'ketan2@inchronicle.com',
-        mimeType: 'application/pdf',
+        reactions: [{ name: 'fire', count: 11 }, { name: 'bulb', count: 5 }],
       },
     },
   ];
@@ -945,7 +629,7 @@ export function generateMockActivitiesV2(): ActivityInput[] {
 
 /**
  * Expected clusters for V2 dataset validation.
- * 4 distinct clusters with no cross-contamination.
+ * 2 distinct clusters with no cross-contamination.
  */
 export function getExpectedClustersV2(): { name: string; sharedRefs: string[]; activitySourceIds: string[] }[] {
   return [
@@ -954,7 +638,7 @@ export function getExpectedClustersV2(): { name: string; sharedRefs: string[]; a
       sharedRefs: ['COLLAB-101', 'COLLAB-102', 'confluence:112233', 'inchronicle/collab-platform#210', 'inchronicle/collab-platform#215', 'inchronicle/collab-ui#88'],
       activitySourceIds: [
         '112233', 'COLLAB-101', 'COLLAB-102', 'commit:f1a2b3c',
-        'inchronicle/collab-platform#210', 'gcal-collab-design-review',
+        'gcal-collab-design-review', 'inchronicle/collab-platform#210',
         'inchronicle/collab-ui#88', 'inchronicle/collab-platform#215',
         'gcal-collab-demo', 'thread-collab-launch',
         'email-collab-kudos', 'gcal-collab-retro',
@@ -964,29 +648,11 @@ export function getExpectedClustersV2(): { name: string; sharedRefs: string[]; a
       name: 'Credits Double-Debit Incident',
       sharedRefs: ['BILL-550', 'BILL-551', 'BILL-552', 'inchronicle/billing-api#140', 'inchronicle/billing-api#145'],
       activitySourceIds: [
-        'BILL-550', 'thread-incident-triage', 'email-incident-comms',
-        'inchronicle/billing-api#140', 'BILL-551', 'BILL-552',
-        'inchronicle/billing-api#145', 'gdoc-postmortem-doubledebit',
-        'thread-postmortem-review', 'email-incident-resolved',
-        'gcal-incident-review',
-      ],
-    },
-    {
-      name: 'Current Sprint — Platform Scaling',
-      sharedRefs: ['PLAT-700', 'PLAT-701', 'PLAT-702', 'inchronicle/collab-platform#230', 'inchronicle/collab-platform#232'],
-      activitySourceIds: [
-        'PLAT-700', 'PLAT-701', 'inchronicle/collab-platform#230',
-        'PLAT-702', 'inchronicle/collab-platform#232',
-        'gcal-standup-current', 'gcal-retro-current',
-      ],
-    },
-    {
-      name: 'Previous Sprint — Caching Layer',
-      sharedRefs: ['PLAT-680', 'PLAT-681', 'PLAT-682', 'inchronicle/collab-platform#220', 'confluence:445566'],
-      activitySourceIds: [
-        'PLAT-680', '445566', 'PLAT-681', 'PLAT-682',
-        'inchronicle/collab-platform#220',
-        'gcal-sprint-planning-prev', 'gcal-standup-prev',
+        'email-support-escalation', 'BILL-550', 'thread-incident-triage',
+        'email-incident-comms', 'inchronicle/billing-api#140',
+        'BILL-551', 'BILL-552', 'inchronicle/billing-api#145',
+        'gdoc-postmortem-doubledebit', 'thread-postmortem-review',
+        'email-incident-resolved', 'gcal-incident-review',
       ],
     },
   ];
@@ -997,17 +663,13 @@ export function getExpectedClustersV2(): { name: string; sharedRefs: string[]; a
  */
 export function getExpectedUnclusteredV2(): string[] {
   return [
-    'inchronicle/collab-platform#200',  // ESLint chore, no ticket ref
     'gcal-1on1-manager',                // 1:1, no project refs
-    'email-allhands',                   // All-hands, no project refs
     'FigMobileNotif',                   // Figma exploration, no shared refs
     'thread-random-tips',               // Dev tips, no project refs
     'gsheet-interview-rubric',          // Hiring, no project refs
-    'inchronicle/data-pipeline#15',     // Different repo, no shared refs
+    'inchronicle/data-pipeline#15',     // Different repo, unique ref with no pair
     'gcal-1on1-skip',                   // Skip-level, no project refs
-    'gdoc-reading-list',                // Reading list, no project refs
-    'gcal-1on1-manager-2',              // 1:1, no project refs
-    'thread-offsite-planning',          // Social, no project refs
-    'gdrive-expense-report',            // Expense report, no project refs
+    'gcal-1on1-manager-2',              // 1:1, no project refs (BILL-550 removed)
+    'thread-tech-talk',                 // Tech talk, no project refs
   ];
 }

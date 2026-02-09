@@ -104,7 +104,7 @@ describe('Unified Flow Integration', () => {
     // Seed demo data - creates activities, clusters, and journal entries
     seedResult = await seedDemoData(TEST_USER_ID);
     console.log(`\nSeeded: ${seedResult.activitiesSeeded} activities, ${seedResult.clustersCreated} clusters, ${seedResult.entriesCreated} entries`);
-  }, 120000);
+  }, 300000); // 5min for sequential LLM generation
 
   // Clean after ALL tests to leave no trace
   afterAll(async () => {

@@ -365,7 +365,7 @@ describe('Demo Pipeline Integration', () => {
       console.log(`Activities seeded: ${seedResult.activitiesSeeded}`);
       console.log(`Clusters created: ${seedResult.clustersCreated}`);
       console.log(`Entries created: ${seedResult.entriesCreated}`);
-    }, 60000); // 60s timeout for LLM generation
+    }, 300000); // 5min timeout for sequential LLM generation
 
     it('generates provenance report', async () => {
       report = await generatePipelineReport(TEST_USER_ID);
@@ -621,6 +621,87 @@ describe('Demo Pipeline Integration', () => {
 
       console.log('\n✓ Unified fetch returns same entries regardless of isDemoMode flag');
     });
+  });
+});
+
+// =============================================================================
+// V2 DATASET PIPELINE TEST
+// Tests that V2 seed data produces exactly 2 cluster-based stories
+// =============================================================================
+
+describe('V2 Dataset Pipeline', () => {
+  const V2_TEST_USER_ID = 'test-user-demo-pipeline-v2';
+
+  beforeAll(async () => {
+    const existingUser = await prisma.user.findUnique({
+      where: { id: V2_TEST_USER_ID },
+    });
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          id: V2_TEST_USER_ID,
+          email: 'test-demo-pipeline-v2@test.com',
+          name: 'Demo Pipeline V2 Test User',
+          password: 'test-password-hash',
+        },
+      });
+    }
+    await clearDemoData(V2_TEST_USER_ID);
+  });
+
+  afterAll(async () => {
+    await clearDemoData(V2_TEST_USER_ID);
+  });
+
+  it('seeds V2 data and produces exactly 2 cluster-based journal entries', async () => {
+    const result = await seedDemoData(V2_TEST_USER_ID, { dataset: 'v2' });
+
+    expect(result.activitiesSeeded).toBe(32);
+    expect(result.clustersCreated).toBe(2);
+
+    // Verify cluster-based journal entries
+    const clusterEntries = await prisma.journalEntry.findMany({
+      where: {
+        authorId: V2_TEST_USER_ID,
+        sourceMode: 'demo',
+        groupingMethod: 'cluster',
+      },
+    });
+
+    expect(clusterEntries.length).toBe(2);
+
+    // Verify activity counts per cluster (12 + 12)
+    const activityCounts = clusterEntries.map((e) => e.activityIds.length).sort();
+    expect(activityCounts).toEqual([12, 12]);
+
+    console.log(`\n✓ V2 pipeline: ${result.activitiesSeeded} activities → ${clusterEntries.length} cluster entries (${activityCounts.join(' + ')} activities)`);
+  }, 300000); // 5min timeout for sequential LLM generation
+
+  it('also creates temporal journal entries for the 14-day windows', async () => {
+    const temporalEntries = await prisma.journalEntry.findMany({
+      where: {
+        authorId: V2_TEST_USER_ID,
+        sourceMode: 'demo',
+        groupingMethod: 'time',
+      },
+    });
+
+    expect(temporalEntries.length).toBeGreaterThan(0);
+    console.log(`\n✓ V2 pipeline: ${temporalEntries.length} temporal entries created`);
+  });
+
+  it('cluster entries have non-overlapping activity sets', async () => {
+    const clusterEntries = await prisma.journalEntry.findMany({
+      where: {
+        authorId: V2_TEST_USER_ID,
+        sourceMode: 'demo',
+        groupingMethod: 'cluster',
+      },
+    });
+
+    const allActivityIds = clusterEntries.flatMap((e) => e.activityIds);
+    const uniqueIds = new Set(allActivityIds);
+    expect(uniqueIds.size).toBe(allActivityIds.length);
   });
 });
 

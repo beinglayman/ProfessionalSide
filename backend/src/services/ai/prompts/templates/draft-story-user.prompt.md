@@ -1,5 +1,11 @@
 Generate a structured journal entry for: "{{title}}"
 
+{{#if userEmail}}
+## User Identity
+The user whose journal this is: {{userEmail}}
+When determining dominantRole, check if this email appears as assignee, author, organizer, or sender across the activities. If they are the primary author/assignee on most activities, the role is "Led".
+{{/if}}
+
 {{#if isCluster}}
 ## Context
 These activities are grouped by shared reference "{{clusterRef}}" - they form a cohesive project/initiative.

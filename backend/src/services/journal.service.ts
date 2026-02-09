@@ -60,7 +60,7 @@ const SKILL_EXTRACTION_PATTERNS = [
 const NARRATIVE_TEMPERATURE = 0.7;
 
 /** Max tokens for narrative generation */
-const NARRATIVE_MAX_TOKENS = 1500;
+const NARRATIVE_MAX_TOKENS = 4000;
 
 // =============================================================================
 // ACTIVITY EDGE VALIDATION HELPERS (Exported for testing)
@@ -1976,6 +1976,17 @@ export class JournalService {
     const selector = getModelSelector();
     let generationOutput: DraftStoryGenerationOutput | null = null;
 
+    // Look up user email for role detection in prompt
+    // In demo mode, infer persona from activities (the most frequent author/assignee)
+    // so the LLM can match rawData fields to the user regardless of DB email
+    let userEmail: string | undefined;
+    if (this.sourceMode === 'demo') {
+      userEmail = this.inferUserEmailFromActivities(activities);
+    } else {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      userEmail = user?.email || undefined;
+    }
+
     if (selector) {
       try {
         generationOutput = await this.generateNarrativeWithLLM(
@@ -1983,7 +1994,8 @@ export class JournalService {
           entry.title,
           activities,
           groupingContext,
-          options?.style
+          options?.style,
+          userEmail
         );
       } catch (error) {
         console.warn('LLM narrative generation failed, using fallback', { error: (error as Error).message });
@@ -2005,7 +2017,7 @@ export class JournalService {
           activityIds: activities.map(a => a.id),
           summary: 'Activities completed during this period',
         }],
-        dominantRole: 'Participated',
+        dominantRole: this.inferDominantRole(activities, userEmail),
         activityEdges: activities.map(a => ({
           activityId: a.id,
           type: 'primary' as const,
@@ -2101,6 +2113,53 @@ export class JournalService {
   /**
    * Build tool summary string (e.g., "3 github, 2 jira")
    */
+  /**
+   * Infer dominant role from activity rawData.
+   * If the user's email appears as author/assignee/organizer/from in most activities → Led.
+   * If in some → Contributed. Otherwise → Participated.
+   */
+  private inferDominantRole(
+    activities: EnhancedActivity[],
+    userEmail?: string
+  ): 'Led' | 'Contributed' | 'Participated' {
+    if (!userEmail || activities.length === 0) return 'Participated';
+
+    let ownershipCount = 0;
+    for (const a of activities) {
+      const raw = a.rawData;
+      if (!raw) continue;
+      const ownerFields = [raw.assignee, raw.author, raw.organizer, raw.from, raw.lastModifiedBy, raw.owner];
+      if (ownerFields.some(f => f === userEmail)) {
+        ownershipCount++;
+      }
+    }
+
+    const ratio = ownershipCount / activities.length;
+    if (ratio >= 0.5) return 'Led';
+    if (ratio >= 0.2) return 'Contributed';
+    return 'Participated';
+  }
+
+  /**
+   * Infer the user's email from activity rawData by finding the most frequent
+   * author/assignee/organizer/from across all activities.
+   */
+  private inferUserEmailFromActivities(activities: EnhancedActivity[]): string | undefined {
+    const emailCounts: Record<string, number> = {};
+    for (const a of activities) {
+      const raw = a.rawData;
+      if (!raw) continue;
+      const candidates = [raw.assignee, raw.author, raw.organizer, raw.from, raw.lastModifiedBy, raw.owner];
+      for (const c of candidates) {
+        if (typeof c === 'string' && c.includes('@')) {
+          emailCounts[c] = (emailCounts[c] || 0) + 1;
+        }
+      }
+    }
+    const sorted = Object.entries(emailCounts).sort((a, b) => b[1] - a[1]);
+    return sorted.length > 0 ? sorted[0][0] : undefined;
+  }
+
   private buildToolSummary(activities: Array<{ source: string }>): string {
     const toolCounts: Record<string, number> = {};
     activities.forEach((a) => {
@@ -2138,7 +2197,8 @@ export class JournalService {
     title: string,
     activities: EnhancedActivity[],
     groupingContext: GroupingContext,
-    style?: string
+    style?: string,
+    userEmail?: string
   ): Promise<DraftStoryGenerationOutput> {
     // Format activities with rawData context
     const activitiesText = formatEnhancedActivitiesForPrompt(activities, groupingContext);
@@ -2149,6 +2209,7 @@ export class JournalService {
       activitiesText,
       isCluster: groupingContext.type === 'cluster',
       clusterRef: groupingContext.clusterRef,
+      userEmail,
     });
 
     const result = await selector.executeTask('generate', messages, 'high', {

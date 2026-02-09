@@ -13,6 +13,11 @@ import {
   getExpectedClusters,
   getExpectedUnclustered,
 } from '../mock-data.service';
+import {
+  generateMockActivitiesV2,
+  getExpectedClustersV2,
+  getExpectedUnclusteredV2,
+} from '../mock-data-v2.service';
 import { ClusterableActivity } from './types';
 
 describe('Pipeline Integration', () => {
@@ -386,6 +391,155 @@ describe('Pipeline Integration', () => {
 
           expect(count).toBeGreaterThanOrEqual(2);
         }
+      }
+    });
+  });
+});
+
+// =============================================================================
+// V2 DATASET INTEGRATION TESTS
+// =============================================================================
+
+describe('V2 Pipeline Integration', () => {
+  const refExtractor = new RefExtractor();
+  const clusterExtractor = new ClusterExtractor();
+
+  // Feature story anchor refs
+  const FEATURE_ANCHORS = ['COLLAB-101', 'COLLAB-102'];
+  // Crisis story anchor refs (including transitive: BILL-551/552 connect via BILL-550)
+  const CRISIS_ANCHORS = ['BILL-550', 'BILL-551', 'BILL-552'];
+
+  function prepareV2Activities(): ClusterableActivity[] {
+    const rawActivities = generateMockActivitiesV2();
+    return rawActivities.map((a) => {
+      const result = refExtractor.extractFromActivity(a);
+      return {
+        id: a.sourceId,
+        refs: result.data.refs,
+        timestamp: a.timestamp,
+        source: a.source,
+      };
+    });
+  }
+
+  describe('V2 dataset clustering correctness', () => {
+    it('produces exactly 2 clusters', () => {
+      const activities = prepareV2Activities();
+      const result = clusterExtractor.process({ activities });
+
+      expect(result.data.clusters.length).toBe(2);
+    });
+
+    it('cluster 1 contains exactly the 12 feature activity sourceIds', () => {
+      const activities = prepareV2Activities();
+      const result = clusterExtractor.process({ activities });
+      const expected = getExpectedClustersV2();
+
+      const featureExpected = expected[0].activitySourceIds;
+      const featureCluster = result.data.clusters.find((c) =>
+        c.activityIds.includes('COLLAB-101')
+      );
+
+      expect(featureCluster).toBeDefined();
+      expect(featureCluster!.activityIds.length).toBe(12);
+      expect(featureCluster!.activityIds.sort()).toEqual([...featureExpected].sort());
+    });
+
+    it('cluster 2 contains exactly the 12 crisis activity sourceIds', () => {
+      const activities = prepareV2Activities();
+      const result = clusterExtractor.process({ activities });
+      const expected = getExpectedClustersV2();
+
+      const crisisExpected = expected[1].activitySourceIds;
+      const crisisCluster = result.data.clusters.find((c) =>
+        c.activityIds.includes('BILL-550')
+      );
+
+      expect(crisisCluster).toBeDefined();
+      expect(crisisCluster!.activityIds.length).toBe(12);
+      expect(crisisCluster!.activityIds.sort()).toEqual([...crisisExpected].sort());
+    });
+
+    it('produces exactly 8 unclustered activities', () => {
+      const activities = prepareV2Activities();
+      const result = clusterExtractor.process({ activities });
+      const expectedUnclustered = getExpectedUnclusteredV2();
+
+      expect(result.data.unclustered.length).toBe(8);
+      expect(result.data.unclustered.sort()).toEqual([...expectedUnclustered].sort());
+    });
+
+    it('has zero cross-contamination between clusters', () => {
+      const activities = prepareV2Activities();
+      const result = clusterExtractor.process({ activities });
+
+      const cluster1Ids = new Set(result.data.clusters[0].activityIds);
+      const cluster2Ids = new Set(result.data.clusters[1].activityIds);
+
+      // No activity appears in both clusters
+      for (const id of cluster1Ids) {
+        expect(cluster2Ids.has(id)).toBe(false);
+      }
+    });
+
+    it('accounts for all 32 activities', () => {
+      const activities = prepareV2Activities();
+      const result = clusterExtractor.process({ activities });
+
+      const allIds = [
+        ...result.data.clusters.flatMap((c) => c.activityIds),
+        ...result.data.unclustered,
+      ];
+
+      expect(allIds.length).toBe(32);
+      expect(new Set(allIds).size).toBe(32); // No duplicates
+    });
+  });
+
+  describe('V2 ref extraction coverage', () => {
+    it('every feature activity extracts at least COLLAB-101', () => {
+      const rawActivities = generateMockActivitiesV2();
+      const expected = getExpectedClustersV2();
+      const featureSourceIds = expected[0].activitySourceIds;
+
+      for (const sourceId of featureSourceIds) {
+        const activity = rawActivities.find((a) => a.sourceId === sourceId)!;
+        const result = refExtractor.extractFromActivity(activity);
+        expect(
+          result.data.refs.some((r) => FEATURE_ANCHORS.includes(r)),
+          `Feature activity ${sourceId} should extract at least one of ${FEATURE_ANCHORS.join(', ')}, got: [${result.data.refs.join(', ')}]`
+        ).toBe(true);
+      }
+    });
+
+    it('every crisis activity extracts at least BILL-550 or BILL-551/BILL-552', () => {
+      const rawActivities = generateMockActivitiesV2();
+      const expected = getExpectedClustersV2();
+      const crisisSourceIds = expected[1].activitySourceIds;
+
+      for (const sourceId of crisisSourceIds) {
+        const activity = rawActivities.find((a) => a.sourceId === sourceId)!;
+        const result = refExtractor.extractFromActivity(activity);
+        expect(
+          result.data.refs.some((r) => CRISIS_ANCHORS.includes(r)),
+          `Crisis activity ${sourceId} should extract at least one of ${CRISIS_ANCHORS.join(', ')}, got: [${result.data.refs.join(', ')}]`
+        ).toBe(true);
+      }
+    });
+
+    it('no unclustered activity extracts any feature or crisis anchor ref', () => {
+      const rawActivities = generateMockActivitiesV2();
+      const expectedUnclustered = getExpectedUnclusteredV2();
+      const allAnchors = [...FEATURE_ANCHORS, ...CRISIS_ANCHORS];
+
+      for (const sourceId of expectedUnclustered) {
+        const activity = rawActivities.find((a) => a.sourceId === sourceId)!;
+        const result = refExtractor.extractFromActivity(activity);
+        const overlap = result.data.refs.filter((r) => allAnchors.includes(r));
+        expect(
+          overlap,
+          `Unclustered activity ${sourceId} should not extract any anchor refs, but got: [${overlap.join(', ')}]`
+        ).toHaveLength(0);
       }
     });
   });
