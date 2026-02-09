@@ -182,13 +182,13 @@ export const DemoTab: React.FC = () => {
               className={`flex-1 p-2.5 rounded-lg border transition-all text-left ${
                 dataset === 'v1'
                   ? 'border-amber-500 bg-amber-500/10'
-                  : 'border-gray-600 hover:border-gray-500'
+                  : 'border-gray-600 hover:border-gray-500 opacity-60'
               }`}
             >
               <span className={`text-sm font-medium ${dataset === 'v1' ? 'text-amber-400' : 'text-gray-400'}`}>
                 V1 — Auth/Perf
               </span>
-              <p className="text-xs text-gray-500 mt-0.5">~35 activities, 3 clusters</p>
+              <p className="text-xs text-gray-500 mt-0.5">35 activities, 3 stories</p>
             </button>
             <button
               onClick={() => handleDatasetSwitch('v2')}
@@ -196,13 +196,18 @@ export const DemoTab: React.FC = () => {
               className={`flex-1 p-2.5 rounded-lg border transition-all text-left ${
                 dataset === 'v2'
                   ? 'border-amber-500 bg-amber-500/10'
-                  : 'border-gray-600 hover:border-gray-500'
+                  : 'border-gray-600 hover:border-gray-500 opacity-60'
               }`}
             >
-              <span className={`text-sm font-medium ${dataset === 'v2' ? 'text-amber-400' : 'text-gray-400'}`}>
-                V2 — Collab/Incident
-              </span>
-              <p className="text-xs text-gray-500 mt-0.5">49 activities, 4 clusters</p>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-sm font-medium ${dataset === 'v2' ? 'text-amber-400' : 'text-gray-400'}`}>
+                  V2 — Collab/Incident
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-wider bg-amber-500/20 text-amber-400 rounded px-1 py-0.5">
+                  default
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">49 activities, 4 stories</p>
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
