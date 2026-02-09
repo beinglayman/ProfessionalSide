@@ -46,15 +46,32 @@ jobs:
 
       - name: Update Web App container image
         run: |
+          echo "=== Current container config ==="
+          az webapp config container show \
+            --resource-group "${{ secrets.AZ_RG }}" \
+            --name "${{ secrets.FRONTEND_APPNAME }}" 2>/dev/null || echo "No current config"
+          echo "=== Setting new container image ==="
           az webapp config container set \
             --resource-group "${{ secrets.AZ_RG }}" \
             --name "${{ secrets.FRONTEND_APPNAME }}" \
-            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:latest"
+            --container-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:latest"
+          echo "=== New container config ==="
+          az webapp config container show \
+            --resource-group "${{ secrets.AZ_RG }}" \
+            --name "${{ secrets.FRONTEND_APPNAME }}" 2>/dev/null || echo "Could not read config"
 
-      - name: Set ports and restart
+      - name: Ensure app is running
         run: |
+          echo "=== Current app state ==="
+          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
-          az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" || true
+          echo "=== Starting app ==="
+          az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+          echo "=== App state after start ==="
+          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
+          echo "=== Restarting app ==="
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+          echo "=== Final app state ==="
+          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
 
 
