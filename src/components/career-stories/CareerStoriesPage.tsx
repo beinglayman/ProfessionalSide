@@ -44,6 +44,7 @@ import { Button } from '../ui/button';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useJournalEntries } from '../../hooks/useJournal';
 import { cn } from '../../lib/utils';
 import {
   groupStoriesByQuarter,
@@ -605,11 +606,20 @@ export function CareerStoriesPage() {
   }, [existingStories]);
 
   // Story view toggle: timeline (by quarter) vs category (by brag doc)
-  const [storyView, setStoryView] = useState<'timeline' | 'category'>('timeline');
+  const [storyView, setStoryView] = useState<'timeline' | 'category'>('category');
 
   // Build O(1) activity lookup for timeline quarter grouping
   const activityMap = useStoryActivityMap(allStories);
 
+  // Fetch recent journal entries for empty-category hover preview
+  const { data: journalData } = useJournalEntries({ sortBy: 'createdAt', sortOrder: 'desc', limit: 20 });
+
+  // Journal entries not yet promoted to career stories
+  const unpromotedEntries = useMemo(() => {
+    const entries = journalData?.entries ?? [];
+    const promotedIds = new Set(allStories.map((s) => s.journalEntryId).filter(Boolean));
+    return entries.filter((e) => !promotedIds.has(e.id));
+  }, [journalData, allStories]);
 
   const stats = useMemo(() => {
     let complete = 0;
@@ -975,8 +985,8 @@ export function CareerStoriesPage() {
                     {/* Timeline / Category toggle */}
                     <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
                       {([
-                        { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
                         { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
+                        { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
                       ]).map(({ key, label, Icon }) => (
                         <button
                           key={key}
@@ -1135,14 +1145,39 @@ export function CareerStoriesPage() {
                         <p className="text-xs text-gray-500 mb-2">{cat.description}</p>
 
                         {catStories.length === 0 ? (
-                          <button
-                            onClick={() => navigate('/timeline')}
-                            className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
-                          >
-                            <p className="text-xs text-gray-400">
-                              No stories yet &middot; <span className="text-primary-500 font-medium">Promote from journal</span>
-                            </p>
-                          </button>
+                          <div className="group/empty relative">
+                            <button
+                              onClick={() => navigate('/timeline')}
+                              className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
+                            >
+                              <p className="text-xs text-gray-400">
+                                No stories yet
+                                {unpromotedEntries.length > 0 && (
+                                  <> &middot; <span className="text-gray-500 font-medium">{unpromotedEntries.length} journal {unpromotedEntries.length === 1 ? 'entry' : 'entries'}</span></>
+                                )}
+                                {' '}&middot; <span className="text-primary-500 font-medium">Promote from journal</span>
+                              </p>
+                            </button>
+                            {unpromotedEntries.length > 0 && (
+                              <div className="absolute left-0 right-0 top-full mt-1 z-20 hidden group-hover/empty:block">
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2">
+                                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Recent journal entries</p>
+                                  {unpromotedEntries.slice(0, 3).map((entry) => (
+                                    <div key={entry.id} className="flex items-start gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-primary-400 mt-1.5 flex-shrink-0" />
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-gray-700 truncate">{entry.title}</p>
+                                        <p className="text-[10px] text-gray-400">{new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {unpromotedEntries.length > 3 && (
+                                    <p className="text-[10px] text-gray-400">+{unpromotedEntries.length - 3} more</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                             {catStories.map((story) => (

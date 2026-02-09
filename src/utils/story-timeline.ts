@@ -190,7 +190,8 @@ export function groupStoriesByQuarter(
   return groups;
 }
 
-/** Group stories by brag doc category. Uncategorized stories go under 'other'. */
+/** Group stories by brag doc category. Uncategorized stories go under 'other'.
+ *  Within each category, stories are sorted newest-first by createdAt. */
 export function groupStoriesByCategory(
   stories: CareerStory[],
 ): Map<BragDocCategory | 'other', CareerStory[]> {
@@ -199,6 +200,9 @@ export function groupStoriesByCategory(
     const key = story.category ?? 'other';
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(story);
+  }
+  for (const bucket of map.values()) {
+    bucket.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
   return map;
 }
