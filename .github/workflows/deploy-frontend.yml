@@ -40,6 +40,7 @@ jobs:
           echo "Building frontend with API URL: ${VITE_API_URL}"
           echo "Cache bust value: ${CACHEBUST}"
           az acr build --registry "${{ secrets.ACR_NAME }}" \
+            --no-cache \
             --build-arg VITE_API_URL="${VITE_API_URL}" \
             --build-arg CACHEBUST="${CACHEBUST}" \
             --image inchronicle-frontend:latest .
