@@ -791,109 +791,41 @@ interface DraftsBannerProps {
 function DraftsBanner({ storyGroups, showDraftsOnly, onToggle }: DraftsBannerProps) {
   if (storyGroups.length === 0) return null;
 
-  // Compute unique activity count across all drafts (activities can appear in multiple stories)
-  const uniqueActivityIds = new Set<string>();
-  for (const g of storyGroups) {
-    for (const a of g.activities) uniqueActivityIds.add(a.id);
-  }
-  const totalActivities = uniqueActivityIds.size;
-
-  // Compute overall time span across all drafts
-  let minTime = Infinity;
-  let maxTime = -Infinity;
-  for (const g of storyGroups) {
-    const meta = g.storyMetadata;
-    if (!meta) continue;
-    if (meta.timeRangeStart) {
-      const t = new Date(meta.timeRangeStart).getTime();
-      if (t < minTime) minTime = t;
-    }
-    if (meta.timeRangeEnd) {
-      const t = new Date(meta.timeRangeEnd).getTime();
-      if (t > maxTime) maxTime = t;
-    }
-  }
-  // Format as "Jan 4 – Feb 5" or just "Feb 5" if same day
-  let timeSpan = '';
-  if (minTime !== Infinity && maxTime !== -Infinity) {
-    const startDate = new Date(minTime);
-    const endDate = new Date(maxTime);
-    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    if (startDate.toDateString() === endDate.toDateString()) {
-      timeSpan = fmt(endDate);
-    } else {
-      timeSpan = `${fmt(startDate)} – ${fmt(endDate)}`;
-    }
-  }
-
-  // Collect top topics/skills across all drafts (deduplicated, max 3)
-  const topicSet = new Set<string>();
-  for (const g of storyGroups) {
-    const meta = g.storyMetadata;
-    if (!meta) continue;
-    for (const t of (meta.topics || [])) topicSet.add(t);
-    if (topicSet.size >= 3) break;
-    for (const s of (meta.skills || [])) topicSet.add(s);
-    if (topicSet.size >= 3) break;
-  }
-  const topTopics = Array.from(topicSet).slice(0, 3);
-
   const draftCount = storyGroups.length;
 
   return (
     <div className={cn(
-      'flex items-center justify-between px-5 py-3.5 rounded-xl transition-colors',
+      'flex items-center justify-between px-4 py-3 rounded-xl border-l-4 transition-colors',
       showDraftsOnly
-        ? 'bg-purple-600 border border-purple-700'
-        : 'bg-gray-100 border border-gray-200'
+        ? 'bg-purple-600 border border-purple-700 border-l-purple-400'
+        : 'bg-purple-50 border border-purple-100 border-l-purple-400'
     )}>
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2.5">
         <Sparkles className={cn(
-          'w-5 h-5 flex-shrink-0',
-          showDraftsOnly ? 'text-purple-200' : 'text-gray-500'
+          'w-4 h-4 flex-shrink-0',
+          showDraftsOnly ? 'text-purple-200' : 'text-purple-500'
         )} aria-hidden="true" />
-        <div className="min-w-0">
-          <div>
-            <span className={cn(
-              'text-base font-semibold',
-              showDraftsOnly ? 'text-white' : 'text-gray-900'
-            )}>
-              {draftCount} draft {draftCount === 1 ? 'story' : 'stories'}
-            </span>
-            <span className={cn(
-              'text-sm',
-              showDraftsOnly ? 'text-purple-200' : 'text-gray-600'
-            )}>
-              {' '}covering {totalActivities} {totalActivities === 1 ? 'activity' : 'activities'}
-              {timeSpan && (
-                <>
-                  <span className={showDraftsOnly ? 'text-purple-300 mx-1' : 'text-gray-400 mx-1'}>&middot;</span>
-                  {timeSpan}
-                </>
-              )}
-            </span>
-          </div>
-          {topTopics.length > 0 && (
-            <div className={cn(
-              'text-xs mt-0.5',
-              showDraftsOnly ? 'text-purple-200' : 'text-gray-500'
-            )}>
-              {topTopics.join(', ')}
-            </div>
-          )}
-        </div>
+        <span className={cn(
+          'text-sm font-medium',
+          showDraftsOnly ? 'text-white' : 'text-gray-800'
+        )}>
+          {showDraftsOnly
+            ? `Reviewing ${draftCount} draft ${draftCount === 1 ? 'story' : 'stories'}`
+            : `You have ${draftCount} ${draftCount === 1 ? 'story' : 'stories'} waiting to be polished`
+          }
+        </span>
       </div>
       <button
         onClick={onToggle}
         className={cn(
-          'text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0',
+          'text-sm font-medium flex-shrink-0 transition-colors',
           showDraftsOnly
-            ? 'text-purple-600 bg-white hover:bg-purple-50'
-            : 'text-white bg-purple-600 hover:bg-purple-700'
+            ? 'text-purple-200 hover:text-white'
+            : 'text-purple-600 hover:text-purple-800'
         )}
         aria-pressed={showDraftsOnly}
       >
-        {showDraftsOnly ? 'Show all' : 'Review drafts'}
+        {showDraftsOnly ? '← Show activities' : 'Review drafts →'}
       </button>
     </div>
   );
