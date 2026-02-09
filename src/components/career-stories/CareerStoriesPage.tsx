@@ -1042,6 +1042,12 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
+              {/* Educational banner */}
+              <div className="mb-2 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
+                <BookOpen className="h-4 w-4 text-primary-600 flex-shrink-0" />
+                <p className="text-sm text-primary-700">Turn your work into polished stories — ready for interviews, LinkedIn, or your next promotion packet.</p>
+              </div>
+
               {/* Loading state */}
               {(isLoadingClusters || isLoadingStories) && (
                 <div className="flex items-center justify-center py-12">
