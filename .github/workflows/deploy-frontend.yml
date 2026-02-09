@@ -46,46 +46,12 @@ jobs:
 
       - name: Update Web App container image
         run: |
-          echo "=== Current container config ==="
-          az webapp config container show \
-            --resource-group "${{ secrets.AZ_RG }}" \
-            --name "${{ secrets.FRONTEND_APPNAME }}" 2>/dev/null || echo "No current config"
-          echo "=== Setting new container image ==="
           az webapp config container set \
             --resource-group "${{ secrets.AZ_RG }}" \
             --name "${{ secrets.FRONTEND_APPNAME }}" \
             --container-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:latest"
-          echo "=== New container config ==="
-          az webapp config container show \
-            --resource-group "${{ secrets.AZ_RG }}" \
-            --name "${{ secrets.FRONTEND_APPNAME }}" 2>/dev/null || echo "Could not read config"
 
-      - name: Ensure app is running
+      - name: Set ports and restart
         run: |
-          echo "=== Current app state ==="
-          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
-          echo "=== Starting app ==="
-          az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
-          echo "=== App state after start ==="
-          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
-          echo "=== Restarting app ==="
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
-          echo "=== Final app state ==="
-          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
-          echo "=== Waiting 60s for container to boot ==="
-          sleep 60
-          echo "=== Container logs ==="
-          az webapp log download -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --log-file /tmp/webapp-logs.zip 2>&1 || echo "Log download failed"
-          if [ -f /tmp/webapp-logs.zip ]; then
-            cd /tmp && unzip -o webapp-logs.zip 2>/dev/null || true
-            echo "=== Docker logs ==="
-            cat /tmp/LogFiles/*docker*.log 2>/dev/null | tail -80 || echo "No docker logs found"
-            echo "=== App logs ==="
-            cat /tmp/LogFiles/Application/*.log 2>/dev/null | tail -40 || echo "No app logs found"
-            ls -la /tmp/LogFiles/ 2>/dev/null || echo "No log files dir"
-          fi
-          echo "=== Health check ==="
-          curl -sI --max-time 10 "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net" | head -5 || echo "Health check timed out"
-
-
