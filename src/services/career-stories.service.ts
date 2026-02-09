@@ -408,6 +408,11 @@ export class CareerStoriesService {
     return response.data;
   }
 
+  static async getPublishedStoryById(storyId: string) {
+    const response = await api.get(`/career-stories/published/${storyId}`);
+    return response.data;
+  }
+
   static async wizardAnalyze(journalEntryId: string): Promise<ApiResponse<WizardAnalyzeResponse>> {
     const response = await api.post<ApiResponse<WizardAnalyzeResponse>>(
       '/career-stories/wizard/analyze',

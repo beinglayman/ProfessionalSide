@@ -311,35 +311,44 @@ function StoryCard({ story }: { story: CareerStory }) {
   const firstSection = firstSectionKey ? story.sections[firstSectionKey] : null;
   const preview = firstSection?.summary ?? '';
 
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
-      <p className="text-sm font-medium text-gray-900">{story.title}</p>
+  const sourceCount = story.sources?.length ?? 0;
 
-      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
-          {story.framework}
-        </span>
-        {archetypeMeta && story.archetype && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary-50 text-primary-700 capitalize">
-            {story.archetype}
+  return (
+    <Link to={`/s/${story.id}`} className="block">
+      <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
+        <p className="text-sm font-medium text-gray-900">{story.title}</p>
+
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
+            {story.framework}
           </span>
+          {archetypeMeta && story.archetype && (
+            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary-50 text-primary-700 capitalize">
+              {story.archetype}
+            </span>
+          )}
+          {story.role && (
+            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-50 text-blue-700 capitalize">
+              {story.role}
+            </span>
+          )}
+          {sourceCount > 0 && (
+            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-50 text-green-700">
+              {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+
+        {preview && (
+          <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
         )}
-        {story.role && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-50 text-blue-700 capitalize">
-            {story.role}
-          </span>
+
+        {story.publishedAt && (
+          <p className="text-xs text-gray-400 mt-2">
+            Published {new Date(story.publishedAt).toLocaleDateString()}
+          </p>
         )}
       </div>
-
-      {preview && (
-        <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
-      )}
-
-      {story.publishedAt && (
-        <p className="text-xs text-gray-400 mt-2">
-          Published {new Date(story.publishedAt).toLocaleDateString()}
-        </p>
-      )}
-    </div>
+    </Link>
   );
 }

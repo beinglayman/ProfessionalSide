@@ -49,6 +49,15 @@ export function useFollowCounts(userId: string) {
   });
 }
 
+export function usePublishedStory(storyId: string) {
+  return useQuery({
+    queryKey: ['published-story', storyId],
+    queryFn: () => CareerStoriesService.getPublishedStoryById(storyId),
+    enabled: !!storyId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useToggleFollow(targetUserId: string) {
   const queryClient = useQueryClient();
 

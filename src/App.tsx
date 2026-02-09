@@ -30,6 +30,8 @@ import { MCPCallbackPage } from './pages/mcp/callback';
 import Format7DesignShowcase from './pages/format7-design-showcase';
 import { CareerStoriesPage } from './components/career-stories';
 
+const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
+
 export type NetworkType = 'organization' | 'global';
 
 // Protected Route component
@@ -195,6 +197,15 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <CareerStoriesPage />
             </ProtectedRoute>
+          }
+        />
+        {/* Public story permalink */}
+        <Route
+          path="/s/:storyId"
+          element={
+            <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>}>
+              <PublishedStoryPage />
+            </React.Suspense>
           }
         />
         {/* Legacy redirects */}

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS } from './constants';
+import { NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
 import { FormatChip } from './FormatChip';
 import { useStoryDerivations } from '../../hooks/useCareerStories';
 
@@ -175,6 +175,14 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
           <>
             <span className="text-gray-300">·</span>
             <span className="capitalize text-[11px]">{story.archetype}</span>
+          </>
+        )}
+        {story.category && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className="text-[11px]">
+              {BRAG_DOC_CATEGORIES.find(c => c.value === story.category)?.label || story.category}
+            </span>
           </>
         )}
         {story.groupingMethod && (
