@@ -968,19 +968,55 @@ export function CareerStoriesPage() {
                     </div>
                   </div>
 
-                  {/* Right: Promotion Packet + Toggle + Filter */}
+                  {/* Right: Promotion Packet + Saved Narratives + Filter */}
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {/* Build Narratives button */}
                     {allStories.length >= 2 && (
                       <Button
                         onClick={() => setShowPromotionPacket(true)}
-                        variant="outline"
                         size="sm"
-                        className="gap-1.5 text-purple-700 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:text-purple-800"
+                        className="gap-1.5"
                       >
                         <Briefcase className="w-3.5 h-3.5" />
                         Build Narratives
                       </Button>
+                    )}
+                    {/* Saved narratives dropdown */}
+                    {packets && packets.length > 0 && (
+                      <div className="relative">
+                        <Button
+                          onClick={() => setShowSavedPackets(!showSavedPackets)}
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          Saved
+                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-primary-100 text-primary-700">
+                            {packets.length}
+                          </span>
+                          <ChevronDown className={cn(
+                            'w-3 h-3 transition-transform duration-200',
+                            showSavedPackets && 'rotate-180'
+                          )} />
+                        </Button>
+                        {showSavedPackets && (
+                          <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[220px] max-w-[320px]">
+                            <div className="flex flex-col gap-1">
+                              {packets.map((p) => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => setViewPacket(p)}
+                                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-left"
+                                >
+                                  <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                  <span className="truncate">{p.text.slice(0, 40)}{p.text.length > 40 ? '...' : ''}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                     {/* Source filter dropdown */}
                     {availableSources.length > 1 && (
@@ -998,39 +1034,6 @@ export function CareerStoriesPage() {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              {/* Saved narratives accordion */}
-              {packets && packets.length > 0 && (
-                <div className="mb-2">
-                  <button
-                    onClick={() => setShowSavedPackets(!showSavedPackets)}
-                    className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors rounded-md hover:bg-purple-50"
-                  >
-                    <ChevronDown className={cn(
-                      'w-3.5 h-3.5 transition-transform duration-200',
-                      !showSavedPackets && '-rotate-90'
-                    )} />
-                    Saved Narratives
-                    <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-purple-100 text-purple-700">
-                      {packets.length}
-                    </span>
-                  </button>
-                  {showSavedPackets && (
-                    <div className="mt-1.5 pl-2 flex flex-wrap gap-1.5">
-                      {packets.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => setViewPacket(p)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-purple-600 bg-white border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors max-w-[220px]"
-                        >
-                          <Clock className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{p.text.slice(0, 30)}{p.text.length > 30 ? '...' : ''}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
