@@ -8,6 +8,104 @@ import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, TemporalBuc
 import { cn } from '../../lib/utils';
 import { useDropdown } from '../../hooks/useDropdown';
 import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES } from './activity-card-utils';
+import { BRAG_DOC_CATEGORIES } from '../career-stories/constants';
+import type { BragDocCategory } from '../../types/career-stories';
+import type { StoryMetadata } from '../../types/activity';
+
+// ---------------------------------------------------------------------------
+// Brag-doc category inference for draft stories
+// ---------------------------------------------------------------------------
+
+const CATEGORY_SIGNALS: Record<BragDocCategory, { keywords: string[]; sources: string[] }> = {
+  'projects-impact': {
+    keywords: [
+      'ship', 'launch', 'deploy', 'release', 'implement', 'build', 'feature',
+      'fix', 'bug', 'refactor', 'migration', 'performance', 'api', 'database',
+      'infrastructure', 'pipeline', 'ci', 'cd', 'test', 'architecture',
+      'pr', 'pull request', 'commit', 'merge', 'sprint', 'epic', 'ticket',
+    ],
+    sources: ['github', 'jira', 'linear', 'gitlab'],
+  },
+  'leadership': {
+    keywords: [
+      'mentor', 'coach', 'review', 'onboard', 'hire', 'interview', 'align',
+      'coordinate', 'delegate', 'lead', 'manage', 'cross-team', 'sync',
+      'standup', 'retro', 'planning', 'roadmap', '1:1', 'one-on-one',
+      'feedback', 'decision', 'strategy', 'meeting', 'facilitat',
+    ],
+    sources: ['slack', 'teams', 'outlook', 'google-calendar', 'google-meet'],
+  },
+  'growth': {
+    keywords: [
+      'learn', 'course', 'certif', 'training', 'study', 'research',
+      'experiment', 'prototype', 'poc', 'spike', 'explore', 'new skill',
+      'deep dive', 'reading', 'workshop', 'conference',
+    ],
+    sources: [],
+  },
+  'external': {
+    keywords: [
+      'blog', 'talk', 'present', 'open source', 'oss', 'community',
+      'conference', 'meetup', 'publish', 'article', 'post', 'speak',
+      'podcast', 'demo day', 'hackathon', 'contribution',
+    ],
+    sources: [],
+  },
+};
+
+/**
+ * Infer a brag-doc category for a draft story from its metadata and activities.
+ * Uses keyword matching against title, topics, skills, and activity sources.
+ * Falls back to 'projects-impact' (the most common category).
+ */
+function inferBragDocCategory(
+  meta: StoryMetadata | undefined,
+  activities: Activity[],
+): BragDocCategory {
+  if (!meta) return 'projects-impact';
+
+  // Build a single searchable string from all text signals
+  const textParts = [
+    meta.title,
+    meta.description,
+    ...(meta.topics || []),
+    ...(meta.skills || []),
+    ...(meta.impactHighlights || []),
+  ].filter(Boolean);
+  const text = textParts.join(' ').toLowerCase();
+
+  // Count activity sources
+  const sourceCounts = new Map<string, number>();
+  for (const a of activities) {
+    sourceCounts.set(a.source, (sourceCounts.get(a.source) || 0) + 1);
+  }
+
+  // Score each category
+  let bestCategory: BragDocCategory = 'projects-impact';
+  let bestScore = 0;
+
+  for (const [category, signals] of Object.entries(CATEGORY_SIGNALS) as [BragDocCategory, typeof CATEGORY_SIGNALS[BragDocCategory]][]) {
+    let score = 0;
+
+    // Keyword matches (1 point each)
+    for (const kw of signals.keywords) {
+      if (text.includes(kw)) score += 1;
+    }
+
+    // Source matches (2 points each, weighted higher — strong signal)
+    for (const src of signals.sources) {
+      const count = sourceCounts.get(src) || 0;
+      if (count > 0) score += 2;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestCategory = category;
+    }
+  }
+
+  return bestCategory;
+}
 
 interface ActivityStreamProps {
   groups: ActivityGroup[];
@@ -270,6 +368,42 @@ export function ActivityStream({
     return map;
   }, [storyGroups, groups]);
 
+  // Group storyGroups (drafts) by brag doc category for the drafts-only view.
+  // Uses the LLM-assigned category if present, otherwise infers from content signals.
+  const draftsByCategory = useMemo(() => {
+    if (storyGroups.length === 0) return [];
+
+    const knownCatValues = new Set<string>(BRAG_DOC_CATEGORIES.map(c => c.value));
+    const catMap = new Map<string, ActivityGroup[]>();
+    for (const draft of storyGroups) {
+      const raw = draft.storyMetadata?.category;
+      // Use LLM-assigned category if it's a valid brag doc value, otherwise infer
+      const cat = raw && knownCatValues.has(raw)
+        ? raw
+        : inferBragDocCategory(draft.storyMetadata, draft.activities);
+      if (!catMap.has(cat)) catMap.set(cat, []);
+      catMap.get(cat)!.push(draft);
+    }
+    // Sort within each category: newest first by timeRangeEnd (or createdAt)
+    for (const drafts of catMap.values()) {
+      drafts.sort((a, b) => {
+        const aTime = a.storyMetadata?.timeRangeEnd || a.storyMetadata?.createdAt || '';
+        const bTime = b.storyMetadata?.timeRangeEnd || b.storyMetadata?.createdAt || '';
+        return bTime.localeCompare(aTime);
+      });
+    }
+
+    // Build ordered list following BRAG_DOC_CATEGORIES order
+    const result: { label: string; description: string; drafts: ActivityGroup[] }[] = [];
+    for (const cat of BRAG_DOC_CATEGORIES) {
+      const drafts = catMap.get(cat.value);
+      if (drafts && drafts.length > 0) {
+        result.push({ label: cat.label, description: cat.description, drafts });
+      }
+    }
+    return result;
+  }, [storyGroups]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -443,23 +577,62 @@ export function ActivityStream({
 
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
-        {/* Activities view — raw activities only, no inline drafts */}
-        {filteredGroups.map((group, idx) => (
-          <ActivityGroupSection
-            key={group.key}
-            group={group}
-            isCollapsed={isGroupCollapsed(group.key)}
-            onToggle={() => toggleGroup(group.key)}
-            onPromoteToCareerStory={onPromoteToCareerStory}
-            onRegenerateNarrative={onRegenerateNarrative}
-            regeneratingEntryId={regeneratingEntryId}
-            onDeleteEntry={onDeleteEntry}
-            isEnhancingNarratives={isEnhancingNarratives}
-            pendingEnhancementIds={pendingEnhancementIds}
-            showDraftsOnly={false}
-            isLast={idx === filteredGroups.length - 1}
-          />
-        ))}
+        {showDraftsOnly ? (
+          /* Drafts-only: stories grouped by inferred brag doc category */
+          <div className="space-y-6">
+            {draftsByCategory.map((catGroup) => (
+              <div key={catGroup.label}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xs font-bold text-gray-600">{catGroup.label}</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                    {catGroup.drafts.length}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">{catGroup.description}</p>
+                <div className="space-y-2">
+                  {catGroup.drafts.map(draft => (
+                    <InlineDraftCard
+                      key={draft.key}
+                      group={draft}
+                      onPromoteToCareerStory={onPromoteToCareerStory}
+                      onRegenerateNarrative={onRegenerateNarrative}
+                      regeneratingEntryId={regeneratingEntryId}
+                      onDeleteEntry={onDeleteEntry}
+                      isEnhancingNarratives={isEnhancingNarratives}
+                      pendingEnhancementIds={pendingEnhancementIds}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+            {draftsByCategory.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500">No draft stories yet</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Normal: temporal groups — raw activities only, no inline drafts */
+          <>
+            {filteredGroups.map((group, idx) => (
+              <ActivityGroupSection
+                key={group.key}
+                group={group}
+                isCollapsed={isGroupCollapsed(group.key)}
+                onToggle={() => toggleGroup(group.key)}
+                onPromoteToCareerStory={onPromoteToCareerStory}
+                onRegenerateNarrative={onRegenerateNarrative}
+                regeneratingEntryId={regeneratingEntryId}
+                onDeleteEntry={onDeleteEntry}
+                isEnhancingNarratives={isEnhancingNarratives}
+                pendingEnhancementIds={pendingEnhancementIds}
+                showDraftsOnly={false}
+                isLast={idx === filteredGroups.length - 1}
+              />
+            ))}
+          </>
+        )}
 
         {/* Spacer to allow bottom items to scroll to top position */}
         <div className="h-[50vh]" aria-hidden="true" />
