@@ -33,9 +33,24 @@
 }
 
 .ai-moving-border {
-  background:
-    linear-gradient(white, white) padding-box,
-    conic-gradient(from var(--border-angle), #7c3aed, #a855f7, #c084fc, #e9d5ff, #c084fc, #a855f7, #7c3aed) border-box;
-  animation: rotate-gradient 3s linear infinite;
+  position: relative;
+  border-color: transparent !important;
   box-shadow: 0 0 15px -3px rgba(124, 58, 237, 0.3);
+}
+
+.ai-moving-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px; /* matches border-2 width */
+  background: conic-gradient(from var(--border-angle), #7c3aed, #a855f7, #c084fc, #e9d5ff, #c084fc, #a855f7, #7c3aed);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: rotate-gradient 3s linear infinite;
+  pointer-events: none;
+  z-index: 0;
 }
