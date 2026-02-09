@@ -601,31 +601,6 @@ export function ActivityStream({
         {showDraftsOnly ? (
           /* Drafts-only: Category / Timeline sub-toggle + grouped draft cards */
           <div className="space-y-4">
-            {/* Sub-view toggle */}
-            <div className="flex items-center justify-end">
-              <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
-                {([
-                  { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
-                  { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
-                ]).map(({ key, label, Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setDraftsSubView(key)}
-                    aria-pressed={draftsSubView === key}
-                    className={cn(
-                      'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition-colors',
-                      draftsSubView === key
-                        ? 'bg-white shadow-sm border text-primary-700'
-                        : 'text-gray-500 hover:text-gray-700',
-                    )}
-                  >
-                    <Icon className="w-3 h-3" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {draftsSubView === 'category' ? (
               /* Category sub-view */
               <div className="space-y-6">
