@@ -443,37 +443,23 @@ export function ActivityStream({
 
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
-        {(() => {
-          // Pre-filter to know which groups are visible (for isLast)
-          const visibleGroups = filteredGroups.filter(group => {
-            if (showDraftsOnly) {
-              const drafts = draftsByBucket.get(group.key);
-              return drafts && drafts.length > 0;
-            }
-            return true;
-          });
-
-          return visibleGroups.map((group, idx) => {
-            const drafts = draftsByBucket.get(group.key);
-            return (
-              <ActivityGroupSection
-                key={group.key}
-                group={group}
-                isCollapsed={isGroupCollapsed(group.key)}
-                onToggle={() => toggleGroup(group.key)}
-                inlineDrafts={drafts}
-                onPromoteToCareerStory={onPromoteToCareerStory}
-                onRegenerateNarrative={onRegenerateNarrative}
-                regeneratingEntryId={regeneratingEntryId}
-                onDeleteEntry={onDeleteEntry}
-                isEnhancingNarratives={isEnhancingNarratives}
-                pendingEnhancementIds={pendingEnhancementIds}
-                showDraftsOnly={showDraftsOnly}
-                isLast={idx === visibleGroups.length - 1}
-              />
-            );
-          });
-        })()}
+        {/* Activities view — raw activities only, no inline drafts */}
+        {filteredGroups.map((group, idx) => (
+          <ActivityGroupSection
+            key={group.key}
+            group={group}
+            isCollapsed={isGroupCollapsed(group.key)}
+            onToggle={() => toggleGroup(group.key)}
+            onPromoteToCareerStory={onPromoteToCareerStory}
+            onRegenerateNarrative={onRegenerateNarrative}
+            regeneratingEntryId={regeneratingEntryId}
+            onDeleteEntry={onDeleteEntry}
+            isEnhancingNarratives={isEnhancingNarratives}
+            pendingEnhancementIds={pendingEnhancementIds}
+            showDraftsOnly={false}
+            isLast={idx === filteredGroups.length - 1}
+          />
+        ))}
 
         {/* Spacer to allow bottom items to scroll to top position */}
         <div className="h-[50vh]" aria-hidden="true" />
