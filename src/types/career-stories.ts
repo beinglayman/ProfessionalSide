@@ -407,13 +407,20 @@ export interface DeriveStoryResponse {
 }
 
 // =============================================================================
-// PROMOTION PACKET (Multi-Story Derivation)
+// MULTI-STORY PACKET (Promotion, Annual Review, Skip-Level, Portfolio Brief)
 // =============================================================================
+
+export type PacketType = 'promotion' | 'annual-review' | 'skip-level' | 'portfolio-brief' | 'self-assessment' | 'one-on-one';
 
 export interface DerivePacketRequest {
   storyIds: string[];
+  packetType?: PacketType;
   tone?: WritingStyle;
   customPrompt?: string;
+  dateRange?: {
+    startDate: string;
+    endDate: string;
+  };
 }
 
 export interface DerivePacketResponse {

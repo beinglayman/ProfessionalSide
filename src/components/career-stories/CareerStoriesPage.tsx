@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, FileText, X, Sparkles, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Briefcase, CheckCircle2, ChevronDown, ChevronRight, X, Sparkles, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
@@ -938,10 +938,10 @@ export function CareerStoriesPage() {
                       <button
                         onClick={() => setShowPromotionPacket(true)}
                         className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors"
-                        title="Build Promotion Packet"
+                        title="Build a document from multiple stories"
                       >
-                        <FileText className="w-3 h-3" />
-                        Promotion Packet
+                        <Briefcase className="w-3 h-3" />
+                        Build Packet
                       </button>
                     )}
                   </div>
