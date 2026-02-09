@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, Sparkles, MoreHorizontal, SlidersHorizontal, LayoutGrid } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { StoryGroupHeader } from './story-group-header';
 import { getSourceIcon } from './source-icons';
@@ -9,6 +9,7 @@ import { cn } from '../../lib/utils';
 import { useDropdown } from '../../hooks/useDropdown';
 import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES } from './activity-card-utils';
 import { BRAG_DOC_CATEGORIES } from '../career-stories/constants';
+import { getQuarter } from '../../utils/story-timeline';
 import type { BragDocCategory } from '../../types/career-stories';
 import type { StoryMetadata } from '../../types/activity';
 
@@ -143,6 +144,7 @@ export function ActivityStream({
   const [selectedSources, setSelectedSources] = useState<ActivitySource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDraftsOnly, setShowDraftsOnly] = useState(false);
+  const [draftsSubView, setDraftsSubView] = useState<'category' | 'timeline'>('category');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Global expand/collapse state - track which groups are collapsed.
@@ -404,6 +406,31 @@ export function ActivityStream({
     return result;
   }, [storyGroups]);
 
+  // Group storyGroups (drafts) by quarter for the drafts timeline sub-view.
+  const draftsByQuarter = useMemo(() => {
+    if (storyGroups.length === 0) return [];
+
+    const qMap = new Map<string, { label: string; sortKey: number; drafts: ActivityGroup[] }>();
+    for (const draft of storyGroups) {
+      const dateStr = draft.storyMetadata?.timeRangeEnd || draft.storyMetadata?.timeRangeStart || draft.storyMetadata?.createdAt;
+      const date = dateStr ? new Date(dateStr) : new Date();
+      const { label, sortKey } = getQuarter(date);
+      if (!qMap.has(label)) qMap.set(label, { label, sortKey, drafts: [] });
+      qMap.get(label)!.drafts.push(draft);
+    }
+
+    const result = Array.from(qMap.values());
+    result.sort((a, b) => b.sortKey - a.sortKey);
+    for (const g of result) {
+      g.drafts.sort((a, b) => {
+        const aTime = a.storyMetadata?.timeRangeEnd || a.storyMetadata?.createdAt || '';
+        const bTime = b.storyMetadata?.timeRangeEnd || b.storyMetadata?.createdAt || '';
+        return bTime.localeCompare(aTime);
+      });
+    }
+    return result;
+  }, [storyGroups]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -578,37 +605,101 @@ export function ActivityStream({
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
         {showDraftsOnly ? (
-          /* Drafts-only: stories grouped by inferred brag doc category */
-          <div className="space-y-6">
-            {draftsByCategory.map((catGroup) => (
-              <div key={catGroup.label}>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-xs font-bold text-gray-600">{catGroup.label}</span>
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
-                    {catGroup.drafts.length}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mb-2">{catGroup.description}</p>
-                <div className="space-y-2">
-                  {catGroup.drafts.map(draft => (
-                    <InlineDraftCard
-                      key={draft.key}
-                      group={draft}
-                      onPromoteToCareerStory={onPromoteToCareerStory}
-                      onRegenerateNarrative={onRegenerateNarrative}
-                      regeneratingEntryId={regeneratingEntryId}
-                      onDeleteEntry={onDeleteEntry}
-                      isEnhancingNarratives={isEnhancingNarratives}
-                      pendingEnhancementIds={pendingEnhancementIds}
-                    />
-                  ))}
-                </div>
+          /* Drafts-only: Category / Timeline sub-toggle + grouped draft cards */
+          <div className="space-y-4">
+            {/* Sub-view toggle */}
+            <div className="flex items-center justify-end">
+              <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
+                {([
+                  { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
+                  { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
+                ]).map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setDraftsSubView(key)}
+                    aria-pressed={draftsSubView === key}
+                    className={cn(
+                      'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition-colors',
+                      draftsSubView === key
+                        ? 'bg-white shadow-sm border text-primary-700'
+                        : 'text-gray-500 hover:text-gray-700',
+                    )}
+                  >
+                    <Icon className="w-3 h-3" />
+                    {label}
+                  </button>
+                ))}
               </div>
-            ))}
-            {draftsByCategory.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-500">No draft stories yet</p>
+            </div>
+
+            {draftsSubView === 'category' ? (
+              /* Category sub-view */
+              <div className="space-y-6">
+                {draftsByCategory.map((catGroup) => (
+                  <div key={catGroup.label}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs font-bold text-gray-600">{catGroup.label}</span>
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                        {catGroup.drafts.length}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">{catGroup.description}</p>
+                    <div className="space-y-2">
+                      {catGroup.drafts.map(draft => (
+                        <InlineDraftCard
+                          key={draft.key}
+                          group={draft}
+                          onPromoteToCareerStory={onPromoteToCareerStory}
+                          onRegenerateNarrative={onRegenerateNarrative}
+                          regeneratingEntryId={regeneratingEntryId}
+                          onDeleteEntry={onDeleteEntry}
+                          isEnhancingNarratives={isEnhancingNarratives}
+                          pendingEnhancementIds={pendingEnhancementIds}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {draftsByCategory.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500">No draft stories yet</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Timeline sub-view — drafts grouped by quarter */
+              <div className="space-y-6">
+                {draftsByQuarter.map((qGroup) => (
+                  <div key={qGroup.label}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs font-bold text-gray-600">{qGroup.label}</span>
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                        {qGroup.drafts.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {qGroup.drafts.map(draft => (
+                        <InlineDraftCard
+                          key={draft.key}
+                          group={draft}
+                          onPromoteToCareerStory={onPromoteToCareerStory}
+                          onRegenerateNarrative={onRegenerateNarrative}
+                          regeneratingEntryId={regeneratingEntryId}
+                          onDeleteEntry={onDeleteEntry}
+                          isEnhancingNarratives={isEnhancingNarratives}
+                          pendingEnhancementIds={pendingEnhancementIds}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {draftsByQuarter.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500">No draft stories yet</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
