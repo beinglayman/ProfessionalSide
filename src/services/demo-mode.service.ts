@@ -112,9 +112,9 @@ export function clearDemoSyncStatus(): void {
 export type DemoDataset = 'v1' | 'v2';
 
 export function getDemoDataset(): DemoDataset {
-  if (isServerSide()) return 'v1';
+  if (isServerSide()) return 'v2';
   const value = localStorage.getItem(DEMO_DATASET_KEY);
-  return value === 'v2' ? 'v2' : 'v1';
+  return value === 'v1' ? 'v1' : 'v2';
 }
 
 export function setDemoDataset(dataset: DemoDataset): void {
