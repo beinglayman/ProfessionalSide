@@ -168,11 +168,23 @@ export const deriveStorySchema = z.object({
 
 export type DeriveStoryInput = z.infer<typeof deriveStorySchema>;
 
+export const packetTypeSchema = z.enum([
+  'promotion',
+  'annual-review',
+  'skip-level',
+  'portfolio-brief',
+  'self-assessment',
+  'one-on-one',
+]);
+
+export type PacketType = z.infer<typeof packetTypeSchema>;
+
 /**
- * Schema for POST /derive-packet request body (multi-story promotion packet)
+ * Schema for POST /derive-packet request body (multi-story packet)
  */
 export const derivePacketSchema = z.object({
   storyIds: z.array(z.string().min(1)).min(2).max(10),
+  packetType: packetTypeSchema.default('promotion'),
   tone: writingStyleSchema.optional(),
   customPrompt: z
     .string()
@@ -183,6 +195,10 @@ export const derivePacketSchema = z.object({
       const trimmed = val.trim();
       return trimmed.length === 0 ? undefined : trimmed;
     }),
+  dateRange: z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, 'Expected YYYY-MM or YYYY-MM-DD'),
+    endDate: z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, 'Expected YYYY-MM or YYYY-MM-DD'),
+  }).optional(),
 }).strict();
 
 export type DerivePacketInput = z.infer<typeof derivePacketSchema>;

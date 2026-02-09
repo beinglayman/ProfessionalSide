@@ -12,7 +12,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
-import type { DerivationType } from '../../../controllers/career-stories.schemas';
+import type { DerivationType, PacketType } from '../../../controllers/career-stories.schemas';
 import type { StoryArchetype, WritingStyle } from './career-story.prompt';
 
 // =============================================================================
@@ -66,6 +66,7 @@ export interface PacketStoryInput {
 }
 
 export interface PacketPromptParams {
+  packetType?: PacketType;
   tone?: WritingStyle;
   customPrompt?: string;
 }
@@ -77,12 +78,25 @@ export interface PacketPromptParams {
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
 let systemTemplate: string;
-let packetTemplate: Handlebars.TemplateDelegate;
 const DERIVATION_TEMPLATES: Record<string, Handlebars.TemplateDelegate> = {};
+const PACKET_TEMPLATES: Record<string, Handlebars.TemplateDelegate> = {};
 
 const DERIVATION_TYPES: DerivationType[] = [
   'interview', 'linkedin', 'resume', 'one-on-one', 'self-assessment', 'team-share',
 ];
+
+const PACKET_TYPES: PacketType[] = [
+  'promotion', 'annual-review', 'skip-level', 'portfolio-brief', 'self-assessment', 'one-on-one',
+];
+
+const PACKET_TEMPLATE_FILES: Record<PacketType, string> = {
+  'promotion': 'derivation-promotion-packet.prompt.md',
+  'annual-review': 'derivation-annual-review.prompt.md',
+  'skip-level': 'derivation-skip-level.prompt.md',
+  'portfolio-brief': 'derivation-portfolio-brief.prompt.md',
+  'self-assessment': 'derivation-packet-self-assessment.prompt.md',
+  'one-on-one': 'derivation-packet-one-on-one.prompt.md',
+};
 
 try {
   systemTemplate = readFileSync(join(TEMPLATES_DIR, 'derivation-system.prompt.md'), 'utf-8');
@@ -92,8 +106,10 @@ try {
     DERIVATION_TEMPLATES[type] = Handlebars.compile(raw);
   }
 
-  const packetRaw = readFileSync(join(TEMPLATES_DIR, 'derivation-promotion-packet.prompt.md'), 'utf-8');
-  packetTemplate = Handlebars.compile(packetRaw);
+  for (const type of PACKET_TYPES) {
+    const raw = readFileSync(join(TEMPLATES_DIR, PACKET_TEMPLATE_FILES[type]), 'utf-8');
+    PACKET_TEMPLATES[type] = Handlebars.compile(raw);
+  }
 } catch (error) {
   console.warn('Failed to load derivation prompt templates:', (error as Error).message);
   systemTemplate = 'You are a career communication specialist. Rewrite the story for the specified audience. Return only the derived text.';
@@ -102,9 +118,12 @@ try {
       `Rewrite this story as a {{derivationType}} format.\nTitle: {{title}}\n{{#each sections}}{{@key}}: {{this.summary}}\n{{/each}}`
     );
   }
-  packetTemplate = Handlebars.compile(
-    `Generate a promotion packet from these stories.\n{{#each stories}}Title: {{this.title}}\n{{#each this.sections}}{{@key}}: {{this.summary}}\n{{/each}}\n---\n{{/each}}`
+  const fallbackPacket = Handlebars.compile(
+    `Generate a document from these stories.\n{{#each stories}}Title: {{this.title}}\n{{#each this.sections}}{{@key}}: {{this.summary}}\n{{/each}}\n---\n{{/each}}`
   );
+  for (const type of PACKET_TYPES) {
+    PACKET_TEMPLATES[type] = fallbackPacket;
+  }
 }
 
 // =============================================================================
@@ -155,13 +174,17 @@ export function buildDerivationMessages(
 // =============================================================================
 
 /**
- * Build chat messages for a promotion packet (multi-story derivation).
+ * Build chat messages for a multi-story packet derivation.
+ * Selects the appropriate template based on packetType.
  */
 export function buildPacketMessages(
   stories: PacketStoryInput[],
   params: PacketPromptParams,
 ): ChatCompletionMessageParam[] {
-  const userContent = packetTemplate({
+  const packetType = params.packetType || 'promotion';
+  const template = PACKET_TEMPLATES[packetType];
+
+  const userContent = template({
     stories,
     tone: params.tone || undefined,
     customPrompt: params.customPrompt || undefined,
