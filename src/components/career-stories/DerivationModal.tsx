@@ -10,6 +10,7 @@ import { Copy, Check, RefreshCw, Loader2, PenLine, Sparkles, ChevronDown, Clock 
 import { cn } from '../../lib/utils';
 import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse, StoryDerivation } from '../../types/career-stories';
 import { useDeriveStory, useStoryDerivations } from '../../hooks/useCareerStories';
+import { useFeatureCosts, useWalletBalance } from '../../hooks/useBilling';
 import { DerivationPreview } from './DerivationPreview';
 import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH, DERIVATION_TYPE_META } from './constants';
 import { Button } from '../ui/button';
@@ -68,6 +69,10 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
 
   const deriveMutation = useDeriveStory();
   const { data: savedDerivations } = useStoryDerivations(isOpen ? story.id : undefined);
+  const { data: featureCosts } = useFeatureCosts();
+  const { data: walletTotal } = useWalletBalance();
+  const deriveCost = featureCosts?.find(f => f.featureCode === 'derive_story')?.creditCost ?? 1;
+  const canAfford = walletTotal !== undefined ? walletTotal >= deriveCost : true;
 
   // Group saved derivations by type
   const savedByType = useMemo(() => {
@@ -384,7 +389,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
                   {isGenerating ? (
                     <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
                   ) : viewingSaved ? (
-                    'New version (1 credit)'
+                    `New version (${deriveCost} credit${deriveCost !== 1 ? 's' : ''})`
                   ) : (
                     <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Try again</>
                   )}
@@ -405,12 +410,15 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
               <Button
                 size="sm"
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || !canAfford}
+                title={!canAfford ? 'Insufficient credits' : undefined}
               >
                 {isGenerating ? (
                   <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
+                ) : !canAfford ? (
+                  `Not enough credits (need ${deriveCost})`
                 ) : (
-                  'Generate (1 credit)'
+                  `Generate (${deriveCost} credit${deriveCost !== 1 ? 's' : ''})`
                 )}
               </Button>
             )}
