@@ -92,6 +92,7 @@ export interface CareerStoryOutput {
   sections: Record<string, CareerStorySection>;
   title: string;
   reasoning: string;
+  category?: string;
 }
 
 // =============================================================================
@@ -295,10 +296,13 @@ export function parseCareerStoryResponse(content: string): CareerStoryOutput | n
       return null;
     }
 
+    const VALID_CATEGORIES = ['projects-impact', 'leadership', 'growth', 'external'];
+
     return {
       sections: parsed.sections,
       title: parsed.title || 'Career Story',
       reasoning: parsed.reasoning || '',
+      category: VALID_CATEGORIES.includes(parsed.category) ? parsed.category : undefined,
     };
   } catch (error) {
     console.error('Failed to parse career story response:', error);

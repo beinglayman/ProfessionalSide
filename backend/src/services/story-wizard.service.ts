@@ -502,7 +502,7 @@ export class StoryWizardService {
     };
 
     // Generate via LLM with archetype + context
-    const sections = await this.generateSections(journalEntryContent, framework, archetype, extractedContext);
+    const { sections, category } = await this.generateSections(journalEntryContent, framework, archetype, extractedContext);
 
     // Build hook
     const hook = extractedContext.realStory?.slice(0, 200)
@@ -528,6 +528,7 @@ export class StoryWizardService {
         isPublished: false,
         archetype: archetype || null,
         journalEntryId: journalEntryId || null,
+        category: category || null,
       },
     });
 
@@ -741,10 +742,10 @@ export class StoryWizardService {
     framework: FrameworkName,
     archetype: StoryArchetype,
     extractedContext: ExtractedContext
-  ): Promise<Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }>> {
+  ): Promise<{ sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }>; category?: string }> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
-      return this.buildFallbackSections(framework, journalEntry);
+      return { sections: this.buildFallbackSections(framework, journalEntry) };
     }
 
     // Use updated buildCareerStoryMessages with archetype + context
@@ -762,7 +763,7 @@ export class StoryWizardService {
       });
 
       const parsed = parseCareerStoryResponse(result.content);
-      if (!parsed) return this.buildFallbackSections(framework, journalEntry);
+      if (!parsed) return { sections: this.buildFallbackSections(framework, journalEntry) };
 
       const sectionKeys = FRAMEWORK_SECTIONS[framework as PromptFrameworkName] || [];
       const sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }> = {};
@@ -775,10 +776,10 @@ export class StoryWizardService {
         };
       }
 
-      return sections;
+      return { sections, category: parsed.category };
     } catch (error) {
       console.error('Story generation failed:', error);
-      return this.buildFallbackSections(framework, journalEntry);
+      return { sections: this.buildFallbackSections(framework, journalEntry) };
     }
   }
 

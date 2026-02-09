@@ -49,6 +49,7 @@ import {
   setStoryVisibility,
   // Profile: Published Stories
   getPublishedStories,
+  getPublishedStoryById,
   // Story Sources
   addStorySource,
   updateStorySource,
@@ -63,11 +64,14 @@ import {
   analyzeEntry,
   generateStory,
 } from '../controllers/story-wizard.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, optionalAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// All career-stories routes require authentication
+// Public: story permalink (before authenticate middleware)
+router.get('/published/:storyId', optionalAuth, getPublishedStoryById);
+
+// All remaining career-stories routes require authentication
 router.use(authenticate);
 
 // ============================================================================

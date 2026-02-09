@@ -1458,9 +1458,63 @@ export const getPublishedStories = asyncHandler(async (req: Request, res: Respon
   const service = createStoryPublishingService(isDemoMode);
   const result = await service.getPublishedStories(profileUserId, viewerId, isWorkspaceMember);
 
+  // Enrich each story with sources (filtered for public view)
+  const enrichedStories = await Promise.all(
+    result.stories.map(async (story: any) => {
+      const enriched = await enrichStoryWithSources(story);
+      const publicSources = (enriched.sources || []).filter(
+        (s: any) => !s.excludedAt && s.sourceType !== 'wizard_answer'
+      );
+      return { ...enriched, sources: publicSources };
+    })
+  );
+
   sendSuccess(res, {
-    stories: result.stories,
+    stories: enrichedStories,
     totalCount: result.totalCount,
     viewerAccess: result.viewerAccess,
+  });
+});
+
+/**
+ * GET /api/v1/career-stories/published/:storyId
+ * Public permalink for a single published story.
+ * Uses optionalAuth — works for anonymous visitors.
+ */
+export const getPublishedStoryById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { storyId } = req.params;
+  const viewerId = req.user?.id || null;
+
+  const story = await prisma.careerStory.findFirst({
+    where: { id: storyId, isPublished: true },
+  });
+
+  if (!story) {
+    sendError(res, 'Story not found', 404);
+    return;
+  }
+
+  // Enforce visibility
+  if (story.visibility === 'private' && story.userId !== viewerId) {
+    sendError(res, 'Story not found', 404);
+    return;
+  }
+  // TODO: workspace check for 'workspace' visibility
+
+  // Enrich with sources (filtered for public view)
+  const enriched = await enrichStoryWithSources(story as any);
+  const publicSources = (enriched.sources || []).filter(
+    (s: any) => !s.excludedAt && s.sourceType !== 'wizard_answer'
+  );
+
+  // Fetch author info
+  const author = await prisma.user.findUnique({
+    where: { id: story.userId },
+    select: { id: true, name: true, title: true, company: true, avatar: true },
+  });
+
+  sendSuccess(res, {
+    story: { ...enriched, sources: publicSources },
+    author,
   });
 });

@@ -424,7 +424,7 @@ export class CareerStoryService {
     activityIds: string[],
     style?: WritingStyle,
     userPrompt?: string
-  ): Promise<NarrativeSections | null> {
+  ): Promise<{ sections: NarrativeSections; category?: string } | null> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
       console.warn('LLM not available for career story generation');
@@ -510,7 +510,7 @@ export class CareerStoryService {
       }
 
       console.log(`✅ Generated ${framework} career story via LLM: "${parsed.title}"`);
-      return sections;
+      return { sections, category: parsed.category };
     } catch (error) {
       console.error('Failed to generate career story with LLM:', error);
       return null;
@@ -821,18 +821,21 @@ export class CareerStoryService {
       category: entry.category,
     };
 
+    let category: string | undefined;
+
     if (this.hasRichJournalContent(journalContent)) {
       // Primary: Use LLM to transform journal content into framework-specific sections
       // This produces interview-ready narratives that emphasize contributions and impact
-      const llmSections = await this.generateSectionsWithLLM(
+      const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         useFramework,
         entry.title || 'Career Story',
         entry.activityIds
       );
 
-      if (llmSections) {
-        sections = llmSections;
+      if (llmResult) {
+        sections = llmResult.sections;
+        category = llmResult.category;
       } else {
         // Fallback to pattern-based extraction if LLM unavailable
         sections = this.buildSectionsFromJournalContent(
@@ -868,6 +871,7 @@ export class CareerStoryService {
         visibility: 'private',
         isPublished: false,
         journalEntryId: entryId,
+        category: category || null,
       },
     });
 
@@ -1159,6 +1163,7 @@ export class CareerStoryService {
     }
 
     let sections: NarrativeSections;
+    let category: string | undefined;
 
     // Primary path: Use LLM with journal content
     if (journalEntry?.fullContent || journalEntry?.format7Data) {
@@ -1169,7 +1174,7 @@ export class CareerStoryService {
         category: journalEntry.category,
       };
 
-      const llmSections = await this.generateSectionsWithLLM(
+      const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         nextFramework,
         journalEntry.title || story.title,
@@ -1178,8 +1183,9 @@ export class CareerStoryService {
         userPrompt
       );
 
-      if (llmSections) {
-        sections = llmSections;
+      if (llmResult) {
+        sections = llmResult.sections;
+        category = llmResult.category;
       } else {
         // LLM failed, use pattern-based extraction
         sections = this.buildSectionsFromJournalContent(
@@ -1212,6 +1218,7 @@ export class CareerStoryService {
         needsRegeneration: false,
         generatedAt: new Date(),
         ...(archetype ? { archetype } : {}),
+        ...(category ? { category } : {}),
       },
     });
 

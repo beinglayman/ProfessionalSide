@@ -58,6 +58,14 @@ The user has provided the following specific instructions for this regeneration.
 Generate sections for the {{framework}} framework:
 {{sectionsList}}
 
+## Category Classification
+
+Classify this story into ONE category based on its primary theme:
+- **projects-impact**: Shipped a feature, fixed a bug, built a system, optimized performance
+- **leadership**: Mentored someone, led a team, aligned stakeholders, hired, drove process change
+- **growth**: Learned a new skill, explored a new domain, completed training, adopted new tools
+- **external**: Gave a talk, wrote a blog post, contributed to open source, organized community events
+
 ## Required JSON Output Schema
 
 Return a JSON object with these EXACT fields:
@@ -77,7 +85,8 @@ Return a JSON object with these EXACT fields:
     {{/each}}
   },
   "title": "Compelling title for this career story (max 60 chars)",
-  "reasoning": "Brief explanation of how content was mapped to {{framework}} sections"
+  "reasoning": "Brief explanation of how content was mapped to {{framework}} sections",
+  "category": "one of: projects-impact, leadership, growth, external"
 }
 
 ## Section Guidelines
