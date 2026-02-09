@@ -55,6 +55,9 @@ import {
   // Story Derivations
   deriveStory,
   derivePacket,
+  listStoryDerivations,
+  listDerivationsByKind,
+  deleteDerivation,
 } from '../controllers/career-stories.controller';
 import {
   analyzeEntry,
@@ -133,6 +136,9 @@ router.patch('/stories/:storyId/sources/:sourceId', updateStorySource);
 // ============================================================================
 router.post('/stories/:storyId/derive', deriveStory);
 router.post('/derive-packet', derivePacket);
+router.get('/stories/:storyId/derivations', listStoryDerivations);
+router.get('/derivations', listDerivationsByKind);
+router.delete('/derivations/:id', deleteDerivation);
 
 // ============================================================================
 // STORY PUBLISHING (Demo Mode - legacy routes for backward compatibility)

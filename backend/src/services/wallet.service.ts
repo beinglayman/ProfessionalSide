@@ -10,8 +10,12 @@ export class WalletService {
     });
 
     if (!wallet) {
+      // New users get free plan credits (5) to start
+      const freePlan = await prisma.subscriptionPlan.findUnique({ where: { name: 'free' } });
+      const initialCredits = freePlan?.monthlyCredits ?? 5;
+
       wallet = await prisma.wallet.create({
-        data: { userId },
+        data: { userId, subscriptionCredits: initialCredits },
       });
     }
 

@@ -41,6 +41,8 @@ import {
 import { storySourceService } from '../services/career-stories/story-source.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
+import { WalletService } from '../services/wallet.service';
+import { StoryDerivationService } from '../services/career-stories/story-derivation.service';
 
 const activityService = new ActivityPersistenceService(prisma);
 const clusteringService = new ClusteringService(prisma);
@@ -1272,12 +1274,40 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
     return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
   }
 
+  // Credit gate
+  const affordability = await WalletService.canAfford(userId, 'derive_story');
+  if (!affordability.canAfford) {
+    return void sendError(res, 'Insufficient credits', 402, { cost: affordability.cost, balance: affordability.balance });
+  }
+
   const { derivation, tone, customPrompt } = parseResult.data;
   const isDemoMode = isDemoModeRequest(req);
 
   try {
     const result = await deriveStoryService(storyId, userId, derivation, isDemoMode, { tone, customPrompt });
-    sendSuccess(res, result);
+
+    // Consume credits + persist derivation
+    await WalletService.consume(userId, 'derive_story');
+    const saved = await StoryDerivationService.save({
+      userId,
+      kind: 'single',
+      type: derivation,
+      storyIds: [storyId],
+      text: result.text,
+      charCount: result.charCount,
+      wordCount: result.wordCount,
+      speakingTimeSec: result.speakingTimeSec,
+      tone,
+      customPrompt,
+      framework: result.metadata.framework,
+      archetype: result.metadata.archetype || undefined,
+      model: result.metadata.model,
+      processingTimeMs: result.metadata.processingTimeMs,
+      featureCode: 'derive_story',
+      creditCost: affordability.cost,
+    });
+
+    sendSuccess(res, { ...result, derivationId: saved.id });
   } catch (error) {
     const message = (error as Error).message;
     if (message === 'Story not found') {
@@ -1306,12 +1336,37 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
     return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
   }
 
+  // Credit gate
+  const affordability = await WalletService.canAfford(userId, 'derive_packet');
+  if (!affordability.canAfford) {
+    return void sendError(res, 'Insufficient credits', 402, { cost: affordability.cost, balance: affordability.balance });
+  }
+
   const { storyIds, packetType, tone, customPrompt, dateRange } = parseResult.data;
   const isDemoMode = isDemoModeRequest(req);
 
   try {
     const result = await derivePacketService(userId, storyIds, isDemoMode, { packetType, tone, customPrompt, dateRange });
-    sendSuccess(res, result);
+
+    // Consume credits + persist derivation
+    await WalletService.consume(userId, 'derive_packet');
+    const saved = await StoryDerivationService.save({
+      userId,
+      kind: 'packet',
+      type: packetType || 'promotion',
+      storyIds,
+      text: result.text,
+      charCount: result.charCount,
+      wordCount: result.wordCount,
+      tone,
+      customPrompt,
+      model: result.metadata.model,
+      processingTimeMs: result.metadata.processingTimeMs,
+      featureCode: 'derive_packet',
+      creditCost: affordability.cost,
+    });
+
+    sendSuccess(res, { ...result, derivationId: saved.id });
   } catch (error) {
     const message = (error as Error).message;
     if (message.startsWith('Stories not found')) {
@@ -1322,6 +1377,62 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
     }
     throw error;
   }
+});
+
+/**
+ * GET /api/v1/career-stories/stories/:storyId/derivations
+ * List saved derivations for a story.
+ */
+export const listStoryDerivations = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const derivations = await StoryDerivationService.listForStory(storyId, userId);
+  sendSuccess(res, derivations);
+});
+
+/**
+ * GET /api/v1/career-stories/derivations?kind=packet
+ * List derivations by kind (for packet list on career stories page).
+ */
+export const listDerivationsByKind = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const kind = req.query.kind as string;
+  if (kind !== 'single' && kind !== 'packet') {
+    return void sendError(res, 'kind must be "single" or "packet"', 400);
+  }
+
+  const derivations = await StoryDerivationService.listByKind(userId, kind);
+  sendSuccess(res, derivations);
+});
+
+/**
+ * DELETE /api/v1/career-stories/derivations/:id
+ * Delete a saved derivation.
+ */
+export const deleteDerivation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const result = await StoryDerivationService.delete(id, userId);
+  if (result.count === 0) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  sendSuccess(res, { deleted: true });
 });
 
 // ============================================================================
