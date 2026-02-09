@@ -2,15 +2,14 @@
  * DerivationModal Component
  *
  * "Share As..." modal for generating audience-specific derivations from career stories.
- * Flow: format pills → preview/generate. Voice & custom instructions collapsed under Options.
- * Ephemeral — no DB storage.
+ * Shows existing derivations per type as clickable pills. Generate creates new ones.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, RefreshCw, Loader2, PenLine, Sparkles, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Copy, Check, RefreshCw, Loader2, PenLine, Sparkles, ChevronDown, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse } from '../../types/career-stories';
-import { useDeriveStory } from '../../hooks/useCareerStories';
+import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse, StoryDerivation } from '../../types/career-stories';
+import { useDeriveStory, useStoryDerivations } from '../../hooks/useCareerStories';
 import { DerivationPreview } from './DerivationPreview';
 import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH, DERIVATION_TYPE_META } from './constants';
 import { Button } from '../ui/button';
@@ -37,6 +36,21 @@ const DERIVATION_TYPES: DerivationType[] = [
   'interview', 'linkedin', 'resume', 'team-share',
 ];
 
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -48,10 +62,25 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<DeriveStoryResponse | null>(null);
+  const [viewingSaved, setViewingSaved] = useState<StoryDerivation | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const deriveMutation = useDeriveStory();
+  const { data: savedDerivations } = useStoryDerivations(isOpen ? story.id : undefined);
+
+  // Group saved derivations by type
+  const savedByType = useMemo(() => {
+    const map = new Map<string, StoryDerivation[]>();
+    if (!savedDerivations) return map;
+    for (const d of savedDerivations) {
+      if (d.kind !== 'single') continue;
+      const list = map.get(d.type) || [];
+      list.push(d);
+      map.set(d.type, list);
+    }
+    return map;
+  }, [savedDerivations]);
 
   // Reset all state when modal opens/closes
   useEffect(() => {
@@ -62,6 +91,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
       setShowCustomPrompt(false);
       setShowOptions(false);
       setGeneratedResult(null);
+      setViewingSaved(null);
       setCopied(false);
       setError(null);
     }
@@ -70,6 +100,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
   // Clear result when derivation type changes
   useEffect(() => {
     setGeneratedResult(null);
+    setViewingSaved(null);
     setError(null);
     setCopied(false);
   }, [selectedDerivation]);
@@ -77,6 +108,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
   const handleGenerate = useCallback(async () => {
     setError(null);
     setCopied(false);
+    setViewingSaved(null);
 
     try {
       const response = await deriveMutation.mutateAsync({
@@ -93,20 +125,27 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
       } else {
         setError(response.error || 'Generation failed');
       }
-    } catch (err) {
-      setError((err as Error).message || 'Generation failed');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 402) {
+        const details = err?.response?.data?.details;
+        setError(`Insufficient credits (need ${details?.cost ?? 1}, have ${details?.balance ?? 0})`);
+      } else {
+        setError((err as Error).message || 'Generation failed');
+      }
     }
   }, [story.id, selectedDerivation, tone, customPrompt, deriveMutation]);
 
   const handleCopy = useCallback(async () => {
-    if (!generatedResult?.text) return;
+    const text = viewingSaved?.text || generatedResult?.text;
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(generatedResult.text);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const textarea = document.createElement('textarea');
-      textarea.value = generatedResult.text;
+      textarea.value = text;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -114,11 +153,26 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  }, [generatedResult]);
+  }, [generatedResult, viewingSaved]);
+
+  const handleViewSaved = useCallback((d: StoryDerivation) => {
+    setViewingSaved(d);
+    setGeneratedResult(null);
+    setCopied(false);
+    setError(null);
+  }, []);
 
   const isGenerating = deriveMutation.isPending;
-  const hasResult = !!generatedResult;
+  const activeText = viewingSaved?.text || generatedResult?.text || null;
+  const hasResult = !!activeText;
   const hasCustomOptions = tone !== '' || customPrompt.length > 0;
+
+  // Derive display values from either saved or generated
+  const displayCharCount = viewingSaved?.charCount || generatedResult?.charCount;
+  const displayWordCount = viewingSaved?.wordCount || generatedResult?.wordCount;
+  const displaySpeakingTime = viewingSaved?.speakingTimeSec || generatedResult?.speakingTimeSec;
+
+  const existingForType = savedByType.get(selectedDerivation) || [];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -139,25 +193,34 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
           </div>
         </DialogHeader>
 
-        {/* Format selector */}
+        {/* Format selector with saved counts */}
         <div>
           <div className="flex flex-wrap gap-1.5">
             {DERIVATION_TYPES.map((id) => {
               const meta = DERIVATION_TYPE_META[id];
               const isSelected = selectedDerivation === id;
+              const savedCount = savedByType.get(id)?.length || 0;
               return (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setSelectedDerivation(id)}
                   className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors inline-flex items-center gap-1.5',
                     isSelected
                       ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
                       : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   )}
                 >
                   {meta.label}
+                  {savedCount > 0 && (
+                    <span className={cn(
+                      'rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none',
+                      isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-500'
+                    )}>
+                      {savedCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -166,6 +229,30 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
             {DERIVATION_TYPE_META[selectedDerivation].description} &middot; {DERIVATION_TYPE_META[selectedDerivation].maxLength}
           </p>
         </div>
+
+        {/* Existing derivations for selected type */}
+        {existingForType.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Saved</span>
+            {existingForType.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => handleViewSaved(d)}
+                className={cn(
+                  'px-2 py-1 text-[10px] rounded-md border transition-all inline-flex items-center gap-1 max-w-[200px]',
+                  viewingSaved?.id === d.id
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 ring-1 ring-blue-200'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-blue-200 hover:text-blue-600'
+                )}
+              >
+                <Clock className="h-2.5 w-2.5 flex-shrink-0" />
+                <span className="truncate">{d.text.slice(0, 30)}{d.text.length > 30 ? '...' : ''}</span>
+                <span className="flex-shrink-0 text-gray-400">{formatRelativeTime(d.createdAt)}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Options disclosure */}
         <div className="border-t border-gray-100 pt-2">
@@ -259,11 +346,11 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
         <div className="flex-1 min-h-0 overflow-y-auto mt-2">
           <DerivationPreview
             derivation={selectedDerivation}
-            text={generatedResult?.text || null}
+            text={activeText}
             isGenerating={isGenerating}
-            charCount={generatedResult?.charCount}
-            wordCount={generatedResult?.wordCount}
-            speakingTimeSec={generatedResult?.speakingTimeSec}
+            charCount={displayCharCount}
+            wordCount={displayWordCount}
+            speakingTimeSec={displaySpeakingTime}
             storySections={story.sections as Record<string, { summary: string }>}
             storyTitle={story.title}
           />
@@ -277,7 +364,14 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-          <div className="text-xs text-gray-400" />
+          <div className="text-xs text-gray-400">
+            {viewingSaved && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Viewing saved · {formatRelativeTime(viewingSaved.createdAt)}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {hasResult ? (
               <>
@@ -287,8 +381,13 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
                   onClick={handleGenerate}
                   disabled={isGenerating}
                 >
-                  <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isGenerating && 'animate-spin')} />
-                  Try again
+                  {isGenerating ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
+                  ) : viewingSaved ? (
+                    'New version (1 credit)'
+                  ) : (
+                    <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Try again</>
+                  )}
                 </Button>
                 <Button
                   size="sm"
@@ -311,7 +410,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
                 {isGenerating ? (
                   <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
                 ) : (
-                  'Generate'
+                  'Generate (1 credit)'
                 )}
               </Button>
             )}

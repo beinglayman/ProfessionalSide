@@ -46,6 +46,7 @@ import {
 import { SourceList } from './SourceList';
 import { NotesPillBar } from './NotesPillBar';
 import { SourceCoverageHeader } from './SourceCoverageHeader';
+import { DerivationHistory } from './DerivationHistory';
 import { useAddStorySource, useUpdateStorySource } from '../../hooks/useCareerStories';
 import { ToolIcon } from './ToolIcon';
 import { FrameworkSelector } from './FrameworkSelector';
@@ -1939,6 +1940,9 @@ export function NarrativePreview({
           );
         })}
       </div>
+
+      {/* Derivation History */}
+      {story?.id && <DerivationHistory storyId={story.id} />}
 
       {/* Footer */}
       {(star?.suggestedEdits?.length > 0 || result.polishStatus === 'success') && (

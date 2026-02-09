@@ -29,6 +29,7 @@ import {
   useUnpublishCareerStory,
   useSetCareerStoryVisibility,
   useStoryActivityMap,
+  usePackets,
 } from '../../hooks/useCareerStories';
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
@@ -36,6 +37,7 @@ import { StoryCard } from './StoryCard';
 import { FormatSwitchModal } from './FormatSwitchModal';
 import { PublishModal } from './PublishModal';
 import { DerivationModal } from './DerivationModal';
+import { DerivationViewModal } from './DerivationViewModal';
 import { PromotionPacketModal } from './PromotionPacketModal';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
@@ -183,6 +185,8 @@ export function CareerStoriesPage() {
   const [derivationStoryId, setDerivationStoryId] = useState<string | null>(null);
   // Promotion packet modal state
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
+  // Packet view modal state
+  const [viewPacket, setViewPacket] = useState<import('../../types/career-stories').StoryDerivation | null>(null);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -224,6 +228,7 @@ export function CareerStoriesPage() {
   const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
   // Fetch existing career stories to hydrate savedStories state
   const { data: existingStories, isLoading: isLoadingStories } = useListCareerStories();
+  const { data: packets } = usePackets();
 
   // Hydrate savedStories from existing career stories on load
   useEffect(() => {
@@ -942,7 +947,27 @@ export function CareerStoriesPage() {
                       >
                         <Briefcase className="w-3 h-3" />
                         Build Packet
+                        {packets && packets.length > 0 && (
+                          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none bg-purple-200 text-purple-800">
+                            {packets.length}
+                          </span>
+                        )}
                       </button>
+                    )}
+                    {/* Recent packets */}
+                    {packets && packets.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {packets.slice(0, 3).map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => setViewPacket(p)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] text-purple-600 bg-white border border-purple-200 rounded-full hover:bg-purple-50 transition-colors max-w-[180px]"
+                          >
+                            <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                            <span className="truncate">{p.text.slice(0, 25)}{p.text.length > 25 ? '...' : ''}</span>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
 
@@ -1244,6 +1269,15 @@ export function CareerStoriesPage() {
           isOpen={showPromotionPacket}
           onClose={() => setShowPromotionPacket(false)}
           stories={allStories}
+        />
+      )}
+
+      {/* Packet View Modal */}
+      {viewPacket && (
+        <DerivationViewModal
+          isOpen={!!viewPacket}
+          onClose={() => setViewPacket(null)}
+          derivation={viewPacket}
         />
       )}
     </div>

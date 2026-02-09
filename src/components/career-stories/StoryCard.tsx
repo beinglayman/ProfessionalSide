@@ -21,6 +21,7 @@ import { cn } from '../../lib/utils';
 import { CareerStory, NarrativeFramework, WritingStyle } from '../../types/career-stories';
 import { NARRATIVE_FRAMEWORKS } from './constants';
 import { FormatChip } from './FormatChip';
+import { useStoryDerivations } from '../../hooks/useCareerStories';
 
 interface StoryCardProps {
   story: CareerStory;
@@ -108,6 +109,8 @@ function formatDateLabel(dateStr: string): string {
 export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryCardProps) {
   const frameworkInfo = NARRATIVE_FRAMEWORKS[story.framework];
   const dateLabel = story.generatedAt ? formatDateLabel(story.generatedAt) : '';
+  const { data: derivations } = useStoryDerivations(story.id);
+  const derivationCount = derivations?.length || 0;
 
   const preview = useMemo(() => getPreviewText(story), [story]);
   const metrics = useMemo(() => extractKeyMetrics(story), [story]);
@@ -199,6 +202,15 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
               story.sourceCoverage.sourced > 0 ? 'text-amber-600' : ''
             )}>
               {story.sourceCoverage.sourced}/{story.sourceCoverage.total} sourced
+            </span>
+          </>
+        )}
+        {derivationCount > 0 && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-600">
+              <Sparkles className="w-3 h-3" />
+              {derivationCount}
             </span>
           </>
         )}

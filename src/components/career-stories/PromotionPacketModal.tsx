@@ -4,15 +4,15 @@
  * Multi-story document generator.
  * Supports: Promotion Packet, Annual Review, Skip-Level Prep, Portfolio Brief,
  * Self Assessment, 1:1 Prep.
- * Flow: type pills → story selector → generate. Voice & custom collapsed under Options.
+ * Shows existing packets per type. Generate creates new ones.
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Copy, Check, Loader2, PenLine, RefreshCw, Briefcase, Calendar, ChevronDown } from 'lucide-react';
+import { Copy, Check, Loader2, PenLine, RefreshCw, Briefcase, Calendar, ChevronDown, Clock } from 'lucide-react';
 import { SimpleMarkdown } from '../ui/simple-markdown';
 import { cn } from '../../lib/utils';
-import type { CareerStory, WritingStyle, PacketType, DerivePacketResponse } from '../../types/career-stories';
-import { useDerivePacket } from '../../hooks/useCareerStories';
+import type { CareerStory, WritingStyle, PacketType, DerivePacketResponse, StoryDerivation } from '../../types/career-stories';
+import { useDerivePacket, useStoryDerivations } from '../../hooks/useCareerStories';
 import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH } from './constants';
 import { Button } from '../ui/button';
 import {
@@ -78,6 +78,21 @@ interface PromotionPacketModalProps {
   stories: CareerStory[];
 }
 
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // =============================================================================
 // DATE RANGE PICKER
 // =============================================================================
@@ -130,6 +145,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<DerivePacketResponse | null>(null);
+  const [viewingSaved, setViewingSaved] = useState<StoryDerivation | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateRangeStart, setDateRangeStart] = useState('');
@@ -137,6 +153,23 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
 
   const packetMutation = useDerivePacket();
   const meta = PACKET_TYPE_META[packetType];
+
+  // Fetch saved derivations from the first story (packets reference multiple stories)
+  const firstStoryId = stories[0]?.id;
+  const { data: savedDerivations } = useStoryDerivations(isOpen ? firstStoryId : undefined);
+
+  // Group saved packets by type
+  const savedByType = useMemo(() => {
+    const map = new Map<string, StoryDerivation[]>();
+    if (!savedDerivations) return map;
+    for (const d of savedDerivations) {
+      if (d.kind !== 'packet') continue;
+      const list = map.get(d.type) || [];
+      list.push(d);
+      map.set(d.type, list);
+    }
+    return map;
+  }, [savedDerivations]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -148,6 +181,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
       setShowCustomPrompt(false);
       setShowOptions(false);
       setGeneratedResult(null);
+      setViewingSaved(null);
       setCopied(false);
       setError(null);
       setDateRangeStart('');
@@ -158,6 +192,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
   const handlePacketTypeChange = useCallback((type: PacketType) => {
     setPacketType(type);
     setGeneratedResult(null);
+    setViewingSaved(null);
     setError(null);
     setCopied(false);
   }, []);
@@ -173,6 +208,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
       return next;
     });
     setGeneratedResult(null);
+    setViewingSaved(null);
     setError(null);
     setCopied(false);
   }, []);
@@ -180,6 +216,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
   const handleGenerate = useCallback(async () => {
     setError(null);
     setCopied(false);
+    setViewingSaved(null);
 
     try {
       const response = await packetMutation.mutateAsync({
@@ -197,20 +234,27 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
       } else {
         setError(response.error || 'Generation failed');
       }
-    } catch (err) {
-      setError((err as Error).message || 'Generation failed');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 402) {
+        const details = err?.response?.data?.details;
+        setError(`Insufficient credits (need ${details?.cost ?? 2}, have ${details?.balance ?? 0})`);
+      } else {
+        setError((err as Error).message || 'Generation failed');
+      }
     }
   }, [selectedIds, packetType, tone, customPrompt, dateRangeStart, dateRangeEnd, packetMutation]);
 
   const handleCopy = useCallback(async () => {
-    if (!generatedResult?.text) return;
+    const text = viewingSaved?.text || generatedResult?.text;
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(generatedResult.text);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const textarea = document.createElement('textarea');
-      textarea.value = generatedResult.text;
+      textarea.value = text;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -218,11 +262,20 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  }, [generatedResult]);
+  }, [generatedResult, viewingSaved]);
+
+  const handleViewSaved = useCallback((d: StoryDerivation) => {
+    setViewingSaved(d);
+    setGeneratedResult(null);
+    setCopied(false);
+    setError(null);
+  }, []);
 
   const isGenerating = packetMutation.isPending;
   const canGenerate = selectedIds.size >= 2 && !isGenerating;
+  const activeText = viewingSaved?.text || generatedResult?.text || null;
   const hasCustomOptions = tone !== '' || customPrompt.length > 0;
+  const existingForType = savedByType.get(packetType) || [];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -243,29 +296,64 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
           </div>
         </DialogHeader>
 
-        {/* Packet type selector */}
+        {/* Packet type selector with saved counts */}
         <div>
           <div className="flex flex-wrap gap-1.5">
-            {PACKET_TYPES.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => handlePacketTypeChange(type)}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
-                  packetType === type
-                    ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                )}
-              >
-                {PACKET_TYPE_META[type].label}
-              </button>
-            ))}
+            {PACKET_TYPES.map((type) => {
+              const savedCount = savedByType.get(type)?.length || 0;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => handlePacketTypeChange(type)}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors inline-flex items-center gap-1.5',
+                    packetType === type
+                      ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  )}
+                >
+                  {PACKET_TYPE_META[type].label}
+                  {savedCount > 0 && (
+                    <span className={cn(
+                      'rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none',
+                      packetType === type ? 'bg-purple-200 text-purple-800' : 'bg-gray-200 text-gray-500'
+                    )}>
+                      {savedCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <p className="text-[11px] text-gray-400 mt-1.5">
             {meta.description}
           </p>
         </div>
+
+        {/* Existing packets for selected type */}
+        {existingForType.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Saved</span>
+            {existingForType.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => handleViewSaved(d)}
+                className={cn(
+                  'px-2 py-1 text-[10px] rounded-md border transition-all inline-flex items-center gap-1 max-w-[200px]',
+                  viewingSaved?.id === d.id
+                    ? 'bg-purple-50 border-purple-300 text-purple-700 ring-1 ring-purple-200'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-purple-200 hover:text-purple-600'
+                )}
+              >
+                <Clock className="h-2.5 w-2.5 flex-shrink-0" />
+                <span className="truncate">{d.text.slice(0, 30)}{d.text.length > 30 ? '...' : ''}</span>
+                <span className="flex-shrink-0 text-gray-400">{formatRelativeTime(d.createdAt)}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Date range picker for annual-review */}
         {packetType === 'annual-review' && (
@@ -278,125 +366,129 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
         )}
 
         {/* Story selector */}
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Stories ({selectedIds.size} selected)
+        {!viewingSaved && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Stories ({selectedIds.size} selected)
+            </div>
+            <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-2">
+              {stories.map((story) => {
+                const isSelected = selectedIds.has(story.id);
+                return (
+                  <label
+                    key={story.id}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors',
+                      isSelected
+                        ? 'bg-purple-50 border border-purple-200'
+                        : 'hover:bg-gray-50 border border-transparent',
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleStory(story.id)}
+                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className={cn('text-sm truncate', isSelected ? 'text-purple-700 font-medium' : 'text-gray-700')}>
+                      {story.title}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
-          <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-2">
-            {stories.map((story) => {
-              const isSelected = selectedIds.has(story.id);
-              return (
-                <label
-                  key={story.id}
-                  className={cn(
-                    'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors',
-                    isSelected
-                      ? 'bg-purple-50 border border-purple-200'
-                      : 'hover:bg-gray-50 border border-transparent',
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleStory(story.id)}
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <span className={cn('text-sm truncate', isSelected ? 'text-purple-700 font-medium' : 'text-gray-700')}>
-                    {story.title}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
+        )}
 
         {/* Options disclosure */}
-        <div className="border-t border-gray-100 pt-2">
-          <button
-            type="button"
-            onClick={() => setShowOptions(!showOptions)}
-            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <ChevronDown className={cn('h-3 w-3 transition-transform', showOptions && 'rotate-180')} />
-            Options
-            {hasCustomOptions && (
-              <span className="ml-1 h-1.5 w-1.5 rounded-full bg-purple-400" />
-            )}
-          </button>
+        {!viewingSaved && (
+          <div className="border-t border-gray-100 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowOptions(!showOptions)}
+              className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <ChevronDown className={cn('h-3 w-3 transition-transform', showOptions && 'rotate-180')} />
+              Options
+              {hasCustomOptions && (
+                <span className="ml-1 h-1.5 w-1.5 rounded-full bg-purple-400" />
+              )}
+            </button>
 
-          {showOptions && (
-            <div className="mt-2 space-y-2">
-              {/* Voice pills */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mr-1">Voice</span>
-                <button
-                  type="button"
-                  onClick={() => setTone('')}
-                  className={cn(
-                    'px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors',
-                    tone === ''
-                      ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  )}
-                >
-                  Default
-                </button>
-                {WRITING_STYLES.map(({ value: styleVal, label }) => (
+            {showOptions && (
+              <div className="mt-2 space-y-2">
+                {/* Voice pills */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mr-1">Voice</span>
                   <button
-                    key={styleVal}
                     type="button"
-                    onClick={() => setTone(styleVal)}
+                    onClick={() => setTone('')}
                     className={cn(
                       'px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors',
-                      tone === styleVal
+                      tone === ''
                         ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     )}
                   >
-                    {label}
+                    Default
                   </button>
-                ))}
+                  {WRITING_STYLES.map(({ value: styleVal, label }) => (
+                    <button
+                      key={styleVal}
+                      type="button"
+                      onClick={() => setTone(styleVal)}
+                      className={cn(
+                        'px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors',
+                        tone === styleVal
+                          ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
 
-                <div className="w-px h-4 bg-gray-200 mx-1" />
+                  <div className="w-px h-4 bg-gray-200 mx-1" />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCustomPrompt(!showCustomPrompt);
-                    if (showCustomPrompt) setCustomPrompt('');
-                  }}
-                  className={cn(
-                    'px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors inline-flex items-center gap-1',
-                    showCustomPrompt
-                      ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  )}
-                >
-                  <PenLine className="h-3 w-3" />
-                  Custom
-                </button>
-              </div>
-
-              {/* Custom instructions textarea */}
-              {showCustomPrompt && (
-                <div>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    maxLength={USER_PROMPT_MAX_LENGTH}
-                    placeholder="e.g., Focus on technical leadership growth"
-                    rows={2}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    autoFocus
-                  />
-                  <div className="text-[10px] text-gray-400 mt-0.5 text-right">
-                    {customPrompt.length}/{USER_PROMPT_MAX_LENGTH}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomPrompt(!showCustomPrompt);
+                      if (showCustomPrompt) setCustomPrompt('');
+                    }}
+                    className={cn(
+                      'px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors inline-flex items-center gap-1',
+                      showCustomPrompt
+                        ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    )}
+                  >
+                    <PenLine className="h-3 w-3" />
+                    Custom
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+
+                {/* Custom instructions textarea */}
+                {showCustomPrompt && (
+                  <div>
+                    <textarea
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      maxLength={USER_PROMPT_MAX_LENGTH}
+                      placeholder="e.g., Focus on technical leadership growth"
+                      rows={2}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      autoFocus
+                    />
+                    <div className="text-[10px] text-gray-400 mt-0.5 text-right">
+                      {customPrompt.length}/{USER_PROMPT_MAX_LENGTH}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Preview area */}
         <div className="flex-1 min-h-0 overflow-y-auto mt-2">
@@ -417,28 +509,35 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
             </div>
           )}
 
-          {!isGenerating && generatedResult && (
+          {!isGenerating && activeText && (
             <div className="space-y-3">
               <div className="bg-white rounded-lg border border-gray-200 px-5 py-4">
-                <SimpleMarkdown content={generatedResult.text} className="text-sm text-gray-800 leading-relaxed" />
+                <SimpleMarkdown content={activeText} className="text-sm text-gray-800 leading-relaxed" />
               </div>
-              {(generatedResult.wordCount || generatedResult.charCount) && (
+              {!viewingSaved && generatedResult && (generatedResult.wordCount || generatedResult.charCount) && (
                 <div className="flex items-center gap-3 text-xs text-gray-400 px-1">
                   {generatedResult.wordCount && <span>{generatedResult.wordCount} words</span>}
                   {generatedResult.charCount && <span>{generatedResult.charCount} chars</span>}
                   <span>{generatedResult.metadata.storyCount} stories</span>
                 </div>
               )}
+              {viewingSaved && (
+                <div className="flex items-center gap-3 text-xs text-gray-400 px-1">
+                  <span>{viewingSaved.wordCount} words</span>
+                  <span>{viewingSaved.charCount} chars</span>
+                  <span>{viewingSaved.storyIds.length} stories</span>
+                </div>
+              )}
             </div>
           )}
 
-          {!isGenerating && !generatedResult && selectedIds.size >= 2 && (
+          {!isGenerating && !activeText && selectedIds.size >= 2 && (
             <div className="text-center text-xs text-gray-400 pt-8">
               {selectedIds.size} stories selected. Hit Generate.
             </div>
           )}
 
-          {!isGenerating && !generatedResult && selectedIds.size < 2 && (
+          {!isGenerating && !activeText && !viewingSaved && selectedIds.size < 2 && (
             <div className="text-center text-xs text-gray-400 pt-8">
               Select at least 2 stories to get started.
             </div>
@@ -453,9 +552,21 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-          <div className="text-xs text-gray-400" />
+          <div className="text-xs text-gray-400">
+            {viewingSaved && (
+              <button
+                type="button"
+                onClick={() => { setViewingSaved(null); }}
+                className="flex items-center gap-1 hover:text-gray-600 transition-colors"
+              >
+                <Clock className="h-3 w-3" />
+                Viewing saved · {formatRelativeTime(viewingSaved.createdAt)}
+                <span className="underline ml-1">Back to new</span>
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            {generatedResult ? (
+            {activeText ? (
               <>
                 <Button
                   variant="outline"
@@ -463,8 +574,13 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
                   onClick={handleGenerate}
                   disabled={!canGenerate}
                 >
-                  <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isGenerating && 'animate-spin')} />
-                  Try again
+                  {isGenerating ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Building...</>
+                  ) : viewingSaved ? (
+                    'New version (2 credits)'
+                  ) : (
+                    <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Try again</>
+                  )}
                 </Button>
                 <Button
                   size="sm"
@@ -487,7 +603,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
                 {isGenerating ? (
                   <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Building...</>
                 ) : (
-                  'Generate'
+                  'Generate (2 credits)'
                 )}
               </Button>
             )}

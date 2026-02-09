@@ -1,22 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Coins } from 'lucide-react';
-import { billingService } from '../../services/billing.service';
 import { Link } from 'react-router-dom';
+import { useWalletBalance } from '../../hooks/useBilling';
+import { cn } from '../../lib/utils';
 
 export function CreditBadge() {
-  const [total, setTotal] = useState<number | null>(null);
+  const { data: total } = useWalletBalance();
+  const prevTotal = useRef<number | null>(null);
+  const badgeRef = useRef<HTMLSpanElement>(null);
 
+  // Flash animation when balance changes (not on initial load)
   useEffect(() => {
-    let mounted = true;
-    billingService.getWallet().then((res) => {
-      if (mounted && res.success && res.data) {
-        setTotal(res.data.total);
-      }
-    }).catch(() => {});
-    return () => { mounted = false; };
-  }, []);
+    if (total === undefined) return;
+    if (prevTotal.current !== null && prevTotal.current !== total) {
+      badgeRef.current?.animate(
+        [
+          { transform: 'scale(1.3)', color: prevTotal.current > total ? '#dc2626' : '#16a34a' },
+          { transform: 'scale(1)', color: '' },
+        ],
+        { duration: 400, easing: 'ease-out' }
+      );
+    }
+    prevTotal.current = total;
+  }, [total]);
 
-  if (total === null) return null;
+  if (total === undefined) return null;
 
   return (
     <Link
@@ -25,7 +33,7 @@ export function CreditBadge() {
       title="Credit balance"
     >
       <Coins className="h-4 w-4" />
-      <span>{total}</span>
+      <span ref={badgeRef}>{total}</span>
     </Link>
   );
 }
