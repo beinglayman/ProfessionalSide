@@ -1373,16 +1373,26 @@ async function seedTestData() {
   console.log('👤 Starting test data seeding...');
 
   try {
+    // Migrate old test data if present (existing DBs may have techcorp.com)
+    await prisma.user.updateMany({
+      where: { email: 'test@techcorp.com' },
+      data: { email: 'yc@inchronicle.com' },
+    });
+    await prisma.organization.updateMany({
+      where: { domain: 'techcorp.com' },
+      data: { domain: 'inchronicle.com' },
+    });
+
     // Create test organization
     const techCorp = await prisma.organization.upsert({
-      where: { domain: 'techcorp.com' },
+      where: { domain: 'inchronicle.com' },
       update: {
         name: 'Inchronicle',
         description: 'Career intelligence platform — turn daily work into career stories',
       },
       create: {
         name: 'Inchronicle',
-        domain: 'techcorp.com',
+        domain: 'inchronicle.com',
         description: 'Career intelligence platform — turn daily work into career stories',
       }
     });
@@ -1415,11 +1425,11 @@ async function seedTestData() {
       avatar: 'https://avatars.githubusercontent.com/u/83536?v=4',
     };
     const testUser = await prisma.user.upsert({
-      where: { email: 'test@techcorp.com' },
+      where: { email: 'yc@inchronicle.com' },
       update: testUserData,
       create: {
         ...testUserData,
-        email: 'test@techcorp.com',
+        email: 'yc@inchronicle.com',
         password: hashedPassword,
         profile: {
           create: {
@@ -1450,7 +1460,7 @@ async function seedTestData() {
 
     console.log('✅ Test data seeding completed!');
     console.log('🔑 Test Login Credentials:');
-    console.log('Email: test@techcorp.com');
+    console.log('Email: yc@inchronicle.com');
     console.log('Password: password123');
 
   } catch (error) {
