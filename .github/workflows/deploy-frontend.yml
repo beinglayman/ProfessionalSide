@@ -73,11 +73,19 @@ jobs:
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
           echo "=== Final app state ==="
           az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "state" -o tsv
-          echo "=== Waiting 30s for container to boot ==="
-          sleep 30
-          echo "=== Container logs (last 100 lines) ==="
-          az webapp log tail -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --timeout 15 2>&1 | tail -100 || echo "Could not fetch logs"
+          echo "=== Waiting 60s for container to boot ==="
+          sleep 60
+          echo "=== Container logs ==="
+          az webapp log download -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --log-file /tmp/webapp-logs.zip 2>&1 || echo "Log download failed"
+          if [ -f /tmp/webapp-logs.zip ]; then
+            cd /tmp && unzip -o webapp-logs.zip 2>/dev/null || true
+            echo "=== Docker logs ==="
+            cat /tmp/LogFiles/*docker*.log 2>/dev/null | tail -80 || echo "No docker logs found"
+            echo "=== App logs ==="
+            cat /tmp/LogFiles/Application/*.log 2>/dev/null | tail -40 || echo "No app logs found"
+            ls -la /tmp/LogFiles/ 2>/dev/null || echo "No log files dir"
+          fi
           echo "=== Health check ==="
-          curl -sI "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net" | head -5 || echo "Health check failed"
+          curl -sI --max-time 10 "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net" | head -5 || echo "Health check timed out"
 
 
