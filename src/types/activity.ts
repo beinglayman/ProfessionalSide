@@ -174,10 +174,10 @@ export interface ActivityStoryEdge {
  * Display metadata for edge types
  */
 export const ACTIVITY_EDGE_LABELS: Record<ActivityStoryEdgeType, { label: string; color: string; bgColor: string }> = {
-  primary: { label: 'Primary', color: '#7C3AED', bgColor: '#EDE9FE' },      // Purple
-  supporting: { label: 'Supporting', color: '#1D4ED8', bgColor: '#DBEAFE' }, // Blue
-  contextual: { label: 'Context', color: '#4B5563', bgColor: '#F3F4F6' },    // Gray
-  outcome: { label: 'Outcome', color: '#059669', bgColor: '#D1FAE5' },       // Green
+  primary: { label: 'Core Work', color: '#7C3AED', bgColor: '#EDE9FE' },      // Purple
+  supporting: { label: 'Support', color: '#1D4ED8', bgColor: '#DBEAFE' },     // Blue
+  contextual: { label: 'Background', color: '#4B5563', bgColor: '#F3F4F6' },  // Gray
+  outcome: { label: 'Results', color: '#059669', bgColor: '#D1FAE5' },        // Green
 };
 
 /**
