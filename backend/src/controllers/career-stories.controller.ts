@@ -1292,7 +1292,7 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
 
 /**
  * POST /api/v1/career-stories/derive-packet
- * Generate a promotion packet from multiple stories.
+ * Generate a multi-story packet (promotion, annual review, skip-level, portfolio brief).
  */
 export const derivePacket = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
@@ -1306,11 +1306,11 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
     return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
   }
 
-  const { storyIds, tone, customPrompt } = parseResult.data;
+  const { storyIds, packetType, tone, customPrompt, dateRange } = parseResult.data;
   const isDemoMode = isDemoModeRequest(req);
 
   try {
-    const result = await derivePacketService(userId, storyIds, isDemoMode, { tone, customPrompt });
+    const result = await derivePacketService(userId, storyIds, isDemoMode, { packetType, tone, customPrompt, dateRange });
     sendSuccess(res, result);
   } catch (error) {
     const message = (error as Error).message;

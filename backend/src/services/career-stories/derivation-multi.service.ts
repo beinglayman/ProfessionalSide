@@ -2,7 +2,7 @@
  * Multi-Story Derivation Service
  *
  * Generates ephemeral derivations from MULTIPLE stories.
- * Currently supports: promotion-packet.
+ * Supports: promotion, annual-review, skip-level, portfolio-brief, self-assessment, one-on-one.
  * No DB storage — generate, copy, done.
  *
  * @module derivation-multi.service
@@ -12,6 +12,7 @@ import { createCareerStoryService } from './career-story.service';
 import { getModelSelector } from '../ai/model-selector.service';
 import { buildPacketMessages, PacketStoryInput } from '../ai/prompts/derivation.prompt';
 import type { WritingStyle } from '../ai/prompts/career-story.prompt';
+import type { PacketType } from '../../controllers/career-stories.schemas';
 import { getToolActivityTable } from '../../lib/demo-tables';
 
 // =============================================================================
@@ -19,8 +20,10 @@ import { getToolActivityTable } from '../../lib/demo-tables';
 // =============================================================================
 
 export interface DerivePacketOptions {
+  packetType?: PacketType;
   tone?: WritingStyle;
   customPrompt?: string;
+  dateRange?: { startDate: string; endDate: string };
 }
 
 export interface DerivePacketResult {
@@ -65,7 +68,7 @@ function formatDateRange(minDate: Date, maxDate: Date): string {
 // =============================================================================
 
 /**
- * Generate a promotion packet from multiple stories.
+ * Generate a multi-story packet (promotion, annual-review, skip-level, etc.).
  *
  * Fetches all stories, extracts metrics from each, builds combined context,
  * and calls LLM with larger token budget.
@@ -110,8 +113,8 @@ export async function derivePacket(
           if (result._min.timestamp && result._max.timestamp) {
             dateRange = formatDateRange(result._min.timestamp, result._max.timestamp);
           }
-        } catch {
-          // Supplementary — don't fail
+        } catch (err) {
+          console.warn(`[derivation-multi] Failed to fetch date range for story ${s.id}:`, err);
         }
       }
 
@@ -125,8 +128,41 @@ export async function derivePacket(
     }),
   );
 
+  // 2b. For annual-review, filter to stories with activities in the date range
+  let filteredInputs = storyInputs;
+  if (options?.packetType === 'annual-review' && options.dateRange) {
+    const rangeStart = new Date(options.dateRange.startDate);
+    const rangeEnd = new Date(options.dateRange.endDate);
+
+    const activityTable = getToolActivityTable(isDemoMode);
+    const inRangeIndices: number[] = [];
+
+    for (let i = 0; i < stories.length; i++) {
+      const s = stories[i]!;
+      if (!s.activityIds?.length) continue;
+      try {
+        const count = await (activityTable.count as Function)({
+          where: {
+            id: { in: s.activityIds },
+            timestamp: { gte: rangeStart, lte: rangeEnd },
+          },
+        });
+        if (count > 0) inRangeIndices.push(i);
+      } catch (err) {
+        console.warn(`[derivation-multi] Failed to count activities for story ${stories[i]!.id}, including anyway:`, err);
+        inRangeIndices.push(i);
+      }
+    }
+
+    if (inRangeIndices.length >= 2) {
+      filteredInputs = inRangeIndices.map(i => storyInputs[i]);
+    }
+    // If fewer than 2 stories match, use all stories to avoid empty output
+  }
+
   // 3. Build prompt
-  const messages = buildPacketMessages(storyInputs, {
+  const messages = buildPacketMessages(filteredInputs, {
+    packetType: options?.packetType,
     tone: options?.tone,
     customPrompt: options?.customPrompt,
   });
@@ -154,7 +190,7 @@ export async function derivePacket(
     charCount,
     wordCount,
     metadata: {
-      storyCount: storyIds.length,
+      storyCount: filteredInputs.length,
       model: result.model,
       processingTimeMs,
     },
