@@ -13,17 +13,12 @@ Authorization: Bearer <access_token>
 
 ## Test Credentials
 ```
-Email: sarah.chen@techcorp.com
+Email: yc@inchronicle.com
 Password: password123
 ```
 
 ## Available Users
-- sarah.chen@techcorp.com (Main user with full data)
-- emily.chen@techcorp.com 
-- alex.wong@techcorp.com
-- sarah.johnson@techcorp.com
-- marcus.williams@techcorp.com
-- jason.park@techcorp.com
+- yc@inchronicle.com (Main user with full data)
 
 All users have password: `password123`
 
@@ -48,7 +43,7 @@ Register a new user
 Login user
 ```json
 {
-  "email": "sarah.chen@techcorp.com",
+  "email": "yc@inchronicle.com",
   "password": "password123"
 }
 ```

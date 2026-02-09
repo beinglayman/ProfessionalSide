@@ -45,7 +45,7 @@ test.describe('Demo Journal Debug', () => {
 
     // Step 2: Login with test credentials
     console.log('Step 2: Logging in...');
-    await page.fill('input[type="email"]', 'test@techcorp.com');
+    await page.fill('input[type="email"]', 'yc@inchronicle.com');
     await page.fill('input[type="password"]', 'password123');
     await page.click('button[type="submit"]');
 

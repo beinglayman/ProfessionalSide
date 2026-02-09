@@ -14,7 +14,7 @@ test.describe('Page screenshots', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
 
-    await page.getByLabel('Email address').fill('test@techcorp.com');
+    await page.getByLabel('Email address').fill('yc@inchronicle.com');
     await page.getByLabel('Password').fill('password123');
     await page.getByRole('button', { name: /sign in/i }).click();
 
