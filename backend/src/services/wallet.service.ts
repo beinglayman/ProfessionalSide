@@ -42,8 +42,15 @@ export class WalletService {
       where: { featureCode },
     });
 
+    const DEFAULT_CREDIT_COST = 1;
     if (!feature || !feature.isActive) {
-      return { canAfford: false, cost: 0, reason: 'Feature not found or inactive' };
+      console.warn(`[wallet] Feature "${featureCode}" not found or inactive — defaulting to ${DEFAULT_CREDIT_COST} credit`);
+      const balance = await this.getBalance(userId);
+      return {
+        canAfford: balance.total >= DEFAULT_CREDIT_COST,
+        cost: DEFAULT_CREDIT_COST,
+        balance: balance.total,
+      };
     }
 
     const balance = await this.getBalance(userId);
@@ -64,11 +71,17 @@ export class WalletService {
       where: { featureCode },
     });
 
+    const DEFAULT_CREDIT_COST = 1;
+    let cost: number;
+    let displayName: string;
     if (!feature || !feature.isActive) {
-      throw new Error(`Feature "${featureCode}" not found or inactive`);
+      console.warn(`[wallet] Feature "${featureCode}" not found or inactive — consuming ${DEFAULT_CREDIT_COST} credit`);
+      cost = DEFAULT_CREDIT_COST;
+      displayName = featureCode;
+    } else {
+      cost = feature.creditCost;
+      displayName = feature.displayName;
     }
-
-    const cost = feature.creditCost;
 
     return prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId } });
@@ -119,7 +132,7 @@ export class WalletService {
               creditPool: 'subscription',
               balanceAfter: newTotal + (purchasedDeducted > 0 ? purchasedDeducted : 0),
               featureCode,
-              description: `Used ${subDeducted} subscription credits for ${feature.displayName}`,
+              description: `Used ${subDeducted} subscription credits for ${displayName}`,
             },
           })
         );
@@ -135,7 +148,7 @@ export class WalletService {
               creditPool: 'purchased',
               balanceAfter: newTotal,
               featureCode,
-              description: `Used ${purchasedDeducted} purchased credits for ${feature.displayName}`,
+              description: `Used ${purchasedDeducted} purchased credits for ${displayName}`,
             },
           })
         );
