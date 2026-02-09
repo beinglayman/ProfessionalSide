@@ -19,6 +19,7 @@
 
 import { PrismaClient, Prisma } from '@prisma/client';
 import { generateMockActivities } from './mock-data.service';
+import { generateMockActivitiesV2 } from './mock-data-v2.service';
 import { ClusteringService } from './clustering.service';
 import { RefExtractorService } from './ref-extractor.service';
 import { getModelSelector } from '../ai/model-selector.service';
@@ -265,7 +266,7 @@ export interface SeedDemoDataResult {
  */
 export async function seedDemoData(
   userId: string,
-  options: { backgroundNarratives?: boolean } = {}
+  options: { backgroundNarratives?: boolean; dataset?: 'v1' | 'v2' } = {}
 ): Promise<SeedDemoDataResult> {
   log.info('Starting demo data seed', { userId, backgroundNarratives: options.backgroundNarratives });
 
@@ -273,7 +274,7 @@ export async function seedDemoData(
   await clearDemoData(userId);
 
   // Step 2: Seed activities
-  const activities = await seedDemoActivities(userId);
+  const activities = await seedDemoActivities(userId, options.dataset);
   log.debug(`Seeded ${activities.length} activities`);
 
   // Step 2b: Count activities by source
@@ -359,7 +360,7 @@ export async function seedDemoData(
 /**
  * Seed mock activities into demo tables
  */
-async function seedDemoActivities(userId: string): Promise<Array<{
+async function seedDemoActivities(userId: string, dataset?: 'v1' | 'v2'): Promise<Array<{
   id: string;
   source: string;
   sourceId: string;
@@ -369,7 +370,7 @@ async function seedDemoActivities(userId: string): Promise<Array<{
   timestamp: Date;
   crossToolRefs: string[];
 }>> {
-  const mockActivities = generateMockActivities();
+  const mockActivities = dataset === 'v2' ? generateMockActivitiesV2() : generateMockActivities();
   const activitiesToCreate = mockActivities.map((activity) => {
     const allText = [
       activity.sourceId,

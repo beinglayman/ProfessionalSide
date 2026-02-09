@@ -29,6 +29,12 @@ export {
 } from './mock-data.service';
 
 export {
+  generateMockActivitiesV2,
+  getExpectedClustersV2,
+  getExpectedUnclusteredV2,
+} from './mock-data-v2.service';
+
+export {
   STARGenerationService,
   starGenerationService,
   STARGenerationOptions,

@@ -771,7 +771,8 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  const result = await seedService.seedDemoData(userId, { backgroundNarratives: true });
+  const dataset = req.query.dataset === 'v2' ? 'v2' as const : undefined;
+  const result = await seedService.seedDemoData(userId, { backgroundNarratives: true, dataset });
   sendSuccess(res, {
     activityCount: result.activitiesSeeded,
     activitiesBySource: result.activitiesBySource,
