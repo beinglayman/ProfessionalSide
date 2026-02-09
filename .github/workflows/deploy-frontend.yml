@@ -37,25 +37,21 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           CACHEBUST=$(date -u +"%Y%m%d%H%M%S")
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           echo "Building frontend with API URL: ${VITE_API_URL}"
           echo "Cache bust value: ${CACHEBUST}"
-          echo "Commit SHA: ${SHORT_SHA}"
           az acr build --registry "${{ secrets.ACR_NAME }}" \
             --build-arg VITE_API_URL="${VITE_API_URL}" \
             --build-arg CACHEBUST="${CACHEBUST}" \
-            --image inchronicle-frontend:latest \
-            --image inchronicle-frontend:${SHORT_SHA} .
+            --image inchronicle-frontend:latest .
 
       - name: Update Web App container image
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           az webapp config container set \
             --resource-group "${{ secrets.AZ_RG }}" \
             --name "${{ secrets.FRONTEND_APPNAME }}" \
-            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:${SHORT_SHA}"
+            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-frontend:latest"
 
-      - name: Set ports and ensure running
+      - name: Set ports and restart
         run: |
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
           az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" || true
