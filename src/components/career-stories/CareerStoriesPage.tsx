@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, Briefcase, CheckCircle2, ChevronDown, ChevronRight, X, Sparkles, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Briefcase, CheckCircle2, ChevronDown, ChevronRight, X, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
@@ -46,6 +46,9 @@ import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-d
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useJournalEntries } from '../../hooks/useJournal';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfile } from '../../hooks/useProfile';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import {
   groupStoriesByQuarter,
   groupStoriesByCategory,
@@ -147,6 +150,8 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
  */
 export function CareerStoriesPage() {
   useDocumentTitle('Career Stories');
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -940,19 +945,34 @@ export function CareerStoriesPage() {
           {/* List View: Story cards grouped by year */}
           {viewMode === 'list' && (
             <div className="space-y-4">
-              {/* Header with toggle + filter */}
+              {/* Header with avatar, title, toggle + filter */}
               {allStories.length > 0 && (
                 <div className="flex items-center justify-between gap-4 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
-                    <h2 className="text-sm font-semibold text-gray-900">Your Career Stories</h2>
-                    <span className="text-xs text-gray-400">
-                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
-                    </span>
+                  {/* Left: Avatar + Title + Subtitle */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={getAvatarUrl(profile?.avatar)}
+                      alt={profile?.name || user?.name || 'Profile'}
+                      className="h-10 w-10 rounded-full object-cover bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0"
+                      onError={handleAvatarError}
+                    />
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold text-gray-900 truncate">
+                        {profile?.name || user?.name || 'Your'}&apos;s Career Stories
+                      </h2>
+                      <p className="text-xs text-gray-500">
+                        {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: Promotion Packet + Toggle + Filter */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {/* Build Packet button */}
                     {allStories.length >= 2 && (
                       <button
                         onClick={() => setShowPromotionPacket(true)}
-                        className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors"
                         title="Build a document from multiple stories"
                       >
                         <Briefcase className="w-3 h-3" />
@@ -966,7 +986,7 @@ export function CareerStoriesPage() {
                     )}
                     {/* Recent packets */}
                     {packets && packets.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap">
+                      <div className="hidden sm:flex items-center gap-1 flex-wrap">
                         {packets.slice(0, 3).map((p) => (
                           <button
                             key={p.id}
@@ -979,11 +999,9 @@ export function CareerStoriesPage() {
                         ))}
                       </div>
                     )}
-                  </div>
 
-                  <div className="flex items-center gap-3">
                     {/* Timeline / Category toggle */}
-                    <div className="inline-flex items-center bg-gray-50 rounded-full p-0.5">
+                    <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 shadow-sm">
                       {([
                         { key: 'category' as const, label: 'Category', Icon: LayoutGrid },
                         { key: 'timeline' as const, label: 'Timeline', Icon: Clock },
@@ -993,10 +1011,10 @@ export function CareerStoriesPage() {
                           onClick={() => setStoryView(key)}
                           aria-pressed={storyView === key}
                           className={cn(
-                            'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition-colors',
+                            'inline-flex items-center gap-1 rounded-full px-2 sm:px-3 py-1.5 text-xs font-medium transition-all duration-200',
                             storyView === key
-                              ? 'bg-white shadow-sm border text-primary-700'
-                              : 'text-gray-500 hover:text-gray-700',
+                              ? 'bg-primary-500 text-white shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
                           )}
                         >
                           <Icon className="w-3 h-3" />
