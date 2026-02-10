@@ -41,6 +41,330 @@ export const CONFIDENCE_THRESHOLDS = {
 /** Mobile sheet height as viewport percentage */
 export const MOBILE_SHEET_MAX_HEIGHT_VH = 85;
 
+// =============================================================================
+// NARRATIVE PREVIEW — TYPES
+// =============================================================================
+
+export type StoryStatus = 'complete' | 'in-progress' | 'draft';
+
+export interface SectionColor {
+  bg: string;       // bg-{color}-500 — dot, progress bar, horizontal rule
+  text: string;     // text-{color}-600 — label
+  topBorder: string; // border-t-{color}-500 — card top accent
+  headerBorder: string; // border-b-{color}-500 — header underline
+  ratingBg: string;  // bg-{color}-50 — rating badge background
+  ratingText: string; // text-{color}-700 — rating badge text
+}
+
+export interface SectionTiming {
+  key: string;
+  label: string;
+  seconds: number;
+  percentage: number;
+}
+
+// =============================================================================
+// NARRATIVE PREVIEW — SECTION COLORS
+// =============================================================================
+
+export const SECTION_COLORS: Record<string, SectionColor> = {
+  situation:  { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  context:    { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  challenge:  { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  problem:    { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
+  task:       { bg: 'bg-amber-500',  text: 'text-amber-600',  topBorder: 'border-t-amber-500',  headerBorder: 'border-b-amber-500',  ratingBg: 'bg-amber-50',  ratingText: 'text-amber-700' },
+  objective:  { bg: 'bg-amber-500',  text: 'text-amber-600',  topBorder: 'border-t-amber-500',  headerBorder: 'border-b-amber-500',  ratingBg: 'bg-amber-50',  ratingText: 'text-amber-700' },
+  obstacles:  { bg: 'bg-rose-500',   text: 'text-rose-600',   topBorder: 'border-t-rose-500',   headerBorder: 'border-b-rose-500',   ratingBg: 'bg-rose-50',   ratingText: 'text-rose-700' },
+  hindrances: { bg: 'bg-rose-500',   text: 'text-rose-600',   topBorder: 'border-t-rose-500',   headerBorder: 'border-b-rose-500',   ratingBg: 'bg-rose-50',   ratingText: 'text-rose-700' },
+  action:     { bg: 'bg-purple-500', text: 'text-purple-600', topBorder: 'border-t-purple-500', headerBorder: 'border-b-purple-500', ratingBg: 'bg-purple-50', ratingText: 'text-purple-700' },
+  actions:    { bg: 'bg-purple-500', text: 'text-purple-600', topBorder: 'border-t-purple-500', headerBorder: 'border-b-purple-500', ratingBg: 'bg-purple-50', ratingText: 'text-purple-700' },
+  result:     { bg: 'bg-red-500',    text: 'text-red-600',    topBorder: 'border-t-red-500',    headerBorder: 'border-b-red-500',    ratingBg: 'bg-red-50',    ratingText: 'text-red-700' },
+  results:    { bg: 'bg-red-500',    text: 'text-red-600',    topBorder: 'border-t-red-500',    headerBorder: 'border-b-red-500',    ratingBg: 'bg-red-50',    ratingText: 'text-red-700' },
+  learning:   { bg: 'bg-indigo-500', text: 'text-indigo-600', topBorder: 'border-t-indigo-500', headerBorder: 'border-b-indigo-500', ratingBg: 'bg-indigo-50', ratingText: 'text-indigo-700' },
+  evaluation: { bg: 'bg-indigo-500', text: 'text-indigo-600', topBorder: 'border-t-indigo-500', headerBorder: 'border-b-indigo-500', ratingBg: 'bg-indigo-50', ratingText: 'text-indigo-700' },
+  outcome:    { bg: 'bg-violet-500', text: 'text-violet-600', topBorder: 'border-t-violet-500', headerBorder: 'border-b-violet-500', ratingBg: 'bg-violet-50', ratingText: 'text-violet-700' },
+};
+
+export const DEFAULT_SECTION_COLOR: SectionColor = { bg: 'bg-gray-400', text: 'text-gray-600', topBorder: 'border-t-gray-400', headerBorder: 'border-b-gray-400', ratingBg: 'bg-gray-50', ratingText: 'text-gray-600' };
+
+export function getSectionColor(key: string): SectionColor {
+  return SECTION_COLORS[key.toLowerCase()] || DEFAULT_SECTION_COLOR;
+}
+
+// =============================================================================
+// NARRATIVE PREVIEW — DELIVERY CUES
+// =============================================================================
+
+export const DELIVERY_CUES: Record<string, { openingCue: string; closingCue: string; emphasis: string[] }> = {
+  situation: {
+    openingCue: '[PAUSE] Set the scene...',
+    closingCue: '[BRIEF PAUSE] before transitioning',
+    emphasis: ['team size', 'timeline', 'stakes', 'scope', 'company', 'revenue', 'users'],
+  },
+  context: {
+    openingCue: '[PAUSE] Paint the picture...',
+    closingCue: '[BRIEF PAUSE]',
+    emphasis: ['team size', 'timeline', 'stakes', 'scope', 'company', 'revenue', 'users'],
+  },
+  challenge: {
+    openingCue: '[LEAN IN] Here was the problem...',
+    closingCue: '[PAUSE for effect]',
+    emphasis: ['broken', 'failing', 'blocked', 'urgent', 'critical', 'impossible'],
+  },
+  problem: {
+    openingCue: '[LEAN IN] Here was the problem...',
+    closingCue: '[PAUSE for effect]',
+    emphasis: ['broken', 'failing', 'blocked', 'urgent', 'critical', 'impossible'],
+  },
+  task: {
+    openingCue: '[CONFIDENT TONE] My responsibility was...',
+    closingCue: '[BRIEF PAUSE]',
+    emphasis: ['I', 'my', 'led', 'owned', 'responsible', 'accountable'],
+  },
+  objective: {
+    openingCue: '[CONFIDENT TONE] My goal was...',
+    closingCue: '[BRIEF PAUSE]',
+    emphasis: ['I', 'my', 'led', 'owned', 'responsible', 'accountable'],
+  },
+  obstacles: {
+    openingCue: '[SLOWER PACE] The challenges were...',
+    closingCue: '[PAUSE] But here\'s what I did...',
+    emphasis: ['blocked', 'failed', 'struggled', 'difficult', 'complex'],
+  },
+  hindrances: {
+    openingCue: '[SLOWER PACE] The blockers were...',
+    closingCue: '[PAUSE] Here\'s how I overcame them...',
+    emphasis: ['blocked', 'failed', 'struggled', 'difficult', 'complex'],
+  },
+  action: {
+    openingCue: '[ENERGETIC] Here\'s what I did...',
+    closingCue: '[BRIEF PAUSE before results]',
+    emphasis: ['built', 'designed', 'implemented', 'created', 'refactored', 'optimized', 'led'],
+  },
+  actions: {
+    openingCue: '[ENERGETIC] Here\'s what I did...',
+    closingCue: '[BRIEF PAUSE before results]',
+    emphasis: ['built', 'designed', 'implemented', 'created', 'refactored', 'optimized', 'led'],
+  },
+  result: {
+    openingCue: '[PROUD TONE] The impact was...',
+    closingCue: '[PAUSE] [SMILE]',
+    emphasis: ['%', 'x', 'reduced', 'increased', 'saved', 'improved', 'revenue', 'users'],
+  },
+  results: {
+    openingCue: '[PROUD TONE] The impact was...',
+    closingCue: '[PAUSE] [SMILE]',
+    emphasis: ['%', 'x', 'reduced', 'increased', 'saved', 'improved', 'revenue', 'users'],
+  },
+  learning: {
+    openingCue: '[REFLECTIVE] What I learned...',
+    closingCue: '[THOUGHTFUL PAUSE]',
+    emphasis: ['learned', 'realized', 'discovered', 'now I', 'differently'],
+  },
+  evaluation: {
+    openingCue: '[REFLECTIVE] Looking back...',
+    closingCue: '[THOUGHTFUL PAUSE]',
+    emphasis: ['worked', 'didn\'t', 'better', 'next time', 'improved'],
+  },
+};
+
+// =============================================================================
+// NARRATIVE PREVIEW — SECTION COACHING
+// =============================================================================
+
+export const SECTION_COACHING: Record<string, { description: string; tip: string; interviewNote: string }> = {
+  situation: {
+    description: 'Set the scene and context',
+    tip: 'Keep it brief — 2-3 sentences max. Focus on business impact.',
+    interviewNote: 'Interviewers want to understand scope. Mention team size, timeline, stakes.',
+  },
+  context: {
+    description: 'Set the scene and context',
+    tip: 'Keep it brief — 2-3 sentences max. Focus on business impact.',
+    interviewNote: 'Interviewers want to understand scope. Mention team size, timeline, stakes.',
+  },
+  task: {
+    description: 'Your specific responsibility',
+    tip: 'Be clear about YOUR role, not the team\'s. Use "I", not "we".',
+    interviewNote: 'This shows ownership. What were YOU accountable for?',
+  },
+  objective: {
+    description: 'Your specific responsibility',
+    tip: 'Be clear about YOUR role, not the team\'s. Use "I", not "we".',
+    interviewNote: 'This shows ownership. What were YOU accountable for?',
+  },
+  action: {
+    description: 'Steps you took',
+    tip: 'This is the meat. Be specific. What tools, frameworks, approaches?',
+    interviewNote: 'Hiring managers want to see HOW you think. Technical depth matters here.',
+  },
+  actions: {
+    description: 'Steps you took',
+    tip: 'This is the meat. Be specific. What tools, frameworks, approaches?',
+    interviewNote: 'Hiring managers want to see HOW you think. Technical depth matters here.',
+  },
+  result: {
+    description: 'Outcomes and impact',
+    tip: 'Quantify everything. Revenue, time saved, users impacted, % improvements.',
+    interviewNote: 'Numbers are memorable. "Reduced load time 40%" sticks; "made it faster" doesn\'t.',
+  },
+  results: {
+    description: 'Outcomes and impact',
+    tip: 'Quantify everything. Revenue, time saved, users impacted, % improvements.',
+    interviewNote: 'Numbers are memorable. "Reduced load time 40%" sticks; "made it faster" doesn\'t.',
+  },
+  obstacles: {
+    description: 'Challenges you faced',
+    tip: 'Show problem-solving ability. What was blocking progress?',
+    interviewNote: 'This demonstrates resilience. Every good story has conflict.',
+  },
+  hindrances: {
+    description: 'Challenges you faced',
+    tip: 'Show problem-solving ability. What was blocking progress?',
+    interviewNote: 'This demonstrates resilience. Every good story has conflict.',
+  },
+  learning: {
+    description: 'What you learned',
+    tip: 'Show growth mindset. What would you do differently?',
+    interviewNote: 'Senior roles require reflection. This shows maturity.',
+  },
+  evaluation: {
+    description: 'Reflection on the outcome',
+    tip: 'Be honest. What worked, what didn\'t?',
+    interviewNote: 'Self-awareness is a senior trait. Don\'t oversell.',
+  },
+  challenge: {
+    description: 'The problem to solve',
+    tip: 'Frame it as a business problem, not a technical one.',
+    interviewNote: 'Show you understand why this mattered to the business.',
+  },
+  problem: {
+    description: 'The problem to solve',
+    tip: 'Frame it as a business problem, not a technical one.',
+    interviewNote: 'Show you understand why this mattered to the business.',
+  },
+};
+
+// =============================================================================
+// NARRATIVE PREVIEW — SECTION FIX GUIDANCE
+// =============================================================================
+
+export const SECTION_FIX: Record<string, string> = {
+  situation: 'Add concrete stakes — dollars, users, or strategic risk of inaction. Make the reader feel the urgency.',
+  context: 'Add concrete stakes — dollars, users, or strategic risk of inaction. Make the reader feel the urgency.',
+  challenge: 'Frame the business problem, not the technical one. What happens if this doesn\'t get solved?',
+  problem: 'Frame the business problem, not the technical one. What happens if this doesn\'t get solved?',
+  task: 'Be explicit about YOUR role. Use "I", not "we". Name what you were accountable for delivering.',
+  objective: 'Be explicit about YOUR goal. Use "I", not "we". Name the measurable target you owned.',
+  obstacles: 'Make the obstacle specific and real. What exactly was blocking progress, and why was it hard?',
+  hindrances: 'Name the specific blockers. Generic "challenges" don\'t demonstrate problem-solving ability.',
+  action: 'Name the methodology, sample size, tools, and your specific influence on the team\'s direction.',
+  actions: 'Name the methodology, sample size, tools, and your specific influence on the team\'s direction.',
+  result: 'Lead with the quantified outcome: metric + baseline + timeframe. Past tense only. No "will" or "expected to".',
+  results: 'Lead with the quantified outcome: metric + baseline + timeframe. Past tense only. No "will" or "expected to".',
+  learning: 'Show growth mindset — name what you\'d do differently and why. Self-awareness is a senior trait.',
+  evaluation: 'Be honest about what worked and what didn\'t. Overselling is a red flag at senior levels.',
+  outcome: 'Contextualize the impact: metric + baseline + timeframe. "241% of benchmarks" needs a denominator.',
+};
+
+// =============================================================================
+// NARRATIVE PREVIEW — STATUS DESCRIPTIONS
+// =============================================================================
+
+export const STATUS_DESCRIPTIONS: Record<StoryStatus, { summary: string; detail: string }> = {
+  complete: {
+    summary: 'This story is interview-ready.',
+    detail: 'Strong narrative with quantified impact, clear ownership, and specific details. Ready to use in interviews, performance reviews, or promotion packets.',
+  },
+  'in-progress': {
+    summary: 'This story needs more polish before it\'s interview-ready.',
+    detail: 'The narrative structure is there, but some sections lack specifics. Add concrete numbers, clarify your individual role, or strengthen the impact statement.',
+  },
+  draft: {
+    summary: 'This story is still a rough draft.',
+    detail: 'Most sections need more detail. Focus on adding specific metrics, naming the tools and approaches you used, and quantifying your impact.',
+  },
+};
+
+// =============================================================================
+// NARRATIVE PREVIEW — SECTION RATING INFO
+// =============================================================================
+
+export const SECTION_RATING_INFO: Record<string, { summary: string; detail: string }> = {
+  Strong: {
+    summary: 'This section is interview-ready.',
+    detail: 'Specific details, clear ownership language, and quantified impact. No changes needed.',
+  },
+  Fair: {
+    summary: 'This section needs more specifics.',
+    detail: 'The structure is there, but interviewers want concrete numbers, named tools, and "I" statements. Polish before using in an interview.',
+  },
+  Weak: {
+    summary: 'This section is too vague for interviews.',
+    detail: 'Generic descriptions won\'t survive follow-up questions. Add real metrics, specific approaches, and what YOU did — not the team.',
+  },
+  Missing: {
+    summary: 'This section needs content.',
+    detail: 'An empty section weakens the entire story. Even a single sentence with a concrete number is better than nothing.',
+  },
+};
+
+// =============================================================================
+// NARRATIVE PREVIEW — PURE FUNCTIONS
+// =============================================================================
+
+export function getStoryStatus(confidence: number): StoryStatus {
+  if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'complete';
+  if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'in-progress';
+  return 'draft';
+}
+
+export function capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function mapSectionToStarKey(sectionKey: string): 'situation' | 'task' | 'action' | 'result' {
+  const mapping: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
+    situation: 'situation',
+    task: 'task',
+    action: 'action',
+    result: 'result',
+    context: 'situation',
+    challenge: 'situation',
+    problem: 'situation',
+    obstacles: 'task',
+    hindrances: 'task',
+    actions: 'action',
+    objective: 'task',
+    results: 'result',
+    outcome: 'result',
+    learning: 'result',
+    evaluation: 'result',
+  };
+  return mapping[sectionKey.toLowerCase()] || 'result';
+}
+
+export function extractMetrics(text: string): string[] {
+  const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?|calls?|transactions?))/gi;
+  const matches = text.match(metricPattern) || [];
+  return [...new Set(matches)].slice(0, 6);
+}
+
+export function estimateSpeakingTime(text: string): number {
+  const words = text.trim().split(/\s+/).length;
+  return Math.ceil((words / 150) * 60);
+}
+
+export function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+export function getRatingLabel(confidence: number): string {
+  return confidence >= 0.75 ? 'Strong' : confidence >= 0.5 ? 'Fair' : confidence >= 0.3 ? 'Weak' : 'Missing';
+}
+
 /** Narrative framework metadata for UI display */
 export const NARRATIVE_FRAMEWORKS = {
   STAR: {

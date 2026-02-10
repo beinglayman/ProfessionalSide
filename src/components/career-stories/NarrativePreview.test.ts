@@ -1,86 +1,20 @@
 /**
  * NarrativePreview Unit Tests
  *
- * Tests for pure functions and constants extracted from NarrativePreview.tsx.
+ * Tests for pure functions and constants exported from constants.ts.
  * Covers: section color mapping, section key mapping, confidence rating logic,
  * and the regex global-flag fix (Phase 1 critical bug).
  */
 
 import { describe, expect, it } from 'vitest';
-
-// We can't import internal helpers directly from the TSX component, so we
-// re-declare the logic here for testing. This ensures the patterns stay correct.
-
-// --- Section color mapping (matches SECTION_COLORS in NarrativePreview.tsx) ---
-
-interface SectionColor {
-  bg: string;
-  text: string;
-  topBorder: string;
-  headerBorder: string;
-  ratingBg: string;
-  ratingText: string;
-}
-
-const SECTION_COLORS: Record<string, SectionColor> = {
-  situation:  { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
-  context:    { bg: 'bg-blue-500',   text: 'text-blue-600',   topBorder: 'border-t-blue-500',   headerBorder: 'border-b-blue-500',   ratingBg: 'bg-blue-50',   ratingText: 'text-blue-700' },
-  task:       { bg: 'bg-amber-500',  text: 'text-amber-600',  topBorder: 'border-t-amber-500',  headerBorder: 'border-b-amber-500',  ratingBg: 'bg-amber-50',  ratingText: 'text-amber-700' },
-  obstacles:  { bg: 'bg-rose-500',   text: 'text-rose-600',   topBorder: 'border-t-rose-500',   headerBorder: 'border-b-rose-500',   ratingBg: 'bg-rose-50',   ratingText: 'text-rose-700' },
-  action:     { bg: 'bg-purple-500', text: 'text-purple-600', topBorder: 'border-t-purple-500', headerBorder: 'border-b-purple-500', ratingBg: 'bg-purple-50', ratingText: 'text-purple-700' },
-  result:     { bg: 'bg-red-500',    text: 'text-red-600',    topBorder: 'border-t-red-500',    headerBorder: 'border-b-red-500',    ratingBg: 'bg-red-50',    ratingText: 'text-red-700' },
-  learning:   { bg: 'bg-indigo-500', text: 'text-indigo-600', topBorder: 'border-t-indigo-500', headerBorder: 'border-b-indigo-500', ratingBg: 'bg-indigo-50', ratingText: 'text-indigo-700' },
-  outcome:    { bg: 'bg-violet-500', text: 'text-violet-600', topBorder: 'border-t-violet-500', headerBorder: 'border-b-violet-500', ratingBg: 'bg-violet-50', ratingText: 'text-violet-700' },
-};
-
-const DEFAULT_SECTION_COLOR: SectionColor = { bg: 'bg-gray-400', text: 'text-gray-600', topBorder: 'border-t-gray-400', headerBorder: 'border-b-gray-400', ratingBg: 'bg-gray-50', ratingText: 'text-gray-600' };
-
-function getSectionColor(key: string): SectionColor {
-  return SECTION_COLORS[key.toLowerCase()] || DEFAULT_SECTION_COLOR;
-}
-
-// --- mapSectionToStarKey ---
-
-function mapSectionToStarKey(sectionKey: string): 'situation' | 'task' | 'action' | 'result' {
-  const mapping: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
-    situation: 'situation', context: 'situation', challenge: 'situation', problem: 'situation',
-    task: 'task', objective: 'task', obstacles: 'task', hindrances: 'task',
-    action: 'action', actions: 'action',
-    result: 'result', results: 'result', outcome: 'result', learning: 'result', evaluation: 'result',
-  };
-  return mapping[sectionKey.toLowerCase()] || 'result';
-}
-
-// --- getStoryStatus ---
-
-type StoryStatus = 'complete' | 'in-progress' | 'draft';
-
-function getStoryStatus(confidence: number): StoryStatus {
-  if (confidence >= 0.75) return 'complete';
-  if (confidence >= 0.4) return 'in-progress';
-  return 'draft';
-}
-
-// --- extractMetrics ---
-
-function extractMetrics(text: string): string[] {
-  const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?|requests?|queries?|calls?|transactions?))/gi;
-  const matches = text.match(metricPattern) || [];
-  return [...new Set(matches)].slice(0, 6);
-}
-
-// --- estimateSpeakingTime ---
-
-function estimateSpeakingTime(text: string): number {
-  const words = text.trim().split(/\s+/).length;
-  return Math.ceil((words / 150) * 60);
-}
-
-// --- Rating label logic ---
-
-function getRatingLabel(confidence: number): string {
-  return confidence >= 0.75 ? 'Strong' : confidence >= 0.5 ? 'Fair' : confidence >= 0.3 ? 'Weak' : 'Missing';
-}
+import {
+  getSectionColor,
+  mapSectionToStarKey,
+  getStoryStatus,
+  extractMetrics,
+  estimateSpeakingTime,
+  getRatingLabel,
+} from './constants';
 
 // =============================================================================
 // TESTS
@@ -164,21 +98,21 @@ describe('mapSectionToStarKey', () => {
 
 describe('getStoryStatus', () => {
   it('returns complete for high confidence', () => {
-    expect(getStoryStatus(0.75)).toBe('complete');
+    expect(getStoryStatus(0.8)).toBe('complete');
     expect(getStoryStatus(0.9)).toBe('complete');
     expect(getStoryStatus(1.0)).toBe('complete');
   });
 
   it('returns in-progress for medium confidence', () => {
-    expect(getStoryStatus(0.4)).toBe('in-progress');
     expect(getStoryStatus(0.5)).toBe('in-progress');
-    expect(getStoryStatus(0.74)).toBe('in-progress');
+    expect(getStoryStatus(0.6)).toBe('in-progress');
+    expect(getStoryStatus(0.79)).toBe('in-progress');
   });
 
   it('returns draft for low confidence', () => {
     expect(getStoryStatus(0.0)).toBe('draft');
     expect(getStoryStatus(0.2)).toBe('draft');
-    expect(getStoryStatus(0.39)).toBe('draft');
+    expect(getStoryStatus(0.49)).toBe('draft');
   });
 });
 
