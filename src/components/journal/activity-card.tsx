@@ -300,14 +300,15 @@ export function ActivityCard({
         onClick={handleClick}
       >
         <div
-          className="w-0.5 h-8 rounded-full flex-shrink-0"
+          className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-white"
           style={{ backgroundColor: sourceColor }}
-        />
+        >
+          <SourceIcon className="w-3 h-3" />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <SourceIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sourceColor }} />
-            <span className="font-medium text-sm text-gray-900 truncate">{activity.title}</span>
-            <span className="text-xs text-gray-400 flex-shrink-0">{timestampDisplay}</span>
+            <span className="font-normal text-[13px] text-gray-600 truncate">{activity.title}</span>
+            <span className="text-[11px] text-gray-400 flex-shrink-0">{timestampDisplay}</span>
           </div>
         </div>
         {activity.sourceUrl && (

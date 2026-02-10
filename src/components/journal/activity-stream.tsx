@@ -9,6 +9,7 @@ import { cn } from '../../lib/utils';
 import { useDropdown } from '../../hooks/useDropdown';
 import { useActivityFilters, useExpansionState } from '../../hooks/useActivityStreamState';
 import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES } from './activity-card-utils';
+import { highlightMetrics, ACTIVITIES_PER_EDGE_LIMIT } from './story-group-header';
 import { BRAG_DOC_CATEGORIES } from '../career-stories/constants';
 interface ActivityStreamProps {
   groups: ActivityGroup[];
@@ -486,6 +487,7 @@ interface InlineDraftCardProps {
   onPromoteToCareerStory?: (entryId: string) => void;
 }
 
+// TODO: Also duplicated in story-group-header.tsx — move to types/activity.ts alongside ACTIVITY_EDGE_LABELS
 const EDGE_TYPE_ORDER: ActivityStoryEdgeType[] = ['primary', 'outcome', 'supporting', 'contextual'];
 
 function InlineDraftCard({ group, ...rest }: InlineDraftCardProps) {
@@ -661,7 +663,7 @@ function InlineDraftCardInner({
 
           <div className={cn(
             'grid gap-4',
-            group.activities.length > 0 ? 'lg:grid-cols-2' : 'grid-cols-1'
+            group.activities.length > 0 ? 'lg:grid-cols-[3fr,2fr]' : 'grid-cols-1'
           )}>
             {/* Left: full description + impact highlights */}
             <div className={cn(
@@ -670,23 +672,23 @@ function InlineDraftCardInner({
             )}>
               {/* Full description */}
               {meta.description && (
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {meta.description}
+                <p className="text-[15px] text-gray-800 leading-[1.7]">
+                  {highlightMetrics(meta.description)}
                 </p>
               )}
 
               {/* Impact highlights */}
               {meta.impactHighlights && meta.impactHighlights.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 uppercase tracking-wide">
                     <TrendingUp className="w-3.5 h-3.5 text-green-500" />
                     Key Impact
                   </div>
                   <ul className="space-y-1.5">
                     {meta.impactHighlights.map((highlight, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-xs text-gray-600">
-                        <span className="text-green-500 mt-0.5 flex-shrink-0">•</span>
-                        <span>{highlight}</span>
+                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                        <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+                        <span>{highlightMetrics(highlight)}</span>
                       </li>
                     ))}
                   </ul>
@@ -733,6 +735,10 @@ function InlineDraftCardInner({
   );
 }
 
+// TODO: DraftEdgeSection is near-identical to EdgeTypeAccordion in story-group-header.tsx.
+// Consolidate into one shared component once edgeMap type alignment is resolved
+// (ActivityStoryEdge vs { activityId, type } subset).
+
 /** Edge-type accordion section for expanded draft card */
 function DraftEdgeSection({
   label, color, bgColor, activities, edgeMap, defaultOpen, compact
@@ -746,11 +752,19 @@ function DraftEdgeSection({
   compact: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [showAll, setShowAll] = useState(false);
+
+  const visibleActivities = showAll ? activities : activities.slice(0, ACTIVITIES_PER_EDGE_LIMIT);
+  const hiddenCount = activities.length - ACTIVITIES_PER_EDGE_LIMIT;
+
   return (
     <div>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-2 py-1.5 text-xs hover:bg-gray-50 rounded transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full flex items-center gap-2 py-1 text-[11px] hover:bg-gray-50 rounded transition-colors"
       >
         <ChevronRight className={cn('w-3.5 h-3.5 text-gray-400 transition-transform duration-200', isOpen && 'rotate-90')} />
         <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{ color, backgroundColor: bgColor }}>
@@ -760,7 +774,7 @@ function DraftEdgeSection({
       </button>
       {isOpen && (
         <div className="space-y-1.5 pl-5 mt-1">
-          {activities.map((activity) => (
+          {visibleActivities.map((activity) => (
             <ActivityCard
               key={activity.id}
               activity={activity}
@@ -770,6 +784,17 @@ function DraftEdgeSection({
               className="bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-colors"
             />
           ))}
+          {hiddenCount > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAll(!showAll);
+              }}
+              className="text-[11px] text-gray-400 hover:text-gray-600 pl-1 py-0.5 transition-colors"
+            >
+              {showAll ? 'Show less' : `+${hiddenCount} more`}
+            </button>
+          )}
         </div>
       )}
     </div>

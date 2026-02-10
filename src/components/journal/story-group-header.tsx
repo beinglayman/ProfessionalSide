@@ -8,6 +8,25 @@ import { EnhancingIndicator } from '../ui/enhancing-indicator';
 
 const EDGE_TYPE_ORDER: ActivityStoryEdgeType[] = ['primary', 'outcome', 'supporting', 'contextual'];
 
+export const METRIC_PATTERN = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:hours?|days?|weeks?|months?|minutes?|seconds?|ms|users?|customers?|engineers?|teams?))/gi;
+
+/**
+ * Highlight metric values (numbers, percentages, dollar amounts, durations) with amber marks.
+ *
+ * Uses String.split() with a capturing group — the captured matches land at odd
+ * indices (1, 3, 5, …) so we highlight those without calling .test() on a /g regex
+ * (which has stateful lastIndex and would produce wrong results).
+ */
+export function highlightMetrics(text: string): React.ReactNode {
+  const parts = text.split(METRIC_PATTERN);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <mark key={i} className="font-semibold bg-amber-100 text-amber-900 px-0.5 rounded-sm">{part}</mark>
+      : part
+  );
+}
+
 interface StoryGroupHeaderProps {
   storyMetadata: StoryMetadata;
   activityCount: number;
@@ -150,8 +169,12 @@ function ActionsMenu({
   );
 }
 
+/** Max activities shown per edge type before collapsing behind "+N more" */
+export const ACTIVITIES_PER_EDGE_LIMIT = 3;
+
 /**
- * Collapsible section for a single edge type within expanded story details
+ * Collapsible section for a single edge type within expanded story details.
+ * Shows at most ACTIVITIES_PER_EDGE_LIMIT items; the rest are behind a "+N more" toggle.
  */
 function EdgeTypeAccordion({
   label, color, bgColor, activities, edgeMap, defaultOpen, compact
@@ -165,6 +188,10 @@ function EdgeTypeAccordion({
   compact: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [showAll, setShowAll] = useState(false);
+
+  const visibleActivities = showAll ? activities : activities.slice(0, ACTIVITIES_PER_EDGE_LIMIT);
+  const hiddenCount = activities.length - ACTIVITIES_PER_EDGE_LIMIT;
 
   return (
     <div>
@@ -173,7 +200,7 @@ function EdgeTypeAccordion({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center gap-2 py-1.5 text-xs hover:bg-gray-50 rounded transition-colors"
+        className="w-full flex items-center gap-2 py-1 text-[11px] hover:bg-gray-50 rounded transition-colors"
       >
         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-400 transition-transform duration-200", isOpen && "rotate-90")} />
         <span
@@ -186,7 +213,7 @@ function EdgeTypeAccordion({
       </button>
       {isOpen && (
         <div className="space-y-1.5 pl-5 mt-1">
-          {activities.map((activity) => (
+          {visibleActivities.map((activity) => (
             <ActivityCard
               key={activity.id}
               activity={activity}
@@ -196,6 +223,17 @@ function EdgeTypeAccordion({
               className="bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-colors"
             />
           ))}
+          {hiddenCount > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAll(!showAll);
+              }}
+              className="text-[11px] text-gray-400 hover:text-gray-600 pl-1 py-0.5 transition-colors"
+            >
+              {showAll ? 'Show less' : `+${hiddenCount} more`}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -488,7 +526,7 @@ export function StoryGroupHeader({
 
             <div className={cn(
               'grid gap-4',
-              hasActivities ? 'lg:grid-cols-2' : 'grid-cols-1'
+              hasActivities ? 'lg:grid-cols-[3fr,2fr]' : 'grid-cols-1'
             )}>
               {/* Left column: Story narrative */}
               <div className={cn(
@@ -497,8 +535,8 @@ export function StoryGroupHeader({
               )}>
                 {/* Description */}
                 {description && (
-                  <p className="text-sm text-gray-600 leading-relaxed animate-in fade-in slide-in-from-left-2 duration-300">
-                    {description}
+                  <p className="text-[15px] text-gray-800 leading-[1.7] animate-in fade-in slide-in-from-left-2 duration-300">
+                    {highlightMetrics(description)}
                   </p>
                 )}
                 {/* Enhancing indicator when story is pending LLM enhancement */}
@@ -509,7 +547,7 @@ export function StoryGroupHeader({
                 {/* Impact highlights */}
                 {impactHighlights && impactHighlights.length > 0 && (
                   <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300 delay-75">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 uppercase tracking-wide">
                       <TrendingUp className="w-3.5 h-3.5 text-green-500" />
                       Key Impact
                     </div>
@@ -517,11 +555,11 @@ export function StoryGroupHeader({
                       {impactHighlights.map((highlight, idx) => (
                         <li
                           key={idx}
-                          className="flex items-start gap-2 text-xs text-gray-600"
+                          className="flex items-start gap-2 text-sm text-gray-700"
                           style={{ animationDelay: `${100 + idx * 50}ms` }}
                         >
-                          <span className="text-green-500 mt-0.5 flex-shrink-0">•</span>
-                          <span>{highlight}</span>
+                          <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+                          <span>{highlightMetrics(highlight)}</span>
                         </li>
                       ))}
                     </ul>
