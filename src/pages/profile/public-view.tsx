@@ -340,7 +340,7 @@ function StoryCard({ story }: { story: CareerStory }) {
         </div>
 
         {preview && (
-          <p className="text-xs text-gray-600 line-clamp-2 mt-2">{preview}</p>
+          <p className="text-xs text-gray-600 line-clamp-2 mt-2 whitespace-pre-line">{preview}</p>
         )}
 
         {story.publishedAt && (

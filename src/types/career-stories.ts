@@ -440,11 +440,19 @@ export interface DerivePacketResponse {
 // SAVED DERIVATIONS
 // =============================================================================
 
+export interface StorySnapshot {
+  storyId: string;
+  title: string;
+  generatedAt: string | null;
+  dateRange?: { earliest: string; latest: string } | null;
+}
+
 export interface StoryDerivation {
   id: string;
   kind: 'single' | 'packet';
   type: string;
   storyIds: string[];
+  storySnapshots?: StorySnapshot[];
   text: string;
   charCount: number;
   wordCount: number;

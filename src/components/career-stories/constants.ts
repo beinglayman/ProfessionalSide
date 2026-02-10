@@ -130,6 +130,8 @@ export const ARCHETYPE_GROUPS: Record<ArchetypeGroup, { label: string; descripti
 // =============================================================================
 
 import type { WritingStyle, DerivationType } from '../../types/career-stories';
+import { Mic, Share2, FileText, Users, Target, MessageSquare } from 'lucide-react';
+import type React from 'react';
 
 export const WRITING_STYLES: { value: WritingStyle; label: string; description: string }[] = [
   { value: 'professional', label: 'Professional', description: 'Formal, achievement-focused' },
@@ -149,13 +151,25 @@ export const DERIVATION_TYPE_META: Record<DerivationType, {
   label: string;
   description: string;
   maxLength?: string;
+  Icon: React.FC<{ className?: string }>;
+  color: string; // tailwind color prefix, e.g. 'indigo' → bg-indigo-50 text-indigo-700
 }> = {
-  interview: { label: 'Interview Answer', description: 'Ready to rehearse, ~90 seconds', maxLength: '~200 words' },
-  linkedin: { label: 'Professional Post', description: 'Paste, post, done', maxLength: '1300 chars' },
-  resume: { label: 'Resume Bullet', description: 'Metric-driven, drop into any resume', maxLength: '1-2 lines' },
-  'one-on-one': { label: '1:1 Talking Points', description: 'Walk in with receipts, 3-5 bullets', maxLength: '3-5 bullets' },
-  'self-assessment': { label: 'Self Assessment', description: 'Perf review paragraph, evidence-backed', maxLength: '1 paragraph' },
-  'team-share': { label: 'Team Share', description: 'Ship to Slack, celebrate the win', maxLength: '2-3 sentences' },
+  interview: { label: 'Interview Answer', description: 'Ready to rehearse, ~90 seconds', maxLength: '~200 words', Icon: Mic, color: 'indigo' },
+  linkedin: { label: 'Professional Post', description: 'Paste, post, done', maxLength: '1300 chars', Icon: Share2, color: 'sky' },
+  resume: { label: 'Resume Bullet', description: 'Metric-driven, drop into any resume', maxLength: '1-2 lines', Icon: FileText, color: 'emerald' },
+  'one-on-one': { label: '1:1 Talking Points', description: 'Walk in with receipts, 3-5 bullets', maxLength: '3-5 bullets', Icon: Users, color: 'amber' },
+  'self-assessment': { label: 'Self Assessment', description: 'Perf review paragraph, evidence-backed', maxLength: '1 paragraph', Icon: Target, color: 'rose' },
+  'team-share': { label: 'Team Share', description: 'Ship to Slack, celebrate the win', maxLength: '2-3 sentences', Icon: MessageSquare, color: 'violet' },
+};
+
+/** Pre-built Tailwind classes for derivation type colors (avoids dynamic class purging issues) */
+export const DERIVATION_COLOR_CLASSES: Record<string, { bg: string; text: string; iconText: string }> = {
+  indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', iconText: 'text-indigo-500' },
+  sky: { bg: 'bg-sky-50', text: 'text-sky-700', iconText: 'text-sky-500' },
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', iconText: 'text-emerald-500' },
+  amber: { bg: 'bg-amber-50', text: 'text-amber-700', iconText: 'text-amber-500' },
+  rose: { bg: 'bg-rose-50', text: 'text-rose-700', iconText: 'text-rose-500' },
+  violet: { bg: 'bg-violet-50', text: 'text-violet-700', iconText: 'text-violet-500' },
 };
 
 // =============================================================================

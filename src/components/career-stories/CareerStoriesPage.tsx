@@ -56,13 +56,13 @@ import {
   groupStoriesByCategory,
   formatTimeSpan,
 } from '../../utils/story-timeline';
-const PACKET_PILL_META: Record<string, { label: string; Icon: React.FC<{ className?: string }>; detail: string }> = {
-  promotion: { label: 'Promotion', Icon: TrendingUp, detail: 'Promotion-ready document' },
-  'annual-review': { label: 'Review', Icon: Clock, detail: 'Annual review summary' },
-  'skip-level': { label: 'Skip-Level', Icon: ArrowUpRight, detail: 'Skip-level prep' },
-  'portfolio-brief': { label: 'Portfolio', Icon: FileText, detail: 'Portfolio brief' },
-  'self-assessment': { label: 'Assessment', Icon: Target, detail: 'Self-assessment write-up' },
-  'one-on-one': { label: '1:1 Prep', Icon: Users, detail: '1:1 talking points' },
+const PACKET_PILL_META: Record<string, { label: string; Icon: React.FC<{ className?: string }>; detail: string; bg: string; text: string; iconText: string }> = {
+  promotion: { label: 'Promotion', Icon: TrendingUp, detail: 'Promotion-ready document', bg: 'bg-emerald-50', text: 'text-emerald-700', iconText: 'text-emerald-500' },
+  'annual-review': { label: 'Review', Icon: Clock, detail: 'Annual review summary', bg: 'bg-blue-50', text: 'text-blue-700', iconText: 'text-blue-500' },
+  'skip-level': { label: 'Skip-Level', Icon: ArrowUpRight, detail: 'Skip-level prep', bg: 'bg-purple-50', text: 'text-purple-700', iconText: 'text-purple-500' },
+  'portfolio-brief': { label: 'Portfolio', Icon: FileText, detail: 'Portfolio brief', bg: 'bg-indigo-50', text: 'text-indigo-700', iconText: 'text-indigo-500' },
+  'self-assessment': { label: 'Assessment', Icon: Target, detail: 'Self-assessment write-up', bg: 'bg-rose-50', text: 'text-rose-700', iconText: 'text-rose-500' },
+  'one-on-one': { label: '1:1 Prep', Icon: Users, detail: '1:1 talking points', bg: 'bg-amber-50', text: 'text-amber-700', iconText: 'text-amber-500' },
 };
 
 // Timeline spine (dot + connecting line) — shared between timeline and category views
@@ -1007,9 +1007,9 @@ export function CareerStoriesPage() {
                           onClick={() => setShowSavedPackets(!showSavedPackets)}
                           variant="outline"
                           size="sm"
-                          className="gap-1.5"
+                          className="gap-1.5 border-primary-200 text-primary-700 hover:bg-primary-50"
                         >
-                          <Clock className="w-3.5 h-3.5" />
+                          <Briefcase className="w-3.5 h-3.5" />
                           Saved
                           <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-primary-100 text-primary-700">
                             {packets.length}
@@ -1020,8 +1020,8 @@ export function CareerStoriesPage() {
                           )} />
                         </Button>
                         {showSavedPackets && (
-                          <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[220px] max-w-[320px]">
-                            <div className="flex flex-col gap-1">
+                          <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-[260px] max-w-[340px]">
+                            <div className="flex flex-col gap-0.5">
                               {packets.map((p) => {
                                 const meta = PACKET_PILL_META[p.type];
                                 const PillIcon = meta?.Icon || Clock;
@@ -1029,15 +1029,45 @@ export function CareerStoriesPage() {
                                 const pillDetail = meta?.detail || p.type;
                                 const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+                                // Use stored snapshots for durable display (survive story deletion)
+                                const snapshots = p.storySnapshots ?? [];
+                                const storyCount = snapshots.length || p.storyIds?.length || 0;
+
+                                // Compute overall date range from activity ranges (or fall back to generatedAt)
+                                const allDates: number[] = [];
+                                for (const snap of snapshots) {
+                                  if (snap.dateRange) {
+                                    allDates.push(new Date(snap.dateRange.earliest).getTime());
+                                    allDates.push(new Date(snap.dateRange.latest).getTime());
+                                  } else if (snap.generatedAt) {
+                                    allDates.push(new Date(snap.generatedAt).getTime());
+                                  }
+                                }
+                                const validDates = allDates.filter(t => t > 0);
+                                const dateRange = validDates.length >= 2
+                                  ? `${new Date(Math.min(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(Math.max(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                  : null;
+
                                 return (
                                   <button
                                     key={p.id}
                                     onClick={() => setViewPacket(p)}
                                     title={`${pillDetail} · ${p.wordCount} words · ${date}`}
-                                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-left"
+                                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-gray-50 transition-colors text-left group"
                                   >
-                                    <PillIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                    <span className="flex-1 truncate">{pillLabel}</span>
+                                    <span className={cn(
+                                      'flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0',
+                                      meta?.bg || 'bg-gray-100'
+                                    )}>
+                                      <PillIcon className={cn('w-3.5 h-3.5', meta?.iconText || 'text-gray-400')} />
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <span className={cn('font-medium block truncate', meta?.text || 'text-gray-700')}>{pillLabel}</span>
+                                      <span className="text-[10px] text-gray-400">
+                                        {dateRange || `${storyCount} ${storyCount === 1 ? 'story' : 'stories'}`}
+                                        {p.wordCount ? ` · ${p.wordCount} words` : ''}
+                                      </span>
+                                    </div>
                                     <span className="text-[10px] text-gray-400 flex-shrink-0">{date}</span>
                                   </button>
                                 );

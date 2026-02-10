@@ -1722,6 +1722,9 @@ export function NarrativePreview({
               </button>
             )}
 
+            {/* Saved derivations dropdown — next to "Use this story" */}
+            {story?.id && <DerivationHistory storyId={story.id} />}
+
             {/* Copy */}
             <button
               onClick={handleCopy}
@@ -1996,8 +1999,6 @@ export function NarrativePreview({
         })}
       </div>
 
-      {/* Derivation History */}
-      {story?.id && <DerivationHistory storyId={story.id} />}
 
       {/* Footer */}
       {(star?.suggestedEdits?.length > 0 || result.polishStatus === 'success') && (

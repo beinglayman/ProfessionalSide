@@ -8,16 +8,25 @@
  */
 
 import { prisma } from '../../lib/prisma';
+import { getToolActivityTable } from '../../lib/demo-tables';
 
 // =============================================================================
 // TYPES
 // =============================================================================
+
+export interface StorySnapshot {
+  storyId: string;
+  title: string;
+  generatedAt: string | null;
+  dateRange?: { earliest: string; latest: string } | null; // activity date range
+}
 
 export interface SaveDerivationInput {
   userId: string;
   kind: 'single' | 'packet';
   type: string;
   storyIds: string[];
+  storySnapshots?: StorySnapshot[];
   text: string;
   charCount: number;
   wordCount: number;
@@ -47,6 +56,7 @@ export class StoryDerivationService {
         kind: input.kind,
         type: input.type,
         storyIds: input.storyIds,
+        storySnapshots: input.storySnapshots ? JSON.parse(JSON.stringify(input.storySnapshots)) : undefined,
         text: input.text,
         charCount: input.charCount,
         wordCount: input.wordCount,
@@ -107,5 +117,47 @@ export class StoryDerivationService {
       orderBy: { createdAt: 'desc' },
       take,
     });
+  }
+
+  /**
+   * Build story snapshots from story objects.
+   * Includes activity date range (or falls back to generatedAt).
+   */
+  static async buildSnapshots(
+    stories: Array<{ id: string; title: string; generatedAt: string | Date | null; activityIds?: string[] }>,
+    isDemoMode: boolean,
+  ): Promise<StorySnapshot[]> {
+    const activityTable = getToolActivityTable(isDemoMode);
+
+    return Promise.all(
+      stories.map(async (s) => {
+        let dateRange: { earliest: string; latest: string } | null = null;
+
+        if (s.activityIds && s.activityIds.length > 0) {
+          try {
+            const result = await (activityTable.aggregate as Function)({
+              where: { id: { in: s.activityIds } },
+              _min: { timestamp: true },
+              _max: { timestamp: true },
+            });
+            if (result._min.timestamp && result._max.timestamp) {
+              dateRange = {
+                earliest: (result._min.timestamp as Date).toISOString(),
+                latest: (result._max.timestamp as Date).toISOString(),
+              };
+            }
+          } catch {
+            // Activity lookup failed — fallback to no range
+          }
+        }
+
+        return {
+          storyId: s.id,
+          title: s.title,
+          generatedAt: s.generatedAt instanceof Date ? s.generatedAt.toISOString() : (s.generatedAt ?? null),
+          dateRange,
+        };
+      }),
+    );
   }
 }

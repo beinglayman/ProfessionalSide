@@ -1287,6 +1287,13 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
   try {
     const result = await deriveStoryService(storyId, userId, derivation, isDemoMode, { tone, customPrompt });
 
+    // Snapshot story metadata for durable display (survives story deletion)
+    const storyService = createCareerStoryService(isDemoMode);
+    const storyData = await storyService.getStoryById(storyId, userId);
+    const storySnapshots = storyData
+      ? await StoryDerivationService.buildSnapshots([storyData], isDemoMode)
+      : [];
+
     // Consume credits + persist derivation
     await WalletService.consume(userId, 'derive_story');
     const saved = await StoryDerivationService.save({
@@ -1294,6 +1301,7 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
       kind: 'single',
       type: derivation,
       storyIds: [storyId],
+      storySnapshots,
       text: result.text,
       charCount: result.charCount,
       wordCount: result.wordCount,
@@ -1349,6 +1357,14 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
   try {
     const result = await derivePacketService(userId, storyIds, isDemoMode, { packetType, tone, customPrompt, dateRange });
 
+    // Snapshot story metadata for durable display (survives story deletion)
+    const storyService = createCareerStoryService(isDemoMode);
+    const packetStories = await Promise.all(storyIds.map(id => storyService.getStoryById(id, userId)));
+    const storySnapshots = await StoryDerivationService.buildSnapshots(
+      packetStories.filter(Boolean) as any[],
+      isDemoMode,
+    );
+
     // Consume credits + persist derivation
     await WalletService.consume(userId, 'derive_packet');
     const saved = await StoryDerivationService.save({
@@ -1356,6 +1372,7 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
       kind: 'packet',
       type: packetType || 'promotion',
       storyIds,
+      storySnapshots,
       text: result.text,
       charCount: result.charCount,
       wordCount: result.wordCount,

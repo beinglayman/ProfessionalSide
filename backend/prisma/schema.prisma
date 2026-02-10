@@ -1544,6 +1544,7 @@ model StoryDerivation {
   kind             String   // "single" | "packet"
   type             String   // derivation/packet type (interview, linkedin, promotion, etc.)
   storyIds         String[] @default([])
+  storySnapshots   Json?    // [{storyId, title, generatedAt}] — snapshot at creation time
   text             String   @db.Text
   charCount        Int
   wordCount        Int
