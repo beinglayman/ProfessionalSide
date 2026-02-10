@@ -465,16 +465,16 @@ export class ActivityService {
       };
     }
 
-    // For story grouping, use a different approach that shows ALL journal entries
-    // This ensures all stories are visible even when activities overlap
+    // For story grouping, fetch unpromoted journal entries (promoted ones are hidden)
     if (options.groupBy === 'story') {
-      const groups = await this.getStoryGroupsFromEntries(userId, activities);
+      const { groups, promotedCount } = await this.getStoryGroupsFromEntries(userId, activities);
       return {
         groups,
         pagination,
         meta: {
           groupBy: options.groupBy,
-          sourceMode: this.sourceMode
+          sourceMode: this.sourceMode,
+          promotedCount
         }
       };
     }
@@ -498,18 +498,27 @@ export class ActivityService {
   }
 
   /**
-   * Get story groups by fetching all journal entries first
-   * This ensures ALL entries are shown, even when activities overlap between entries
+   * Get story groups by fetching unpromoted journal entries.
+   * Promoted entries (those with a linked career story) are hidden.
+   * Returns groups + count of promoted entries for empty-state messaging.
    */
   private async getStoryGroupsFromEntries(
     userId: string,
     fetchedActivities: any[]
-  ): Promise<ActivityGroup[]> {
-    // Fetch ALL journal entries for user (both temporal and cluster)
+  ): Promise<{ groups: ActivityGroup[]; promotedCount: number }> {
+    // Find journal entry IDs that already have a career story
+    const promotedEntries = await prisma.careerStory.findMany({
+      where: { userId, sourceMode: this.sourceMode, journalEntryId: { not: null } },
+      select: { journalEntryId: true }
+    });
+    const promotedIds = promotedEntries.map(s => s.journalEntryId!);
+
+    // Fetch unpromoted journal entries only
     const journalEntries = await prisma.journalEntry.findMany({
       where: {
         authorId: userId,
-        sourceMode: this.sourceMode
+        sourceMode: this.sourceMode,
+        ...(promotedIds.length > 0 ? { id: { notIn: promotedIds } } : {})
       },
       select: {
         id: true,
@@ -674,7 +683,7 @@ export class ActivityService {
       });
     }
 
-    return groups;
+    return { groups, promotedCount: promotedIds.length };
   }
 
   // ===========================================================================
