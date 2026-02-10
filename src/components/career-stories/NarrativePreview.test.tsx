@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NarrativePreview } from './NarrativePreview';
 import { CareerStory, GenerateSTARResult, NarrativeFramework, ToolType } from '../../types/career-stories';
@@ -326,7 +327,8 @@ describe('NarrativePreview', () => {
   });
 
   describe('Framework Change', () => {
-    it('calls onFrameworkChange when framework is changed via selector', async () => {
+    it('calls onFrameworkChange when framework is changed via More dropdown', async () => {
+      const user = userEvent.setup();
       const onFrameworkChange = vi.fn();
 
       renderWithProviders(
@@ -336,22 +338,19 @@ describe('NarrativePreview', () => {
         />
       );
 
-      // Open the framework selector dropdown
-      const selectorTrigger = screen.getByTestId('framework-selector');
-      fireEvent.click(selectorTrigger);
+      // Open the More dropdown
+      await user.click(screen.getByLabelText('More actions'));
 
-      // Wait for dropdown to open and click SHARE option
-      await waitFor(() => {
-        const shareOption = screen.getByRole('option', { name: /SHARE/i });
-        fireEvent.click(shareOption);
-      });
+      // Click SHARE option
+      await user.click(screen.getByText('SHARE'));
 
       expect(onFrameworkChange).toHaveBeenCalledWith('SHARE');
     });
   });
 
   describe('Regeneration', () => {
-    it('calls onRegenerate when regenerate button is clicked', () => {
+    it('calls onRegenerate when regenerate is clicked in More dropdown', async () => {
+      const user = userEvent.setup();
       const onRegenerate = vi.fn();
 
       renderWithProviders(
@@ -361,8 +360,11 @@ describe('NarrativePreview', () => {
         />
       );
 
-      const regenerateButton = screen.getByTestId('regenerate-star');
-      fireEvent.click(regenerateButton);
+      // Open the More dropdown
+      await user.click(screen.getByLabelText('More actions'));
+
+      // Click Regenerate
+      await user.click(screen.getByText('Regenerate'));
 
       expect(onRegenerate).toHaveBeenCalledTimes(1);
     });
