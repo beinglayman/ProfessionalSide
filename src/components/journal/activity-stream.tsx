@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, MoreHorizontal, SlidersHorizontal, ArrowUpRight, Star, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { ActivityCard } from './activity-card';
@@ -7,6 +7,7 @@ import { TemporalFilters, FilterSeparator } from './activity-filters';
 import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, TemporalBucket, ActivityStoryEdgeType, ACTIVITY_EDGE_LABELS } from '../../types/activity';
 import { cn } from '../../lib/utils';
 import { useDropdown } from '../../hooks/useDropdown';
+import { useActivityFilters, useExpansionState } from '../../hooks/useActivityStreamState';
 import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES } from './activity-card-utils';
 import { BRAG_DOC_CATEGORIES } from '../career-stories/constants';
 interface ActivityStreamProps {
@@ -43,18 +44,22 @@ export function ActivityStream({
   pendingEnhancementIds,
   promotedCount = 0
 }: ActivityStreamProps) {
-  // Filter state
-  const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
-  const [selectedSources, setSelectedSources] = useState<ActivitySource[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showDraftsOnly, setShowDraftsOnly] = useState(false);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [selectedDraftCategories, setSelectedDraftCategories] = useState<string[]>([]);
 
-  // Global expand/collapse state - track which groups are collapsed.
-  // Starts null (= treat everything as collapsed) so nothing flashes expanded
-  // before the initialization effect sets the correct state.
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
+  // Extracted hooks for filter state + expansion state
+  const {
+    searchQuery, setSearchQuery,
+    selectedTemporalBuckets, selectedSources, selectedDraftCategories,
+    mobileFiltersOpen, setMobileFiltersOpen,
+    availableTemporalBuckets, temporalCounts, availableSources,
+    filteredGroups, activeFilterCount,
+    handleTemporalToggle, handleSourceToggle, handleDraftCategoryToggle,
+  } = useActivityFilters({ groups });
+
+  const {
+    expandedDrafts, collapsedGroups, setCollapsedGroups,
+    isGroupCollapsed, toggleGroup, anyExpanded, toggleAll, toggleDraft,
+  } = useExpansionState({ groups, storyGroups, filteredGroups, showDraftsOnly });
 
   // Build a stable fingerprint of group keys to detect real data changes.
   // This avoids re-initializing from stale placeholder data (keepPreviousData).
@@ -78,152 +83,7 @@ export function ActivityStream({
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }, 350);
-  }, [groupFingerprint, groups]);
-
-  // Compute available filters from groups
-  const availableTemporalBuckets = useMemo(() => {
-    return groups.map(g => g.key as TemporalBucket);
-  }, [groups]);
-
-  // Compute counts for filters
-  const temporalCounts = useMemo(() => {
-    return groups.reduce((acc, g) => {
-      acc[g.key as TemporalBucket] = g.count;
-      return acc;
-    }, {} as Record<TemporalBucket, number>);
-  }, [groups]);
-
-  // Compute available sources from all temporal groups' activities
-  const availableSources = useMemo(() => {
-    const sourceCounts = new Map<string, number>();
-    for (const g of groups) {
-      for (const a of g.activities) {
-        sourceCounts.set(a.source, (sourceCounts.get(a.source) || 0) + 1);
-      }
-    }
-    return Array.from(sourceCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([source, count]) => ({ source: source as ActivitySource, count }));
-  }, [groups]);
-
-  // Helper to check if text matches search query
-  const matchesSearch = useCallback((text: string | null | undefined): boolean => {
-    if (!searchQuery.trim()) return true;
-    if (!text) return false;
-    return text.toLowerCase().includes(searchQuery.toLowerCase());
-  }, [searchQuery]);
-
-  // Helper to check if an activity matches search
-  const activityMatchesSearch = useCallback((activity: Activity): boolean => {
-    if (!searchQuery.trim()) return true;
-    return (
-      matchesSearch(activity.title) ||
-      matchesSearch(activity.description) ||
-      matchesSearch(activity.sourceId) ||
-      activity.crossToolRefs.some(ref => matchesSearch(ref))
-    );
-  }, [searchQuery, matchesSearch]);
-
-  // Filter groups based on selection AND search
-  const filteredGroups = useMemo(() => {
-    let result = groups;
-
-    // Apply temporal bucket filter
-    if (selectedTemporalBuckets.length > 0) {
-      result = result.filter(g => selectedTemporalBuckets.includes(g.key as TemporalBucket));
-    }
-
-    // Apply source filter within temporal groups
-    if (selectedSources.length > 0) {
-      result = result.map(group => {
-        const filtered = group.activities.filter(a =>
-          selectedSources.includes(a.source as ActivitySource)
-        );
-        if (filtered.length === 0) return null;
-        return { ...group, activities: filtered, count: filtered.length };
-      }).filter((g): g is ActivityGroup => g !== null);
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      result = result.map(group => {
-        // Check if group label/title matches
-        const groupMatches = matchesSearch(group.label);
-
-        // Filter activities within the group
-        const matchingActivities = group.activities.filter(activityMatchesSearch);
-
-        // Include group if it matches OR has matching activities
-        if (groupMatches || matchingActivities.length > 0) {
-          return {
-            ...group,
-            activities: groupMatches ? group.activities : matchingActivities,
-            count: groupMatches ? group.count : matchingActivities.length
-          };
-        }
-        return null;
-      }).filter((g): g is ActivityGroup => g !== null);
-    }
-
-    return result;
-  }, [groups, selectedTemporalBuckets, selectedSources, searchQuery, matchesSearch, activityMatchesSearch]);
-
-  // Toggle handlers for filters
-  const handleTemporalToggle = (bucket: TemporalBucket) => {
-    setSelectedTemporalBuckets(prev => {
-      if (prev.includes(bucket)) {
-        return prev.filter(b => b !== bucket);
-      }
-      return [...prev, bucket];
-    });
-  };
-
-  const handleSourceToggle = (source: ActivitySource) => {
-    setSelectedSources(prev => {
-      if (prev.includes(source)) {
-        return prev.filter(s => s !== source);
-      }
-      return [...prev, source];
-    });
-  };
-
-  const handleDraftCategoryToggle = (category: string) => {
-    setSelectedDraftCategories(prev =>
-      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
-    );
-  };
-
-  // Helper: check if a group is collapsed (null state = all collapsed)
-  const isGroupCollapsed = useCallback((key: string) => {
-    return collapsedGroups === null || collapsedGroups.has(key);
-  }, [collapsedGroups]);
-
-  // Toggle single group
-  const toggleGroup = useCallback((key: string) => {
-    setCollapsedGroups(prev => {
-      const next = new Set(prev ?? []);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }, []);
-
-  // Expand/collapse all - check against filtered groups
-  // "any expanded" = at least one group is NOT collapsed
-  const anyExpanded = filteredGroups.length > 0 && filteredGroups.some(g => !isGroupCollapsed(g.key));
-
-  const toggleAll = useCallback(() => {
-    if (anyExpanded) {
-      // Collapse all (if any are expanded)
-      setCollapsedGroups(new Set(filteredGroups.map(g => g.key)));
-    } else {
-      // Expand all (if all are collapsed)
-      setCollapsedGroups(new Set());
-    }
-  }, [anyExpanded, filteredGroups]);
+  }, [groupFingerprint, groups, setCollapsedGroups]);
 
   // Map each draft story to the temporal group whose date range contains it.
   // Uses each temporal group's activity timestamps to derive bucket boundaries.
@@ -324,25 +184,24 @@ export function ActivityStream({
   // Check if we should show filters (multiple options available)
   const showTemporalFilters = availableTemporalBuckets.length > 1;
   const showFilters = showTemporalFilters;
-  const activeFilterCount = selectedTemporalBuckets.length + selectedSources.length;
 
   return (
     <div className="space-y-3">
       {/* Controls: Search + Filters + Expand/Collapse */}
       {(showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
-        <div className="bg-white rounded-lg border border-gray-200/80">
-          {/* Top row: toggle + (activities: search/filters/expand) or (drafts: category summary) */}
+        <div className="bg-white rounded-lg border border-gray-200/80 shadow-sm">
+          {/* Top row: toggle + context-specific filters + expand/collapse */}
           <div className="flex items-center gap-2 py-2 px-3">
-            {/* Activities / Drafts toggle — always visible */}
+            {/* Activities / Draft Stories toggle — always visible */}
             {storyGroups.length > 0 && (
-              <div className="flex items-center rounded-lg border-2 border-dashed border-purple-200 overflow-hidden flex-shrink-0">
+              <div className="flex items-center rounded-md bg-gray-100 p-0.5 flex-shrink-0">
                 <button
                   onClick={() => setShowDraftsOnly(false)}
                   className={cn(
-                    'px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap transition-all',
+                    'px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
                     !showDraftsOnly
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
                   )}
                 >
                   Activities
@@ -350,16 +209,16 @@ export function ActivityStream({
                 <button
                   onClick={() => setShowDraftsOnly(true)}
                   className={cn(
-                    'flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap transition-all',
+                    'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
                     showDraftsOnly
-                      ? 'bg-purple-600 text-white'
-                      : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+                      ? 'bg-white text-purple-700 shadow-sm'
+                      : 'text-purple-600 hover:text-purple-700'
                   )}
                 >
-                  Drafts
+                  Draft Stories
                   <span className={cn(
                     'text-[10px] tabular-nums rounded-full px-1.5 min-w-[16px] text-center font-bold',
-                    showDraftsOnly ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-700'
+                    showDraftsOnly ? 'bg-purple-100 text-purple-700' : 'bg-purple-100/60 text-purple-600'
                   )}>
                     {storyGroups.length}
                   </span>
@@ -415,7 +274,7 @@ export function ActivityStream({
                   </button>
                 )}
 
-                {/* Desktop: inline filters */}
+                {/* Desktop: inline temporal filters */}
                 {showFilters && (
                   <div className="hidden sm:flex items-center gap-1">
                     <FilterSeparator />
@@ -445,7 +304,7 @@ export function ActivityStream({
 
             {/* Drafts mode: category filter chips */}
             {showDraftsOnly && (
-              <div className="flex items-center gap-1.5 overflow-x-auto min-w-0">
+              <div className="flex items-center gap-1 overflow-x-auto min-w-0">
                 {BRAG_DOC_CATEGORIES.map((cat) => {
                   const count = (draftsByCategory.get(cat.value) ?? []).length;
                   if (count === 0) return null;
@@ -456,14 +315,17 @@ export function ActivityStream({
                       onClick={() => handleDraftCategoryToggle(cat.value)}
                       aria-pressed={isActive}
                       className={cn(
-                        'flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap transition-all',
+                        'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
                         isActive
                           ? 'bg-purple-600 text-white shadow-sm'
-                          : 'text-purple-700 bg-purple-50 border border-purple-200/50 hover:bg-purple-100'
+                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                       )}
                     >
                       {cat.label}
-                      <span className={cn('text-[10px]', isActive ? 'text-purple-200' : 'text-purple-500')}>{count}</span>
+                      <span className={cn(
+                        'text-[10px] tabular-nums',
+                        isActive ? 'text-purple-200' : 'text-gray-400'
+                      )}>{count}</span>
                     </button>
                   );
                 })}
@@ -474,14 +336,17 @@ export function ActivityStream({
                       onClick={() => handleDraftCategoryToggle('uncategorized')}
                       aria-pressed={isActive}
                       className={cn(
-                        'flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap transition-all',
+                        'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
                         isActive
                           ? 'bg-gray-700 text-white shadow-sm'
-                          : 'text-gray-600 bg-gray-100 border border-gray-200/50 hover:bg-gray-200'
+                          : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
                       )}
                     >
                       Uncategorized
-                      <span className={cn('text-[10px]', isActive ? 'text-gray-300' : 'text-gray-400')}>{draftsByCategory.get('uncategorized')!.length}</span>
+                      <span className={cn(
+                        'text-[10px] tabular-nums',
+                        isActive ? 'text-gray-300' : 'text-gray-400'
+                      )}>{(draftsByCategory.get('uncategorized') ?? []).length}</span>
                     </button>
                   );
                 })()}
@@ -491,30 +356,28 @@ export function ActivityStream({
             {/* Spacer */}
             <div className="flex-1 min-w-0 hidden sm:block" />
 
-            {/* Expand/Collapse All button — activities mode only */}
-            {!showDraftsOnly && (
-              <button
-                onClick={toggleAll}
-                className={cn(
-                  "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0",
-                  anyExpanded
-                    ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                    : "text-primary-600 bg-primary-50 hover:bg-primary-100"
-                )}
-              >
-                {anyExpanded ? (
-                  <>
-                    <Minus className="w-3 h-3" />
-                    <span className="hidden sm:inline">Collapse</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3 h-3" />
-                    <span className="hidden sm:inline">Expand</span>
-                  </>
-                )}
-              </button>
-            )}
+            {/* Expand/Collapse All button — always visible */}
+            <button
+              onClick={toggleAll}
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-md transition-colors flex-shrink-0",
+                anyExpanded
+                  ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  : "text-primary-600 bg-primary-50 hover:bg-primary-100"
+              )}
+            >
+              {anyExpanded ? (
+                <>
+                  <Minus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Collapse</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Expand</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Mobile: expanded filter drawer — activities mode only */}
@@ -567,12 +430,9 @@ export function ActivityStream({
                   <InlineDraftCard
                     key={draft.key}
                     group={draft}
+                    isExpanded={expandedDrafts.has(draft.key)}
+                    onToggleExpand={() => toggleDraft(draft.key)}
                     onPromoteToCareerStory={onPromoteToCareerStory}
-                    onRegenerateNarrative={onRegenerateNarrative}
-                    regeneratingEntryId={regeneratingEntryId}
-                    onDeleteEntry={onDeleteEntry}
-                    isEnhancingNarratives={isEnhancingNarratives}
-                    pendingEnhancementIds={pendingEnhancementIds}
                   />
                 ))}
               </div>
@@ -610,27 +470,40 @@ export function ActivityStream({
 /**
  * Inline draft story card — self-contained hero card with source icon stack,
  * title, description, topic chips, and "Create Story" CTA.
+ *
+ * Supports both controlled (parent manages expand state via isExpanded/onToggleExpand)
+ * and uncontrolled (internal useState) modes. The Draft Stories tab uses controlled
+ * mode so the toolbar Expand/Collapse button can toggle all cards at once.
+ *
+ * Split into Outer (null check) + Inner (guaranteed non-null meta) to avoid
+ * calling hooks before the early return that guards against missing storyMetadata.
  */
 interface InlineDraftCardProps {
   group: ActivityGroup;
+  /** Controlled expanded state. Falls back to internal state if not provided. */
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
   onPromoteToCareerStory?: (entryId: string) => void;
-  onRegenerateNarrative?: (entryId: string) => void;
-  regeneratingEntryId?: string | null;
-  onDeleteEntry?: (entryId: string) => void;
-  isEnhancingNarratives?: boolean;
-  pendingEnhancementIds?: Set<string>;
 }
 
 const EDGE_TYPE_ORDER: ActivityStoryEdgeType[] = ['primary', 'outcome', 'supporting', 'contextual'];
 
-function InlineDraftCard({
-  group,
-  onPromoteToCareerStory,
-}: InlineDraftCardProps) {
-  const meta = group.storyMetadata;
-  if (!meta) return null;
+function InlineDraftCard({ group, ...rest }: InlineDraftCardProps) {
+  if (!group.storyMetadata) return null;
+  return <InlineDraftCardInner group={group} meta={group.storyMetadata} {...rest} />;
+}
 
-  const [isExpanded, setIsExpanded] = useState(false);
+/** Inner component — `meta` is guaranteed non-null. All hooks are safe to call. */
+function InlineDraftCardInner({
+  group,
+  meta,
+  isExpanded: controlledExpanded,
+  onToggleExpand: controlledToggle,
+  onPromoteToCareerStory,
+}: InlineDraftCardProps & { meta: NonNullable<ActivityGroup['storyMetadata']> }) {
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = controlledExpanded ?? internalExpanded;
+  const onToggleExpand = controlledToggle ?? (() => setInternalExpanded(prev => !prev));
 
   // Collect unique source icons from this draft's activities, sorted by frequency
   const uniqueSources = useMemo(() => {
@@ -672,74 +545,71 @@ function InlineDraftCard({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border-2 border-dashed transition-all',
-        'bg-gradient-to-br from-purple-50/90 via-purple-25/50 to-white',
+        'relative rounded-2xl border border-dashed transition-all',
+        'bg-gradient-to-br from-purple-50/60 via-white to-white',
         isExpanded
-          ? 'border-purple-400 shadow-xl ring-2 ring-purple-100'
-          : 'border-purple-300 shadow-md hover:shadow-lg hover:border-purple-400 cursor-pointer'
+          ? 'border-purple-400 shadow-md ring-1 ring-purple-100'
+          : 'border-purple-300 shadow-sm hover:shadow-md hover:border-purple-400 cursor-pointer'
       )}
     >
 
       {/* Clickable header area */}
       <div
         className="p-4 sm:p-5"
-        onClick={() => setIsExpanded(prev => !prev)}
+        onClick={onToggleExpand}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(prev => !prev); } }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand(); } }}
       >
-        {/* Top row: source avatars + activity count + date + chevron */}
+        {/* Top row: source icon stack + date + status + chevron (mirrors StoryCard) */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            {/* Overlapping source icon stack */}
-            <div className="flex items-center -space-x-1.5">
-              {uniqueSources.slice(0, 4).map((source, i) => {
-                const Icon = getSourceIcon(source);
-                const info = SUPPORTED_SOURCES[source as ActivitySource];
-                return (
+            {uniqueSources.length > 0 && (
+              <div className="flex items-center -space-x-1.5">
+                {uniqueSources.slice(0, 4).map((source, i) => {
+                  const Icon = getSourceIcon(source);
+                  const info = SUPPORTED_SOURCES[source as ActivitySource];
+                  return (
+                    <span
+                      key={source}
+                      title={info?.displayName || source}
+                      className="flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-white shadow-sm ring-1 ring-gray-200/80"
+                      style={{ zIndex: uniqueSources.length - i }}
+                    >
+                      <Icon className="w-3.5 h-3.5" style={{ color: info?.color }} />
+                    </span>
+                  );
+                })}
+                {uniqueSources.length > 4 && (
                   <span
-                    key={source}
-                    title={info?.displayName || source}
-                    className="flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-purple-50 shadow-sm ring-1 ring-purple-200/50"
-                    style={{ zIndex: uniqueSources.length - i }}
+                    className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 border-2 border-white shadow-sm ring-1 ring-gray-200/80 text-[10px] font-bold text-gray-500"
+                    style={{ zIndex: 0 }}
                   >
-                    <Icon className="w-3.5 h-3.5" style={{ color: info?.color }} />
+                    +{uniqueSources.length - 4}
                   </span>
-                );
-              })}
-              {uniqueSources.length > 4 && (
-                <span
-                  className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 border-2 border-purple-50 shadow-sm ring-1 ring-purple-200/50 text-[10px] font-bold text-purple-500"
-                  style={{ zIndex: 0 }}
-                >
-                  +{uniqueSources.length - 4}
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] text-purple-500 font-semibold">{group.count} activities</span>
+                )}
+              </div>
+            )}
+            {dateLabel && (
+              <span className="text-[11px] text-gray-400 whitespace-nowrap">{dateLabel}</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {dateLabel && (
-              <span className="text-[11px] text-gray-400">{dateLabel}</span>
-            )}
-            <div className="text-purple-400">
-              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            </div>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 rounded-full">
+              <Clock className="w-3 h-3" />
+              Draft · {group.count} activities
+            </span>
+            <ChevronRight className={cn(
+              'w-4 h-4 flex-shrink-0 transition-transform text-gray-400',
+              isExpanded && 'rotate-90'
+            )} />
           </div>
         </div>
 
-        {/* Title + role */}
-        <div className="flex items-start gap-2 mb-1.5">
-          <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-snug flex-1 min-w-0">
-            {meta.title}
-          </h3>
-          {meta.dominantRole === 'Led' && (
-            <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-              <Star className="w-3 h-3" />
-              Led
-            </span>
-          )}
-        </div>
+        {/* Title */}
+        <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-snug mb-1.5">
+          {meta.title}
+        </h3>
 
         {/* Description — always clipped in header */}
         {meta.description && (
@@ -748,16 +618,25 @@ function InlineDraftCard({
           </p>
         )}
 
-        {/* Topic + CTA row */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+        {/* Bottom row: topic chips + CTA (mirrors StoryCard bottom row) */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap min-w-0">
             {meta.topics?.slice(0, isExpanded ? 5 : 2).map((topic, i) => (
-              <span key={i} className="text-[11px] font-medium text-purple-700 bg-purple-100 rounded-full px-2 py-0.5 whitespace-nowrap">
+              <span key={i} className="px-1.5 py-0.5 rounded-md font-medium text-[11px] bg-purple-50 text-purple-700">
                 {topic}
               </span>
             ))}
             {!isExpanded && (meta.topics?.length ?? 0) > 2 && (
               <span className="text-[10px] text-gray-400">+{(meta.topics?.length ?? 0) - 2}</span>
+            )}
+            {meta.dominantRole === 'Led' && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600">
+                  <Star className="w-3 h-3" />
+                  Led
+                </span>
+              </>
             )}
           </div>
           {onPromoteToCareerStory && (
@@ -766,7 +645,7 @@ function InlineDraftCard({
                 e.stopPropagation();
                 onPromoteToCareerStory(meta.id);
               }}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-md hover:shadow-lg transition-all"
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm hover:shadow-md transition-all"
             >
               <ArrowUpRight className="w-3.5 h-3.5" />
               Create Story
@@ -1064,7 +943,7 @@ function ActivityGroupSection({ group, isCollapsed, onToggle, inlineDrafts, onPr
   const collapsedSummary = useMemo(() => {
     if (!isCollapsed) return '';
     if (showDraftsOnly) {
-      return draftCount === 0 ? 'no drafts' : `${draftCount} ${draftCount === 1 ? 'draft' : 'drafts'}`;
+      return draftCount === 0 ? 'no draft stories' : `${draftCount} draft ${draftCount === 1 ? 'story' : 'stories'}`;
     }
     return generateTemporalSummary(group.activities);
   }, [isCollapsed, group.activities, showDraftsOnly, draftCount]);
@@ -1167,11 +1046,6 @@ function ActivityGroupSection({ group, isCollapsed, onToggle, inlineDrafts, onPr
                     key={draft.key}
                     group={draft}
                     onPromoteToCareerStory={onPromoteToCareerStory}
-                    onRegenerateNarrative={onRegenerateNarrative}
-                    regeneratingEntryId={regeneratingEntryId}
-                    onDeleteEntry={onDeleteEntry}
-                    isEnhancingNarratives={isEnhancingNarratives}
-                    pendingEnhancementIds={pendingEnhancementIds}
                   />
                 ))}
               </div>

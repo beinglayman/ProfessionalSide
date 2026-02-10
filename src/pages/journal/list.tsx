@@ -664,7 +664,7 @@ export default function JournalPage() {
         {!bannerDismissed && (
           <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
             <Clock className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
-            <p className="text-xs text-primary-700 flex-1">Your synced work activity — raw material for career stories.</p>
+            <p className="text-xs text-primary-700 flex-1"><span className="font-semibold">Activities</span> are individual work items from your tools. <span className="font-semibold">Draft Stories</span> group related activities into narratives you can promote to Career Stories.</p>
             <button
               onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-timeline', '1'); }}
               className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
