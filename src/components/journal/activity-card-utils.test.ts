@@ -6,6 +6,7 @@ import {
   hasExpandableContent,
   safeParseTimestamp,
   truncateText,
+  isDisplayableSourceId,
   INITIAL_ITEMS_LIMIT,
   MAX_COMMENT_BODY_LENGTH,
   MAX_SUMMARY_SOURCES,
@@ -363,5 +364,50 @@ describe('constants', () => {
   it('SHORT_TITLE_TRUNCATE_LENGTH is defined and smaller than TITLE_TRUNCATE_LENGTH', () => {
     expect(SHORT_TITLE_TRUNCATE_LENGTH).toBe(25);
     expect(SHORT_TITLE_TRUNCATE_LENGTH).toBeLessThan(TITLE_TRUNCATE_LENGTH);
+  });
+});
+
+describe('isDisplayableSourceId', () => {
+  describe('sources with human-readable IDs', () => {
+    it('returns true for GitHub PRs', () => {
+      expect(isDisplayableSourceId('github', 'acme/backend#42')).toBe(true);
+    });
+
+    it('returns true for GitHub commits', () => {
+      expect(isDisplayableSourceId('github', 'commit:a1b2c3d')).toBe(true);
+    });
+
+    it('returns true for Jira tickets', () => {
+      expect(isDisplayableSourceId('jira', 'AUTH-123')).toBe(true);
+    });
+  });
+
+  describe('sources with synthetic/internal IDs', () => {
+    it.each([
+      ['slack', 'thread-collab-launch'],
+      ['outlook', 'email-collab-kudos'],
+      ['google-calendar', 'gcal-1on1-manager-2'],
+      ['google-docs', 'gdoc-1AbC123XYZ'],
+      ['google-sheets', 'gsheet-perf-metrics'],
+      ['google-meet', 'meet-xyz-uvwx-stu'],
+      ['google-drive', 'gdrive-file-123'],
+      ['confluence', '987654'],
+      ['figma', 'Abc123XYZ'],
+      ['onedrive', 'file:drive-item-123'],
+      ['sharepoint', 'shared:item-456'],
+      ['teams', 'meeting-12345'],
+    ])('%s: returns false for sourceId "%s"', (source, sourceId) => {
+      expect(isDisplayableSourceId(source, sourceId)).toBe(false);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('returns false for unknown source types', () => {
+      expect(isDisplayableSourceId('unknown', 'any-id')).toBe(false);
+    });
+
+    it('returns true for GitHub even with empty sourceId', () => {
+      expect(isDisplayableSourceId('github', '')).toBe(true);
+    });
   });
 });

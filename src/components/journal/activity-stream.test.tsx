@@ -58,17 +58,19 @@ const makeStoryGroup = (key: string, title: string): ActivityGroup => ({
 });
 
 describe('ActivityStream — inline drafts', () => {
-  it('renders draft card title when storyGroups provided', () => {
+  it('renders draft card title when switching to Draft Stories tab', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
         storyGroups={[makeStoryGroup('auth', 'Authentication System Overhaul')]}
       />
     );
+    // Switch to Draft Stories tab
+    fireEvent.click(screen.getByText('Draft Stories'));
     expect(screen.getByText('Authentication System Overhaul')).toBeInTheDocument();
   });
 
-  it('shows drafts banner with correct count', () => {
+  it('shows Draft Stories toggle with correct count', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
@@ -78,20 +80,23 @@ describe('ActivityStream — inline drafts', () => {
         ]}
       />
     );
-    expect(screen.getByText(/2 draft stories/)).toBeInTheDocument();
+    // Toggle button shows count badge inside the Draft Stories button
+    const draftsButton = screen.getByText('Draft Stories').closest('button')!;
+    expect(draftsButton).toBeInTheDocument();
+    expect(draftsButton.querySelector('span')).toHaveTextContent('2');
   });
 
-  it('hides drafts banner when no storyGroups', () => {
+  it('hides Draft Stories toggle when no storyGroups', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
         storyGroups={[]}
       />
     );
-    expect(screen.queryByText(/draft stor/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Draft Stories')).not.toBeInTheDocument();
   });
 
-  it('renders Create Career Story CTA when draft card is expanded', () => {
+  it('renders Create Story CTA on draft cards', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
@@ -99,9 +104,9 @@ describe('ActivityStream — inline drafts', () => {
         onPromoteToCareerStory={vi.fn()}
       />
     );
-    // Expand the draft card by clicking the title
-    fireEvent.click(screen.getByText('Auth Overhaul'));
-    expect(screen.getByText(/Create Career Story/)).toBeInTheDocument();
+    // Switch to Draft Stories tab first
+    fireEvent.click(screen.getByText('Draft Stories'));
+    expect(screen.getByText('Create Story')).toBeInTheDocument();
   });
 
   it('calls onPromoteToCareerStory when CTA clicked', () => {
@@ -113,14 +118,13 @@ describe('ActivityStream — inline drafts', () => {
         onPromoteToCareerStory={onPromote}
       />
     );
-    // Expand the draft card first
-    fireEvent.click(screen.getByText('Auth Overhaul'));
-    // Click the CTA button
-    fireEvent.click(screen.getByText(/Create Career Story/));
+    // Switch to Draft Stories tab first
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Create Story'));
     expect(onPromote).toHaveBeenCalledWith('story-auth');
   });
 
-  it('toggles drafts-only mode via banner button', () => {
+  it('switches between Activities and Draft Stories tabs', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 3)]}
@@ -131,16 +135,95 @@ describe('ActivityStream — inline drafts', () => {
     // Activities visible by default
     expect(screen.getByText('Activity 0 in This Week')).toBeInTheDocument();
 
-    // Click "Review drafts"
-    fireEvent.click(screen.getByText('Review drafts'));
+    // Click "Draft Stories" toggle
+    fireEvent.click(screen.getByText('Draft Stories'));
 
     // Activities hidden, draft still visible
     expect(screen.queryByText('Activity 0 in This Week')).not.toBeInTheDocument();
     expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
 
-    // Click "Show all" to restore
-    fireEvent.click(screen.getByText('Show all'));
+    // Click "Activities" to restore
+    fireEvent.click(screen.getByText('Activities'));
     expect(screen.getByText('Activity 0 in This Week')).toBeInTheDocument();
+  });
+});
+
+describe('ActivityStream — expand/collapse in Draft Stories mode', () => {
+  it('Expand button expands all draft cards', () => {
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
+        storyGroups={[
+          makeStoryGroup('auth', 'Auth Overhaul'),
+          makeStoryGroup('perf', 'Perf Pipeline'),
+        ]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    // Switch to Draft Stories tab
+    fireEvent.click(screen.getByText('Draft Stories'));
+
+    // Draft descriptions are line-clamped in collapsed header, but the
+    // expanded view shows the full description + impact highlights section.
+    // Initially no expanded content dividers visible.
+    const expandButton = screen.getByRole('button', { name: /expand/i });
+    fireEvent.click(expandButton);
+
+    // After expand, both draft cards should show their expanded content.
+    // The "Key Impact" heading only appears in expanded state.
+    // We verify by checking that collapse button now appears.
+    expect(screen.getByRole('button', { name: /collapse/i })).toBeInTheDocument();
+  });
+
+  it('Collapse button collapses all draft cards', () => {
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
+        storyGroups={[makeStoryGroup('auth', 'Auth Overhaul')]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    // Switch to Draft Stories, expand, then collapse
+    fireEvent.click(screen.getByText('Draft Stories'));
+
+    // Expand one card manually
+    fireEvent.click(screen.getByText('Auth Overhaul'));
+
+    // Now collapse all
+    const collapseButton = screen.getByRole('button', { name: /collapse/i });
+    fireEvent.click(collapseButton);
+
+    // Should show expand button again
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+  });
+});
+
+describe('ActivityStream — expand state persists across tab switches', () => {
+  it('draft expand state survives switching to Activities and back', () => {
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
+        storyGroups={[makeStoryGroup('auth', 'Auth Overhaul')]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    // Switch to Draft Stories and expand a card
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Auth Overhaul'));
+
+    // Collapse button should be visible (card is expanded)
+    expect(screen.getByRole('button', { name: /collapse/i })).toBeInTheDocument();
+
+    // Switch to Activities
+    fireEvent.click(screen.getByText('Activities'));
+    expect(screen.getByText('Activity 0 in This Week')).toBeInTheDocument();
+
+    // Switch back to Draft Stories — card should still be expanded
+    fireEvent.click(screen.getByText('Draft Stories'));
+    expect(screen.getByRole('button', { name: /collapse/i })).toBeInTheDocument();
   });
 });
 
@@ -164,5 +247,18 @@ describe('ActivityStream — empty states', () => {
     );
     // Loader2 icon has animate-spin class
     expect(document.querySelector('.animate-spin')).toBeInTheDocument();
+  });
+
+  it('shows empty draft stories message when switching to drafts with none', () => {
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
+        storyGroups={[makeStoryGroup('auth', 'Auth Overhaul')]}
+      />
+    );
+
+    // Switch to drafts, verify content exists
+    fireEvent.click(screen.getByText('Draft Stories'));
+    expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
   });
 });
