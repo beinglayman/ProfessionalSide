@@ -2,7 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ActivityStream } from './activity-stream';
-import { ActivityGroup } from '../../types/activity';
+import { ActivityGroup, Activity, ActivityStoryEdge } from '../../types/activity';
+import { ACTIVITIES_PER_EDGE_LIMIT } from './story-group-header';
 
 // Pin time so bucket logic is deterministic
 beforeEach(() => {
@@ -260,5 +261,237 @@ describe('ActivityStream — empty states', () => {
     // Switch to drafts, verify content exists
     fireEvent.click(screen.getByText('Draft Stories'));
     expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
+  });
+});
+
+// --- Factories for activity cap + typography tests ---
+
+/** Create N activities with a specific source, all assigned as 'primary' edge type */
+function makeActivities(count: number, prefix = 'act'): Activity[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `${prefix}-${i}`,
+    source: 'github',
+    sourceId: `gh-${prefix}-${i}`,
+    sourceUrl: null,
+    title: `Activity ${i}: ${prefix}`,
+    description: null,
+    timestamp: '2026-02-05T08:00:00Z',
+    crossToolRefs: [],
+    storyId: null,
+    storyTitle: null,
+  }));
+}
+
+function makeDraftGroupWithActivities(
+  key: string,
+  title: string,
+  activities: Activity[],
+  overrides?: {
+    description?: string;
+    impactHighlights?: string[];
+    activityEdges?: ActivityStoryEdge[];
+  }
+): ActivityGroup {
+  return {
+    key,
+    label: title,
+    count: activities.length,
+    activities,
+    storyMetadata: {
+      id: `story-${key}`,
+      title,
+      description: overrides?.description ?? 'A draft story',
+      timeRangeStart: '2026-02-01T00:00:00Z',
+      timeRangeEnd: '2026-02-05T08:00:00Z',
+      category: null,
+      skills: [],
+      createdAt: '2026-02-05T09:00:00Z',
+      isPublished: false,
+      type: 'journal_entry',
+      dominantRole: 'Led',
+      impactHighlights: overrides?.impactHighlights,
+      activityEdges: overrides?.activityEdges,
+    },
+  };
+}
+
+describe('ActivityStream — draft card activity cap', () => {
+  it('shows only first N activities per edge type, with "+M more" button', () => {
+    const activities = makeActivities(6, 'core');
+    // All 6 are primary (default when no edges specified)
+    const group = makeDraftGroupWithActivities('ws', 'WebSocket Work', activities);
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    // Switch to drafts and expand the card
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('WebSocket Work'));
+
+    // Only first ACTIVITIES_PER_EDGE_LIMIT should be visible
+    for (let i = 0; i < ACTIVITIES_PER_EDGE_LIMIT; i++) {
+      expect(screen.getByText(`Activity ${i}: core`)).toBeInTheDocument();
+    }
+    // The rest should be hidden
+    for (let i = ACTIVITIES_PER_EDGE_LIMIT; i < 6; i++) {
+      expect(screen.queryByText(`Activity ${i}: core`)).not.toBeInTheDocument();
+    }
+
+    // "+3 more" button should be present
+    expect(screen.getByText('+3 more')).toBeInTheDocument();
+  });
+
+  it('clicking "+N more" reveals all activities, button changes to "Show less"', () => {
+    const activities = makeActivities(5, 'feat');
+    const group = makeDraftGroupWithActivities('feat', 'Feature Work', activities);
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Feature Work'));
+
+    // Click "+2 more"
+    fireEvent.click(screen.getByText('+2 more'));
+
+    // All 5 should now be visible
+    for (let i = 0; i < 5; i++) {
+      expect(screen.getByText(`Activity ${i}: feat`)).toBeInTheDocument();
+    }
+
+    // Button should now say "Show less"
+    expect(screen.getByText('Show less')).toBeInTheDocument();
+    expect(screen.queryByText('+2 more')).not.toBeInTheDocument();
+  });
+
+  it('clicking "Show less" re-hides the extra activities', () => {
+    const activities = makeActivities(5, 'fix');
+    const group = makeDraftGroupWithActivities('fix', 'Bug Fixes', activities);
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Bug Fixes'));
+
+    // Expand, then collapse
+    fireEvent.click(screen.getByText('+2 more'));
+    fireEvent.click(screen.getByText('Show less'));
+
+    // Hidden activities should be gone again
+    expect(screen.queryByText('Activity 3: fix')).not.toBeInTheDocument();
+    expect(screen.queryByText('Activity 4: fix')).not.toBeInTheDocument();
+    expect(screen.getByText('+2 more')).toBeInTheDocument();
+  });
+
+  it('does not show "+N more" when activities <= limit', () => {
+    const activities = makeActivities(ACTIVITIES_PER_EDGE_LIMIT, 'small');
+    const group = makeDraftGroupWithActivities('small', 'Small Story', activities);
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Small Story'));
+
+    // All activities visible, no "+N more"
+    for (let i = 0; i < ACTIVITIES_PER_EDGE_LIMIT; i++) {
+      expect(screen.getByText(`Activity ${i}: small`)).toBeInTheDocument();
+    }
+    expect(screen.queryByText(/^\+\d+ more$/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ActivityStream — draft card metric highlighting', () => {
+  it('highlights metrics in expanded draft description', () => {
+    const group = makeDraftGroupWithActivities('perf', 'Performance Win', makeActivities(1), {
+      description: 'Reduced latency by 40% across 12 teams',
+    });
+
+    const { container } = render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Performance Win'));
+
+    // Should have <mark> elements for the metrics
+    const marks = container.querySelectorAll('mark');
+    const markTexts = Array.from(marks).map(m => m.textContent);
+    expect(markTexts).toContain('40%');
+    expect(markTexts).toContain('12 teams');
+  });
+
+  it('highlights metrics in impact highlights', () => {
+    const group = makeDraftGroupWithActivities('cost', 'Cost Reduction', makeActivities(1), {
+      impactHighlights: [
+        'Saved $2M in infrastructure costs',
+        'Reduced build time by 60%',
+        'Led refactoring across the codebase',  // no metric — no mark
+      ],
+    });
+
+    const { container } = render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Cost Reduction'));
+
+    const marks = container.querySelectorAll('mark');
+    const markTexts = Array.from(marks).map(m => m.textContent);
+    expect(markTexts).toContain('$2M');
+    expect(markTexts).toContain('60%');
+    // The third bullet has no metrics — should not add a mark
+    expect(markTexts).not.toContain('Led refactoring across the codebase');
+  });
+
+  it('renders plain text when no metrics present in description', () => {
+    const group = makeDraftGroupWithActivities('plain', 'Plain Story', makeActivities(1), {
+      description: 'Led the authentication migration project',
+    });
+
+    const { container } = render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Plain Story'));
+
+    // Description text should be present (appears in both collapsed preview and expanded view)
+    expect(screen.getAllByText('Led the authentication migration project').length).toBeGreaterThanOrEqual(1);
+    // No <mark> elements in the expanded section for this story
+    const expandedSection = container.querySelector('.border-t.border-dashed');
+    const marks = expandedSection?.querySelectorAll('mark') ?? [];
+    expect(marks).toHaveLength(0);
   });
 });
