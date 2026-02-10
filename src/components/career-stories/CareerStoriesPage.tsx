@@ -46,7 +46,7 @@ import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useJournalEntries } from '../../hooks/useJournal';
+import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProfile } from '../../hooks/useProfile';
@@ -638,15 +638,15 @@ export function CareerStoriesPage() {
   // Build O(1) activity lookup for timeline quarter grouping
   const activityMap = useStoryActivityMap(allStories);
 
-  // Fetch recent journal entries for empty-category hover preview
-  const { data: journalData } = useJournalEntries({ sortBy: 'createdAt', sortOrder: 'desc', limit: 20 });
-
-  // Journal entries not yet promoted to career stories
-  const unpromotedEntries = useMemo(() => {
-    const entries = journalData?.entries ?? [];
-    const promotedIds = new Set(allStories.map((s) => s.journalEntryId).filter(Boolean));
-    return entries.filter((e) => !promotedIds.has(e.id));
-  }, [journalData, allStories]);
+  // Fetch draft stories (unpromoted journal entries) for empty-category CTA
+  const { data: draftStoryData } = useActivities(
+    { groupBy: 'story' as const, limit: 100 },
+    { enabled: !isLoadingStories }
+  );
+  const draftStories = useMemo(() => {
+    if (!draftStoryData || !isGroupedResponse(draftStoryData)) return [];
+    return draftStoryData.groups.filter(g => g.key !== 'unassigned');
+  }, [draftStoryData]);
 
   const stats = useMemo(() => {
     let complete = 0;
@@ -1249,27 +1249,27 @@ export function CareerStoriesPage() {
                             >
                               <p className="text-xs text-gray-400">
                                 No stories yet
-                                {unpromotedEntries.length > 0 && (
-                                  <> &middot; <span className="text-gray-500 font-medium">{unpromotedEntries.length} journal {unpromotedEntries.length === 1 ? 'entry' : 'entries'}</span></>
+                                {draftStories.length > 0 && (
+                                  <> &middot; <span className="text-gray-500 font-medium">{draftStories.length} {draftStories.length === 1 ? 'draft' : 'drafts'}</span></>
                                 )}
-                                {' '}&middot; <span className="text-primary-500 font-medium">Promote from journal</span>
+                                {' '}&middot; <span className="text-primary-500 font-medium">Create from drafts</span>
                               </p>
                             </button>
-                            {unpromotedEntries.length > 0 && (
+                            {draftStories.length > 0 && (
                               <div className="absolute left-0 right-0 top-full mt-1 z-20 hidden group-hover/empty:block">
                                 <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2">
-                                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Recent journal entries</p>
-                                  {unpromotedEntries.slice(0, 3).map((entry) => (
-                                    <div key={entry.id} className="flex items-start gap-2">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-primary-400 mt-1.5 flex-shrink-0" />
+                                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Draft stories</p>
+                                  {draftStories.slice(0, 3).map((draft) => (
+                                    <div key={draft.key} className="flex items-start gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 flex-shrink-0" />
                                       <div className="min-w-0">
-                                        <p className="text-xs font-medium text-gray-700 truncate">{entry.title}</p>
-                                        <p className="text-[10px] text-gray-400">{new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                        <p className="text-xs font-medium text-gray-700 truncate">{draft.storyMetadata?.title || draft.label}</p>
+                                        <p className="text-[10px] text-gray-400">{draft.count} {draft.count === 1 ? 'activity' : 'activities'}</p>
                                       </div>
                                     </div>
                                   ))}
-                                  {unpromotedEntries.length > 3 && (
-                                    <p className="text-[10px] text-gray-400">+{unpromotedEntries.length - 3} more</p>
+                                  {draftStories.length > 3 && (
+                                    <p className="text-[10px] text-gray-400">+{draftStories.length - 3} more</p>
                                   )}
                                 </div>
                               </div>
