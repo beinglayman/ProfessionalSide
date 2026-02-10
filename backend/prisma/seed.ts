@@ -1413,7 +1413,7 @@ async function seedTestData() {
     });
 
     // Create test user
-    const hashedPassword = await hashPassword('password123');
+    const hashedPassword = await hashPassword('yc2026s');
     const testUserData = {
       name: 'Ketan Khairnar',
       title: 'CTO',
@@ -1426,7 +1426,7 @@ async function seedTestData() {
     };
     const testUser = await prisma.user.upsert({
       where: { email: 'yc@inchronicle.com' },
-      update: testUserData,
+      update: { ...testUserData, password: hashedPassword },
       create: {
         ...testUserData,
         email: 'yc@inchronicle.com',
@@ -1461,7 +1461,7 @@ async function seedTestData() {
     console.log('✅ Test data seeding completed!');
     console.log('🔑 Test Login Credentials:');
     console.log('Email: yc@inchronicle.com');
-    console.log('Password: password123');
+    console.log('Password: yc2026s');
 
   } catch (error) {
     console.error('❌ Error seeding test data:', error);
