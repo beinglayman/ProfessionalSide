@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, MoreHorizontal, SlidersHorizontal, LayoutGrid } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, MoreHorizontal, SlidersHorizontal, LayoutGrid, Sparkles, ArrowRight } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { StoryGroupHeader } from './story-group-header';
 import { getSourceIcon } from './source-icons';
@@ -121,6 +121,8 @@ interface ActivityStreamProps {
   isEnhancingNarratives?: boolean;
   pendingEnhancementIds?: Set<string>;
   showDraftsOnly?: boolean;
+  /** Number of draft stories hidden because they were promoted to career stories */
+  promotedCount?: number;
 }
 
 /**
@@ -139,7 +141,8 @@ export function ActivityStream({
   onPromoteToCareerStory,
   isEnhancingNarratives,
   pendingEnhancementIds,
-  showDraftsOnly = false
+  showDraftsOnly = false,
+  promotedCount = 0
 }: ActivityStreamProps) {
   // Filter state
   const [selectedTemporalBuckets, setSelectedTemporalBuckets] = useState<TemporalBucket[]>([]);
@@ -599,15 +602,15 @@ export function ActivityStream({
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
         {showDraftsOnly ? (
-          /* Drafts-only: Category / Timeline sub-toggle + grouped draft cards */
-          <div className="space-y-4">
+          /* Drafts-only: grouped draft cards */
+          <div className="space-y-6">
             {draftsSubView === 'category' ? (
               /* Category sub-view */
               <div className="space-y-6">
                 {draftsByCategory.map((catGroup) => (
                   <div key={catGroup.label}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs font-bold text-gray-600">{catGroup.label}</span>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm font-semibold text-gray-700">{catGroup.label}</span>
                       <div className="flex-1 h-px bg-gray-200" />
                       <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
                         {catGroup.drafts.length}
@@ -631,9 +634,23 @@ export function ActivityStream({
                   </div>
                 ))}
                 {draftsByCategory.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-gray-500">No draft stories yet</p>
-                  </div>
+                  promotedCount > 0 ? (
+                    <div className="px-4 py-3 rounded-lg bg-primary-50 border border-primary-200">
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles className="h-4 w-4 text-primary-600 flex-shrink-0" />
+                        <p className="text-sm text-primary-700">
+                          {promotedCount} {promotedCount === 1 ? 'story' : 'stories'} promoted to Career Stories.
+                        </p>
+                      </div>
+                      <a href="/stories" className="inline-flex items-center gap-1 mt-1.5 ml-6.5 text-xs font-medium text-primary-600 hover:text-primary-700">
+                        View in Career Stories <ArrowRight className="h-3 w-3" />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-gray-500">No draft stories yet</p>
+                    </div>
+                  )
                 )}
               </div>
             ) : (
@@ -642,7 +659,7 @@ export function ActivityStream({
                 {draftsByQuarter.map((qGroup) => (
                   <div key={qGroup.label}>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs font-bold text-gray-600">{qGroup.label}</span>
+                      <span className="text-sm font-semibold text-gray-700">{qGroup.label}</span>
                       <div className="flex-1 h-px bg-gray-200" />
                       <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
                         {qGroup.drafts.length}
@@ -665,9 +682,23 @@ export function ActivityStream({
                   </div>
                 ))}
                 {draftsByQuarter.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-gray-500">No draft stories yet</p>
-                  </div>
+                  promotedCount > 0 ? (
+                    <div className="px-4 py-3 rounded-lg bg-primary-50 border border-primary-200">
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles className="h-4 w-4 text-primary-600 flex-shrink-0" />
+                        <p className="text-sm text-primary-700">
+                          {promotedCount} {promotedCount === 1 ? 'story' : 'stories'} promoted to Career Stories.
+                        </p>
+                      </div>
+                      <a href="/stories" className="inline-flex items-center gap-1 mt-1.5 ml-6.5 text-xs font-medium text-primary-600 hover:text-primary-700">
+                        View in Career Stories <ArrowRight className="h-3 w-3" />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-gray-500">No draft stories yet</p>
+                    </div>
+                  )
                 )}
               </div>
             )}

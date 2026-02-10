@@ -966,24 +966,17 @@ export function CareerStoriesPage() {
           {/* List View: Story cards grouped by year */}
           {viewMode === 'list' && (
             <div className="space-y-4">
-              {/* Header with avatar, title, toggle + filter */}
-              <div className="flex items-center justify-between gap-4 mb-2">
-                  {/* Left: Avatar + Title + Subtitle */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={getAvatarUrl(profile?.avatar)}
-                      alt={profile?.name || user?.name || 'Profile'}
-                      className="h-10 w-10 rounded-full object-cover bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0"
-                      onError={handleAvatarError}
-                    />
-                    <div className="min-w-0">
-                      <h2 className="text-lg font-semibold text-gray-900 truncate">
-                        {profile?.name || user?.name || 'Your'}&apos;s Career Stories
-                      </h2>
-                      <p className="text-xs text-gray-500">
-                        {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
-                      </p>
-                    </div>
+              {/* Header with title, toggle + filter */}
+              {allStories.length > 0 && (
+                <div className="flex items-center justify-between gap-4">
+                  {/* Left: Title + Subtitle */}
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-gray-900 truncate">
+                      Career Stories
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                    </p>
                   </div>
 
                   {/* Right: Promotion Packet + Saved Narratives + Filter */}
@@ -1095,13 +1088,13 @@ export function CareerStoriesPage() {
                 </div>
 
               {/* Educational banner */}
-              <div className="mb-2 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
+              <div className="px-4 py-2 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
                 <BookOpen className="h-4 w-4 text-primary-600 flex-shrink-0" />
                 <p className="text-sm text-primary-700">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
               </div>
 
               {/* Timeline / Category toggle */}
-              <div className="border-b border-gray-200 mb-2">
+              <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-1">
                   {([
                     { key: 'category' as const, label: 'By Category', Icon: LayoutGrid },

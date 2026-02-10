@@ -251,6 +251,8 @@ export interface GroupedActivitiesResponse {
     groupBy: 'temporal' | 'source' | 'story';
     sourceMode: 'demo' | 'production';
     timezone?: string;
+    /** Number of draft stories hidden because they were promoted to career stories */
+    promotedCount?: number;
   };
 }
 

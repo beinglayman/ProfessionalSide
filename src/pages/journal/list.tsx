@@ -249,6 +249,11 @@ export default function JournalPage() {
     return storyData.groups.filter(g => g.key !== 'unassigned');
   }, [storyData]);
 
+  // Count of draft stories hidden because they were promoted to career stories
+  const promotedCount = storyData && isGroupedResponse(storyData)
+    ? storyData.meta.promotedCount ?? 0
+    : 0;
+
   // Build journal entry metadata for Story Wizard loading facts
   const wizardEntryMeta = useMemo<JournalEntryMeta | undefined>(() => {
     if (!storyWizardEntryId) return undefined;
@@ -620,90 +625,82 @@ export default function JournalPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 space-y-4">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between gap-4">
-            {/* Left: Greeting + meta */}
-            <div className="flex items-center gap-3">
-              {profile?.avatar ? (
-                <img
-                  src={profile.avatar}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover ring-2 ring-white shadow-sm"
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center ring-2 ring-white shadow-sm">
-                  <span className="text-sm font-semibold text-white">
-                    {user?.name?.charAt(0) || 'U'}
-                  </span>
-                </div>
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Title + meta */}
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold text-gray-900 truncate">
+              Timeline
+            </h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              {activityCount > 0 && (
+                <span className="text-xs text-gray-500">
+                  {activityCount} activities
+                </span>
               )}
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900 leading-tight">
-                  {user?.name ? `${user.name.split(' ')[0]}'s Timeline` : 'Your Timeline'}
-                </h1>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {activityCount > 0 && (
-                    <span className="text-xs text-gray-500">
-                      {activityCount} activities
-                    </span>
-                  )}
-                  {lastSyncAt && !isSyncing && (
-                    <>
-                      {activityCount > 0 && <span className="text-gray-300">&middot;</span>}
-                      <span className="text-xs text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
-                        Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
-                      </span>
-                    </>
-                  )}
-                  {narrativesGenerating && (
-                    <>
-                      <span className="text-gray-300">&middot;</span>
-                      <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
-                    </>
-                  )}
-                </div>
-              </div>
+              {lastSyncAt && !isSyncing && (
+                <>
+                  {activityCount > 0 && <span className="text-gray-300">&middot;</span>}
+                  <span className="text-xs text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
+                    Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
+                  </span>
+                </>
+              )}
+              {narrativesGenerating && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
+                </>
+              )}
             </div>
+          </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSync}
-                disabled={isSyncing}
-                className={cn(
-                  "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
-                  shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
-                )}
-                title="Sync your tools"
-              >
-                <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-              </Button>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSync}
+              disabled={isSyncing}
+              className={cn(
+                "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
+              )}
+              title="Sync your tools"
+            >
+              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+            </Button>
 
-              <Button
-                size="sm"
-                className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm"
-                onClick={() => setShowNewEntryModal(true)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                New
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm"
+              onClick={() => setShowNewEntryModal(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New
+            </Button>
           </div>
         </div>
 
-        {/* Activity Timeline Info Banner */}
-        <div className="mb-6 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
-          <Clock className="h-4 w-4 text-primary-600 flex-shrink-0" />
-          <p className="text-sm text-primary-700">Add context, enhance with AI, and promote standout moments to career stories.</p>
+        {/* Contextual info banner — different message per tab */}
+        <div className="px-4 py-2 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
+          {showDraftsOnly ? (
+            <>
+              <Sparkles className="h-4 w-4 text-primary-600 flex-shrink-0" />
+              <p className="text-sm text-primary-700">Add context, enhance with AI, and promote standout moments to career stories.</p>
+            </>
+          ) : (
+            <>
+              <Clock className="h-4 w-4 text-primary-600 flex-shrink-0" />
+              <p className="text-sm text-primary-700">Your synced work activity — raw material for career stories.</p>
+            </>
+          )}
         </div>
 
         {/* Activities / Draft Stories toggle */}
-        {storyGroups.length > 0 && (
-          <div className="border-b border-gray-200 mb-4">
+        {(storyGroups.length > 0 || promotedCount > 0) && (
+          <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-1">
               {([
                 { key: false, label: 'Activities', Icon: Clock },
@@ -764,6 +761,7 @@ export default function JournalPage() {
           isEnhancingNarratives={narrativesGenerating}
           pendingEnhancementIds={pendingEnhancementIds}
           showDraftsOnly={showDraftsOnly}
+          promotedCount={promotedCount}
         />
       </div>
       <NewEntryModal 

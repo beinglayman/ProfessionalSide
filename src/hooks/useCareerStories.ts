@@ -515,6 +515,8 @@ export const useDeleteCareerStory = () => {
       if (response.success) {
         queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
         queryClient.invalidateQueries({ queryKey: QueryKeys.careerStoriesStats });
+        // Refetch draft stories — deleted career story un-hides a promoted draft
+        queryClient.invalidateQueries({ queryKey: ['activities'] });
       }
     },
   });
