@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { WalletService } from '../services/wallet.service';
+import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.utils';
 
 const router = Router();
@@ -66,6 +67,33 @@ router.get('/features', async (_req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[wallet] getFeatures error:', error);
     sendError(res, 'Failed to get features', 500);
+  }
+});
+
+/**
+ * POST /api/v1/wallet/add-credits — admin: add purchased credits to a user by email
+ * Body: { email: string, amount: number }
+ */
+router.post('/add-credits', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, amount } = req.body;
+    if (!email || !amount || typeof amount !== 'number' || amount <= 0) {
+      sendError(res, 'email (string) and amount (positive number) required', 400);
+      return;
+    }
+
+    const target = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true } });
+    if (!target) {
+      sendError(res, `User ${email} not found`, 404);
+      return;
+    }
+
+    await WalletService.addPurchasedCredits(target.id, amount);
+    const balance = await WalletService.getBalance(target.id);
+    sendSuccess(res, { email, creditsAdded: amount, balance });
+  } catch (error) {
+    console.error('[wallet] addCredits error:', error);
+    sendError(res, 'Failed to add credits', 500);
   }
 });
 
