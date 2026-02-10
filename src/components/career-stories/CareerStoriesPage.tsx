@@ -967,8 +967,7 @@ export function CareerStoriesPage() {
           {viewMode === 'list' && (
             <div className="space-y-4">
               {/* Header with avatar, title, toggle + filter */}
-              {allStories.length > 0 && (
-                <div className="flex items-center justify-between gap-4 mb-2">
+              <div className="flex items-center justify-between gap-4 mb-2">
                   {/* Left: Avatar + Title + Subtitle */}
                   <div className="flex items-center gap-3 min-w-0">
                     <img
@@ -1094,7 +1093,6 @@ export function CareerStoriesPage() {
                     )}
                   </div>
                 </div>
-              )}
 
               {/* Educational banner */}
               <div className="mb-2 px-4 py-2.5 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
