@@ -20,7 +20,6 @@ import {
   UserCircle,
   Lock,
   Archive,
-  Plus,
   Paperclip,
   Eye,
   EyeOff,
@@ -58,7 +57,6 @@ import {
 import { Button } from '../../components/ui/button';
 import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
 import { cn } from '../../lib/utils';
-import { NewEntryModal } from '../../components/new-entry/new-entry-modal';
 import { JournalCard } from '../../components/journal/journal-card';
 import { RechronicleCard } from '../../components/journal/rechronicle-card';
 import { RechronicleSidePanel } from '../../components/journal/rechronicle-side-panel';
@@ -111,7 +109,6 @@ export default function JournalPage() {
   const [sortBy, setSortBy] = useState<'recent' | 'popular'>('recent');
   const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDraftsOnly, setShowDraftsOnly] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-timeline') === '1');
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
@@ -639,17 +636,6 @@ export default function JournalPage() {
                 <span className="text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
                   Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
                 </span>
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  className={cn(
-                    "p-0.5 rounded text-gray-400 hover:text-gray-600 transition-colors",
-                    shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
-                  )}
-                  title="Sync your tools"
-                >
-                  <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
-                </button>
               </>
             )}
             {narrativesGenerating && (
@@ -663,11 +649,15 @@ export default function JournalPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               size="sm"
-              className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm"
-              onClick={() => setShowNewEntryModal(true)}
+              className={cn(
+                "bg-primary-600 hover:bg-primary-700 text-white shadow-sm",
+                shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
+              )}
+              onClick={handleSync}
+              disabled={isSyncing}
             >
-              <Plus className="h-4 w-4 mr-1" />
-              New
+              <RefreshCw className={cn("h-4 w-4 mr-1", isSyncing && "animate-spin")} />
+              {isSyncing ? 'Syncing...' : 'Sync'}
             </Button>
           </div>
         </div>
@@ -762,11 +752,6 @@ export default function JournalPage() {
         />
         </div>
       </div>
-      <NewEntryModal 
-        open={showNewEntryModal} 
-        onOpenChange={setShowNewEntryModal} 
-      />
-      
       {/* ReChronicle Side Panel */}
       <RechronicleSidePanel
         journal={rechronicleSidePanel.journal}
