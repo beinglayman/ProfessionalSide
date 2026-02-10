@@ -433,7 +433,11 @@ export class CareerStoryService {
 
     // Build journal entry content for the prompt
     const f7 = content.format7Data || {};
-    const phases = f7.frameworkComponents?.map((c) => ({
+    const phases = f7.phases?.map((p: { name: string; summary: string; activityIds?: string[] }) => ({
+      name: p.name,
+      summary: p.summary,
+      activityIds: p.activityIds || [],
+    })) || f7.frameworkComponents?.map((c: { name: string; content: string }) => ({
       name: c.name,
       summary: c.content,
       activityIds: [] as string[],
@@ -444,9 +448,9 @@ export class CareerStoryService {
       description: content.description,
       fullContent: content.fullContent,
       category: content.category,
-      dominantRole: f7.context?.primary_focus || null,
+      dominantRole: f7.dominantRole || f7.context?.primary_focus || null,
       phases,
-      impactHighlights: f7.summary?.skills_demonstrated || null,
+      impactHighlights: f7.impactHighlights || f7.summary?.skills_demonstrated || null,
       skills: f7.summary?.technologies_used || null,
       activityIds,
     };
