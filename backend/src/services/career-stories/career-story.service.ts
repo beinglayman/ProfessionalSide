@@ -1291,8 +1291,11 @@ export class CareerStoryService {
     const resolvedCount = allEvidenceIds.filter((id) => activityMap.has(id)).length;
     const useFakeIds = resolvedCount === 0 && allEvidenceIds.length > 0 && activities.length > 0;
 
-    if (isShotgun && !useFakeIds) {
-      // Bug C fix: assign all to "unassigned" instead of every section
+    // No evidence at all — LLM returned empty arrays for every section
+    const noEvidence = allEvidenceIds.length === 0 && activities.length > 0;
+
+    if ((isShotgun && !useFakeIds) || noEvidence) {
+      // Bug C fix / empty-evidence fallback: assign all to "unassigned"
       const uniqueActivityIds = [...new Set(activityIds)];
       for (let i = 0; i < uniqueActivityIds.length; i++) {
         const activity = activityMap.get(uniqueActivityIds[i]);
