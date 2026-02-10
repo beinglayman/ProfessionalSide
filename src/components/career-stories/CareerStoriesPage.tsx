@@ -1180,14 +1180,12 @@ export function CareerStoriesPage() {
                           <div key={story.id} className="relative flex gap-4">
                             <TimelineSpine isLast={i === group.stories.length - 1} />
                             <div className="flex-1 min-w-0 pb-4">
-                              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                                <StoryCard
-                                  story={story}
-                                  isSelected={false}
-                                  onClick={() => handleSelectStory(story)}
-                                  onFormatChange={handleFormatSwitch}
-                                />
-                              </div>
+                              <StoryCard
+                                story={story}
+                                isSelected={false}
+                                onClick={() => handleSelectStory(story)}
+                                onFormatChange={handleFormatSwitch}
+                              />
                               {timeRange.earliest.toDateString() !== timeRange.latest.toDateString() && (
                                 <p className="text-[11px] text-gray-400 mt-1 ml-1">
                                   {formatTimeSpan(timeRange.earliest, timeRange.latest)}
@@ -1276,7 +1274,7 @@ export function CareerStoriesPage() {
                             )}
                           </div>
                         ) : (
-                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                          <div className="space-y-3">
                             {catStories.map((story) => (
                               <StoryCard
                                 key={story.id}
@@ -1301,7 +1299,7 @@ export function CareerStoriesPage() {
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mb-2">Uncategorized stories</p>
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="space-y-3">
                         {storiesByCategory.get('other')!.map((story) => (
                           <StoryCard
                             key={story.id}
