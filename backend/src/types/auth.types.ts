@@ -67,12 +67,16 @@ export const resetPasswordSchema = z.object({
     )
 });
 
-// Change password schema — TEMPORARILY RELAXED for prod password reset (revert after use)
+// Change password schema
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: z.string()
-    .min(1, 'New password is required')
+    .min(8, 'New password must be at least 8 characters')
     .max(128, 'New password must be less than 128 characters')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      'Password must contain at least one lowercase letter, one uppercase letter, and one number'
+    )
 });
 
 // Type exports
