@@ -2,14 +2,23 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const CREDIT_AMOUNT = 60;
+const TARGET_EMAILS = ['yc@inchronicle.com', 'ketan@inchronicle.com'];
+
 async function seedTestCredits() {
-  console.log('🧪 Seeding 30 test credits to all existing accounts...');
+  console.log(`Seeding ${CREDIT_AMOUNT} purchased credits to target accounts...`);
 
-  const users = await prisma.user.findMany({ select: { id: true, email: true } });
-  console.log(`  Found ${users.length} users`);
+  for (const email of TARGET_EMAILS) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
 
-  let credited = 0;
-  for (const user of users) {
+    if (!user) {
+      console.log(`  SKIP ${email}: user not found`);
+      continue;
+    }
+
     // Get or create wallet
     let wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
     if (!wallet) {
@@ -18,8 +27,8 @@ async function seedTestCredits() {
       });
     }
 
-    // Add 30 purchased credits + log transaction
-    const newBalance = wallet.purchasedCredits + 30;
+    // Add purchased credits + log transaction
+    const newBalance = wallet.purchasedCredits + CREDIT_AMOUNT;
     await prisma.$transaction([
       prisma.wallet.update({
         where: { id: wallet.id },
@@ -29,24 +38,23 @@ async function seedTestCredits() {
         data: {
           walletId: wallet.id,
           type: 'purchase',
-          amount: 30,
+          amount: CREDIT_AMOUNT,
           creditPool: 'purchased',
           balanceAfter: wallet.subscriptionCredits + newBalance,
-          description: 'Test credit allocation',
+          description: `Manual credit allocation (${CREDIT_AMOUNT} credits)`,
         },
       }),
     ]);
 
-    credited++;
-    console.log(`  ✅ ${user.email}: +30 credits (total purchased: ${newBalance})`);
+    console.log(`  ${email}: +${CREDIT_AMOUNT} credits (total purchased: ${newBalance})`);
   }
 
-  console.log(`\n🎉 Done! Credited ${credited} accounts with 30 purchased credits each.`);
+  console.log('\nDone!');
 }
 
 seedTestCredits()
   .catch((e) => {
-    console.error('❌ Test credit seed failed:', e);
+    console.error('Test credit seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {
