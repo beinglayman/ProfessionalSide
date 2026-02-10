@@ -51,7 +51,6 @@ import {
   RepeatIcon,
   Trash2,
   RefreshCw,
-  Sparkles,
   X
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -109,7 +108,6 @@ export default function JournalPage() {
   const [sortBy, setSortBy] = useState<'recent' | 'popular'>('recent');
   const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [showDraftsOnly, setShowDraftsOnly] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-timeline') === '1');
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -665,49 +663,14 @@ export default function JournalPage() {
         {/* Contextual info banner — dismissible */}
         {!bannerDismissed && (
           <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
-            {showDraftsOnly ? (
-              <>
-                <Sparkles className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
-                <p className="text-xs text-primary-700 flex-1">Add context, enhance with AI, and promote standout moments to career stories.</p>
-              </>
-            ) : (
-              <>
-                <Clock className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
-                <p className="text-xs text-primary-700 flex-1">Your synced work activity — raw material for career stories.</p>
-              </>
-            )}
+            <Clock className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
+            <p className="text-xs text-primary-700 flex-1">Your synced work activity — raw material for career stories.</p>
             <button
               onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-timeline', '1'); }}
               className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
             >
               <X className="h-3 w-3" />
             </button>
-          </div>
-        )}
-
-        {/* Activities / Draft Stories toggle */}
-        {(storyGroups.length > 0 || promotedCount > 0) && (
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-1">
-              {([
-                { key: false, label: 'Activities', Icon: Clock },
-                { key: true, label: 'Draft Stories', Icon: Sparkles },
-              ] as const).map(({ key, label, Icon }) => (
-                <button
-                  key={label}
-                  onClick={() => setShowDraftsOnly(key)}
-                  className={cn(
-                    'inline-flex items-center gap-2 whitespace-nowrap border-b-2 py-3 px-4 text-sm font-medium transition-all duration-200',
-                    showDraftsOnly === key
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              ))}
-            </nav>
           </div>
         )}
 
@@ -747,7 +710,6 @@ export default function JournalPage() {
           onPromoteToCareerStory={handlePromoteToCareerStory}
           isEnhancingNarratives={narrativesGenerating}
           pendingEnhancementIds={pendingEnhancementIds}
-          showDraftsOnly={showDraftsOnly}
           promotedCount={promotedCount}
         />
         </div>
