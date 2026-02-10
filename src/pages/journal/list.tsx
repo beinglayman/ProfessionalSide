@@ -52,7 +52,8 @@ import {
   RepeatIcon,
   Trash2,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
@@ -112,6 +113,7 @@ export default function JournalPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDraftsOnly, setShowDraftsOnly] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-timeline') === '1');
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
@@ -625,53 +627,40 @@ export default function JournalPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 space-y-4">
-        {/* Header */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-3 pb-4">
+        <div className="space-y-2">
+        {/* Header: meta + actions */}
         <div className="flex items-center justify-between gap-4">
-          {/* Left: Title + meta */}
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-gray-900 truncate">
-              Timeline
-            </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              {activityCount > 0 && (
-                <span className="text-xs text-gray-500">
-                  {activityCount} activities
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
+            {activityCount > 0 && <span>{activityCount} activities</span>}
+            {lastSyncAt && !isSyncing && (
+              <>
+                {activityCount > 0 && <span className="text-gray-300">·</span>}
+                <span className="text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
+                  Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
                 </span>
-              )}
-              {lastSyncAt && !isSyncing && (
-                <>
-                  {activityCount > 0 && <span className="text-gray-300">&middot;</span>}
-                  <span className="text-xs text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
-                    Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
-                  </span>
-                </>
-              )}
-              {narrativesGenerating && (
-                <>
-                  <span className="text-gray-300">&middot;</span>
-                  <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
-                </>
-              )}
-            </div>
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  className={cn(
+                    "p-0.5 rounded text-gray-400 hover:text-gray-600 transition-colors",
+                    shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
+                  )}
+                  title="Sync your tools"
+                >
+                  <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
+                </button>
+              </>
+            )}
+            {narrativesGenerating && (
+              <>
+                <span className="text-gray-300">·</span>
+                <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
+              </>
+            )}
           </div>
 
-          {/* Right: Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className={cn(
-                "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
-                shouldPulseSync && !isSyncing && "ring-2 ring-primary-300 ring-offset-1 animate-pulse"
-              )}
-              title="Sync your tools"
-            >
-              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-            </Button>
-
             <Button
               size="sm"
               className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm"
@@ -683,20 +672,28 @@ export default function JournalPage() {
           </div>
         </div>
 
-        {/* Contextual info banner — different message per tab */}
-        <div className="px-4 py-2 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
-          {showDraftsOnly ? (
-            <>
-              <Sparkles className="h-4 w-4 text-primary-600 flex-shrink-0" />
-              <p className="text-sm text-primary-700">Add context, enhance with AI, and promote standout moments to career stories.</p>
-            </>
-          ) : (
-            <>
-              <Clock className="h-4 w-4 text-primary-600 flex-shrink-0" />
-              <p className="text-sm text-primary-700">Your synced work activity — raw material for career stories.</p>
-            </>
-          )}
-        </div>
+        {/* Contextual info banner — dismissible */}
+        {!bannerDismissed && (
+          <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
+            {showDraftsOnly ? (
+              <>
+                <Sparkles className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
+                <p className="text-xs text-primary-700 flex-1">Add context, enhance with AI, and promote standout moments to career stories.</p>
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
+                <p className="text-xs text-primary-700 flex-1">Your synced work activity — raw material for career stories.</p>
+              </>
+            )}
+            <button
+              onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-timeline', '1'); }}
+              className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
 
         {/* Activities / Draft Stories toggle */}
         {(storyGroups.length > 0 || promotedCount > 0) && (
@@ -763,6 +760,7 @@ export default function JournalPage() {
           showDraftsOnly={showDraftsOnly}
           promotedCount={promotedCount}
         />
+        </div>
       </div>
       <NewEntryModal 
         open={showNewEntryModal} 

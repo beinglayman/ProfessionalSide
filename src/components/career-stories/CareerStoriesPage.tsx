@@ -633,6 +633,7 @@ export function CareerStoriesPage() {
 
   // Story view toggle: timeline (by quarter) vs category (by brag doc)
   const [storyView, setStoryView] = useState<'timeline' | 'category'>('category');
+  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-stories') === '1');
 
   // Build O(1) activity lookup for timeline quarter grouping
   const activityMap = useStoryActivityMap(allStories);
@@ -904,7 +905,7 @@ export function CareerStoriesPage() {
   }, []);
 
   return (
-    <div className="h-full bg-gray-50" data-testid="career-stories-page">
+    <div className="h-full bg-gray-50 pb-12" data-testid="career-stories-page">
       {/* Celebration toast */}
       {showCelebration && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-primary-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm animate-in fade-in slide-in-from-top-2">
@@ -918,7 +919,7 @@ export function CareerStoriesPage() {
 
       {/* Main content area - same width as Activity tab (max-w-7xl) */}
       <div className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-3 pb-4">
           {/* Detail View: Full story with back button */}
           {viewMode === 'detail' && selectedStoryDirect && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -965,18 +966,12 @@ export function CareerStoriesPage() {
 
           {/* List View: Story cards grouped by year */}
           {viewMode === 'list' && (
-            <div className="space-y-4">
-              {/* Header with title, toggle + filter */}
+            <div className="space-y-2">
+              {/* Header: meta + actions */}
               {allStories.length > 0 && (
                 <div className="flex items-center justify-between gap-4">
-                  {/* Left: Title + Subtitle */}
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold text-gray-900 truncate">
-                      Career Stories
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
-                    </p>
+                  <div className="text-xs text-gray-500 min-w-0">
+                    {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
                   </div>
 
                   {/* Right: Promotion Packet + Saved Narratives + Filter */}
@@ -1086,12 +1081,21 @@ export function CareerStoriesPage() {
                     )}
                   </div>
                 </div>
+              )}
 
-              {/* Educational banner */}
-              <div className="px-4 py-2 rounded-lg flex items-center gap-2.5 bg-primary-50 border border-primary-200">
-                <BookOpen className="h-4 w-4 text-primary-600 flex-shrink-0" />
-                <p className="text-sm text-primary-700">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
-              </div>
+              {/* Educational banner — dismissible */}
+              {!bannerDismissed && (
+                <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
+                  <BookOpen className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
+                  <p className="text-xs text-primary-700 flex-1">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
+                  <button
+                    onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-stories', '1'); }}
+                    className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
 
               {/* Timeline / Category toggle */}
               <div className="border-b border-gray-200">
@@ -1119,14 +1123,14 @@ export function CareerStoriesPage() {
 
               {/* Loading state */}
               {(isLoadingClusters || isLoadingStories) && (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                 </div>
               )}
 
               {/* Empty state - no stories at all */}
               {!isLoadingClusters && !isLoadingStories && allStories.length === 0 && (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                     <BookOpen className="w-6 h-6 text-gray-400" />
                   </div>
@@ -1139,7 +1143,7 @@ export function CareerStoriesPage() {
 
               {/* Empty state - filtered results empty */}
               {!isLoadingClusters && allStories.length > 0 && filteredStories.length === 0 && (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                     <Filter className="w-6 h-6 text-gray-400" />
                   </div>
@@ -1225,8 +1229,8 @@ export function CareerStoriesPage() {
                   {BRAG_DOC_CATEGORIES.map((cat) => {
                     const catStories = storiesByCategory.get(cat.value) ?? [];
                     return (
-                      <div key={cat.value} className="pt-4">
-                        <div className="flex items-center gap-3 mb-3">
+                      <div key={cat.value} className="pt-3">
+                        <div className="flex items-center gap-3 mb-2">
                           <span className="text-sm font-semibold text-gray-700">{cat.label}</span>
                           <div className="flex-1 h-px bg-gray-200" />
                           {catStories.length > 0 && (
@@ -1288,8 +1292,8 @@ export function CareerStoriesPage() {
                     );
                   })}
                   {storiesByCategory.has('other') && (
-                    <div className="pt-4">
-                      <div className="flex items-center gap-3 mb-3">
+                    <div className="pt-3">
+                      <div className="flex items-center gap-3 mb-2">
                         <span className="text-xs font-bold text-gray-600">Other</span>
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
@@ -1313,8 +1317,6 @@ export function CareerStoriesPage() {
                 </>
               )}
 
-              {/* Spacer for scroll */}
-              <div className="h-[30vh]" aria-hidden="true" />
             </div>
           )}
         </div>

@@ -52,56 +52,33 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
   };
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-md">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
           {/* Left section: Logo + Navigation */}
-          <div className="flex items-center flex-1">
+          <div className="flex items-end flex-1">
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
-              <style>
-                {`
-                  @media screen and (min-width: 769px) {
-                    #mobile-logo { display: none; }
-                    #desktop-logo { display: inline-block; }
-                  }
-                  
-                  @media screen and (max-width: 768px) {
-                    #desktop-logo { display: none; }
-                    #mobile-logo { display: inline-block; }
-                  }
-                `}
-              </style>
-              
+            <Link to="/" className="flex-shrink-0 mb-1">
               {/* Full logo for desktop */}
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                viewBox="0 0 1200 150" 
-                id="desktop-logo"
-                style={{ height: "32px", width: "auto" }}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 1150 100"
+                className="hidden md:block"
+                style={{ height: "16px", width: "auto" }}
               >
-                {/* Left purple box with "IN" */}
-                  <rect x="50" y="50" width="180" height="100" stroke="#5D259F" strokeWidth="3" fill="#5D259F" />
-                
-                {/* "IN" text inside the box - aligned to the right */}
-                <text x="225" y="140" fontFamily="Arial, sans-serif" fontSize="60" fontWeight="bold" fill="white" textAnchor="end">IN</text>
-                
-                {/* "CHRONICLE" text */}
-                <text x="235" y="140" fontFamily="Arial, sans-serif" fontSize="120"  fill="#333333">CHRONICLE</text>
+                <rect x="0" y="0" width="180" height="100" fill="#5D259F" />
+                <text x="175" y="90" fontFamily="Arial, sans-serif" fontSize="60" fontWeight="bold" fill="white" textAnchor="end">IN</text>
+                <text x="185" y="90" fontFamily="Arial, sans-serif" fontSize="120" fill="#333333">CHRONICLE</text>
               </svg>
 
-              
               {/* Only the "IN" box for mobile */}
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                viewBox="0 0 130 150" 
-                id="mobile-logo"
-                style={{ height: "32px", width: "auto" }}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 120 120"
+                className="block md:hidden"
+                style={{ height: "16px", width: "auto" }}
               >
-               {/* Left purple box with "IN" */}
-                  <rect x="10" y="25" width="120" height="120" stroke="#5D259F" strokeWidth="3" fill="#5D259F" />
-                
-                {/* "IN" text inside the box - aligned to the right */}
-                <text x="125" y="140" fontFamily="Arial, sans-serif" fontSize="60" fontWeight="bold" fill="white" textAnchor="end">IN</text>
+                <rect x="0" y="0" width="120" height="120" fill="#5D259F" />
+                <text x="115" y="115" fontFamily="Arial, sans-serif" fontSize="60" fontWeight="bold" fill="white" textAnchor="end">IN</text>
               </svg>
             </Link>
 
