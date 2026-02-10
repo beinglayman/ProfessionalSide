@@ -271,6 +271,18 @@ export function hasExpandableContent(
 }
 
 /**
+ * Check if a sourceId is a human-readable identifier worth showing to users.
+ * Only GitHub (org/repo#123, commit:sha) and Jira (PROJECT-123) sourceIds
+ * are meaningful. Everything else (gcal-*, thread-*, email-*, gdoc-*, etc.)
+ * is a synthetic internal key used for deduplication.
+ */
+export function isDisplayableSourceId(source: string, sourceId: string): boolean {
+  if (source === 'github') return true; // org/repo#123 or commit:sha
+  if (source === 'jira') return true;   // PROJECT-123
+  return false;
+}
+
+/**
  * Safely parse a timestamp string to Date.
  * Returns null if the timestamp is invalid.
  */

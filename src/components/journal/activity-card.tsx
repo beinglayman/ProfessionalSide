@@ -23,9 +23,25 @@ import {
   safeParseTimestamp,
   truncateText,
   resolveGoogleSource,
+  isDisplayableSourceId,
 } from './activity-card-utils';
 import { SimpleMarkdown } from '../ui/simple-markdown';
 import { GitHubPRDetails, GitHubCommitDetails, GitHubIssueDetails } from './github-pr-details';
+
+/** Render children separated by dot dividers, filtering out falsy items */
+function DotSeparated({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children).filter(Boolean);
+  return (
+    <>
+      {items.map((child, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <span className="text-gray-300">·</span>}
+          {child}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
 
 interface ActivityCardProps {
   activity: Activity;
@@ -255,6 +271,11 @@ export function ActivityCard({
 
   // Get metadata summary for collapsed view
   const metadataSummary = getMetadataSummary(activity.source, activity.rawData);
+  // Only GitHub/Jira have human-readable sourceIds; others are synthetic dedup keys
+  const showSourceId = isDisplayableSourceId(activity.source, activity.sourceId);
+  // Skip Row 2 entirely when there's nothing to show — avoids empty whitespace
+  const hasRow2Content = showSourceId || !!metadataSummary ||
+    (showStoryBadge && !!activity.storyId && !!activity.storyTitle) || !!edge;
 
   const handleClick = () => {
     if (hasExpandableContent) {
@@ -308,153 +329,139 @@ export function ActivityCard({
   return (
     <article
       className={cn(
-        'group relative border-b border-gray-100 last:border-0',
-        'transition-colors rounded-lg -mx-1',
-        isExpanded ? 'bg-gray-50/80' : 'hover:bg-gray-50/50',
+        'group relative',
+        'transition-all',
+        'border-b border-gray-100 last:border-0',
+        isExpanded ? 'bg-gray-50/40' : 'hover:bg-gray-50/50',
         hasExpandableContent && 'cursor-pointer',
         className
       )}
       onClick={handleClick}
     >
-      {/* Outer flex container for color bar + content */}
+      {/* Outer container with accent bar */}
       <div className="flex">
-        {/* Color bar - extends full height when not showing icon */}
-        {!showSourceIcon && (
-          <div
-            className="flex-shrink-0 w-1 rounded-l-lg"
-            style={{ backgroundColor: sourceColor }}
-          />
-        )}
+        {/* Left accent bar — only takes space when expanded */}
+        <div
+          className={cn(
+            'flex-shrink-0 transition-all rounded-full',
+            isExpanded ? 'w-[3px] my-1' : 'w-0'
+          )}
+          style={isExpanded ? { backgroundColor: sourceColor } : undefined}
+        />
 
         {/* Main content area */}
         <div className="flex-1 min-w-0">
-          {/* Main row */}
-          <div className={cn("flex gap-3 py-3.5", showSourceIcon ? "px-3" : "px-3 pl-2.5")}>
-            {/* Source icon (only when showSourceIcon is true) */}
+          {/* Main row — single dense line with all key info */}
+          <div className="flex gap-2.5 py-2 px-3">
+            {/* Source icon */}
             {showSourceIcon && (
               <div
-                className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-white"
+                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-white mt-0.5"
                 style={{ backgroundColor: sourceColor }}
               >
-                <SourceIcon className="w-4 h-4" />
+                <SourceIcon className="w-3.5 h-3.5" />
               </div>
             )}
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              {/* Title row */}
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-medium text-gray-900 text-sm leading-snug line-clamp-1">
+              {/* Row 1: title (left) — timestamp + chevron + link (right, fixed width) */}
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium text-gray-900 text-sm leading-tight truncate min-w-0 flex-1">
                   {activity.title}
                 </h3>
-                <span
-                  className="text-[11px] text-gray-500 font-medium whitespace-nowrap flex-shrink-0 pt-0.5"
-                  title={timestampTitle}
-                >
-                  {timestampDisplay}
-                </span>
-              </div>
-
-              {/* Metadata row - sourceId + metadata only (source name is redundant - icon or group header shows it) */}
-              <div className="flex items-center gap-1.5 text-[11px] mt-0.5">
-                <span className="font-mono text-gray-400 truncate">
-                  {activity.sourceId}
-                </span>
-                {metadataSummary && (
-                  <>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-gray-500 truncate">{metadataSummary}</span>
-                  </>
-                )}
-              </div>
-
-              {/* Edge badge when activity is shown within a story context */}
-              {edge && (
-                <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   <span
-                    className="font-medium px-1.5 py-0.5 rounded"
-                    style={{
-                      color: ACTIVITY_EDGE_LABELS[edge.type].color,
-                      backgroundColor: ACTIVITY_EDGE_LABELS[edge.type].bgColor
-                    }}
+                    className="text-[11px] text-gray-400 whitespace-nowrap tabular-nums"
+                    title={timestampTitle}
                   >
-                    {ACTIVITY_EDGE_LABELS[edge.type].label}
+                    {timestampDisplay}
                   </span>
-                  <span className="text-gray-500 italic line-clamp-1">{edge.message}</span>
+                  <div className={cn("p-0.5", hasExpandableContent ? "text-gray-300" : "invisible")}>
+                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                  </div>
+                  {activity.sourceUrl ? (
+                    <a
+                      href={activity.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={handleExternalLinkClick}
+                      className="p-0.5 transition-opacity text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100"
+                      aria-label="Open in source"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  ) : (
+                    <span className="p-0.5 invisible" aria-hidden="true">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </span>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {/* Collapsed: Show story badge only */}
-              {!isExpanded && showStoryBadge && activity.storyId && activity.storyTitle && (
-                <div className="mt-1.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">
-                    <BookOpen className="w-2.5 h-2.5" />
-                    {activity.storyTitle}
-                  </span>
+              {/* Row 2: metadata + story badge + edge (sourceId only for GitHub/Jira) */}
+              {hasRow2Content && (
+                <div className="flex items-center gap-1.5 text-[11px] mt-px">
+                  <DotSeparated>
+                    {showSourceId && (
+                      <span className="font-mono text-[10px] text-gray-400 truncate">
+                        {activity.sourceId}
+                      </span>
+                    )}
+                    {metadataSummary && (
+                      <span className="text-gray-500 truncate">{metadataSummary}</span>
+                    )}
+                    {showStoryBadge && activity.storyId && activity.storyTitle && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-purple-600 flex-shrink-0">
+                        <BookOpen className="w-2.5 h-2.5" />
+                        <span className="truncate max-w-[120px]">{activity.storyTitle}</span>
+                      </span>
+                    )}
+                    {edge && (
+                      <span
+                        className="font-medium text-[10px] px-1 py-px rounded"
+                        style={{
+                          color: ACTIVITY_EDGE_LABELS[edge.type].color,
+                          backgroundColor: ACTIVITY_EDGE_LABELS[edge.type].bgColor
+                        }}
+                      >
+                        {ACTIVITY_EDGE_LABELS[edge.type].label}
+                      </span>
+                    )}
+                  </DotSeparated>
                 </div>
-              )}
-            </div>
-
-            {/* Expand indicator + external link */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {hasExpandableContent && (
-                <div className="p-1 text-gray-300">
-                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </div>
-              )}
-              {activity.sourceUrl && (
-                <a
-                  href={activity.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleExternalLinkClick}
-                  className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label="Open in source"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
               )}
             </div>
           </div>
 
           {/* Expanded details */}
           {isExpanded && (
-            <div className={cn("pb-3.5 space-y-2", showSourceIcon ? "px-3 pl-14" : "px-3 pl-2.5")}>
-          {/* Cross-tool references */}
-          {uniqueRefs.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {uniqueRefs.map((ref, i) => {
-                const refType = getRefType(ref);
-                const RefIcon = refType ? SourceIcons[refType] : null;
-                const refColor = refType ? SUPPORTED_SOURCES[refType]?.color : undefined;
+            <div className={cn("pb-2 space-y-1.5", showSourceIcon ? "px-3 pl-[2.75rem]" : "px-3 pl-2.5")}>
+              {/* Cross-tool references */}
+              {uniqueRefs.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {uniqueRefs.map((ref, i) => {
+                    const refType = getRefType(ref);
+                    const RefIcon = refType ? SourceIcons[refType] : null;
+                    const refColor = refType ? SUPPORTED_SOURCES[refType]?.color : undefined;
 
-                return (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded"
-                  >
-                    {RefIcon && <RefIcon className="w-2.5 h-2.5" style={{ color: refColor }} />}
-                    {ref}
-                  </span>
-                );
-              })}
+                    return (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded"
+                      >
+                        {RefIcon && <RefIcon className="w-2.5 h-2.5" style={{ color: refColor }} />}
+                        {ref}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Detail sections */}
+              {expandedDetails}
             </div>
           )}
-
-          {/* Detail sections */}
-          {expandedDetails}
-
-          {/* Story badge in expanded view */}
-          {showStoryBadge && activity.storyId && activity.storyTitle && (
-            <div className="pt-1">
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">
-                <BookOpen className="w-2.5 h-2.5" />
-                {activity.storyTitle}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
         </div>
       </div>
     </article>
