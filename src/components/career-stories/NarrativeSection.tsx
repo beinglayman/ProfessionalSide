@@ -410,7 +410,7 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
             </div>
           )}
 
-          <p className="text-[14.5px] leading-[1.65] text-gray-700">
+          <p className="text-[15px] leading-[1.75] text-gray-800">
             {renderContent(content)}
           </p>
 
