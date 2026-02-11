@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AuthService, User, LoginRequest, RegisterRequest } from '../services/auth.service';
 import { QueryKeys } from '../lib/queryClient';
+import { enableDemoMode } from '../services/demo-mode.service';
 
 interface AuthContextType {
   user: User | null;
@@ -68,6 +69,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Sync token state with localStorage (set by AuthService)
         setToken(localStorage.getItem('inchronicle_access_token'));
         queryClient.setQueryData(QueryKeys.currentUser, response.data.user);
+        // Start in demo mode — demo has data, live may not
+        enableDemoMode();
       } else {
         throw new Error(response.error || 'Login failed');
       }
@@ -88,6 +91,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Sync token state with localStorage (set by AuthService)
         setToken(localStorage.getItem('inchronicle_access_token'));
         queryClient.setQueryData(QueryKeys.currentUser, response.data.user);
+        // Start in demo mode — demo has data, live may not
+        enableDemoMode();
       } else {
         throw new Error(response.error || 'Registration failed');
       }
