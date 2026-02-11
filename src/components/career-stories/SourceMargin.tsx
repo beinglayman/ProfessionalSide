@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StorySource, ToolType } from '../../types/career-stories';
 import { ToolIcon } from './ToolIcon';
+import { TIMING } from './constants';
 
 interface SourceMarginProps {
   sources: StorySource[];
@@ -31,7 +32,7 @@ export const SourceMargin: React.FC<SourceMarginProps> = ({
     undoTimerRef.current = setTimeout(() => {
       onExclude(sourceId);
       setPendingExclude(null);
-    }, 5000);
+    }, TIMING.EXCLUDE_UNDO_MS);
   }, [onExclude]);
 
   const handleUndo = useCallback(() => {
@@ -42,6 +43,8 @@ export const SourceMargin: React.FC<SourceMarginProps> = ({
     setPendingExclude(null);
   }, [pendingExclude, onUndoExclude]);
 
+  // Only show tool-originated sources (GitHub PRs, Jira tickets, etc.) in the margin.
+  // wizard_answer and user_note types are contextual, not provenance — they don't belong here.
   const activitySources = sources.filter(
     (s) => !s.excludedAt && s.sourceType === 'activity'
   );

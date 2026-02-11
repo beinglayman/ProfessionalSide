@@ -3,6 +3,7 @@ import { ExternalLink, X, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StorySource, ToolType } from '../../types/career-stories';
 import { ToolIcon } from './ToolIcon';
+import { TIMING } from './constants';
 
 interface SourceFootnotesProps {
   sources: StorySource[];
@@ -44,7 +45,7 @@ export function SourceFootnotes({
     undoTimerRef.current = setTimeout(() => {
       onExclude(sourceId);
       setPendingExclude(null);
-    }, 5000);
+    }, TIMING.EXCLUDE_UNDO_MS);
   }, [onExclude]);
 
   const handleUndo = useCallback(() => {

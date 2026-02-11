@@ -18,6 +18,8 @@ export const TIMING = {
   COPY_FEEDBACK_MS: 2000,
   /** Debounce delay for resize events */
   RESIZE_DEBOUNCE_MS: 100,
+  /** Grace period before source exclusion is committed */
+  EXCLUDE_UNDO_MS: 5000,
 } as const;
 
 /** Maximum items to show before truncating */
