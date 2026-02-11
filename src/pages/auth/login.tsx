@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -17,19 +17,19 @@ const LOGIN_QUOTES: LoginQuote[] = [
     text: "Don't do invisible work.",
     name: 'Chris Albon',
     role: 'Director of ML, Wikipedia',
-    image: 'https://pbs.twimg.com/profile_images/1689434146498068480/0-EJbHgd_400x400.jpg',
+    image: '',
   },
   {
     text: "If you don't tell your story, someone else will — and they'll get it wrong.",
     name: 'Career Wisdom',
     role: 'On owning your narrative',
-    image: '', // no persona image, will show initial
+    image: '',
   },
   {
     text: "Ideas in secret die. They need light and air or they starve to death.",
     name: 'Seth Godin',
     role: 'Author, This Is Marketing',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Seth_Godin_2016.jpg/440px-Seth_Godin_2016.jpg',
+    image: '/headshots/seth-godin.jpg',
   },
   {
     text: "Most people work in their career. Very few work on their career. That's the gap.",
@@ -41,31 +41,31 @@ const LOGIN_QUOTES: LoginQuote[] = [
     text: "If you don't remember everything important you did, your manager — no matter how great they are — probably doesn't either.",
     name: 'Julia Evans',
     role: 'Engineer & Author, Wizard Zines',
-    image: 'https://pbs.twimg.com/profile_images/1652939213951295488/WlKVaFTe_400x400.jpg',
+    image: '',
   },
   {
     text: "Become the best in the world at what you do. Keep redefining what you do until this is true.",
     name: 'Naval Ravikant',
     role: 'Co-founder, AngelList',
-    image: 'https://pbs.twimg.com/profile_images/1256841238298292232/ycqwaMI2_400x400.jpg',
+    image: '/headshots/naval-ravikant.jpg',
   },
   {
     text: "Once a day, after you've done your day's work, go back to your documentation and find one little piece of your process that you can share.",
     name: 'Austin Kleon',
     role: 'Author, Show Your Work!',
-    image: 'https://pbs.twimg.com/profile_images/1574387452782616577/7JhkcfCO_400x400.jpg',
+    image: '/headshots/austin-kleon.jpg',
   },
   {
     text: "Careers are a jungle gym, not a ladder.",
     name: 'Sheryl Sandberg',
     role: 'Former COO, Meta',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Sheryl_Sandberg_2013.jpg/440px-Sheryl_Sandberg_2013.jpg',
+    image: '/headshots/sheryl-sandberg.jpg',
   },
   {
     text: "Don't follow your passion; rather, let it follow you in your quest to become so good that they can't ignore you.",
     name: 'Cal Newport',
     role: 'Author, Deep Work',
-    image: 'https://pbs.twimg.com/profile_images/1670115085016567812/sCVfcdFQ_400x400.jpg',
+    image: '',
   },
   {
     text: "An accomplishment without evidence is just a claim. An accomplishment with evidence is a case.",
@@ -104,6 +104,17 @@ export function LoginPage() {
   }, []);
 
   const currentQuote = LOGIN_QUOTES[quoteIndex];
+
+  // Replace broken image with initial fallback
+  const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const parent = img.parentElement;
+    if (!parent) return;
+    const fallback = document.createElement('div');
+    fallback.className = 'h-10 w-10 rounded-full bg-white/10 flex items-center justify-center ring-2 ring-white/10';
+    fallback.innerHTML = `<span class="text-sm font-semibold text-white/60">${currentQuote.name.charAt(0)}</span>`;
+    parent.replaceChild(fallback, img);
+  }, [currentQuote.name]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,6 +186,7 @@ export function LoginPage() {
                       src={currentQuote.image}
                       alt={currentQuote.name}
                       className="h-10 w-10 rounded-full object-cover ring-2 ring-white/20"
+                      onError={handleImageError}
                     />
                   ) : (
                     <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center ring-2 ring-white/10">

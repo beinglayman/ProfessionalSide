@@ -14,3 +14,9 @@ austin-kleon.jpg
 Source: https://commons.wikimedia.org/wiki/File:Austin_Kleon_2015.jpg
 Author: Larry D. Moore
 License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+sheryl-sandberg.jpg
+Source: https://commons.wikimedia.org/wiki/File:Sheryl_Sandberg_2013.jpg
+Author: cellanr (Flickr)
+License: CC BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)
+Description: Sheryl Sandberg at Facebook's London HQ, April 2013
