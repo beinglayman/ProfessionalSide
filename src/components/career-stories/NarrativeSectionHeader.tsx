@@ -15,6 +15,8 @@ interface NarrativeSectionHeaderProps {
   children?: React.ReactNode;
   marginContent?: React.ReactNode;
   showMargin?: boolean;
+  rightMarginContent?: React.ReactNode;
+  showSourceMargin?: boolean;
 }
 
 export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
@@ -29,6 +31,8 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
   children,
   marginContent,
   showMargin = false,
+  rightMarginContent,
+  showSourceMargin = false,
 }) => {
   // Neutral palette — no per-section color coding
   const dotColor = 'bg-gray-400';
@@ -80,7 +84,10 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
             <>
               <div className="flex-1 h-px bg-gray-200" />
               {sourceCount !== undefined && sourceCount > 0 && (
-                <span className="text-[10px] flex-shrink-0 text-gray-400">
+                <span className={cn(
+                  'text-[10px] flex-shrink-0',
+                  showSourceMargin ? 'text-slate-500 font-medium' : 'text-gray-400'
+                )}>
                   {sourceCount} source{sourceCount !== 1 ? 's' : ''}
                 </span>
               )}
@@ -89,7 +96,10 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
 
           {/* Collapsed: source count inline */}
           {isCollapsed && sourceCount !== undefined && sourceCount > 0 && (
-            <span className="text-[10px] text-gray-400">
+            <span className={cn(
+              'text-[10px]',
+              showSourceMargin ? 'text-slate-500 font-medium' : 'text-gray-400'
+            )}>
               <span className="text-gray-300">&middot;</span> {sourceCount} source{sourceCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -103,6 +113,9 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
         {/* Content when expanded */}
         {!isCollapsed && children}
       </div>
+
+      {/* Right margin — source provenance (system voice) */}
+      {rightMarginContent}
     </section>
   );
 };
