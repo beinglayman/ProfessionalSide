@@ -68,7 +68,7 @@ export function LoginPage() {
             autoComplete="email"
             required
             placeholder="you@company.com"
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:shadow-lg focus:shadow-primary-500/5 transition-all"
+            className="block w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors"
             value={formData.email}
             onChange={handleInputChange}
             disabled={isLoading}
@@ -95,7 +95,7 @@ export function LoginPage() {
               autoComplete="current-password"
               required
               placeholder="Enter your password"
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:shadow-lg focus:shadow-primary-500/5 transition-all"
+              className="block w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors"
               value={formData.password}
               onChange={handleInputChange}
               disabled={isLoading}

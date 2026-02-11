@@ -70,9 +70,11 @@ const AppRoutes: React.FC = () => {
     );
   }
 
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header networkType={networkType} onNetworkTypeChange={setNetworkType} />
+      {!isAuthPage && <Header networkType={networkType} onNetworkTypeChange={setNetworkType} />}
       <Routes>
         <Route
           path="/"
