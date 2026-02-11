@@ -12,7 +12,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NarrativePreview } from './NarrativePreview';
-import { CareerStory, GenerateSTARResult, NarrativeFramework, ToolType } from '../../types/career-stories';
+import { CareerStory, GenerateSTARResult, NarrativeFramework, ToolType, StorySource } from '../../types/career-stories';
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -443,6 +443,118 @@ describe('NarrativePreview', () => {
 
       expect(screen.getByTestId('star-preview-error')).toBeInTheDocument();
       expect(screen.getByText(/Can't generate story/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Source Margin Toggle', () => {
+    const createSources = (): StorySource[] => [
+      {
+        id: 'src-1', storyId: 'story-1', sectionKey: 'situation', sourceType: 'activity',
+        activityId: 'act-1', label: 'PR #42', content: null, url: 'https://github.com/pr/42',
+        annotation: null, toolType: 'github', role: 'author', questionId: null,
+        sortOrder: 0, excludedAt: null, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'src-2', storyId: 'story-1', sectionKey: 'task', sourceType: 'activity',
+        activityId: 'act-2', label: 'JIRA-123', content: null, url: null,
+        annotation: null, toolType: 'jira', role: null, questionId: null,
+        sortOrder: 0, excludedAt: null, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+      },
+    ];
+
+    it('renders Eye toggle button next to coverage text', () => {
+      renderWithProviders(
+        <NarrativePreview
+          {...defaultProps}
+          sources={createSources()}
+          sourceCoverage={{ sourced: 2, total: 4, vagueMetrics: [] }}
+        />
+      );
+
+      expect(screen.getByLabelText('Show sources in margin')).toBeInTheDocument();
+    });
+
+    it('toggles aria-label between show and hide on click', async () => {
+      const user = userEvent.setup();
+
+      renderWithProviders(
+        <NarrativePreview
+          {...defaultProps}
+          sources={createSources()}
+          sourceCoverage={{ sourced: 2, total: 4, vagueMetrics: [] }}
+        />
+      );
+
+      const toggle = screen.getByLabelText('Show sources in margin');
+      await user.click(toggle);
+
+      expect(screen.getByLabelText('Hide sources')).toBeInTheDocument();
+    });
+
+    it('does not render Eye toggle when no coverage data', () => {
+      renderWithProviders(
+        <NarrativePreview {...defaultProps} />
+      );
+
+      expect(screen.queryByLabelText('Show sources in margin')).not.toBeInTheDocument();
+    });
+
+    it('renders source count per section', () => {
+      renderWithProviders(
+        <NarrativePreview
+          {...defaultProps}
+          sources={createSources()}
+          sourceCoverage={{ sourced: 2, total: 4, vagueMetrics: [] }}
+        />
+      );
+
+      // Two sections have 1 source each (situation, task)
+      const sourceCounts = screen.getAllByText('1 source');
+      expect(sourceCounts.length).toBe(2);
+    });
+  });
+
+  describe('Framework Tooltip', () => {
+    it('renders framework description as tooltip text', () => {
+      renderWithProviders(<NarrativePreview {...defaultProps} />);
+
+      // The tooltip text is rendered but hidden via opacity
+      expect(screen.getByText('Situation, Task, Action, Result')).toBeInTheDocument();
+    });
+
+    it('renders SHARE framework description', () => {
+      const shareStory = createStory('SHARE');
+
+      renderWithProviders(
+        <NarrativePreview
+          {...defaultProps}
+          framework="SHARE"
+          story={shareStory}
+        />
+      );
+
+      expect(screen.getByText('Situation, Hindrances, Actions, Results, Evaluation')).toBeInTheDocument();
+    });
+  });
+
+  describe('Provenance Line', () => {
+    it('does not render activity count in provenance line', () => {
+      renderWithProviders(
+        <NarrativePreview {...defaultProps} activityCount={6} />
+      );
+
+      expect(screen.queryByText(/6 activities/)).not.toBeInTheDocument();
+    });
+
+    it('renders coverage text when sourceCoverage is provided', () => {
+      renderWithProviders(
+        <NarrativePreview
+          {...defaultProps}
+          sourceCoverage={{ sourced: 3, total: 4, vagueMetrics: [] }}
+        />
+      );
+
+      expect(screen.getByText('3/4 sourced')).toBeInTheDocument();
     });
   });
 });

@@ -79,7 +79,9 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
             </span>
           </button>
 
-          {/* Expanded: thin colored rule + source count */}
+          {/* Expanded: thin colored rule + source count.
+             Source count styling intensifies (slate-500 + bold) when the right margin
+             is open, giving visual feedback that sources are actively displayed. */}
           {!isCollapsed && (
             <>
               <div className="flex-1 h-px bg-gray-200" />

@@ -50,6 +50,9 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
   );
 
   const isExpanded = notesAndAsides.length > 0 || hasNotes || showAsideInput;
+  // >3 notes: single-line clamp per card to prevent margin overflow.
+  // <=3 notes: 4-line clamp gives enough context without overwhelming.
+  // Hovering any card removes clamp, showing full text.
   const isCrowded = notesAndAsides.length > 3;
 
   const handleAsideSave = useCallback(() => {

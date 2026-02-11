@@ -825,6 +825,8 @@ export function NarrativePreview({
             <>
               <span className="text-gray-300">&middot;</span>
               <span className={cn(coverageColor)}>{coverageText}</span>
+              {/* Eye icon shows ACTION (what clicking does), not current state:
+                 Eye = "click to show" (sources hidden), EyeOff = "click to hide" (sources visible) */}
               <button
                 onClick={() => setShowSourceMargin(prev => !prev)}
                 className={cn(
@@ -878,7 +880,9 @@ export function NarrativePreview({
 
       {/* Narrative Content — continuous flow, timeline spine */}
       <div className="px-6 lg:px-8">
-        {/* Margin voice labels — one row, mirrors section flex layout */}
+        {/* Margin voice labels — rendered once above sections (not per-section).
+           Layout mirrors the section flex structure: [left margin] [spine w-5] [content flex-1] [right margin]
+           so "your notes" and "receipts" align with their respective columns below. */}
         {(showMargin || showSourceMargin) && (
           <div className="hidden lg:flex gap-4 mb-2">
             {showMargin && (
@@ -888,8 +892,8 @@ export function NarrativePreview({
                 )}
               </div>
             )}
-            <div className="w-5 flex-shrink-0" />
-            <div className="flex-1 min-w-0" />
+            <div className="w-5 flex-shrink-0" /> {/* spine placeholder */}
+            <div className="flex-1 min-w-0" /> {/* content placeholder */}
             <div className={cn(
               'flex-shrink-0 transition-all duration-200 overflow-hidden',
               showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
@@ -945,6 +949,8 @@ export function NarrativePreview({
               }
               showSourceMargin={showSourceMargin}
               rightMarginContent={
+                // Slide-in transition: w-0/opacity-0 → w-[180px]/opacity-100.
+                // Content column narrows as margin expands (flex layout).
                 <div className={cn(
                   'hidden lg:block flex-shrink-0 pt-1 transition-all duration-200 overflow-hidden',
                   showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
@@ -984,7 +990,9 @@ export function NarrativePreview({
                 />
               </div>
 
-              {/* Source footnotes — mobile only; desktop uses right margin */}
+              {/* Source footnotes — always hidden on desktop (lg:hidden) where the right
+                 margin column provides source display. On mobile (<lg), footnotes are the
+                 only source display since the margin column is hidden. */}
               <div className="lg:hidden">
                 <SourceFootnotes
                   sources={sectionSources}
