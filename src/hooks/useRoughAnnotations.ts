@@ -35,7 +35,7 @@ const STYLE_CONFIG: Record<Exclude<AnnotationStyle, 'aside'>, StyleDef> = {
   box: { rnType: 'box', strokeWidth: 2, padding: 4 },
   circle: { rnType: 'circle', strokeWidth: 2, padding: 8 },
   'strike-through': { rnType: 'strike-through', strokeWidth: 2.5, padding: 0 },
-  bracket: { rnType: 'bracket', strokeWidth: 2, padding: 4, brackets: ['left'] },
+  bracket: { rnType: 'bracket', strokeWidth: 2, padding: 4, brackets: ['left', 'right'] },
 };
 
 // =============================================================================

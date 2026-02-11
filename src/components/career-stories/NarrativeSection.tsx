@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   DELIVERY_CUES,
@@ -25,6 +25,7 @@ interface NarrativeSectionProps {
   hideHeader?: boolean;
   annotations?: StoryAnnotation[];
   onAnnotationClick?: (annotationId: string, element: HTMLElement) => void;
+  onDeleteAnnotation?: (annotationId: string) => void;
   hoveredAnnotationId?: string | null;
   onHoverAnnotation?: (annotationId: string | null) => void;
 }
@@ -152,6 +153,7 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
   hideHeader = false,
   annotations = [],
   onAnnotationClick,
+  onDeleteAnnotation,
   hoveredAnnotationId,
   onHoverAnnotation,
 }) => {
@@ -434,7 +436,7 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
                       key={`ann-${seg.annotationId}`}
                       data-annotation-id={seg.annotationId}
                       className={cn(
-                        'cursor-pointer transition-shadow duration-150 rounded-sm',
+                        'relative cursor-pointer transition-shadow duration-150 rounded-sm group/ann inline',
                         hoveredAnnotationId === seg.annotationId && 'shadow-[0_0_0_2px_rgba(180,83,9,0.45)]'
                       )}
                       onClick={(e) => onAnnotationClick?.(seg.annotationId!, e.currentTarget)}
@@ -442,6 +444,19 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
                       onMouseLeave={() => onHoverAnnotation?.(null)}
                     >
                       {renderContent(seg.text)}
+                      {onDeleteAnnotation && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteAnnotation(seg.annotationId!);
+                          }}
+                          className="hidden group-hover/ann:inline-flex items-center justify-center w-4 h-4 -mt-1 ml-0.5 rounded-full bg-white shadow-sm ring-1 ring-gray-200 text-gray-400 hover:text-red-500 hover:ring-red-200 transition-colors align-middle"
+                          title="Remove highlight"
+                          aria-label="Remove highlight"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      )}
                     </span>
                   ) : (
                     <React.Fragment key={`seg-${i}`}>{renderContent(seg.text)}</React.Fragment>

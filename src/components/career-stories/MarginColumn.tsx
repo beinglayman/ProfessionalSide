@@ -5,10 +5,14 @@
  * Always visible on desktop (hidden on mobile):
  * - Narrow (32px) when empty — just shows a subtle "+" affordance
  * - Full width (180px) when notes/asides exist
+ *
+ * Notes stack vertically as discrete cards. When there are many,
+ * each collapses to a single truncated line. Hovering expands one
+ * fully with a lifted card treatment.
  */
 
 import React, { useState, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { StoryAnnotation } from '../../types/career-stories';
 
@@ -20,6 +24,10 @@ interface MarginColumnProps {
   onCreateAside?: (sectionKey: string, note: string) => void;
   onHoverAnnotation?: (annotationId: string | null) => void;
   hoveredAnnotationId?: string | null;
+  /** Clear the note text from a text-anchored mark (keeps the mark) */
+  onClearNote?: (annotationId: string) => void;
+  /** Delete an aside entirely */
+  onDeleteAside?: (annotationId: string) => void;
 }
 
 export const MarginColumn: React.FC<MarginColumnProps> = ({
@@ -30,6 +38,8 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
   onCreateAside,
   onHoverAnnotation,
   hoveredAnnotationId,
+  onClearNote,
+  onDeleteAside,
 }) => {
   const [asideInput, setAsideInput] = useState('');
   const [showAsideInput, setShowAsideInput] = useState(false);
@@ -39,8 +49,8 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
     (a) => a.sectionKey === sectionKey && (a.note || a.style === 'aside')
   );
 
-  // Expand to full width if this section has notes, or any section does (hasNotes)
   const isExpanded = notesAndAsides.length > 0 || hasNotes || showAsideInput;
+  const isCrowded = notesAndAsides.length > 3;
 
   const handleAsideSave = useCallback(() => {
     const trimmed = asideInput.trim();
@@ -69,44 +79,76 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
         isExpanded ? 'w-[180px] pr-3' : 'w-8 pr-1'
       )}
     >
-      {/* Margin notes from annotations */}
-      {notesAndAsides.map((ann) => {
-        const isHovered = hoveredAnnotationId === ann.id;
-        return (
-        <div
-          key={ann.id}
-          className={cn(
-            'mb-3 group/margin-note rounded-sm transition-all duration-150',
-            isHovered && ann.style !== 'aside' && 'bg-amber-50'
-          )}
-          data-margin-annotation-id={ann.id}
-          onMouseEnter={() => onHoverAnnotation?.(ann.id)}
-          onMouseLeave={() => onHoverAnnotation?.(null)}
-        >
-          {ann.style === 'aside' ? (
-            <p className="text-[11px] leading-relaxed text-gray-400 italic border-l-2 border-gray-200 pl-2">
-              {ann.note}
-            </p>
-          ) : (
-            <div className={cn(
-              'border-l-2 pl-2 transition-colors',
-              isHovered ? 'border-amber-500/80' : 'border-amber-400/40 group-hover/margin-note:border-amber-500/60'
-            )}>
-              <p className="text-[11px] leading-relaxed text-gray-500">
-                {ann.note}
-              </p>
-            </div>
-          )}
-        </div>
-      );
-      })}
+      {/* Note cards — vertical stack with clear boundaries */}
+      <div className={cn('flex flex-col', isCrowded ? 'gap-1' : 'gap-2')}>
+        {notesAndAsides.map((ann) => {
+          const isHovered = hoveredAnnotationId === ann.id;
+          const isAside = ann.style === 'aside';
 
-      {/* Add aside — always available */}
+          return (
+            <div
+              key={ann.id}
+              className={cn(
+                'relative rounded transition-all duration-150',
+                // Hovered: lifted card with shadow + full text
+                isHovered
+                  ? 'z-20 bg-white shadow-md ring-1 ring-gray-200'
+                  : 'z-0 bg-gray-50/80 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-gray-100',
+              )}
+              data-margin-annotation-id={ann.id}
+              onMouseEnter={() => onHoverAnnotation?.(ann.id)}
+              onMouseLeave={() => onHoverAnnotation?.(null)}
+            >
+              {/* Delete button — visible on hover */}
+              {isHovered && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isAside) {
+                      onDeleteAside?.(ann.id);
+                    } else {
+                      onClearNote?.(ann.id);
+                    }
+                  }}
+                  className="absolute top-0.5 right-0.5 p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors z-10"
+                  title={isAside ? 'Delete aside' : 'Remove note'}
+                  aria-label={isAside ? 'Delete aside' : 'Remove note'}
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+
+              {isAside ? (
+                <p className={cn(
+                  'text-[11px] leading-relaxed text-gray-400 italic border-l-2 border-gray-200 pl-2 py-1 pr-4',
+                  isCrowded && !isHovered && 'line-clamp-1',
+                )}>
+                  {ann.note}
+                </p>
+              ) : (
+                <div className={cn(
+                  'border-l-2 pl-2 py-1 pr-4 transition-colors',
+                  isHovered ? 'border-amber-500' : 'border-amber-300',
+                )}>
+                  <p className={cn(
+                    'text-[11px] leading-relaxed text-gray-500',
+                    isCrowded && !isHovered && 'line-clamp-1',
+                  )}>
+                    {ann.note}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add aside button */}
       {!showAsideInput && (
         <button
           onClick={() => setShowAsideInput(true)}
           className={cn(
-            'flex items-center gap-1 text-gray-300 hover:text-gray-500 transition-colors mt-0.5',
+            'flex items-center gap-1 text-gray-300 hover:text-gray-500 transition-colors mt-2',
             isExpanded ? 'text-[10px]' : 'text-[10px] justify-center w-full'
           )}
           title="Add aside note"
@@ -118,13 +160,13 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
 
       {/* Aside input */}
       {showAsideInput && (
-        <div className="mt-1">
+        <div className="mt-2">
           <textarea
             value={asideInput}
             onChange={(e) => setAsideInput(e.target.value)}
             onKeyDown={handleAsideKeyDown}
             placeholder="Aside note..."
-            className="w-full text-[11px] border border-gray-200 rounded px-2 py-1 resize-none focus:ring-1 focus:ring-primary-300 focus:border-primary-300"
+            className="w-full text-[11px] border border-gray-200 rounded px-2 py-1 resize-none focus:ring-1 focus:ring-primary-300 focus:border-primary-300 bg-white"
             rows={2}
             autoFocus
           />

@@ -296,6 +296,8 @@ export function NarrativePreview({
   const handleRemoveAnnotation = useCallback(() => {
     if (!editPopover || !story?.id) return;
 
+    setHoveredAnnotationId(null);
+    setConnectorLine(null);
     deleteAnnotationMutation.mutate({
       storyId: story.id,
       annotationId: editPopover.annotation.id,
@@ -303,6 +305,17 @@ export function NarrativePreview({
 
     setEditPopover(null);
   }, [editPopover, story?.id, deleteAnnotationMutation]);
+
+  // Remove annotation by ID (from inline X button on highlights)
+  const handleRemoveAnnotationById = useCallback((annotationId: string) => {
+    if (!story?.id) return;
+    setHoveredAnnotationId(null);
+    setConnectorLine(null);
+    deleteAnnotationMutation.mutate({
+      storyId: story.id,
+      annotationId,
+    });
+  }, [story?.id, deleteAnnotationMutation]);
 
   // Create an aside (standalone margin note with no text anchor)
   const handleCreateAside = useCallback((sectionKey: string, note: string) => {
@@ -319,6 +332,29 @@ export function NarrativePreview({
       },
     });
   }, [story?.id, createAnnotationMutation]);
+
+  // Clear note from a text-anchored annotation (keeps the mark)
+  const handleClearNote = useCallback((annotationId: string) => {
+    if (!story?.id) return;
+    setHoveredAnnotationId(null);
+    setConnectorLine(null);
+    updateAnnotationMutation.mutate({
+      storyId: story.id,
+      annotationId,
+      input: { note: null },
+    });
+  }, [story?.id, updateAnnotationMutation]);
+
+  // Delete an aside entirely
+  const handleDeleteAside = useCallback((annotationId: string) => {
+    if (!story?.id) return;
+    setHoveredAnnotationId(null);
+    setConnectorLine(null);
+    deleteAnnotationMutation.mutate({
+      storyId: story.id,
+      annotationId,
+    });
+  }, [story?.id, deleteAnnotationMutation]);
 
   // Hover pairing: compute connector line between margin note and text mark
   const handleHoverAnnotation = useCallback((annotationId: string | null) => {
@@ -859,6 +895,8 @@ export function NarrativePreview({
                   onCreateAside={handleCreateAside}
                   onHoverAnnotation={handleHoverAnnotation}
                   hoveredAnnotationId={hoveredAnnotationId}
+                  onClearNote={handleClearNote}
+                  onDeleteAside={handleDeleteAside}
                 />
               }
               collapsedPreview={getSectionText(sectionKey).slice(0, 120)}
@@ -880,6 +918,7 @@ export function NarrativePreview({
                   hideHeader
                   annotations={story?.annotations}
                   onAnnotationClick={handleAnnotationClick}
+                  onDeleteAnnotation={handleRemoveAnnotationById}
                   hoveredAnnotationId={hoveredAnnotationId}
                   onHoverAnnotation={handleHoverAnnotation}
                 />

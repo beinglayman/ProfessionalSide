@@ -15,7 +15,7 @@ import {
   Square,
   Circle,
   Strikethrough,
-  AlignLeft,
+  Brackets,
 } from 'lucide-react';
 import type { AnnotationStyle } from '../../types/career-stories';
 
@@ -31,7 +31,7 @@ const STYLES: { style: AnnotationStyle; label: string; Icon: React.FC<{ classNam
   { style: 'box', label: 'Box', Icon: Square },
   { style: 'circle', label: 'Circle', Icon: Circle },
   { style: 'strike-through', label: 'Strike-through', Icon: Strikethrough },
-  { style: 'bracket', label: 'Bracket', Icon: AlignLeft },
+  { style: 'bracket', label: 'Bracket', Icon: Brackets },
 ];
 
 export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
