@@ -49,6 +49,7 @@ import { SUPPORTED_SOURCES, type ActivitySource } from '../../types/activity';
 import { getSourceIcon } from '../journal/source-icons';
 import { SourceFootnotes } from './SourceFootnotes';
 import { DerivationHistory } from './DerivationHistory';
+import { FrameworkSelector } from './FrameworkSelector';
 import { useUpdateStorySource, useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation } from '../../hooks/useCareerStories';
 import { SelectionPopover } from './SelectionPopover';
 import { AnnotationPopover } from './AnnotationPopover';
@@ -616,24 +617,22 @@ export function NarrativePreview({
     <article ref={articleRef} className="relative bg-white" data-testid="star-preview" onMouseUp={handleArticleMouseUp}>
       {/* Document header */}
       <header className="px-6 pt-3 pb-3 lg:px-8 lg:pt-4">
-        {/* Title + actions — single row */}
+        {/* Title + status + actions — single row */}
         <div className="flex items-start gap-2">
           <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0">{clusterName}</h2>
 
-          {/* Actions — right-aligned, same row as title */}
+          {/* Status + actions — right-aligned, same row as title */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            {onShareAs && (
-              <button
-                onClick={onShareAs}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                data-testid="share-as"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Use this story</span>
-              </button>
+            <NarrativeStatusBadge
+              status={storyStatus}
+              confidence={star.overallConfidence}
+              suggestedEdits={star.suggestedEdits}
+              sourceCoverage={sourceCoverage}
+              estimatedTime={estimatedTime}
+            />
+            {story?.id && (
+              <DerivationHistory storyId={story.id} onShareAs={onShareAs} />
             )}
-
-            {story?.id && <DerivationHistory storyId={story.id} />}
 
             <button
               onClick={handleCopy}
@@ -680,18 +679,6 @@ export function NarrativePreview({
                 <FileText className="h-3.5 w-3.5" />
                 Edit story
               </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-              {Object.entries(NARRATIVE_FRAMEWORKS).map(([key, meta]) => (
-                <DropdownMenuItem
-                  key={key}
-                  onSelect={() => onFrameworkChange(key as NarrativeFramework)}
-                  className="flex items-center gap-2"
-                >
-                  <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', key === framework ? 'bg-purple-500' : 'bg-gray-300')} />
-                  <span className={cn(key === framework && 'font-medium')}>{meta.label}</span>
-                </DropdownMenuItem>
-              ))}
 
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -813,14 +800,11 @@ export function NarrativePreview({
               <span className="hidden sm:inline text-gray-300">&middot;</span>
             </>
           )}
-          <span className="relative group/fw cursor-default">
-            {frameworkMeta?.label || framework}
-            {frameworkMeta?.description && (
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-800 rounded shadow-lg whitespace-nowrap opacity-0 group-hover/fw:opacity-100 transition-opacity pointer-events-none z-20">
-                {frameworkMeta.description}
-              </span>
-            )}
-          </span>
+          <FrameworkSelector
+            value={framework}
+            onChange={onFrameworkChange}
+            align="left"
+          />
           {coverageText && (
             <>
               <span className="text-gray-300">&middot;</span>
@@ -851,15 +835,6 @@ export function NarrativePreview({
             </>
           )}
 
-          <div className="flex-1" />
-
-          <NarrativeStatusBadge
-            status={storyStatus}
-            confidence={star.overallConfidence}
-            suggestedEdits={star.suggestedEdits}
-            sourceCoverage={sourceCoverage}
-            estimatedTime={estimatedTime}
-          />
         </div>
       </header>
 
@@ -991,7 +966,7 @@ export function NarrativePreview({
           <div className="flex items-center gap-2 text-[11px] text-gray-400">
             {result.polishStatus === 'success' && (
               <span className="flex items-center gap-1">
-                <Sparkles className="h-3 w-3" />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                 AI-enhanced
               </span>
             )}

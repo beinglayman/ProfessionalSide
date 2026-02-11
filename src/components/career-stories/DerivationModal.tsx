@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Copy, Check, RefreshCw, Loader2, PenLine, Sparkles, ChevronDown, Clock } from 'lucide-react';
+import { Copy, Check, RefreshCw, Loader2, PenLine, Send, ChevronDown, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse, StoryDerivation } from '../../types/career-stories';
 import { useDeriveStory, useStoryDerivations } from '../../hooks/useCareerStories';
@@ -185,7 +185,7 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
         <DialogHeader>
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="h-4 w-4 text-blue-600" />
+              <Send className="h-4 w-4 text-blue-600" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base leading-tight">

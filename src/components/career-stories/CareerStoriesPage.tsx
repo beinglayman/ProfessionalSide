@@ -974,92 +974,105 @@ export function CareerStoriesPage() {
                     {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
                   </div>
 
-                  {/* Right: Promotion Packet + Saved Narratives + Filter */}
+                  {/* Right: Build Narratives (combined with saved) + Filter */}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Build Narratives button */}
-                    {allStories.length >= 2 && (
-                      <Button
-                        onClick={() => setShowPromotionPacket(true)}
-                        size="sm"
-                        className="gap-1.5"
-                      >
-                        <Briefcase className="w-3.5 h-3.5" />
-                        Build Narratives
-                      </Button>
-                    )}
-                    {/* Saved narratives dropdown */}
-                    {packets && packets.length > 0 && (
+                    {/* Combined Build Narratives + Saved packets dropdown */}
+                    {allStories.length >= 1 && (
                       <div className="relative">
                         <Button
-                          onClick={() => setShowSavedPackets(!showSavedPackets)}
-                          variant="outline"
+                          onClick={() => {
+                            if (!packets || packets.length === 0) {
+                              setShowPromotionPacket(true);
+                            } else {
+                              setShowSavedPackets(!showSavedPackets);
+                            }
+                          }}
                           size="sm"
-                          className="gap-1.5 border-primary-200 text-primary-700 hover:bg-primary-50"
+                          className="gap-1.5"
                         >
                           <Briefcase className="w-3.5 h-3.5" />
-                          Saved
-                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-primary-100 text-primary-700">
-                            {packets.length}
-                          </span>
-                          <ChevronDown className={cn(
-                            'w-3 h-3 transition-transform duration-200',
-                            showSavedPackets && 'rotate-180'
-                          )} />
+                          Build Narratives
+                          {packets && packets.length > 0 && (
+                            <>
+                              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-white/20">
+                                {packets.length}
+                              </span>
+                              <ChevronDown className={cn(
+                                'w-3 h-3 transition-transform duration-200',
+                                showSavedPackets && 'rotate-180'
+                              )} />
+                            </>
+                          )}
                         </Button>
-                        {showSavedPackets && (
+                        {showSavedPackets && packets && packets.length > 0 && (
                           <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-[260px] max-w-[340px]">
-                            <div className="flex flex-col gap-0.5">
-                              {packets.map((p) => {
-                                const meta = PACKET_PILL_META[p.type];
-                                const PillIcon = meta?.Icon || Clock;
-                                const pillLabel = meta?.label || p.type;
-                                const pillDetail = meta?.detail || p.type;
-                                const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            {/* Create new */}
+                            <button
+                              onClick={() => { setShowPromotionPacket(true); setShowSavedPackets(false); }}
+                              className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-primary-50 transition-colors text-left w-full font-medium text-primary-700"
+                            >
+                              <span className="flex items-center justify-center w-6 h-6 rounded-md bg-primary-50 flex-shrink-0">
+                                <Briefcase className="w-3.5 h-3.5 text-primary-500" />
+                              </span>
+                              Create new...
+                            </button>
 
-                                // Use stored snapshots for durable display (survive story deletion)
-                                const snapshots = p.storySnapshots ?? [];
-                                const storyCount = snapshots.length || p.storyIds?.length || 0;
+                            {/* Saved packets */}
+                            {packets && packets.length > 0 && (
+                              <>
+                                <div className="border-t border-gray-100 my-1" />
+                                <div className="flex flex-col gap-0.5">
+                                  {packets.map((p) => {
+                                    const meta = PACKET_PILL_META[p.type];
+                                    const PillIcon = meta?.Icon || Clock;
+                                    const pillLabel = meta?.label || p.type;
+                                    const pillDetail = meta?.detail || p.type;
+                                    const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                                // Compute overall date range from activity ranges (or fall back to generatedAt)
-                                const allDates: number[] = [];
-                                for (const snap of snapshots) {
-                                  if (snap.dateRange) {
-                                    allDates.push(new Date(snap.dateRange.earliest).getTime());
-                                    allDates.push(new Date(snap.dateRange.latest).getTime());
-                                  } else if (snap.generatedAt) {
-                                    allDates.push(new Date(snap.generatedAt).getTime());
-                                  }
-                                }
-                                const validDates = allDates.filter(t => t > 0);
-                                const dateRange = validDates.length >= 2
-                                  ? `${new Date(Math.min(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(Math.max(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                                  : null;
+                                    const snapshots = p.storySnapshots ?? [];
+                                    const storyCount = snapshots.length || p.storyIds?.length || 0;
 
-                                return (
-                                  <button
-                                    key={p.id}
-                                    onClick={() => setViewPacket(p)}
-                                    title={`${pillDetail} · ${p.wordCount} words · ${date}`}
-                                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-gray-50 transition-colors text-left group"
-                                  >
-                                    <span className={cn(
-                                      'flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0',
-                                      meta?.bg || 'bg-gray-100'
-                                    )}>
-                                      <PillIcon className={cn('w-3.5 h-3.5', meta?.iconText || 'text-gray-400')} />
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      <span className={cn('font-medium block truncate', meta?.text || 'text-gray-700')}>{pillLabel}</span>
-                                      <span className="text-[10px] text-gray-400">
-                                        {dateRange || `${storyCount} ${storyCount === 1 ? 'story' : 'stories'}`}
-                                        {p.wordCount ? ` · ${p.wordCount} words` : ''}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] text-gray-400 flex-shrink-0">{date}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                                    const allDates: number[] = [];
+                                    for (const snap of snapshots) {
+                                      if (snap.dateRange) {
+                                        allDates.push(new Date(snap.dateRange.earliest).getTime());
+                                        allDates.push(new Date(snap.dateRange.latest).getTime());
+                                      } else if (snap.generatedAt) {
+                                        allDates.push(new Date(snap.generatedAt).getTime());
+                                      }
+                                    }
+                                    const validDates = allDates.filter(t => t > 0);
+                                    const dateRange = validDates.length >= 2
+                                      ? `${new Date(Math.min(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(Math.max(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                      : null;
+
+                                    return (
+                                      <button
+                                        key={p.id}
+                                        onClick={() => { setViewPacket(p); setShowSavedPackets(false); }}
+                                        title={`${pillDetail} · ${p.wordCount} words · ${date}`}
+                                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-gray-50 transition-colors text-left group"
+                                      >
+                                        <span className={cn(
+                                          'flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0',
+                                          meta?.bg || 'bg-gray-100'
+                                        )}>
+                                          <PillIcon className={cn('w-3.5 h-3.5', meta?.iconText || 'text-gray-400')} />
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                          <span className={cn('font-medium block truncate', meta?.text || 'text-gray-700')}>{pillLabel}</span>
+                                          <span className="text-[10px] text-gray-400">
+                                            {dateRange || `${storyCount} ${storyCount === 1 ? 'story' : 'stories'}`}
+                                            {p.wordCount ? ` · ${p.wordCount} words` : ''}
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-gray-400 flex-shrink-0">{date}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1392,7 +1405,7 @@ export function CareerStoriesPage() {
       )}
 
       {/* Promotion Packet Modal */}
-      {showPromotionPacket && allStories.length >= 2 && (
+      {showPromotionPacket && allStories.length >= 1 && (
         <PromotionPacketModal
           isOpen={showPromotionPacket}
           onClose={() => setShowPromotionPacket(false)}

@@ -4,9 +4,15 @@
  * Shared dropdown behavior: open/close state, click-outside, Escape key,
  * and arrow key navigation for role="option" elements.
  * Used by ArchetypeSelector, FrameworkSelector, and SourceFilterDropdown.
+ *
+ * Mutual exclusion: opening any useDropdown instance dispatches a custom
+ * 'useDropdown:open' event. All other instances listen and close themselves.
+ * This prevents sibling dropdowns from being open simultaneously.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+
+const DROPDOWN_OPEN_EVENT = 'useDropdown:open';
 
 interface UseDropdownOptions {
   /** Called when the dropdown closes */
@@ -23,6 +29,8 @@ interface UseDropdownReturn {
 export function useDropdown({ onClose }: UseDropdownOptions = {}): UseDropdownReturn {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Stable identity so the event listener can distinguish "self" from "other"
+  const instanceId = useRef(Symbol());
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -31,9 +39,29 @@ export function useDropdown({ onClose }: UseDropdownOptions = {}): UseDropdownRe
 
   const toggle = useCallback(() => {
     setIsOpen((prev) => {
-      if (prev) onClose?.();
+      if (prev) {
+        onClose?.();
+      } else {
+        // Broadcast: "I'm opening — everyone else close"
+        document.dispatchEvent(
+          new CustomEvent(DROPDOWN_OPEN_EVENT, { detail: instanceId.current })
+        );
+      }
       return !prev;
     });
+  }, [onClose]);
+
+  // Listen for other dropdowns opening and close self
+  useEffect(() => {
+    const handleOtherOpen = (e: Event) => {
+      const ce = e as CustomEvent<symbol>;
+      if (ce.detail !== instanceId.current) {
+        setIsOpen(false);
+        onClose?.();
+      }
+    };
+    document.addEventListener(DROPDOWN_OPEN_EVENT, handleOtherOpen);
+    return () => document.removeEventListener(DROPDOWN_OPEN_EVENT, handleOtherOpen);
   }, [onClose]);
 
   // Close on click outside

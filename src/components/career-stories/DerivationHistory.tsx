@@ -1,15 +1,14 @@
 /**
  * DerivationHistory Component
  *
- * Toolbar dropdown showing saved derivations for a story.
- * - Sits next to "Use this story" button in NarrativePreview toolbar
- * - Click the button to open a dropdown with type-colored derivation items
- * - Click a row to open the full DerivationViewModal with proper preview frame
+ * Combined "Use this story" + saved derivations dropdown.
+ * - Primary action: "New derivation..." opens DerivationModal via onShareAs
+ * - Below: saved derivations list with copy/delete/view
  * - Auto-opens + highlights when a new derivation appears
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Copy, Check, Trash2, Sparkles, Briefcase, Clock } from 'lucide-react';
+import { ChevronDown, Copy, Check, Trash2, Send, Sparkles, Briefcase, Clock, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useStoryDerivations, useDeleteDerivation } from '../../hooks/useCareerStories';
 import { DERIVATION_TYPE_META, DERIVATION_COLOR_CLASSES } from './constants';
@@ -18,6 +17,7 @@ import type { DerivationType, StoryDerivation } from '../../types/career-stories
 
 interface DerivationHistoryProps {
   storyId: string;
+  onShareAs?: () => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -58,7 +58,7 @@ function getTypeMeta(type: string, kind: string): { label: string; Icon: React.F
   return { label: type, Icon: Briefcase, bg: 'bg-gray-100', text: 'text-gray-700', iconText: 'text-gray-400' };
 }
 
-export function DerivationHistory({ storyId }: DerivationHistoryProps) {
+export function DerivationHistory({ storyId, onShareAs }: DerivationHistoryProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [newId, setNewId] = useState<string | null>(null);
@@ -103,7 +103,8 @@ export function DerivationHistory({ storyId }: DerivationHistoryProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  if (isLoading || count === 0) return null;
+  // If no onShareAs and no saved items, render nothing
+  if (!onShareAs && (isLoading || count === 0)) return null;
 
   const handleCopy = async (e: React.MouseEvent, text: string, id: string) => {
     e.stopPropagation();
@@ -117,31 +118,58 @@ export function DerivationHistory({ storyId }: DerivationHistoryProps) {
     deleteMutation.mutate(id);
   };
 
+  // No saved items → direct action, no dropdown
+  const handleClick = () => {
+    if (count === 0 && onShareAs) {
+      onShareAs();
+    } else {
+      setIsOpen(!isOpen);
+    }
+  };
+
   return (
     <>
       <div className="relative" ref={dropdownRef}>
-        {/* Toolbar button — matches "Saved" packets dropdown on list page */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+          onClick={handleClick}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+          data-testid="share-as"
         >
-          <Sparkles className="h-3.5 w-3.5" />
-          Saved
-          <span className={cn(
-            'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors duration-300',
-            newId ? 'bg-blue-200 text-blue-800' : 'bg-blue-100 text-blue-700'
-          )}>
-            {count}
-          </span>
-          <ChevronDown className={cn(
-            'w-3 h-3 transition-transform duration-200',
-            isOpen && 'rotate-180'
-          )} />
+          <Send className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Use this story</span>
+          {count > 0 && (
+            <>
+              <span className={cn(
+                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors duration-300',
+                newId ? 'bg-blue-200 text-blue-800' : 'bg-blue-100 text-blue-700'
+              )}>
+                {count}
+              </span>
+              <ChevronDown className={cn(
+                'w-3 h-3 transition-transform duration-200',
+                isOpen && 'rotate-180'
+              )} />
+            </>
+          )}
         </button>
 
-        {/* Dropdown */}
-        {isOpen && (
+        {/* Dropdown — only when saved items exist */}
+        {isOpen && count > 0 && (
           <div className="absolute right-0 top-full mt-1.5 z-30 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-[280px] max-w-[380px]">
+            {/* Create new */}
+            {onShareAs && (
+              <button
+                onClick={() => { onShareAs(); setIsOpen(false); }}
+                className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-blue-50 transition-colors text-left w-full font-medium text-blue-700"
+              >
+                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-50 flex-shrink-0">
+                  <Plus className="w-3.5 h-3.5 text-blue-500" />
+                </span>
+                Create new...
+              </button>
+            )}
+
+            {onShareAs && <div className="border-t border-gray-100 my-1" />}
             <div className="flex flex-col gap-0.5">
               {derivations!.map((d) => {
                 const meta = getTypeMeta(d.type, d.kind);

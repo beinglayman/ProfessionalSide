@@ -327,24 +327,12 @@ describe('NarrativePreview', () => {
   });
 
   describe('Framework Change', () => {
-    it('calls onFrameworkChange when framework is changed via More dropdown', async () => {
-      const user = userEvent.setup();
-      const onFrameworkChange = vi.fn();
-
+    it('renders FrameworkSelector in provenance line', () => {
       renderWithProviders(
-        <NarrativePreview
-          {...defaultProps}
-          onFrameworkChange={onFrameworkChange}
-        />
+        <NarrativePreview {...defaultProps} framework="STAR" />
       );
 
-      // Open the More dropdown
-      await user.click(screen.getByLabelText('More actions'));
-
-      // Click SHARE option
-      await user.click(screen.getByText('SHARE'));
-
-      expect(onFrameworkChange).toHaveBeenCalledWith('SHARE');
+      expect(screen.getByTestId('framework-selector')).toBeInTheDocument();
     });
   });
 
@@ -514,15 +502,15 @@ describe('NarrativePreview', () => {
     });
   });
 
-  describe('Framework Tooltip', () => {
-    it('renders framework description as tooltip text', () => {
-      renderWithProviders(<NarrativePreview {...defaultProps} />);
+  describe('Framework Selector', () => {
+    it('renders FrameworkSelector with current framework value', () => {
+      renderWithProviders(<NarrativePreview {...defaultProps} framework="STAR" />);
 
-      // The tooltip text is rendered but hidden via opacity
-      expect(screen.getByText('Situation, Task, Action, Result')).toBeInTheDocument();
+      const selector = screen.getByTestId('framework-selector');
+      expect(selector).toHaveTextContent('STAR');
     });
 
-    it('renders SHARE framework description', () => {
+    it('renders FrameworkSelector with SHARE when SHARE is active', () => {
       const shareStory = createStory('SHARE');
 
       renderWithProviders(
@@ -533,7 +521,8 @@ describe('NarrativePreview', () => {
         />
       );
 
-      expect(screen.getByText('Situation, Hindrances, Actions, Results, Evaluation')).toBeInTheDocument();
+      const selector = screen.getByTestId('framework-selector');
+      expect(selector).toHaveTextContent('SHARE');
     });
   });
 
