@@ -34,11 +34,14 @@ import {
   regenerateStorySchema,
   createSourceSchema,
   updateSourceSchema,
+  createAnnotationSchema,
+  updateAnnotationSchema,
   deriveStorySchema,
   derivePacketSchema,
   formatZodErrors,
 } from './career-stories.schemas';
 import { storySourceService } from '../services/career-stories/story-source.service';
+import { storyAnnotationService } from '../services/career-stories/story-annotation.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 import { WalletService } from '../services/wallet.service';
@@ -68,11 +71,13 @@ async function enrichStoryWithSources(story: { id: string; framework: string; se
       groupingMethod = entry?.groupingMethod ?? null;
     }
 
-    return { ...story, sources, sourceCoverage, groupingMethod };
+    const annotations = await storyAnnotationService.getAnnotationsForStory(story.id);
+
+    return { ...story, sources, sourceCoverage, groupingMethod, annotations };
   } catch (error) {
-    // Sources are supplementary — don't fail the whole request if enrichment fails
+    // Sources/annotations are supplementary — don't fail the whole request if enrichment fails
     console.error(`Failed to enrich story ${story.id} with sources:`, error);
-    return { ...story, sources: [], sourceCoverage: { total: 0, sourced: 0, gaps: [], vagueMetrics: [] } };
+    return { ...story, sources: [], sourceCoverage: { total: 0, sourced: 0, gaps: [], vagueMetrics: [] }, annotations: [] };
   }
 }
 
@@ -1252,6 +1257,122 @@ export const updateStorySource = asyncHandler(async (req: Request, res: Response
     excludedAt ? new Date(excludedAt) : null
   );
   sendSuccess(res, source, excludedAt ? 'Source excluded' : 'Source restored');
+});
+
+// ============================================================================
+// STORY ANNOTATIONS
+// ============================================================================
+
+/**
+ * GET /api/v1/career-stories/stories/:storyId/annotations
+ * List annotations for a story.
+ */
+export const listAnnotations = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const storyService = createCareerStoryService(isDemoMode);
+  const story = await storyService.getStoryById(storyId, userId);
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  const annotations = await storyAnnotationService.getAnnotationsForStory(storyId);
+  sendSuccess(res, annotations);
+});
+
+/**
+ * POST /api/v1/career-stories/stories/:storyId/annotations
+ * Create an annotation on a story section.
+ */
+export const createAnnotation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = createAnnotationSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const storyService = createCareerStoryService(isDemoMode);
+  const story = await storyService.getStoryById(storyId, userId);
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  const annotation = await storyAnnotationService.createAnnotation(storyId, parseResult.data);
+  sendSuccess(res, annotation, 'Annotation created', 201);
+});
+
+/**
+ * PATCH /api/v1/career-stories/stories/:storyId/annotations/:annotationId
+ * Update an annotation (note text or style).
+ */
+export const updateAnnotation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId, annotationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = updateAnnotationSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const storyService = createCareerStoryService(isDemoMode);
+  const story = await storyService.getStoryById(storyId, userId);
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  const isOwned = await storyAnnotationService.verifyOwnership(annotationId, storyId);
+  if (!isOwned) {
+    return void sendError(res, 'Annotation not found', 404);
+  }
+
+  const annotation = await storyAnnotationService.updateAnnotation(annotationId, storyId, parseResult.data);
+  sendSuccess(res, annotation, 'Annotation updated');
+});
+
+/**
+ * DELETE /api/v1/career-stories/stories/:storyId/annotations/:annotationId
+ * Delete an annotation.
+ */
+export const deleteAnnotation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { storyId, annotationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = isDemoModeRequest(req);
+  const storyService = createCareerStoryService(isDemoMode);
+  const story = await storyService.getStoryById(storyId, userId);
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+
+  const isOwned = await storyAnnotationService.verifyOwnership(annotationId, storyId);
+  if (!isOwned) {
+    return void sendError(res, 'Annotation not found', 404);
+  }
+
+  await storyAnnotationService.deleteAnnotation(annotationId, storyId);
+  sendSuccess(res, null, 'Annotation deleted');
 });
 
 // ============================================================================

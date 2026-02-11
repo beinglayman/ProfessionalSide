@@ -39,6 +39,8 @@ import {
   WizardGenerateRequest,
   WizardGenerateResponse,
   StorySource,
+  StoryAnnotation,
+  AnnotationStyle,
   DeriveStoryRequest,
   DeriveStoryResponse,
   DerivePacketRequest,
@@ -454,6 +456,52 @@ export class CareerStoriesService {
     const response = await api.patch<ApiResponse<StorySource>>(
       `/career-stories/stories/${storyId}/sources/${sourceId}`,
       { excludedAt }
+    );
+    return response.data;
+  }
+
+  // =============================================================================
+  // STORY ANNOTATIONS
+  // =============================================================================
+
+  /**
+   * Create an annotation on a story section
+   */
+  static async createAnnotation(storyId: string, input: {
+    sectionKey: string;
+    startOffset: number;
+    endOffset: number;
+    annotatedText: string;
+    style: AnnotationStyle;
+    note?: string | null;
+  }): Promise<ApiResponse<StoryAnnotation>> {
+    const response = await api.post<ApiResponse<StoryAnnotation>>(
+      `/career-stories/stories/${storyId}/annotations`,
+      input
+    );
+    return response.data;
+  }
+
+  /**
+   * Update an annotation (note or style)
+   */
+  static async updateAnnotation(storyId: string, annotationId: string, input: {
+    note?: string | null;
+    style?: AnnotationStyle;
+  }): Promise<ApiResponse<StoryAnnotation>> {
+    const response = await api.patch<ApiResponse<StoryAnnotation>>(
+      `/career-stories/stories/${storyId}/annotations/${annotationId}`,
+      input
+    );
+    return response.data;
+  }
+
+  /**
+   * Delete an annotation
+   */
+  static async deleteAnnotation(storyId: string, annotationId: string): Promise<ApiResponse<null>> {
+    const response = await api.delete<ApiResponse<null>>(
+      `/career-stories/stories/${storyId}/annotations/${annotationId}`
     );
     return response.data;
   }

@@ -3,7 +3,6 @@ import { ExternalLink, X, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StorySource, ToolType } from '../../types/career-stories';
 import { ToolIcon } from './ToolIcon';
-import { NotesPillBar } from './NotesPillBar';
 
 interface SourceFootnotesProps {
   sources: StorySource[];
@@ -11,10 +10,6 @@ interface SourceFootnotesProps {
   vagueMetrics: Array<{ match: string; suggestion: string }>;
   onExclude: (sourceId: string) => void;
   onUndoExclude: (sourceId: string) => void;
-  onAddNote: (sectionKey: string, content: string) => void;
-  forceShowNoteInput: boolean;
-  onNoteInputClosed: () => void;
-  onRequestAddNote: () => void;
   isEditing: boolean;
   maxVisible?: number;
 }
@@ -25,10 +20,6 @@ export function SourceFootnotes({
   vagueMetrics,
   onExclude,
   onUndoExclude,
-  onAddNote,
-  forceShowNoteInput,
-  onNoteInputClosed,
-  onRequestAddNote,
   isEditing,
   maxVisible = 5,
 }: SourceFootnotesProps) {
@@ -39,7 +30,6 @@ export function SourceFootnotes({
   const activitySources = sources.filter(
     (s) => !s.excludedAt && s.sourceType === 'activity'
   );
-  const noteSources = sources.filter((s) => s.sourceType === 'user_note');
   const visibleSources = expanded ? activitySources : activitySources.slice(0, maxVisible);
   const hiddenCount = activitySources.length - maxVisible;
 
@@ -67,12 +57,10 @@ export function SourceFootnotes({
 
   if (isEditing) return null;
 
-  const hasContent = activitySources.length > 0 || noteSources.length > 0 || forceShowNoteInput;
-
   return (
     <div className="mt-3">
       {/* Thin separator */}
-      {(hasContent || activitySources.length === 0) && (
+      {(activitySources.length > 0 || activitySources.length === 0) && (
         <div className="border-t border-gray-100 pt-2.5" />
       )}
 
@@ -143,26 +131,8 @@ export function SourceFootnotes({
       {activitySources.length === 0 && pendingExclude === null && (
         <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
           <span>No sources</span>
-          <span className="text-gray-300">&middot;</span>
-          <button
-            onClick={onRequestAddNote}
-            className="text-gray-500 hover:text-blue-600 font-medium transition-colors"
-          >
-            Add note
-          </button>
         </div>
       )}
-
-      {/* Notes pills */}
-      <NotesPillBar
-        notes={noteSources}
-        sectionKey={sectionKey}
-        onAddNote={onAddNote}
-        onExclude={onExclude}
-        onUndoExclude={onUndoExclude}
-        forceShowInput={forceShowNoteInput}
-        onInputClosed={onNoteInputClosed}
-      />
     </div>
   );
 }

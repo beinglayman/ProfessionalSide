@@ -204,6 +204,40 @@ export const derivePacketSchema = z.object({
 export type DerivePacketInput = z.infer<typeof derivePacketSchema>;
 
 // =============================================================================
+// STORY ANNOTATION SCHEMAS
+// =============================================================================
+
+export const annotationStyleSchema = z.enum([
+  'highlight', 'underline', 'box', 'circle', 'strike-through', 'bracket', 'aside',
+]);
+
+export type AnnotationStyle = z.infer<typeof annotationStyleSchema>;
+
+/**
+ * Schema for POST /stories/:storyId/annotations (create annotation)
+ */
+export const createAnnotationSchema = z.object({
+  sectionKey: z.string().min(1).max(50),
+  startOffset: z.number().int().min(-1),
+  endOffset: z.number().int().min(-1),
+  annotatedText: z.string().max(5000),
+  style: annotationStyleSchema,
+  note: z.string().max(2000).nullable().optional(),
+}).strict();
+
+export type CreateAnnotationInput = z.infer<typeof createAnnotationSchema>;
+
+/**
+ * Schema for PATCH /stories/:storyId/annotations/:annotationId (update annotation)
+ */
+export const updateAnnotationSchema = z.object({
+  note: z.string().max(2000).nullable().optional(),
+  style: annotationStyleSchema.optional(),
+}).strict();
+
+export type UpdateAnnotationInput = z.infer<typeof updateAnnotationSchema>;
+
+// =============================================================================
 // STORY SOURCE SCHEMAS
 // =============================================================================
 

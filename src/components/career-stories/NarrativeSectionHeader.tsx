@@ -1,7 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { getSectionColor } from './constants';
 
 interface NarrativeSectionHeaderProps {
   sectionKey: string;
@@ -14,6 +13,8 @@ interface NarrativeSectionHeaderProps {
   isLast?: boolean;
   collapsedPreview?: string;
   children?: React.ReactNode;
+  marginContent?: React.ReactNode;
+  showMargin?: boolean;
 }
 
 export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
@@ -26,14 +27,18 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
   isLast = false,
   collapsedPreview,
   children,
+  marginContent,
+  showMargin = false,
 }) => {
-  const color = getSectionColor(sectionKey);
-  const dotColor = color.bg;
-  const labelColor = color.text;
-  const lineColor = color.bg;
+  // Neutral palette — no per-section color coding
+  const dotColor = 'bg-gray-400';
+  const labelColor = 'text-gray-500';
 
   return (
     <section className="relative flex gap-4">
+      {/* Optional margin column */}
+      {showMargin && marginContent}
+
       {/* Timeline spine — dot + vertical line */}
       <div className="flex flex-col items-center flex-shrink-0 w-5">
         <div
@@ -73,7 +78,7 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
           {/* Expanded: thin colored rule + source count */}
           {!isCollapsed && (
             <>
-              <div className={cn('flex-1 h-px opacity-30', lineColor)} />
+              <div className="flex-1 h-px bg-gray-200" />
               {sourceCount !== undefined && sourceCount > 0 && (
                 <span className="text-[10px] flex-shrink-0 text-gray-400">
                   {sourceCount} source{sourceCount !== 1 ? 's' : ''}

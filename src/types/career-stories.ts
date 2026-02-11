@@ -280,6 +280,7 @@ export interface CareerStory {
   journalEntryId?: string | null;
   sources?: StorySource[];
   sourceCoverage?: SourceCoverage;
+  annotations?: StoryAnnotation[];
   lastGenerationPrompt?: string | null;
   wizardAnswers?: Record<string, WizardAnswer> | null;
   groupingMethod?: 'time' | 'cluster' | 'manual' | 'ai' | null;
@@ -495,4 +496,30 @@ export interface SourceCoverage {
     match: string;
     suggestion: string;
   }>;
+}
+
+// =============================================================================
+// STORY ANNOTATIONS
+// =============================================================================
+
+export type AnnotationStyle =
+  | 'highlight'
+  | 'underline'
+  | 'box'
+  | 'circle'
+  | 'strike-through'
+  | 'bracket'
+  | 'aside';
+
+export interface StoryAnnotation {
+  id: string;
+  storyId: string;
+  sectionKey: string;
+  startOffset: number;
+  endOffset: number;
+  annotatedText: string;
+  style: AnnotationStyle;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

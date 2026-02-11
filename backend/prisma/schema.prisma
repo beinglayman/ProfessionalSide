@@ -1479,6 +1479,9 @@ model CareerStory {
   // Sources relation
   sources               StorySource[]
 
+  // Annotations relation
+  annotations           StoryAnnotation[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1532,6 +1535,27 @@ model StorySource {
   @@index([storyId, sectionKey])
   @@index([activityId])
   @@map("story_sources")
+}
+
+// ============================================================================
+// STORY ANNOTATIONS (rough-notation marks + Tufte margin notes)
+// ============================================================================
+
+model StoryAnnotation {
+  id            String   @id @default(cuid())
+  storyId       String
+  sectionKey    String          // "situation", "task", etc.
+  startOffset   Int             // -1 for asides (no text anchor)
+  endOffset     Int             // -1 for asides
+  annotatedText String          // exact text for staleness detection (empty for asides)
+  style         String          // "highlight" | "underline" | "box" | "circle" | "strike-through" | "bracket" | "aside"
+  note          String?         // margin note text (required for asides, optional for marks)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  story         CareerStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@map("story_annotations")
 }
 
 // ============================================================================

@@ -41,6 +41,7 @@ import {
   WritingStyle,
   ToolActivity,
   StorySource,
+  AnnotationStyle,
   DeriveStoryRequest,
   DeriveStoryResponse,
   DerivePacketRequest,
@@ -649,6 +650,67 @@ export const useUpdateStorySource = () => {
   return useMutation({
     mutationFn: ({ storyId, sourceId, excludedAt }: { storyId: string; sourceId: string; excludedAt: string | null }) =>
       CareerStoriesService.updateStorySource(storyId, sourceId, excludedAt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+    },
+  });
+};
+
+// =============================================================================
+// STORY ANNOTATIONS
+// =============================================================================
+
+/**
+ * Create an annotation on a story section
+ */
+export const useCreateAnnotation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, input }: {
+      storyId: string;
+      input: {
+        sectionKey: string;
+        startOffset: number;
+        endOffset: number;
+        annotatedText: string;
+        style: AnnotationStyle;
+        note?: string | null;
+      };
+    }) => CareerStoriesService.createAnnotation(storyId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+    },
+  });
+};
+
+/**
+ * Update an annotation (note or style)
+ */
+export const useUpdateAnnotation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, annotationId, input }: {
+      storyId: string;
+      annotationId: string;
+      input: { note?: string | null; style?: AnnotationStyle };
+    }) => CareerStoriesService.updateAnnotation(storyId, annotationId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+    },
+  });
+};
+
+/**
+ * Delete an annotation
+ */
+export const useDeleteAnnotation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, annotationId }: { storyId: string; annotationId: string }) =>
+      CareerStoriesService.deleteAnnotation(storyId, annotationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
     },

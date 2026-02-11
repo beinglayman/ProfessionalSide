@@ -53,6 +53,11 @@ import {
   // Story Sources
   addStorySource,
   updateStorySource,
+  // Story Annotations
+  listAnnotations,
+  createAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
   // Story Derivations
   deriveStory,
   derivePacket,
@@ -134,6 +139,14 @@ router.patch('/stories/:id/visibility', setStoryVisibility);  // Support both PU
 // ============================================================================
 router.post('/stories/:storyId/sources', addStorySource);
 router.patch('/stories/:storyId/sources/:sourceId', updateStorySource);
+
+// ============================================================================
+// STORY ANNOTATIONS
+// ============================================================================
+router.get('/stories/:storyId/annotations', listAnnotations);
+router.post('/stories/:storyId/annotations', createAnnotation);
+router.patch('/stories/:storyId/annotations/:annotationId', updateAnnotation);
+router.delete('/stories/:storyId/annotations/:annotationId', deleteAnnotation);
 
 // ============================================================================
 // STORY DERIVATIONS

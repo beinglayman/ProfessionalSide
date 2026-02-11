@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   DELIVERY_CUES,
   SECTION_COACHING,
   SECTION_FIX,
-  getSectionColor,
 } from './constants';
+import type { StoryAnnotation } from '../../types/career-stories';
+import { splitTextByAnnotations } from './annotation-utils';
+import { useRoughAnnotations } from '../../hooks/useRoughAnnotations';
 
 interface NarrativeSectionProps {
   sectionKey: string;
@@ -21,6 +23,10 @@ interface NarrativeSectionProps {
   showDeliveryCues?: boolean;
   showEmphasis?: boolean;
   hideHeader?: boolean;
+  annotations?: StoryAnnotation[];
+  onAnnotationClick?: (annotationId: string, element: HTMLElement) => void;
+  hoveredAnnotationId?: string | null;
+  onHoverAnnotation?: (annotationId: string | null) => void;
 }
 
 // Design patterns, methodologies, and techniques (green highlight - golden nuggets)
@@ -144,8 +150,19 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
   showDeliveryCues = false,
   showEmphasis = true,
   hideHeader = false,
+  annotations = [],
+  onAnnotationClick,
+  hoveredAnnotationId,
+  onHoverAnnotation,
 }) => {
   const [showTip, setShowTip] = useState(false);
+  const contentRef = useRef<HTMLParagraphElement>(null);
+
+  // Filter annotations for this section
+  const sectionAnnotations = annotations.filter((a) => a.sectionKey === sectionKey);
+
+  // Apply rough-notation SVG overlays after DOM mount
+  useRoughAnnotations(contentRef, sectionAnnotations, content);
   const coaching = SECTION_COACHING[sectionKey.toLowerCase()];
   const deliveryCue = DELIVERY_CUES[sectionKey.toLowerCase()];
 
@@ -182,10 +199,11 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
     const parts = text.split(metricPattern);
 
     return parts.map((part, idx) => {
-      // Metrics: bold + amber highlight
+      // Metrics: bold + brand purple + wider tracking
+      // Color = brand only (background reserved for user annotations)
       if (metricPattern.test(part)) {
         return (
-          <mark key={idx} className="font-bold bg-amber-100 text-amber-900 px-0.5 rounded-sm" title="Key metric">
+          <mark key={idx} className="font-bold text-primary-700 tracking-wide bg-primary-50 px-0.5 rounded-sm" title="Key metric">
             {part}
           </mark>
         );
@@ -209,8 +227,8 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
             if (designPatterns[lowerPart]) {
               newParts.push(
                 <span key={`${idx}-pat-${pIdx}-${subIdx}`} className="relative group/pattern cursor-help">
-                  <mark className="bg-emerald-100 text-emerald-800 font-medium px-0.5 rounded-sm">{subPart}</mark>
-                  <span className="absolute bottom-full left-0 mb-1 hidden group-hover/pattern:block z-20 px-2 py-1 text-[10px] bg-emerald-900 text-white rounded max-w-[200px] shadow-lg">
+                  <span className="font-medium text-gray-900 uppercase text-[0.85em] tracking-wide bg-primary-50/60 border-b border-primary-300 px-0.5 rounded-sm">{subPart}</span>
+                  <span className="absolute bottom-full left-0 mb-1 hidden group-hover/pattern:block z-20 px-2 py-1 text-[10px] bg-gray-900 text-white rounded max-w-[200px] shadow-lg">
                     <span className="font-semibold">Pattern:</span> {designPatterns[lowerPart]}
                   </span>
                 </span>
@@ -264,7 +282,7 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
           subParts.forEach((subPart, subIdx) => {
             if (actionPattern.test(subPart)) {
               newParts.push(
-                <strong key={`${idx}-act-${pIdx}-${subIdx}`} className="font-semibold text-indigo-700" title="Action verb - shows ownership">
+                <strong key={`${idx}-act-${pIdx}-${subIdx}`} className="font-semibold italic text-primary-800/80" title="Action verb - shows ownership">
                   {subPart}
                 </strong>
               );
@@ -289,7 +307,7 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
           subParts.forEach((subPart, subIdx) => {
             if (emphasisPattern.test(subPart)) {
               newParts.push(
-                <span key={`${idx}-em-${pIdx}-${subIdx}`} className="underline decoration-primary-400 decoration-2 underline-offset-2" title="Emphasize">
+                <span key={`${idx}-em-${pIdx}-${subIdx}`} className="underline decoration-primary-300 decoration-1 underline-offset-2" title="Emphasize">
                   {subPart}
                 </span>
               );
@@ -311,8 +329,6 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
     });
   };
 
-  const accent = getSectionColor(sectionKey);
-
   // Confidence rating label + tooltip text
   const ratingLabel = confidence >= 0.75 ? 'Strong' : confidence >= 0.5 ? 'Fair' : confidence >= 0.3 ? 'Weak' : 'Missing';
   const ratingClass = confidence >= 0.75 ? 'bg-emerald-50 text-emerald-700' : confidence >= 0.5 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600';
@@ -328,9 +344,9 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
     <div className="relative">
       {/* Section header row — Datawrapper style: label + rating badge */}
       {!hideHeader && (
-        <div className={cn('flex items-center justify-between pb-3 mb-4 border-b-2', accent.headerBorder)}>
+        <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-gray-200">
           <div className="flex items-center gap-2.5">
-            <span className={cn('text-[12px] font-bold uppercase tracking-[1px]', accent.text)}>{label}</span>
+            <span className="text-[12px] font-bold uppercase tracking-[1px] text-gray-500">{label}</span>
             {showCoaching && coaching && (
               <button
                 onClick={() => setShowTip(!showTip)}
@@ -410,8 +426,28 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
             </div>
           )}
 
-          <p className="text-[15px] leading-[1.75] text-gray-800">
-            {renderContent(content)}
+          <p ref={contentRef} className="text-[15px] leading-[1.75] text-gray-800">
+            {sectionAnnotations.length > 0
+              ? splitTextByAnnotations(content, sectionAnnotations).map((seg, i) =>
+                  seg.annotationId ? (
+                    <span
+                      key={`ann-${seg.annotationId}`}
+                      data-annotation-id={seg.annotationId}
+                      className={cn(
+                        'cursor-pointer transition-shadow duration-150 rounded-sm',
+                        hoveredAnnotationId === seg.annotationId && 'shadow-[0_0_0_2px_rgba(180,83,9,0.45)]'
+                      )}
+                      onClick={(e) => onAnnotationClick?.(seg.annotationId!, e.currentTarget)}
+                      onMouseEnter={() => onHoverAnnotation?.(seg.annotationId!)}
+                      onMouseLeave={() => onHoverAnnotation?.(null)}
+                    >
+                      {renderContent(seg.text)}
+                    </span>
+                  ) : (
+                    <React.Fragment key={`seg-${i}`}>{renderContent(seg.text)}</React.Fragment>
+                  )
+                )
+              : renderContent(content)}
           </p>
 
           {/* Closing delivery cue */}
