@@ -30,6 +30,8 @@ interface DerivationModalProps {
   isOpen: boolean;
   onClose: () => void;
   story: CareerStory;
+  /** Pre-select a derivation type when opening from UseAsDropdown */
+  initialType?: DerivationType;
 }
 
 // one-on-one and self-assessment moved to multi-story packets (PacketModal)
@@ -56,8 +58,13 @@ function formatRelativeTime(dateStr: string): string {
 // MAIN COMPONENT
 // =============================================================================
 
-export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps) {
-  const [selectedDerivation, setSelectedDerivation] = useState<DerivationType>('interview');
+export function DerivationModal({ isOpen, onClose, story, initialType }: DerivationModalProps) {
+  const [selectedDerivation, setSelectedDerivation] = useState<DerivationType>(initialType || 'interview');
+
+  // Sync when initialType changes (e.g. opening from UseAsDropdown with a specific type)
+  useEffect(() => {
+    if (initialType) setSelectedDerivation(initialType);
+  }, [initialType]);
   const [tone, setTone] = useState<WritingStyle | ''>('');
   const [customPrompt, setCustomPrompt] = useState('');
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
