@@ -29,6 +29,7 @@ import ServiceStatusPageStandalone from './pages/services/status-standalone';
 import { MCPCallbackPage } from './pages/mcp/callback';
 import Format7DesignShowcase from './pages/format7-design-showcase';
 import { CareerStoriesPage } from './components/career-stories';
+import { DashboardPrototypePage } from './pages/dashboard/prototype';
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 
@@ -108,13 +109,21 @@ const AppRoutes: React.FC = () => {
         />
         
         {/* Protected Routes */}
-        <Route 
-          path="/dashboard" 
+        <Route
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <DashboardPage />
             </ProtectedRoute>
-          } 
+          }
+        />
+        <Route
+          path="/dashboard/prototype"
+          element={
+            <ProtectedRoute>
+              <DashboardPrototypePage />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/timeline"
