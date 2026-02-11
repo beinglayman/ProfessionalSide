@@ -462,7 +462,7 @@ describe('NarrativePreview', () => {
       },
     ];
 
-    it('renders Eye toggle button next to coverage text', () => {
+    it('renders EyeOff toggle button when sources visible by default', () => {
       renderWithProviders(
         <NarrativePreview
           {...defaultProps}
@@ -471,10 +471,10 @@ describe('NarrativePreview', () => {
         />
       );
 
-      expect(screen.getByLabelText('Show sources in margin')).toBeInTheDocument();
+      expect(screen.getByLabelText('Hide sources')).toBeInTheDocument();
     });
 
-    it('toggles aria-label between show and hide on click', async () => {
+    it('toggles aria-label between hide and show on click', async () => {
       const user = userEvent.setup();
 
       renderWithProviders(
@@ -485,10 +485,10 @@ describe('NarrativePreview', () => {
         />
       );
 
-      const toggle = screen.getByLabelText('Show sources in margin');
+      const toggle = screen.getByLabelText('Hide sources');
       await user.click(toggle);
 
-      expect(screen.getByLabelText('Hide sources')).toBeInTheDocument();
+      expect(screen.getByLabelText('Show sources in margin')).toBeInTheDocument();
     });
 
     it('does not render Eye toggle when no coverage data', () => {
@@ -496,7 +496,7 @@ describe('NarrativePreview', () => {
         <NarrativePreview {...defaultProps} />
       );
 
-      expect(screen.queryByLabelText('Show sources in margin')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Hide sources')).not.toBeInTheDocument();
     });
 
     it('renders source count per section', () => {

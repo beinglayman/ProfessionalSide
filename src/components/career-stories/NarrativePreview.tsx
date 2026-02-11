@@ -148,7 +148,7 @@ export function NarrativePreview({
   const [showEmphasis, setShowEmphasis] = useState(true);
   const [showDeliveryHelp, setShowDeliveryHelp] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const [showSourceMargin, setShowSourceMargin] = useState(false);
+  const [showSourceMargin, setShowSourceMargin] = useState(true);
   const [selectionPopover, setSelectionPopover] = useState<{
     position: { x: number; y: number };
     sectionKey: string;
@@ -880,30 +880,6 @@ export function NarrativePreview({
 
       {/* Narrative Content — continuous flow, timeline spine */}
       <div className="px-6 lg:px-8">
-        {/* Margin voice labels — rendered once above sections (not per-section).
-           Layout mirrors the section flex structure: [left margin] [spine w-5] [content flex-1] [right margin]
-           so "your notes" and "receipts" align with their respective columns below. */}
-        {(showMargin || showSourceMargin) && (
-          <div className="hidden lg:flex gap-4 mb-2">
-            {showMargin && (
-              <div className={cn('flex-shrink-0 transition-all duration-200', hasMarginNotes ? 'w-[150px]' : 'w-5')}>
-                {hasMarginNotes && (
-                  <p className="text-[10px] uppercase tracking-widest font-medium text-amber-500 italic border-b border-amber-300 pb-0.5 inline-block">your notes</p>
-                )}
-              </div>
-            )}
-            <div className="w-5 flex-shrink-0" /> {/* spine placeholder */}
-            <div className="flex-1 min-w-0" /> {/* content placeholder */}
-            <div className={cn(
-              'flex-shrink-0 transition-all duration-200 overflow-hidden',
-              showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
-            )}>
-              {showSourceMargin && (
-                <p className="text-[10px] uppercase tracking-widest font-medium text-slate-400 border-b border-slate-300 pb-0.5 pl-2 border-l border-l-slate-200 inline-block" title="Evidence from your connected tools">receipts</p>
-              )}
-            </div>
-          </div>
-        )}
         {sectionKeys.map((sectionKey, idx) => {
           let component: STARComponent;
           if (useStorySections && story?.sections?.[sectionKey]) {
