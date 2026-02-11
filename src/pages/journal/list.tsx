@@ -626,13 +626,8 @@ export default function JournalPage() {
         <div className="space-y-2">
         {/* Page title + actions */}
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Timeline</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">My Activity Timeline</h1>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {lastSyncAt && !isSyncing && (
-              <span className="text-xs text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
-                Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
-              </span>
-            )}
             <Button
               size="sm"
               className={cn(
@@ -649,19 +644,26 @@ export default function JournalPage() {
         </div>
 
         {/* Metadata row */}
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          {activityCount > 0 && <span>{activityCount} activities</span>}
-          {storyGroups.length > 0 && (
-            <>
-              {activityCount > 0 && <span className="text-gray-300">·</span>}
-              <span>{storyGroups.length} draft stories</span>
-            </>
-          )}
-          {narrativesGenerating && (
-            <>
-              <span className="text-gray-300">·</span>
-              <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
-            </>
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center gap-1.5">
+            {activityCount > 0 && <span>{activityCount} activities</span>}
+            {storyGroups.length > 0 && (
+              <>
+                {activityCount > 0 && <span className="text-gray-300">·</span>}
+                <span>{storyGroups.length} draft stories</span>
+              </>
+            )}
+            {narrativesGenerating && (
+              <>
+                <span className="text-gray-300">·</span>
+                <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
+              </>
+            )}
+          </div>
+          {lastSyncAt && !isSyncing && (
+            <span className="text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
+              Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
+            </span>
           )}
         </div>
 
