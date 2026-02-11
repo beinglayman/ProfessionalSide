@@ -28,6 +28,8 @@ import {
   Type,
   MoreHorizontal,
   AlertTriangle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -76,6 +78,7 @@ import { NarrativeStatusBadge } from './NarrativeStatusBadge';
 import { PracticeTimer } from './PracticeTimer';
 import { DeliveryHelpModal } from './DeliveryHelpModal';
 import { MarginColumn } from './MarginColumn';
+import { SourceMargin } from './SourceMargin';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -145,6 +148,7 @@ export function NarrativePreview({
   const [showEmphasis, setShowEmphasis] = useState(true);
   const [showDeliveryHelp, setShowDeliveryHelp] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [showSourceMargin, setShowSourceMargin] = useState(false);
   const [selectionPopover, setSelectionPopover] = useState<{
     position: { x: number; y: number };
     sectionKey: string;
@@ -804,20 +808,38 @@ export function NarrativePreview({
           )}
 
           {formatDateRange() && (
-            <span className="hidden sm:inline">{formatDateRange()}</span>
-          )}
-          {activityCount > 0 && (
             <>
-              {formatDateRange() && <span className="hidden sm:inline text-gray-300">&middot;</span>}
-              <span className="hidden sm:inline">{activityCount} activit{activityCount === 1 ? 'y' : 'ies'}</span>
+              <span className="hidden sm:inline">{formatDateRange()}</span>
+              <span className="hidden sm:inline text-gray-300">&middot;</span>
             </>
           )}
-          <span className="text-gray-300">&middot;</span>
-          <span>{frameworkMeta?.label || framework}</span>
+          <span className="relative group/fw cursor-default">
+            {frameworkMeta?.label || framework}
+            {frameworkMeta?.description && (
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-800 rounded shadow-lg whitespace-nowrap opacity-0 group-hover/fw:opacity-100 transition-opacity pointer-events-none z-20">
+                {frameworkMeta.description}
+              </span>
+            )}
+          </span>
           {coverageText && (
             <>
               <span className="text-gray-300">&middot;</span>
               <span className={cn(coverageColor)}>{coverageText}</span>
+              <button
+                onClick={() => setShowSourceMargin(prev => !prev)}
+                className={cn(
+                  'hidden lg:inline-flex items-center p-0.5 rounded transition-colors',
+                  showSourceMargin
+                    ? 'text-slate-500 hover:bg-slate-50'
+                    : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
+                )}
+                title={showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                aria-label={showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+              >
+                {showSourceMargin
+                  ? <EyeOff className="w-3.5 h-3.5" />
+                  : <Eye className="w-3.5 h-3.5" />}
+              </button>
             </>
           )}
           {estimatedTime > 30 && (
@@ -856,6 +878,28 @@ export function NarrativePreview({
 
       {/* Narrative Content — continuous flow, timeline spine */}
       <div className="px-6 lg:px-8">
+        {/* Margin voice labels — one row, mirrors section flex layout */}
+        {(showMargin || showSourceMargin) && (
+          <div className="hidden lg:flex gap-4 mb-2">
+            {showMargin && (
+              <div className={cn('flex-shrink-0 transition-all duration-200', hasMarginNotes ? 'w-[150px]' : 'w-5')}>
+                {hasMarginNotes && (
+                  <p className="text-[10px] uppercase tracking-widest font-medium text-amber-500 italic border-b border-amber-300 pb-0.5 inline-block">your notes</p>
+                )}
+              </div>
+            )}
+            <div className="w-5 flex-shrink-0" />
+            <div className="flex-1 min-w-0" />
+            <div className={cn(
+              'flex-shrink-0 transition-all duration-200 overflow-hidden',
+              showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
+            )}>
+              {showSourceMargin && (
+                <p className="text-[10px] uppercase tracking-widest font-medium text-slate-400 border-b border-slate-300 pb-0.5 pl-2 border-l border-l-slate-200 inline-block" title="Evidence from your connected tools">receipts</p>
+              )}
+            </div>
+          </div>
+        )}
         {sectionKeys.map((sectionKey, idx) => {
           let component: STARComponent;
           if (useStorySections && story?.sections?.[sectionKey]) {
@@ -899,6 +943,22 @@ export function NarrativePreview({
                   onDeleteAside={handleDeleteAside}
                 />
               }
+              showSourceMargin={showSourceMargin}
+              rightMarginContent={
+                <div className={cn(
+                  'hidden lg:block flex-shrink-0 pt-1 transition-all duration-200 overflow-hidden',
+                  showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
+                )}>
+                  {showSourceMargin && (
+                    <SourceMargin
+                      sources={sectionSources}
+                      sectionKey={sectionKey}
+                      onExclude={handleExcludeSource}
+                      onUndoExclude={handleUndoExclude}
+                    />
+                  )}
+                </div>
+              }
               collapsedPreview={getSectionText(sectionKey).slice(0, 120)}
             >
               {/* Narrative text — flows directly, no card wrapper */}
@@ -924,17 +984,19 @@ export function NarrativePreview({
                 />
               </div>
 
-              {/* Source footnotes — inline below text */}
-              <SourceFootnotes
-                sources={sectionSources}
-                sectionKey={sectionKey}
-                vagueMetrics={
-                  sourceCoverage?.vagueMetrics.filter((vm) => vm.sectionKey === sectionKey) || []
-                }
-                onExclude={handleExcludeSource}
-                onUndoExclude={handleUndoExclude}
-                isEditing={isEditing}
-              />
+              {/* Source footnotes — mobile only; desktop uses right margin */}
+              <div className="lg:hidden">
+                <SourceFootnotes
+                  sources={sectionSources}
+                  sectionKey={sectionKey}
+                  vagueMetrics={
+                    sourceCoverage?.vagueMetrics.filter((vm) => vm.sectionKey === sectionKey) || []
+                  }
+                  onExclude={handleExcludeSource}
+                  onUndoExclude={handleUndoExclude}
+                  isEditing={isEditing}
+                />
+              </div>
             </NarrativeSectionHeader>
           );
         })}

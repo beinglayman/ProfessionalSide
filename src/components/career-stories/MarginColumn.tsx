@@ -121,7 +121,7 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
               {isAside ? (
                 <p className={cn(
                   'text-[11px] leading-relaxed text-gray-400 italic border-l-2 border-gray-200 pl-2 py-1',
-                  isCrowded && !isHovered && 'line-clamp-1',
+                  !isHovered && (isCrowded ? 'line-clamp-1' : 'line-clamp-4'),
                 )}>
                   {ann.note}
                 </p>
@@ -132,7 +132,7 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
                 )}>
                   <p className={cn(
                     'text-[11px] leading-relaxed text-gray-500',
-                    isCrowded && !isHovered && 'line-clamp-1',
+                    !isHovered && (isCrowded ? 'line-clamp-1' : 'line-clamp-4'),
                   )}>
                     {ann.note}
                   </p>
