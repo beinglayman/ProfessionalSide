@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { UserNav } from './user-nav';
-import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { ChevronDown, User, Users, Globe, Search, Activity, FileText } from 'lucide-react';
 import type { NetworkType } from '../../App';
@@ -55,36 +54,41 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Left section: Logo + Navigation */}
-          <div className="flex items-end flex-1">
+          <div className="flex items-center flex-1">
             {/* Logo */}
-            <Link to="/" className="flex-shrink-0 mb-1">
-              {/* Full logo for desktop */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 1150 100"
-                className="hidden md:block"
-                style={{ height: "16px", width: "auto" }}
-              >
-                <rect x="0" y="0" width="180" height="100" fill="#5D259F" />
-                <text x="175" y="90" fontFamily="Arial, sans-serif" fontSize="60" fontWeight="bold" fill="white" textAnchor="end">IN</text>
-                <text x="185" y="90" fontFamily="Arial, sans-serif" fontSize="120" fill="#333333">CHRONICLE</text>
-              </svg>
+            <Link to="/" className="flex-shrink-0 flex items-center gap-0">
+              {/* Full logo for desktop — Option C: generous purple rectangle + CHRONICLE */}
+              <div className="hidden md:flex items-end group/logo">
+                <div
+                  className="flex items-end justify-end bg-[#5D259F] rounded-[2px] select-none transition-colors duration-150 group-hover/logo:bg-[#4A1D80]"
+                  style={{ width: '44px', height: '28px', padding: '0 4px 3px 0' }}
+                >
+                  <span className="text-white font-bold leading-none" style={{ fontSize: '13px', letterSpacing: '0.02em' }}>
+                    IN
+                  </span>
+                </div>
+                <span
+                  className="leading-none select-none"
+                  style={{ fontSize: '26px', fontWeight: 600, letterSpacing: '0.01em', color: '#333', marginLeft: '2px' }}
+                >
+                  CHRONICLE
+                </span>
+              </div>
 
-              {/* Only the "IN" box for mobile */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 120 120"
-                className="block md:hidden"
-                style={{ height: "16px", width: "auto" }}
+              {/* Mobile — just the purple box */}
+              <div
+                className="md:hidden flex items-end justify-end bg-[#5D259F] rounded-[2px] select-none"
+                style={{ width: '44px', height: '28px', padding: '0 4px 3px 0' }}
               >
-                <rect x="0" y="0" width="120" height="120" fill="#5D259F" />
-                <text x="115" y="115" fontFamily="Arial, sans-serif" fontSize="60" fontWeight="bold" fill="white" textAnchor="end">IN</text>
-              </svg>
+                <span className="text-white font-bold leading-none" style={{ fontSize: '13px', letterSpacing: '0.02em' }}>
+                  IN
+                </span>
+              </div>
             </Link>
 
             {/* Desktop Navigation - Only show when authenticated */}
             {isAuthenticated && (
-              <nav className="ml-8 hidden lg:flex items-center space-x-1">
+              <nav className="ml-8 hidden lg:flex items-center space-x-1 border-l border-gray-200/60 pl-8">
                 {/* Timeline */}
                 <Link
                   to="/timeline"
@@ -200,7 +204,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
           </div>
 
           {/* Right section: Actions + User */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             {/* Mobile Menu Button - Only show when authenticated */}
             {isAuthenticated && (
               <button
@@ -246,17 +250,31 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
             {/* User Nav - Only show when authenticated */}
             {isAuthenticated && <UserNav />}
             
-            {/* Sign up button - Only show when not authenticated */}
+            {/* Auth buttons - Only show when not authenticated */}
             {!isAuthenticated && (
-              <div className="flex items-center space-x-3">
-                <Link to="/login" className="text-gray-600 hover:text-gray-900 font-medium text-sm">
+              <div className="flex items-center space-x-1">
+                <Link
+                  to="/login"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150",
+                    isActiveLink('/login')
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  )}
+                >
                   Sign in
                 </Link>
-                <Button size="sm" asChild>
-                  <Link to="/register">
-                    Sign up
-                  </Link>
-                </Button>
+                <Link
+                  to="/register"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150",
+                    isActiveLink('/register')
+                      ? "bg-primary-600 text-white shadow-sm"
+                      : "bg-gray-900 text-white hover:bg-gray-800"
+                  )}
+                >
+                  Sign up
+                </Link>
               </div>
             )}
           </div>

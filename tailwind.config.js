@@ -39,6 +39,8 @@ export default {
         'text-shimmer': 'text-shimmer 3s ease infinite',
         'highlight-flash': 'highlight-flash 2s ease-out forwards',
         'border-glow': 'border-glow 2s ease-out forwards',
+        'quote-exit': 'quote-exit 400ms ease-out forwards',
+        'quote-enter': 'quote-enter 400ms ease-out forwards',
       },
       colors: {
         primary: {

@@ -32,6 +32,16 @@
   }
 }
 
+/* Quote carousel transitions */
+@keyframes quote-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes quote-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .ai-moving-border {
   border-color: transparent !important;
   box-shadow: 0 0 15px -3px rgba(124, 58, 237, 0.3);

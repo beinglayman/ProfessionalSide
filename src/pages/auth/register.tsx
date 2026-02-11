@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
+import { AuthLayout } from '../../components/layouts/AuthLayout';
 
 export function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -13,7 +14,7 @@ export function RegisterPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -21,7 +22,6 @@ export function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -32,7 +32,6 @@ export function RegisterPage() {
       return;
     }
 
-    // Check password strength
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
     if (!passwordRegex.test(formData.password)) {
       setError('Password must contain at least one lowercase letter, one uppercase letter, and one number');
@@ -41,13 +40,12 @@ export function RegisterPage() {
 
     try {
       const registerData = {
-        name: 'User', // Temporary name, will be set during onboarding
+        name: 'User',
         email: formData.email,
         password: formData.password,
       };
 
       await register(registerData);
-      // Registration successful, redirect to onboarding wizard
       navigate('/onboarding');
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -62,120 +60,119 @@ export function RegisterPage() {
     });
   };
 
-
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
+    <AuthLayout>
+      {/* Heading */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
+        <p className="mt-1.5 text-sm text-gray-500">
+          Start documenting your professional journey.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Create your professional account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Join InChronicle to document your professional journey. We'll collect your profile details in the next step.
-          </p>
-          <p className="mt-1 text-center text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-              Sign in here
-            </Link>
-          </p>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@company.com"
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:shadow-lg focus:shadow-primary-500/5 transition-all"
+            value={formData.email}
+            onChange={handleInputChange}
+          />
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Password
+          </label>
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              placeholder="Min 8 chars, upper + lower + number"
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:shadow-lg focus:shadow-primary-500/5 transition-all"
+              value={formData.password}
+              onChange={handleInputChange}
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Confirm password
+          </label>
+          <div className="relative">
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              placeholder="Re-enter your password"
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:shadow-lg focus:shadow-primary-500/5 transition-all"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full h-10 text-sm font-medium hover:shadow-lg hover:shadow-primary-500/20 transition-all"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              Creating account...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-1.5">
+              Create account
+              <ArrowRight className="h-4 w-4" />
+            </span>
           )}
-          
-          <div className="space-y-4 rounded-md shadow-sm">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="Enter your professional email"
-              />
-            </div>
+        </Button>
+      </form>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="relative mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="new-password"
-                  required
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                Must be at least 8 characters with uppercase, lowercase, and number
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <div className="relative mt-1">
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  autoComplete="new-password"
-                  required
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating Account...' : 'Create Account'}
-            </Button>
-          </div>
-        </form>
-
-      </div>
-    </div>
+      <p className="mt-6 text-center text-sm text-gray-500">
+        Already have an account?{' '}
+        <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
+          Sign in
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }
