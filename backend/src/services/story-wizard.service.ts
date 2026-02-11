@@ -114,6 +114,7 @@ export interface GenerateResult {
     suggestions: string[];
     coachComment: string;
   };
+  _sourceDebug?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -563,6 +564,22 @@ export class StoryWizardService {
     const resolvedCount = allEvidenceIds.filter((id) => activityMap.has(id)).length;
     const useFakeIds = resolvedCount === 0 && allEvidenceIds.length > 0;
 
+    console.log(`${this.logPrefix} [sourceCreation]`, {
+      storyId: story.id.slice(0, 8),
+      isDemoMode: this.isDemoMode,
+      entryActivityIds: entry.activityIds.length,
+      activityRowsFound: allActivityRows.length,
+      allEvidenceIds: allEvidenceIds.length,
+      resolvedCount,
+      useFakeIds,
+      canSetFk,
+      sectionKeys,
+      evidenceSample: sectionKeys.slice(0, 2).map((k) => ({
+        key: k,
+        ids: ((sections as any)[k]?.evidence || []).slice(0, 3).map((e: any) => e.activityId),
+      })),
+    });
+
     const activitySourceData: any[] = [];
 
     if (useFakeIds && allActivityRows.length > 0) {
@@ -620,6 +637,32 @@ export class StoryWizardService {
       }
     }
 
+    // Safety net: if no activity sources created but we have activityIds, create skeleton sources
+    if (activitySourceData.length === 0 && entry.activityIds.length > 0) {
+      console.warn(`${this.logPrefix} [sourceCreation] fallback: skeleton sources from activityIds`);
+      const uniqueIds = [...new Set(entry.activityIds)];
+      const perSection = Math.max(1, Math.ceil(uniqueIds.length / sectionKeys.length));
+      let idx = 0;
+      for (const sectionKey of sectionKeys) {
+        const sectionIds = uniqueIds.slice(idx, idx + perSection);
+        idx += perSection;
+        for (let i = 0; i < sectionIds.length; i++) {
+          activitySourceData.push({
+            storyId: story.id,
+            sectionKey,
+            sourceType: 'activity',
+            activityId: canSetFk ? sectionIds[i] : null,
+            label: `Activity ${i + 1}`,
+            url: null,
+            toolType: null,
+            role: null,
+            annotation: null,
+            sortOrder: i,
+          });
+        }
+      }
+    }
+
     // Populate wizard_answer sources
     const QUESTION_SECTION_MAP: Record<string, string> = {
       'dig-1': 'situation',
@@ -649,8 +692,33 @@ export class StoryWizardService {
       });
     }
 
+    const _sourceDebug = {
+      isDemoMode: this.isDemoMode,
+      table: this.isDemoMode ? 'DemoToolActivity' : 'ToolActivity',
+      entryActivityIds: entry.activityIds.length,
+      activityRowsFound: allActivityRows.length,
+      allEvidenceIds: allEvidenceIds.length,
+      resolvedCount,
+      useFakeIds,
+      canSetFk,
+      activitySources: activitySourceData.filter((s: any) => s.sourceType === 'activity').length,
+      wizardSources: activitySourceData.filter((s: any) => s.sourceType === 'wizard_answer').length,
+      totalSources: activitySourceData.length,
+      sourceSections: [...new Set(activitySourceData.map((s: any) => s.sectionKey))],
+      evidenceSample: sectionKeys.slice(0, 2).map((k) => ({
+        key: k,
+        ids: ((sections as any)[k]?.evidence || []).slice(0, 3).map((e: any) => e.activityId),
+      })),
+      entryActivityIdSample: entry.activityIds.slice(0, 3),
+      activityRowIdSample: allActivityRows.slice(0, 3).map((a: any) => a.id),
+    };
+
+    console.log(`${this.logPrefix} [sourceCreation] result`, _sourceDebug);
+
     if (activitySourceData.length > 0) {
       await prisma.storySource.createMany({ data: activitySourceData });
+    } else {
+      console.warn(`${this.logPrefix} ⚠️ ZERO sources created for story ${story.id.slice(0, 8)}`);
     }
 
     const storyId = story.id;
@@ -673,6 +741,7 @@ export class StoryWizardService {
         sections,
       },
       evaluation,
+      _sourceDebug,
     };
   }
 

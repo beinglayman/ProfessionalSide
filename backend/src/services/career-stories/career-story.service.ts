@@ -173,6 +173,7 @@ export interface StoryResult {
   error?: string;
   missingFields?: string[];
   story?: CareerStoryRecord;
+  _sourceDebug?: Record<string, unknown>;
 }
 
 export interface StoriesListResult {
@@ -881,12 +882,13 @@ export class CareerStoryService {
 
     // After story creation, populate StorySource rows
     const sectionKeys = NARRATIVE_FRAMEWORKS[useFramework] || [];
-    await this.populateSourcesFromSections(story.id, sections, entry.activityIds, userId, sectionKeys);
+    const _sourceDebug = await this.populateSourcesFromSections(story.id, sections, entry.activityIds, userId, sectionKeys);
 
     return {
       success: true,
       story: this.mapStory(story),
       clusterId,
+      _sourceDebug,
     };
   }
 
@@ -1233,7 +1235,7 @@ export class CareerStoryService {
       where: { storyId, sourceType: 'activity' },
     });
     const sectionKeys = NARRATIVE_FRAMEWORKS[nextFramework] || [];
-    await this.populateSourcesFromSections(storyId, sections, story.activityIds, userId, sectionKeys);
+    const _sourceDebug = await this.populateSourcesFromSections(storyId, sections, story.activityIds, userId, sectionKeys);
 
     // Store generation prompt
     if (userPrompt) {
@@ -1243,7 +1245,7 @@ export class CareerStoryService {
       });
     }
 
-    return { success: true, story: this.mapStory(updated) };
+    return { success: true, story: this.mapStory(updated), _sourceDebug };
   }
 
   /**
@@ -1258,7 +1260,9 @@ export class CareerStoryService {
     activityIds: string[],
     userId: string,
     sectionKeys: string[]
-  ): Promise<void> {
+  ): Promise<Record<string, unknown>> {
+    const logCtx = { storyId: storyId.slice(0, 8), isDemoMode: this.isDemoMode, userId: userId.slice(0, 8) };
+
     // Detect shotgun pattern: if every section has the same evidence array
     const evidenceArrays = sectionKeys.map((key) =>
       (sections[key]?.evidence || []).map((e) => e.activityId).sort().join(',')
@@ -1267,6 +1271,19 @@ export class CareerStoryService {
 
     // Fetch activities for hydration
     const activities = await this.fetchActivitiesWithRefs(userId, activityIds);
+
+    console.log('[populateSourcesFromSections]', {
+      ...logCtx,
+      sectionKeys,
+      activityIdsCount: activityIds.length,
+      activitiesFound: activities.length,
+      isShotgun,
+      evidenceSample: sectionKeys.slice(0, 2).map((k) => ({
+        key: k,
+        evidenceCount: (sections[k]?.evidence || []).length,
+        evidenceIds: (sections[k]?.evidence || []).slice(0, 3).map((e) => e.activityId),
+      })),
+    });
     const activityMap = new Map(activities.map((a) => [a.id, a]));
 
     const sourcesToCreate: Array<{
@@ -1297,6 +1314,18 @@ export class CareerStoryService {
 
     // No evidence at all — LLM returned empty arrays for every section
     const noEvidence = allEvidenceIds.length === 0 && activities.length > 0;
+
+    console.log('[populateSourcesFromSections] decision', {
+      ...logCtx,
+      allEvidenceIds: allEvidenceIds.length,
+      resolvedCount,
+      useFakeIds,
+      noEvidence,
+      canSetFk,
+      branch: (isShotgun && !useFakeIds) || noEvidence ? 'shotgun/noEvidence→unassigned'
+        : useFakeIds ? 'fakeIds→roundRobin'
+        : 'normal→mapEvidence',
+    });
 
     if ((isShotgun && !useFakeIds) || noEvidence) {
       // Bug C fix / empty-evidence fallback: assign all to "unassigned"
@@ -1367,9 +1396,65 @@ export class CareerStoryService {
       }
     }
 
+    // Safety net: if no sources were created but we have activityIds, create skeleton sources.
+    // This handles the case where activities aren't found in the queried table
+    // (e.g., demo/production table mismatch, or activities deleted after journal creation).
+    if (sourcesToCreate.length === 0 && activityIds.length > 0) {
+      console.warn('[populateSourcesFromSections] fallback: creating skeleton sources from activityIds', logCtx);
+      const uniqueIds = [...new Set(activityIds)];
+      const perSection = Math.max(1, Math.ceil(uniqueIds.length / sectionKeys.length));
+      let idx = 0;
+      for (const sectionKey of sectionKeys) {
+        const sectionIds = uniqueIds.slice(idx, idx + perSection);
+        idx += perSection;
+        for (let i = 0; i < sectionIds.length; i++) {
+          sourcesToCreate.push({
+            storyId,
+            sectionKey,
+            sourceType: 'activity',
+            activityId: canSetFk ? sectionIds[i] : null,
+            label: `Activity ${i + 1}`,
+            url: null,
+            toolType: null,
+            role: null,
+            annotation: null,
+            sortOrder: i,
+          });
+        }
+      }
+    }
+
+    const debugInfo = {
+      ...logCtx,
+      activityIdsCount: activityIds.length,
+      activitiesFound: activities.length,
+      table: this.isDemoMode ? 'DemoToolActivity' : 'ToolActivity',
+      allEvidenceIds: allEvidenceIds.length,
+      resolvedCount,
+      useFakeIds,
+      noEvidence,
+      isShotgun,
+      branch: (isShotgun && !useFakeIds) || noEvidence ? 'shotgun/noEvidence→unassigned'
+        : useFakeIds ? 'fakeIds→roundRobin'
+        : sourcesToCreate.length === 0 && activityIds.length > 0 ? 'skeleton-fallback'
+        : 'normal→mapEvidence',
+      sourcesCreated: sourcesToCreate.length,
+      sourceSections: [...new Set(sourcesToCreate.map((s) => s.sectionKey))],
+      evidenceSample: sectionKeys.slice(0, 2).map((k) => ({
+        key: k,
+        evidenceIds: (sections[k]?.evidence || []).slice(0, 3).map((e) => e.activityId),
+      })),
+    };
+
+    console.log('[populateSourcesFromSections] result', debugInfo);
+
     if (sourcesToCreate.length > 0) {
       await prisma.storySource.createMany({ data: sourcesToCreate });
+    } else {
+      console.warn('[populateSourcesFromSections] ⚠️ ZERO sources — no activityIds at all', logCtx);
     }
+
+    return debugInfo;
   }
 
   /**

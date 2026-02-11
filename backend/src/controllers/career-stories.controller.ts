@@ -1101,7 +1101,7 @@ export const regenerateStory = asyncHandler(async (req: Request, res: Response):
   }
 
   const enriched = await enrichStoryWithSources(result.story!);
-  sendSuccess(res, enriched, 'Story regenerated');
+  sendSuccess(res, { ...enriched, _sourceDebug: result._sourceDebug }, 'Story regenerated');
 });
 
 /**
