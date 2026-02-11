@@ -970,8 +970,29 @@ export function CareerStoriesPage() {
               {/* Header: meta + actions */}
               {allStories.length > 0 && (
                 <div className="flex items-center justify-between gap-4">
-                  <div className="text-xs text-gray-500 min-w-0">
-                    {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                  <div className="flex items-center gap-1.5 flex-wrap text-sm text-gray-500 min-w-0">
+                    <span>
+                      <span className="font-semibold text-gray-700">{filteredStories.length}</span>
+                      {' '}{filteredStories.length === 1 ? 'story' : 'stories'}
+                    </span>
+                    {stats.complete > 0 && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span>{stats.complete} published</span>
+                      </>
+                    )}
+                    {stats.totalActivities > 0 && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span>covering <span className="font-semibold text-gray-700">{stats.totalActivities}</span> activities</span>
+                      </>
+                    )}
+                    {draftStories.length > 0 && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span>{draftStories.length} draft{draftStories.length !== 1 ? 's' : ''} to promote</span>
+                      </>
+                    )}
                   </div>
 
                   {/* Right: Build Narratives (combined with saved) + Filter */}

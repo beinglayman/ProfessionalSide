@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { UserNav } from './user-nav';
 import { cn } from '../../lib/utils';
-import { ChevronDown, User, Users, Globe, Search, Activity, FileText } from 'lucide-react';
+import { ChevronDown, User, Users, Globe, Search, GitCommitVertical, FileText, BookOpen } from 'lucide-react';
 import type { NetworkType } from '../../App';
 import { NotificationsDropdown } from '../notifications/notifications-dropdown';
 import { SearchModal } from '../search/search-modal';
@@ -57,19 +57,19 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
           <div className="flex items-center flex-1">
             {/* Logo */}
             <Link to="/" className="flex-shrink-0 flex items-center gap-0">
-              {/* Full logo for desktop — Option C: generous purple rectangle + CHRONICLE */}
+              {/* Full logo for desktop — compact purple box + CHRONICLE */}
               <div className="hidden md:flex items-end group/logo">
                 <div
                   className="flex items-end justify-end bg-[#5D259F] rounded-[2px] select-none transition-colors duration-150 group-hover/logo:bg-[#4A1D80]"
-                  style={{ width: '44px', height: '28px', padding: '0 4px 3px 0' }}
+                  style={{ width: '33px', height: '21px', padding: '0 2px 2px 0' }}
                 >
-                  <span className="text-white font-bold leading-none" style={{ fontSize: '13px', letterSpacing: '0.02em' }}>
+                  <span className="text-white font-bold leading-none" style={{ fontSize: '10.5px', letterSpacing: '0.02em' }}>
                     IN
                   </span>
                 </div>
                 <span
                   className="leading-none select-none"
-                  style={{ fontSize: '26px', fontWeight: 600, letterSpacing: '0.01em', color: '#333', marginLeft: '2px' }}
+                  style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '0.01em', color: '#333', marginLeft: '2px' }}
                 >
                   CHRONICLE
                 </span>
@@ -78,9 +78,9 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
               {/* Mobile — just the purple box */}
               <div
                 className="md:hidden flex items-end justify-end bg-[#5D259F] rounded-[2px] select-none"
-                style={{ width: '44px', height: '28px', padding: '0 4px 3px 0' }}
+                style={{ width: '33px', height: '21px', padding: '0 2px 2px 0' }}
               >
-                <span className="text-white font-bold leading-none" style={{ fontSize: '13px', letterSpacing: '0.02em' }}>
+                <span className="text-white font-bold leading-none" style={{ fontSize: '10.5px', letterSpacing: '0.02em' }}>
                   IN
                 </span>
               </div>
@@ -93,12 +93,13 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 <Link
                   to="/timeline"
                   className={cn(
-                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
                     isActiveLink('/timeline')
                       ? "text-primary-600"
                       : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                   )}
                 >
+                  <GitCommitVertical className="h-3.5 w-3.5" />
                   <span>Timeline</span>
                   <div className={cn(
                     "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
@@ -112,12 +113,13 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 <Link
                   to="/stories"
                   className={cn(
-                    "relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
                     isActiveLink('/stories')
                       ? "text-primary-600"
                       : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                   )}
                 >
+                  <BookOpen className="h-3.5 w-3.5" />
                   <span>Stories</span>
                   <div className={cn(
                     "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
@@ -132,12 +134,13 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                   <DropdownMenu.Trigger asChild>
                     <button
                       className={cn(
-                        "relative flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                        "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
                         isPresenceActive()
                           ? "text-primary-600"
                           : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
                       )}
                     >
+                      <Globe className="h-3.5 w-3.5" />
                       <span>Presence</span>
                       <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       <div className={cn(
@@ -295,7 +298,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Activity className="h-4 w-4 mr-3" />
+                <GitCommitVertical className="h-4 w-4 mr-3" />
                 Timeline
               </Link>
 

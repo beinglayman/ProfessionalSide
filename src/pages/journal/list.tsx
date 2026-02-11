@@ -75,7 +75,8 @@ import { ActivityStream } from '../../components/journal/activity-stream';
 import { StoryWizardModal } from '../../components/story-wizard';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { GroupedActivitiesResponse } from '../../types/activity';
-import { JournalEntryMeta } from '../../types/career-stories';
+import { JournalEntryMeta, ToolType } from '../../types/career-stories';
+import { ToolIcon } from '../../components/career-stories/ToolIcon';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { EnhancingIndicator } from '../../components/ui/enhancing-indicator';
 // useNarrativePolling removed - SSE handles updates, polling was hammering backend
@@ -608,6 +609,18 @@ export default function JournalPage() {
     ? activitiesData.pagination.total
     : 0;
 
+  // Unique tool sources for header icons
+  const toolSources = useMemo(() => {
+    if (!activitiesData || !isGroupedResponse(activitiesData)) return [];
+    const sources = new Set<string>();
+    for (const group of activitiesData.groups) {
+      for (const a of group.activities) {
+        sources.add(a.source);
+      }
+    }
+    return [...sources].slice(0, 4);
+  }, [activitiesData]);
+
   // Determine if there are activities (for empty state detection)
   const hasActivities = activitiesData && isGroupedResponse(activitiesData)
     && activitiesData.groups.length > 0;
@@ -624,10 +637,50 @@ export default function JournalPage() {
     <div className="min-h-screen bg-gray-50 pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4">
         <div className="space-y-2">
-        {/* Page title + actions */}
+        {/* Page header — subtle metadata line + actions */}
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">My Activity Timeline</h1>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-wrap text-sm text-gray-500">
+            {activityCount > 0 && (
+              <span className="flex items-center gap-1.5">
+                <span className="font-semibold text-gray-700">{activityCount}</span>
+                {' '}activities
+                {toolSources.length > 0 && (
+                  <span className="inline-flex items-center gap-0.5 ml-0.5">
+                    {toolSources.map(s => (
+                      <ToolIcon key={s} tool={s as ToolType} className="w-4 h-4" />
+                    ))}
+                  </span>
+                )}
+              </span>
+            )}
+            {storyGroups.length > 0 && (
+              <>
+                {activityCount > 0 && <span className="text-gray-300">·</span>}
+                <span>
+                  <span className="font-semibold text-gray-700">{storyGroups.length}</span>
+                  {' '}draft{storyGroups.length !== 1 ? 's' : ''} ready to promote
+                </span>
+              </>
+            )}
+            {promotedCount > 0 && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span>{promotedCount} promoted</span>
+              </>
+            )}
+            {narrativesGenerating && (
+              <>
+                <span className="text-gray-300">·</span>
+                <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {lastSyncAt && !isSyncing && (
+              <span className="text-xs text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
+                Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
+              </span>
+            )}
             <Button
               size="sm"
               className={cn(
@@ -641,30 +694,6 @@ export default function JournalPage() {
               {isSyncing ? 'Syncing...' : 'Sync'}
             </Button>
           </div>
-        </div>
-
-        {/* Metadata row */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-1.5">
-            {activityCount > 0 && <span>{activityCount} activities</span>}
-            {storyGroups.length > 0 && (
-              <>
-                {activityCount > 0 && <span className="text-gray-300">·</span>}
-                <span>{storyGroups.length} draft stories</span>
-              </>
-            )}
-            {narrativesGenerating && (
-              <>
-                <span className="text-gray-300">·</span>
-                <EnhancingIndicator variant="inline" text="Enhancing..." className="bg-primary-50/80 px-2 py-0.5 rounded-full border border-primary-200 text-xs" />
-              </>
-            )}
-          </div>
-          {lastSyncAt && !isSyncing && (
-            <span className="text-gray-400" title={`Last synced: ${new Date(lastSyncAt).toLocaleString()}`}>
-              Synced {formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true })}
-            </span>
-          )}
         </div>
 
         {/* Contextual info banner — dismissible */}
