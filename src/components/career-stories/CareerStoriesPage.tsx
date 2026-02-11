@@ -198,6 +198,7 @@ export function CareerStoriesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Promotion packet modal state
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
+  const [packetInitialType, setPacketInitialType] = useState<string | undefined>(undefined);
   // Packet view modal state
   const [viewPacket, setViewPacket] = useState<import('../../types/career-stories').StoryDerivation | null>(null);
 
@@ -899,9 +900,9 @@ export function CareerStoriesPage() {
   // UseAsDropdown handlers
   const handleUseAsGenerate = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
     if (kind === 'packet') {
+      setPacketInitialType(typeKey);
       setShowPromotionPacket(true);
     } else if (selectedStoryDirect) {
-      // Single-story type from detail view → open DerivationModal at the correct type
       setDerivationInitialType(typeKey);
       setDerivationStoryId(selectedStoryDirect.id);
     }
@@ -1351,8 +1352,9 @@ export function CareerStoriesPage() {
       {showPromotionPacket && allStories.length >= 1 && (
         <PromotionPacketModal
           isOpen={showPromotionPacket}
-          onClose={() => setShowPromotionPacket(false)}
+          onClose={() => { setShowPromotionPacket(false); setPacketInitialType(undefined); }}
           stories={allStories}
+          initialType={packetInitialType as import('../../types/career-stories').PacketType | undefined}
         />
       )}
 

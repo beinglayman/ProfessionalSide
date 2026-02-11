@@ -60,11 +60,6 @@ function formatRelativeTime(dateStr: string): string {
 
 export function DerivationModal({ isOpen, onClose, story, initialType }: DerivationModalProps) {
   const [selectedDerivation, setSelectedDerivation] = useState<DerivationType>(initialType || 'interview');
-
-  // Sync when initialType changes (e.g. opening from UseAsDropdown with a specific type)
-  useEffect(() => {
-    if (initialType) setSelectedDerivation(initialType);
-  }, [initialType]);
   const [tone, setTone] = useState<WritingStyle | ''>('');
   const [customPrompt, setCustomPrompt] = useState('');
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
@@ -97,7 +92,8 @@ export function DerivationModal({ isOpen, onClose, story, initialType }: Derivat
   // Reset all state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setSelectedDerivation('interview');
+      const startType = initialType || 'interview';
+      setSelectedDerivation(startType);
       setTone('');
       setCustomPrompt('');
       setShowCustomPrompt(false);
@@ -105,11 +101,11 @@ export function DerivationModal({ isOpen, onClose, story, initialType }: Derivat
       setGeneratedResult(null);
       setCopied(false);
       setError(null);
-      // Auto-show latest saved derivation for default type
-      const existing = savedByType.get('interview');
+      // Auto-show latest saved derivation for the selected type
+      const existing = savedByType.get(startType);
       setViewingSaved(existing?.[0] ?? null);
     }
-  }, [isOpen, savedByType]);
+  }, [isOpen, initialType, savedByType]);
 
   // Auto-show latest saved when derivation type changes
   useEffect(() => {

@@ -76,6 +76,8 @@ interface PromotionPacketModalProps {
   isOpen: boolean;
   onClose: () => void;
   stories: CareerStory[];
+  /** Pre-select a packet type when opening from UseAsDropdown */
+  initialType?: PacketType;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -137,8 +139,8 @@ function DateRangePicker({ startValue, endValue, onStartChange, onEndChange }: {
 // MAIN COMPONENT
 // =============================================================================
 
-export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPacketModalProps) {
-  const [packetType, setPacketType] = useState<PacketType>('promotion');
+export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: PromotionPacketModalProps) {
+  const [packetType, setPacketType] = useState<PacketType>(initialType || 'promotion');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tone, setTone] = useState<WritingStyle | ''>('');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -174,7 +176,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setPacketType('promotion');
+      setPacketType(initialType || 'promotion');
       setSelectedIds(new Set());
       setTone('');
       setCustomPrompt('');
@@ -187,7 +189,7 @@ export function PromotionPacketModal({ isOpen, onClose, stories }: PromotionPack
       setDateRangeStart('');
       setDateRangeEnd('');
     }
-  }, [isOpen]);
+  }, [isOpen, initialType]);
 
   const handlePacketTypeChange = useCallback((type: PacketType) => {
     setPacketType(type);
