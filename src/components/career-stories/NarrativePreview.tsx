@@ -48,7 +48,8 @@ import {
 import { SUPPORTED_SOURCES, type ActivitySource } from '../../types/activity';
 import { getSourceIcon } from '../journal/source-icons';
 import { SourceFootnotes } from './SourceFootnotes';
-import { DerivationHistory } from './DerivationHistory';
+import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
+import { useStoryDerivations, usePackets } from '../../hooks/useCareerStories';
 import { FrameworkSelector } from './FrameworkSelector';
 import { useUpdateStorySource, useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation } from '../../hooks/useCareerStories';
 import { SelectionPopover } from './SelectionPopover';
@@ -109,7 +110,9 @@ interface NarrativePreviewProps {
   isDeleting?: boolean;
   sources?: StorySource[];
   sourceCoverage?: SourceCoverage;
-  onShareAs?: () => void;
+  onShareAs?: (initialType?: string) => void;
+  onViewDerivation?: (derivation: import('../../types/career-stories').StoryDerivation) => void;
+  onGeneratePacket?: () => void;
 }
 
 export function NarrativePreview({
@@ -138,6 +141,8 @@ export function NarrativePreview({
   sources = [],
   sourceCoverage,
   onShareAs,
+  onViewDerivation,
+  onGeneratePacket,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -629,7 +634,12 @@ export function NarrativePreview({
               sourceCoverage={sourceCoverage}
             />
             {story?.id && (
-              <DerivationHistory storyId={story.id} onShareAs={onShareAs} />
+              <StoryUseAs
+                storyId={story.id}
+                onShareAs={onShareAs}
+                onViewDerivation={onViewDerivation}
+                onGeneratePacket={onGeneratePacket}
+              />
             )}
 
             <button
@@ -1026,5 +1036,48 @@ export function NarrativePreview({
         />
       )}
     </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// StoryUseAs — small wrapper that fetches derivation data and renders UseAsDropdown
+// ---------------------------------------------------------------------------
+
+function StoryUseAs({
+  storyId,
+  onShareAs,
+  onViewDerivation,
+  onGeneratePacket,
+}: {
+  storyId: string;
+  onShareAs?: (initialType?: string) => void;
+  onViewDerivation?: (d: import('../../types/career-stories').StoryDerivation) => void;
+  onGeneratePacket?: () => void;
+}) {
+  const { data: singleDerivations } = useStoryDerivations(storyId);
+  const { data: packets } = usePackets();
+
+  const handleGenerate = React.useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
+    if (kind === 'single' && onShareAs) {
+      onShareAs(typeKey);
+    } else if (kind === 'packet' && onGeneratePacket) {
+      onGeneratePacket();
+    }
+  }, [onShareAs, onGeneratePacket]);
+
+  const handleView = React.useCallback((derivation: import('../../types/career-stories').StoryDerivation) => {
+    if (onViewDerivation) {
+      onViewDerivation(derivation);
+    }
+  }, [onViewDerivation]);
+
+  return (
+    <UseAsDropdown
+      scope="story"
+      singleDerivations={singleDerivations || []}
+      packets={packets || []}
+      onGenerate={handleGenerate}
+      onView={handleView}
+    />
   );
 }

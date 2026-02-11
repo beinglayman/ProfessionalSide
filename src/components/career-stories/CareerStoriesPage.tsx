@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, Briefcase, CheckCircle2, ChevronDown, ChevronRight, X, BookOpen, Loader2, Filter, Clock, LayoutGrid, TrendingUp, FileText, Users, Target, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, X, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
@@ -40,6 +40,7 @@ import { PublishModal } from './PublishModal';
 import { DerivationModal } from './DerivationModal';
 import { DerivationViewModal } from './DerivationViewModal';
 import { PromotionPacketModal } from './PromotionPacketModal';
+import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
@@ -56,14 +57,6 @@ import {
   groupStoriesByCategory,
   formatTimeSpan,
 } from '../../utils/story-timeline';
-const PACKET_PILL_META: Record<string, { label: string; Icon: React.FC<{ className?: string }>; detail: string; bg: string; text: string; iconText: string }> = {
-  promotion: { label: 'Promotion', Icon: TrendingUp, detail: 'Promotion-ready document', bg: 'bg-emerald-50', text: 'text-emerald-700', iconText: 'text-emerald-500' },
-  'annual-review': { label: 'Review', Icon: Clock, detail: 'Annual review summary', bg: 'bg-blue-50', text: 'text-blue-700', iconText: 'text-blue-500' },
-  'skip-level': { label: 'Skip-Level', Icon: ArrowUpRight, detail: 'Skip-level prep', bg: 'bg-purple-50', text: 'text-purple-700', iconText: 'text-purple-500' },
-  'portfolio-brief': { label: 'Portfolio', Icon: FileText, detail: 'Portfolio brief', bg: 'bg-indigo-50', text: 'text-indigo-700', iconText: 'text-indigo-500' },
-  'self-assessment': { label: 'Assessment', Icon: Target, detail: 'Self-assessment write-up', bg: 'bg-rose-50', text: 'text-rose-700', iconText: 'text-rose-500' },
-  'one-on-one': { label: '1:1 Prep', Icon: Users, detail: '1:1 talking points', bg: 'bg-amber-50', text: 'text-amber-700', iconText: 'text-amber-500' },
-};
 
 // Timeline spine (dot + connecting line) — shared between timeline and category views
 function TimelineSpine({ isLast }: { isLast: boolean }) {
@@ -200,14 +193,13 @@ export function CareerStoriesPage() {
   const [publishModalStoryId, setPublishModalStoryId] = useState<string | null>(null);
   // Derivation modal state
   const [derivationStoryId, setDerivationStoryId] = useState<string | null>(null);
+  const [derivationInitialType, setDerivationInitialType] = useState<string | undefined>(undefined);
   // Delete confirmation modal state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Promotion packet modal state
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
   // Packet view modal state
   const [viewPacket, setViewPacket] = useState<import('../../types/career-stories').StoryDerivation | null>(null);
-  // Saved packets accordion state
-  const [showSavedPackets, setShowSavedPackets] = useState(false);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -904,6 +896,21 @@ export function CareerStoriesPage() {
     setSelectedStoryDirect(null);
   }, []);
 
+  // UseAsDropdown handlers
+  const handleUseAsGenerate = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
+    if (kind === 'packet') {
+      setShowPromotionPacket(true);
+    } else if (selectedStoryDirect) {
+      // Single-story type from detail view → open DerivationModal at the correct type
+      setDerivationInitialType(typeKey);
+      setDerivationStoryId(selectedStoryDirect.id);
+    }
+  }, [selectedStoryDirect]);
+
+  const handleUseAsView = useCallback((derivation: import('../../types/career-stories').StoryDerivation) => {
+    setViewPacket(derivation);
+  }, []);
+
   return (
     <div className="h-full bg-gray-50 pb-12" data-testid="career-stories-page">
       {/* Celebration toast */}
@@ -959,7 +966,14 @@ export function CareerStoriesPage() {
                 isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
                 onDelete={handleDeleteStory}
                 isDeleting={deleteStoryMutation.isPending}
-                onShareAs={() => selectedStoryDirect && setDerivationStoryId(selectedStoryDirect.id)}
+                onShareAs={(initialType) => {
+                  if (selectedStoryDirect) {
+                    setDerivationInitialType(initialType);
+                    setDerivationStoryId(selectedStoryDirect.id);
+                  }
+                }}
+                onViewDerivation={(d) => setViewPacket(d)}
+                onGeneratePacket={() => setShowPromotionPacket(true)}
               />
             </div>
           )}
@@ -995,108 +1009,15 @@ export function CareerStoriesPage() {
                     )}
                   </div>
 
-                  {/* Right: Build Narratives (combined with saved) + Filter */}
+                  {/* Right: Use As + Filter */}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Combined Build Narratives + Saved packets dropdown */}
                     {allStories.length >= 1 && (
-                      <div className="relative">
-                        <Button
-                          onClick={() => {
-                            if (!packets || packets.length === 0) {
-                              setShowPromotionPacket(true);
-                            } else {
-                              setShowSavedPackets(!showSavedPackets);
-                            }
-                          }}
-                          size="sm"
-                          className="gap-1.5"
-                        >
-                          <Briefcase className="w-3.5 h-3.5" />
-                          {packets && packets.length > 0 ? 'Saved narratives' : 'Build Narratives'}
-                          {packets && packets.length > 0 && (
-                            <>
-                              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-white/20">
-                                {packets.length}
-                              </span>
-                              <ChevronDown className={cn(
-                                'w-3 h-3 transition-transform duration-200',
-                                showSavedPackets && 'rotate-180'
-                              )} />
-                            </>
-                          )}
-                        </Button>
-                        {showSavedPackets && packets && packets.length > 0 && (
-                          <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-[260px] max-w-[340px]">
-                            {/* Create new */}
-                            <button
-                              onClick={() => { setShowPromotionPacket(true); setShowSavedPackets(false); }}
-                              className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-primary-50 transition-colors text-left w-full font-medium text-primary-700"
-                            >
-                              <span className="flex items-center justify-center w-6 h-6 rounded-md bg-primary-50 flex-shrink-0">
-                                <Briefcase className="w-3.5 h-3.5 text-primary-500" />
-                              </span>
-                              Create new...
-                            </button>
-
-                            {/* Saved packets */}
-                            {packets && packets.length > 0 && (
-                              <>
-                                <div className="border-t border-gray-100 my-1" />
-                                <div className="flex flex-col gap-0.5">
-                                  {packets.map((p) => {
-                                    const meta = PACKET_PILL_META[p.type];
-                                    const PillIcon = meta?.Icon || Clock;
-                                    const pillLabel = meta?.label || p.type;
-                                    const pillDetail = meta?.detail || p.type;
-                                    const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-                                    const snapshots = p.storySnapshots ?? [];
-                                    const storyCount = snapshots.length || p.storyIds?.length || 0;
-
-                                    const allDates: number[] = [];
-                                    for (const snap of snapshots) {
-                                      if (snap.dateRange) {
-                                        allDates.push(new Date(snap.dateRange.earliest).getTime());
-                                        allDates.push(new Date(snap.dateRange.latest).getTime());
-                                      } else if (snap.generatedAt) {
-                                        allDates.push(new Date(snap.generatedAt).getTime());
-                                      }
-                                    }
-                                    const validDates = allDates.filter(t => t > 0);
-                                    const dateRange = validDates.length >= 2
-                                      ? `${new Date(Math.min(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(Math.max(...validDates)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                                      : null;
-
-                                    return (
-                                      <button
-                                        key={p.id}
-                                        onClick={() => { setViewPacket(p); setShowSavedPackets(false); }}
-                                        title={`${pillDetail} · ${p.wordCount} words · ${date}`}
-                                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-md hover:bg-gray-50 transition-colors text-left group"
-                                      >
-                                        <span className={cn(
-                                          'flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0',
-                                          meta?.bg || 'bg-gray-100'
-                                        )}>
-                                          <PillIcon className={cn('w-3.5 h-3.5', meta?.iconText || 'text-gray-400')} />
-                                        </span>
-                                        <div className="flex-1 min-w-0">
-                                          <span className={cn('font-medium block truncate', meta?.text || 'text-gray-700')}>{pillLabel}</span>
-                                          <span className="text-[10px] text-gray-400">
-                                            {dateRange || `${storyCount} ${storyCount === 1 ? 'story' : 'stories'}`}
-                                            {p.wordCount ? ` · ${p.wordCount} words` : ''}
-                                          </span>
-                                        </div>
-                                        <span className="text-[10px] text-gray-400 flex-shrink-0">{date}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <UseAsDropdown
+                        scope="page"
+                        packets={packets || []}
+                        onGenerate={handleUseAsGenerate}
+                        onView={handleUseAsView}
+                      />
                     )}
                     {/* Source filter dropdown */}
                     {availableSources.length > 1 && (
@@ -1420,8 +1341,9 @@ export function CareerStoriesPage() {
       {derivationStory && derivationStoryId && (
         <DerivationModal
           isOpen={!!derivationStoryId}
-          onClose={() => setDerivationStoryId(null)}
+          onClose={() => { setDerivationStoryId(null); setDerivationInitialType(undefined); }}
           story={derivationStory}
+          initialType={derivationInitialType as import('../../types/career-stories').DerivationType | undefined}
         />
       )}
 
