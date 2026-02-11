@@ -991,7 +991,7 @@ export function CareerStoriesPage() {
                           className="gap-1.5"
                         >
                           <Briefcase className="w-3.5 h-3.5" />
-                          Build Narratives
+                          {packets && packets.length > 0 ? 'Saved narratives' : 'Build Narratives'}
                           {packets && packets.length > 0 && (
                             <>
                               <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-white/20">

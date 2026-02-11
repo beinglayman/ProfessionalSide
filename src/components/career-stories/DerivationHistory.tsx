@@ -136,7 +136,7 @@ export function DerivationHistory({ storyId, onShareAs }: DerivationHistoryProps
           data-testid="share-as"
         >
           <Send className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Use this story</span>
+          <span className="hidden sm:inline">{count > 0 ? 'Saved versions' : 'Use this story'}</span>
           {count > 0 && (
             <>
               <span className={cn(

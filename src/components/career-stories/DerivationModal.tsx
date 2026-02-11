@@ -96,19 +96,22 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
       setShowCustomPrompt(false);
       setShowOptions(false);
       setGeneratedResult(null);
-      setViewingSaved(null);
       setCopied(false);
       setError(null);
+      // Auto-show latest saved derivation for default type
+      const existing = savedByType.get('interview');
+      setViewingSaved(existing?.[0] ?? null);
     }
-  }, [isOpen]);
+  }, [isOpen, savedByType]);
 
-  // Clear result when derivation type changes
+  // Auto-show latest saved when derivation type changes
   useEffect(() => {
     setGeneratedResult(null);
-    setViewingSaved(null);
     setError(null);
     setCopied(false);
-  }, [selectedDerivation]);
+    const existing = savedByType.get(selectedDerivation);
+    setViewingSaved(existing?.[0] ?? null);
+  }, [selectedDerivation, savedByType]);
 
   const handleGenerate = useCallback(async () => {
     setError(null);
