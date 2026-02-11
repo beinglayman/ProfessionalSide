@@ -1,9 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ExternalLink, X, ChevronDown } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import { StorySource, ToolType } from '../../types/career-stories';
 import { ToolIcon } from './ToolIcon';
-import { TIMING } from './constants';
+import { useExcludeWithUndo } from '../../hooks/useExcludeWithUndo';
 
 interface SourceFootnotesProps {
   sources: StorySource[];
@@ -25,36 +24,13 @@ export function SourceFootnotes({
   maxVisible = 5,
 }: SourceFootnotesProps) {
   const [expanded, setExpanded] = useState(false);
-  const [pendingExclude, setPendingExclude] = useState<string | null>(null);
-  const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const { pendingExclude, handleExclude, handleUndo } = useExcludeWithUndo(onExclude, onUndoExclude);
 
   const activitySources = sources.filter(
     (s) => !s.excludedAt && s.sourceType === 'activity'
   );
   const visibleSources = expanded ? activitySources : activitySources.slice(0, maxVisible);
   const hiddenCount = activitySources.length - maxVisible;
-
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    };
-  }, []);
-
-  const handleExclude = useCallback((sourceId: string) => {
-    setPendingExclude(sourceId);
-    undoTimerRef.current = setTimeout(() => {
-      onExclude(sourceId);
-      setPendingExclude(null);
-    }, TIMING.EXCLUDE_UNDO_MS);
-  }, [onExclude]);
-
-  const handleUndo = useCallback(() => {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (pendingExclude) {
-      onUndoExclude(pendingExclude);
-    }
-    setPendingExclude(null);
-  }, [pendingExclude, onUndoExclude]);
 
   if (isEditing) return null;
   if (activitySources.length === 0 && !pendingExclude) return null;

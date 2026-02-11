@@ -958,7 +958,6 @@ export function NarrativePreview({
                   {showSourceMargin && (
                     <SourceMargin
                       sources={sectionSources}
-                      sectionKey={sectionKey}
                       onExclude={handleExcludeSource}
                       onUndoExclude={handleUndoExclude}
                     />

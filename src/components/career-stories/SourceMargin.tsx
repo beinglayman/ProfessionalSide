@@ -1,47 +1,21 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React from 'react';
 import { X } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import { StorySource, ToolType } from '../../types/career-stories';
 import { ToolIcon } from './ToolIcon';
-import { TIMING } from './constants';
+import { useExcludeWithUndo } from '../../hooks/useExcludeWithUndo';
 
 interface SourceMarginProps {
   sources: StorySource[];
-  sectionKey: string;
   onExclude: (sourceId: string) => void;
   onUndoExclude: (sourceId: string) => void;
 }
 
 export const SourceMargin: React.FC<SourceMarginProps> = ({
   sources,
-  sectionKey,
   onExclude,
   onUndoExclude,
 }) => {
-  const [pendingExclude, setPendingExclude] = useState<string | null>(null);
-  const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    };
-  }, []);
-
-  const handleExclude = useCallback((sourceId: string) => {
-    setPendingExclude(sourceId);
-    undoTimerRef.current = setTimeout(() => {
-      onExclude(sourceId);
-      setPendingExclude(null);
-    }, TIMING.EXCLUDE_UNDO_MS);
-  }, [onExclude]);
-
-  const handleUndo = useCallback(() => {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (pendingExclude) {
-      onUndoExclude(pendingExclude);
-    }
-    setPendingExclude(null);
-  }, [pendingExclude, onUndoExclude]);
+  const { pendingExclude, handleExclude, handleUndo } = useExcludeWithUndo(onExclude, onUndoExclude);
 
   // Only show tool-originated sources (GitHub PRs, Jira tickets, etc.) in the margin.
   // wizard_answer and user_note types are contextual, not provenance — they don't belong here.

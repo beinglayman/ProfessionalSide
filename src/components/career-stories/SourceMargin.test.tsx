@@ -46,7 +46,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -62,7 +62,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -81,7 +81,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -97,7 +97,7 @@ describe('SourceMargin', () => {
       const { container } = render(
         <SourceMargin
           sources={[]}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -115,7 +115,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -135,7 +135,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -154,7 +154,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -174,7 +174,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -193,7 +193,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -214,7 +214,7 @@ describe('SourceMargin', () => {
       const { unmount } = render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -238,7 +238,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
@@ -256,7 +256,7 @@ describe('SourceMargin', () => {
       render(
         <SourceMargin
           sources={sources}
-          sectionKey="situation"
+
           onExclude={onExclude}
           onUndoExclude={onUndoExclude}
         />
