@@ -88,9 +88,6 @@ export function DerivationViewModal({ isOpen, onClose, derivation, onDelete }: D
             </span>
             <span>{derivation.wordCount} words</span>
             <span>{derivation.charCount} chars</span>
-            {derivation.speakingTimeSec && (
-              <span>~{Math.round(derivation.speakingTimeSec / 60)}m speaking</span>
-            )}
             {derivation.tone && (
               <span className="capitalize">{derivation.tone}</span>
             )}
@@ -106,7 +103,7 @@ export function DerivationViewModal({ isOpen, onClose, derivation, onDelete }: D
               isGenerating={false}
               charCount={derivation.charCount}
               wordCount={derivation.wordCount}
-              speakingTimeSec={derivation.speakingTimeSec}
+
             />
           ) : (
             /* Packet types use markdown rendering */

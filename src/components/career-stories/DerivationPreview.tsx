@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { Loader2, Clock, MessageSquare, User } from 'lucide-react';
+import { Loader2, MessageSquare, User } from 'lucide-react';
 import type { DerivationType } from '../../types/career-stories';
 import { DERIVATION_TYPE_META } from './constants';
 
@@ -15,7 +15,6 @@ interface FrameProps {
   text: string;
   charCount?: number;
   wordCount?: number;
-  speakingTimeSec?: number;
 }
 
 interface DerivationPreviewProps {
@@ -24,7 +23,6 @@ interface DerivationPreviewProps {
   isGenerating: boolean;
   charCount?: number;
   wordCount?: number;
-  speakingTimeSec?: number;
   /** Original story sections for empty-state preview */
   storySections?: Record<string, { summary: string }>;
   storyTitle?: string;
@@ -90,20 +88,14 @@ function ResumeFrame({ text }: FrameProps) {
   );
 }
 
-function InterviewFrame({ text, speakingTimeSec }: FrameProps) {
+function InterviewFrame({ text }: FrameProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <MessageSquare className="h-4 w-4" />
           <span>Interview Answer</span>
         </div>
-        {speakingTimeSec && (
-          <div className="flex items-center gap-1 text-xs text-gray-500">
-            <Clock className="h-3 w-3" />
-            <span>~{Math.round(speakingTimeSec / 60)}m {speakingTimeSec % 60}s</span>
-          </div>
-        )}
       </div>
       <div className="px-4 py-4">
         <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{text}</p>
@@ -112,17 +104,11 @@ function InterviewFrame({ text, speakingTimeSec }: FrameProps) {
   );
 }
 
-function OneOnOneFrame({ text, speakingTimeSec }: FrameProps) {
+function OneOnOneFrame({ text }: FrameProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-gray-100">
         <span className="text-sm font-medium text-gray-700">1:1 Talking Points</span>
-        {speakingTimeSec && (
-          <div className="flex items-center gap-1 text-xs text-gray-500">
-            <Clock className="h-3 w-3" />
-            <span>~{Math.round(speakingTimeSec / 60)}m</span>
-          </div>
-        )}
       </div>
       <div className="px-4 py-4">
         <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{text}</p>
@@ -175,7 +161,6 @@ export function DerivationPreview({
   isGenerating,
   charCount,
   wordCount,
-  speakingTimeSec,
   storySections,
   storyTitle,
 }: DerivationPreviewProps) {
@@ -230,7 +215,7 @@ export function DerivationPreview({
 
   return (
     <div className="space-y-3">
-      <Frame text={text} charCount={charCount} wordCount={wordCount} speakingTimeSec={speakingTimeSec} />
+      <Frame text={text} charCount={charCount} wordCount={wordCount} />
 
       {/* Word/char count footer */}
       {(wordCount || charCount) && (

@@ -70,7 +70,6 @@ import {
   mapSectionToStarKey,
   extractMetrics,
   estimateSpeakingTime,
-  formatTime,
   type SectionTiming,
 } from './constants';
 import { NarrativeSection } from './NarrativeSection';
@@ -608,7 +607,7 @@ export function NarrativePreview({
   }
 
   const storyStatus = getStoryStatus(star.overallConfidence);
-  const coverageText = sourceCoverage ? `${sourceCoverage.sourced}/${sourceCoverage.total} sourced` : null;
+  const coverageText = sourceCoverage ? `${sourceCoverage.sourced} of ${sourceCoverage.total} sections sourced` : null;
   const coverageColor = sourceCoverage
     ? sourceCoverage.sourced === sourceCoverage.total ? 'text-emerald-600' : 'text-amber-600'
     : '';
@@ -628,7 +627,6 @@ export function NarrativePreview({
               confidence={star.overallConfidence}
               suggestedEdits={star.suggestedEdits}
               sourceCoverage={sourceCoverage}
-              estimatedTime={estimatedTime}
             />
             {story?.id && (
               <DerivationHistory storyId={story.id} onShareAs={onShareAs} />
@@ -826,12 +824,6 @@ export function NarrativePreview({
                   ? <EyeOff className="w-3.5 h-3.5" />
                   : <Eye className="w-3.5 h-3.5" />}
               </button>
-            </>
-          )}
-          {estimatedTime > 30 && (
-            <>
-              <span className="text-gray-300">&middot;</span>
-              <span>~{formatTime(estimatedTime)}</span>
             </>
           )}
 

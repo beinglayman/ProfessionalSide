@@ -178,7 +178,6 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
   // Derive display values from either saved or generated
   const displayCharCount = viewingSaved?.charCount || generatedResult?.charCount;
   const displayWordCount = viewingSaved?.wordCount || generatedResult?.wordCount;
-  const displaySpeakingTime = viewingSaved?.speakingTimeSec || generatedResult?.speakingTimeSec;
 
   const existingForType = savedByType.get(selectedDerivation) || [];
 
@@ -358,7 +357,6 @@ export function DerivationModal({ isOpen, onClose, story }: DerivationModalProps
             isGenerating={isGenerating}
             charCount={displayCharCount}
             wordCount={displayWordCount}
-            speakingTimeSec={displaySpeakingTime}
             storySections={story.sections as Record<string, { summary: string }>}
             storyTitle={story.title}
           />

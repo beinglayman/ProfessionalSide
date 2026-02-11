@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { SourceCoverage } from '../../types/career-stories';
-import { StoryStatus, STATUS_DESCRIPTIONS, formatTime } from './constants';
+import { StoryStatus, STATUS_DESCRIPTIONS } from './constants';
 
 interface NarrativeStatusBadgeProps {
   status: StoryStatus;
   confidence?: number;
   suggestedEdits?: string[];
   sourceCoverage?: SourceCoverage | null;
-  estimatedTime?: number;
 }
 
-export const NarrativeStatusBadge: React.FC<NarrativeStatusBadgeProps> = ({ status, confidence, suggestedEdits = [], sourceCoverage, estimatedTime }) => {
+export const NarrativeStatusBadge: React.FC<NarrativeStatusBadgeProps> = ({ status, confidence, suggestedEdits = [], sourceCoverage }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const config = {
@@ -82,16 +81,10 @@ export const NarrativeStatusBadge: React.FC<NarrativeStatusBadgeProps> = ({ stat
             )}
           </div>
 
-          {/* Stats row: sources + speaking time */}
-          {(sourceCoverage || estimatedTime) && (
-            <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3 text-xs text-gray-500">
-              {sourceCoverage && sourceCoverage.total > 0 && (
-                <span>{sourceCoverage.sourced} of {sourceCoverage.total} sections sourced</span>
-              )}
-              {sourceCoverage && estimatedTime && <span>&middot;</span>}
-              {estimatedTime !== undefined && (
-                <span>~{formatTime(estimatedTime)} speaking</span>
-              )}
+          {/* Stats row: sources */}
+          {sourceCoverage && sourceCoverage.total > 0 && (
+            <div className="px-4 py-2 border-b border-gray-100 text-xs text-gray-500">
+              <span>{sourceCoverage.sourced} of {sourceCoverage.total} sections sourced</span>
             </div>
           )}
 

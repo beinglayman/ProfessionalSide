@@ -543,7 +543,7 @@ describe('NarrativePreview', () => {
         />
       );
 
-      expect(screen.getByText('3/4 sourced')).toBeInTheDocument();
+      expect(screen.getByText('3 of 4 sections sourced')).toBeInTheDocument();
     });
   });
 });

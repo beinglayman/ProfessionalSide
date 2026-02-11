@@ -32,15 +32,6 @@ function getPreviewSections(story: CareerStory): { label: string; text: string }
     .filter(Boolean) as { label: string; text: string }[];
 }
 
-function estimateSpeakingTime(story: CareerStory): string {
-  const allText = Object.values(story.sections || {}).map(s => s?.summary || '').join(' ');
-  const words = allText.trim().split(/\s+/).length;
-  const seconds = Math.ceil((words / 150) * 60);
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
 function extractKeyMetrics(story: CareerStory): string[] {
   const allText = Object.values(story.sections || {}).map(s => s?.summary || '').join(' ');
   const metricPattern = /(\d+(?:\.\d+)?[%xX]|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\d+(?:,\d{3})*\s*(?:ms|seconds?|hours?|days?|users?))/gi;
@@ -54,7 +45,6 @@ export function PublishModal({ isOpen, onClose, story, onPublish, isPublishing }
   );
 
   const sections = useMemo(() => getPreviewSections(story), [story]);
-  const speakingTime = useMemo(() => estimateSpeakingTime(story), [story]);
   const metrics = useMemo(() => extractKeyMetrics(story), [story]);
   const frameworkInfo = NARRATIVE_FRAMEWORKS[story.framework];
 
@@ -100,8 +90,6 @@ export function PublishModal({ isOpen, onClose, story, onPublish, isPublishing }
                 </div>
                 <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
                   <span>{story.activityIds.length} activities</span>
-                  <span className="text-gray-300">&middot;</span>
-                  <span>~{speakingTime}</span>
                 </div>
               </div>
 

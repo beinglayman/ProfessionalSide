@@ -240,7 +240,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
                 story.sourceCoverage.sourced === story.sourceCoverage.total ? 'text-green-600' :
                 story.sourceCoverage.sourced > 0 ? 'text-amber-600' : ''
               )}>
-                {story.sourceCoverage.sourced}/{story.sourceCoverage.total} sourced
+                {story.sourceCoverage.sourced} of {story.sourceCoverage.total} sourced
               </span>
             </>
           )}
