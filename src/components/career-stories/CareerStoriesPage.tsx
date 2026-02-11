@@ -25,7 +25,6 @@ import {
   useUpdateCareerStory,
   useRegenerateCareerStory,
   useDeleteCareerStory,
-  useDeleteDerivation,
   usePublishCareerStory,
   useUnpublishCareerStory,
   useSetCareerStoryVisibility,
@@ -38,7 +37,6 @@ import { StoryCard } from './StoryCard';
 import { FormatSwitchModal } from './FormatSwitchModal';
 import { PublishModal } from './PublishModal';
 import { DerivationModal } from './DerivationModal';
-import { DerivationViewModal } from './DerivationViewModal';
 import { PromotionPacketModal } from './PromotionPacketModal';
 import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
 import type { BragDocCategory } from '../../types/career-stories';
@@ -199,8 +197,6 @@ export function CareerStoriesPage() {
   // Promotion packet modal state
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
   const [packetInitialType, setPacketInitialType] = useState<string | undefined>(undefined);
-  // Packet view modal state
-  const [viewPacket, setViewPacket] = useState<import('../../types/career-stories').StoryDerivation | null>(null);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -290,7 +286,6 @@ export function CareerStoriesPage() {
   const updateStoryMutation = useUpdateCareerStory();
   const regenerateStoryMutation = useRegenerateCareerStory();
   const deleteStoryMutation = useDeleteCareerStory();
-  const deleteDerivationMutation = useDeleteDerivation();
   const publishStoryMutation = usePublishCareerStory();
   const unpublishStoryMutation = useUnpublishCareerStory();
   const setVisibilityMutation = useSetCareerStoryVisibility();
@@ -897,8 +892,8 @@ export function CareerStoriesPage() {
     setSelectedStoryDirect(null);
   }, []);
 
-  // UseAsDropdown handlers
-  const handleUseAsGenerate = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
+  // UseAsDropdown handler — always opens the modal at the selected type
+  const handleUseAsSelect = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
     if (kind === 'packet') {
       setPacketInitialType(typeKey);
       setShowPromotionPacket(true);
@@ -907,10 +902,6 @@ export function CareerStoriesPage() {
       setDerivationStoryId(selectedStoryDirect.id);
     }
   }, [selectedStoryDirect]);
-
-  const handleUseAsView = useCallback((derivation: import('../../types/career-stories').StoryDerivation) => {
-    setViewPacket(derivation);
-  }, []);
 
   return (
     <div className="h-full bg-gray-50 pb-12" data-testid="career-stories-page">
@@ -973,7 +964,6 @@ export function CareerStoriesPage() {
                     setDerivationStoryId(selectedStoryDirect.id);
                   }
                 }}
-                onViewDerivation={(d) => setViewPacket(d)}
                 onGeneratePacket={() => setShowPromotionPacket(true)}
               />
             </div>
@@ -1016,8 +1006,7 @@ export function CareerStoriesPage() {
                       <UseAsDropdown
                         scope="page"
                         packets={packets || []}
-                        onGenerate={handleUseAsGenerate}
-                        onView={handleUseAsView}
+                        onSelect={handleUseAsSelect}
                       />
                     )}
                     {/* Source filter dropdown */}
@@ -1355,20 +1344,6 @@ export function CareerStoriesPage() {
           onClose={() => { setShowPromotionPacket(false); setPacketInitialType(undefined); }}
           stories={allStories}
           initialType={packetInitialType as import('../../types/career-stories').PacketType | undefined}
-        />
-      )}
-
-      {/* Packet View Modal */}
-      {viewPacket && (
-        <DerivationViewModal
-          isOpen={!!viewPacket}
-          onClose={() => setViewPacket(null)}
-          derivation={viewPacket}
-          onDelete={(id) => {
-            deleteDerivationMutation.mutate(id, {
-              onSuccess: () => setViewPacket(null),
-            });
-          }}
         />
       )}
 

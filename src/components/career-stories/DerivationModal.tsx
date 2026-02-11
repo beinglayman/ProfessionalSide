@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Copy, Check, RefreshCw, Loader2, PenLine, Send, ChevronDown, Clock } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatRelativeTime } from '../../lib/utils';
 import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse, StoryDerivation } from '../../types/career-stories';
 import { useDeriveStory, useStoryDerivations } from '../../hooks/useCareerStories';
 import { useFeatureCosts, useWalletBalance } from '../../hooks/useBilling';
@@ -38,21 +38,6 @@ interface DerivationModalProps {
 const DERIVATION_TYPES: DerivationType[] = [
   'interview', 'linkedin', 'resume', 'team-share',
 ];
-
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHr = Math.floor(diffMs / 3600000);
-  const diffDay = Math.floor(diffMs / 86400000);
-
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay < 30) return `${diffDay}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 // =============================================================================
 // MAIN COMPONENT

@@ -22,7 +22,6 @@ import {
   Share2,
   MessageSquare,
   ChevronDown,
-  RefreshCw,
   Check,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -46,7 +45,7 @@ export type UseAsTypeKey =
   | 'resume'
   | 'team-share';
 
-interface UseAsTypeMeta {
+export interface UseAsTypeMeta {
   key: UseAsTypeKey;
   label: string;
   description: string;
@@ -58,7 +57,7 @@ interface UseAsTypeMeta {
   group: 'reviews' | 'meetings' | 'opportunities' | 'sharing';
 }
 
-const TYPE_REGISTRY: UseAsTypeMeta[] = [
+export const TYPE_REGISTRY: UseAsTypeMeta[] = [
   // FOR REVIEWS
   { key: 'promotion', label: 'Promotion Case', description: 'Promotion-ready document', Icon: TrendingUp, bg: 'bg-emerald-50', text: 'text-emerald-700', iconText: 'text-emerald-500', kind: 'packet', group: 'reviews' },
   { key: 'self-assessment', label: 'Self-Assessment', description: 'Evidence-backed perf review', Icon: Target, bg: 'bg-rose-50', text: 'text-rose-700', iconText: 'text-rose-500', kind: 'packet', group: 'reviews' },
@@ -95,27 +94,27 @@ interface UseAsDropdownProps {
   singleDerivations?: StoryDerivation[];
   /** Saved multi-story packets */
   packets?: StoryDerivation[];
-  /** Called when user clicks an empty (not-yet-created) type */
-  onGenerate: (typeKey: UseAsTypeKey, kind: 'single' | 'packet') => void;
-  /** Called when user clicks a ready (already created) type to view/regenerate */
-  onView: (derivation: StoryDerivation) => void;
+  /** Called when user clicks any type — opens the modal at that type for generation or version browsing */
+  onSelect: (typeKey: UseAsTypeKey, kind: 'single' | 'packet') => void;
 }
 
 export function UseAsDropdown({
   scope,
   singleDerivations = [],
   packets = [],
-  onGenerate,
-  onView,
+  onSelect,
 }: UseAsDropdownProps) {
-  // Build lookup: typeKey → most recent saved derivation
+  // Build lookup: typeKey → all saved derivations (newest first)
   const savedByType = useMemo(() => {
-    const map = new Map<string, StoryDerivation>();
+    const map = new Map<string, StoryDerivation[]>();
     for (const d of [...singleDerivations, ...packets]) {
-      const existing = map.get(d.type);
-      if (!existing || new Date(d.createdAt) > new Date(existing.createdAt)) {
-        map.set(d.type, d);
-      }
+      const list = map.get(d.type) || [];
+      list.push(d);
+      map.set(d.type, list);
+    }
+    // Sort each list newest-first
+    for (const [, list] of map) {
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     return map;
   }, [singleDerivations, packets]);
@@ -136,8 +135,8 @@ export function UseAsDropdown({
     return groups;
   }, [visibleTypes]);
 
-  // Count ready items
-  const readyCount = visibleTypes.filter(t => savedByType.has(t.key)).length;
+  // Count total saved versions across all visible types
+  const readyCount = visibleTypes.reduce((sum, t) => sum + (savedByType.get(t.key)?.length || 0), 0);
 
   return (
     <DropdownMenu.Root>
@@ -175,20 +174,16 @@ export function UseAsDropdown({
                   {GROUP_LABELS[groupKey]}
                 </DropdownMenu.Label>
                 {items.map((type) => {
-                  const saved = savedByType.get(type.key);
+                  const versions = savedByType.get(type.key) || [];
+                  const latest = versions[0]; // newest first
+                  const versionCount = versions.length;
                   const TypeIcon = type.Icon;
 
                   return (
                     <DropdownMenu.Item
                       key={type.key}
                       className="flex items-center gap-2.5 px-2.5 py-2 text-sm rounded-lg cursor-pointer outline-none transition-colors hover:bg-gray-50 focus:bg-gray-50"
-                      onSelect={() => {
-                        if (saved) {
-                          onView(saved);
-                        } else {
-                          onGenerate(type.key, type.kind);
-                        }
-                      }}
+                      onSelect={() => onSelect(type.key, type.kind)}
                     >
                       {/* Icon */}
                       <span className={cn('flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0', type.bg)}>
@@ -201,20 +196,20 @@ export function UseAsDropdown({
                           {type.label}
                         </span>
                         <span className="text-[11px] text-gray-400 block truncate">
-                          {saved
-                            ? `${new Date(saved.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${saved.wordCount} words`
+                          {latest
+                            ? `${new Date(latest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${latest.wordCount} words`
                             : type.description}
                         </span>
                       </div>
 
                       {/* Status indicator */}
-                      {saved ? (
+                      {latest ? (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 flex-shrink-0">
                           <Check className="w-3 h-3" />
-                          Ready
+                          {versionCount > 1 ? `${versionCount} saved` : 'Ready'}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-gray-300 flex-shrink-0">—</span>
+                        <span className="text-[10px] text-gray-300 flex-shrink-0">&mdash;</span>
                       )}
                     </DropdownMenu.Item>
                   );

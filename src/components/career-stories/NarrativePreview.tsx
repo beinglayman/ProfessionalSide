@@ -111,7 +111,6 @@ interface NarrativePreviewProps {
   sources?: StorySource[];
   sourceCoverage?: SourceCoverage;
   onShareAs?: (initialType?: string) => void;
-  onViewDerivation?: (derivation: import('../../types/career-stories').StoryDerivation) => void;
   onGeneratePacket?: () => void;
 }
 
@@ -141,7 +140,6 @@ export function NarrativePreview({
   sources = [],
   sourceCoverage,
   onShareAs,
-  onViewDerivation,
   onGeneratePacket,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -637,7 +635,6 @@ export function NarrativePreview({
               <StoryUseAs
                 storyId={story.id}
                 onShareAs={onShareAs}
-                onViewDerivation={onViewDerivation}
                 onGeneratePacket={onGeneratePacket}
               />
             )}
@@ -1046,18 +1043,16 @@ export function NarrativePreview({
 function StoryUseAs({
   storyId,
   onShareAs,
-  onViewDerivation,
   onGeneratePacket,
 }: {
   storyId: string;
   onShareAs?: (initialType?: string) => void;
-  onViewDerivation?: (d: import('../../types/career-stories').StoryDerivation) => void;
   onGeneratePacket?: () => void;
 }) {
   const { data: singleDerivations } = useStoryDerivations(storyId);
   const { data: packets } = usePackets();
 
-  const handleGenerate = React.useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
+  const handleSelect = React.useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
     if (kind === 'single' && onShareAs) {
       onShareAs(typeKey);
     } else if (kind === 'packet' && onGeneratePacket) {
@@ -1065,19 +1060,12 @@ function StoryUseAs({
     }
   }, [onShareAs, onGeneratePacket]);
 
-  const handleView = React.useCallback((derivation: import('../../types/career-stories').StoryDerivation) => {
-    if (onViewDerivation) {
-      onViewDerivation(derivation);
-    }
-  }, [onViewDerivation]);
-
   return (
     <UseAsDropdown
       scope="story"
       singleDerivations={singleDerivations || []}
       packets={packets || []}
-      onGenerate={handleGenerate}
-      onView={handleView}
+      onSelect={handleSelect}
     />
   );
 }

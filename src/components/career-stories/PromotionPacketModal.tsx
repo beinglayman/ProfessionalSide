@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Copy, Check, Loader2, PenLine, RefreshCw, Briefcase, Calendar, ChevronDown, Clock } from 'lucide-react';
 import { SimpleMarkdown } from '../ui/simple-markdown';
-import { cn } from '../../lib/utils';
+import { cn, formatRelativeTime } from '../../lib/utils';
 import type { CareerStory, WritingStyle, PacketType, DerivePacketResponse, StoryDerivation } from '../../types/career-stories';
 import { useDerivePacket, useStoryDerivations } from '../../hooks/useCareerStories';
 import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH } from './constants';
@@ -80,24 +80,48 @@ interface PromotionPacketModalProps {
   initialType?: PacketType;
 }
 
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
+// =============================================================================
+// DATE RANGE PICKER — preset-based with optional custom
+// =============================================================================
+
+export type DatePreset = 'last-quarter' | 'last-6m' | 'last-year' | 'ytd' | 'custom';
+
+export const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'last-quarter', label: 'Last quarter' },
+  { key: 'last-6m', label: 'Last 6 months' },
+  { key: 'last-year', label: 'Last year' },
+  { key: 'ytd', label: 'Year to date' },
+  { key: 'custom', label: 'Custom' },
+];
+
+export function computePresetRange(preset: DatePreset): { start: string; end: string } {
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHr = Math.floor(diffMs / 3600000);
-  const diffDay = Math.floor(diffMs / 86400000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10); // YYYY-MM-DD
+  const end = fmt(now);
 
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay < 30) return `${diffDay}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  switch (preset) {
+    case 'last-quarter': {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 3);
+      return { start: fmt(d), end };
+    }
+    case 'last-6m': {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      return { start: fmt(d), end };
+    }
+    case 'last-year': {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 1);
+      return { start: fmt(d), end };
+    }
+    case 'ytd':
+      return { start: `${now.getFullYear()}-01-01`, end };
+    case 'custom':
+    default:
+      return { start: '', end: '' };
+  }
 }
-
-// =============================================================================
-// DATE RANGE PICKER
-// =============================================================================
 
 function DateRangePicker({ startValue, endValue, onStartChange, onEndChange }: {
   startValue: string;
@@ -105,32 +129,74 @@ function DateRangePicker({ startValue, endValue, onStartChange, onEndChange }: {
   onStartChange: (v: string) => void;
   onEndChange: (v: string) => void;
 }) {
-  const maxMonth = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
+  const [activePreset, setActivePreset] = useState<DatePreset>('last-year');
+
+  // Apply default preset on mount (state setters are stable, won't re-fire)
+  useEffect(() => {
+    const range = computePresetRange('last-year');
+    onStartChange(range.start);
+    onEndChange(range.end);
+  }, [onStartChange, onEndChange]);
+
+  const handlePreset = (preset: DatePreset) => {
+    setActivePreset(preset);
+    if (preset !== 'custom') {
+      const range = computePresetRange(preset);
+      onStartChange(range.start);
+      onEndChange(range.end);
+    }
+  };
+
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   return (
-    <div className="flex items-center gap-2">
-      <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-      <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Period</span>
-      <input
-        type="month"
-        value={startValue}
-        onChange={(e) => onStartChange(e.target.value)}
-        min="2020-01"
-        max={endValue || maxMonth}
-        className="text-xs border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-      />
-      <span className="text-xs text-gray-400">to</span>
-      <input
-        type="month"
-        value={endValue}
-        onChange={(e) => onEndChange(e.target.value)}
-        min={startValue || '2020-01'}
-        max={maxMonth}
-        className="text-xs border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-      />
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mr-1">Period</span>
+        {DATE_PRESETS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => handlePreset(key)}
+            className={cn(
+              'px-2 py-0.5 text-[11px] rounded-full border transition-colors',
+              activePreset === key
+                ? 'bg-primary-50 border-primary-300 text-primary-700 font-medium'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {activePreset === 'custom' && (
+        <div className="flex items-center gap-2 ml-5">
+          <input
+            type="date"
+            value={startValue}
+            onChange={(e) => onStartChange(e.target.value)}
+            max={endValue || today}
+            className="text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-400 outline-none"
+          />
+          <span className="text-xs text-gray-400">to</span>
+          <input
+            type="date"
+            value={endValue}
+            onChange={(e) => onEndChange(e.target.value)}
+            min={startValue}
+            max={today}
+            className="text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-400 outline-none"
+          />
+        </div>
+      )}
+      {activePreset !== 'custom' && startValue && endValue && (
+        <p className="text-[11px] text-gray-400 ml-5">
+          {new Date(startValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          {' '}&mdash;{' '}
+          {new Date(endValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </p>
+      )}
     </div>
   );
 }
@@ -273,6 +339,27 @@ export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: 
     setError(null);
   }, []);
 
+  // Filter stories by date range when annual-review has dates set.
+  // Uses createdAt as proxy for "when the work happened" — stories without
+  // dates are excluded from time-filtered results (new Date(undefined) → NaN → false).
+  const filteredStories = useMemo(() => {
+    if (packetType !== 'annual-review' || !dateRangeStart || !dateRangeEnd) return stories;
+    const start = new Date(dateRangeStart);
+    const end = new Date(dateRangeEnd);
+    end.setHours(23, 59, 59, 999); // include full end day
+    return stories.filter((s) => {
+      const d = new Date(s.createdAt || s.generatedAt);
+      return d >= start && d <= end;
+    });
+  }, [stories, packetType, dateRangeStart, dateRangeEnd]);
+
+  // Auto-select all filtered stories when date range changes (annual-review only)
+  useEffect(() => {
+    if (packetType === 'annual-review' && filteredStories !== stories) {
+      setSelectedIds(new Set(filteredStories.map(s => s.id)));
+    }
+  }, [filteredStories, packetType, stories]);
+
   const isGenerating = packetMutation.isPending;
   const canGenerate = selectedIds.size >= 2 && !isGenerating;
   const activeText = viewingSaved?.text || generatedResult?.text || null;
@@ -371,11 +458,15 @@ export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: 
         {!viewingSaved && (
           <div className="space-y-2">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              Stories ({selectedIds.size} selected)
+              Stories ({selectedIds.size} selected{packetType === 'annual-review' && dateRangeStart ? ` of ${filteredStories.length}` : ''})
             </div>
             <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-2">
-              {stories.map((story) => {
+              {filteredStories.length === 0 && (
+                <p className="text-xs text-gray-400 py-3 text-center">No stories in this date range</p>
+              )}
+              {filteredStories.map((story) => {
                 const isSelected = selectedIds.has(story.id);
+                const storyDate = story.createdAt || story.generatedAt;
                 return (
                   <label
                     key={story.id}
@@ -392,9 +483,14 @@ export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: 
                       onChange={() => toggleStory(story.id)}
                       className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                     />
-                    <span className={cn('text-sm truncate', isSelected ? 'text-purple-700 font-medium' : 'text-gray-700')}>
+                    <span className={cn('text-sm truncate flex-1', isSelected ? 'text-purple-700 font-medium' : 'text-gray-700')}>
                       {story.title}
                     </span>
+                    {storyDate && (
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">
+                        {new Date(storyDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
                   </label>
                 );
               })}
