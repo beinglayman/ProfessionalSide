@@ -56,13 +56,12 @@ export function SourceFootnotes({
   }, [pendingExclude, onUndoExclude]);
 
   if (isEditing) return null;
+  if (activitySources.length === 0 && !pendingExclude) return null;
 
   return (
-    <div className="mt-3">
+    <div className="mt-2">
       {/* Thin separator */}
-      {(activitySources.length > 0 || activitySources.length === 0) && (
-        <div className="border-t border-gray-100 pt-2.5" />
-      )}
+      <div className="border-t border-gray-100 pt-2" />
 
       {/* Activity sources — compact horizontal flow */}
       {activitySources.length > 0 && (
@@ -124,13 +123,6 @@ export function SourceFootnotes({
               +{hiddenCount} more
             </button>
           )}
-        </div>
-      )}
-
-      {/* No sources state — subtle, not alarming */}
-      {activitySources.length === 0 && pendingExclude === null && (
-        <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-          <span>No sources</span>
         </div>
       )}
     </div>

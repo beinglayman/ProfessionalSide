@@ -3,8 +3,8 @@
  *
  * Left margin column for Tufte-style margin notes and asides.
  * Always visible on desktop (hidden on mobile):
- * - Narrow (32px) when empty — just shows a subtle "+" affordance
- * - Full width (180px) when notes/asides exist
+ * - Narrow (20px) when empty — hover reveals "+" affordance
+ * - Full width (150px) when notes/asides exist
  *
  * Notes stack vertically as discrete cards. When there are many,
  * each collapses to a single truncated line. Hovering expands one
@@ -75,8 +75,8 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
   return (
     <div
       className={cn(
-        'hidden lg:block flex-shrink-0 pt-1 transition-all duration-200',
-        isExpanded ? 'w-[180px] pr-3' : 'w-8 pr-1'
+        'hidden lg:block flex-shrink-0 pt-1 transition-all duration-200 group/margin',
+        isExpanded ? 'w-[150px]' : 'w-5'
       )}
     >
       {/* Note cards — vertical stack with clear boundaries */}
@@ -120,14 +120,14 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
 
               {isAside ? (
                 <p className={cn(
-                  'text-[11px] leading-relaxed text-gray-400 italic border-l-2 border-gray-200 pl-2 py-1 pr-4',
+                  'text-[11px] leading-relaxed text-gray-400 italic border-l-2 border-gray-200 pl-2 py-1',
                   isCrowded && !isHovered && 'line-clamp-1',
                 )}>
                   {ann.note}
                 </p>
               ) : (
                 <div className={cn(
-                  'border-l-2 pl-2 py-1 pr-4 transition-colors',
+                  'border-l-2 pl-2 py-1 transition-colors',
                   isHovered ? 'border-amber-500' : 'border-amber-300',
                 )}>
                   <p className={cn(
@@ -143,13 +143,15 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
         })}
       </div>
 
-      {/* Add aside button */}
+      {/* Add aside button — visible on hover of margin area */}
       {!showAsideInput && (
         <button
           onClick={() => setShowAsideInput(true)}
           className={cn(
-            'flex items-center gap-1 text-gray-300 hover:text-gray-500 transition-colors mt-2',
-            isExpanded ? 'text-[10px]' : 'text-[10px] justify-center w-full'
+            'flex items-center gap-1 text-gray-300 hover:text-gray-500 transition-all mt-1',
+            isExpanded
+              ? 'text-[10px] opacity-0 group-hover/margin:opacity-100'
+              : 'text-[10px] justify-center w-full opacity-0 group-hover/margin:opacity-100'
           )}
           title="Add aside note"
         >
