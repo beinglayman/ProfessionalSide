@@ -94,8 +94,9 @@ interface UseAsDropdownProps {
   singleDerivations?: StoryDerivation[];
   /** Saved multi-story packets */
   packets?: StoryDerivation[];
-  /** Called when user clicks any type — opens the modal at that type for generation or version browsing */
-  onSelect: (typeKey: UseAsTypeKey, kind: 'single' | 'packet') => void;
+  /** Called when user clicks any type — opens the modal at that type for generation or version browsing.
+   *  If an existing derivation exists, its ID is passed so the parent can navigate to it. */
+  onSelect: (typeKey: UseAsTypeKey, kind: 'single' | 'packet', existingId?: string) => void;
 }
 
 export function UseAsDropdown({
@@ -183,7 +184,7 @@ export function UseAsDropdown({
                     <DropdownMenu.Item
                       key={type.key}
                       className="flex items-center gap-2.5 px-2.5 py-2 text-sm rounded-lg cursor-pointer outline-none transition-colors hover:bg-gray-50 focus:bg-gray-50"
-                      onSelect={() => onSelect(type.key, type.kind)}
+                      onSelect={() => onSelect(type.key, type.kind, latest?.id)}
                     >
                       {/* Icon */}
                       <span className={cn('flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0', type.bg)}>

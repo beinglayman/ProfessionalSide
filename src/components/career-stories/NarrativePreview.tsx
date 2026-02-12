@@ -112,6 +112,7 @@ interface NarrativePreviewProps {
   sourceCoverage?: SourceCoverage;
   onShareAs?: (initialType?: string) => void;
   onGeneratePacket?: () => void;
+  onNavigateToLibraryItem?: (itemId: string) => void;
 }
 
 export function NarrativePreview({
@@ -141,6 +142,7 @@ export function NarrativePreview({
   sourceCoverage,
   onShareAs,
   onGeneratePacket,
+  onNavigateToLibraryItem,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -636,6 +638,7 @@ export function NarrativePreview({
                 storyId={story.id}
                 onShareAs={onShareAs}
                 onGeneratePacket={onGeneratePacket}
+                onNavigateToLibraryItem={onNavigateToLibraryItem}
               />
             )}
 
@@ -1044,21 +1047,27 @@ function StoryUseAs({
   storyId,
   onShareAs,
   onGeneratePacket,
+  onNavigateToLibraryItem,
 }: {
   storyId: string;
   onShareAs?: (initialType?: string) => void;
   onGeneratePacket?: () => void;
+  onNavigateToLibraryItem?: (itemId: string) => void;
 }) {
   const { data: singleDerivations } = useStoryDerivations(storyId);
   const { data: packets } = usePackets();
 
-  const handleSelect = React.useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
+  const handleSelect = React.useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet', existingId?: string) => {
+    if (existingId && onNavigateToLibraryItem) {
+      onNavigateToLibraryItem(existingId);
+      return;
+    }
     if (kind === 'single' && onShareAs) {
       onShareAs(typeKey);
     } else if (kind === 'packet' && onGeneratePacket) {
       onGeneratePacket();
     }
-  }, [onShareAs, onGeneratePacket]);
+  }, [onShareAs, onGeneratePacket, onNavigateToLibraryItem]);
 
   return (
     <UseAsDropdown

@@ -892,8 +892,13 @@ export function CareerStoriesPage() {
     setSelectedStoryDirect(null);
   }, []);
 
-  // UseAsDropdown handler — always opens the modal at the selected type
-  const handleUseAsSelect = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
+  // UseAsDropdown handler — navigate to existing derivation if saved, otherwise open generation modal
+  const handleUseAsSelect = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet', existingId?: string) => {
+    // If an existing derivation/packet is saved, navigate to its library detail
+    if (existingId) {
+      setSearchParams({ tab: 'library', itemId: existingId }, { replace: true });
+      return;
+    }
     if (kind === 'packet') {
       setPacketInitialType(typeKey);
       setShowPromotionPacket(true);
@@ -901,7 +906,7 @@ export function CareerStoriesPage() {
       setDerivationInitialType(typeKey);
       setDerivationStoryId(selectedStoryDirect.id);
     }
-  }, [selectedStoryDirect]);
+  }, [selectedStoryDirect, setSearchParams]);
 
   // =========================================================================
   // LIBRARY TAB
@@ -1040,6 +1045,7 @@ export function CareerStoriesPage() {
                   }
                 }}
                 onGeneratePacket={() => setShowPromotionPacket(true)}
+                onNavigateToLibraryItem={(itemId) => setSearchParams({ tab: 'library', itemId }, { replace: true })}
               />
             </div>
           )}
