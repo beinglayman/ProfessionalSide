@@ -150,7 +150,7 @@ describe('ActivityStream — inline drafts', () => {
 });
 
 describe('ActivityStream — expand/collapse in Draft Stories mode', () => {
-  it('Expand button expands all draft cards', () => {
+  it('Collapse button collapses all groups, Expand re-expands them', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
@@ -165,19 +165,26 @@ describe('ActivityStream — expand/collapse in Draft Stories mode', () => {
     // Switch to Draft Stories tab
     fireEvent.click(screen.getByText('Draft Stories'));
 
-    // Draft descriptions are line-clamped in collapsed header, but the
-    // expanded view shows the full description + impact highlights section.
-    // Initially no expanded content dividers visible.
-    const expandButton = screen.getByRole('button', { name: /expand/i });
-    fireEvent.click(expandButton);
+    // First group is expanded by default, so button shows "Collapse"
+    const collapseButton = screen.getByRole('button', { name: /collapse/i });
+    expect(collapseButton).toBeInTheDocument();
 
-    // After expand, both draft cards should show their expanded content.
-    // The "Key Impact" heading only appears in expanded state.
-    // We verify by checking that collapse button now appears.
+    // Draft cards are visible in expanded group
+    expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
+
+    // Collapse all groups
+    fireEvent.click(collapseButton);
+
+    // Should show expand button now
+    const expandButton = screen.getByRole('button', { name: /expand/i });
+    expect(expandButton).toBeInTheDocument();
+
+    // Re-expand all
+    fireEvent.click(expandButton);
     expect(screen.getByRole('button', { name: /collapse/i })).toBeInTheDocument();
   });
 
-  it('Collapse button collapses all draft cards', () => {
+  it('Collapse button hides group content, Expand restores it', () => {
     render(
       <ActivityStream
         groups={[makeTemporalGroup('this_week', 'This Week', 2)]}
@@ -186,13 +193,13 @@ describe('ActivityStream — expand/collapse in Draft Stories mode', () => {
       />
     );
 
-    // Switch to Draft Stories, expand, then collapse
+    // Switch to Draft Stories
     fireEvent.click(screen.getByText('Draft Stories'));
 
-    // Expand one card manually
-    fireEvent.click(screen.getByText('Auth Overhaul'));
+    // Draft card visible initially (first group expanded)
+    expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
 
-    // Now collapse all
+    // Collapse all
     const collapseButton = screen.getByRole('button', { name: /collapse/i });
     fireEvent.click(collapseButton);
 
@@ -387,7 +394,7 @@ describe('ActivityStream — draft card activity cap', () => {
     );
 
     fireEvent.click(screen.getByText('Draft Stories'));
-    fireEvent.click(screen.getByText('Bug Fixes'));
+    fireEvent.click(screen.getByRole('heading', { name: 'Bug Fixes' }));
 
     // Expand, then collapse
     fireEvent.click(screen.getByText('+2 more'));

@@ -732,6 +732,7 @@ export const useDeriveStory = () => {
       CareerStoriesService.deriveStory(storyId, params),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations', variables.storyId] });
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivations-by-kind', 'single'] });
       queryClient.invalidateQueries({ queryKey: BillingKeys.walletBalance });
     },
   });
@@ -790,6 +791,17 @@ export const usePackets = () => {
   return useQuery({
     queryKey: ['career-stories', 'derivations-by-kind', 'packet'],
     queryFn: () => CareerStoriesService.listDerivationsByKind('packet'),
+    select: (response) => response.data,
+  });
+};
+
+/**
+ * Fetch all single-story derivations for the current user.
+ */
+export const useSingleDerivations = () => {
+  return useQuery({
+    queryKey: ['career-stories', 'derivations-by-kind', 'single'],
+    queryFn: () => CareerStoriesService.listDerivationsByKind('single'),
     select: (response) => response.data,
   });
 };

@@ -13,7 +13,7 @@ import { SimpleMarkdown } from '../ui/simple-markdown';
 import { cn, formatRelativeTime } from '../../lib/utils';
 import type { CareerStory, WritingStyle, PacketType, DerivePacketResponse, StoryDerivation } from '../../types/career-stories';
 import { useDerivePacket, usePackets } from '../../hooks/useCareerStories';
-import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH } from './constants';
+import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH, PACKET_TYPE_META } from './constants';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -22,47 +22,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../ui/dialog';
-
-// =============================================================================
-// PACKET TYPE METADATA
-// =============================================================================
-
-const PACKET_TYPE_META: Record<PacketType, {
-  label: string;
-  description: string;
-  loadingText: string;
-}> = {
-  promotion: {
-    label: 'Promotion',
-    description: 'Combine stories into a promotion-ready document',
-    loadingText: 'Building your promotion packet...',
-  },
-  'annual-review': {
-    label: 'Annual Review',
-    description: 'Impact summary for your review period',
-    loadingText: 'Building your annual review summary...',
-  },
-  'skip-level': {
-    label: 'Skip-Level',
-    description: 'Strategic themes for director/VP meetings',
-    loadingText: 'Building your skip-level prep...',
-  },
-  'portfolio-brief': {
-    label: 'Portfolio Brief',
-    description: 'External-facing 1-pager for recruiters',
-    loadingText: 'Building your portfolio brief...',
-  },
-  'self-assessment': {
-    label: 'Self Assessment',
-    description: 'Evidence-backed performance review write-up',
-    loadingText: 'Building your self-assessment...',
-  },
-  'one-on-one': {
-    label: '1:1 Prep',
-    description: 'Talking points with receipts for your manager',
-    loadingText: 'Building your 1:1 talking points...',
-  },
-};
 
 const PACKET_TYPES: PacketType[] = [
   'promotion', 'annual-review', 'self-assessment', 'one-on-one', 'skip-level', 'portfolio-brief',

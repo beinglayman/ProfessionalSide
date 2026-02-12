@@ -455,8 +455,8 @@ export const ARCHETYPE_GROUPS: Record<ArchetypeGroup, { label: string; descripti
 // WRITING STYLES
 // =============================================================================
 
-import type { WritingStyle, DerivationType } from '../../types/career-stories';
-import { Mic, Share2, FileText, Users, Target, MessageSquare } from 'lucide-react';
+import type { WritingStyle, DerivationType, PacketType } from '../../types/career-stories';
+import { Mic, Share2, FileText, Users, Target, MessageSquare, TrendingUp, Clock, ArrowUpRight, Bug, Sparkles, Zap, BookOpen, GraduationCap, Users2, Lightbulb, Award, HelpCircle } from 'lucide-react';
 import type React from 'react';
 
 export const WRITING_STYLES: { value: WritingStyle; label: string; description: string }[] = [
@@ -496,6 +496,28 @@ export const DERIVATION_COLOR_CLASSES: Record<string, { bg: string; text: string
   amber: { bg: 'bg-amber-50', text: 'text-amber-700', iconText: 'text-amber-500' },
   rose: { bg: 'bg-rose-50', text: 'text-rose-700', iconText: 'text-rose-500' },
   violet: { bg: 'bg-violet-50', text: 'text-violet-700', iconText: 'text-violet-500' },
+  blue: { bg: 'bg-blue-50', text: 'text-blue-700', iconText: 'text-blue-500' },
+  purple: { bg: 'bg-purple-50', text: 'text-purple-700', iconText: 'text-purple-500' },
+  gray: { bg: 'bg-gray-50', text: 'text-gray-700', iconText: 'text-gray-500' },
+};
+
+// =============================================================================
+// PACKET TYPE METADATA
+// =============================================================================
+
+export const PACKET_TYPE_META: Record<PacketType, {
+  label: string;
+  description: string;
+  loadingText: string;
+  Icon: React.FC<{ className?: string }>;
+  color: string;
+}> = {
+  promotion: { label: 'Promotion', description: 'Combine stories into a promotion-ready document', loadingText: 'Building your promotion packet...', Icon: TrendingUp, color: 'emerald' },
+  'annual-review': { label: 'Annual Review', description: 'Impact summary for your review period', loadingText: 'Building your annual review summary...', Icon: Clock, color: 'blue' },
+  'skip-level': { label: 'Skip-Level', description: 'Strategic themes for director/VP meetings', loadingText: 'Building your skip-level prep...', Icon: ArrowUpRight, color: 'purple' },
+  'portfolio-brief': { label: 'Portfolio Brief', description: 'External-facing 1-pager for recruiters', loadingText: 'Building your portfolio brief...', Icon: FileText, color: 'indigo' },
+  'self-assessment': { label: 'Self Assessment', description: 'Evidence-backed performance review write-up', loadingText: 'Building your self-assessment...', Icon: Target, color: 'rose' },
+  'one-on-one': { label: '1:1 Prep', description: 'Talking points with receipts for your manager', loadingText: 'Building your 1:1 talking points...', Icon: Users, color: 'amber' },
 };
 
 // =============================================================================
@@ -514,6 +536,33 @@ export const BRAG_DOC_CATEGORIES: { value: BragDocCategory; label: string; descr
   { value: 'growth', label: 'Growth & Learning', description: 'New skills, domain expertise, certifications' },
   { value: 'external', label: 'External', description: 'Talks, blog posts, open source, community' },
 ];
+
+// =============================================================================
+// DRAFT STORY CATEGORIES (DraftStoryCategory values from journal.types.ts)
+// =============================================================================
+
+export const DRAFT_STORY_CATEGORIES: {
+  value: string;
+  label: string;
+  Icon: React.FC<{ className?: string }>;
+  color: string; // matches DERIVATION_COLOR_CLASSES keys
+}[] = [
+  { value: 'feature',         label: 'Features',        Icon: Sparkles,      color: 'purple' },
+  { value: 'bug-fix',         label: 'Bug Fixes',       Icon: Bug,           color: 'rose' },
+  { value: 'optimization',    label: 'Optimizations',   Icon: Zap,           color: 'amber' },
+  { value: 'documentation',   label: 'Documentation',   Icon: BookOpen,      color: 'blue' },
+  { value: 'learning',        label: 'Learning',        Icon: GraduationCap, color: 'indigo' },
+  { value: 'collaboration',   label: 'Collaboration',   Icon: Users2,        color: 'emerald' },
+  { value: 'problem-solving', label: 'Problem Solving', Icon: Lightbulb,     color: 'violet' },
+  { value: 'achievement',     label: 'Achievements',    Icon: Award,         color: 'amber' },
+];
+
+/** Icon + color for drafts that have no recognized category */
+export const DRAFT_UNCATEGORIZED_META = {
+  label: 'Uncategorized',
+  Icon: HelpCircle,
+  color: 'gray',
+} as const;
 
 export interface CareerQuote {
   text: string;

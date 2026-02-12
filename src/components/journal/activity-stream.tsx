@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Minus, Plus, Search, X, MoreHorizontal, SlidersHorizontal, ArrowUpRight, Star, TrendingUp } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Plus, ArrowUpRight, Star, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { ActivityCard } from './activity-card';
 import { getSourceIcon } from './source-icons';
-import { TemporalFilters, FilterSeparator } from './activity-filters';
-import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, TemporalBucket, ActivityStoryEdgeType, ACTIVITY_EDGE_LABELS } from '../../types/activity';
+import { ActivityGroup, Activity, SUPPORTED_SOURCES, ActivitySource, ActivityStoryEdgeType, ACTIVITY_EDGE_LABELS } from '../../types/activity';
 import { cn } from '../../lib/utils';
-import { useDropdown } from '../../hooks/useDropdown';
-import { useActivityFilters, useExpansionState } from '../../hooks/useActivityStreamState';
-import { INITIAL_ITEMS_LIMIT, MAX_SUMMARY_SOURCES } from './activity-card-utils';
 import { highlightMetrics, ACTIVITIES_PER_EDGE_LIMIT } from './story-group-header';
-import { BRAG_DOC_CATEGORIES } from '../career-stories/constants';
+import { useListFilters } from '../../hooks/useListFilters';
+import { makeActivitiesFilterConfig, makeDraftsFilterConfig } from '../../utils/list-filter-configs';
+import { CollapsibleGroup } from '../ui/collapsible-group';
+import { ChipFilter } from '../ui/chip-filter';
+import { ViewToggle } from '../ui/view-toggle';
+import { FilterBar, FilterSeparator, ExpandCollapseButton } from '../ui/filter-bar';
 interface ActivityStreamProps {
   groups: ActivityGroup[];
   storyGroups?: ActivityGroup[];
@@ -47,109 +48,29 @@ export function ActivityStream({
 }: ActivityStreamProps) {
   const [showDraftsOnly, setShowDraftsOnly] = useState(false);
 
-  // Extracted hooks for filter state + expansion state
-  const {
-    searchQuery, setSearchQuery,
-    selectedTemporalBuckets, selectedSources, selectedDraftCategories,
-    mobileFiltersOpen, setMobileFiltersOpen,
-    availableTemporalBuckets, temporalCounts, availableSources,
-    filteredGroups, activeFilterCount,
-    handleTemporalToggle, handleSourceToggle, handleDraftCategoryToggle,
-  } = useActivityFilters({ groups });
+  // Activities: useListFilters with flat Activity[] for filtering + grouping
+  const { config: activitiesFilterConfig, allActivities } = useMemo(
+    () => makeActivitiesFilterConfig(groups),
+    [groups],
+  );
+  const activities = useListFilters(activitiesFilterConfig, allActivities);
 
-  const {
-    expandedDrafts, collapsedGroups, setCollapsedGroups,
-    isGroupCollapsed, toggleGroup, anyExpanded, toggleAll, toggleDraft,
-  } = useExpansionState({ groups, storyGroups, filteredGroups, showDraftsOnly });
+  // Drafts: useListFilters with ActivityGroup[] items
+  const draftsFilterConfig = useMemo(
+    () => makeDraftsFilterConfig(storyGroups),
+    [storyGroups],
+  );
+  const drafts = useListFilters(draftsFilterConfig, storyGroups);
 
-  // Build a stable fingerprint of group keys to detect real data changes.
-  // This avoids re-initializing from stale placeholder data (keepPreviousData).
-  const groupFingerprint = groups.map(g => g.key).join(',');
-  const lastFingerprintRef = React.useRef<string>('');
-
-  // Initialize / re-initialize collapsed state whenever the actual group data changes
-  React.useEffect(() => {
-    if (groups.length === 0) return;
-    if (groupFingerprint === lastFingerprintRef.current) return;
-
-    lastFingerprintRef.current = groupFingerprint;
-
-    // Collapse all except first
-    const initialCollapsed = new Set(groups.slice(1).map(g => g.key));
-    setCollapsedGroups(initialCollapsed);
-
-    // Scroll to top on first load or tab change.
-    // Fire immediately AND after the card expand transition (300ms).
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }, 350);
-  }, [groupFingerprint, groups, setCollapsedGroups]);
-
-  // Map each draft story to the temporal group whose date range contains it.
-  // Uses each temporal group's activity timestamps to derive bucket boundaries.
-  const draftsByBucket = useMemo(() => {
-    const map = new Map<string, ActivityGroup[]>();
-    if (storyGroups.length === 0 || groups.length === 0) return map;
-
-    // Build date ranges from each temporal group's activities
-    const bucketRanges = groups.map(g => {
-      let min = Infinity;
-      let max = -Infinity;
-      for (const a of g.activities) {
-        const t = new Date(a.timestamp).getTime();
-        if (t < min) min = t;
-        if (t > max) max = t;
-      }
-      return { key: g.key, min, max };
+  // Draft card expand/collapse — item-level, separate from group-level collapse
+  const [expandedDrafts, setExpandedDrafts] = useState<Set<string>>(new Set());
+  const toggleDraft = (key: string) => {
+    setExpandedDrafts(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
     });
-
-    for (const draft of storyGroups) {
-      const endStr = draft.storyMetadata?.timeRangeEnd ?? draft.storyMetadata?.timeRangeStart;
-      if (!endStr) {
-        // No time info — place in first bucket
-        const first = groups[0].key;
-        map.set(first, [...(map.get(first) || []), draft]);
-        continue;
-      }
-      const draftTime = new Date(endStr).getTime();
-
-      // Find the bucket whose range contains this draft's end time
-      let matched = false;
-      for (const range of bucketRanges) {
-        if (range.min <= draftTime && draftTime <= range.max) {
-          map.set(range.key, [...(map.get(range.key) || []), draft]);
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        // Fallback: find the closest bucket by distance
-        let closest = bucketRanges[0];
-        let closestDist = Infinity;
-        for (const range of bucketRanges) {
-          const dist = Math.min(Math.abs(draftTime - range.min), Math.abs(draftTime - range.max));
-          if (dist < closestDist) {
-            closestDist = dist;
-            closest = range;
-          }
-        }
-        map.set(closest.key, [...(map.get(closest.key) || []), draft]);
-      }
-    }
-    return map;
-  }, [storyGroups, groups]);
-
-  // Group drafts by brag doc category for the drafts toggle view
-  const draftsByCategory = useMemo(() => {
-    const map = new Map<string, ActivityGroup[]>();
-    for (const draft of storyGroups) {
-      const cat = draft.storyMetadata?.category || 'uncategorized';
-      map.set(cat, [...(map.get(cat) || []), draft]);
-    }
-    return map;
-  }, [storyGroups]);
+  };
 
   // Loading state
   if (isLoading) {
@@ -182,227 +103,79 @@ export function ActivityStream({
     );
   }
 
-  // Check if we should show filters (multiple options available)
-  const showTemporalFilters = availableTemporalBuckets.length > 1;
-  const showFilters = showTemporalFilters;
+  // Shared pill toggle for Activities / Draft Stories
+  const pillToggle = storyGroups.length > 0 ? (
+    <div className="flex items-center rounded-md bg-gray-100 p-0.5 flex-shrink-0">
+      <button
+        onClick={() => setShowDraftsOnly(false)}
+        className={cn(
+          'px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
+          !showDraftsOnly
+            ? 'bg-white text-gray-900 shadow-sm'
+            : 'text-gray-500 hover:text-gray-700'
+        )}
+      >
+        Activities
+      </button>
+      <button
+        onClick={() => setShowDraftsOnly(true)}
+        className={cn(
+          'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
+          showDraftsOnly
+            ? 'bg-white text-purple-700 shadow-sm'
+            : 'text-purple-600 hover:text-purple-700'
+        )}
+      >
+        Draft Stories
+        <span className={cn(
+          'text-[10px] tabular-nums rounded-full px-1.5 min-w-[16px] text-center font-bold',
+          showDraftsOnly ? 'bg-purple-100 text-purple-700' : 'bg-purple-100/60 text-purple-600'
+        )}>
+          {storyGroups.length}
+        </span>
+      </button>
+    </div>
+  ) : undefined;
+
+  // Active filter state for the current mode
+  const currentFilter = showDraftsOnly ? drafts : activities;
+  const currentConfig = showDraftsOnly ? draftsFilterConfig : activitiesFilterConfig;
 
   return (
     <div className="space-y-3">
-      {/* Controls: Search + Filters + Expand/Collapse */}
-      {(showFilters || filteredGroups.length >= 1 || groups.length >= 1) && (
-        <div className="bg-white rounded-lg border border-gray-200/80 shadow-sm">
-          {/* Top row: toggle + context-specific filters + expand/collapse */}
-          <div className="flex items-center gap-2 py-2 px-3">
-            {/* Activities / Draft Stories toggle — always visible */}
-            {storyGroups.length > 0 && (
-              <div className="flex items-center rounded-md bg-gray-100 p-0.5 flex-shrink-0">
-                <button
-                  onClick={() => setShowDraftsOnly(false)}
-                  className={cn(
-                    'px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
-                    !showDraftsOnly
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  )}
-                >
-                  Activities
-                </button>
-                <button
-                  onClick={() => setShowDraftsOnly(true)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
-                    showDraftsOnly
-                      ? 'bg-white text-purple-700 shadow-sm'
-                      : 'text-purple-600 hover:text-purple-700'
-                  )}
-                >
-                  Draft Stories
-                  <span className={cn(
-                    'text-[10px] tabular-nums rounded-full px-1.5 min-w-[16px] text-center font-bold',
-                    showDraftsOnly ? 'bg-purple-100 text-purple-700' : 'bg-purple-100/60 text-purple-600'
-                  )}>
-                    {storyGroups.length}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {/* Activities mode: search + filters */}
-            {!showDraftsOnly && (
-              <>
-                {/* Search input */}
-                <div className="relative flex-1 sm:flex-initial sm:w-44">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search activities..."
-                    className={cn(
-                      "w-full pl-8 pr-7 py-1.5 text-xs rounded-md border transition-all",
-                      "bg-gray-50 border-gray-200 placeholder-gray-400",
-                      "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white",
-                      searchQuery && "border-primary-300 bg-white"
-                    )}
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Mobile: filter toggle button */}
-                {(showFilters || availableSources.length > 1) && (
-                  <button
-                    onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                    className={cn(
-                      "sm:hidden flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0",
-                      mobileFiltersOpen || activeFilterCount > 0
-                        ? "bg-primary-50 text-primary-600"
-                        : "text-gray-500 hover:bg-gray-100"
-                    )}
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    {activeFilterCount > 0 && (
-                      <span className="w-4 h-4 text-[10px] font-bold rounded-full bg-primary-500 text-white flex items-center justify-center">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </button>
-                )}
-
-                {/* Desktop: inline temporal filters */}
-                {showFilters && (
-                  <div className="hidden sm:flex items-center gap-1">
-                    <FilterSeparator />
-                    {showTemporalFilters && (
-                      <TemporalFilters
-                        availableBuckets={availableTemporalBuckets}
-                        selectedBuckets={selectedTemporalBuckets}
-                        onToggle={handleTemporalToggle}
-                        counts={temporalCounts}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {/* Desktop: source filter chips */}
-                {availableSources.length > 1 && (
-                  <div className="hidden sm:flex items-center">
-                    <SourceFilterChips
-                      availableSources={availableSources}
-                      selectedSources={selectedSources}
-                      onToggle={handleSourceToggle}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Drafts mode: category filter chips */}
-            {showDraftsOnly && (
-              <div className="flex items-center gap-1 overflow-x-auto min-w-0">
-                {BRAG_DOC_CATEGORIES.map((cat) => {
-                  const count = (draftsByCategory.get(cat.value) ?? []).length;
-                  if (count === 0) return null;
-                  const isActive = selectedDraftCategories.includes(cat.value);
-                  return (
-                    <button
-                      key={cat.value}
-                      onClick={() => handleDraftCategoryToggle(cat.value)}
-                      aria-pressed={isActive}
-                      className={cn(
-                        'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
-                        isActive
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
-                      )}
-                    >
-                      {cat.label}
-                      <span className={cn(
-                        'text-[10px] tabular-nums',
-                        isActive ? 'text-purple-200' : 'text-gray-400'
-                      )}>{count}</span>
-                    </button>
-                  );
-                })}
-                {(draftsByCategory.get('uncategorized') ?? []).length > 0 && (() => {
-                  const isActive = selectedDraftCategories.includes('uncategorized');
-                  return (
-                    <button
-                      onClick={() => handleDraftCategoryToggle('uncategorized')}
-                      aria-pressed={isActive}
-                      className={cn(
-                        'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
-                        isActive
-                          ? 'bg-gray-700 text-white shadow-sm'
-                          : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
-                      )}
-                    >
-                      Uncategorized
-                      <span className={cn(
-                        'text-[10px] tabular-nums',
-                        isActive ? 'text-gray-300' : 'text-gray-400'
-                      )}>{(draftsByCategory.get('uncategorized') ?? []).length}</span>
-                    </button>
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* Spacer */}
-            <div className="flex-1 min-w-0 hidden sm:block" />
-
-            {/* Expand/Collapse All button — always visible */}
-            <button
-              onClick={toggleAll}
-              className={cn(
-                "flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-md transition-colors flex-shrink-0",
-                anyExpanded
-                  ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                  : "text-primary-600 bg-primary-50 hover:bg-primary-100"
-              )}
-            >
-              {anyExpanded ? (
-                <>
-                  <Minus className="w-3 h-3" />
-                  <span className="hidden sm:inline">Collapse</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3 h-3" />
-                  <span className="hidden sm:inline">Expand</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Mobile: expanded filter drawer — activities mode only */}
-          {!showDraftsOnly && mobileFiltersOpen && (
-            <div className="sm:hidden px-3 pb-2.5 pt-0.5 border-t border-gray-100 flex flex-wrap items-center gap-1.5">
-              {showTemporalFilters && (
-                <TemporalFilters
-                  availableBuckets={availableTemporalBuckets}
-                  selectedBuckets={selectedTemporalBuckets}
-                  onToggle={handleTemporalToggle}
-                  counts={temporalCounts}
-                />
-              )}
-              {availableSources.length > 1 && (
-                <SourceFilterChips
-                  availableSources={availableSources}
-                  selectedSources={selectedSources}
-                  onToggle={handleSourceToggle}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Controls: FilterBar with mode-specific filters */}
+      <FilterBar
+        pillToggle={pillToggle}
+        viewToggle={
+          <ViewToggle
+            mode={currentFilter.viewMode}
+            onModeChange={currentFilter.setViewMode}
+            labels={currentConfig.viewLabels}
+          />
+        }
+        expandCollapseButton={
+          <ExpandCollapseButton anyExpanded={currentFilter.anyExpanded} onToggle={currentFilter.toggleAll} />
+        }
+        activeFilterCount={currentFilter.activeFilterCount}
+      >
+        {currentConfig.temporalChips.length > 0 && (
+          <ChipFilter
+            chips={currentConfig.temporalChips}
+            selectedKeys={currentFilter.selectedTemporalKeys}
+            onToggle={currentFilter.toggleTemporalKey}
+          />
+        )}
+        {currentConfig.typedChips.length > 0 && (
+          <>
+            <FilterSeparator />
+            <ChipFilter
+              chips={currentConfig.typedChips}
+              selectedKeys={currentFilter.selectedTypedKeys}
+              onToggle={currentFilter.toggleTypedKey}
+            />
+          </>
+        )}
+      </FilterBar>
 
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
@@ -426,14 +199,28 @@ export function ActivityStream({
               </div>
             )}
             {storyGroups.length > 0 && (
-              <div className="space-y-3 pt-2">
-                {storyGroups.map(draft => (
-                  <InlineDraftCard
-                    key={draft.key}
-                    group={draft}
-                    isExpanded={expandedDrafts.has(draft.key)}
-                    onToggleExpand={() => toggleDraft(draft.key)}
-                    onPromoteToCareerStory={onPromoteToCareerStory}
+              <div className="pt-2">
+                {drafts.groups.map((group, idx) => (
+                  <CollapsibleGroup<ActivityGroup>
+                    key={group.key}
+                    section={group}
+                    isCollapsed={drafts.collapsedGroups.has(group.key)}
+                    onToggle={() => drafts.toggleGroup(group.key)}
+                    isLast={idx === drafts.groups.length - 1}
+                    showSpine={true}
+                    previewLimit={3}
+                    showAll={drafts.showAllGroups.has(group.key)}
+                    onToggleShowAll={() => drafts.toggleShowAll(group.key)}
+                    dotColor={drafts.collapsedGroups.has(group.key) ? undefined : '#7c3aed'}
+                    renderItem={(draft) => (
+                      <InlineDraftCard
+                        key={draft.key}
+                        group={draft}
+                        isExpanded={expandedDrafts.has(draft.key)}
+                        onToggleExpand={() => toggleDraft(draft.key)}
+                        onPromoteToCareerStory={onPromoteToCareerStory}
+                      />
+                    )}
                   />
                 ))}
               </div>
@@ -441,21 +228,26 @@ export function ActivityStream({
           </>
         ) : (
           <>
-            {/* Activities view: temporal groups only (no inline drafts) */}
-            {filteredGroups.map((group, idx) => (
-              <ActivityGroupSection
+            {/* Activities view */}
+            {activities.groups.map((group, idx) => (
+              <CollapsibleGroup<Activity>
                 key={group.key}
-                group={group}
-                isCollapsed={isGroupCollapsed(group.key)}
-                onToggle={() => toggleGroup(group.key)}
-                onPromoteToCareerStory={onPromoteToCareerStory}
-                onRegenerateNarrative={onRegenerateNarrative}
-                regeneratingEntryId={regeneratingEntryId}
-                onDeleteEntry={onDeleteEntry}
-                isEnhancingNarratives={isEnhancingNarratives}
-                pendingEnhancementIds={pendingEnhancementIds}
-                showDraftsOnly={false}
-                isLast={idx === filteredGroups.length - 1}
+                section={group}
+                isCollapsed={activities.collapsedGroups.has(group.key)}
+                onToggle={() => activities.toggleGroup(group.key)}
+                isLast={idx === activities.groups.length - 1}
+                showSpine={true}
+                previewLimit={15}
+                showAll={activities.showAllGroups.has(group.key)}
+                onToggleShowAll={() => activities.toggleShowAll(group.key)}
+                renderItem={(activity) => (
+                  <ActivityCard
+                    key={activity.id}
+                    activity={activity}
+                    showStoryBadge={true}
+                    showSourceIcon={true}
+                  />
+                )}
               />
             ))}
           </>
@@ -801,308 +593,3 @@ function DraftEdgeSection({
   );
 }
 
-const MAX_VISIBLE_SOURCES = 4;
-
-interface SourceFilterChipsProps {
-  availableSources: { source: ActivitySource; count: number }[];
-  selectedSources: ActivitySource[];
-  onToggle: (source: ActivitySource) => void;
-}
-
-function SourceFilterChips({ availableSources, selectedSources, onToggle }: SourceFilterChipsProps) {
-  const { isOpen, toggle, close, containerRef } = useDropdown();
-
-  // Sources already sorted by count desc from parent. Split into visible + overflow.
-  const visible = availableSources.slice(0, MAX_VISIBLE_SOURCES);
-  const overflow = availableSources.slice(MAX_VISIBLE_SOURCES);
-  const overflowSelectedCount = overflow.filter(s => selectedSources.includes(s.source)).length;
-
-  return (
-    <div className="flex items-center gap-1">
-      {/* Visible source chips — icon + short name */}
-      {visible.map(({ source, count }) => {
-        const sourceInfo = SUPPORTED_SOURCES[source];
-        const isSelected = selectedSources.includes(source);
-        const Icon = getSourceIcon(source);
-
-        return (
-          <button
-            key={source}
-            onClick={() => onToggle(source)}
-            aria-pressed={isSelected}
-            title={`${sourceInfo?.displayName || source} (${count})`}
-            className={cn(
-              'flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
-              isSelected
-                ? 'bg-primary-500 text-white shadow-sm'
-                : 'text-gray-600 hover:text-primary-600 hover:bg-primary-50'
-            )}
-          >
-            <Icon
-              className="w-3.5 h-3.5 flex-shrink-0"
-              style={isSelected ? undefined : { color: sourceInfo?.color }}
-            />
-            {count > 0 && (
-              <span className={cn(
-                'text-[10px] tabular-nums',
-                isSelected ? 'text-primary-200' : 'text-gray-400'
-              )}>
-                {count}
-              </span>
-            )}
-          </button>
-        );
-      })}
-
-      {/* Overflow dropdown for remaining sources */}
-      {overflow.length > 0 && (
-        <div className="relative" ref={containerRef}>
-          <button
-            onClick={toggle}
-            className={cn(
-              'flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
-              overflowSelectedCount > 0
-                ? 'bg-primary-500 text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-            )}
-            aria-expanded={isOpen}
-            aria-haspopup="listbox"
-          >
-            <MoreHorizontal className="w-3.5 h-3.5" />
-            <span className="text-[10px]">+{overflow.length}</span>
-          </button>
-
-          {isOpen && (
-            <div
-              className="absolute top-full mt-1 left-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[180px]"
-              role="listbox"
-              aria-label="More sources"
-            >
-              {overflow.map(({ source, count }) => {
-                const sourceInfo = SUPPORTED_SOURCES[source];
-                const isSelected = selectedSources.includes(source);
-                const Icon = getSourceIcon(source);
-                return (
-                  <button
-                    key={source}
-                    onClick={() => onToggle(source)}
-                    className={cn(
-                      'w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] transition-colors',
-                      isSelected ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50'
-                    )}
-                    role="option"
-                    aria-selected={isSelected}
-                  >
-                    <Icon
-                      className="w-3.5 h-3.5 flex-shrink-0"
-                      style={isSelected ? undefined : { color: sourceInfo?.color }}
-                    />
-                    <span className="flex-1 text-left font-medium">{sourceInfo?.displayName || source}</span>
-                    <span className="text-[10px] tabular-nums text-gray-400">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface ActivityGroupSectionProps {
-  group: ActivityGroup;
-  isCollapsed: boolean;
-  onToggle: () => void;
-  inlineDrafts?: ActivityGroup[];
-  onPromoteToCareerStory?: (entryId: string) => void;
-  onRegenerateNarrative?: (entryId: string) => void;
-  regeneratingEntryId?: string | null;
-  onDeleteEntry?: (entryId: string) => void;
-  isEnhancingNarratives?: boolean;
-  pendingEnhancementIds?: Set<string>;
-  showDraftsOnly?: boolean;
-  /** Last group in the list — timeline line stops here */
-  isLast?: boolean;
-}
-
-/**
- * Generate a concise summary for temporal groups.
- * Shows source breakdown (e.g., "3 GitHub, 2 Jira, 1 Slack")
- */
-function generateTemporalSummary(activities: Activity[]): string {
-  if (activities.length === 0) return '';
-
-  // Count activities by source
-  const sourceCounts: Record<string, number> = {};
-  activities.forEach(a => {
-    sourceCounts[a.source] = (sourceCounts[a.source] || 0) + 1;
-  });
-
-  // Sort by count descending and take top sources
-  const sorted = Object.entries(sourceCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, MAX_SUMMARY_SOURCES);
-
-  const parts = sorted.map(([source, count]) => {
-    const info = SUPPORTED_SOURCES[source as ActivitySource];
-    return `${count} ${info?.displayName || source}`;
-  });
-
-  const remaining = Object.keys(sourceCounts).length - MAX_SUMMARY_SOURCES;
-  if (remaining > 0) {
-    parts.push(`+${remaining} more`);
-  }
-
-  return parts.join(', ');
-}
-
-function ActivityGroupSection({ group, isCollapsed, onToggle, inlineDrafts, onPromoteToCareerStory, onRegenerateNarrative, regeneratingEntryId, onDeleteEntry, isEnhancingNarratives, pendingEnhancementIds, showDraftsOnly, isLast }: ActivityGroupSectionProps) {
-  // Progressive disclosure - track how many items to show
-  const [showAll, setShowAll] = useState(false);
-
-  const labelColor = '#5D259F'; // Primary brand color for temporal groups
-  const draftCount = inlineDrafts?.length ?? 0;
-
-  // Generate summary for collapsed state
-  const collapsedSummary = useMemo(() => {
-    if (!isCollapsed) return '';
-    if (showDraftsOnly) {
-      return draftCount === 0 ? 'no draft stories' : `${draftCount} draft ${draftCount === 1 ? 'story' : 'stories'}`;
-    }
-    return generateTemporalSummary(group.activities);
-  }, [isCollapsed, group.activities, showDraftsOnly, draftCount]);
-
-  // Progressive disclosure: show limited items initially
-  const visibleActivities = showAll
-    ? group.activities
-    : group.activities.slice(0, INITIAL_ITEMS_LIMIT);
-  const hiddenCount = Math.max(0, group.activities.length - INITIAL_ITEMS_LIMIT);
-  const hasMore = hiddenCount > 0 && !showAll;
-
-  // Reset showAll when group collapses
-  React.useEffect(() => {
-    if (isCollapsed) {
-      setShowAll(false);
-    }
-  }, [isCollapsed]);
-
-  return (
-    <section className="relative flex gap-4">
-      {/* Timeline spine */}
-      <div className="flex flex-col items-center flex-shrink-0 w-5">
-        {/* Dot marker at the group header */}
-        <div
-          className={cn(
-            'w-3 h-3 rounded-full mt-2 flex-shrink-0 ring-4 ring-white z-10',
-            showDraftsOnly && draftCount === 0
-              ? 'bg-gray-200'
-              : isCollapsed ? 'bg-gray-300' : 'bg-primary-500'
-          )}
-        />
-        {/* Vertical line extending down — hidden on last group when collapsed */}
-        {!(isLast && isCollapsed) && (
-          <div className="w-px flex-1 bg-gray-200" />
-        )}
-      </div>
-
-      {/* Content column */}
-      <div className="flex-1 min-w-0 pb-6">
-        {/* Group header */}
-        <button
-          onClick={onToggle}
-          className={cn(
-            'flex items-center gap-2 w-full text-left transition-all rounded-lg',
-            isCollapsed
-              ? 'py-1 hover:bg-gray-50 mb-1'
-              : 'mb-2 group'
-          )}
-        >
-          {/* Chevron */}
-          <div className="flex-shrink-0">
-            {isCollapsed ? (
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            )}
-          </div>
-
-          {/* Label and count */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span
-              className={cn(
-                'text-sm font-semibold',
-                showDraftsOnly && draftCount === 0 && 'opacity-40'
-              )}
-              style={{ color: labelColor }}
-            >
-              {group.label}
-            </span>
-            <span className={cn(
-              'text-[11px] tabular-nums',
-              showDraftsOnly && draftCount === 0 ? 'text-gray-300' : 'text-gray-400'
-            )}>
-              {showDraftsOnly ? draftCount : group.count}
-            </span>
-          </div>
-
-          {/* Summary when collapsed */}
-          {isCollapsed && collapsedSummary && (
-            <span className="text-[11px] text-gray-500 truncate">
-              <span className="text-gray-300 mx-1.5">&middot;</span>
-              {collapsedSummary}
-            </span>
-          )}
-
-          {/* Spacer for expanded state */}
-          {!isCollapsed && (
-            <div className="flex-1 h-px bg-gray-100" />
-          )}
-        </button>
-
-        {/* Content when expanded */}
-        {!isCollapsed && (
-          <>
-            {/* Inline draft cards — above activity rows, visually prominent */}
-            {inlineDrafts && inlineDrafts.length > 0 && (
-              <div className="space-y-3 mb-4">
-                {inlineDrafts.map(draft => (
-                  <InlineDraftCard
-                    key={draft.key}
-                    group={draft}
-                    onPromoteToCareerStory={onPromoteToCareerStory}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Activity rows — hidden in drafts-only mode */}
-            {!showDraftsOnly && (
-              <div className="bg-white rounded-lg border border-gray-100">
-                {visibleActivities.map((activity) => (
-                  <ActivityCard
-                    key={activity.id}
-                    activity={activity}
-                    showStoryBadge={true}
-                    showSourceIcon={true}
-                  />
-                ))}
-
-                {/* Show more button */}
-                {hasMore && (
-                  <button
-                    onClick={() => setShowAll(true)}
-                    className="w-full py-2.5 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Show {hiddenCount} more
-                  </button>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
