@@ -30,6 +30,7 @@ import { MCPCallbackPage } from './pages/mcp/callback';
 import Format7DesignShowcase from './pages/format7-design-showcase';
 import { CareerStoriesPage } from './components/career-stories';
 import { DashboardPrototypePage } from './pages/dashboard/prototype';
+import { WidgetVariationsPage } from './pages/dashboard/widget-variations';
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 
@@ -122,6 +123,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <DashboardPrototypePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/widget-variations"
+          element={
+            <ProtectedRoute>
+              <WidgetVariationsPage />
             </ProtectedRoute>
           }
         />
