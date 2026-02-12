@@ -12,7 +12,7 @@ import { Copy, Check, Loader2, PenLine, RefreshCw, Briefcase, Calendar, ChevronD
 import { SimpleMarkdown } from '../ui/simple-markdown';
 import { cn, formatRelativeTime } from '../../lib/utils';
 import type { CareerStory, WritingStyle, PacketType, DerivePacketResponse, StoryDerivation } from '../../types/career-stories';
-import { useDerivePacket, useStoryDerivations } from '../../hooks/useCareerStories';
+import { useDerivePacket, usePackets } from '../../hooks/useCareerStories';
 import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH } from './constants';
 import { Button } from '../ui/button';
 import {
@@ -222,48 +222,52 @@ export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: 
   const packetMutation = useDerivePacket();
   const meta = PACKET_TYPE_META[packetType];
 
-  // Fetch saved derivations from the first story (packets reference multiple stories)
-  const firstStoryId = stories[0]?.id;
-  const { data: savedDerivations } = useStoryDerivations(isOpen ? firstStoryId : undefined);
+  // Fetch all packets — usePackets() is the same query UseAsDropdown uses,
+  // so data is already cached and available immediately on modal open.
+  const { data: savedPackets } = usePackets();
 
   // Group saved packets by type
   const savedByType = useMemo(() => {
     const map = new Map<string, StoryDerivation[]>();
-    if (!savedDerivations) return map;
-    for (const d of savedDerivations) {
-      if (d.kind !== 'packet') continue;
+    if (!savedPackets) return map;
+    for (const d of savedPackets) {
       const list = map.get(d.type) || [];
       list.push(d);
       map.set(d.type, list);
     }
     return map;
-  }, [savedDerivations]);
+  }, [savedPackets]);
 
-  // Reset state when modal opens/closes
+  // Reset state when modal opens/closes — auto-show latest saved packet for selected type
   useEffect(() => {
     if (isOpen) {
-      setPacketType(initialType || 'promotion');
+      const startType = initialType || 'promotion';
+      setPacketType(startType);
       setSelectedIds(new Set());
       setTone('');
       setCustomPrompt('');
       setShowCustomPrompt(false);
       setShowOptions(false);
       setGeneratedResult(null);
-      setViewingSaved(null);
       setCopied(false);
       setError(null);
       setDateRangeStart('');
       setDateRangeEnd('');
+      // Auto-show latest saved packet for the selected type
+      const existing = savedByType.get(startType);
+      setViewingSaved(existing?.[0] ?? null);
     }
-  }, [isOpen, initialType]);
+  }, [isOpen, initialType, savedByType]);
 
   const handlePacketTypeChange = useCallback((type: PacketType) => {
     setPacketType(type);
     setGeneratedResult(null);
-    setViewingSaved(null);
     setError(null);
     setCopied(false);
-  }, []);
+    // Auto-show latest saved packet for the new type
+    const existing = savedByType.get(type);
+    setViewingSaved(existing?.[0] ?? null);
+  }, [savedByType]);
 
   const toggleStory = useCallback((storyId: string) => {
     setSelectedIds(prev => {
