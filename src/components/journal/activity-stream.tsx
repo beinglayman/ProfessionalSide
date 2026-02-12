@@ -122,14 +122,14 @@ export function ActivityStream({
         className={cn(
           'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
           showDraftsOnly
-            ? 'bg-white text-purple-700 shadow-sm'
-            : 'text-purple-600 hover:text-purple-700'
+            ? 'bg-white text-gray-900 shadow-sm'
+            : 'text-gray-500 hover:text-gray-700'
         )}
       >
-        Draft Stories
+        Drafts
         <span className={cn(
           'text-[10px] tabular-nums rounded-full px-1.5 min-w-[16px] text-center font-bold',
-          showDraftsOnly ? 'bg-purple-100 text-purple-700' : 'bg-purple-100/60 text-purple-600'
+          showDraftsOnly ? 'bg-gray-200 text-gray-700' : 'bg-gray-200/60 text-gray-500'
         )}>
           {storyGroups.length}
         </span>
@@ -142,7 +142,7 @@ export function ActivityStream({
   const currentConfig = showDraftsOnly ? draftsFilterConfig : activitiesFilterConfig;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Controls: FilterBar with mode-specific filters */}
       <FilterBar
         pillToggle={pillToggle}
@@ -172,6 +172,7 @@ export function ActivityStream({
               chips={currentConfig.typedChips}
               selectedKeys={currentFilter.selectedTypedKeys}
               onToggle={currentFilter.toggleTypedKey}
+              maxVisible={4}
             />
           </>
         )}

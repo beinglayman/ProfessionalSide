@@ -46,7 +46,7 @@ export function FilterBar({
         {pillToggle}
 
         {/* Desktop: inline filters */}
-        <div className="hidden sm:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+        <div className="hidden sm:flex items-center gap-1 flex-1 min-w-0">
           {children}
         </div>
 

@@ -43,6 +43,7 @@ import { PromotionPacketModal } from './PromotionPacketModal';
 import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
 import { LibraryCard } from './LibraryCard';
 import { LibraryDetail } from './LibraryDetail';
+import { ToolIcon } from './ToolIcon';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
@@ -627,6 +628,7 @@ export function CareerStoriesPage() {
 
   // Story view: useListFilters replaces manual storyView/storyCollapsed/storyShowAll
   const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-stories') === '1');
+  const [playbookBannerDismissed, setPlaybookBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-playbook') === '1');
 
   // Build O(1) activity lookup for timeline quarter grouping
   const activityMap = useStoryActivityMap(allStories);
@@ -697,6 +699,15 @@ export function CareerStoriesPage() {
       .sort((a, b) => b[1] - a[1])
       .map(([fw]) => fw);
   }, [allStories]);
+
+  // Unique tool sources across all stories (for summary bar icons, matches Timeline pattern)
+  const storyToolSources = useMemo(() => {
+    const sources = new Set<string>();
+    for (const [, activity] of activityMap) {
+      sources.add(activity.source);
+    }
+    return [...sources].slice(0, 4);
+  }, [activityMap]);
 
   const mapSectionToComponent = useCallback((section: string) => {
     const mapping: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
@@ -920,11 +931,11 @@ export function CareerStoriesPage() {
   const playbookFilterConfig = useMemo(() => makePlaybookFilterConfig(libraryItems), [libraryItems]);
   const playbook = useListFilters(playbookFilterConfig, libraryItems);
 
-  // Library summary stats: count by type for summary bar
+  // Library summary stats: count by type for summary bar (includes icon + color for inline display)
   const librarySummary = useMemo(() => {
-    const counts: { label: string; count: number }[] = [];
+    const counts: { label: string; count: number; Icon: React.FC<{ className?: string }>; color: string }[] = [];
     for (const group of libraryByType) {
-      counts.push({ label: group.label.toLowerCase(), count: group.items.length });
+      counts.push({ label: group.label.toLowerCase(), count: group.items.length, Icon: group.Icon, color: group.color });
     }
     return counts;
   }, [libraryByType]);
@@ -982,7 +993,7 @@ export function CareerStoriesPage() {
 
       {/* Main content area - same width as Activity tab (max-w-7xl) */}
       <div className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4 space-y-2">
           {/* Detail View: Full story with back button */}
           {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -1043,11 +1054,27 @@ export function CareerStoriesPage() {
                     <span className="flex items-center gap-1.5">
                       <span className="font-semibold text-gray-700">{storiesFilter.filteredItems.length}</span>
                       {' '}{storiesFilter.filteredItems.length === 1 ? 'story' : 'stories'}
-                      {storyFrameworks.length > 0 && (
+                      {storyToolSources.length > 0 && (
                         <span className="inline-flex items-center gap-0.5 ml-0.5">
-                          {storyFrameworks.map(fw => (
-                            <span key={fw} className="px-1 py-0.5 text-[10px] font-bold rounded bg-gray-100 text-gray-500 leading-none">{fw}</span>
+                          {storyToolSources.map(s => (
+                            <ToolIcon key={s} tool={s as ToolType} className="w-4 h-4" />
                           ))}
+                        </span>
+                      )}
+                      {storyFrameworks.length > 0 && (
+                        <span className="inline-flex items-center gap-1 ml-1">
+                          {storyFrameworks.map(fw => {
+                            const meta = NARRATIVE_FRAMEWORKS[fw as keyof typeof NARRATIVE_FRAMEWORKS];
+                            return (
+                              <span
+                                key={fw}
+                                title={meta?.description ?? fw}
+                                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-primary-50 text-primary-600 leading-none cursor-default"
+                              >
+                                {fw}
+                              </span>
+                            );
+                          })}
                         </span>
                       )}
                     </span>
@@ -1090,12 +1117,18 @@ export function CareerStoriesPage() {
                       <span className="font-semibold text-gray-700">{libraryItems.length}</span>
                       {' '}{libraryItems.length === 1 ? 'item' : 'items'}
                     </span>
-                    {librarySummary.map((entry) => (
-                      <React.Fragment key={entry.label}>
-                        <span className="text-gray-300">·</span>
-                        <span>{entry.count} {entry.label}{entry.count !== 1 ? 's' : ''}</span>
-                      </React.Fragment>
-                    ))}
+                    {librarySummary.map((entry) => {
+                      const colorClasses = DERIVATION_COLOR_CLASSES[entry.color] || DERIVATION_COLOR_CLASSES.gray;
+                      return (
+                        <React.Fragment key={entry.label}>
+                          <span className="text-gray-300">·</span>
+                          <span className="flex items-center gap-1">
+                            <entry.Icon className={cn('w-3.5 h-3.5', colorClasses.iconText)} />
+                            {entry.count} {entry.label}{entry.count !== 1 ? 's' : ''}
+                          </span>
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {allStories.length >= 1 && (
@@ -1109,13 +1142,25 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
-              {/* Educational banner — dismissible (Stories only) */}
+              {/* Educational banner — dismissible */}
               {pageTab === 'stories' && !bannerDismissed && (
                 <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
                   <BookOpen className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
                   <p className="text-xs text-primary-700 flex-1">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
                   <button
                     onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-stories', '1'); }}
+                    className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+              {pageTab === 'library' && !playbookBannerDismissed && (
+                <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
+                  <Sparkles className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
+                  <p className="text-xs text-primary-700 flex-1">Your playbook collects reusable outputs — interview answers, LinkedIn posts, and promotion packets — ready when you need them.</p>
+                  <button
+                    onClick={() => { setPlaybookBannerDismissed(true); localStorage.setItem('banner-dismissed-playbook', '1'); }}
                     className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
                   >
                     <X className="h-3 w-3" />
@@ -1143,13 +1188,21 @@ export function CareerStoriesPage() {
                     <button
                       onClick={() => setSearchParams({ tab: 'library' }, { replace: true })}
                       className={cn(
-                        'px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
+                        'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
                         pageTab === 'library'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-500 hover:text-gray-700'
                       )}
                     >
-                      Playbook{libraryItems.length > 0 && ` (${libraryItems.length})`}
+                      Playbook
+                      {libraryItems.length > 0 && (
+                        <span className={cn(
+                          'text-[10px] tabular-nums rounded-full px-1.5 min-w-[16px] text-center font-bold',
+                          pageTab === 'library' ? 'bg-gray-200 text-gray-700' : 'bg-gray-200/60 text-gray-500'
+                        )}>
+                          {libraryItems.length}
+                        </span>
+                      )}
                     </button>
                   </div>
                 );
@@ -1182,7 +1235,7 @@ export function CareerStoriesPage() {
                           chips={currentConfig.typedChips}
                           selectedKeys={currentFilter.selectedTypedKeys}
                           onToggle={currentFilter.toggleTypedKey}
-                          maxVisible={pageTab === 'library' ? 4 : undefined}
+                          maxVisible={4}
                         />
                       </>
                     )}
