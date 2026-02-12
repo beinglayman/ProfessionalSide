@@ -5,6 +5,7 @@ import {
   integrationVariations,
   meetingsVariations,
   storyHealthVariations,
+  kpiVariations,
 } from '../../components/dashboard-v2/widget-variations';
 import {
   Footprints,
@@ -12,10 +13,11 @@ import {
   Plug,
   Clock,
   BookOpen,
+  Target,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-type WidgetTab = 'onboarding' | 'competency' | 'integration' | 'meetings' | 'story-health';
+type WidgetTab = 'onboarding' | 'competency' | 'integration' | 'meetings' | 'story-health' | 'kpi';
 
 const TABS: { id: WidgetTab; label: string; icon: React.FC<{ className?: string }>; variations: { id: string; name: string; Component: React.FC }[] }[] = [
   { id: 'onboarding', label: 'Onboarding', icon: Footprints, variations: onboardingVariations },
@@ -23,6 +25,7 @@ const TABS: { id: WidgetTab; label: string; icon: React.FC<{ className?: string 
   { id: 'integration', label: 'Integration Health', icon: Plug, variations: integrationVariations },
   { id: 'meetings', label: 'Meetings', icon: Clock, variations: meetingsVariations },
   { id: 'story-health', label: 'Story Health', icon: BookOpen, variations: storyHealthVariations },
+  { id: 'kpi', label: 'KPI/KRA Tracker', icon: Target, variations: kpiVariations },
 ];
 
 export function WidgetVariationsPage() {

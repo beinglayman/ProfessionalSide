@@ -3,3 +3,4 @@ export { competencyVariations } from './competency';
 export { integrationVariations } from './integration';
 export { meetingsVariations } from './meetings';
 export { storyHealthVariations } from './story-health';
+export { kpiVariations } from './kpi';
