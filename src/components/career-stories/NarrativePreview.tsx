@@ -6,7 +6,8 @@
  * no cards within cards.
  *
  * Orchestrator — delegates rendering to:
- *   NarrativeSection, NarrativeSectionHeader, NarrativeStatusBadge,
+ *   NarrativeShell (annotation chrome), NarrativeSection,
+ *   NarrativeSectionHeader, NarrativeStatusBadge,
  *   SourceFootnotes, PracticeTimer, DeliveryHelpModal
  */
 
@@ -42,8 +43,6 @@ import {
   StoryVisibility,
   StorySource,
   SourceCoverage,
-  StoryAnnotation,
-  AnnotationStyle,
 } from '../../types/career-stories';
 import { SUPPORTED_SOURCES, type ActivitySource } from '../../types/activity';
 import { getSourceIcon } from '../journal/source-icons';
@@ -51,10 +50,7 @@ import { SourceFootnotes } from './SourceFootnotes';
 import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
 import { useStoryDerivations, usePackets } from '../../hooks/useCareerStories';
 import { FrameworkSelector } from './FrameworkSelector';
-import { useUpdateStorySource, useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation } from '../../hooks/useCareerStories';
-import { SelectionPopover } from './SelectionPopover';
-import { AnnotationPopover } from './AnnotationPopover';
-import { getTextOffsetFromSelection } from './annotation-utils';
+import { useUpdateStorySource } from '../../hooks/useCareerStories';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -65,7 +61,6 @@ import {
 import {
   TIMING,
   NARRATIVE_FRAMEWORKS,
-  BRAG_DOC_CATEGORIES,
   getStoryStatus,
   capitalizeFirst,
   mapSectionToStarKey,
@@ -80,6 +75,7 @@ import { PracticeTimer } from './PracticeTimer';
 import { DeliveryHelpModal } from './DeliveryHelpModal';
 import { MarginColumn } from './MarginColumn';
 import { SourceMargin } from './SourceMargin';
+import { NarrativeShell } from './NarrativeShell';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -147,27 +143,9 @@ export function NarrativePreview({
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
-  const [practiceMode, setPracticeMode] = useState(false);
-  const [timerActive, setTimerActive] = useState(false);
   const [showCoaching, setShowCoaching] = useState(true);
-  const [showEmphasis, setShowEmphasis] = useState(true);
   const [showDeliveryHelp, setShowDeliveryHelp] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const [showSourceMargin, setShowSourceMargin] = useState(true);
-  const [selectionPopover, setSelectionPopover] = useState<{
-    position: { x: number; y: number };
-    sectionKey: string;
-    range: Range;
-    containerEl: HTMLElement;
-  } | null>(null);
-  const [editPopover, setEditPopover] = useState<{
-    position: { x: number; y: number };
-    annotation: StoryAnnotation;
-  } | null>(null);
-  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
-  const [connectorLine, setConnectorLine] = useState<{
-    x1: number; y1: number; x2: number; y2: number;
-  } | null>(null);
   const uniqueSources = useMemo(() => [...new Set(toolTypes)], [toolTypes]);
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections(prev => {
@@ -180,11 +158,6 @@ export function NarrativePreview({
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateSourceMutation = useUpdateStorySource();
-  const createAnnotationMutation = useCreateAnnotation();
-  const updateAnnotationMutation = useUpdateAnnotation();
-  const deleteAnnotationMutation = useDeleteAnnotation();
-
-  const articleRef = useRef<HTMLElement>(null);
 
   // Group sources by sectionKey
   const sourcesBySection = useMemo(() => {
@@ -216,194 +189,6 @@ export function NarrativePreview({
     }
   }, [story?.id, updateSourceMutation]);
 
-  // Annotation mouseup handler — always active, detect text selection and show style popover
-  const handleArticleMouseUp = useCallback(() => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
-
-    const range = sel.getRangeAt(0);
-    const selectedText = range.toString().trim();
-    if (!selectedText) return;
-
-    // Walk from the selection to find the section key and content <p>
-    const startNode = range.startContainer instanceof HTMLElement
-      ? range.startContainer
-      : range.startContainer.parentElement;
-    if (!startNode) return;
-
-    const sectionDiv = startNode.closest('[data-section-key]');
-    if (!sectionDiv) return;
-
-    const sectionKey = sectionDiv.getAttribute('data-section-key');
-    if (!sectionKey) return;
-
-    // Use the <p> (contentRef) inside the section, not the wrapper div,
-    // so getTextOffsetFromSelection computes offsets relative to the raw text only.
-    const contentParagraph = sectionDiv.querySelector('p');
-    if (!contentParagraph) return;
-
-    const rect = range.getBoundingClientRect();
-    setSelectionPopover({
-      position: { x: rect.left + rect.width / 2, y: rect.top },
-      sectionKey,
-      range: range.cloneRange(),
-      containerEl: contentParagraph as HTMLElement,
-    });
-  }, []);
-
-  // Handle style selection from SelectionPopover
-  const handleCreateAnnotation = useCallback((style: AnnotationStyle) => {
-    if (!selectionPopover || !story?.id) return;
-
-    const { range, containerEl, sectionKey } = selectionPopover;
-    const offsets = getTextOffsetFromSelection(containerEl, range);
-    if (!offsets) return;
-
-    const annotatedText = range.toString();
-
-    createAnnotationMutation.mutate({
-      storyId: story.id,
-      input: {
-        sectionKey,
-        startOffset: offsets.start,
-        endOffset: offsets.end,
-        annotatedText,
-        style,
-      },
-    });
-
-    setSelectionPopover(null);
-    window.getSelection()?.removeAllRanges();
-  }, [selectionPopover, story?.id, createAnnotationMutation]);
-
-  // Handle annotation click (open edit popover)
-  const handleAnnotationClick = useCallback((annotationId: string, element: HTMLElement) => {
-    const ann = story?.annotations?.find((a) => a.id === annotationId);
-    if (!ann) return;
-
-    const rect = element.getBoundingClientRect();
-    setEditPopover({
-      position: { x: rect.left + rect.width / 2, y: rect.bottom },
-      annotation: ann,
-    });
-  }, [story?.annotations]);
-
-  // Handle save note from AnnotationPopover
-  const handleSaveAnnotationNote = useCallback((note: string | null) => {
-    if (!editPopover || !story?.id) return;
-
-    updateAnnotationMutation.mutate({
-      storyId: story.id,
-      annotationId: editPopover.annotation.id,
-      input: { note },
-    });
-
-    setEditPopover(null);
-  }, [editPopover, story?.id, updateAnnotationMutation]);
-
-  // Handle remove annotation from AnnotationPopover
-  const handleRemoveAnnotation = useCallback(() => {
-    if (!editPopover || !story?.id) return;
-
-    setHoveredAnnotationId(null);
-    setConnectorLine(null);
-    deleteAnnotationMutation.mutate({
-      storyId: story.id,
-      annotationId: editPopover.annotation.id,
-    });
-
-    setEditPopover(null);
-  }, [editPopover, story?.id, deleteAnnotationMutation]);
-
-  // Remove annotation by ID (from inline X button on highlights)
-  const handleRemoveAnnotationById = useCallback((annotationId: string) => {
-    if (!story?.id) return;
-    setHoveredAnnotationId(null);
-    setConnectorLine(null);
-    deleteAnnotationMutation.mutate({
-      storyId: story.id,
-      annotationId,
-    });
-  }, [story?.id, deleteAnnotationMutation]);
-
-  // Create an aside (standalone margin note with no text anchor)
-  const handleCreateAside = useCallback((sectionKey: string, note: string) => {
-    if (!story?.id) return;
-    createAnnotationMutation.mutate({
-      storyId: story.id,
-      input: {
-        sectionKey,
-        startOffset: -1,
-        endOffset: -1,
-        annotatedText: '',
-        style: 'aside' as AnnotationStyle,
-        note,
-      },
-    });
-  }, [story?.id, createAnnotationMutation]);
-
-  // Clear note from a text-anchored annotation (keeps the mark)
-  const handleClearNote = useCallback((annotationId: string) => {
-    if (!story?.id) return;
-    setHoveredAnnotationId(null);
-    setConnectorLine(null);
-    updateAnnotationMutation.mutate({
-      storyId: story.id,
-      annotationId,
-      input: { note: null },
-    });
-  }, [story?.id, updateAnnotationMutation]);
-
-  // Delete an aside entirely
-  const handleDeleteAside = useCallback((annotationId: string) => {
-    if (!story?.id) return;
-    setHoveredAnnotationId(null);
-    setConnectorLine(null);
-    deleteAnnotationMutation.mutate({
-      storyId: story.id,
-      annotationId,
-    });
-  }, [story?.id, deleteAnnotationMutation]);
-
-  // Hover pairing: compute connector line between margin note and text mark
-  const handleHoverAnnotation = useCallback((annotationId: string | null) => {
-    setHoveredAnnotationId(annotationId);
-
-    if (!annotationId || !articleRef.current) {
-      setConnectorLine(null);
-      return;
-    }
-
-    const articleRect = articleRef.current.getBoundingClientRect();
-
-    // Find the margin note element
-    const marginEl = articleRef.current.querySelector(
-      `[data-margin-annotation-id="${annotationId}"]`
-    ) as HTMLElement | null;
-
-    // Find the text annotation span
-    const textEl = articleRef.current.querySelector(
-      `[data-annotation-id="${annotationId}"]`
-    ) as HTMLElement | null;
-
-    if (!marginEl || !textEl) {
-      setConnectorLine(null);
-      return;
-    }
-
-    const marginRect = marginEl.getBoundingClientRect();
-    const textRect = textEl.getBoundingClientRect();
-
-    setConnectorLine({
-      x1: marginRect.right - articleRect.left,
-      y1: marginRect.top + marginRect.height / 2 - articleRect.top,
-      x2: textRect.left - articleRect.left,
-      y2: textRect.top + textRect.height / 2 - articleRect.top,
-    });
-  }, []);
-
-  // Always show margin — narrow when empty, expands when notes exist
-  const hasMarginNotes = (story?.annotations ?? []).some((a) => a.note);
   const showMargin = true;
 
   const star = result?.star;
@@ -618,424 +403,379 @@ export function NarrativePreview({
     : '';
 
   return (
-    <article ref={articleRef} className="relative bg-white" data-testid="star-preview" onMouseUp={handleArticleMouseUp}>
-      {/* Document header */}
-      <header className="px-6 pt-3 pb-3 lg:px-8 lg:pt-4">
-        {/* Title + status + actions — single row */}
-        <div className="flex items-start gap-2">
-          <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0">{clusterName}</h2>
+    <NarrativeShell
+      owner={{ type: 'story', id: story?.id ?? '', annotations: story?.annotations ?? [] }}
+      className="relative bg-white"
+    >
+      {(shell) => (
+        <>
+          {/* Document header */}
+          <header className="px-6 pt-3 pb-3 lg:px-8 lg:pt-4">
+            {/* Title + status + actions — single row */}
+            <div className="flex items-start gap-2">
+              <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0">{clusterName}</h2>
 
-          {/* Status + actions — right-aligned, same row as title */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <NarrativeStatusBadge
-              status={storyStatus}
-              confidence={star.overallConfidence}
-              suggestedEdits={star.suggestedEdits}
-              sourceCoverage={sourceCoverage}
-            />
-            {story?.id && (
-              <StoryUseAs
-                storyId={story.id}
-                onShareAs={onShareAs}
-                onGeneratePacket={onGeneratePacket}
-                onNavigateToLibraryItem={onNavigateToLibraryItem}
-              />
-            )}
+              {/* Status + actions — right-aligned, same row as title */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <NarrativeStatusBadge
+                  status={storyStatus}
+                  confidence={star.overallConfidence}
+                  suggestedEdits={star.suggestedEdits}
+                  sourceCoverage={sourceCoverage}
+                />
+                {story?.id && (
+                  <StoryUseAs
+                    storyId={story.id}
+                    onShareAs={onShareAs}
+                    onGeneratePacket={onGeneratePacket}
+                    onNavigateToLibraryItem={onNavigateToLibraryItem}
+                  />
+                )}
 
-            <button
-              onClick={handleCopy}
-              className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
-              title="Copy plain text"
-              aria-label="Copy plain text"
-              data-testid="copy-star"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-
-            {isEditing && (
-              <>
                 <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="p-1.5 rounded bg-primary-100 text-primary-600 inline-flex items-center"
-                  title="Save"
-                  aria-label="Save"
+                  onClick={handleCopy}
+                  className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
+                  title="Copy plain text"
+                  aria-label="Copy plain text"
+                  data-testid="copy-star"
                 >
-                  <Check className="h-3.5 w-3.5" />
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
-                <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel" aria-label="Cancel editing">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center"
-                  title="More actions"
-                  aria-label="More actions"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem
-                onSelect={() => setIsEditing(true)}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Edit story
-              </DropdownMenuItem>
+                {isEditing && (
+                  <>
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="p-1.5 rounded bg-primary-100 text-primary-600 inline-flex items-center"
+                      title="Save"
+                      aria-label="Save"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setIsEditing(false)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100" title="Cancel" aria-label="Cancel editing">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
 
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={onRegenerate}
-                disabled={isLoading}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
-                Regenerate
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => setShowCoaching(!showCoaching)}
-                className="flex items-center gap-2"
-              >
-                <Lightbulb className={cn('h-3.5 w-3.5', showCoaching && 'text-amber-500')} />
-                {showCoaching ? 'Hide coach review' : 'Coach review'}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => setShowEmphasis(!showEmphasis)}
-                className="flex items-center gap-2"
-              >
-                <Type className={cn('h-3.5 w-3.5', showEmphasis && 'text-indigo-500')} />
-                {showEmphasis ? 'Hide emphasis' : 'Text emphasis'}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => { setPracticeMode(!practiceMode); setTimerActive(false); }}
-                className="flex items-center gap-2"
-              >
-                <Mic className={cn('h-3.5 w-3.5', practiceMode && 'text-primary-500')} />
-                {practiceMode ? 'Exit practice' : 'Practice timer'}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => setShowDeliveryHelp(true)}
-                className="flex items-center gap-2"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                Delivery guide
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-              {story?.isPublished ? (
-                <DropdownMenuItem
-                  onSelect={() => onUnpublish?.()}
-                  disabled={isPublishing}
-                  className="flex items-center gap-2"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  Unpublish
-                </DropdownMenuItem>
-              ) : onOpenPublishModal ? (
-                <DropdownMenuItem
-                  onSelect={onOpenPublishModal}
-                  disabled={isPublishing}
-                  className="flex items-center gap-2"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  Publish
-                </DropdownMenuItem>
-              ) : onPublish ? (
-                <DropdownMenuItem
-                  onSelect={() => onPublish('private', edits)}
-                  disabled={isPublishing}
-                  className="flex items-center gap-2"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  Publish
-                </DropdownMenuItem>
-              ) : null}
-              {onDelete && (
-                <DropdownMenuItem
-                  onSelect={onDelete}
-                  disabled={isDeleting}
-                  className="flex items-center gap-2 text-red-600 focus:text-red-600"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete story
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* Provenance line — one line, all gray, dot-separated */}
-        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400 flex-wrap">
-          {/* Source icon stack */}
-          {uniqueSources.length > 0 && (
-            <div className="flex items-center -space-x-1.5">
-              {uniqueSources.slice(0, 4).map((tool, i) => {
-                const Icon = getSourceIcon(tool);
-                const info = SUPPORTED_SOURCES[tool as ActivitySource];
-                return (
-                  <span
-                    key={tool}
-                    title={info?.displayName || tool}
-                    className="flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-white shadow-sm ring-1 ring-gray-200/80"
-                    style={{ zIndex: uniqueSources.length - i }}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center"
+                      title="More actions"
+                      aria-label="More actions"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    onSelect={() => setIsEditing(true)}
+                    className="flex items-center gap-2"
                   >
-                    <Icon className="w-3.5 h-3.5" style={{ color: info?.color }} />
-                  </span>
-                );
-              })}
-              {uniqueSources.length > 4 && (
-                <span
-                  className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 border-2 border-white shadow-sm ring-1 ring-gray-200/80 text-[10px] font-bold text-gray-500"
-                  style={{ zIndex: 0 }}
-                >
-                  +{uniqueSources.length - 4}
-                </span>
+                    <FileText className="h-3.5 w-3.5" />
+                    Edit story
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={onRegenerate}
+                    disabled={isLoading}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+                    Regenerate
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => setShowCoaching(!showCoaching)}
+                    className="flex items-center gap-2"
+                  >
+                    <Lightbulb className={cn('h-3.5 w-3.5', showCoaching && 'text-amber-500')} />
+                    {showCoaching ? 'Hide coach review' : 'Coach review'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => shell.setShowEmphasis(!shell.showEmphasis)}
+                    className="flex items-center gap-2"
+                  >
+                    <Type className={cn('h-3.5 w-3.5', shell.showEmphasis && 'text-indigo-500')} />
+                    {shell.showEmphasis ? 'Hide emphasis' : 'Text emphasis'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => { shell.setPracticeMode(!shell.practiceMode); shell.setTimerActive(false); }}
+                    className="flex items-center gap-2"
+                  >
+                    <Mic className={cn('h-3.5 w-3.5', shell.practiceMode && 'text-primary-500')} />
+                    {shell.practiceMode ? 'Exit practice' : 'Practice timer'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setShowDeliveryHelp(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                    Delivery guide
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+                  {story?.isPublished ? (
+                    <DropdownMenuItem
+                      onSelect={() => onUnpublish?.()}
+                      disabled={isPublishing}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                      Unpublish
+                    </DropdownMenuItem>
+                  ) : onOpenPublishModal ? (
+                    <DropdownMenuItem
+                      onSelect={onOpenPublishModal}
+                      disabled={isPublishing}
+                      className="flex items-center gap-2"
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      Publish
+                    </DropdownMenuItem>
+                  ) : onPublish ? (
+                    <DropdownMenuItem
+                      onSelect={() => onPublish('private', edits)}
+                      disabled={isPublishing}
+                      className="flex items-center gap-2"
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      Publish
+                    </DropdownMenuItem>
+                  ) : null}
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onSelect={onDelete}
+                      disabled={isDeleting}
+                      className="flex items-center gap-2 text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete story
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            {/* Provenance line — one line, all gray, dot-separated */}
+            <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+              {/* Source icon stack */}
+              {uniqueSources.length > 0 && (
+                <div className="flex items-center -space-x-1.5">
+                  {uniqueSources.slice(0, 4).map((tool, i) => {
+                    const Icon = getSourceIcon(tool);
+                    const info = SUPPORTED_SOURCES[tool as ActivitySource];
+                    return (
+                      <span
+                        key={tool}
+                        title={info?.displayName || tool}
+                        className="flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-white shadow-sm ring-1 ring-gray-200/80"
+                        style={{ zIndex: uniqueSources.length - i }}
+                      >
+                        <Icon className="w-3.5 h-3.5" style={{ color: info?.color }} />
+                      </span>
+                    );
+                  })}
+                  {uniqueSources.length > 4 && (
+                    <span
+                      className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 border-2 border-white shadow-sm ring-1 ring-gray-200/80 text-[10px] font-bold text-gray-500"
+                      style={{ zIndex: 0 }}
+                    >
+                      +{uniqueSources.length - 4}
+                    </span>
+                  )}
+                </div>
               )}
+
+              {formatDateRange() && (
+                <>
+                  <span className="hidden sm:inline">{formatDateRange()}</span>
+                  <span className="hidden sm:inline text-gray-300">&middot;</span>
+                </>
+              )}
+              <FrameworkSelector
+                value={framework}
+                onChange={onFrameworkChange}
+                align="left"
+              />
+              {coverageText && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span className={cn(coverageColor)}>{coverageText}</span>
+                  <button
+                    onClick={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
+                    className={cn(
+                      'hidden lg:inline-flex items-center p-0.5 rounded transition-colors',
+                      shell.showSourceMargin
+                        ? 'text-slate-500 hover:bg-slate-50'
+                        : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
+                    )}
+                    title={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                    aria-label={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                  >
+                    {shell.showSourceMargin
+                      ? <EyeOff className="w-3.5 h-3.5" />
+                      : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </>
+              )}
+
+            </div>
+          </header>
+
+          {/* Practice Timer */}
+          {shell.practiceMode && (
+            <div className="px-6 lg:px-8 py-1.5 bg-gray-50/30">
+              <PracticeTimer
+                totalSeconds={estimatedTime}
+                sectionTimings={sectionTimings}
+                isActive={shell.timerActive}
+                onToggle={() => shell.setTimerActive(!shell.timerActive)}
+                onReset={() => shell.setTimerActive(false)}
+              />
             </div>
           )}
 
-          {formatDateRange() && (
-            <>
-              <span className="hidden sm:inline">{formatDateRange()}</span>
-              <span className="hidden sm:inline text-gray-300">&middot;</span>
-            </>
-          )}
-          <FrameworkSelector
-            value={framework}
-            onChange={onFrameworkChange}
-            align="left"
-          />
-          {coverageText && (
-            <>
-              <span className="text-gray-300">&middot;</span>
-              <span className={cn(coverageColor)}>{coverageText}</span>
-              {/* Eye icon shows ACTION (what clicking does), not current state:
-                 Eye = "click to show" (sources hidden), EyeOff = "click to hide" (sources visible) */}
-              <button
-                onClick={() => setShowSourceMargin(prev => !prev)}
-                className={cn(
-                  'hidden lg:inline-flex items-center p-0.5 rounded transition-colors',
-                  showSourceMargin
-                    ? 'text-slate-500 hover:bg-slate-50'
-                    : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
-                )}
-                title={showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                aria-label={showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-              >
-                {showSourceMargin
-                  ? <EyeOff className="w-3.5 h-3.5" />
-                  : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </>
-          )}
+          <DeliveryHelpModal isOpen={showDeliveryHelp} onClose={() => setShowDeliveryHelp(false)} />
 
-        </div>
-      </header>
-
-      {/* Practice Timer */}
-      {practiceMode && (
-        <div className="px-6 lg:px-8 py-1.5 bg-gray-50/30">
-          <PracticeTimer
-            totalSeconds={estimatedTime}
-            sectionTimings={sectionTimings}
-            isActive={timerActive}
-            onToggle={() => setTimerActive(!timerActive)}
-            onReset={() => setTimerActive(false)}
-          />
-        </div>
-      )}
-
-      <DeliveryHelpModal isOpen={showDeliveryHelp} onClose={() => setShowDeliveryHelp(false)} />
-
-      {/* Narrative Content — continuous flow, timeline spine */}
-      <div className="px-6 lg:px-8">
-        {sectionKeys.map((sectionKey, idx) => {
-          let component: STARComponent;
-          if (useStorySections && story?.sections?.[sectionKey]) {
-            const section = story.sections[sectionKey];
-            component = {
-              text: section.summary || `Details pending...`,
-              sources: section.evidence?.map((e) => e.activityId) || [],
-              confidence: section.summary ? 0.8 : 0.3,
-            };
-          } else {
-            const starKey = mapSectionToStarKey(sectionKey);
-            component = star?.[starKey] || { text: 'Details pending...', sources: [], confidence: 0.3 };
-          }
-
-          const sectionSources = sourcesBySection[sectionKey] || [];
-          const activeSources = sectionSources.filter(s => !s.excludedAt && s.sourceType !== 'wizard_answer');
-          const isSectionCollapsed = collapsedSections.has(sectionKey);
-
-          return (
-            <NarrativeSectionHeader
-              key={sectionKey}
-              sectionKey={sectionKey}
-              label={capitalizeFirst(sectionKey)}
-              confidence={component.confidence}
-              showCoaching={showCoaching}
-              sourceCount={activeSources.length}
-              isCollapsed={isSectionCollapsed}
-              onToggle={() => toggleSection(sectionKey)}
-              isLast={idx === sectionKeys.length - 1}
-              showMargin={showMargin}
-              marginContent={
-                <MarginColumn
-                  annotations={story?.annotations ?? []}
-                  sectionKey={sectionKey}
-                  annotateMode={true}
-                  hasNotes={hasMarginNotes}
-                  onCreateAside={handleCreateAside}
-                  onHoverAnnotation={handleHoverAnnotation}
-                  hoveredAnnotationId={hoveredAnnotationId}
-                  onClearNote={handleClearNote}
-                  onDeleteAside={handleDeleteAside}
-                />
+          {/* Narrative Content — continuous flow, timeline spine */}
+          <div className="px-6 lg:px-8">
+            {sectionKeys.map((sectionKey, idx) => {
+              let component: STARComponent;
+              if (useStorySections && story?.sections?.[sectionKey]) {
+                const section = story.sections[sectionKey];
+                component = {
+                  text: section.summary || `Details pending...`,
+                  sources: section.evidence?.map((e) => e.activityId) || [],
+                  confidence: section.summary ? 0.8 : 0.3,
+                };
+              } else {
+                const starKey = mapSectionToStarKey(sectionKey);
+                component = star?.[starKey] || { text: 'Details pending...', sources: [], confidence: 0.3 };
               }
-              showSourceMargin={showSourceMargin}
-              rightMarginContent={
-                // Slide-in transition: w-0/opacity-0 → w-[180px]/opacity-100.
-                // Content column narrows as margin expands (flex layout).
-                <div className={cn(
-                  'hidden lg:block flex-shrink-0 pt-1 transition-all duration-200 overflow-hidden',
-                  showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
-                )}>
-                  {showSourceMargin && (
-                    <SourceMargin
-                      sources={sectionSources}
-                      onExclude={handleExcludeSource}
-                      onUndoExclude={handleUndoExclude}
-                    />
-                  )}
-                </div>
-              }
-              collapsedPreview={getSectionText(sectionKey).slice(0, 120)}
-            >
-              {/* Narrative text — flows directly, no card wrapper */}
-              <div data-section-key={sectionKey}>
-                <NarrativeSection
+
+              const sectionSources = sourcesBySection[sectionKey] || [];
+              const activeSources = sectionSources.filter(s => !s.excludedAt && s.sourceType !== 'wizard_answer');
+              const isSectionCollapsed = collapsedSections.has(sectionKey);
+
+              return (
+                <NarrativeSectionHeader
+                  key={sectionKey}
                   sectionKey={sectionKey}
                   label={capitalizeFirst(sectionKey)}
-                  content={component.text}
                   confidence={component.confidence}
-                  isEditing={isEditing}
-                  editValue={edits[sectionKey] || ''}
-                  onEditChange={(v) => setEdits({ ...edits, [sectionKey]: v })}
-                  isFirst={idx === 0}
                   showCoaching={showCoaching}
-                  showDeliveryCues={practiceMode}
-                  showEmphasis={showEmphasis}
-                  hideHeader
-                  annotations={story?.annotations}
-                  onAnnotationClick={handleAnnotationClick}
-                  onDeleteAnnotation={handleRemoveAnnotationById}
-                  hoveredAnnotationId={hoveredAnnotationId}
-                  onHoverAnnotation={handleHoverAnnotation}
-                />
-              </div>
-
-              {/* Source footnotes — always hidden on desktop (lg:hidden) where the right
-                 margin column provides source display. On mobile (<lg), footnotes are the
-                 only source display since the margin column is hidden. */}
-              <div className="lg:hidden">
-                <SourceFootnotes
-                  sources={sectionSources}
-                  sectionKey={sectionKey}
-                  vagueMetrics={
-                    sourceCoverage?.vagueMetrics.filter((vm) => vm.sectionKey === sectionKey) || []
+                  sourceCount={activeSources.length}
+                  isCollapsed={isSectionCollapsed}
+                  onToggle={() => toggleSection(sectionKey)}
+                  isLast={idx === sectionKeys.length - 1}
+                  showMargin={showMargin}
+                  marginContent={
+                    <MarginColumn
+                      {...shell.marginProps}
+                      sectionKey={sectionKey}
+                    />
                   }
-                  onExclude={handleExcludeSource}
-                  onUndoExclude={handleUndoExclude}
-                  isEditing={isEditing}
-                />
-              </div>
-            </NarrativeSectionHeader>
-          );
-        })}
-      </div>
+                  showSourceMargin={shell.showSourceMargin}
+                  rightMarginContent={
+                    <div className={cn(
+                      'hidden lg:block flex-shrink-0 pt-1 transition-all duration-200 overflow-hidden',
+                      shell.showSourceMargin ? 'w-[180px] pl-3 opacity-100' : 'w-0 opacity-0'
+                    )}>
+                      {shell.showSourceMargin && (
+                        <SourceMargin
+                          sources={sectionSources}
+                          onExclude={handleExcludeSource}
+                          onUndoExclude={handleUndoExclude}
+                        />
+                      )}
+                    </div>
+                  }
+                  collapsedPreview={getSectionText(sectionKey).slice(0, 120)}
+                >
+                  {/* Narrative text — flows directly, no card wrapper */}
+                  <div data-section-key={sectionKey}>
+                    <NarrativeSection
+                      sectionKey={sectionKey}
+                      label={capitalizeFirst(sectionKey)}
+                      content={component.text}
+                      confidence={component.confidence}
+                      isEditing={isEditing}
+                      editValue={edits[sectionKey] || ''}
+                      onEditChange={(v) => setEdits({ ...edits, [sectionKey]: v })}
+                      isFirst={idx === 0}
+                      showCoaching={showCoaching}
+                      showDeliveryCues={shell.practiceMode}
+                      showEmphasis={shell.showEmphasis}
+                      hideHeader
+                      annotations={story?.annotations}
+                      onAnnotationClick={shell.annotationHandlers.onAnnotationClick}
+                      onDeleteAnnotation={shell.annotationHandlers.onDeleteAnnotation}
+                      hoveredAnnotationId={shell.annotationHandlers.hoveredAnnotationId}
+                      onHoverAnnotation={shell.annotationHandlers.onHoverAnnotation}
+                    />
+                  </div>
 
-      {/* Footer — conditional, no border */}
-      {(result.polishStatus === 'success' || story?.generatedAt || (star?.suggestedEdits?.length ?? 0) > 0 || story?.isPublished) && (
-        <footer className="px-6 lg:px-8 py-4 mt-2">
-          <div className="flex items-center gap-2 text-[11px] text-gray-400">
-            {result.polishStatus === 'success' && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                AI-enhanced
-              </span>
-            )}
-            {story?.generatedAt && (
-              <>
-                {result.polishStatus === 'success' && <span>&middot;</span>}
-                <span>Generated {format(new Date(story.generatedAt), 'MMM d')}</span>
-              </>
-            )}
-            {(star?.suggestedEdits?.length ?? 0) > 0 && (
-              <>
-                <span>&middot;</span>
-                <span>{star!.suggestedEdits.length} suggestion{star!.suggestedEdits.length > 1 ? 's' : ''} to improve</span>
-              </>
-            )}
-            {story?.isPublished && (
-              <>
-                <span>&middot;</span>
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Published
-                </span>
-              </>
-            )}
+                  {/* Source footnotes — mobile only */}
+                  <div className="lg:hidden">
+                    <SourceFootnotes
+                      sources={sectionSources}
+                      sectionKey={sectionKey}
+                      vagueMetrics={
+                        sourceCoverage?.vagueMetrics.filter((vm) => vm.sectionKey === sectionKey) || []
+                      }
+                      onExclude={handleExcludeSource}
+                      onUndoExclude={handleUndoExclude}
+                      isEditing={isEditing}
+                    />
+                  </div>
+                </NarrativeSectionHeader>
+              );
+            })}
           </div>
-        </footer>
-      )}
 
-      {/* SVG connector line between margin note and text mark */}
-      {connectorLine && (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none z-10"
-          style={{ overflow: 'visible' }}
-        >
-          <line
-            x1={connectorLine.x1}
-            y1={connectorLine.y1}
-            x2={connectorLine.x2}
-            y2={connectorLine.y2}
-            stroke="#b45309"
-            strokeWidth="1.5"
-            strokeDasharray="5 3"
-            opacity="0.7"
-          />
-        </svg>
+          {/* Footer — conditional, no border */}
+          {(result.polishStatus === 'success' || story?.generatedAt || (star?.suggestedEdits?.length ?? 0) > 0 || story?.isPublished) && (
+            <footer className="px-6 lg:px-8 py-4 mt-2">
+              <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                {result.polishStatus === 'success' && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    AI-enhanced
+                  </span>
+                )}
+                {story?.generatedAt && (
+                  <>
+                    {result.polishStatus === 'success' && <span>&middot;</span>}
+                    <span>Generated {format(new Date(story.generatedAt), 'MMM d')}</span>
+                  </>
+                )}
+                {(star?.suggestedEdits?.length ?? 0) > 0 && (
+                  <>
+                    <span>&middot;</span>
+                    <span>{star!.suggestedEdits.length} suggestion{star!.suggestedEdits.length > 1 ? 's' : ''} to improve</span>
+                  </>
+                )}
+                {story?.isPublished && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="flex items-center gap-1 text-emerald-600">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      Published
+                    </span>
+                  </>
+                )}
+              </div>
+            </footer>
+          )}
+        </>
       )}
-
-      {/* Annotation popovers — rendered at article level */}
-      {selectionPopover && (
-        <SelectionPopover
-          position={selectionPopover.position}
-          onSelectStyle={handleCreateAnnotation}
-          onClose={() => setSelectionPopover(null)}
-        />
-      )}
-
-      {editPopover && (
-        <AnnotationPopover
-          position={editPopover.position}
-          annotatedText={editPopover.annotation.annotatedText}
-          initialNote={editPopover.annotation.note}
-          onSave={handleSaveAnnotationNote}
-          onRemove={handleRemoveAnnotation}
-          onClose={() => setEditPopover(null)}
-        />
-      )}
-    </article>
+    </NarrativeShell>
   );
 }
 

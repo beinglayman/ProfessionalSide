@@ -1543,8 +1543,9 @@ model StorySource {
 
 model StoryAnnotation {
   id            String   @id @default(cuid())
-  storyId       String
-  sectionKey    String          // "situation", "task", etc.
+  storyId       String?         // null when annotation belongs to a derivation
+  derivationId  String?         // null when annotation belongs to a story
+  sectionKey    String          // "situation", "task", etc. (or "content" for derivations)
   startOffset   Int             // -1 for asides (no text anchor)
   endOffset     Int             // -1 for asides
   annotatedText String          // exact text for staleness detection (empty for asides)
@@ -1552,9 +1553,11 @@ model StoryAnnotation {
   note          String?         // margin note text (required for asides, optional for marks)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  story         CareerStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  story         CareerStory?     @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  derivation    StoryDerivation? @relation(fields: [derivationId], references: [id], onDelete: Cascade)
 
   @@index([storyId])
+  @@index([derivationId])
   @@map("story_annotations")
 }
 
@@ -1583,6 +1586,7 @@ model StoryDerivation {
   creditCost       Int      // 1 or 2
   createdAt        DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  annotations      StoryAnnotation[]
 
   @@index([userId, createdAt])
   @@index([userId, kind])

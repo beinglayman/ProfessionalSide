@@ -4,6 +4,8 @@
  * CRUD for rough-notation annotations and Tufte margin notes.
  * Annotations are text-anchored marks (highlight, underline, box, circle,
  * strike-through, bracket) with optional margin notes, or standalone asides.
+ *
+ * Supports both story and derivation ownership (exactly one must be set).
  */
 
 import { prisma } from '../../lib/prisma';
@@ -29,6 +31,10 @@ interface UpdateAnnotationInput {
 }
 
 class StoryAnnotationService {
+  // =========================================================================
+  // STORY ANNOTATIONS
+  // =========================================================================
+
   async getAnnotationsForStory(storyId: string) {
     return prisma.storyAnnotation.findMany({
       where: { storyId },
@@ -69,6 +75,55 @@ class StoryAnnotationService {
   async verifyOwnership(annotationId: string, storyId: string): Promise<boolean> {
     const annotation = await prisma.storyAnnotation.findFirst({
       where: { id: annotationId, storyId },
+      select: { id: true },
+    });
+    return annotation !== null;
+  }
+
+  // =========================================================================
+  // DERIVATION ANNOTATIONS
+  // =========================================================================
+
+  async getAnnotationsForDerivation(derivationId: string) {
+    return prisma.storyAnnotation.findMany({
+      where: { derivationId },
+      orderBy: [{ sectionKey: 'asc' }, { startOffset: 'asc' }],
+    });
+  }
+
+  async createDerivationAnnotation(derivationId: string, input: CreateAnnotationInput) {
+    return prisma.storyAnnotation.create({
+      data: {
+        derivationId,
+        sectionKey: input.sectionKey,
+        startOffset: input.startOffset,
+        endOffset: input.endOffset,
+        annotatedText: input.annotatedText,
+        style: input.style,
+        note: input.note ?? null,
+      },
+    });
+  }
+
+  async updateDerivationAnnotation(annotationId: string, derivationId: string, input: UpdateAnnotationInput) {
+    return prisma.storyAnnotation.update({
+      where: { id: annotationId, derivationId },
+      data: {
+        ...(input.note !== undefined ? { note: input.note } : {}),
+        ...(input.style !== undefined ? { style: input.style } : {}),
+      },
+    });
+  }
+
+  async deleteDerivationAnnotation(annotationId: string, derivationId: string) {
+    return prisma.storyAnnotation.delete({
+      where: { id: annotationId, derivationId },
+    });
+  }
+
+  async verifyDerivationOwnership(annotationId: string, derivationId: string): Promise<boolean> {
+    const annotation = await prisma.storyAnnotation.findFirst({
+      where: { id: annotationId, derivationId },
       select: { id: true },
     });
     return annotation !== null;

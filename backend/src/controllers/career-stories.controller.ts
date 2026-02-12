@@ -1376,6 +1376,127 @@ export const deleteAnnotation = asyncHandler(async (req: Request, res: Response)
 });
 
 // ============================================================================
+// DERIVATION ANNOTATIONS
+// ============================================================================
+
+/**
+ * GET /api/v1/career-stories/derivations/:derivationId/annotations
+ * List annotations for a derivation.
+ */
+export const listDerivationAnnotations = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  // Verify derivation belongs to user
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const annotations = await storyAnnotationService.getAnnotationsForDerivation(derivationId);
+  sendSuccess(res, annotations);
+});
+
+/**
+ * POST /api/v1/career-stories/derivations/:derivationId/annotations
+ * Create an annotation on a derivation.
+ */
+export const createDerivationAnnotation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = createAnnotationSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const annotation = await storyAnnotationService.createDerivationAnnotation(derivationId, parseResult.data);
+  sendSuccess(res, annotation, 'Annotation created', 201);
+});
+
+/**
+ * PATCH /api/v1/career-stories/derivations/:derivationId/annotations/:annotationId
+ * Update an annotation on a derivation.
+ */
+export const updateDerivationAnnotation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId, annotationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = updateAnnotationSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const isOwned = await storyAnnotationService.verifyDerivationOwnership(annotationId, derivationId);
+  if (!isOwned) {
+    return void sendError(res, 'Annotation not found', 404);
+  }
+
+  const annotation = await storyAnnotationService.updateDerivationAnnotation(annotationId, derivationId, parseResult.data);
+  sendSuccess(res, annotation, 'Annotation updated');
+});
+
+/**
+ * DELETE /api/v1/career-stories/derivations/:derivationId/annotations/:annotationId
+ * Delete an annotation on a derivation.
+ */
+export const deleteDerivationAnnotation = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId, annotationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const isOwned = await storyAnnotationService.verifyDerivationOwnership(annotationId, derivationId);
+  if (!isOwned) {
+    return void sendError(res, 'Annotation not found', 404);
+  }
+
+  await storyAnnotationService.deleteDerivationAnnotation(annotationId, derivationId);
+  sendSuccess(res, null, 'Annotation deleted');
+});
+
+// ============================================================================
 // STORY DERIVATIONS
 // ============================================================================
 

@@ -507,6 +507,50 @@ export class CareerStoriesService {
   }
 
   // =============================================================================
+  // DERIVATION ANNOTATIONS
+  // =============================================================================
+
+  static async getDerivationAnnotations(derivationId: string): Promise<ApiResponse<StoryAnnotation[]>> {
+    const response = await api.get<ApiResponse<StoryAnnotation[]>>(
+      `/career-stories/derivations/${derivationId}/annotations`
+    );
+    return response.data;
+  }
+
+  static async createDerivationAnnotation(derivationId: string, input: {
+    sectionKey: string;
+    startOffset: number;
+    endOffset: number;
+    annotatedText: string;
+    style: AnnotationStyle;
+    note?: string | null;
+  }): Promise<ApiResponse<StoryAnnotation>> {
+    const response = await api.post<ApiResponse<StoryAnnotation>>(
+      `/career-stories/derivations/${derivationId}/annotations`,
+      input
+    );
+    return response.data;
+  }
+
+  static async updateDerivationAnnotation(derivationId: string, annotationId: string, input: {
+    note?: string | null;
+    style?: AnnotationStyle;
+  }): Promise<ApiResponse<StoryAnnotation>> {
+    const response = await api.patch<ApiResponse<StoryAnnotation>>(
+      `/career-stories/derivations/${derivationId}/annotations/${annotationId}`,
+      input
+    );
+    return response.data;
+  }
+
+  static async deleteDerivationAnnotation(derivationId: string, annotationId: string): Promise<ApiResponse<null>> {
+    const response = await api.delete<ApiResponse<null>>(
+      `/career-stories/derivations/${derivationId}/annotations/${annotationId}`
+    );
+    return response.data;
+  }
+
+  // =============================================================================
   // STORY DERIVATIONS
   // =============================================================================
 

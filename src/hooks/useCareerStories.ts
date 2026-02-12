@@ -718,6 +718,70 @@ export const useDeleteAnnotation = () => {
 };
 
 // =============================================================================
+// DERIVATION ANNOTATIONS
+// =============================================================================
+
+export const useDerivationAnnotations = (derivationId: string | undefined) => {
+  return useQuery({
+    queryKey: ['career-stories', 'derivation-annotations', derivationId],
+    queryFn: async () => {
+      if (!derivationId) return [];
+      const resp = await CareerStoriesService.getDerivationAnnotations(derivationId);
+      return resp.data ?? [];
+    },
+    enabled: !!derivationId,
+  });
+};
+
+export const useCreateDerivationAnnotation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ derivationId, input }: {
+      derivationId: string;
+      input: {
+        sectionKey: string;
+        startOffset: number;
+        endOffset: number;
+        annotatedText: string;
+        style: AnnotationStyle;
+        note?: string | null;
+      };
+    }) => CareerStoriesService.createDerivationAnnotation(derivationId, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivation-annotations', variables.derivationId] });
+    },
+  });
+};
+
+export const useUpdateDerivationAnnotation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ derivationId, annotationId, input }: {
+      derivationId: string;
+      annotationId: string;
+      input: { note?: string | null; style?: AnnotationStyle };
+    }) => CareerStoriesService.updateDerivationAnnotation(derivationId, annotationId, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivation-annotations', variables.derivationId] });
+    },
+  });
+};
+
+export const useDeleteDerivationAnnotation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ derivationId, annotationId }: { derivationId: string; annotationId: string }) =>
+      CareerStoriesService.deleteDerivationAnnotation(derivationId, annotationId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivation-annotations', variables.derivationId] });
+    },
+  });
+};
+
+// =============================================================================
 // STORY DERIVATIONS
 // =============================================================================
 

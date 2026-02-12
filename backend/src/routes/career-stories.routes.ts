@@ -58,6 +58,11 @@ import {
   createAnnotation,
   updateAnnotation,
   deleteAnnotation,
+  // Derivation Annotations
+  listDerivationAnnotations,
+  createDerivationAnnotation,
+  updateDerivationAnnotation,
+  deleteDerivationAnnotation,
   // Story Derivations
   deriveStory,
   derivePacket,
@@ -147,6 +152,14 @@ router.get('/stories/:storyId/annotations', listAnnotations);
 router.post('/stories/:storyId/annotations', createAnnotation);
 router.patch('/stories/:storyId/annotations/:annotationId', updateAnnotation);
 router.delete('/stories/:storyId/annotations/:annotationId', deleteAnnotation);
+
+// ============================================================================
+// DERIVATION ANNOTATIONS
+// ============================================================================
+router.get('/derivations/:derivationId/annotations', listDerivationAnnotations);
+router.post('/derivations/:derivationId/annotations', createDerivationAnnotation);
+router.patch('/derivations/:derivationId/annotations/:annotationId', updateDerivationAnnotation);
+router.delete('/derivations/:derivationId/annotations/:annotationId', deleteDerivationAnnotation);
 
 // ============================================================================
 // STORY DERIVATIONS

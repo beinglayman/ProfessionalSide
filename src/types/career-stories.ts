@@ -462,6 +462,7 @@ export interface StoryDerivation {
   customPrompt?: string;
   creditCost: number;
   createdAt: string;
+  annotations?: StoryAnnotation[];
 }
 
 // =============================================================================
@@ -513,7 +514,8 @@ export type AnnotationStyle =
 
 export interface StoryAnnotation {
   id: string;
-  storyId: string;
+  storyId: string | null;
+  derivationId: string | null;
   sectionKey: string;
   startOffset: number;
   endOffset: number;
