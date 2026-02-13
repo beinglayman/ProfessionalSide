@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prose-micro: downsized Tiptap output for margin notes and inline previews */
+.prose-micro p { margin: 0; }
+.prose-micro ul, .prose-micro ol { margin: 0; padding-left: 1em; }
+.prose-micro ul { list-style-type: disc; }
+.prose-micro ol { list-style-type: decimal; }
+.prose-micro li { margin: 0; }
+.prose-micro strong, .prose-micro b { font-weight: 600; }
+.prose-micro em, .prose-micro i { font-style: italic; }
+
+/* Tiptap ProseMirror editor: ensure lists render with bullets/numbers */
+.ProseMirror ul { list-style-type: disc; padding-left: 1.2em; }
+.ProseMirror ol { list-style-type: decimal; padding-left: 1.2em; }
+.ProseMirror li { margin: 0; }
+.ProseMirror p { margin: 0; }
+.ProseMirror:focus { outline: none; }
+
 /* Custom animations for notifications */
 @keyframes fade-in {
   0% {

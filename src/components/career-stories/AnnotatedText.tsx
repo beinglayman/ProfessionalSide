@@ -17,6 +17,7 @@ import type { StoryAnnotation } from '../../types/career-stories';
 import { splitTextByAnnotations } from './annotation-utils';
 import { useRoughAnnotations } from '../../hooks/useRoughAnnotations';
 import { renderEmphasisContent } from './emphasis-renderer';
+import { hoverRingShadow } from './annotation-colors';
 
 interface AnnotatedTextProps {
   text: string;
@@ -59,8 +60,11 @@ export const AnnotatedText: React.FC<AnnotatedTextProps> = ({
                 data-annotation-id={seg.annotationId}
                 className={cn(
                   'relative cursor-pointer transition-shadow duration-150 rounded-sm group/ann inline',
-                  hoveredAnnotationId === seg.annotationId && 'shadow-[0_0_0_2px_rgba(180,83,9,0.45)]'
                 )}
+                style={hoveredAnnotationId === seg.annotationId
+                  ? { boxShadow: hoverRingShadow(seg.annotation?.color) }
+                  : undefined
+                }
                 onClick={(e) => onAnnotationClick?.(seg.annotationId!, e.currentTarget)}
                 onMouseEnter={() => onHoverAnnotation?.(seg.annotationId!)}
                 onMouseLeave={() => onHoverAnnotation?.(null)}

@@ -15,6 +15,8 @@ import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { StoryAnnotation } from '../../types/career-stories';
+import { getColorById } from './annotation-colors';
+import { sanitizeNoteHtml, isHtmlContent } from '../../lib/sanitize-html';
 
 interface MarginColumnProps {
   annotations: StoryAnnotation[];
@@ -129,16 +131,26 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
                   {ann.note}
                 </p>
               ) : (
-                <div className={cn(
-                  'border-l-2 pl-2 py-1 transition-colors',
-                  isHovered ? 'border-amber-500' : 'border-amber-300',
-                )}>
-                  <p className={cn(
-                    'text-[11px] leading-relaxed text-gray-500',
-                    !isHovered && (isCrowded ? 'line-clamp-1' : 'line-clamp-4'),
-                  )}>
-                    {ann.note}
-                  </p>
+                <div
+                  className="border-l-2 pl-2 py-1 transition-colors"
+                  style={{ borderColor: getColorById(ann.color).stroke }}
+                >
+                  {ann.note && isHtmlContent(ann.note) ? (
+                    <div
+                      className={cn(
+                        'prose-micro text-[11px] leading-relaxed text-gray-500',
+                        !isHovered && (isCrowded ? 'line-clamp-1' : 'line-clamp-4'),
+                      )}
+                      dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(ann.note) }}
+                    />
+                  ) : (
+                    <p className={cn(
+                      'text-[11px] leading-relaxed text-gray-500',
+                      !isHovered && (isCrowded ? 'line-clamp-1' : 'line-clamp-4'),
+                    )}>
+                      {ann.note}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

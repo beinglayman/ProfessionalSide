@@ -9,16 +9,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import type { StoryAnnotation, AnnotationStyle } from '../types/career-stories';
-
-// =============================================================================
-// STYLE CONFIG (matches prototype)
-// =============================================================================
-
-// Warm amber — subtle, complementary to the purple brand palette
-const ANNOTATION_COLOR = {
-  fill: 'rgba(251, 191, 36, 0.25)',   // amber-400 @ 25% opacity — soft highlight
-  stroke: '#d97706',                    // amber-600 — visible but not loud
-};
+import { getColorById } from '../components/career-stories/annotation-colors';
 
 type RNType = 'highlight' | 'underline' | 'box' | 'circle' | 'strike-through' | 'bracket';
 
@@ -73,9 +64,11 @@ export function useRoughAnnotations(
       const styleDef = STYLE_CONFIG[ann.style as Exclude<AnnotationStyle, 'aside'>];
       if (!styleDef) continue;
 
+      const colorDef = getColorById(ann.color);
+
       const rnOptions: Parameters<typeof annotate>[1] = {
         type: styleDef.rnType,
-        color: styleDef.rnType === 'highlight' ? ANNOTATION_COLOR.fill : ANNOTATION_COLOR.stroke,
+        color: styleDef.rnType === 'highlight' ? colorDef.fill : colorDef.stroke,
         strokeWidth: styleDef.strokeWidth,
         padding: styleDef.padding as number,
         animate: true,
