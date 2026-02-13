@@ -10,7 +10,6 @@ import React, { useMemo } from 'react';
 import { format, startOfWeek, endOfWeek, isSameMonth } from 'date-fns';
 import {
   CheckCircle2,
-  Clock,
   ChevronRight,
   Sparkles,
   AlertCircle,
@@ -51,21 +50,15 @@ function StatusBadge({ isPublished, needsRegeneration, hasContent, visibility }:
       </span>
     );
   }
-  // Stories with content that aren't published are "Saved" not "Draft"
   if (hasContent) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded-full">
-        <Clock className="w-3 h-3" />
         Saved
       </span>
     );
   }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 rounded-full">
-      <Clock className="w-3 h-3" />
-      Draft
-    </span>
-  );
+  // Draft is the default state — no badge needed since everything starts as draft
+  return null;
 }
 
 // Extract preview text from story sections
@@ -180,6 +173,9 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
                 </span>
               )}
             </div>
+          )}
+          {story.activityIds.length > 0 && (
+            <span className="text-[11px] text-gray-400 whitespace-nowrap">{story.activityIds.length}</span>
           )}
           {dateLabel && (
             <span className="text-[11px] text-gray-400 whitespace-nowrap">{dateLabel}</span>
