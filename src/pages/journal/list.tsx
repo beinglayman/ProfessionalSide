@@ -109,7 +109,7 @@ export default function JournalPage() {
   const [sortBy, setSortBy] = useState<'recent' | 'popular'>('recent');
   const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-timeline') === '1');
+  const [bannerDismissed, setBannerDismissed] = useState(() => sessionStorage.getItem('banner-dismissed-timeline') === '1');
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
@@ -635,8 +635,18 @@ export default function JournalPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4">
-        <div className="space-y-2">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+        <div className="space-y-4">
+        {/* Page title */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Timeline
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            All your workspace activity, automatically organized
+          </p>
+        </div>
+
         {/* Page header — subtle metadata line + actions */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-1.5 flex-wrap text-sm text-gray-500">
@@ -702,7 +712,7 @@ export default function JournalPage() {
             <Clock className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
             <p className="text-xs text-primary-700 flex-1"><span className="font-semibold">Activities</span> are individual work items from your tools. <span className="font-semibold">Draft Stories</span> group related activities into narratives you can promote to Career Stories.</p>
             <button
-              onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-timeline', '1'); }}
+              onClick={() => { setBannerDismissed(true); sessionStorage.setItem('banner-dismissed-timeline', '1'); }}
               className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
             >
               <X className="h-3 w-3" />
