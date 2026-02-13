@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Plus, ArrowUpRight, Star, TrendingUp } from 'lucide-react';
+import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import { format } from 'date-fns';
 import { ActivityCard } from './activity-card';
 import { getSourceIcon } from './source-icons';
@@ -280,6 +281,46 @@ interface InlineDraftCardProps {
   onPromoteToCareerStory?: (entryId: string) => void;
 }
 
+/** purple-600 — shared with border/badge colors across draft cards */
+const DRAFT_ACCENT = '#7c3aed';
+
+/** Tilted "Draft" badge with rough-notation circle effect */
+function DraftBadge() {
+  const ref = useRef<HTMLSpanElement>(null);
+  const rnRef = useRef<RNAnnotation | null>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    if (rnRef.current) rnRef.current.remove();
+
+    try {
+      const inst = annotate(ref.current, {
+        type: 'circle',
+        color: DRAFT_ACCENT,
+        strokeWidth: 1.5,
+        padding: [2, 6],
+        animate: true,
+        animationDuration: 600,
+      });
+      rnRef.current = inst;
+      inst.show();
+    } catch {
+      // rough-notation requires SVG DOM APIs (getTotalLength) unavailable in JSDOM
+    }
+
+    return () => { rnRef.current?.remove(); };
+  }, []);
+
+  return (
+    <span
+      ref={ref}
+      className="text-[11px] font-bold italic text-purple-700 -rotate-6 inline-block font-serif tracking-wide"
+    >
+      Draft
+    </span>
+  );
+}
+
 // TODO: Also duplicated in story-group-header.tsx — move to types/activity.ts alongside ACTIVITY_EDGE_LABELS
 const EDGE_TYPE_ORDER: ActivityStoryEdgeType[] = ['primary', 'outcome', 'supporting', 'contextual'];
 
@@ -340,11 +381,11 @@ function InlineDraftCardInner({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border border-dashed transition-all',
+        'relative rounded-2xl border-2 border-dashed transition-all',
         'bg-gradient-to-br from-purple-50/60 via-white to-white',
         isExpanded
           ? 'border-purple-400 shadow-md ring-1 ring-purple-100'
-          : 'border-purple-300 shadow-sm hover:shadow-md hover:border-purple-400 cursor-pointer'
+          : 'border-purple-300/70 shadow-sm hover:shadow-md hover:border-purple-400 cursor-pointer'
       )}
     >
 
@@ -356,7 +397,7 @@ function InlineDraftCardInner({
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand(); } }}
       >
-        {/* Top row: source icon stack + date + status + chevron (mirrors StoryCard) */}
+        {/* Top row: source icons + date + activity count | Draft badge + chevron */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             {uniqueSources.length > 0 && (
@@ -388,12 +429,14 @@ function InlineDraftCardInner({
             {dateLabel && (
               <span className="text-[11px] text-gray-400 whitespace-nowrap">{dateLabel}</span>
             )}
+            {group.count > 0 && (
+              <span className="text-[11px] tabular-nums text-gray-400 whitespace-nowrap">
+                {group.count} {group.count === 1 ? 'activity' : 'activities'}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 rounded-full">
-              <Clock className="w-3 h-3" />
-              Draft · {group.count} activities
-            </span>
+            <DraftBadge />
             <ChevronRight className={cn(
               'w-4 h-4 flex-shrink-0 transition-transform text-gray-400',
               isExpanded && 'rotate-90'
@@ -406,8 +449,8 @@ function InlineDraftCardInner({
           {meta.title}
         </h3>
 
-        {/* Description — always clipped in header */}
-        {meta.description && (
+        {/* Description preview — only when collapsed (expanded body shows full text) */}
+        {!isExpanded && meta.description && (
           <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
             {meta.description}
           </p>
