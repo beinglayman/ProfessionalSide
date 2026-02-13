@@ -77,6 +77,7 @@ import { DeliveryHelpModal } from './DeliveryHelpModal';
 import { MarginColumn } from './MarginColumn';
 import { SourceMargin } from './SourceMargin';
 import { NarrativeShell } from './NarrativeShell';
+import { groupSourcesBySection } from './derivation-helpers';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -162,15 +163,15 @@ export function NarrativePreview({
 
   const updateSourceMutation = useUpdateStorySource();
 
-  // Group sources by sectionKey
-  const sourcesBySection = useMemo(() => {
-    const map: Record<string, StorySource[]> = {};
-    for (const source of sources) {
-      if (!map[source.sectionKey]) map[source.sectionKey] = [];
-      map[source.sectionKey].push(source);
-    }
-    return map;
-  }, [sources]);
+  const star = result?.star;
+  const frameworkMeta = NARRATIVE_FRAMEWORKS[framework];
+  const sectionKeys = frameworkMeta?.sections || ['situation', 'task', 'action', 'result'];
+
+  // Group sources by sectionKey (with smart distribution for unmatched keys like 'unassigned')
+  const sourcesBySection = useMemo(
+    () => groupSourcesBySection(sources, sectionKeys),
+    [sources, sectionKeys],
+  );
 
   const handleExcludeSource = useCallback((sourceId: string) => {
     if (story?.id) {
@@ -193,10 +194,6 @@ export function NarrativePreview({
   }, [story?.id, updateSourceMutation]);
 
   const showMargin = true;
-
-  const star = result?.star;
-  const frameworkMeta = NARRATIVE_FRAMEWORKS[framework];
-  const sectionKeys = frameworkMeta?.sections || ['situation', 'task', 'action', 'result'];
   const useStorySections = story && story.sections && Object.keys(story.sections).length > 0;
 
   // Extract all text for metrics and timing

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChevronRight, Pencil } from 'lucide-react';
 import { cn, formatRelativeTime } from '../../lib/utils';
-import { stripMarkdown, truncate, getItemMeta, getTitle } from './derivation-helpers';
+import { stripMarkdown, truncate, getItemMeta, getTitle, normalizeSections } from './derivation-helpers';
 import type { StoryDerivation } from '../../types/career-stories';
 
 // =============================================================================
@@ -17,7 +17,8 @@ interface LibraryCardProps {
 export function LibraryCard({ item, isSelected, onClick }: LibraryCardProps) {
   const { label, Icon } = getItemMeta(item);
   const title = getTitle(item, label);
-  const stripped = stripMarkdown(item.text);
+  const { text: displayText } = normalizeSections(item.sections, item.sectionOrder, item.text);
+  const stripped = stripMarkdown(displayText);
   const preview = stripped ? truncate(stripped, 140) : null;
   const annotationCount = item._count?.annotations ?? 0;
 

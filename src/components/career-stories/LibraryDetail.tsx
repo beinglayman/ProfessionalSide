@@ -47,13 +47,17 @@ function resolveSourceStories(item: StoryDerivation, allStories: CareerStory[]):
  * Unlike item.text (which has **Header**\n markers), preview frames
  * need flowing prose without structural markdown.
  */
-function buildPreviewText(item: StoryDerivation, sectionKeys: string[]): string {
-  if (!item.sections || sectionKeys.length === 0) return item.text;
+function buildPreviewText(
+  sections: Record<string, { summary: string }>,
+  text: string,
+  sectionKeys: string[],
+): string {
+  if (Object.keys(sections).length === 0 || sectionKeys.length === 0) return text;
   if (sectionKeys.length === 1 && sectionKeys[0] === 'content') {
-    return item.sections.content?.summary ?? item.text;
+    return sections.content?.summary ?? text;
   }
   return sectionKeys
-    .map(key => item.sections?.[key]?.summary ?? '')
+    .map(key => sections[key]?.summary ?? '')
     .filter(Boolean)
     .join('\n\n');
 }
@@ -95,9 +99,14 @@ function SourceLink({ source, compact }: { source: StorySource; compact?: boolea
 // PREVIEW VIEW
 // =============================================================================
 
-function PreviewView({ item, sectionKeys }: { item: StoryDerivation; sectionKeys: string[] }) {
+function PreviewView({ item, sectionKeys, sections, text }: {
+  item: StoryDerivation;
+  sectionKeys: string[];
+  sections: Record<string, { summary: string }>;
+  text: string;
+}) {
   const Frame = FRAME_MAP[item.type as DerivationType];
-  const previewText = buildPreviewText(item, sectionKeys);
+  const previewText = buildPreviewText(sections, text, sectionKeys);
 
   return (
     <div className="px-6 pb-4 flex-1 overflow-y-auto">
@@ -117,23 +126,20 @@ function PreviewView({ item, sectionKeys }: { item: StoryDerivation; sectionKeys
 interface DocumentViewProps {
   item: StoryDerivation;
   sectionKeys: string[];
-  activeSources: StorySource[];
+  sections: Record<string, { summary: string }>;
+  text: string;
   activitySources: StorySource[];
   sourcesBySection: Record<string, StorySource[]>;
   annotations: any[];
   shell: any;
 }
 
-function DocumentView({ item, sectionKeys, activeSources, activitySources, sourcesBySection, annotations, shell }: DocumentViewProps) {
+function DocumentView({ item, sectionKeys, sections, text, activitySources, sourcesBySection, annotations, shell }: DocumentViewProps) {
   return (
     <div className="px-6 pb-4 flex-1 overflow-y-auto">
       {sectionKeys.map((sectionKey, idx) => {
-        const sectionText = item.sections?.[sectionKey]?.summary ?? item.text;
-        // Show all activity sources on first section — snapshotSources assigns all to "content"
-        // but derivation sections have granular keys (hook/body/hashtags), so per-section lookup finds nothing
-        const sectionSources = idx === 0
-          ? activeSources.filter(s => s.sourceType === 'activity')
-          : (sourcesBySection[sectionKey] || []).filter(s => s.sourceType === 'activity');
+        const sectionText = sections[sectionKey]?.summary ?? text;
+        const sectionSources = (sourcesBySection[sectionKey] || []).filter(s => s.sourceType === 'activity');
         const isLast = idx === sectionKeys.length - 1;
 
         return (
@@ -229,6 +235,7 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
   // Derived data (memoized in hook)
   const {
     sectionKeys,
+    normalized,
     sourcesBySection,
     activeSources,
     uniqueTools,
@@ -251,13 +258,13 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
   const sourceStories = resolveSourceStories(item, allStories);
 
   const handleCopy = useCallback(async () => {
-    const ok = await copyToClipboard(item.text);
+    const ok = await copyToClipboard(normalized.text);
     if (ok) {
       setCopied(true);
       clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     }
-  }, [item.text]);
+  }, [normalized.text]);
 
   const handleDelete = useCallback(() => {
     onDelete(item.id);
@@ -446,12 +453,13 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
 
             {/* Content area */}
             {viewMode === 'preview' ? (
-              <PreviewView item={item} sectionKeys={sectionKeys} />
+              <PreviewView item={item} sectionKeys={sectionKeys} sections={normalized.sections} text={normalized.text} />
             ) : (
               <DocumentView
                 item={item}
                 sectionKeys={sectionKeys}
-                activeSources={activeSources}
+                sections={normalized.sections}
+                text={normalized.text}
                 activitySources={activitySources}
                 sourcesBySection={sourcesBySection}
                 annotations={annotations}
