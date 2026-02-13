@@ -18,6 +18,7 @@ import { ProfileV17 } from './V17';
 import { ProfileV18 } from './V18';
 import { ProfileV19 } from './V19';
 import { ProfileV20 } from './V20';
+import { ProfileV21 } from './V21';
 
 export const profilePrototypes = [
   { id: 'v1', name: 'LinkedIn Classic', Component: ProfileV1 },
@@ -40,4 +41,5 @@ export const profilePrototypes = [
   { id: 'v18', name: 'Story Showcase', Component: ProfileV18 },
   { id: 'v19', name: 'Compact Resume', Component: ProfileV19 },
   { id: 'v20', name: 'Live Activity', Component: ProfileV20 },
+  { id: 'v21', name: 'Split Identity + Output (Enhanced)', Component: ProfileV21 },
 ];

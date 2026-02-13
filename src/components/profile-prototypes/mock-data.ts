@@ -332,6 +332,18 @@ export interface MockDraftStory {
   updatedAt: string;
 }
 
+export interface MockPlaybookItem {
+  id: string;
+  kind: 'single' | 'packet';
+  type: string;
+  typeLabel: string;
+  typeColor: string;
+  sourceStoryTitle: string;
+  preview: string;
+  wordCount: number;
+  createdAt: string;
+}
+
 export interface MockReducedProfile {
   name: string;
   role: string;
@@ -342,6 +354,7 @@ export interface MockReducedProfile {
   totalActivities: number;
   publishedStories: MockCareerStory[];
   draftStories: MockDraftStory[];
+  playbook: MockPlaybookItem[];
 }
 
 export const TOOL_META: Record<ConnectedTool, { label: string; color: string; bgColor: string }> = {
@@ -429,6 +442,75 @@ export const mockReducedProfile: MockReducedProfile = {
       framework: 'SOAR',
       completionPercent: 20,
       updatedAt: d(7),
+    },
+  ],
+
+  playbook: [
+    {
+      id: 'pb1',
+      kind: 'single',
+      type: 'interview',
+      typeLabel: 'Interview Answer',
+      typeColor: 'indigo',
+      sourceStoryTitle: 'Led OAuth2 Security Overhaul Across Mobile Platform',
+      preview: 'When our mobile platform serving 2.3M users faced critical security vulnerabilities, I designed and implemented a PKCE-based OAuth2 flow across three client platforms...',
+      wordCount: 245,
+      createdAt: d(2),
+    },
+    {
+      id: 'pb2',
+      kind: 'single',
+      type: 'linkedin',
+      typeLabel: 'LinkedIn Post',
+      typeColor: 'sky',
+      sourceStoryTitle: 'Optimized Dashboard Performance: 80% Load Time Reduction',
+      preview: 'Ever had a dashboard so slow your users filed 300% more support tickets? Here\'s how I turned an 8-second load time into 1.6 seconds in a single sprint...',
+      wordCount: 180,
+      createdAt: d(5),
+    },
+    {
+      id: 'pb3',
+      kind: 'single',
+      type: 'resume',
+      typeLabel: 'Resume Bullet',
+      typeColor: 'emerald',
+      sourceStoryTitle: 'Designed API Rate Limiting Infrastructure from Scratch',
+      preview: 'Designed and implemented Redis-based sliding window rate limiting infrastructure handling 50M+ daily requests with <1ms p99 overhead, improving API uptime from 99.1% to 99.9%.',
+      wordCount: 42,
+      createdAt: d(8),
+    },
+    {
+      id: 'pb4',
+      kind: 'packet',
+      type: 'promotion',
+      typeLabel: 'Promotion Packet',
+      typeColor: 'emerald',
+      sourceStoryTitle: 'Led OAuth2 Security Overhaul Across Mobile Platform',
+      preview: 'Comprehensive promotion packet including technical impact analysis, cross-team influence evidence, and mentoring outcomes for Staff Engineer consideration...',
+      wordCount: 1200,
+      createdAt: d(10),
+    },
+    {
+      id: 'pb5',
+      kind: 'single',
+      type: 'self-assessment',
+      typeLabel: 'Self Assessment',
+      typeColor: 'rose',
+      sourceStoryTitle: 'Mentored 3 Junior Engineers Through First Production Deployments',
+      preview: 'Created structured mentoring program that enabled three new graduates to achieve independent production deployment capability within 6 weeks, increasing team velocity by 15%...',
+      wordCount: 320,
+      createdAt: d(12),
+    },
+    {
+      id: 'pb6',
+      kind: 'single',
+      type: 'team-share',
+      typeLabel: 'Team Share',
+      typeColor: 'violet',
+      sourceStoryTitle: 'Optimized Dashboard Performance: 80% Load Time Reduction',
+      preview: 'Sharing the performance investigation methodology I used: profiling with DevTools, identifying N+1 queries, implementing GraphQL batching and code-splitting...',
+      wordCount: 410,
+      createdAt: d(15),
     },
   ],
 };
