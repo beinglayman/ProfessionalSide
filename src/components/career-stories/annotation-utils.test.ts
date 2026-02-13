@@ -13,11 +13,13 @@ function mockAnnotation(overrides: Partial<StoryAnnotation> = {}): StoryAnnotati
   return {
     id: 'ann-1',
     storyId: 'story-1',
+    derivationId: null,
     sectionKey: 'situation',
     startOffset: 0,
     endOffset: 5,
     annotatedText: 'Hello',
     style: 'highlight',
+    color: null,
     note: null,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
