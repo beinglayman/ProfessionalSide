@@ -494,11 +494,172 @@ describe('ActivityStream — draft card metric highlighting', () => {
     fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Plain Story'));
 
-    // Description text should be present (appears in both collapsed preview and expanded view)
-    expect(screen.getAllByText('Led the authentication migration project').length).toBeGreaterThanOrEqual(1);
+    // Description text should be present in the expanded body
+    expect(screen.getByText('Led the authentication migration project')).toBeInTheDocument();
     // No <mark> elements in the expanded section for this story
     const expandedSection = container.querySelector('.border-t.border-dashed');
     const marks = expandedSection?.querySelectorAll('mark') ?? [];
     expect(marks).toHaveLength(0);
+  });
+});
+
+describe('ActivityStream — draft card description dedup', () => {
+  it('shows description once when collapsed (header preview only)', () => {
+    const group = makeDraftGroupWithActivities('dedup', 'Dedup Test', makeActivities(1), {
+      description: 'Migrated the payment service to gRPC',
+    });
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+
+    // Collapsed: description visible in header preview
+    expect(screen.getByText('Migrated the payment service to gRPC')).toBeInTheDocument();
+  });
+
+  it('shows description once when expanded (body only, not duplicated in header)', () => {
+    const group = makeDraftGroupWithActivities('dedup', 'Dedup Test', makeActivities(1), {
+      description: 'Migrated the payment service to gRPC',
+    });
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    // Expand the card
+    fireEvent.click(screen.getByText('Dedup Test'));
+
+    // Expanded: description appears exactly once (in the expanded body, not in header)
+    const matches = screen.getAllByText('Migrated the payment service to gRPC');
+    expect(matches).toHaveLength(1);
+  });
+});
+
+describe('ActivityStream — draft card badge and activity count', () => {
+  it('renders Draft badge text', () => {
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[makeStoryGroup('auth', 'Auth Overhaul')]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+  });
+
+  it('shows activity count with plural label next to source icons', () => {
+    const group: ActivityGroup = {
+      ...makeStoryGroup('multi', 'Multi Activity'),
+      count: 5,
+    };
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    expect(screen.getByText('5 activities')).toBeInTheDocument();
+  });
+
+  it('shows singular "activity" when count is 1', () => {
+    const group: ActivityGroup = {
+      ...makeStoryGroup('single', 'Single Activity'),
+      count: 1,
+    };
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    expect(screen.getByText('1 activity')).toBeInTheDocument();
+  });
+
+  it('hides activity count when count is 0', () => {
+    const group: ActivityGroup = {
+      ...makeStoryGroup('zero', 'Zero Activities'),
+      count: 0,
+    };
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    expect(screen.queryByText(/\d+ activit/)).not.toBeInTheDocument();
+  });
+});
+
+describe('ActivityStream — draft card edge cases', () => {
+  it('renders card without description when meta.description is null', () => {
+    const group = makeDraftGroupWithActivities('nodesc', 'No Description Story', makeActivities(1), {
+      description: undefined,
+    });
+    // Override description to null
+    group.storyMetadata!.description = null as unknown as string;
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    // Card renders with title, no crash
+    expect(screen.getByText('No Description Story')).toBeInTheDocument();
+  });
+
+  it('renders card without topics gracefully', () => {
+    const group = makeStoryGroup('notopics', 'No Topics Story');
+    group.storyMetadata!.topics = undefined;
+
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[group]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+    expect(screen.getByText('No Topics Story')).toBeInTheDocument();
+  });
+
+  it('keyboard navigation toggles card expand with Enter key', () => {
+    render(
+      <ActivityStream
+        groups={[makeTemporalGroup('this_week', 'This Week', 1)]}
+        storyGroups={[makeStoryGroup('kbd', 'Keyboard Nav Story')]}
+        onPromoteToCareerStory={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Drafts'));
+
+    // Find the clickable header area (role="button")
+    const cardButton = screen.getByText('Keyboard Nav Story').closest('[role="button"]')!;
+    fireEvent.keyDown(cardButton, { key: 'Enter' });
+
+    // Expanded: description should appear in body
+    expect(screen.getByText('A draft story about work')).toBeInTheDocument();
   });
 });
