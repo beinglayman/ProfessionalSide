@@ -1500,9 +1500,10 @@ model CareerStory {
 // One table for all three source types: activity, user_note, wizard_answer
 // Sources survive story regeneration (separate from sections text)
 model StorySource {
-  id         String   @id @default(cuid())
-  storyId    String
-  sectionKey String                          // "situation", "action", etc. or "unassigned"
+  id           String   @id @default(cuid())
+  storyId      String?                        // null when source belongs to a derivation
+  derivationId String?                        // null when source belongs to a story
+  sectionKey   String                         // "situation", "action", etc. or "unassigned"
 
   // What kind of source
   sourceType String                          // "activity" | "user_note" | "wizard_answer"
@@ -1529,10 +1530,13 @@ model StorySource {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  story      CareerStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  story      CareerStory?     @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  derivation StoryDerivation? @relation(fields: [derivationId], references: [id], onDelete: Cascade)
 
   @@index([storyId])
   @@index([storyId, sectionKey])
+  @@index([derivationId])
+  @@index([derivationId, sectionKey])
   @@index([activityId])
   @@map("story_sources")
 }
@@ -1573,6 +1577,8 @@ model StoryDerivation {
   storyIds         String[] @default([])
   storySnapshots   Json?    // [{storyId, title, generatedAt}] — snapshot at creation time
   text             String   @db.Text
+  sections         Json?    // Record<string, { summary: string }> — nullable for backward compat
+  sectionOrder     String[] @default([]) // preserves LLM section order (JSONB does not)
   charCount        Int
   wordCount        Int
   speakingTimeSec  Int?
@@ -1587,6 +1593,7 @@ model StoryDerivation {
   createdAt        DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   annotations      StoryAnnotation[]
+  sources          StorySource[]
 
   @@index([userId, createdAt])
   @@index([userId, kind])
