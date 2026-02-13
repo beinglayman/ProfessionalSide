@@ -37,6 +37,8 @@ interface PromotionPacketModalProps {
   stories: CareerStory[];
   /** Pre-select a packet type when opening from UseAsDropdown */
   initialType?: PacketType;
+  /** Navigate to library detail after successful generation */
+  onNavigateToDerivation?: (derivationId: string) => void;
 }
 
 // =============================================================================
@@ -164,7 +166,7 @@ function DateRangePicker({ startValue, endValue, onStartChange, onEndChange }: {
 // MAIN COMPONENT
 // =============================================================================
 
-export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: PromotionPacketModalProps) {
+export function PromotionPacketModal({ isOpen, onClose, stories, initialType, onNavigateToDerivation }: PromotionPacketModalProps) {
   const [packetType, setPacketType] = useState<PacketType>(initialType || 'promotion');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tone, setTone] = useState<WritingStyle | ''>('');
@@ -261,6 +263,11 @@ export function PromotionPacketModal({ isOpen, onClose, stories, initialType }: 
       });
 
       if (response.success && response.data) {
+        if (response.data.derivationId && onNavigateToDerivation) {
+          onClose();
+          onNavigateToDerivation(response.data.derivationId);
+          return;
+        }
         setGeneratedResult(response.data);
       } else {
         setError(response.error || 'Generation failed');

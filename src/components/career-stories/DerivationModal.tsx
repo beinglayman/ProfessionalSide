@@ -32,6 +32,8 @@ interface DerivationModalProps {
   story: CareerStory;
   /** Pre-select a derivation type when opening from UseAsDropdown */
   initialType?: DerivationType;
+  /** Navigate to the saved derivation in Library tab after generation */
+  onNavigateToDerivation?: (derivationId: string) => void;
 }
 
 // one-on-one and self-assessment moved to multi-story packets (PacketModal)
@@ -43,7 +45,7 @@ const DERIVATION_TYPES: DerivationType[] = [
 // MAIN COMPONENT
 // =============================================================================
 
-export function DerivationModal({ isOpen, onClose, story, initialType }: DerivationModalProps) {
+export function DerivationModal({ isOpen, onClose, story, initialType, onNavigateToDerivation }: DerivationModalProps) {
   const [selectedDerivation, setSelectedDerivation] = useState<DerivationType>(initialType || 'interview');
   const [tone, setTone] = useState<WritingStyle | ''>('');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -118,6 +120,11 @@ export function DerivationModal({ isOpen, onClose, story, initialType }: Derivat
 
       if (response.success && response.data) {
         setGeneratedResult(response.data);
+        // Navigate to library detail if callback provided
+        if (response.data.derivationId && onNavigateToDerivation) {
+          onClose();
+          onNavigateToDerivation(response.data.derivationId);
+        }
       } else {
         setError(response.error || 'Generation failed');
       }
