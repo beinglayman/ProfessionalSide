@@ -3,7 +3,7 @@
  *
  * Pure functions for text splitting and DOM offset computation.
  * Used by NarrativeSection to render annotation spans and by
- * SelectionPopover to compute character offsets from DOM selections.
+ * UnifiedAnnotationPopover to compute character offsets from DOM selections.
  */
 
 import type { StoryAnnotation } from '../../types/career-stories';

@@ -21,9 +21,9 @@ import {
   useUpdateDerivationAnnotation,
   useDeleteDerivationAnnotation,
 } from '../../hooks/useCareerStories';
-import { SelectionPopover } from './SelectionPopover';
-import { AnnotationPopover } from './AnnotationPopover';
+import { UnifiedAnnotationPopover } from './UnifiedAnnotationPopover';
 import { getTextOffsetFromSelection } from './annotation-utils';
+import { getColorById, type AnnotationColorId } from './annotation-colors';
 
 // =============================================================================
 // TYPES
@@ -84,20 +84,18 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
   const [timerActive, setTimerActive] = useState(false);
   const [showSourceMargin, setShowSourceMargin] = useState(true);
 
-  // Annotation popover state
-  const [selectionPopover, setSelectionPopover] = useState<{
+  // Unified popover state (replaces separate selectionPopover + editPopover)
+  const [popover, setPopover] = useState<{
     position: { x: number; y: number };
-    sectionKey: string;
-    range: Range;
-    containerEl: HTMLElement;
-  } | null>(null);
-  const [editPopover, setEditPopover] = useState<{
-    position: { x: number; y: number };
-    annotation: StoryAnnotation;
+    mode: 'create' | 'edit';
+    sectionKey?: string;
+    range?: Range;
+    containerEl?: HTMLElement;
+    annotation?: StoryAnnotation;
   } | null>(null);
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [connectorLine, setConnectorLine] = useState<{
-    x1: number; y1: number; x2: number; y2: number;
+    x1: number; y1: number; x2: number; y2: number; color?: string | null;
   } | null>(null);
 
   // Mutation hooks — always called (React rules), routing picks correct one
@@ -138,85 +136,103 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
     if (!contentParagraph) return;
 
     const rect = range.getBoundingClientRect();
-    setSelectionPopover({
+    setPopover({
       position: { x: rect.left + rect.width / 2, y: rect.top },
+      mode: 'create',
       sectionKey,
       range: range.cloneRange(),
       containerEl: contentParagraph as HTMLElement,
     });
   }, []);
 
-  const handleCreateAnnotation = useCallback((style: AnnotationStyle) => {
-    if (!selectionPopover) return;
+  const handleApplyAnnotation = useCallback((style: AnnotationStyle, color: AnnotationColorId, note: string | null) => {
+    if (!popover || popover.mode !== 'create' || !popover.range || !popover.containerEl || !popover.sectionKey) return;
 
-    const { range, containerEl, sectionKey } = selectionPopover;
-    const offsets = getTextOffsetFromSelection(containerEl, range);
+    const offsets = getTextOffsetFromSelection(popover.containerEl, popover.range);
     if (!offsets) return;
 
-    const annotatedText = range.toString();
+    const annotatedText = popover.range.toString();
     const input = {
-      sectionKey,
+      sectionKey: popover.sectionKey,
       startOffset: offsets.start,
       endOffset: offsets.end,
       annotatedText,
       style,
+      color,
+      note,
+    };
+
+    const popoverPosition = {
+      x: popover.position.x,
+      y: popover.position.y + 20,
+    };
+
+    const onSuccess = (response: { data?: StoryAnnotation }) => {
+      const ann = response.data;
+      if (ann) {
+        setPopover({
+          position: popoverPosition,
+          mode: 'edit',
+          annotation: ann,
+        });
+      }
     };
 
     if (owner.type === 'story') {
-      storyCreateMutation.mutate({ storyId: owner.id, input });
+      storyCreateMutation.mutate({ storyId: owner.id, input }, { onSuccess });
     } else {
-      derivCreateMutation.mutate({ derivationId: owner.id, input });
+      derivCreateMutation.mutate({ derivationId: owner.id, input }, { onSuccess });
     }
 
-    setSelectionPopover(null);
     window.getSelection()?.removeAllRanges();
-  }, [selectionPopover, owner, storyCreateMutation, derivCreateMutation]);
+  }, [popover, owner, storyCreateMutation, derivCreateMutation]);
+
+  const handleSaveAnnotation = useCallback((updates: { style?: AnnotationStyle; color?: string | null; note?: string | null }) => {
+    if (!popover || !popover.annotation) return;
+
+    if (owner.type === 'story') {
+      storyUpdateMutation.mutate({
+        storyId: owner.id,
+        annotationId: popover.annotation.id,
+        input: updates,
+      });
+    } else {
+      derivUpdateMutation.mutate({
+        derivationId: owner.id,
+        annotationId: popover.annotation.id,
+        input: updates,
+      });
+    }
+
+    setPopover(null);
+  }, [popover, owner, storyUpdateMutation, derivUpdateMutation]);
 
   const handleAnnotationClick = useCallback((annotationId: string, element: HTMLElement) => {
     const ann = annotations.find((a) => a.id === annotationId);
     if (!ann) return;
 
     const rect = element.getBoundingClientRect();
-    setEditPopover({
+    setPopover({
       position: { x: rect.left + rect.width / 2, y: rect.bottom },
+      mode: 'edit',
       annotation: ann,
     });
   }, [annotations]);
 
-  const handleSaveAnnotationNote = useCallback((note: string | null) => {
-    if (!editPopover) return;
-
-    if (owner.type === 'story') {
-      storyUpdateMutation.mutate({
-        storyId: owner.id,
-        annotationId: editPopover.annotation.id,
-        input: { note },
-      });
-    } else {
-      derivUpdateMutation.mutate({
-        derivationId: owner.id,
-        annotationId: editPopover.annotation.id,
-        input: { note },
-      });
-    }
-
-    setEditPopover(null);
-  }, [editPopover, owner, storyUpdateMutation, derivUpdateMutation]);
-
   const handleRemoveAnnotation = useCallback(() => {
-    if (!editPopover) return;
+    if (!popover?.annotation) return;
 
     setHoveredAnnotationId(null);
     setConnectorLine(null);
 
     if (owner.type === 'story') {
-      storyDeleteMutation.mutate({ storyId: owner.id, annotationId: editPopover.annotation.id });
+      storyDeleteMutation.mutate({ storyId: owner.id, annotationId: popover.annotation.id });
     } else {
-      derivDeleteMutation.mutate({ derivationId: owner.id, annotationId: editPopover.annotation.id });
+      derivDeleteMutation.mutate({ derivationId: owner.id, annotationId: popover.annotation.id });
     }
 
-    setEditPopover(null);
-  }, [editPopover, owner, storyDeleteMutation, derivDeleteMutation]);
+    setPopover(null);
+  }, [popover, owner, storyDeleteMutation, derivDeleteMutation]);
 
   const handleRemoveAnnotationById = useCallback((annotationId: string) => {
     setHoveredAnnotationId(null);
@@ -276,6 +292,7 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
       return;
     }
 
+    const ann = annotations.find((a) => a.id === annotationId);
     const articleRect = articleRef.current.getBoundingClientRect();
 
     const marginEl = articleRef.current.querySelector(
@@ -299,8 +316,9 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
       y1: marginRect.top + marginRect.height / 2 - articleRect.top,
       x2: textRect.left - articleRect.left,
       y2: textRect.top + textRect.height / 2 - articleRect.top,
+      color: ann?.color,
     });
-  }, []);
+  }, [annotations]);
 
   // =========================================================================
   // RENDER PROPS
@@ -354,7 +372,7 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
             y1={connectorLine.y1}
             x2={connectorLine.x2}
             y2={connectorLine.y2}
-            stroke="#b45309"
+            stroke={getColorById(connectorLine.color).stroke}
             strokeWidth="1.5"
             strokeDasharray="5 3"
             opacity="0.7"
@@ -362,24 +380,25 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
         </svg>
       )}
 
-      {/* Annotation popovers — rendered at article level */}
-      {selectionPopover && (
-        <SelectionPopover
-          position={selectionPopover.position}
-          onSelectStyle={handleCreateAnnotation}
-          onClose={() => setSelectionPopover(null)}
-        />
-      )}
-
-      {editPopover && (
-        <AnnotationPopover
-          position={editPopover.position}
-          annotatedText={editPopover.annotation.annotatedText}
-          initialNote={editPopover.annotation.note}
-          onSave={handleSaveAnnotationNote}
-          onRemove={handleRemoveAnnotation}
-          onClose={() => setEditPopover(null)}
-        />
+      {/* Unified annotation popover */}
+      {popover && (
+        popover.mode === 'create' ? (
+          <UnifiedAnnotationPopover
+            position={popover.position}
+            mode="create"
+            onApply={handleApplyAnnotation}
+            onClose={() => setPopover(null)}
+          />
+        ) : (
+          <UnifiedAnnotationPopover
+            position={popover.position}
+            mode="edit"
+            annotation={popover.annotation!}
+            onSave={handleSaveAnnotation}
+            onRemove={handleRemoveAnnotation}
+            onClose={() => setPopover(null)}
+          />
+        )
       )}
     </article>
   );
