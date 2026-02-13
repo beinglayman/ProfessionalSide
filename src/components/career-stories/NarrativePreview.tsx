@@ -426,17 +426,72 @@ export function NarrativePreview({
               <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0 truncate">{clusterName}</h2>
             </div>
 
-            {/* Row 2: Framework badge + status + actions — wraps on mobile */}
-            <div className="flex items-center gap-1 flex-wrap mt-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                {frameworkMeta?.label || 'STAR'}
-              </span>
+            {/* Row 2: Framework selector + status + meta + actions — wraps on mobile */}
+            <div className="flex items-center gap-1 flex-wrap mt-2 text-xs text-gray-400">
+              <FrameworkSelector
+                value={framework}
+                onChange={onFrameworkChange}
+                align="left"
+              />
               <NarrativeStatusBadge
                 status={storyStatus}
                 confidence={star.overallConfidence}
                 suggestedEdits={star.suggestedEdits}
                 sourceCoverage={sourceCoverage}
               />
+
+              {/* Source icon stack */}
+              {uniqueSources.length > 0 && (
+                <div className="flex items-center -space-x-1.5">
+                  {uniqueSources.slice(0, 4).map((tool, i) => {
+                    const Icon = getSourceIcon(tool);
+                    const info = SUPPORTED_SOURCES[tool as ActivitySource];
+                    return (
+                      <span
+                        key={tool}
+                        title={info?.displayName || tool}
+                        className="flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-white shadow-sm ring-1 ring-gray-200/80"
+                        style={{ zIndex: uniqueSources.length - i }}
+                      >
+                        <Icon className="w-3.5 h-3.5" style={{ color: info?.color }} />
+                      </span>
+                    );
+                  })}
+                  {uniqueSources.length > 4 && (
+                    <span
+                      className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 border-2 border-white shadow-sm ring-1 ring-gray-200/80 text-[10px] font-bold text-gray-500"
+                      style={{ zIndex: 0 }}
+                    >
+                      +{uniqueSources.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {formatDateRange() && (
+                <span className="hidden sm:inline">{formatDateRange()}</span>
+              )}
+              {coverageText && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span className={cn(coverageColor)}>{coverageText}</span>
+                  <button
+                    onClick={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
+                    className={cn(
+                      'hidden lg:inline-flex items-center p-0.5 rounded transition-colors',
+                      shell.showSourceMargin
+                        ? 'text-slate-500 hover:bg-slate-50'
+                        : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
+                    )}
+                    title={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                    aria-label={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                  >
+                    {shell.showSourceMargin
+                      ? <EyeOff className="w-3.5 h-3.5" />
+                      : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </>
+              )}
 
               <div className="flex items-center gap-1 ml-auto">
                 {story?.id && (
@@ -535,71 +590,6 @@ export function NarrativePreview({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            </div>
-
-            {/* Provenance line — one line, all gray, dot-separated */}
-            <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400 flex-wrap">
-              {/* Source icon stack */}
-              {uniqueSources.length > 0 && (
-                <div className="flex items-center -space-x-1.5">
-                  {uniqueSources.slice(0, 4).map((tool, i) => {
-                    const Icon = getSourceIcon(tool);
-                    const info = SUPPORTED_SOURCES[tool as ActivitySource];
-                    return (
-                      <span
-                        key={tool}
-                        title={info?.displayName || tool}
-                        className="flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-white shadow-sm ring-1 ring-gray-200/80"
-                        style={{ zIndex: uniqueSources.length - i }}
-                      >
-                        <Icon className="w-3.5 h-3.5" style={{ color: info?.color }} />
-                      </span>
-                    );
-                  })}
-                  {uniqueSources.length > 4 && (
-                    <span
-                      className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 border-2 border-white shadow-sm ring-1 ring-gray-200/80 text-[10px] font-bold text-gray-500"
-                      style={{ zIndex: 0 }}
-                    >
-                      +{uniqueSources.length - 4}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {formatDateRange() && (
-                <>
-                  <span className="hidden sm:inline">{formatDateRange()}</span>
-                  <span className="hidden sm:inline text-gray-300">&middot;</span>
-                </>
-              )}
-              <FrameworkSelector
-                value={framework}
-                onChange={onFrameworkChange}
-                align="left"
-              />
-              {coverageText && (
-                <>
-                  <span className="text-gray-300">&middot;</span>
-                  <span className={cn(coverageColor)}>{coverageText}</span>
-                  <button
-                    onClick={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
-                    className={cn(
-                      'hidden lg:inline-flex items-center p-0.5 rounded transition-colors',
-                      shell.showSourceMargin
-                        ? 'text-slate-500 hover:bg-slate-50'
-                        : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
-                    )}
-                    title={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                    aria-label={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                  >
-                    {shell.showSourceMargin
-                      ? <EyeOff className="w-3.5 h-3.5" />
-                      : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </>
-              )}
-
             </div>
           </header>
 

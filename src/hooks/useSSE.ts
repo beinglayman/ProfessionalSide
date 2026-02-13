@@ -80,6 +80,7 @@ export function useSSE({
   const eventSourceRef = useRef<EventSource | null>(null);
   const isConnectedRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
+  const closedByCleanupRef = useRef(false);
 
   // Timer refs for cleanup
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,17 +110,21 @@ export function useSSE({
   onDataChangedRef.current = onDataChanged;
 
   const connect = useCallback(() => {
-    console.log('[SSE] connect() called - token:', !!token, 'enabled:', enabled, 'isAuthenticated:', isAuthenticated);
-    if (!token || !enabled || !isAuthenticated) {
-      console.log('[SSE] connect() early return - missing requirements');
-      return;
-    }
+    if (!token || !enabled || !isAuthenticated) return;
 
-    // Close existing connection
+    // Close existing connection (mark as intentional to prevent onerror reconnect)
     if (eventSourceRef.current) {
-      console.log('[SSE] Closing existing connection before reconnect');
+      closedByCleanupRef.current = true;
       eventSourceRef.current.close();
     }
+
+    // Cancel any pending reconnect from a previous onerror
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    closedByCleanupRef.current = false;
 
     // Create SSE connection with auth token
     // Note: EventSource doesn't support custom headers, so we use query param
@@ -135,10 +140,14 @@ export function useSSE({
     };
 
     eventSource.onerror = (error) => {
-      console.error('[SSE] Connection error:', error, 'readyState:', eventSource.readyState);
-      console.error('[SSE] URL was:', url);
       isConnectedRef.current = false;
       eventSource.close();
+
+      // If closed intentionally (cleanup or token refresh), don't reconnect —
+      // the effect will create a fresh connection with the new token
+      if (closedByCleanupRef.current) return;
+
+      console.warn('[SSE] Connection error, readyState:', eventSource.readyState);
 
       // Attempt reconnect with backoff
       if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
@@ -150,7 +159,7 @@ export function useSSE({
           connect();
         }, delay);
       } else {
-        console.log('[SSE] Max reconnect attempts reached');
+        console.warn('[SSE] Max reconnect attempts reached');
       }
     };
 
@@ -204,7 +213,8 @@ export function useSSE({
     }
 
     return () => {
-      // Cleanup on unmount
+      // Cleanup on unmount or dependency change
+      closedByCleanupRef.current = true;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;

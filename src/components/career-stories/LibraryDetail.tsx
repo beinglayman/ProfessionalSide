@@ -283,7 +283,7 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
           <>
             {/* Header */}
             <header className="px-6 pt-4 pb-3">
-              {/* Row 1: Back arrow + title + type badge + actions */}
+              {/* Row 1: Back arrow + icon + title + actions */}
               <div className="flex items-start gap-2">
                 <button
                   ref={backButtonRef}
@@ -294,14 +294,11 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
+                <Icon className={cn('w-4 h-4 mt-1 flex-shrink-0', colorClasses.iconText)} />
                 <h2 className="text-base font-semibold text-gray-900 truncate flex-1 min-w-0">{title}</h2>
 
-                {/* Type badge + actions — right side */}
+                {/* Actions — right side */}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium', colorClasses.bg, colorClasses.text)}>
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </span>
                   {/* Document / Preview toggle */}
                   <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 mr-1">
                     <button
