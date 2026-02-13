@@ -17,7 +17,7 @@ export function ProfilePrototypesPage() {
             Profile Page Prototypes
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            10 different design approaches for the Profile page — click to switch
+            20 design approaches for the Profile page — click to switch. V1-V10 use full data; V11-V20 use reduced scope.
           </p>
         </div>
 

@@ -311,6 +311,128 @@ export const mockProfile: MockProfile = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Reduced-scope mock data — matches 2-step onboarding + product usage
+// ---------------------------------------------------------------------------
+
+export type ConnectedTool = 'github' | 'jira' | 'confluence' | 'slack' | 'linear' | 'notion' | 'gitlab' | 'bitbucket';
+
+export interface MockToolActivity {
+  tool: ConnectedTool;
+  label: string;
+  activityCount: number;
+  recentItems: { title: string; date: string }[];
+}
+
+export interface MockDraftStory {
+  id: string;
+  title: string;
+  framework: string;
+  completionPercent: number;
+  updatedAt: string;
+}
+
+export interface MockReducedProfile {
+  name: string;
+  role: string;
+  title: string;
+  company: string;
+  avatar: string;
+  connectedTools: MockToolActivity[];
+  totalActivities: number;
+  publishedStories: MockCareerStory[];
+  draftStories: MockDraftStory[];
+}
+
+export const TOOL_META: Record<ConnectedTool, { label: string; color: string; bgColor: string }> = {
+  github: { label: 'GitHub', color: 'text-gray-900', bgColor: 'bg-gray-100' },
+  jira: { label: 'Jira', color: 'text-blue-700', bgColor: 'bg-blue-50' },
+  confluence: { label: 'Confluence', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  slack: { label: 'Slack', color: 'text-purple-700', bgColor: 'bg-purple-50' },
+  linear: { label: 'Linear', color: 'text-indigo-700', bgColor: 'bg-indigo-50' },
+  notion: { label: 'Notion', color: 'text-gray-800', bgColor: 'bg-gray-100' },
+  gitlab: { label: 'GitLab', color: 'text-orange-700', bgColor: 'bg-orange-50' },
+  bitbucket: { label: 'Bitbucket', color: 'text-blue-800', bgColor: 'bg-blue-50' },
+};
+
+export const mockReducedProfile: MockReducedProfile = {
+  name: 'Alexandra Chen',
+  role: 'Team Lead',
+  title: 'Senior Software Engineer',
+  company: 'TechVault Inc.',
+  avatar: '',
+
+  connectedTools: [
+    {
+      tool: 'github',
+      label: 'GitHub',
+      activityCount: 47,
+      recentItems: [
+        { title: 'Merged PR #342 — Add PKCE auth flow', date: d(0) },
+        { title: 'Reviewed PR #341 — Fix rate limiter edge case', date: d(0) },
+        { title: 'Pushed 3 commits to feat/oauth-migration', date: d(1) },
+        { title: 'Closed issue #298 — Token refresh race condition', date: d(2) },
+      ],
+    },
+    {
+      tool: 'jira',
+      label: 'Jira',
+      activityCount: 31,
+      recentItems: [
+        { title: 'Closed PLAT-89 — OAuth2 migration phase 2', date: d(0) },
+        { title: 'Updated PLAT-91 — Rate limiter monitoring', date: d(1) },
+        { title: 'Created PLAT-95 — Dashboard load time audit', date: d(2) },
+      ],
+    },
+    {
+      tool: 'confluence',
+      label: 'Confluence',
+      activityCount: 12,
+      recentItems: [
+        { title: 'Edited "API Architecture Decision Record"', date: d(1) },
+        { title: 'Published "Q1 Platform Team Retrospective"', date: d(5) },
+      ],
+    },
+    {
+      tool: 'slack',
+      label: 'Slack',
+      activityCount: 8,
+      recentItems: [
+        { title: 'Shared deployment runbook in #platform-eng', date: d(0) },
+        { title: 'Answered question in #help-backend', date: d(1) },
+      ],
+    },
+  ],
+
+  totalActivities: 98,
+
+  publishedStories: mockProfile.careerStories,
+
+  draftStories: [
+    {
+      id: 'draft1',
+      title: 'API Redesign for V2 Public Endpoints',
+      framework: 'STAR',
+      completionPercent: 60,
+      updatedAt: d(1),
+    },
+    {
+      id: 'draft2',
+      title: 'Q4 Release Coordination Across 3 Teams',
+      framework: 'CAR',
+      completionPercent: 40,
+      updatedAt: d(3),
+    },
+    {
+      id: 'draft3',
+      title: 'Team Process Improvement Initiative',
+      framework: 'SOAR',
+      completionPercent: 20,
+      updatedAt: d(7),
+    },
+  ],
+};
+
 // Helper: get initials from name
 export function getInitials(name: string): string {
   return name
