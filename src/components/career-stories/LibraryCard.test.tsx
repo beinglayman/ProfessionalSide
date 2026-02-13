@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LibraryCard, stripMarkdown, getItemMeta, getSourceLabel } from './LibraryCard';
+import { LibraryCard } from './LibraryCard';
+import { stripMarkdown, getItemMeta, getTitle } from './derivation-helpers';
 import type { StoryDerivation } from '../../types/career-stories';
 
 // =============================================================================
@@ -123,23 +124,52 @@ describe('getItemMeta', () => {
 });
 
 // =============================================================================
-// UNIT: getSourceLabel
+// UNIT: getTitle
 // =============================================================================
 
-describe('getSourceLabel', () => {
-  it('returns null when no snapshots', () => {
-    expect(getSourceLabel(makeSingle())).toBeNull();
+describe('getTitle', () => {
+  it('returns just label when no snapshots', () => {
+    expect(getTitle(makeSingle(), 'Interview Answer')).toBe('Interview Answer');
   });
 
-  it('returns single story name', () => {
+  it('returns label + story name for single snapshot', () => {
     const item = makeSingle({
-      storySnapshots: [{ storyId: 's-1', title: 'My Story', generatedAt: null }],
+      storySnapshots: [{ storyId: 's-1', title: 'Auth Migration', generatedAt: null }],
     });
-    expect(getSourceLabel(item)).toBe('from My Story');
+    expect(getTitle(item, 'Interview Answer')).toBe('Interview Answer — Auth Migration');
   });
 
-  it('returns first name + count for multiple', () => {
-    expect(getSourceLabel(makePacket())).toBe('from BILL-550 Double-debit Work + 2 more');
+  it('returns label + first name + count for multiple snapshots', () => {
+    expect(getTitle(makePacket(), 'Promotion')).toBe('Promotion — BILL-550 Double-debit Work + 2 more');
+  });
+
+  it('returns just label when snapshot title is empty', () => {
+    const item = makeSingle({
+      storySnapshots: [{ storyId: 's-1', title: '', generatedAt: null }],
+    });
+    expect(getTitle(item, 'Interview Answer')).toBe('Interview Answer');
+  });
+
+  it('returns just label when snapshot title is whitespace', () => {
+    const item = makeSingle({
+      storySnapshots: [{ storyId: 's-1', title: '   ', generatedAt: null }],
+    });
+    expect(getTitle(item, 'Interview Answer')).toBe('Interview Answer');
+  });
+
+  it('returns just label when storySnapshots is empty array', () => {
+    const item = makeSingle({ storySnapshots: [] });
+    expect(getTitle(item, 'Interview Answer')).toBe('Interview Answer');
+  });
+
+  it('handles exactly 2 snapshots with correct count', () => {
+    const item = makeSingle({
+      storySnapshots: [
+        { storyId: 's-1', title: 'Story A', generatedAt: null },
+        { storyId: 's-2', title: 'Story B', generatedAt: null },
+      ],
+    });
+    expect(getTitle(item, 'Resume Bullet')).toBe('Resume Bullet — Story A + 1 more');
   });
 });
 
@@ -154,19 +184,18 @@ describe('LibraryCard', () => {
     expect(screen.getByText('22 words')).toBeInTheDocument();
   });
 
-  it('renders packet with source count', () => {
+  it('renders packet with combined title', () => {
     render(<LibraryCard item={makePacket()} isSelected={false} onClick={vi.fn()} />);
-    expect(screen.getByText('Promotion')).toBeInTheDocument();
-    expect(screen.getByText('from BILL-550 Double-debit Work + 2 more')).toBeInTheDocument();
+    expect(screen.getByText('Promotion — BILL-550 Double-debit Work + 2 more')).toBeInTheDocument();
     expect(screen.getByText('142 words')).toBeInTheDocument();
   });
 
-  it('truncates preview at ~100 chars', () => {
+  it('truncates preview at ~140 chars', () => {
     const longText = 'A'.repeat(200);
     render(<LibraryCard item={makeSingle({ text: longText })} isSelected={false} onClick={vi.fn()} />);
     // The preview should end with ellipsis
     const preview = screen.getByText(/A+…$/);
-    expect(preview.textContent!.length).toBeLessThanOrEqual(101); // 100 chars + ellipsis
+    expect(preview.textContent!.length).toBeLessThanOrEqual(141); // 140 chars + ellipsis
   });
 
   it('strips markdown from preview', () => {
@@ -181,6 +210,8 @@ describe('LibraryCard', () => {
     const card = container.firstElementChild!;
     expect(card.className).toContain('bg-purple-50/50');
     expect(card.className).toContain('border-purple-300');
+    expect(card.className).toContain('shadow-md');
+    expect(card.className).toContain('ring-1');
   });
 
   it('calls onClick when clicked', async () => {
@@ -219,5 +250,60 @@ describe('LibraryCard', () => {
     const card = screen.getByRole('button');
     expect(card.getAttribute('aria-label')).toMatch(/Interview Answer/);
     expect(card.getAttribute('aria-label')).toMatch(/22 words/);
+  });
+
+  it('shows annotation count badge when annotations > 0', () => {
+    render(<LibraryCard item={makeSingle({ _count: { annotations: 3 } })} isSelected={false} onClick={vi.fn()} />);
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('hides annotation badge when count is 0', () => {
+    render(<LibraryCard item={makeSingle({ _count: { annotations: 0 } })} isSelected={false} onClick={vi.fn()} />);
+    // Word count "22" is present but no standalone "0" annotation badge
+    const footer = screen.getByText('22 words').parentElement!;
+    expect(footer.textContent).not.toMatch(/\b0\b.*Pencil/);
+  });
+
+  it('hides annotation badge when _count is absent', () => {
+    render(<LibraryCard item={makeSingle()} isSelected={false} onClick={vi.fn()} />);
+    const footer = screen.getByText('22 words').parentElement!;
+    // Only word count in footer, no annotation count
+    expect(footer.querySelectorAll('.text-amber-600')).toHaveLength(0);
+  });
+
+  it('renders combined title for single with snapshot', () => {
+    const item = makeSingle({
+      storySnapshots: [{ storyId: 's-1', title: 'Auth Migration', generatedAt: null }],
+    });
+    render(<LibraryCard item={item} isSelected={false} onClick={vi.fn()} />);
+    expect(screen.getByText('Interview Answer — Auth Migration')).toBeInTheDocument();
+  });
+
+  it('renders responsive padding classes', () => {
+    const { container } = render(<LibraryCard item={makeSingle()} isSelected={false} onClick={vi.fn()} />);
+    const card = container.firstElementChild!;
+    expect(card.className).toContain('p-4');
+    expect(card.className).toContain('sm:p-5');
+  });
+
+  it('renders ChevronRight icon for navigation hint', () => {
+    const { container } = render(<LibraryCard item={makeSingle()} isSelected={false} onClick={vi.fn()} />);
+    // ChevronRight renders as an SVG inside the card
+    const svgs = container.querySelectorAll('svg');
+    // At least 2 SVGs: type icon + chevron
+    expect(svgs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('does not render source label in footer (moved to title)', () => {
+    render(<LibraryCard item={makePacket()} isSelected={false} onClick={vi.fn()} />);
+    // "from BILL-550..." should NOT appear as a separate footer element
+    expect(screen.queryByText(/^from /)).not.toBeInTheDocument();
+  });
+
+  it('renders unselected state without shadow-md', () => {
+    const { container } = render(<LibraryCard item={makeSingle()} isSelected={false} onClick={vi.fn()} />);
+    const card = container.firstElementChild!;
+    // shadow-md is only in hover: prefix, not in base classes when unselected
+    expect(card.className).not.toMatch(/(?<!hover:)shadow-md/);
   });
 });

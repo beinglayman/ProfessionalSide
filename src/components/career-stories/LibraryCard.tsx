@@ -1,59 +1,8 @@
 import React from 'react';
-import { Sparkles, Briefcase } from 'lucide-react';
+import { ChevronRight, Pencil } from 'lucide-react';
 import { cn, formatRelativeTime } from '../../lib/utils';
-import { DERIVATION_TYPE_META, PACKET_TYPE_META } from './constants';
-import type { StoryDerivation, DerivationType, PacketType } from '../../types/career-stories';
-
-// =============================================================================
-// HELPERS
-// =============================================================================
-
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, '')           // fenced code blocks
-    .replace(/`([^`]+)`/g, '$1')              // inline code
-    .replace(/^#{1,6}\s+/gm, '')              // headers
-    .replace(/^>\s+/gm, '')                   // blockquotes
-    .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')    // bold+italic
-    .replace(/\*\*([^*]+)\*\*/g, '$1')        // bold
-    .replace(/\*([^*]+)\*/g, '$1')            // italic
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // links
-    .replace(/^[-*+]\s+/gm, '')              // unordered bullets
-    .replace(/^\d+\.\s+/gm, '')              // ordered list items
-    .replace(/\n+/g, ' ')                     // collapse newlines
-    .replace(/\s+/g, ' ')                     // collapse spaces
-    .trim();
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max).trimEnd() + '…';
-}
-
-function getItemMeta(item: StoryDerivation) {
-  if (item.kind === 'single') {
-    const meta = DERIVATION_TYPE_META[item.type as DerivationType];
-    if (!meta) {
-      if (import.meta.env.DEV) console.warn(`[LibraryCard] Unknown single derivation type: "${item.type}"`);
-      return { label: item.type, Icon: Sparkles, color: 'gray' };
-    }
-    return meta;
-  }
-  const meta = PACKET_TYPE_META[item.type as PacketType];
-  if (!meta) {
-    if (import.meta.env.DEV) console.warn(`[LibraryCard] Unknown packet type: "${item.type}"`);
-    return { label: item.type, Icon: Briefcase, color: 'gray' };
-  }
-  return meta;
-}
-
-function getSourceLabel(item: StoryDerivation): string | null {
-  const snapshots = item.storySnapshots;
-  if (!snapshots || snapshots.length === 0) return null;
-  const first = snapshots[0].title;
-  if (snapshots.length === 1) return `from ${first}`;
-  return `from ${first} + ${snapshots.length - 1} more`;
-}
+import { stripMarkdown, truncate, getItemMeta, getTitle } from './derivation-helpers';
+import type { StoryDerivation } from '../../types/career-stories';
 
 // =============================================================================
 // COMPONENT
@@ -67,9 +16,10 @@ interface LibraryCardProps {
 
 export function LibraryCard({ item, isSelected, onClick }: LibraryCardProps) {
   const { label, Icon } = getItemMeta(item);
+  const title = getTitle(item, label);
   const stripped = stripMarkdown(item.text);
-  const preview = stripped ? truncate(stripped, 100) : null;
-  const sourceLabel = getSourceLabel(item);
+  const preview = stripped ? truncate(stripped, 140) : null;
+  const annotationCount = item._count?.annotations ?? 0;
 
   return (
     <div
@@ -79,38 +29,55 @@ export function LibraryCard({ item, isSelected, onClick }: LibraryCardProps) {
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        'w-full text-left p-4 transition-all duration-150 cursor-pointer rounded-2xl border',
+        'w-full text-left p-4 sm:p-5 transition-all duration-150 group cursor-pointer rounded-2xl border overflow-hidden',
         'focus:outline-none focus:ring-2 focus:ring-purple-500',
         isSelected
-          ? 'bg-purple-50/50 border-purple-300'
-          : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/30'
+          ? 'bg-purple-50/50 border-purple-300 shadow-md ring-1 ring-purple-100'
+          : 'bg-white border-gray-200 hover:border-purple-200 hover:shadow-md'
       )}
     >
-      {/* Row 1: type label + date */}
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1.5">
-          <Icon className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-900">{label}</span>
+      {/* Row 1: type icon + date | chevron */}
+      <div className="flex items-center justify-between mb-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <span className="text-[11px] text-gray-400 whitespace-nowrap">
+            {formatRelativeTime(item.createdAt)}
+          </span>
         </div>
-        <span className="text-xs text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+        <ChevronRight className={cn(
+          'w-4 h-4 flex-shrink-0 transition-transform text-gray-400 group-hover:text-gray-600',
+          'group-hover:translate-x-0.5'
+        )} />
       </div>
 
-      {/* Row 2: preview text */}
+      {/* Title */}
+      <h3 className={cn(
+        'text-base sm:text-lg font-bold leading-snug mb-1.5 break-words',
+        isSelected ? 'text-purple-900' : 'text-gray-900'
+      )}>
+        {title}
+      </h3>
+
+      {/* Preview text */}
       {preview ? (
-        <p className="text-sm text-gray-600 line-clamp-1 mb-1">{preview}</p>
+        <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed mb-3">{preview}</p>
       ) : (
-        <p className="text-sm text-gray-400 italic line-clamp-1 mb-1">No content</p>
+        <p className="text-sm text-gray-400 italic line-clamp-2 leading-relaxed mb-3">No content</p>
       )}
 
-      {/* Row 3: source + word count */}
-      <div className="flex items-center gap-2 text-xs text-gray-400">
-        {sourceLabel && <span>{sourceLabel}</span>}
-        {sourceLabel && <span>·</span>}
+      {/* Footer: word count + annotations */}
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap min-w-0 overflow-hidden">
         <span>{item.wordCount} words</span>
+        {annotationCount > 0 && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-amber-600">
+              <Pencil className="w-3 h-3" />
+              {annotationCount}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
 }
-
-// Export helpers for testing
-export { stripMarkdown, getItemMeta, getSourceLabel };
