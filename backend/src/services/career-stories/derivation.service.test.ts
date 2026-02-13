@@ -43,7 +43,7 @@ vi.mock('../../lib/demo-tables', () => ({
   }),
 }));
 
-import { deriveStory, DeriveResult } from './derivation.service';
+import { deriveStory, DeriveResult, parseSectionsFromLLM } from './derivation.service';
 
 const MOCK_STORY = {
   id: 'story-1',
@@ -205,5 +205,141 @@ describe('deriveStory', () => {
 
     const result = await deriveStory('story-1', 'user-1', 'linkedin', false);
     expect(result).toHaveProperty('text');
+  });
+
+  it('returns structured sections with sectionOrder when LLM returns JSON', async () => {
+    mockExecuteTask.mockResolvedValue({
+      content: JSON.stringify({
+        sections: [
+          { key: 'hook', title: 'Hook', content: 'A great opener.' },
+          { key: 'body', title: 'Body', content: 'The main content here.' },
+        ],
+      }),
+      model: 'test-model',
+      estimatedCost: 0,
+    });
+
+    const result = await deriveStory('story-1', 'user-1', 'linkedin', false);
+    expect(result.sections).toEqual({
+      hook: { summary: 'A great opener.' },
+      body: { summary: 'The main content here.' },
+    });
+    expect(result.sectionOrder).toEqual(['hook', 'body']);
+    expect(result.text).toContain('**Hook**');
+    expect(result.text).toContain('A great opener.');
+  });
+
+  it('falls back to flat text with sectionOrder ["content"] when LLM returns non-JSON', async () => {
+    mockExecuteTask.mockResolvedValue({
+      content: 'Just a plain text response with no JSON.',
+      model: 'test-model',
+      estimatedCost: 0,
+    });
+
+    const result = await deriveStory('story-1', 'user-1', 'linkedin', false);
+    expect(result.sections).toEqual({
+      content: { summary: 'Just a plain text response with no JSON.' },
+    });
+    expect(result.sectionOrder).toEqual(['content']);
+    expect(result.text).toBe('Just a plain text response with no JSON.');
+  });
+});
+
+// =============================================================================
+// parseSectionsFromLLM — pure function tests
+// =============================================================================
+
+describe('parseSectionsFromLLM', () => {
+  it('parses valid JSON sections with sectionOrder', () => {
+    const input = JSON.stringify({
+      sections: [
+        { key: 'hook', title: 'Hook', content: 'Opening line.' },
+        { key: 'narrative', title: 'Narrative', content: 'The story.' },
+        { key: 'takeaway', title: 'Takeaway', content: 'Key insight.' },
+      ],
+    });
+
+    const result = parseSectionsFromLLM(input);
+
+    expect(Object.keys(result.sections)).toEqual(['hook', 'narrative', 'takeaway']);
+    expect(result.sectionOrder).toEqual(['hook', 'narrative', 'takeaway']);
+    expect(result.sections.hook).toEqual({ summary: 'Opening line.' });
+    expect(result.sections.narrative).toEqual({ summary: 'The story.' });
+    expect(result.sections.takeaway).toEqual({ summary: 'Key insight.' });
+    expect(result.text).toContain('**Hook**\nOpening line.');
+    expect(result.text).toContain('**Narrative**\nThe story.');
+  });
+
+  it('strips markdown code fences (lowercase json)', () => {
+    const input = '```json\n{"sections": [{"key": "content", "title": "Content", "content": "Hello."}]}\n```';
+
+    const result = parseSectionsFromLLM(input);
+    expect(result.sections.content).toEqual({ summary: 'Hello.' });
+    expect(result.sectionOrder).toEqual(['content']);
+  });
+
+  it('strips markdown code fences (uppercase JSON)', () => {
+    const input = '```JSON\n{"sections": [{"key": "content", "title": "Content", "content": "Hello."}]}\n```';
+
+    const result = parseSectionsFromLLM(input);
+    expect(result.sections.content).toEqual({ summary: 'Hello.' });
+  });
+
+  it('falls back to flat text on invalid JSON', () => {
+    const input = 'This is not JSON at all';
+
+    const result = parseSectionsFromLLM(input);
+    expect(result.sections).toEqual({ content: { summary: input } });
+    expect(result.sectionOrder).toEqual(['content']);
+    expect(result.text).toBe(input);
+  });
+
+  it('falls back to flat text when JSON has no sections array', () => {
+    const input = '{"text": "some text", "other": true}';
+
+    const result = parseSectionsFromLLM(input);
+    expect(result.sections).toEqual({ content: { summary: input } });
+    expect(result.sectionOrder).toEqual(['content']);
+  });
+
+  it('handles empty sections array', () => {
+    const input = '{"sections": []}';
+
+    const result = parseSectionsFromLLM(input);
+    expect(Object.keys(result.sections)).toHaveLength(0);
+    expect(result.sectionOrder).toEqual([]);
+    expect(result.text).toBe('');
+  });
+
+  it('handles single section (single derivation)', () => {
+    const input = JSON.stringify({
+      sections: [{ key: 'win', title: 'Win', content: 'We shipped the feature.' }],
+    });
+
+    const result = parseSectionsFromLLM(input);
+    expect(Object.keys(result.sections)).toHaveLength(1);
+    expect(result.sectionOrder).toEqual(['win']);
+    expect(result.sections.win).toEqual({ summary: 'We shipped the feature.' });
+  });
+
+  it('preserves section order in text output', () => {
+    const input = JSON.stringify({
+      sections: [
+        { key: 'a', title: 'First', content: 'First content.' },
+        { key: 'b', title: 'Second', content: 'Second content.' },
+      ],
+    });
+
+    const result = parseSectionsFromLLM(input);
+    const firstIdx = result.text.indexOf('First content.');
+    const secondIdx = result.text.indexOf('Second content.');
+    expect(firstIdx).toBeLessThan(secondIdx);
+  });
+
+  it('handles code fences with trailing whitespace', () => {
+    const input = '```json  \n{"sections": [{"key": "x", "title": "X", "content": "Y"}]}\n```  ';
+
+    const result = parseSectionsFromLLM(input);
+    expect(result.sections.x).toEqual({ summary: 'Y' });
   });
 });

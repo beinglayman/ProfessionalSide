@@ -33,7 +33,8 @@ export interface SourceCoverage {
 
 export interface StorySourceRow {
   id: string;
-  storyId: string;
+  storyId: string | null;
+  derivationId: string | null;
   sectionKey: string;
   sourceType: string;
   activityId: string | null;
@@ -162,6 +163,77 @@ export class StorySourceService {
   async verifyOwnership(sourceId: string, storyId: string): Promise<boolean> {
     const source = await prisma.storySource.findFirst({
       where: { id: sourceId, storyId },
+      select: { id: true },
+    });
+    return !!source;
+  }
+
+  // ===========================================================================
+  // DERIVATION SOURCES
+  // ===========================================================================
+
+  /**
+   * Get all sources for a derivation.
+   */
+  async getSourcesForDerivation(derivationId: string): Promise<StorySourceRow[]> {
+    return prisma.storySource.findMany({
+      where: { derivationId },
+      orderBy: [{ sectionKey: 'asc' }, { sortOrder: 'asc' }],
+    });
+  }
+
+  /**
+   * Create a user_note source for a derivation section.
+   */
+  async createDerivationUserNote(
+    derivationId: string,
+    sectionKey: string,
+    content: string
+  ): Promise<StorySourceRow> {
+    const maxSort = await prisma.storySource.aggregate({
+      where: { derivationId, sectionKey },
+      _max: { sortOrder: true },
+    });
+
+    return prisma.storySource.create({
+      data: {
+        derivationId,
+        sectionKey,
+        sourceType: 'user_note',
+        label: 'Your note',
+        content,
+        sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
+      },
+    });
+  }
+
+  /**
+   * Exclude or restore a derivation source.
+   */
+  async updateDerivationExcludedAt(
+    sourceId: string,
+    derivationId: string,
+    excludedAt: Date | null
+  ): Promise<StorySourceRow> {
+    const source = await prisma.storySource.findFirst({
+      where: { id: sourceId, derivationId },
+      select: { id: true },
+    });
+    if (!source) {
+      throw new Error(`Source ${sourceId} not found for derivation ${derivationId}`);
+    }
+    return prisma.storySource.update({
+      where: { id: sourceId },
+      data: { excludedAt },
+    });
+  }
+
+  /**
+   * Verify a source belongs to a derivation (ownership check).
+   */
+  async verifyDerivationOwnership(sourceId: string, derivationId: string): Promise<boolean> {
+    const source = await prisma.storySource.findFirst({
+      where: { id: sourceId, derivationId },
       select: { id: true },
     });
     return !!source;

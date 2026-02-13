@@ -1,9 +1,9 @@
 /**
  * Multi-Story Derivation Service
  *
- * Generates ephemeral derivations from MULTIPLE stories.
+ * Generates derivations from MULTIPLE stories (packets).
  * Supports: promotion, annual-review, skip-level, portfolio-brief, self-assessment, one-on-one.
- * No DB storage — generate, copy, done.
+ * Returns structured sections (parsed from LLM JSON) + flat text for backward compat.
  *
  * @module derivation-multi.service
  */
@@ -14,6 +14,7 @@ import { buildPacketMessages, PacketStoryInput } from '../ai/prompts/derivation.
 import type { WritingStyle } from '../ai/prompts/career-story.prompt';
 import type { PacketType } from '../../controllers/career-stories.schemas';
 import { getToolActivityTable } from '../../lib/demo-tables';
+import { parseSectionsFromLLM, extractMetrics, formatDateRange } from './derivation.service';
 
 // =============================================================================
 // TYPES
@@ -28,6 +29,8 @@ export interface DerivePacketOptions {
 
 export interface DerivePacketResult {
   text: string;
+  sections: Record<string, { summary: string }>;
+  sectionOrder: string[];
   charCount: number;
   wordCount: number;
   metadata: {
@@ -35,32 +38,6 @@ export interface DerivePacketResult {
     model: string;
     processingTimeMs: number;
   };
-}
-
-// =============================================================================
-// METRIC EXTRACTION (same pattern as single-story)
-// =============================================================================
-
-const METRIC_PATTERN = /\d[\d,.]*\s*(?:%|x|ms|seconds?|minutes?|hours?|days?|weeks?|months?|users?|customers?|teams?|engineers?|endpoints?|requests?|incidents?|deployments?|PRs?)\b/gi;
-
-function extractMetrics(text: string): string[] {
-  const matches = text.match(METRIC_PATTERN);
-  if (!matches) return [];
-  return [...new Set(matches.map(m => m.trim()))];
-}
-
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatDateRange(minDate: Date, maxDate: Date): string {
-  const minMonth = MONTH_NAMES[minDate.getMonth()];
-  const maxMonth = MONTH_NAMES[maxDate.getMonth()];
-  const minYear = minDate.getFullYear();
-  const maxYear = maxDate.getFullYear();
-
-  if (minYear === maxYear && minDate.getMonth() === maxDate.getMonth()) {
-    return `${minMonth} ${minYear}`;
-  }
-  return `${minMonth} ${minYear} – ${maxMonth} ${maxYear}`;
 }
 
 // =============================================================================
@@ -178,8 +155,8 @@ export async function derivePacket(
     temperature: 0.7,
   });
 
-  // 5. Compute output metrics
-  const text = result.content.trim();
+  // 5. Parse structured sections from LLM output
+  const { sections, sectionOrder, text } = parseSectionsFromLLM(result.content.trim());
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   const charCount = text.length;
 
@@ -187,6 +164,8 @@ export async function derivePacket(
 
   return {
     text,
+    sections,
+    sectionOrder,
     charCount,
     wordCount,
     metadata: {

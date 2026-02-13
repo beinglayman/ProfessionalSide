@@ -1,8 +1,8 @@
 /**
  * Derivation Service
  *
- * Generates ephemeral audience-specific derivations from career stories.
- * No DB storage — generate, copy, done.
+ * Generates audience-specific derivations from career stories.
+ * Returns structured sections (parsed from LLM JSON) + flat text for backward compat.
  *
  * @module derivation.service
  */
@@ -26,6 +26,8 @@ export interface DeriveOptions {
 
 export interface DeriveResult {
   text: string;
+  sections: Record<string, { summary: string }>;
+  sectionOrder: string[];
   charCount: number;
   wordCount: number;
   speakingTimeSec?: number;
@@ -39,12 +41,59 @@ export interface DeriveResult {
 }
 
 // =============================================================================
+// JSON SECTION PARSING
+// =============================================================================
+
+interface LLMSection { key: string; title: string; content: string; }
+
+/**
+ * Parse structured sections from LLM output.
+ * Expects JSON: {"sections": [{"key": "...", "title": "...", "content": "..."}]}
+ * Falls back to flat text wrapped in a single "content" section.
+ */
+export function parseSectionsFromLLM(raw: string): {
+  sections: Record<string, { summary: string }>;
+  sectionOrder: string[];
+  text: string;
+} {
+  try {
+    // Strip markdown code fences (```json, ```JSON, ```). LLMs sometimes wrap output in fences.
+    const cleaned = raw.replace(/^```[jJ][sS][oO][nN]?\s*\n?|\n?\s*```\s*$/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    if (parsed.sections && Array.isArray(parsed.sections)) {
+      const sections: Record<string, { summary: string }> = {};
+      const sectionOrder: string[] = [];
+      const textParts: string[] = [];
+
+      for (const sec of parsed.sections as LLMSection[]) {
+        sections[sec.key] = { summary: sec.content };
+        sectionOrder.push(sec.key);
+        textParts.push(`**${sec.title}**\n${sec.content}`);
+      }
+
+      return { sections, sectionOrder, text: textParts.join('\n\n') };
+    }
+  } catch (err) {
+    // JSON parse failed — fall back to flat text. Log for observability.
+    console.warn('[derivation] Failed to parse LLM JSON sections, using flat text fallback:', (err as Error).message);
+  }
+
+  // Fallback: entire response is flat text, single "content" section
+  return {
+    sections: { content: { summary: raw } },
+    sectionOrder: ['content'],
+    text: raw,
+  };
+}
+
+// =============================================================================
 // METRIC EXTRACTION
 // =============================================================================
 
-const METRIC_PATTERN = /\d[\d,.]*\s*(?:%|x|ms|seconds?|minutes?|hours?|days?|weeks?|months?|users?|customers?|teams?|engineers?|endpoints?|requests?|incidents?|deployments?|PRs?)\b/gi;
+export const METRIC_PATTERN = /\d[\d,.]*\s*(?:%|x|ms|seconds?|minutes?|hours?|days?|weeks?|months?|users?|customers?|teams?|engineers?|endpoints?|requests?|incidents?|deployments?|PRs?)\b/gi;
 
-function extractMetrics(text: string): string[] {
+export function extractMetrics(text: string): string[] {
   const matches = text.match(METRIC_PATTERN);
   if (!matches) return [];
   // Deduplicate
@@ -55,9 +104,9 @@ function extractMetrics(text: string): string[] {
 // DATE RANGE EXTRACTION
 // =============================================================================
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function formatDateRange(minDate: Date, maxDate: Date): string {
+export function formatDateRange(minDate: Date, maxDate: Date): string {
   const minMonth = MONTH_NAMES[minDate.getMonth()];
   const maxMonth = MONTH_NAMES[maxDate.getMonth()];
   const minYear = minDate.getFullYear();
@@ -118,8 +167,8 @@ export async function deriveStory(
   }
 
   // 2. Gather full bill of materials
-  const sections = story.sections as Record<string, { summary: string }>;
-  const allText = Object.values(sections).map(s => s.summary || '').join(' ');
+  const storySections = story.sections as Record<string, { summary: string }>;
+  const allText = Object.values(storySections).map(s => s.summary || '').join(' ');
   const metrics = extractMetrics(allText);
 
   // Get source count and date range for context
@@ -137,7 +186,7 @@ export async function deriveStory(
   const promptParams: DerivationPromptParams = {
     title: story.title,
     framework: story.framework,
-    sections,
+    sections: storySections,
     archetype: story.archetype || null,
     tone: options?.tone,
     customPrompt: options?.customPrompt,
@@ -160,8 +209,8 @@ export async function deriveStory(
     temperature: 0.7,
   });
 
-  // 5. Compute output metrics
-  const text = result.content.trim();
+  // 5. Parse structured sections from LLM output
+  const { sections, sectionOrder, text } = parseSectionsFromLLM(result.content.trim());
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   const charCount = text.length;
 
@@ -175,6 +224,8 @@ export async function deriveStory(
 
   return {
     text,
+    sections,
+    sectionOrder,
     charCount,
     wordCount,
     speakingTimeSec,
