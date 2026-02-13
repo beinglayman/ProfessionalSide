@@ -96,3 +96,10 @@ __docs/
 /blob-report/
 /playwright/.cache/
 e2e/.auth/
+
+# Prototypes & scratch files
+src/prototypes/
+public/logo-compare.html
+
+# Semantic search index
+src/.ck/
