@@ -36,8 +36,15 @@ Rules:
 - Every claim needs a receipt. If a story has no metric, say so.
 - Anti-inflation: "contributed to" → "built/shipped/led". No weasel words.
 - First person throughout.
-- No section headers in the output — use the bold labels above as-is.
 - Keep it under 800 words total.
+
+Return as JSON with these exact section keys:
+{"sections": [
+  {"key": "impact-summary", "title": "Summary of Impact", "content": "..."},
+  {"key": "key-achievements", "title": "Key Achievements", "content": "..."},
+  {"key": "metrics-dashboard", "title": "Metrics Dashboard", "content": "..."},
+  {"key": "growth-narrative", "title": "Growth Narrative", "content": "..."}
+]}
 
 {{#if tone}}
 Writing tone: {{tone}}

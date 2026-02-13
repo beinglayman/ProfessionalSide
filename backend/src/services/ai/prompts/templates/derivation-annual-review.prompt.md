@@ -39,9 +39,17 @@ Rules:
 - Every claim needs a receipt. If a story has no metric, say so.
 - Anti-inflation: "contributed to" → "built/shipped/led". No weasel words.
 - First person throughout.
-- No section headers in the output — use the bold labels above as-is.
 - Keep it under 800 words total.
 - Focus on outcomes within the review period. Don't claim credit for work outside the window.
+
+Return as JSON with these exact section keys:
+{"sections": [
+  {"key": "review-period-impact", "title": "Review Period Impact", "content": "..."},
+  {"key": "key-achievements", "title": "Key Achievements", "content": "..."},
+  {"key": "growth-trajectory", "title": "Growth Trajectory", "content": "..."},
+  {"key": "expanded-scope", "title": "Areas of Expanded Scope", "content": "..."},
+  {"key": "looking-ahead", "title": "Looking Ahead", "content": "..."}
+]}
 
 {{#if tone}}
 Writing tone: {{tone}}

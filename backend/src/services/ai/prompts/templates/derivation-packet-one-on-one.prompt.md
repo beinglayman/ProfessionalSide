@@ -39,8 +39,15 @@ Rules:
 - Every claim needs a receipt. If a story has no metric, say so.
 - Conversational bullets, not formal prose.
 - First person throughout.
-- No section headers in the output — use the bold labels above as-is.
 - Keep it under 400 words total. 1:1s are short.
+
+Return as JSON with these exact section keys:
+{"sections": [
+  {"key": "headlines", "title": "Headlines", "content": "..."},
+  {"key": "detail-bullets", "title": "Detail Bullets", "content": "..."},
+  {"key": "patterns-themes", "title": "Patterns & Themes", "content": "..."},
+  {"key": "ask-next-step", "title": "Ask or Next Step", "content": "..."}
+]}
 
 {{#if tone}}
 Writing tone: {{tone}}

@@ -37,9 +37,16 @@ Rules:
 - Anti-inflation: "contributed to" → "built/shipped/led". No weasel words.
 - Every claim needs a receipt. If a story has no metric, don't include it in proof points.
 - First person throughout.
-- No section headers in the output — use the bold labels above as-is.
 - Keep it under 400 words total. This is a 1-pager, not an essay.
 - Optimize for skimmability. A recruiter will spend 30 seconds on this.
+
+Return as JSON with these exact section keys:
+{"sections": [
+  {"key": "headline", "title": "Headline", "content": "..."},
+  {"key": "proof-points", "title": "Proof Points", "content": "..."},
+  {"key": "technical-breadth", "title": "Technical Breadth", "content": "..."},
+  {"key": "working-style", "title": "Working Style", "content": "..."}
+]}
 
 {{#if tone}}
 Writing tone: {{tone}}

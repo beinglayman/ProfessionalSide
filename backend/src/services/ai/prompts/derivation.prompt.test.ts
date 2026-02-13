@@ -110,6 +110,6 @@ describe('buildDerivationMessages', () => {
     const messages = buildDerivationMessages('interview', createParams());
     const systemContent = messages[0].content as string;
     expect(systemContent).toContain('Ann Handley');
-    expect(systemContent).toContain('Return ONLY the derived text');
+    expect(systemContent).toContain('Return ONLY the JSON object');
   });
 });

@@ -37,8 +37,15 @@ Rules:
 - Anti-hedging: "contributed to" → "built/shipped/led". "Helped with" → what you actually did. "Was involved in" → your specific role.
 - First person throughout.
 - Professional but not stiff. Written for someone who knows the work but needs the summary.
-- No section headers in the output — use the bold labels above as-is.
 - Keep it under 600 words total.
+
+Return as JSON with these exact section keys:
+{"sections": [
+  {"key": "impact-summary", "title": "Impact Summary", "content": "..."},
+  {"key": "key-contributions", "title": "Key Contributions", "content": "..."},
+  {"key": "growth-development", "title": "Growth & Development", "content": "..."},
+  {"key": "looking-ahead", "title": "Looking Ahead", "content": "..."}
+]}
 
 {{#if tone}}
 Writing tone: {{tone}}

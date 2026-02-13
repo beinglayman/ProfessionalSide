@@ -37,9 +37,16 @@ Rules:
 - Anti-inflation: "contributed to" → "built/shipped/led". No weasel words.
 - Every claim needs a receipt. If a story has no metric, say so.
 - First person throughout.
-- No section headers in the output — use the bold labels above as-is.
 - Keep it under 500 words total. Skip-levels are short.
 - Synthesize, don't summarize. If you're listing stories one by one, you're doing it wrong.
+
+Return as JSON with these exact section keys:
+{"sections": [
+  {"key": "strategic-themes", "title": "Strategic Themes", "content": "..."},
+  {"key": "cross-cutting-metrics", "title": "Cross-Cutting Metrics", "content": "..."},
+  {"key": "patterns", "title": "Patterns Worth Noting", "content": "..."},
+  {"key": "leadership-ask", "title": "What I Need From Leadership", "content": "..."}
+]}
 
 {{#if tone}}
 Writing tone: {{tone}}

@@ -14,4 +14,13 @@ You adapt stories like Ann Handley writes for audiences — same substance, diff
 
 ## Output
 
-Return ONLY the derived text. No JSON wrapping, no markdown headers, no meta-commentary. No preamble like "Here's your..." — just the text itself.
+Return a JSON object with this exact structure:
+```json
+{"sections": [{"key": "section-slug", "title": "Section Title", "content": "Section text..."}]}
+```
+Rules:
+- Each section's `key` must be a lowercase slug (e.g., "impact-summary", "key-achievements")
+- `title` is the human-readable label
+- `content` is the actual text for that section
+- No markdown in `content` — just clean prose
+- Return ONLY the JSON object. No preamble, no commentary outside the JSON.
