@@ -34,6 +34,7 @@ import { WidgetVariationsPage } from './pages/dashboard/widget-variations';
 import { TimelinePrototypesPage } from './pages/prototypes/timeline-prototypes';
 import { StoriesPrototypesPage } from './pages/prototypes/stories-prototypes';
 import { ProfilePrototypesPage } from './pages/prototypes/profile-prototypes';
+import { TimelineHeaderPrototypesPage } from './pages/prototypes/timeline-header-prototypes';
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 
@@ -158,6 +159,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <ProfilePrototypesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/prototypes/timeline-header"
+          element={
+            <ProtectedRoute>
+              <TimelineHeaderPrototypesPage />
             </ProtectedRoute>
           }
         />
