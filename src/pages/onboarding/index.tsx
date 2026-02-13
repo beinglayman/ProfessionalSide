@@ -1,69 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '../../components/ui/button';
-import { Check, User, FileText, Target, Briefcase, GraduationCap, Award, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Check, User, Plug } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { productionOnboardingService } from '../../services/onboarding-production.service';
 import { useProfile } from '../../hooks/useProfile';
 
-// Import step components (to be created)
 import { ProfessionalBasicsStepClean } from './steps/professional-basics-clean';
-import { BioSummaryStep } from './steps/bio-summary';
-import { SkillsExpertiseStepClean } from './steps/skills-expertise-clean';
-import { WorkExperienceStep } from './steps/work-experience';
-import { EducationStep } from './steps/education';
-import { CertificationsStep } from './steps/certifications';
-import { GoalsInterestsStep } from './steps/goals-interests';
+import { ConnectToolsStep } from './steps/connect-tools';
 
 const ONBOARDING_STEPS = [
   {
     id: 'basics',
-    title: 'Professional Basics',
-    description: 'Your current role and basic information',
+    title: 'About You',
+    description: 'Name and role',
     icon: User,
     component: ProfessionalBasicsStepClean,
   },
   {
-    id: 'bio',
-    title: 'Bio & Summary',
-    description: 'Professional summary and specializations',
-    icon: FileText,
-    component: BioSummaryStep,
-  },
-  {
-    id: 'skills',
-    title: 'Skills & Expertise',
-    description: 'Your technical and soft skills',
-    icon: Target,
-    component: SkillsExpertiseStepClean,
-  },
-  {
-    id: 'experience',
-    title: 'Work Experience',
-    description: 'Your professional background',
-    icon: Briefcase,
-    component: WorkExperienceStep,
-  },
-  {
-    id: 'education',
-    title: 'Education',
-    description: 'Your educational background',
-    icon: GraduationCap,
-    component: EducationStep,
-  },
-  {
-    id: 'certifications',
-    title: 'Certifications',
-    description: 'Professional certifications and licenses',
-    icon: Award,
-    component: CertificationsStep,
-  },
-  {
-    id: 'goals',
-    title: 'Goals & Interests',
-    description: 'Your professional goals and preferences',
-    icon: Settings,
-    component: GoalsInterestsStep,
+    id: 'tools',
+    title: 'Connect Tools',
+    description: 'Link your work tools',
+    icon: Plug,
+    component: ConnectToolsStep,
   },
 ];
 
@@ -73,104 +31,46 @@ export function OnboardingPage() {
   const [onboardingData, setOnboardingData] = useState({});
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-  const { profile, updateProfile, refetch } = useProfile();
-  
-  // Check if we're in edit mode (coming from /profile/edit)
-  const isEditMode = location.pathname === '/me/edit';
+  const { updateProfile, refetch } = useProfile();
 
-  // Load existing onboarding data when component mounts
   useEffect(() => {
     const loadOnboardingData = async () => {
-      
       try {
-        // Load onboarding data from API
         const existingData = await productionOnboardingService.getOnboardingData();
-        
         if (existingData) {
           setOnboardingData(existingData);
         }
-        
-        // Get current step from API or override for edit mode
-        let targetStep: number;
-        
-        if (isEditMode) {
-          
-          // Check if onboarding is complete
-          const progress = await productionOnboardingService.getOnboardingProgress();
-          
-          if (progress?.isCompleted) {
-            targetStep = 0; // First step (Professional Basics) for editing
-          } else {
-            // If not complete, calculate the appropriate step
-            targetStep = await productionOnboardingService.getCurrentStep();
-          }
-        } else {
-          targetStep = await productionOnboardingService.getCurrentStep();
-        }
-        
-        setCurrentStep(targetStep);
-        
-        // Mark previous steps as completed
+
+        const targetStep = await productionOnboardingService.getCurrentStep();
+        const safeStep = Math.min(targetStep, ONBOARDING_STEPS.length - 1);
+        setCurrentStep(safeStep);
+
         const completed = new Set<number>();
-        for (let i = 0; i < targetStep; i++) {
+        for (let i = 0; i < safeStep; i++) {
           completed.add(i);
         }
         setCompletedSteps(completed);
       } catch (error) {
-        console.error('❌ Failed to load onboarding data:', error);
+        console.error('Failed to load onboarding data:', error);
       } finally {
         setIsDataLoaded(true);
       }
     };
-    
+
     loadOnboardingData();
   }, []);
 
   const updateOnboardingData = async (stepData: any) => {
-    
-    // Deep merge to preserve arrays and objects
     const updatedData = { ...onboardingData, ...stepData };
-    
-    // Special handling for arrays to ensure they're properly preserved/updated
-    if (stepData.workExperiences) {
-      updatedData.workExperiences = stepData.workExperiences;
-    }
-    if (stepData.education) {
-      updatedData.education = stepData.education;
-    }
-    if (stepData.certifications) {
-      updatedData.certifications = stepData.certifications;
-    }
-    if (stepData.skills) {
-      updatedData.skills = stepData.skills;
-    }
-    if (stepData.topSkills) {
-      updatedData.topSkills = stepData.topSkills;
-    }
-    if (stepData.specializations) {
-      updatedData.specializations = stepData.specializations;
-    }
-    if (stepData.careerGoals) {
-      updatedData.careerGoals = stepData.careerGoals;
-    }
-    if (stepData.professionalInterests) {
-      updatedData.professionalInterests = stepData.professionalInterests;
-    }
-    
-    
     setOnboardingData(updatedData);
-    
-    // Save to database via onboarding API
+
     try {
       await productionOnboardingService.saveOnboardingData(updatedData);
-      
-      // If profileImageUrl was updated, refresh profile to sync avatar
       if (stepData.profileImageUrl) {
         await refetch();
       }
     } catch (error) {
-      console.error('❌ Onboarding: Failed to save onboarding data to database:', error);
+      console.error('Failed to save onboarding data:', error);
       throw error;
     }
   };
@@ -184,15 +84,13 @@ export function OnboardingPage() {
       markStepComplete(currentStep);
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
-      
-      // Save current step to database
+
       try {
         await productionOnboardingService.saveCurrentStep(nextStep);
       } catch (error) {
-        console.error('❌ Failed to save current step to database:', error);
+        console.error('Failed to save current step:', error);
       }
     } else {
-      // Last step completed, mark it complete and finish onboarding
       markStepComplete(currentStep);
       completeOnboarding();
     }
@@ -202,86 +100,35 @@ export function OnboardingPage() {
     if (currentStep > 0) {
       const prevStep = currentStep - 1;
       setCurrentStep(prevStep);
-      
-      // Save current step to database
+
       try {
         await productionOnboardingService.saveCurrentStep(prevStep);
       } catch (error) {
-        console.error('Failed to save current step to database:', error);
+        console.error('Failed to save current step:', error);
       }
-    }
-  };
-
-  const skipToStep = async (stepIndex: number) => {
-    setCurrentStep(stepIndex);
-    
-    // Save current step to database
-    try {
-      await productionOnboardingService.saveCurrentStep(stepIndex);
-    } catch (error) {
-      console.error('Failed to save current step to database:', error);
     }
   };
 
   const completeOnboarding = async () => {
     try {
-      
-      // Fetch the latest data from API to ensure we have the most recent state
       const latestData = await productionOnboardingService.getOnboardingData();
-      
-      // Use the latest data from API for final save (this ensures we don't overwrite with stale state)
       const finalData = latestData || onboardingData;
-      
-      // Final save via onboarding API (with latest data)
+
       await productionOnboardingService.saveOnboardingData(finalData as any);
-      
-      // Mark onboarding as complete
       await productionOnboardingService.markOnboardingComplete();
-      
-      // Refresh profile data to ensure avatar is updated
       await updateProfile(finalData);
       await refetch();
-      
-      // Navigate to profile page to see the results
-      navigate('/me');
-      
-      // Force page reload to ensure all data is fresh (temporary fix for avatar sync)
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+
+      // Navigate to Timeline — the core product experience
+      navigate('/timeline');
     } catch (error) {
       console.error('Error completing onboarding:', error);
-      // Still navigate but show error
-      navigate('/me');
+      navigate('/timeline');
     }
   };
 
-  const skipOnboarding = async () => {
-    try {
-      // Set localStorage flag for immediate overlay trigger
-      localStorage.setItem('initialOnboardingSkipped', 'true');
-      
-      // Call API to mark onboarding as skipped (creates personal workspace too)
-      await productionOnboardingService.markOnboardingSkipped();
-      
-      // Navigate to profile where overlay should appear
-      navigate('/me');
-    } catch (error) {
-      console.error('Error skipping onboarding:', error);
-      // Still navigate but show error
-      navigate('/me');
-    }
-  };
-
-  // Ensure currentStep is within bounds
   const safeCurrentStep = Math.min(Math.max(currentStep, 0), ONBOARDING_STEPS.length - 1);
   const currentStepData = ONBOARDING_STEPS[safeCurrentStep];
-  
-  // Ensure step is within bounds
-  if (currentStep !== safeCurrentStep) {
-    // Step was out of bounds, clamped to safe value
-  }
-  
   const CurrentStepComponent = currentStepData.component;
   const progressPercentage = ((safeCurrentStep + 1) / ONBOARDING_STEPS.length) * 100;
 
@@ -289,20 +136,17 @@ export function OnboardingPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Complete Your Profile</h1>
-                <p className="mt-2 text-sm text-gray-600">Help us personalize your InChronicle experience</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={skipOnboarding} className="text-gray-500">
-                  Skip for now
-                </Button>
-              </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                Get started with InChronicle
+              </h1>
+              <p className="mt-2 text-sm text-gray-600">
+                Two quick steps and you're in
+              </p>
             </div>
-            
+
             {/* Progress Bar */}
             <div className="mt-6">
               <div className="flex items-center justify-between mb-2">
@@ -314,7 +158,7 @@ export function OnboardingPage() {
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
+                <div
                   className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${progressPercentage}%` }}
                 />
@@ -325,17 +169,17 @@ export function OnboardingPage() {
       </div>
 
       {/* Step Navigation */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center space-x-4 overflow-x-auto pb-4">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-center space-x-4">
           {ONBOARDING_STEPS.map((step, index) => {
             const isCompleted = completedSteps.has(index);
             const isCurrent = index === safeCurrentStep;
             const isAccessible = index <= safeCurrentStep || isCompleted;
-            
+
             return (
               <button
                 key={step.id}
-                onClick={() => isAccessible && skipToStep(index)}
+                onClick={() => isAccessible && setCurrentStep(index)}
                 disabled={!isAccessible}
                 className={cn(
                   'flex items-center space-x-3 px-4 py-3 rounded-lg border-2 transition-all duration-200 min-w-max',
@@ -377,21 +221,8 @@ export function OnboardingPage() {
       </div>
 
       {/* Step Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="mb-8">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary-100">
-                <currentStepData.icon className="w-6 h-6 text-primary-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">{currentStepData.title}</h2>
-                <p className="text-sm text-gray-600">{currentStepData.description}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Step Component */}
           {isDataLoaded ? (
             <CurrentStepComponent
               data={onboardingData}
@@ -405,12 +236,11 @@ export function OnboardingPage() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                <p className="mt-4 text-sm text-gray-600">Loading your profile data...</p>
+                <p className="mt-4 text-sm text-gray-600">Loading...</p>
               </div>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

@@ -5,29 +5,29 @@ import { queryClient } from '../lib/queryClient';
 import { SafeStorage } from '../utils/storage';
 
 interface OnboardingData {
-  // Step 1: Professional Basics
+  // Step 1: About You
   fullName: string;
   currentTitle: string;
   currentCompany: string;
+  role: string;
+  profileImageUrl: string;
+
+  // Step 2: Connected Tools
+  connectedTools: string[];
+
+  // Legacy fields (kept for existing data compatibility)
   industry: string;
   yearsOfExperience: number;
   location: string;
-  profileImageUrl: string;
-  
-  // Step 2: Bio & Summary
   professionalSummary: string;
   specializations: string[];
   careerHighlights: string;
-  
-  // Step 3: Skills & Expertise
   skills: Array<{
     name: string;
     proficiency: string;
     category: string;
   }>;
   topSkills: string[];
-  
-  // Step 4: Work Experience
   workExperiences: Array<{
     id: string;
     title: string;
@@ -40,8 +40,6 @@ interface OnboardingData {
     achievements: string[];
     skills: string[];
   }>;
-  
-  // Step 5: Education
   education: Array<{
     id: string;
     institution: string;
@@ -55,8 +53,6 @@ interface OnboardingData {
     description: string;
     activities: string[];
   }>;
-  
-  // Step 6: Certifications
   certifications: Array<{
     id: string;
     name: string;
@@ -69,8 +65,6 @@ interface OnboardingData {
     description: string;
     skills: string[];
   }>;
-  
-  // Step 7: Goals & Interests
   careerGoals: string[];
   professionalInterests: string[];
 }

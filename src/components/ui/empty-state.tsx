@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { AlertCircle, Building2, FileText, Users, LucideIcon } from 'lucide-react';
+import { AlertCircle, Building2, FileText, Users, GitCommitVertical, BookOpen, Plug, LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from './button';
 
-export type EmptyStateVariant = 'no-results' | 'no-workspaces' | 'no-entries' | 'no-members' | 'custom';
+export type EmptyStateVariant = 'no-results' | 'no-workspaces' | 'no-entries' | 'no-members' | 'no-timeline' | 'no-stories' | 'custom';
 
 export interface EmptyStateAction {
   label: string;
@@ -34,6 +34,8 @@ const variantIcons: Record<EmptyStateVariant, LucideIcon> = {
   'no-workspaces': Building2,
   'no-entries': FileText,
   'no-members': Users,
+  'no-timeline': GitCommitVertical,
+  'no-stories': BookOpen,
   'custom': AlertCircle,
 };
 
@@ -44,21 +46,21 @@ const variantIcons: Record<EmptyStateVariant, LucideIcon> = {
  * Supports predefined variants for common scenarios.
  *
  * @example
- * // No search results
+ * // Empty timeline
  * <EmptyState
- *   variant="no-results"
- *   title="No workspaces found"
- *   description="No workspaces match your filters"
- *   action={{ label: "Clear filters", onClick: clearFilters }}
+ *   variant="no-timeline"
+ *   title="No activity yet"
+ *   description="Connect your tools to see your work activity here."
+ *   action={{ label: "Connect Tools", onClick: goToSettings, icon: Plug }}
  * />
  *
  * @example
- * // First-time user
+ * // Empty stories
  * <EmptyState
- *   variant="no-workspaces"
- *   title="Create your first workspace"
- *   description="Workspaces help you organize your journal entries."
- *   action={{ label: "Create Workspace", onClick: openCreate, icon: Plus }}
+ *   variant="no-stories"
+ *   title="No stories yet"
+ *   description="Stories are created from your activity. Once you have timeline entries, you can turn them into stories."
+ *   action={{ label: "Go to Timeline", onClick: goToTimeline }}
  * />
  */
 function EmptyState({

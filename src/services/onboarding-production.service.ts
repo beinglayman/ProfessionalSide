@@ -63,26 +63,23 @@ class ProductionOnboardingService {
       delete cleanedData.isCompleted; // Completion status is handled separately
       
       // Convert null values to appropriate defaults to match validation schema
+      const arrayFields = ['connectedTools', 'specializations', 'topSkills', 'skills', 'workExperiences', 'education', 'certifications', 'careerGoals', 'professionalInterests'];
       Object.keys(cleanedData).forEach(key => {
         if (cleanedData[key] === null || cleanedData[key] === undefined) {
-          // Array fields that have .default([]) in schema should be empty arrays, not null
-          if (['specializations', 'topSkills', 'skills', 'workExperiences', 'education', 'certifications', 'careerGoals', 'professionalInterests'].includes(key)) {
+          if (arrayFields.includes(key)) {
             cleanedData[key] = [];
           } else {
-            // Remove null/undefined fields entirely - let API handle defaults
             delete cleanedData[key];
           }
         }
-        
-        // Special handling for URL fields - remove empty strings to avoid validation errors
+
+        // Remove empty profileImageUrl to avoid validation errors
         if (key === 'profileImageUrl' && typeof cleanedData[key] === 'string' && cleanedData[key].trim() === '') {
-          console.log('🔧 Removing empty profileImageUrl to avoid validation error');
           delete cleanedData[key];
         }
       });
-      
-      // Also ensure array fields exist with default values even if they weren't null
-      const arrayFields = ['specializations', 'topSkills', 'skills', 'workExperiences', 'education', 'certifications', 'careerGoals', 'professionalInterests'];
+
+      // Ensure array fields exist with default values
       arrayFields.forEach(field => {
         if (cleanedData[field] === undefined) {
           cleanedData[field] = [];
@@ -125,21 +122,10 @@ class ProductionOnboardingService {
         const step = response.data.data.currentStep || 0;
         console.log('✅ Current step retrieved from API:', step);
         
-        // If onboarding is complete, check if user is editing profile
-        // and calculate the appropriate step based on data completeness
+        // If onboarding is complete, calculate step from data
         if (response.data.data.isCompleted) {
-          console.log('🔍 Onboarding is complete, calculating step from data...');
           const onboardingData = await this.getOnboardingData();
-          const calculatedStep = this.calculateCurrentStepFromData(onboardingData);
-          console.log('📍 Calculated step from data:', calculatedStep);
-          
-          // If all data is complete, go to last step (Goals & Interests) for editing
-          if (calculatedStep >= 6) {
-            console.log('📍 All data complete, directing to last step for editing');
-            return 6;
-          }
-          
-          return calculatedStep;
+          return this.calculateCurrentStepFromData(onboardingData);
         }
         
         return step;
@@ -325,55 +311,18 @@ class ProductionOnboardingService {
     }
   }
 
-  // Calculate step completion based on data
+  // Calculate step completion based on data (2-step flow)
   calculateCurrentStepFromData(data: OnboardingData | null): number {
-    if (!data) {
-      console.log('📍 No data found, starting at step 0');
-      return 0;
-    }
-    
-    console.log('🔍 Calculating current step from data:', data);
-    
-    // Check each step's completion requirements
-    if (!data.fullName || !data.currentTitle) {
-      console.log('📍 Step 0 incomplete - missing basic info');
-      return 0; // Professional Basics
-    }
-    
-    if (!data.professionalSummary || !data.specializations?.length) {
-      console.log('📍 Step 1 incomplete - missing bio/summary');
-      return 1; // Bio & Summary
-    }
-    
-    if (!data.skills?.length || !data.topSkills?.length) {
-      console.log('📍 Step 2 incomplete - missing skills');
-      return 2; // Skills & Expertise
-    }
-    
-    if (!data.workExperiences?.length) {
-      console.log('📍 Step 3 incomplete - missing work experience');
-      return 3; // Work Experience
-    }
-    
-    if (!data.education?.length) {
-      console.log('📍 Step 4 incomplete - missing education');
-      return 4; // Education
-    }
-    
-    // Certifications are optional - skip if empty and check goals
-    if (!data.careerGoals?.length || !data.professionalInterests?.length) {
-      // If certifications exist but goals don't, go to goals step
-      if (data.certifications?.length) {
-        console.log('📍 Step 6 incomplete - missing goals/interests');
-        return 6; // Goals & Interests
-      } else {
-        console.log('📍 Step 5 incomplete - missing certifications (or can skip to goals)');
-        return 5; // Certifications (but they can skip)
-      }
-    }
-    
-    console.log('📍 All required steps complete!');
-    return 6; // All complete, stay on last step
+    if (!data) return 0;
+
+    // Step 0: About You — need at least fullName
+    if (!data.fullName) return 0;
+
+    // Step 1: Connect Tools — need at least one connected tool
+    if (!data.connectedTools?.length) return 1;
+
+    // All steps complete
+    return 1;
   }
 }
 

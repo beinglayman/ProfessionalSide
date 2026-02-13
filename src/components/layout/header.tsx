@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { UserNav } from './user-nav';
 import { cn } from '../../lib/utils';
-import { ChevronDown, User, Users, Globe, Search, GitCommitVertical, FileText, BookOpen } from 'lucide-react';
+import { User, Search, GitCommitVertical, BookOpen } from 'lucide-react';
 import type { NetworkType } from '../../App';
 import { NotificationsDropdown } from '../notifications/notifications-dropdown';
 import { SearchModal } from '../search/search-modal';
@@ -19,7 +18,6 @@ interface HeaderProps {
 export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isPresenceExpanded, setIsPresenceExpanded] = useState(false);
   const location = useLocation();
   const { isAuthenticated } = useAuth();
 
@@ -35,19 +33,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
 
   // Helper function to check if a link is active
   const isActiveLink = (path: string) => {
-    if (path === '/teams') {
-      return location.pathname.startsWith('/teams');
-    }
-    return location.pathname === path;
-  };
-
-  // Check if any Presence child route is active
-  const isPresenceActive = () => {
-    return (
-      location.pathname.startsWith('/me') ||
-      location.pathname.startsWith('/teams') ||
-      location.pathname.startsWith('/network')
-    );
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-md">
@@ -129,79 +115,25 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                   )}></div>
                 </Link>
 
-                {/* Presence Dropdown */}
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger asChild>
-                    <button
-                      className={cn(
-                        "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
-                        isPresenceActive()
-                          ? "text-primary-600"
-                          : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                      )}
-                    >
-                      <Globe className="h-3.5 w-3.5" />
-                      <span>Presence</span>
-                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                      <div className={cn(
-                        "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
-                        isPresenceActive()
-                          ? "scale-x-100"
-                          : "scale-x-0 group-hover:scale-x-100"
-                      )}></div>
-                    </button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content
-                      className="w-40 rounded-lg border border-gray-200 bg-white p-1 shadow-lg z-50"
-                      align="start"
-                      sideOffset={8}
-                    >
-                      <DropdownMenu.Item asChild>
-                        <Link
-                          to="/me"
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
-                            isActiveLink('/me')
-                              ? "bg-primary-50 text-primary-600"
-                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                          )}
-                        >
-                          <User className="h-4 w-4" />
-                          Profile
-                        </Link>
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Item asChild>
-                        <Link
-                          to="/teams"
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
-                            isActiveLink('/teams')
-                              ? "bg-primary-50 text-primary-600"
-                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                          )}
-                        >
-                          <Users className="h-4 w-4" />
-                          Teams
-                        </Link>
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Item asChild>
-                        <Link
-                          to="/network"
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors outline-none cursor-pointer",
-                            isActiveLink('/network')
-                              ? "bg-primary-50 text-primary-600"
-                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                          )}
-                        >
-                          <Globe className="h-4 w-4" />
-                          Network
-                        </Link>
-                      </DropdownMenu.Item>
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                {/* Profile */}
+                <Link
+                  to="/me"
+                  className={cn(
+                    "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    isActiveLink('/me')
+                      ? "text-primary-600"
+                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                  )}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  <span>Profile</span>
+                  <div className={cn(
+                    "absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 transition-transform duration-200",
+                    isActiveLink('/me')
+                      ? "scale-x-100"
+                      : "scale-x-0 group-hover:scale-x-100"
+                  )}></div>
+                </Link>
               </nav>
             )}
           </div>
@@ -313,84 +245,24 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                 )}
                 onClick={() => setIsMenuOpen(false)}
               >
-                <FileText className="h-4 w-4 mr-3" />
+                <BookOpen className="h-4 w-4 mr-3" />
                 Stories
               </Link>
 
-              {/* Presence Accordion */}
-              <div className="border-t border-gray-100 mt-2 pt-2">
-                <button
-                  onClick={() => setIsPresenceExpanded(!isPresenceExpanded)}
-                  className={cn(
-                    "flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                    isPresenceActive()
-                      ? "text-primary-600"
-                      : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
-                  )}
-                  aria-expanded={isPresenceExpanded}
-                  aria-controls="mobile-presence-menu"
-                >
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-3" />
-                    Presence
-                  </div>
-                  <ChevronDown className={cn(
-                    "h-4 w-4 transition-transform duration-200",
-                    isPresenceExpanded && "rotate-180"
-                  )} />
-                </button>
-
-                {/* Presence child links */}
-                <div
-                  id="mobile-presence-menu"
-                  className={cn(
-                    "overflow-hidden transition-all duration-150",
-                    isPresenceExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
-                  )}
-                >
-                  <div className="ml-7 mt-1 space-y-1">
-                    <Link
-                      to="/me"
-                      className={cn(
-                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActiveLink('/me')
-                          ? "text-primary-600 bg-primary-50"
-                          : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
-                      )}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <User className="h-4 w-4 mr-3" />
-                      Profile
-                    </Link>
-                    <Link
-                      to="/teams"
-                      className={cn(
-                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActiveLink('/teams')
-                          ? "text-primary-600 bg-primary-50"
-                          : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
-                      )}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Users className="h-4 w-4 mr-3" />
-                      Teams
-                    </Link>
-                    <Link
-                      to="/network"
-                      className={cn(
-                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActiveLink('/network')
-                          ? "text-primary-600 bg-primary-50"
-                          : "text-gray-600 hover:text-primary-600 hover:bg-primary-50"
-                      )}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Globe className="h-4 w-4 mr-3" />
-                      Network
-                    </Link>
-                  </div>
-                </div>
-              </div>
+              {/* Profile */}
+              <Link
+                to="/me"
+                className={cn(
+                  "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  isActiveLink('/me')
+                    ? "text-primary-600"
+                    : "text-gray-700 hover:text-primary-600 hover:bg-primary-50"
+                )}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <User className="h-4 w-4 mr-3" />
+                Profile
+              </Link>
             </nav>
           </div>
         )}

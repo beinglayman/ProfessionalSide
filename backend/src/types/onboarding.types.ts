@@ -2,29 +2,29 @@ import { z } from 'zod';
 
 // Onboarding data validation schemas
 export const createOnboardingDataSchema = z.object({
-  // Step 1: Basic Info
+  // Step 1: About You
   fullName: z.string().optional(),
   currentTitle: z.string().optional(),
   currentCompany: z.string().optional(),
+  role: z.string().optional(),
+  profileImageUrl: z.string().url().optional(),
+
+  // Step 2: Connected Tools
+  connectedTools: z.array(z.string()).default([]),
+
+  // Legacy fields (kept for backward compatibility with existing data)
   location: z.string().optional(),
   industry: z.string().optional(),
   yearsOfExperience: z.number().int().min(0).max(50).optional(),
-  profileImageUrl: z.string().url().optional(),
-  
-  // Step 2: Professional Summary
   professionalSummary: z.string().max(2000).optional(),
   specializations: z.array(z.string()).default([]),
   careerHighlights: z.string().max(1000).optional(),
-  
-  // Step 3: Skills
   skills: z.array(z.object({
     name: z.string(),
     proficiency: z.string(),
     category: z.string().optional()
   })).optional(),
   topSkills: z.array(z.string()).default([]),
-  
-  // Step 4: Work Experience
   workExperiences: z.array(z.object({
     company: z.string(),
     title: z.string(),
@@ -36,8 +36,6 @@ export const createOnboardingDataSchema = z.object({
     achievements: z.array(z.string()).default([]),
     skills: z.array(z.string()).default([])
   })).optional(),
-  
-  // Step 5: Education
   education: z.array(z.object({
     institution: z.string(),
     degree: z.string(),
@@ -50,8 +48,6 @@ export const createOnboardingDataSchema = z.object({
     description: z.string().optional(),
     activities: z.array(z.string()).default([])
   })).optional(),
-  
-  // Step 6: Certifications
   certifications: z.array(z.object({
     name: z.string(),
     issuingOrganization: z.string(),
@@ -63,20 +59,18 @@ export const createOnboardingDataSchema = z.object({
     description: z.string().optional(),
     skills: z.array(z.string()).default([])
   })).optional(),
-  
-  // Step 7: Goals & Interests
   careerGoals: z.array(z.string()).default([]),
   professionalInterests: z.array(z.string()).default([]),
-  
+
   // Metadata
-  currentStep: z.number().int().min(1).max(7).default(1),
+  currentStep: z.number().int().min(0).max(2).default(0),
   isCompleted: z.boolean().default(false)
 });
 
 export const updateOnboardingDataSchema = createOnboardingDataSchema.partial();
 
 export const updateOnboardingStepSchema = z.object({
-  currentStep: z.number().int().min(1).max(7)
+  currentStep: z.number().int().min(0).max(2)
 });
 
 export const completeOnboardingSchema = z.object({
@@ -96,10 +90,12 @@ export interface OnboardingDataResponse {
   fullName?: string | null;
   currentTitle?: string | null;
   currentCompany?: string | null;
+  role?: string | null;
   location?: string | null;
   industry?: string | null;
   yearsOfExperience?: number | null;
   profileImageUrl?: string | null;
+  connectedTools?: string[];
   professionalSummary?: string | null;
   specializations: string[];
   careerHighlights?: string | null;

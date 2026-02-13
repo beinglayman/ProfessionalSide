@@ -968,34 +968,28 @@ model OnboardingData {
   id     String @id @default(cuid())
   userId String @unique
 
-  // Step 1: Basic Info
-  fullName          String?
-  currentTitle      String?
-  currentCompany    String?
+  // Step 1: About You
+  fullName        String?
+  currentTitle    String?
+  currentCompany  String?
+  role            String?
+  profileImageUrl String?
+
+  // Step 2: Connected Tools
+  connectedTools String[] @default([])
+
+  // Legacy fields (kept for existing data)
   location          String?
   industry          String?
   yearsOfExperience Int?
-  profileImageUrl   String?
-
-  // Step 2: Professional Summary
   professionalSummary String?
   specializations     String[] @default([])
   careerHighlights    String?
-
-  // Step 3: Skills
-  skills    Json? // Array of skill objects
+  skills    Json?
   topSkills String[] @default([])
-
-  // Step 4: Work Experience
-  workExperiences Json? // Array of work experience objects
-
-  // Step 5: Education
-  education Json? // Array of education objects
-
-  // Step 6: Certifications
-  certifications Json? // Array of certification objects
-
-  // Step 7: Goals & Interests
+  workExperiences Json?
+  education Json?
+  certifications Json?
   careerGoals           String[] @default([])
   professionalInterests String[] @default([])
 

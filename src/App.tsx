@@ -7,7 +7,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ErrorConsoleProvider } from './contexts/ErrorConsoleContext';
 import { ErrorConsole } from './components/dev/ErrorConsole';
-import { OnboardingProvider } from './components/onboarding';
 import { Header } from './components/layout/header';
 import { HomePage } from './pages/home';
 import { PrivacyPolicyPage } from './pages/privacy';
@@ -295,13 +294,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ErrorConsoleProvider>
         <AuthProvider>
-          <OnboardingProvider>
-            <ToastProvider>
-              <Router>
-                <AppRoutes />
-              </Router>
-            </ToastProvider>
-          </OnboardingProvider>
+          <ToastProvider>
+            <Router>
+              <AppRoutes />
+            </Router>
+          </ToastProvider>
           <ReactQueryDevtools initialIsOpen={false} />
         </AuthProvider>
         <ErrorConsole />

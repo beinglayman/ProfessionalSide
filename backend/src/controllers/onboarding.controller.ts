@@ -202,8 +202,8 @@ export const updateStepData = asyncHandler(async (req: Request, res: Response): 
     return void sendError(res, 'User not authenticated', 401);
   }
 
-  if (!stepNumber || stepNumber < 1 || stepNumber > 7) {
-    return void sendError(res, 'Invalid step number. Must be between 1 and 7', 400);
+  if (!stepNumber || stepNumber < 1 || stepNumber > 2) {
+    return void sendError(res, 'Invalid step number. Must be between 1 and 2', 400);
   }
 
   // Validate the step data based on the step number

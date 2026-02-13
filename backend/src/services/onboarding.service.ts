@@ -138,9 +138,9 @@ export class OnboardingService {
     });
 
     return {
-      currentStep: onboardingData?.currentStep || 0,  // Start at step 0 (Professional Basics)
+      currentStep: onboardingData?.currentStep || 0,
       isCompleted: onboardingData?.isCompleted || false,
-      totalSteps: 7
+      totalSteps: 2
     };
   }
 

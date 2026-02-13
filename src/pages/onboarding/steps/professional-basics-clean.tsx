@@ -1,9 +1,7 @@
-// Production-ready professional basics step
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../../../components/ui/button';
-import { MapPin, Building2, Camera, Upload, X } from 'lucide-react';
+import { Camera, Upload } from 'lucide-react';
 import { productionOnboardingService } from '../../../services/onboarding-production.service';
-import { OnboardingData } from '../../../services/onboarding.service';
 
 interface ProfessionalBasicsProps {
   data: Record<string, unknown>;
@@ -14,42 +12,31 @@ interface ProfessionalBasicsProps {
   isLastStep?: boolean;
 }
 
-const INDUSTRIES = [
-  'Technology',
-  'Healthcare', 
-  'Finance',
-  'Education',
-  'Manufacturing',
-  'Retail',
-  'Consulting',
-  'Media & Entertainment',
-  'Real Estate',
-  'Transportation',
-  'Energy',
-  'Government',
-  'Non-profit',
-  'Other'
+const ROLES = [
+  'Individual Contributor',
+  'Team Lead',
+  'Manager',
+  'Senior Manager',
+  'Director',
+  'VP',
+  'C-Suite',
+  'Founder',
+  'Freelancer / Consultant',
+  'Other',
 ];
-
-// No debounce needed since we only save on Continue button click
 
 export function ProfessionalBasicsStepClean({
   data,
   onUpdate,
   onNext,
-  onPrevious,
-  isFirstStep
+  isFirstStep,
 }: ProfessionalBasicsProps) {
   const [formData, setFormData] = useState({
-    ...data,
-    // Override any null/undefined values with appropriate defaults
-    fullName: data.fullName || '',
-    currentTitle: data.currentTitle || '',
-    currentCompany: data.currentCompany || '',
-    industry: data.industry || '',
-    yearsOfExperience: data.yearsOfExperience || '',
-    location: data.location || '',
-    profileImageUrl: data.profileImageUrl || ''
+    fullName: (data.fullName as string) || (data.name as string) || '',
+    currentTitle: (data.currentTitle as string) || (data.title as string) || '',
+    currentCompany: (data.currentCompany as string) || (data.company as string) || '',
+    role: (data.role as string) || '',
+    profileImageUrl: (data.profileImageUrl as string) || (data.avatar as string) || '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -58,24 +45,16 @@ export function ProfessionalBasicsStepClean({
   const [imageLoadError, setImageLoadError] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
 
-  // Update form data when new data is received (for prepopulation)
   useEffect(() => {
-    const newFormData = {
-      ...data,
-      // Override any null/undefined values with appropriate defaults
-      fullName: data?.fullName || data?.name || '',
-      currentTitle: data?.currentTitle || data?.title || '',
-      currentCompany: data?.currentCompany || data?.company || '',
-      industry: data?.industry || '',
-      yearsOfExperience: data?.yearsOfExperience || '',
-      location: data?.location || '',
-      profileImageUrl: data?.profileImageUrl || data?.avatar || ''
-    };
-    
-    setFormData(newFormData);
+    setFormData({
+      fullName: (data?.fullName as string) || (data?.name as string) || '',
+      currentTitle: (data?.currentTitle as string) || (data?.title as string) || '',
+      currentCompany: (data?.currentCompany as string) || (data?.company as string) || '',
+      role: (data?.role as string) || '',
+      profileImageUrl: (data?.profileImageUrl as string) || (data?.avatar as string) || '',
+    });
   }, [data]);
 
-  // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
       if (previewImageUrl) {
@@ -84,17 +63,9 @@ export function ProfessionalBasicsStepClean({
     };
   }, [previewImageUrl]);
 
-  // No auto-save - data is only saved when Continue button is clicked
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    // Convert yearsOfExperience to number
-    const processedValue = name === 'yearsOfExperience' ? Number(value) : value;
-    
-    setFormData(prev => ({ ...prev, [name]: processedValue }));
-    
-    // Clear error when user starts typing
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -106,20 +77,8 @@ export function ProfessionalBasicsStepClean({
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required';
     }
-    if (!formData.currentTitle.trim()) {
-      newErrors.currentTitle = 'Current title is required';
-    }
-    if (!formData.currentCompany.trim()) {
-      newErrors.currentCompany = 'Current company is required';
-    }
-    if (!formData.industry) {
-      newErrors.industry = 'Industry is required';
-    }
-    if (formData.yearsOfExperience === null || formData.yearsOfExperience === undefined || formData.yearsOfExperience === '') {
-      newErrors.yearsOfExperience = 'Years of experience is required';
-    }
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
+    if (!formData.role) {
+      newErrors.role = 'Role is required';
     }
 
     setErrors(newErrors);
@@ -128,11 +87,8 @@ export function ProfessionalBasicsStepClean({
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
-    // Validate file
     if (!file.type.startsWith('image/')) {
       setErrors(prev => ({ ...prev, profileImage: 'Please select a valid image file' }));
       return;
@@ -142,61 +98,43 @@ export function ProfessionalBasicsStepClean({
       setErrors(prev => ({ ...prev, profileImage: 'Image size must be less than 5MB' }));
       return;
     }
-    
-    // Create immediate preview using blob URL
+
     const previewUrl = URL.createObjectURL(file);
     setPreviewImageUrl(previewUrl);
     setImageLoadError(false);
-    
     setIsImageUploading(true);
-    
+
     try {
       const imageUrl = await productionOnboardingService.uploadProfileImage(file);
-      
-      // Update form data with the uploaded URL
       setFormData(prev => ({ ...prev, profileImageUrl: imageUrl }));
-      
-      // Clean up the blob URL since we now have the uploaded URL
       URL.revokeObjectURL(previewUrl);
       setPreviewImageUrl('');
-      
       setErrors(prev => ({ ...prev, profileImage: '' }));
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      // Keep the preview URL so user can still see their selected image
-      setErrors(prev => ({ 
-        ...prev, 
-        profileImage: `Failed to upload image: ${errorMessage}. Preview shown, will retry on save.` 
+      setErrors(prev => ({
+        ...prev,
+        profileImage: 'Failed to upload image. You can try again later.',
       }));
     } finally {
       setIsImageUploading(false);
     }
   };
 
-  const cleanFormDataForAPI = (data: any) => {
-    const cleaned = { ...data };
-    
-    // Remove blob URLs and invalid data
-    if (cleaned.profileImageUrl && !cleaned.profileImageUrl.startsWith('http')) {
+  const cleanFormDataForAPI = (formDataToClean: typeof formData) => {
+    const cleaned: Record<string, unknown> = { ...formDataToClean };
+
+    // Remove blob URLs
+    if (typeof cleaned.profileImageUrl === 'string' && !(cleaned.profileImageUrl as string).startsWith('http')) {
       delete cleaned.profileImageUrl;
     }
-    
-    // Ensure yearsOfExperience is a number or undefined
-    if (cleaned.yearsOfExperience) {
-      cleaned.yearsOfExperience = parseInt(cleaned.yearsOfExperience.toString());
-      if (isNaN(cleaned.yearsOfExperience)) {
-        delete cleaned.yearsOfExperience;
-      }
-    }
-    
+
     // Remove empty strings
     Object.keys(cleaned).forEach(key => {
       if (cleaned[key] === '') {
         delete cleaned[key];
       }
     });
-    
+
     return cleaned;
   };
 
@@ -205,48 +143,13 @@ export function ProfessionalBasicsStepClean({
 
     setIsLoading(true);
     try {
-      // If there's a preview image but no uploaded URL, try to upload again
-      if (previewImageUrl && !formData.profileImageUrl) {
-        try {
-          // Get the file from the input (if still available)
-          const fileInput = document.getElementById('image-upload') as HTMLInputElement;
-          const file = fileInput?.files?.[0];
-          
-          if (file) {
-            const imageUrl = await productionOnboardingService.uploadProfileImage(file);
-            
-            // Update form data with the uploaded URL
-            const updatedFormData = { ...formData, profileImageUrl: imageUrl };
-            setFormData(updatedFormData);
-            
-            // Clean up preview URL
-            URL.revokeObjectURL(previewImageUrl);
-            setPreviewImageUrl('');
-            
-            // Save the updated data with the uploaded image URL
-            const cleanedData = cleanFormDataForAPI(updatedFormData);
-            await onUpdate(cleanedData);
-          } else {
-            const cleanedData = cleanFormDataForAPI(formData);
-            await onUpdate(cleanedData);
-          }
-        } catch (retryError) {
-          // Proceed anyway - user can upload later
-          const cleanedData = cleanFormDataForAPI(formData);
-          await onUpdate(cleanedData);
-        }
-      } else {
-        // Normal save
-        const cleanedData = cleanFormDataForAPI(formData);
-        await onUpdate(cleanedData);
-      }
-      
+      const cleanedData = cleanFormDataForAPI(formData);
+      await onUpdate(cleanedData);
       await onNext();
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? `Save failed: ${error.message}` 
+      const errorMessage = error instanceof Error
+        ? `Save failed: ${error.message}`
         : 'Failed to save data. Please try again.';
-        
       setErrors({ general: errorMessage });
     } finally {
       setIsLoading(false);
@@ -255,301 +158,161 @@ export function ProfessionalBasicsStepClean({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="text-center">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          Let's start with the basics
+          What's your name?
         </h2>
         <p className="text-sm text-gray-600">
-          Tell us about your current role to personalize your experience
+          Just the basics so we know who you are
         </p>
       </div>
 
-      {/* Error Message */}
       {errors.general && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <p className="text-sm text-red-600">{errors.general}</p>
         </div>
       )}
 
-      {/* Main Form */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Form Fields */}
-        <div className="space-y-6">
-          {/* Profile Photo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Profile Photo (Optional)
-            </label>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <div className={`w-16 h-16 rounded-full border-2 overflow-hidden bg-gray-50 flex items-center justify-center ${
-                  previewImageUrl ? 'border-blue-400' : 'border-gray-300'
-                }`}>
-                  {(formData.profileImageUrl || previewImageUrl) && !imageLoadError ? (
-                    <img
-                      src={formData.profileImageUrl || previewImageUrl}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        setImageLoadError(true);
-                      }}
-                      onLoad={() => {
-                        setImageLoadError(false);
-                      }}
-                    />
-                  ) : (
-                    <Camera className="w-6 h-6 text-gray-400" />
-                  )}
-                  {previewImageUrl && !formData.profileImageUrl && (
-                    <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded-full">
-                      Preview
-                    </div>
-                  )}
+      <div className="max-w-md mx-auto space-y-6">
+        {/* Profile Photo */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Profile Photo <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className={`w-16 h-16 rounded-full border-2 overflow-hidden bg-gray-50 flex items-center justify-center ${
+                previewImageUrl ? 'border-blue-400' : 'border-gray-300'
+              }`}>
+                {(formData.profileImageUrl || previewImageUrl) && !imageLoadError ? (
+                  <img
+                    src={formData.profileImageUrl || previewImageUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={() => setImageLoadError(true)}
+                    onLoad={() => setImageLoadError(false)}
+                  />
+                ) : (
+                  <Camera className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+              {isImageUploading && (
+                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                 </div>
-                {isImageUploading && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isImageUploading}
-                  onClick={() => document.getElementById('image-upload')?.click()}
-                  className={`flex items-center space-x-2 ${
-                    previewImageUrl ? 'border-blue-400 text-blue-600' : ''
-                  }`}
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>
-                    {isImageUploading 
-                      ? 'Uploading...' 
-                      : previewImageUrl 
-                        ? 'Change Photo' 
-                        : 'Upload Photo'
-                    }
-                  </span>
-                </Button>
-                <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF • Max 5MB</p>
-                {errors.profileImage && (
-                  <p className="text-xs text-red-600 mt-1">{errors.profileImage}</p>
-                )}
-              </div>
-              <input
-                id="image-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
+              )}
             </div>
-          </div>
-
-          {/* Full Name */}
-          <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleInputChange}
-              placeholder="e.g., Sarah Johnson"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                errors.fullName ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.fullName && (
-              <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
-            )}
-          </div>
-
-          {/* Job Title */}
-          <div>
-            <label htmlFor="currentTitle" className="block text-sm font-medium text-gray-700 mb-2">
-              Current Job Title *
-            </label>
-            <input
-              type="text"
-              id="currentTitle"
-              name="currentTitle"
-              value={formData.currentTitle}
-              onChange={handleInputChange}
-              placeholder="e.g., Senior Software Engineer"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                errors.currentTitle ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.currentTitle && (
-              <p className="mt-1 text-sm text-red-600">{errors.currentTitle}</p>
-            )}
-          </div>
-
-          {/* Company */}
-          <div>
-            <label htmlFor="currentCompany" className="block text-sm font-medium text-gray-700 mb-2">
-              Current Company *
-            </label>
-            <input
-              type="text"
-              id="currentCompany"
-              name="currentCompany"
-              value={formData.currentCompany}
-              onChange={handleInputChange}
-              placeholder="e.g., TechCorp Inc."
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                errors.currentCompany ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.currentCompany && (
-              <p className="mt-1 text-sm text-red-600">{errors.currentCompany}</p>
-            )}
-          </div>
-
-          {/* Industry & Experience */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="industry" className="block text-sm font-medium text-gray-700 mb-2">
-                Industry *
-              </label>
-              <select
-                id="industry"
-                name="industry"
-                value={formData.industry}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                  errors.industry ? 'border-red-500' : 'border-gray-300'
-                }`}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isImageUploading}
+                onClick={() => document.getElementById('image-upload')?.click()}
               >
-                <option value="">Select your industry</option>
-                {INDUSTRIES.map(industry => (
-                  <option key={industry} value={industry}>{industry}</option>
-                ))}
-              </select>
-              {errors.industry && (
-                <p className="mt-1 text-sm text-red-600">{errors.industry}</p>
+                <Upload className="w-4 h-4 mr-2" />
+                <span>{isImageUploading ? 'Uploading...' : 'Upload Photo'}</span>
+              </Button>
+              <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF — Max 5MB</p>
+              {errors.profileImage && (
+                <p className="text-xs text-red-600 mt-1">{errors.profileImage}</p>
               )}
             </div>
-
-            <div>
-              <label htmlFor="yearsOfExperience" className="block text-sm font-medium text-gray-700 mb-2">
-                Years of Experience *
-              </label>
-              <input
-                type="number"
-                id="yearsOfExperience"
-                name="yearsOfExperience"
-                value={formData.yearsOfExperience}
-                onChange={handleInputChange}
-                placeholder="5"
-                min="0"
-                max="50"
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                  errors.yearsOfExperience ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.yearsOfExperience && (
-                <p className="mt-1 text-sm text-red-600">{errors.yearsOfExperience}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-              Location *
-            </label>
             <input
-              type="text"
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              placeholder="e.g., San Francisco, CA or Remote"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                errors.location ? 'border-red-500' : 'border-gray-300'
-              }`}
+              id="image-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
             />
-            {errors.location && (
-              <p className="mt-1 text-sm text-red-600">{errors.location}</p>
-            )}
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Full Name */}
         <div>
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Profile Preview</h3>
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-300">
-                  {(formData.profileImageUrl || previewImageUrl) && !imageLoadError ? (
-                    <img
-                      src={formData.profileImageUrl || previewImageUrl}
-                      alt="Profile preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        setImageLoadError(true);
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
-                        {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : '?'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{formData.fullName || 'Your Name'}</h4>
-                  <p className="text-primary-600 font-medium text-sm">
-                    {formData.currentTitle || 'Your Job Title'}
-                  </p>
-                  <div className="mt-2 space-y-1 text-xs text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <Building2 className="w-3 h-3" />
-                      <span>{formData.currentCompany || 'Your Company'}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="w-3 h-3" />
-                      <span>{formData.location || 'Your Location'}</span>
-                    </div>
-                  </div>
-                  {(formData.industry || formData.yearsOfExperience) && (
-                    <div className="mt-2">
-                      <span className="bg-primary-100 text-primary-700 px-2 py-1 rounded-full text-xs font-medium">
-                        {formData.industry || 'Industry'} • {formData.yearsOfExperience || '0'} years exp.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+            Full Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="fullName"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleInputChange}
+            placeholder="e.g., Sarah Johnson"
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
+              errors.fullName ? 'border-red-500' : 'border-gray-300'
+            }`}
+          />
+          {errors.fullName && (
+            <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+          )}
+        </div>
+
+        {/* Role */}
+        <div>
+          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+            Role <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleInputChange}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
+              errors.role ? 'border-red-500' : 'border-gray-300'
+            }`}
+          >
+            <option value="">Select your role</option>
+            {ROLES.map(role => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+          {errors.role && (
+            <p className="mt-1 text-sm text-red-600">{errors.role}</p>
+          )}
+        </div>
+
+        {/* Job Title */}
+        <div>
+          <label htmlFor="currentTitle" className="block text-sm font-medium text-gray-700 mb-2">
+            Job Title <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="currentTitle"
+            name="currentTitle"
+            value={formData.currentTitle}
+            onChange={handleInputChange}
+            placeholder="e.g., Senior Software Engineer"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+          />
+        </div>
+
+        {/* Company */}
+        <div>
+          <label htmlFor="currentCompany" className="block text-sm font-medium text-gray-700 mb-2">
+            Company <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="currentCompany"
+            name="currentCompany"
+            value={formData.currentCompany}
+            onChange={handleInputChange}
+            placeholder="e.g., TechCorp Inc."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+          />
         </div>
       </div>
 
       {/* Action Buttons */}
       <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-        <Button 
-          variant="outline" 
-          onClick={onPrevious} 
-          disabled={isFirstStep || isLoading}
-        >
-          Previous
-        </Button>
-
+        <div />
         <div className="text-center text-xs text-gray-500">
-          Step 1 of 7 • Professional Basics
+          Step 1 of 2
         </div>
-
-        <Button 
+        <Button
           onClick={handleNext}
           disabled={isLoading}
           className="flex items-center space-x-2"
