@@ -521,6 +521,89 @@ export const PACKET_TYPE_META: Record<PacketType, {
 };
 
 // =============================================================================
+// DERIVATION SECTION METADATA
+// =============================================================================
+
+export const DERIVATION_SECTION_META: Record<string, { label: string }> = {
+  // Legacy single-section fallback
+  'content': { label: 'Content' },
+
+  // --- Interview ---
+  'hook': { label: 'Hook' },
+  'narrative': { label: 'Narrative' },
+  'takeaway': { label: 'Takeaway' },
+
+  // --- LinkedIn ---
+  // 'hook' already defined above
+  'body': { label: 'Body' },
+  'hashtags': { label: 'Hashtags' },
+
+  // --- Resume ---
+  'primary-bullet': { label: 'Primary Bullet' },
+  'technical-bullet': { label: 'Technical Bullet' },
+  'impact-bullet': { label: 'Impact Bullet' },
+
+  // --- One-on-One (single) ---
+  'headline': { label: 'Headline' },
+  'what-happened': { label: 'What Happened' },
+  'why-it-matters': { label: 'Why It Matters' },
+  'ask': { label: 'Ask' },
+
+  // --- Self Assessment (single) ---
+  'contribution': { label: 'Contribution' },
+  'competency': { label: 'Competency' },
+  'growth': { label: 'Growth' },
+
+  // --- Team Share ---
+  'win': { label: 'Win' },
+  'how': { label: 'How' },
+
+  // --- Promotion Packet ---
+  'impact-summary': { label: 'Summary of Impact' },
+  'key-achievements': { label: 'Key Achievements' },
+  'metrics-dashboard': { label: 'Metrics Dashboard' },
+  'growth-narrative': { label: 'Growth Narrative' },
+
+  // --- Annual Review ---
+  'review-period-impact': { label: 'Review Period Impact' },
+  'growth-trajectory': { label: 'Growth Trajectory' },
+  'expanded-scope': { label: 'Areas of Expanded Scope' },
+  'looking-ahead': { label: 'Looking Ahead' },
+
+  // --- Skip-Level ---
+  'strategic-themes': { label: 'Strategic Themes' },
+  'cross-cutting-metrics': { label: 'Cross-Cutting Metrics' },
+  'patterns': { label: 'Patterns Worth Noting' },
+  'leadership-ask': { label: 'What I Need From Leadership' },
+
+  // --- Portfolio Brief ---
+  // 'headline' already defined above
+  'proof-points': { label: 'Proof Points' },
+  'technical-breadth': { label: 'Technical Breadth' },
+  'working-style': { label: 'Working Style' },
+
+  // --- Packet Self-Assessment ---
+  // 'impact-summary' already defined above
+  'key-contributions': { label: 'Key Contributions' },
+  'growth-development': { label: 'Growth & Development' },
+  // 'looking-ahead' already defined above
+
+  // --- Packet One-on-One ---
+  'headlines': { label: 'Headlines' },
+  'detail-bullets': { label: 'Detail Bullets' },
+  'patterns-themes': { label: 'Patterns & Themes' },
+  'ask-next-step': { label: 'Ask or Next Step' },
+};
+
+/**
+ * Resolve a human-readable section label for a derivation section key.
+ * Falls back to capitalizing the slug.
+ */
+export function derivationSectionLabel(sectionKey: string): string {
+  return DERIVATION_SECTION_META[sectionKey]?.label ?? capitalizeFirst(sectionKey.replace(/-/g, ' '));
+}
+
+// =============================================================================
 // CAREER QUOTES
 // =============================================================================
 

@@ -551,6 +551,38 @@ export class CareerStoriesService {
   }
 
   // =============================================================================
+  // DERIVATION SOURCES
+  // =============================================================================
+
+  static async getDerivationSources(derivationId: string): Promise<ApiResponse<StorySource[]>> {
+    const response = await api.get<ApiResponse<StorySource[]>>(
+      `/career-stories/derivations/${derivationId}/sources`
+    );
+    return response.data;
+  }
+
+  static async addDerivationSource(derivationId: string, input: {
+    sectionKey: string;
+    content: string;
+  }): Promise<ApiResponse<StorySource>> {
+    const response = await api.post<ApiResponse<StorySource>>(
+      `/career-stories/derivations/${derivationId}/sources`,
+      input
+    );
+    return response.data;
+  }
+
+  static async updateDerivationSource(derivationId: string, sourceId: string, input: {
+    excludedAt: string | null;
+  }): Promise<ApiResponse<StorySource>> {
+    const response = await api.patch<ApiResponse<StorySource>>(
+      `/career-stories/derivations/${derivationId}/sources/${sourceId}`,
+      input
+    );
+    return response.data;
+  }
+
+  // =============================================================================
   // STORY DERIVATIONS
   // =============================================================================
 

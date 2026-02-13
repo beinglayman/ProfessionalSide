@@ -782,6 +782,51 @@ export const useDeleteDerivationAnnotation = () => {
 };
 
 // =============================================================================
+// DERIVATION SOURCES
+// =============================================================================
+
+export const useDerivationSources = (derivationId: string | undefined) => {
+  return useQuery({
+    queryKey: ['career-stories', 'derivation-sources', derivationId],
+    queryFn: async () => {
+      if (!derivationId) return [];
+      const resp = await CareerStoriesService.getDerivationSources(derivationId);
+      return resp.data ?? [];
+    },
+    enabled: !!derivationId,
+  });
+};
+
+export const useAddDerivationSource = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ derivationId, input }: {
+      derivationId: string;
+      input: { sectionKey: string; content: string };
+    }) => CareerStoriesService.addDerivationSource(derivationId, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivation-sources', variables.derivationId] });
+    },
+  });
+};
+
+export const useUpdateDerivationSource = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ derivationId, sourceId, input }: {
+      derivationId: string;
+      sourceId: string;
+      input: { excludedAt: string | null };
+    }) => CareerStoriesService.updateDerivationSource(derivationId, sourceId, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivation-sources', variables.derivationId] });
+    },
+  });
+};
+
+// =============================================================================
 // STORY DERIVATIONS
 // =============================================================================
 

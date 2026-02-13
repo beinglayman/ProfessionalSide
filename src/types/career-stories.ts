@@ -455,6 +455,8 @@ export interface StoryDerivation {
   storyIds: string[];
   storySnapshots?: StorySnapshot[];
   text: string;
+  sections?: Record<string, { summary: string }> | null;
+  sectionOrder?: string[];
   charCount: number;
   wordCount: number;
   speakingTimeSec?: number;
@@ -463,6 +465,8 @@ export interface StoryDerivation {
   creditCost: number;
   createdAt: string;
   annotations?: StoryAnnotation[];
+  sources?: StorySource[];
+  _count?: { annotations: number };
 }
 
 // =============================================================================
@@ -471,7 +475,8 @@ export interface StoryDerivation {
 
 export interface StorySource {
   id: string;
-  storyId: string;
+  storyId: string | null;
+  derivationId: string | null;
   sectionKey: string;
   sourceType: 'activity' | 'user_note' | 'wizard_answer';
   activityId: string | null;
