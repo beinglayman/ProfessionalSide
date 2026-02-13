@@ -9,7 +9,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle2, X, BookOpen, Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle2, X, BookOpen, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
 import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES, DERIVATION_TYPE_META, PACKET_TYPE_META, DERIVATION_COLOR_CLASSES } from './constants';
@@ -127,7 +127,7 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
         </div>
         {/* Content */}
         <div
-          className="overflow-y-auto p-4"
+          className="overflow-y-auto overflow-x-hidden p-4"
           style={{ maxHeight: contentMaxHeight }}
         >
           {children}
@@ -999,21 +999,12 @@ export function CareerStoriesPage() {
       {/* Main content area - same width as Activity tab (max-w-7xl) */}
       <div className="h-full overflow-y-auto">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4 space-y-2">
-          {/* Detail View: Full story with back button */}
+          {/* Detail View: Full story */}
           {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-              {/* Back button */}
-              <button
-                onClick={handleCloseDetail}
-                className="mb-2 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back to stories</span>
-                <span className="text-xs text-gray-400 ml-2">(Esc)</span>
-              </button>
-
               {/* Full story preview */}
               <NarrativePreview
+                onBack={handleCloseDetail}
                 clusterName={selectedStoryDirect.title}
                 activityCount={selectedStoryDirect.activityIds.length}
                 dateRange={selectedCluster?.metrics?.dateRange}
@@ -1517,6 +1508,7 @@ export function CareerStoriesPage() {
           onClose={() => { setDerivationStoryId(null); setDerivationInitialType(undefined); }}
           story={derivationStory}
           initialType={derivationInitialType as import('../../types/career-stories').DerivationType | undefined}
+          onNavigateToDerivation={(id) => setSearchParams({ tab: 'library', itemId: id }, { replace: true })}
         />
       )}
 
@@ -1527,6 +1519,7 @@ export function CareerStoriesPage() {
           onClose={() => { setShowPromotionPacket(false); setPacketInitialType(undefined); }}
           stories={allStories}
           initialType={packetInitialType as import('../../types/career-stories').PacketType | undefined}
+          onNavigateToDerivation={(id) => setSearchParams({ tab: 'library', itemId: id }, { replace: true })}
         />
       )}
 

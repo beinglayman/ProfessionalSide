@@ -14,6 +14,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import {
+  ArrowLeft,
   RefreshCw,
   Check,
   Copy,
@@ -109,6 +110,7 @@ interface NarrativePreviewProps {
   onShareAs?: (initialType?: string) => void;
   onGeneratePacket?: () => void;
   onNavigateToLibraryItem?: (itemId: string) => void;
+  onBack?: () => void;
 }
 
 export function NarrativePreview({
@@ -139,6 +141,7 @@ export function NarrativePreview({
   onShareAs,
   onGeneratePacket,
   onNavigateToLibraryItem,
+  onBack,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -411,18 +414,34 @@ export function NarrativePreview({
         <>
           {/* Document header */}
           <header className="px-6 pt-3 pb-3 lg:px-8 lg:pt-4">
-            {/* Title + status + actions — single row */}
-            <div className="flex items-start gap-2">
-              <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0">{clusterName}</h2>
+            {/* Row 1: Back + title */}
+            <div className="flex items-start gap-2 min-w-0">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 mt-0.5 flex-shrink-0"
+                  title="Back to stories (Esc)"
+                  aria-label="Back to stories"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              )}
+              <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0 truncate">{clusterName}</h2>
+            </div>
 
-              {/* Status + actions — right-aligned, same row as title */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <NarrativeStatusBadge
-                  status={storyStatus}
-                  confidence={star.overallConfidence}
-                  suggestedEdits={star.suggestedEdits}
-                  sourceCoverage={sourceCoverage}
-                />
+            {/* Row 2: Framework badge + status + actions — wraps on mobile */}
+            <div className="flex items-center gap-1 flex-wrap mt-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                {frameworkMeta?.label || 'STAR'}
+              </span>
+              <NarrativeStatusBadge
+                status={storyStatus}
+                confidence={star.overallConfidence}
+                suggestedEdits={star.suggestedEdits}
+                sourceCoverage={sourceCoverage}
+              />
+
+              <div className="flex items-center gap-1 ml-auto">
                 {story?.id && (
                   <StoryUseAs
                     storyId={story.id}
@@ -431,7 +450,6 @@ export function NarrativePreview({
                     onNavigateToLibraryItem={onNavigateToLibraryItem}
                   />
                 )}
-
                 <button
                   onClick={handleCopy}
                   className={cn('p-1.5 rounded transition-colors inline-flex items-center', copied ? 'text-green-500' : 'text-gray-400 hover:bg-gray-100')}
@@ -441,7 +459,6 @@ export function NarrativePreview({
                 >
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
-
                 {isEditing && (
                   <>
                     <button
@@ -458,7 +475,6 @@ export function NarrativePreview({
                     </button>
                   </>
                 )}
-
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -469,95 +485,57 @@ export function NarrativePreview({
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>
                   </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem
-                    onSelect={() => setIsEditing(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Edit story
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={onRegenerate}
-                    disabled={isLoading}
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
-                    Regenerate
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={() => setShowCoaching(!showCoaching)}
-                    className="flex items-center gap-2"
-                  >
-                    <Lightbulb className={cn('h-3.5 w-3.5', showCoaching && 'text-amber-500')} />
-                    {showCoaching ? 'Hide coach review' : 'Coach review'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => shell.setShowEmphasis(!shell.showEmphasis)}
-                    className="flex items-center gap-2"
-                  >
-                    <Type className={cn('h-3.5 w-3.5', shell.showEmphasis && 'text-indigo-500')} />
-                    {shell.showEmphasis ? 'Hide emphasis' : 'Text emphasis'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => { shell.setPracticeMode(!shell.practiceMode); shell.setTimerActive(false); }}
-                    className="flex items-center gap-2"
-                  >
-                    <Mic className={cn('h-3.5 w-3.5', shell.practiceMode && 'text-primary-500')} />
-                    {shell.practiceMode ? 'Exit practice' : 'Practice timer'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => setShowDeliveryHelp(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <HelpCircle className="h-3.5 w-3.5" />
-                    Delivery guide
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-                  {story?.isPublished ? (
-                    <DropdownMenuItem
-                      onSelect={() => onUnpublish?.()}
-                      disabled={isPublishing}
-                      className="flex items-center gap-2"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      Unpublish
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem onSelect={() => setIsEditing(true)} className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5" />
+                      Edit story
                     </DropdownMenuItem>
-                  ) : onOpenPublishModal ? (
-                    <DropdownMenuItem
-                      onSelect={onOpenPublishModal}
-                      disabled={isPublishing}
-                      className="flex items-center gap-2"
-                    >
-                      <Share2 className="h-3.5 w-3.5" />
-                      Publish
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onRegenerate} disabled={isLoading} className="flex items-center gap-2">
+                      <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+                      Regenerate
                     </DropdownMenuItem>
-                  ) : onPublish ? (
-                    <DropdownMenuItem
-                      onSelect={() => onPublish('private', edits)}
-                      disabled={isPublishing}
-                      className="flex items-center gap-2"
-                    >
-                      <Share2 className="h-3.5 w-3.5" />
-                      Publish
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setShowCoaching(!showCoaching)} className="flex items-center gap-2">
+                      <Lightbulb className={cn('h-3.5 w-3.5', showCoaching && 'text-amber-500')} />
+                      {showCoaching ? 'Hide coach review' : 'Coach review'}
                     </DropdownMenuItem>
-                  ) : null}
-                  {onDelete && (
-                    <DropdownMenuItem
-                      onSelect={onDelete}
-                      disabled={isDeleting}
-                      className="flex items-center gap-2 text-red-600 focus:text-red-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete story
+                    <DropdownMenuItem onSelect={() => shell.setShowEmphasis(!shell.showEmphasis)} className="flex items-center gap-2">
+                      <Type className={cn('h-3.5 w-3.5', shell.showEmphasis && 'text-indigo-500')} />
+                      {shell.showEmphasis ? 'Hide emphasis' : 'Text emphasis'}
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => { shell.setPracticeMode(!shell.practiceMode); shell.setTimerActive(false); }} className="flex items-center gap-2">
+                      <Mic className={cn('h-3.5 w-3.5', shell.practiceMode && 'text-primary-500')} />
+                      {shell.practiceMode ? 'Exit practice' : 'Practice timer'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setShowDeliveryHelp(true)} className="flex items-center gap-2">
+                      <HelpCircle className="h-3.5 w-3.5" />
+                      Delivery guide
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {story?.isPublished ? (
+                      <DropdownMenuItem onSelect={() => onUnpublish?.()} disabled={isPublishing} className="flex items-center gap-2">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        Unpublish
+                      </DropdownMenuItem>
+                    ) : onOpenPublishModal ? (
+                      <DropdownMenuItem onSelect={onOpenPublishModal} disabled={isPublishing} className="flex items-center gap-2">
+                        <Share2 className="h-3.5 w-3.5" />
+                        Publish
+                      </DropdownMenuItem>
+                    ) : onPublish ? (
+                      <DropdownMenuItem onSelect={() => onPublish('private', edits)} disabled={isPublishing} className="flex items-center gap-2">
+                        <Share2 className="h-3.5 w-3.5" />
+                        Publish
+                      </DropdownMenuItem>
+                    ) : null}
+                    {onDelete && (
+                      <DropdownMenuItem onSelect={onDelete} disabled={isDeleting} className="flex items-center gap-2 text-red-600 focus:text-red-600">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete story
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>

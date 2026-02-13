@@ -144,7 +144,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        'w-full text-left p-4 sm:p-5 transition-all duration-150 group cursor-pointer rounded-2xl border',
+        'w-full text-left p-4 sm:p-5 transition-all duration-150 group cursor-pointer rounded-2xl border overflow-hidden',
         'focus:outline-none focus:ring-2 focus:ring-purple-500',
         isSelected
           ? 'bg-purple-50/50 border-purple-300 shadow-md ring-1 ring-purple-100'
@@ -153,8 +153,8 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
       data-testid={`story-card-${story.id}`}
     >
       {/* Top row: source icon stack + date + status + chevron */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between mb-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           {uniqueSources.length > 0 && (
             <div className="flex items-center -space-x-1.5">
               {uniqueSources.slice(0, 4).map((tool, i) => {
@@ -196,7 +196,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
 
       {/* Title */}
       <h3 className={cn(
-        'text-base sm:text-lg font-bold leading-snug mb-1.5',
+        'text-base sm:text-lg font-bold leading-snug mb-1.5 break-words',
         isSelected ? 'text-purple-900' : 'text-gray-900'
       )}>
         {story.title}
@@ -210,8 +210,8 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
       )}
 
       {/* Bottom row: framework chip + meta + metrics */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap min-w-0">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap min-w-0 overflow-hidden">
           {onFormatChange ? (
             <FormatChip
               currentFramework={story.framework}
@@ -255,7 +255,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
           )}
         </div>
         {metrics.length > 0 && (
-          <div className="flex gap-1.5 flex-shrink-0">
+          <div className="hidden sm:flex gap-1.5 flex-shrink-0">
             {metrics.map((metric, idx) => (
               <span
                 key={idx}
