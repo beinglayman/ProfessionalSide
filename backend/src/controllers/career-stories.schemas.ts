@@ -213,6 +213,12 @@ export const annotationStyleSchema = z.enum([
 
 export type AnnotationStyle = z.infer<typeof annotationStyleSchema>;
 
+export const annotationColorSchema = z.enum([
+  'amber', 'rose', 'blue', 'emerald', 'violet', 'orange', 'cyan',
+]).nullable().optional();
+
+export type AnnotationColorId = z.infer<typeof annotationColorSchema>;
+
 /**
  * Schema for POST /stories/:storyId/annotations (create annotation)
  */
@@ -222,7 +228,8 @@ export const createAnnotationSchema = z.object({
   endOffset: z.number().int().min(-1),
   annotatedText: z.string().max(5000),
   style: annotationStyleSchema,
-  note: z.string().max(2000).nullable().optional(),
+  color: annotationColorSchema,
+  note: z.string().max(10000).nullable().optional(),
 }).strict();
 
 export type CreateAnnotationInput = z.infer<typeof createAnnotationSchema>;
@@ -231,8 +238,9 @@ export type CreateAnnotationInput = z.infer<typeof createAnnotationSchema>;
  * Schema for PATCH /stories/:storyId/annotations/:annotationId (update annotation)
  */
 export const updateAnnotationSchema = z.object({
-  note: z.string().max(2000).nullable().optional(),
+  note: z.string().max(10000).nullable().optional(),
   style: annotationStyleSchema.optional(),
+  color: annotationColorSchema,
 }).strict();
 
 export type UpdateAnnotationInput = z.infer<typeof updateAnnotationSchema>;

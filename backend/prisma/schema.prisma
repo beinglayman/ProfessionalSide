@@ -1554,6 +1554,7 @@ model StoryAnnotation {
   endOffset     Int             // -1 for asides
   annotatedText String          // exact text for staleness detection (empty for asides)
   style         String          // "highlight" | "underline" | "box" | "circle" | "strike-through" | "bracket" | "aside"
+  color         String?         // annotation color ID (null = amber default)
   note          String?         // margin note text (required for asides, optional for marks)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

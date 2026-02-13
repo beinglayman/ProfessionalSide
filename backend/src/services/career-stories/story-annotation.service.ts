@@ -22,12 +22,14 @@ interface CreateAnnotationInput {
   endOffset: number;
   annotatedText: string;
   style: AnnotationStyle;
+  color?: string | null;
   note?: string | null;
 }
 
 interface UpdateAnnotationInput {
   note?: string | null;
   style?: AnnotationStyle;
+  color?: string | null;
 }
 
 class StoryAnnotationService {
@@ -51,6 +53,7 @@ class StoryAnnotationService {
         endOffset: input.endOffset,
         annotatedText: input.annotatedText,
         style: input.style,
+        ...(input.color !== undefined ? { color: input.color } : {}),
         note: input.note ?? null,
       },
     });
@@ -62,6 +65,7 @@ class StoryAnnotationService {
       data: {
         ...(input.note !== undefined ? { note: input.note } : {}),
         ...(input.style !== undefined ? { style: input.style } : {}),
+        ...(input.color !== undefined ? { color: input.color } : {}),
       },
     });
   }
@@ -100,6 +104,7 @@ class StoryAnnotationService {
         endOffset: input.endOffset,
         annotatedText: input.annotatedText,
         style: input.style,
+        ...(input.color !== undefined ? { color: input.color } : {}),
         note: input.note ?? null,
       },
     });
@@ -111,6 +116,7 @@ class StoryAnnotationService {
       data: {
         ...(input.note !== undefined ? { note: input.note } : {}),
         ...(input.style !== undefined ? { style: input.style } : {}),
+        ...(input.color !== undefined ? { color: input.color } : {}),
       },
     });
   }
