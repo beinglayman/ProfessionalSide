@@ -31,6 +31,8 @@ import Format7DesignShowcase from './pages/format7-design-showcase';
 import { CareerStoriesPage } from './components/career-stories';
 import { DashboardPrototypePage } from './pages/dashboard/prototype';
 import { WidgetVariationsPage } from './pages/dashboard/widget-variations';
+import { TimelinePrototypesPage } from './pages/prototypes/timeline-prototypes';
+import { StoriesPrototypesPage } from './pages/prototypes/stories-prototypes';
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 
@@ -131,6 +133,22 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <WidgetVariationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/prototypes/timeline"
+          element={
+            <ProtectedRoute>
+              <TimelinePrototypesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/prototypes/stories"
+          element={
+            <ProtectedRoute>
+              <StoriesPrototypesPage />
             </ProtectedRoute>
           }
         />
