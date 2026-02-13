@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Badge } from '../../ui/badge';
-import { cn } from '../../../lib/utils';
+import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 import {
   mockActivities,
   groupBySource,

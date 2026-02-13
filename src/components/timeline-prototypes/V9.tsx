@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent } from '../../ui/card';
-import { Badge } from '../../ui/badge';
-import { cn } from '../../../lib/utils';
+import { Card, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 import {
   mockActivities,
   mockDraftStories,
