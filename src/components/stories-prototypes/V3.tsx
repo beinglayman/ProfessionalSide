@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Badge } from '../../ui/badge';
-import { cn } from '../../../lib/utils';
+import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 import {
   mockStories, CATEGORY_META, FRAMEWORK_META, STATUS_META, SECTION_COLORS,
   getConfidenceLevel, type MockStory, type StoryCategory,

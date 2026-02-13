@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../../ui/card';
-import { Badge } from '../../ui/badge';
-import { cn } from '../../../lib/utils';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 import {
   mockStories, mockStoryStats, CATEGORY_META, FRAMEWORK_META, SECTION_COLORS,
   getConfidenceLevel, type MockStory, type StoryCategory,
