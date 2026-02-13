@@ -315,11 +315,14 @@ export const mockProfile: MockProfile = {
 // Reduced-scope mock data — matches 2-step onboarding + product usage
 // ---------------------------------------------------------------------------
 
-export type ConnectedTool = 'github' | 'jira' | 'confluence' | 'slack' | 'linear' | 'notion' | 'gitlab' | 'bitbucket';
+export type ConnectedTool = 'github' | 'jira' | 'confluence' | 'slack' | 'linear' | 'notion' | 'gitlab' | 'bitbucket' | 'figma' | 'outlook' | 'teams' | 'onedrive' | 'onenote' | 'sharepoint' | 'zoom' | 'google_workspace';
+
+export type ToolStatus = 'active' | 'error' | 'disconnected';
 
 export interface MockToolActivity {
   tool: ConnectedTool;
   label: string;
+  status: ToolStatus;
   activityCount: number;
   recentItems: { title: string; date: string }[];
 }
@@ -351,6 +354,7 @@ export interface MockReducedProfile {
   company: string;
   avatar: string;
   connectedTools: MockToolActivity[];
+  allIntegrations: MockToolActivity[];
   totalActivities: number;
   publishedStories: MockCareerStory[];
   draftStories: MockDraftStory[];
@@ -366,6 +370,14 @@ export const TOOL_META: Record<ConnectedTool, { label: string; color: string; bg
   notion: { label: 'Notion', color: 'text-gray-800', bgColor: 'bg-gray-100' },
   gitlab: { label: 'GitLab', color: 'text-orange-700', bgColor: 'bg-orange-50' },
   bitbucket: { label: 'Bitbucket', color: 'text-blue-800', bgColor: 'bg-blue-50' },
+  figma: { label: 'Figma', color: 'text-orange-600', bgColor: 'bg-orange-50' },
+  outlook: { label: 'Outlook', color: 'text-blue-700', bgColor: 'bg-blue-50' },
+  teams: { label: 'Teams', color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
+  onedrive: { label: 'OneDrive', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  onenote: { label: 'OneNote', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+  sharepoint: { label: 'SharePoint', color: 'text-teal-700', bgColor: 'bg-teal-50' },
+  zoom: { label: 'Zoom', color: 'text-blue-500', bgColor: 'bg-blue-50' },
+  google_workspace: { label: 'Google', color: 'text-blue-600', bgColor: 'bg-blue-50' },
 };
 
 export const mockReducedProfile: MockReducedProfile = {
@@ -379,6 +391,7 @@ export const mockReducedProfile: MockReducedProfile = {
     {
       tool: 'github',
       label: 'GitHub',
+      status: 'active',
       activityCount: 47,
       recentItems: [
         { title: 'Merged PR #342 — Add PKCE auth flow', date: d(0) },
@@ -390,6 +403,7 @@ export const mockReducedProfile: MockReducedProfile = {
     {
       tool: 'jira',
       label: 'Jira',
+      status: 'active',
       activityCount: 31,
       recentItems: [
         { title: 'Closed PLAT-89 — OAuth2 migration phase 2', date: d(0) },
@@ -400,6 +414,7 @@ export const mockReducedProfile: MockReducedProfile = {
     {
       tool: 'confluence',
       label: 'Confluence',
+      status: 'active',
       activityCount: 12,
       recentItems: [
         { title: 'Edited "API Architecture Decision Record"', date: d(1) },
@@ -409,12 +424,42 @@ export const mockReducedProfile: MockReducedProfile = {
     {
       tool: 'slack',
       label: 'Slack',
+      status: 'active',
       activityCount: 8,
       recentItems: [
         { title: 'Shared deployment runbook in #platform-eng', date: d(0) },
         { title: 'Answered question in #help-backend', date: d(1) },
       ],
     },
+  ],
+
+  allIntegrations: [
+    { tool: 'github', label: 'GitHub', status: 'active', activityCount: 47, recentItems: [
+      { title: 'Merged PR #342 — Add PKCE auth flow', date: d(0) },
+      { title: 'Reviewed PR #341 — Fix rate limiter edge case', date: d(0) },
+      { title: 'Pushed 3 commits to feat/oauth-migration', date: d(1) },
+    ] },
+    { tool: 'jira', label: 'Jira', status: 'active', activityCount: 31, recentItems: [
+      { title: 'Closed PLAT-89 — OAuth2 migration phase 2', date: d(0) },
+      { title: 'Updated PLAT-91 — Rate limiter monitoring', date: d(1) },
+    ] },
+    { tool: 'confluence', label: 'Confluence', status: 'active', activityCount: 12, recentItems: [
+      { title: 'Edited "API Architecture Decision Record"', date: d(1) },
+    ] },
+    { tool: 'slack', label: 'Slack', status: 'active', activityCount: 8, recentItems: [
+      { title: 'Shared deployment runbook in #platform-eng', date: d(0) },
+    ] },
+    { tool: 'outlook', label: 'Outlook', status: 'error', activityCount: 5, recentItems: [
+      { title: 'Sent meeting recap to platform team', date: d(3) },
+      { title: 'Calendar invite: Sprint Review', date: d(5) },
+    ] },
+    { tool: 'figma', label: 'Figma', status: 'disconnected', activityCount: 0, recentItems: [] },
+    { tool: 'teams', label: 'Teams', status: 'disconnected', activityCount: 0, recentItems: [] },
+    { tool: 'onedrive', label: 'OneDrive', status: 'disconnected', activityCount: 0, recentItems: [] },
+    { tool: 'onenote', label: 'OneNote', status: 'disconnected', activityCount: 0, recentItems: [] },
+    { tool: 'sharepoint', label: 'SharePoint', status: 'disconnected', activityCount: 0, recentItems: [] },
+    { tool: 'zoom', label: 'Zoom', status: 'disconnected', activityCount: 0, recentItems: [] },
+    { tool: 'google_workspace', label: 'Google', status: 'disconnected', activityCount: 0, recentItems: [] },
   ],
 
   totalActivities: 98,

@@ -14,6 +14,7 @@ import type {
 } from './mock-data';
 import { Card, CardContent } from '../ui/card';
 import { cn } from '../../lib/utils';
+import { ToolIcon, type ToolType } from '../icons/ToolIcons';
 import {
   BookOpen,
   FileText,
@@ -38,16 +39,11 @@ import {
 
 type Tab = 'published' | 'drafts' | 'activity' | 'playbook';
 
-/* ── Tool ring colors for Icon Row ── */
-const TOOL_RING_COLORS: Record<string, string> = {
-  github: 'ring-gray-800',
-  jira: 'ring-blue-600',
-  confluence: 'ring-blue-500',
-  slack: 'ring-purple-600',
-  linear: 'ring-indigo-600',
-  notion: 'ring-gray-700',
-  gitlab: 'ring-orange-600',
-  bitbucket: 'ring-blue-700',
+/* ── Status-based ring colors for Icon Row ── */
+const STATUS_RING: Record<string, { ring: string; dotClass: string; label: string; pulse: boolean }> = {
+  active: { ring: 'ring-emerald-500', dotClass: 'bg-emerald-500', label: 'Active', pulse: true },
+  error: { ring: 'ring-red-500', dotClass: 'bg-red-500', label: 'Needs Fix', pulse: false },
+  disconnected: { ring: 'ring-gray-300', dotClass: 'bg-gray-300', label: 'Not Connected', pulse: false },
 };
 
 /* ── Playbook type icons ── */
@@ -112,10 +108,10 @@ function ToolIconRow({
   onSelect: (id: ConnectedTool) => void;
 }) {
   return (
-    <div className="flex items-center justify-center gap-4">
+    <div className="flex flex-wrap items-center justify-center gap-3">
       {tools.map((ta) => {
         const meta = TOOL_META[ta.tool];
-        const ringColor = TOOL_RING_COLORS[ta.tool] ?? 'ring-gray-400';
+        const statusCfg = STATUS_RING[ta.status] ?? STATUS_RING.disconnected;
         const isSelected = ta.tool === selectedId;
 
         return (
@@ -124,15 +120,18 @@ function ToolIconRow({
             type="button"
             onClick={() => onSelect(ta.tool)}
             className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-full bg-white ring-2 transition-all',
-              ringColor,
-              isSelected ? 'scale-110 ring-[3px] shadow-md' : 'hover:scale-105',
+              'flex h-10 w-10 items-center justify-center rounded-full ring-2 transition-all',
+              statusCfg.ring,
+              isSelected ? 'scale-110 ring-[3px] shadow-md bg-white' : 'hover:scale-105',
+              ta.status === 'disconnected' ? 'bg-gray-50' : 'bg-white',
             )}
             title={meta.label}
           >
-            <span className={cn('text-xs font-bold', meta.color)}>
-              {meta.label.slice(0, 2).toUpperCase()}
-            </span>
+            <ToolIcon
+              tool={ta.tool as ToolType}
+              size={20}
+              disabled={ta.status === 'disconnected'}
+            />
           </button>
         );
       })}
@@ -142,39 +141,37 @@ function ToolIconRow({
 
 function ToolDetailPanel({ tool }: { tool: MockToolActivity }) {
   const meta = TOOL_META[tool.tool];
-  const hasRecent = tool.recentItems.length > 0;
+  const statusCfg = STATUS_RING[tool.status] ?? STATUS_RING.disconnected;
 
   return (
     <div className="mt-3 rounded-xl border border-gray-200 bg-white/60 px-4 py-3 transition-all">
       <div className="flex items-center justify-between">
-        <div>
-          <h4 className="text-sm font-semibold text-gray-800">{meta.label}</h4>
-          <div className="mt-0.5 flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              {hasRecent && (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-              )}
-              <span
-                className={cn(
-                  'relative inline-flex h-2 w-2 rounded-full',
-                  hasRecent ? 'bg-emerald-500' : 'bg-gray-300',
+        <div className="flex items-center gap-3">
+          <ToolIcon tool={tool.tool as ToolType} size={24} disabled={tool.status === 'disconnected'} />
+          <div>
+            <h4 className="text-sm font-semibold text-gray-800">{meta.label}</h4>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                {statusCfg.pulse && (
+                  <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-75', statusCfg.dotClass)} />
                 )}
-              />
-            </span>
-            <span className="text-xs text-gray-500">
-              {hasRecent ? 'Active' : 'Idle'}
-            </span>
-            {hasRecent && (
-              <span className="text-xs text-gray-400">
-                &middot; Synced {formatRelativeTime(tool.recentItems[0].date)}
+                <span className={cn('relative inline-flex h-2 w-2 rounded-full', statusCfg.dotClass)} />
               </span>
-            )}
+              <span className="text-xs text-gray-500">{statusCfg.label}</span>
+              {tool.status === 'active' && tool.recentItems.length > 0 && (
+                <span className="text-xs text-gray-400">
+                  &middot; Synced {formatRelativeTime(tool.recentItems[0].date)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-gray-800">{tool.activityCount}</p>
-          <p className="text-[10px] text-gray-400">activities</p>
-        </div>
+        {tool.activityCount > 0 && (
+          <div className="text-right">
+            <p className="text-lg font-bold text-gray-800">{tool.activityCount}</p>
+            <p className="text-[10px] text-gray-400">activities</p>
+          </div>
+        )}
       </div>
 
       {/* Recent items preview */}
@@ -189,6 +186,20 @@ function ToolDetailPanel({ tool }: { tool: MockToolActivity }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Disconnected state */}
+      {tool.status === 'disconnected' && (
+        <p className="mt-2 text-xs text-gray-400">
+          Connect this tool to start capturing activities.
+        </p>
+      )}
+
+      {/* Error state */}
+      {tool.status === 'error' && (
+        <p className="mt-2 text-xs text-red-500">
+          Sync issue detected. Reconnect to resume activity capture.
+        </p>
       )}
     </div>
   );
@@ -389,10 +400,8 @@ function ActivityTimeline({ tools }: { tools: MockToolActivity[] }) {
                   <div key={`${item.tool}-${idx}`} className="relative flex gap-4 pb-1">
                     {/* Timeline dot */}
                     <div className="relative flex flex-col items-center">
-                      <div className="z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-primary-50 shadow-sm">
-                        <span className={cn('text-[10px] font-bold', meta.color)}>
-                          {meta.label.slice(0, 2).toUpperCase()}
-                        </span>
+                      <div className="z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-white shadow-sm">
+                        <ToolIcon tool={item.tool as ToolType} size={16} />
                       </div>
                     </div>
 
@@ -493,7 +502,7 @@ export function ProfileV21() {
     p.connectedTools[0]?.tool ?? 'github',
   );
 
-  const selectedTool = p.connectedTools.find((t) => t.tool === selectedToolId) ?? p.connectedTools[0];
+  const selectedTool = p.allIntegrations.find((t) => t.tool === selectedToolId) ?? p.allIntegrations[0];
 
   const tabs: { key: Tab; label: string; icon: React.ElementType; count: number }[] = [
     { key: 'published', label: 'Published', icon: BookOpen, count: p.publishedStories.length },
@@ -520,10 +529,10 @@ export function ProfileV21() {
             {p.role} &middot; {p.title} at {p.company}
           </p>
 
-          {/* Icon Row — connected tools */}
+          {/* Icon Row — all integrations */}
           <div className="mt-5">
             <ToolIconRow
-              tools={p.connectedTools}
+              tools={p.allIntegrations}
               selectedId={selectedToolId}
               onSelect={setSelectedToolId}
             />
