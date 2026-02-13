@@ -61,15 +61,20 @@ function StatusBadge({ isPublished, needsRegeneration, hasContent, visibility }:
   return null;
 }
 
-// Extract preview text from story sections
+// Extract preview text from story sections, avoiding duplication with title
 function getPreviewText(story: CareerStory): string {
   const sections = story.sections || {};
-  const situationKeys = ['situation', 'context', 'challenge', 'problem'];
+  const title = (story.title || '').toLowerCase().trim();
 
-  for (const key of situationKeys) {
+  // Try all section keys in priority order — situation first, then action/result
+  const sectionKeys = ['situation', 'context', 'challenge', 'problem', 'task', 'action', 'result', 'impact'];
+
+  for (const key of sectionKeys) {
     if (sections[key]?.summary) {
       const text = sections[key].summary;
-      return text.length > 100 ? text.slice(0, 97) + '...' : text;
+      // Skip if the section text is essentially the same as the title
+      if (title && text.toLowerCase().trim().startsWith(title.slice(0, 40))) continue;
+      return text.length > 120 ? text.slice(0, 117) + '...' : text;
     }
   }
   return '';
