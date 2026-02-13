@@ -9,10 +9,10 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, X, BookOpen, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, X, BookOpen, Loader2, Filter, Clock, LayoutGrid } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Cluster, ToolType, GenerateSTARResult, NarrativeFramework, CareerStory, StoryVisibility, WritingStyle } from '../../types/career-stories';
-import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES, DERIVATION_TYPE_META, PACKET_TYPE_META, DERIVATION_COLOR_CLASSES } from './constants';
+import { CONFIDENCE_THRESHOLDS, NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
 import {
   useClusters,
   useCluster,
@@ -30,8 +30,6 @@ import {
   useSetCareerStoryVisibility,
   useStoryActivityMap,
   usePackets,
-  useSingleDerivations,
-  useDeleteDerivation,
 } from '../../hooks/useCareerStories';
 import { ClusterStatus } from './ClusterCard';
 import { NarrativePreview } from './NarrativePreview';
@@ -41,9 +39,6 @@ import { PublishModal } from './PublishModal';
 import { DerivationModal } from './DerivationModal';
 import { PromotionPacketModal } from './PromotionPacketModal';
 import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
-import { LibraryCard } from './LibraryCard';
-import { LibraryDetail } from './LibraryDetail';
-import { ToolIcon } from './ToolIcon';
 import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
@@ -60,16 +55,16 @@ import {
   groupStoriesByCategory,
   formatTimeSpan,
 } from '../../utils/story-timeline';
-import {
-  groupLibraryByType,
-  groupLibraryByTimePeriod,
-} from '../../utils/library-grouping';
-import { useListFilters } from '../../hooks/useListFilters';
-import { makePlaybookFilterConfig, makeStoriesFilterConfig } from '../../utils/list-filter-configs';
-import { CollapsibleGroup } from '../ui/collapsible-group';
-import { ChipFilter } from '../ui/chip-filter';
-import { ViewToggle } from '../ui/view-toggle';
-import { FilterBar, FilterSeparator, ExpandCollapseButton } from '../ui/filter-bar';
+
+// Timeline spine (dot + connecting line) — shared between timeline and category views
+function TimelineSpine({ isLast }: { isLast: boolean }) {
+  return (
+    <div className="flex flex-col items-center flex-shrink-0 w-5">
+      <div className="w-3 h-3 rounded-full mt-4 flex-shrink-0 ring-4 ring-gray-50 z-10 bg-primary-500" />
+      {!isLast && <div className="w-px flex-1 bg-gray-200" />}
+    </div>
+  );
+}
 
 // Mobile bottom sheet component with keyboard trap
 interface MobileSheetProps {
@@ -127,7 +122,7 @@ const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) 
         </div>
         {/* Content */}
         <div
-          className="overflow-y-auto overflow-x-hidden p-4"
+          className="overflow-y-auto p-4"
           style={{ maxHeight: contentMaxHeight }}
         >
           {children}
@@ -243,9 +238,7 @@ export function CareerStoriesPage() {
   const { data: clusterWithActivities } = useCluster(selectedCluster?.id || '');
   // Fetch existing career stories to hydrate savedStories state
   const { data: existingStories, isLoading: isLoadingStories } = useListCareerStories();
-  const { data: packets, isLoading: isLoadingPackets, isError: isErrorPackets } = usePackets();
-  const { data: singleDerivations, isLoading: isLoadingSingles, isError: isErrorSingles } = useSingleDerivations();
-  const deleteDerivationMutation = useDeleteDerivation();
+  const { data: packets } = usePackets();
 
   // Hydrate savedStories from existing career stories on load
   useEffect(() => {
@@ -626,18 +619,12 @@ export function CareerStoriesPage() {
     return existingStories?.stories || [];
   }, [existingStories]);
 
-  // Story view: useListFilters replaces manual storyView/storyCollapsed/storyShowAll
-  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-stories') === '1');
-  const [playbookBannerDismissed, setPlaybookBannerDismissed] = useState(() => localStorage.getItem('banner-dismissed-playbook') === '1');
+  // Story view toggle: timeline (by quarter) vs category (by brag doc)
+  const [storyView, setStoryView] = useState<'timeline' | 'category'>('category');
+  const [bannerDismissed, setBannerDismissed] = useState(() => sessionStorage.getItem('banner-dismissed-stories') === '1');
 
   // Build O(1) activity lookup for timeline quarter grouping
   const activityMap = useStoryActivityMap(allStories);
-
-  const storiesFilterConfig = useMemo(
-    () => makeStoriesFilterConfig(allStories, activityMap),
-    [allStories, activityMap],
-  );
-  const storiesFilter = useListFilters(storiesFilterConfig, allStories);
 
   // Fetch draft stories (unpromoted journal entries) for empty-category CTA
   const { data: draftStoryData } = useActivities(
@@ -687,27 +674,6 @@ export function CareerStoriesPage() {
     const totalItems = clusters.length + stories.length;
     return { complete, inProgress, draft, totalActivities, totalClusters: totalItems };
   }, [clusters, clusterStatuses, existingStories]);
-
-  // Unique frameworks used across stories (for summary bar badges)
-  const storyFrameworks = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const s of allStories) {
-      const fw = s.framework ?? 'STAR';
-      counts.set(fw, (counts.get(fw) || 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([fw]) => fw);
-  }, [allStories]);
-
-  // Unique tool sources across all stories (for summary bar icons, matches Timeline pattern)
-  const storyToolSources = useMemo(() => {
-    const sources = new Set<string>();
-    for (const [, activity] of activityMap) {
-      sources.add(activity.source);
-    }
-    return [...sources].slice(0, 4);
-  }, [activityMap]);
 
   const mapSectionToComponent = useCallback((section: string) => {
     const mapping: Record<string, 'situation' | 'task' | 'action' | 'result'> = {
@@ -885,20 +851,49 @@ export function CareerStoriesPage() {
   // View mode: 'list' shows cards, 'detail' shows full story
   const viewMode = selectedStoryDirect ? 'detail' : 'list';
 
-  // (Stories filter/collapse/grouping state moved to storiesFilter via useListFilters above)
+  // Source filter for timeline view - 'all' shows everything, or filter by sourceMode
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'demo' | 'production'>('all');
+
+  // Handle Escape key to close detail view
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedStoryDirect) {
+        e.preventDefault();
+        setSelectedStoryDirect(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedStoryDirect]);
+
+  // Filter stories by source
+  const filteredStories = useMemo(() => {
+    if (sourceFilter === 'all') return allStories;
+    return allStories.filter(story => story.sourceMode === sourceFilter);
+  }, [allStories, sourceFilter]);
+
+  // Get unique sources for filter options
+  const availableSources = useMemo(() => {
+    const sources = new Set(allStories.map(s => s.sourceMode));
+    return Array.from(sources);
+  }, [allStories]);
+
+  // Group stories by time period (This Week / Last Week / quarter)
+  const storiesByTimePeriod = useMemo(
+    () => groupStoriesByTimePeriod(filteredStories, activityMap),
+    [filteredStories, activityMap],
+  );
+
+  // Group stories by brag doc category
+  const storiesByCategory = useMemo(() => groupStoriesByCategory(filteredStories), [filteredStories]);
 
   // Close detail view
   const handleCloseDetail = useCallback(() => {
     setSelectedStoryDirect(null);
   }, []);
 
-  // UseAsDropdown handler — navigate to existing derivation if saved, otherwise open generation modal
-  const handleUseAsSelect = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet', existingId?: string) => {
-    // If an existing derivation/packet is saved, navigate to its library detail
-    if (existingId) {
-      setSearchParams({ tab: 'library', itemId: existingId }, { replace: true });
-      return;
-    }
+  // UseAsDropdown handler — always opens the modal at the selected type
+  const handleUseAsSelect = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet') => {
     if (kind === 'packet') {
       setPacketInitialType(typeKey);
       setShowPromotionPacket(true);
@@ -906,82 +901,7 @@ export function CareerStoriesPage() {
       setDerivationInitialType(typeKey);
       setDerivationStoryId(selectedStoryDirect.id);
     }
-  }, [selectedStoryDirect, setSearchParams]);
-
-  // =========================================================================
-  // LIBRARY TAB
-  // =========================================================================
-
-  const pageTab = searchParams.get('tab') === 'library' ? 'library' : 'stories';
-  const selectedItemId = searchParams.get('itemId');
-
-  const libraryItems = useMemo(() => {
-    return [...(packets || []), ...(singleDerivations || [])]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [packets, singleDerivations]);
-
-  const selectedLibraryItem = useMemo(() => {
-    if (!selectedItemId) return null;
-    return libraryItems.find(item => item.id === selectedItemId) ?? null;
-  }, [selectedItemId, libraryItems]);
-
-  const isLibraryLoading = isLoadingSingles || isLoadingPackets;
-
-  // Library (Playbook) — old grouped memos (kept for librarySummary)
-  const [libraryView, setLibraryView] = useState<'timeline' | 'category'>('category');
-  const libraryByType = useMemo(() => groupLibraryByType(libraryItems), [libraryItems]);
-  const libraryByTimePeriod = useMemo(() => groupLibraryByTimePeriod(libraryItems), [libraryItems]);
-
-  // Playbook: useListFilters replaces manual collapse/showAll/filter state
-  const playbookFilterConfig = useMemo(() => makePlaybookFilterConfig(libraryItems), [libraryItems]);
-  const playbook = useListFilters(playbookFilterConfig, libraryItems);
-
-  // Library summary stats: count by type for summary bar (includes icon + color for inline display)
-  const librarySummary = useMemo(() => {
-    const counts: { label: string; count: number; Icon: React.FC<{ className?: string }>; color: string }[] = [];
-    for (const group of libraryByType) {
-      counts.push({ label: group.label.toLowerCase(), count: group.items.length, Icon: group.Icon, color: group.color });
-    }
-    return counts;
-  }, [libraryByType]);
-
-  // Handle Escape key to close detail view (library or story)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        if (selectedLibraryItem) {
-          setSearchParams({ tab: 'library' }, { replace: true });
-          return;
-        }
-        if (selectedStoryDirect) {
-          setSelectedStoryDirect(null);
-        }
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedStoryDirect, selectedLibraryItem, setSearchParams]);
-
-  const handleDeleteLibraryItem = useCallback((id: string) => {
-    // Navigate back first (avoid flash of null state), then delete
-    setSearchParams({ tab: 'library' }, { replace: true });
-    deleteDerivationMutation.mutate(id);
-  }, [deleteDerivationMutation, setSearchParams]);
-
-  const handleRegenerateLibraryItem = useCallback((item: import('../../types/career-stories').StoryDerivation) => {
-    if (item.kind === 'packet') {
-      setPacketInitialType(item.type);
-      setShowPromotionPacket(true);
-    } else {
-      // For single derivations, find the source story to open DerivationModal
-      const sourceStoryId = item.storyIds[0];
-      if (sourceStoryId) {
-        setDerivationInitialType(item.type);
-        setDerivationStoryId(sourceStoryId);
-      }
-    }
-  }, []);
+  }, [selectedStoryDirect]);
 
   return (
     <div className="h-full bg-gray-50 pb-12" data-testid="career-stories-page">
@@ -998,13 +918,32 @@ export function CareerStoriesPage() {
 
       {/* Main content area - same width as Activity tab (max-w-7xl) */}
       <div className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4 space-y-2">
-          {/* Detail View: Full story */}
-          {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+          {/* Page title */}
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Stories
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Your achievements, told as compelling narratives
+            </p>
+          </div>
+
+          {/* Detail View: Full story with back button */}
+          {viewMode === 'detail' && selectedStoryDirect && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+              {/* Back button */}
+              <button
+                onClick={handleCloseDetail}
+                className="mb-2 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to stories</span>
+                <span className="text-xs text-gray-400 ml-2">(Esc)</span>
+              </button>
+
               {/* Full story preview */}
               <NarrativePreview
-                onBack={handleCloseDetail}
                 clusterName={selectedStoryDirect.title}
                 activityCount={selectedStoryDirect.activityIds.length}
                 dateRange={selectedCluster?.metrics?.dateRange}
@@ -1036,44 +975,20 @@ export function CareerStoriesPage() {
                   }
                 }}
                 onGeneratePacket={() => setShowPromotionPacket(true)}
-                onNavigateToLibraryItem={(itemId) => setSearchParams({ tab: 'library', itemId }, { replace: true })}
               />
             </div>
           )}
 
-          {/* Summary bar + banner — above FilterBar for consistent layering */}
-          {!(pageTab === 'stories' && viewMode === 'detail') && !(pageTab === 'library' && selectedLibraryItem) && (
+          {/* List View: Story cards grouped by year */}
+          {viewMode === 'list' && (
             <div className="space-y-2">
-              {/* Stories summary */}
-              {pageTab === 'stories' && allStories.length > 0 && (
+              {/* Header: meta + actions */}
+              {allStories.length > 0 && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-1.5 flex-wrap text-sm text-gray-500 min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="font-semibold text-gray-700">{storiesFilter.filteredItems.length}</span>
-                      {' '}{storiesFilter.filteredItems.length === 1 ? 'story' : 'stories'}
-                      {storyToolSources.length > 0 && (
-                        <span className="inline-flex items-center gap-0.5 ml-0.5">
-                          {storyToolSources.map(s => (
-                            <ToolIcon key={s} tool={s as ToolType} className="w-4 h-4" />
-                          ))}
-                        </span>
-                      )}
-                      {storyFrameworks.length > 0 && (
-                        <span className="inline-flex items-center gap-1 ml-1">
-                          {storyFrameworks.map(fw => {
-                            const meta = NARRATIVE_FRAMEWORKS[fw as keyof typeof NARRATIVE_FRAMEWORKS];
-                            return (
-                              <span
-                                key={fw}
-                                title={meta?.description ?? fw}
-                                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-primary-50 text-primary-600 leading-none cursor-default"
-                              >
-                                {fw}
-                              </span>
-                            );
-                          })}
-                        </span>
-                      )}
+                    <span>
+                      <span className="font-semibold text-gray-700">{filteredStories.length}</span>
+                      {' '}{filteredStories.length === 1 ? 'story' : 'stories'}
                     </span>
                     {stats.complete > 0 && (
                       <>
@@ -1094,6 +1009,8 @@ export function CareerStoriesPage() {
                       </>
                     )}
                   </div>
+
+                  {/* Right: Use As + Filter */}
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {allStories.length >= 1 && (
                       <UseAsDropdown
@@ -1102,62 +1019,32 @@ export function CareerStoriesPage() {
                         onSelect={handleUseAsSelect}
                       />
                     )}
-                  </div>
-                </div>
-              )}
-
-              {/* Playbook summary */}
-              {pageTab === 'library' && libraryItems.length > 0 && (
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-1.5 flex-wrap text-sm text-gray-500 min-w-0">
-                    <span>
-                      <span className="font-semibold text-gray-700">{libraryItems.length}</span>
-                      {' '}{libraryItems.length === 1 ? 'item' : 'items'}
-                    </span>
-                    {librarySummary.map((entry) => {
-                      const colorClasses = DERIVATION_COLOR_CLASSES[entry.color] || DERIVATION_COLOR_CLASSES.gray;
-                      return (
-                        <React.Fragment key={entry.label}>
-                          <span className="text-gray-300">·</span>
-                          <span className="flex items-center gap-1">
-                            <entry.Icon className={cn('w-3.5 h-3.5', colorClasses.iconText)} />
-                            {entry.count} {entry.label}{entry.count !== 1 ? 's' : ''}
-                          </span>
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {allStories.length >= 1 && (
-                      <UseAsDropdown
-                        scope="page"
-                        packets={packets || []}
-                        onSelect={handleUseAsSelect}
-                      />
+                    {/* Source filter dropdown */}
+                    {availableSources.length > 1 && (
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-3.5 h-3.5 text-gray-400" />
+                        <select
+                          value={sourceFilter}
+                          onChange={(e) => setSourceFilter(e.target.value as 'all' | 'demo' | 'production')}
+                          className="text-xs bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          <option value="all">All Sources</option>
+                          {availableSources.includes('demo') && <option value="demo">Demo</option>}
+                          {availableSources.includes('production') && <option value="production">Real Data</option>}
+                        </select>
+                      </div>
                     )}
                   </div>
                 </div>
               )}
 
               {/* Educational banner — dismissible */}
-              {pageTab === 'stories' && !bannerDismissed && (
+              {!bannerDismissed && (
                 <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
                   <BookOpen className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
                   <p className="text-xs text-primary-700 flex-1">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
                   <button
-                    onClick={() => { setBannerDismissed(true); localStorage.setItem('banner-dismissed-stories', '1'); }}
-                    className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-              {pageTab === 'library' && !playbookBannerDismissed && (
-                <div className="px-3 py-1.5 rounded-md flex items-center gap-2 bg-primary-50 border border-primary-200">
-                  <Sparkles className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
-                  <p className="text-xs text-primary-700 flex-1">Your playbook collects reusable outputs — interview answers, LinkedIn posts, and promotion packets — ready when you need them.</p>
-                  <button
-                    onClick={() => { setPlaybookBannerDismissed(true); localStorage.setItem('banner-dismissed-playbook', '1'); }}
+                    onClick={() => { setBannerDismissed(true); sessionStorage.setItem('banner-dismissed-stories', '1'); }}
                     className="p-0.5 rounded text-primary-400 hover:text-primary-600 flex-shrink-0"
                   >
                     <X className="h-3 w-3" />
@@ -1165,86 +1052,30 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
-              {/* Unified filter bar — shared across Stories and Playbook tabs */}
-              {(allStories.length > 0 || libraryItems.length > 0) && (() => {
-                const currentFilter = pageTab === 'stories' ? storiesFilter : playbook;
-                const currentConfig = pageTab === 'stories' ? storiesFilterConfig : playbookFilterConfig;
-                const storiesPillToggle = (
-                  <div className="flex items-center rounded-md bg-gray-100 p-0.5 flex-shrink-0">
+              {/* Timeline / Category toggle */}
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-1">
+                  {([
+                    { key: 'category' as const, label: 'By Category', Icon: LayoutGrid },
+                    { key: 'timeline' as const, label: 'By Timeline', Icon: Clock },
+                  ]).map(({ key, label, Icon }) => (
                     <button
-                      onClick={() => setSearchParams({}, { replace: true })}
+                      key={key}
+                      onClick={() => setStoryView(key)}
                       className={cn(
-                        'px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
-                        pageTab === 'stories'
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
+                        'inline-flex items-center gap-2 whitespace-nowrap border-b-2 py-3 px-4 text-sm font-medium transition-all duration-200',
+                        storyView === key
+                          ? 'border-primary-500 text-primary-600'
+                          : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
                       )}
                     >
-                      Stories
+                      <Icon className="h-4 w-4" />
+                      {label}
                     </button>
-                    <button
-                      onClick={() => setSearchParams({ tab: 'library' }, { replace: true })}
-                      className={cn(
-                        'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap rounded transition-all',
-                        pageTab === 'library'
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      )}
-                    >
-                      Playbook
-                      {libraryItems.length > 0 && (
-                        <span className={cn(
-                          'text-[10px] tabular-nums rounded-full px-1.5 min-w-[16px] text-center font-bold',
-                          pageTab === 'library' ? 'bg-gray-200 text-gray-700' : 'bg-gray-200/60 text-gray-500'
-                        )}>
-                          {libraryItems.length}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                );
-                return (
-                  <FilterBar
-                    pillToggle={storiesPillToggle}
-                    activeFilterCount={currentFilter.activeFilterCount}
-                    viewToggle={
-                      <ViewToggle
-                        mode={currentFilter.viewMode}
-                        onModeChange={currentFilter.setViewMode}
-                        labels={currentConfig.viewLabels}
-                      />
-                    }
-                    expandCollapseButton={
-                      <ExpandCollapseButton anyExpanded={currentFilter.anyExpanded} onToggle={currentFilter.toggleAll} />
-                    }
-                  >
-                    {currentConfig.temporalChips.length > 0 && (
-                      <ChipFilter
-                        chips={currentConfig.temporalChips}
-                        selectedKeys={currentFilter.selectedTemporalKeys}
-                        onToggle={currentFilter.toggleTemporalKey}
-                      />
-                    )}
-                    {currentConfig.typedChips.length > 0 && (
-                      <>
-                        <FilterSeparator />
-                        <ChipFilter
-                          chips={currentConfig.typedChips}
-                          selectedKeys={currentFilter.selectedTypedKeys}
-                          onToggle={currentFilter.toggleTypedKey}
-                          maxVisible={4}
-                        />
-                      </>
-                    )}
-                  </FilterBar>
-                );
-              })()}
-            </div>
-          )}
+                  ))}
+                </nav>
+              </div>
 
-          {/* List View: Story cards */}
-          {pageTab === 'stories' && viewMode === 'list' && (
-            <div className="space-y-2">
               {/* Loading state */}
               {(isLoadingClusters || isLoadingStories) && (
                 <div className="flex items-center justify-center py-8">
@@ -1265,58 +1096,75 @@ export function CareerStoriesPage() {
                 </div>
               )}
 
-              {/* Filtered empty state */}
-              {!isLoadingClusters && allStories.length > 0 && storiesFilter.filteredItems.length === 0 && (
+              {/* Empty state - filtered results empty */}
+              {!isLoadingClusters && allStories.length > 0 && filteredStories.length === 0 && (
                 <div className="text-center py-8">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                    <Filter className="w-6 h-6 text-gray-400" />
+                  </div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">No matching stories</h3>
-                  <p className="text-xs text-gray-500">Try adjusting your filters or search.</p>
+                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                    No stories match the current filter. Try selecting "All Sources".
+                  </p>
+                  <button
+                    onClick={() => setSourceFilter('all')}
+                    className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    Clear filter
+                  </button>
                 </div>
               )}
 
-              {/* Grouped content via CollapsibleGroup */}
-              {storiesFilter.groups.length > 0 && (
-                <div>
-                  {storiesFilter.groups.map((group, gi) => (
-                    <CollapsibleGroup
-                      key={group.key}
-                      section={group}
-                      isCollapsed={storiesFilter.collapsedGroups.has(group.key)}
-                      onToggle={() => storiesFilter.toggleGroup(group.key)}
-                      isLast={gi === storiesFilter.groups.length - 1}
-                      previewLimit={3}
-                      showAll={storiesFilter.showAllGroups.has(group.key)}
-                      onToggleShowAll={() => storiesFilter.toggleShowAll(group.key)}
-                      renderItem={(story) => (
-                        <StoryCard
-                          key={story.id}
-                          story={story}
-                          isSelected={false}
-                          onClick={() => handleSelectStory(story)}
-                          onFormatChange={handleFormatSwitch}
-                        />
-                      )}
-                      renderFooter={(section) => {
-                        if (section.items.length === 0) {
-                          return (
-                            <div className="group/empty relative mb-3">
-                              <button
-                                onClick={() => navigate('/timeline')}
-                                className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
-                              >
-                                <p className="text-xs text-gray-400">
-                                  No stories yet
-                                  {draftStories.length > 0 && (
-                                    <> &middot; <span className="text-gray-500 font-medium">{draftStories.length} {draftStories.length === 1 ? 'draft' : 'drafts'}</span></>
-                                  )}
-                                  {' '}&middot; <span className="text-primary-500 font-medium">Create from drafts</span>
+              {/* Conditional: Timeline (quarters) or Category (brag doc) */}
+              {storyView === 'timeline' ? (
+                <>
+                  {storiesByTimePeriod.map((group) => (
+                    <div key={group.label}>
+                      {/* Quarter header */}
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-sm font-semibold text-gray-700">{group.label}</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                          {group.stories.length}
+                        </span>
+                      </div>
+
+                      {/* Timeline spine + cards */}
+                      <div>
+                        {group.stories.map(({ story, timeRange }, i) => (
+                          <div key={story.id} className="relative flex gap-4">
+                            <TimelineSpine isLast={i === group.stories.length - 1} />
+                            <div className="flex-1 min-w-0 pb-4">
+                              <StoryCard
+                                story={story}
+                                isSelected={false}
+                                onClick={() => handleSelectStory(story)}
+                                onFormatChange={handleFormatSwitch}
+                              />
+                              {timeRange.earliest.toDateString() !== timeRange.latest.toDateString() && (
+                                <p className="text-[11px] text-gray-400 mt-1 ml-1">
+                                  {formatTimeSpan(timeRange.earliest, timeRange.latest)}
                                 </p>
-                              </button>
+                              )}
                             </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Category chips */}
+                      {group.categories.size > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1 ml-9">
+                          {BRAG_DOC_CATEGORIES.filter((c) => group.categories.has(c.value)).map((cat) => (
+                            <span
+                              key={cat.value}
+                              className="bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-[10px]"
+                            >
+                              {cat.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                   {allStories.length < 3 && (
                     <button
@@ -1328,116 +1176,104 @@ export function CareerStoriesPage() {
                       </p>
                     </button>
                   )}
-                </div>
-              )}
+                </>
+              ) : (
+                <>
+                  {BRAG_DOC_CATEGORIES.map((cat) => {
+                    const catStories = storiesByCategory.get(cat.value) ?? [];
+                    return (
+                      <div key={cat.value} className="pt-3">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-sm font-semibold text-gray-700">{cat.label}</span>
+                          <div className="flex-1 h-px bg-gray-200" />
+                          {catStories.length > 0 && (
+                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                              {catStories.length}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">{cat.description}</p>
 
-            </div>
-          )}
-
-          {/* Playbook tab — list view */}
-          {pageTab === 'library' && !selectedLibraryItem && (
-            <div className="space-y-2">
-              {/* Loading */}
-              {isLibraryLoading && (
-                <div className="space-y-3 py-4">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="animate-pulse rounded-2xl border border-gray-100 p-4">
-                      <div className="h-4 bg-gray-100 rounded w-1/3 mb-2" />
-                      <div className="h-3 bg-gray-100 rounded w-2/3 mb-3" />
-                      <div className="h-3 bg-gray-100 rounded w-1/4" />
+                        {catStories.length === 0 ? (
+                          <div className="group/empty relative">
+                            <button
+                              onClick={() => navigate('/timeline')}
+                              className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
+                            >
+                              <p className="text-xs text-gray-400">
+                                No stories yet
+                                {draftStories.length > 0 && (
+                                  <> &middot; <span className="text-gray-500 font-medium">{draftStories.length} {draftStories.length === 1 ? 'draft' : 'drafts'}</span></>
+                                )}
+                                {' '}&middot; <span className="text-primary-500 font-medium">Create from drafts</span>
+                              </p>
+                            </button>
+                            {draftStories.length > 0 && (
+                              <div className="absolute left-0 right-0 top-full mt-1 z-20 hidden group-hover/empty:block">
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2">
+                                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Draft stories</p>
+                                  {draftStories.slice(0, 3).map((draft) => (
+                                    <div key={draft.key} className="flex items-start gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 flex-shrink-0" />
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-gray-700 truncate">{draft.storyMetadata?.title || draft.label}</p>
+                                        <p className="text-[10px] text-gray-400">{draft.count} {draft.count === 1 ? 'activity' : 'activities'}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {draftStories.length > 3 && (
+                                    <p className="text-[10px] text-gray-400">+{draftStories.length - 3} more</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {catStories.map((story) => (
+                              <StoryCard
+                                key={story.id}
+                                story={story}
+                                isSelected={false}
+                                onClick={() => handleSelectStory(story)}
+                                onFormatChange={handleFormatSwitch}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {storiesByCategory.has('other') && (
+                    <div className="pt-3">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold text-gray-600">Other</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
+                          {storiesByCategory.get('other')!.length}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-2">Uncategorized stories</p>
+                      <div className="space-y-3">
+                        {storiesByCategory.get('other')!.map((story) => (
+                          <StoryCard
+                            key={story.id}
+                            story={story}
+                            isSelected={false}
+                            onClick={() => handleSelectStory(story)}
+                            onFormatChange={handleFormatSwitch}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
 
-              {/* Partial error banner */}
-              {!isLibraryLoading && (isErrorSingles || isErrorPackets) && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                  Some items couldn't be loaded. Showing what's available.
-                </div>
-              )}
-
-              {/* Empty state */}
-              {!isLibraryLoading && libraryItems.length === 0 && (
-                <div className="text-center py-8">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-3">
-                    <Sparkles className="w-6 h-6 text-purple-400" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">Your playbook is empty</h3>
-                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                    When you save an interview answer, LinkedIn post, or other output from your stories, it shows up here.
-                  </p>
-                </div>
-              )}
-
-              {/* Filtered empty state */}
-              {!isLibraryLoading && libraryItems.length > 0 && playbook.filteredItems.length === 0 && (
-                <div className="text-center py-8">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">No matching items</h3>
-                  <p className="text-xs text-gray-500">Try adjusting your filters or search.</p>
-                </div>
-              )}
-
-              {/* Layer 3: Grouped content via CollapsibleGroup */}
-              {!isLibraryLoading && playbook.groups.length > 0 && (
-                <div>
-                  {playbook.groups.map((group, gi) => (
-                    <CollapsibleGroup
-                      key={group.key}
-                      section={group}
-                      isCollapsed={playbook.collapsedGroups.has(group.key)}
-                      onToggle={() => playbook.toggleGroup(group.key)}
-                      isLast={gi === playbook.groups.length - 1}
-                      previewLimit={3}
-                      showAll={playbook.showAllGroups.has(group.key)}
-                      onToggleShowAll={() => playbook.toggleShowAll(group.key)}
-                      renderItem={(item) => (
-                        <LibraryCard
-                          key={item.id}
-                          item={item}
-                          isSelected={false}
-                          onClick={() => setSearchParams({ tab: 'library', itemId: item.id }, { replace: true })}
-                        />
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Library tab — detail view (desktop) */}
-          {pageTab === 'library' && selectedLibraryItem && (
-            <div className="hidden lg:block">
-              <LibraryDetail
-                item={selectedLibraryItem}
-                allStories={allStories}
-                onBack={() => setSearchParams({ tab: 'library' }, { replace: true })}
-                onDelete={handleDeleteLibraryItem}
-                onRegenerate={handleRegenerateLibraryItem}
-                onNavigateToStory={(id) => setSearchParams({ storyId: id }, { replace: true })}
-              />
             </div>
           )}
         </div>
       </div>
-
-      {/* Mobile: Library detail bottom sheet */}
-      <MobileSheet
-        isOpen={pageTab === 'library' && !!selectedLibraryItem && window.innerWidth < BREAKPOINTS.DESKTOP}
-        onClose={() => setSearchParams({ tab: 'library' }, { replace: true })}
-      >
-        {selectedLibraryItem && (
-          <LibraryDetail
-            item={selectedLibraryItem}
-            allStories={allStories}
-            onBack={() => setSearchParams({ tab: 'library' }, { replace: true })}
-            onDelete={handleDeleteLibraryItem}
-            onRegenerate={handleRegenerateLibraryItem}
-            onNavigateToStory={(id) => setSearchParams({ storyId: id }, { replace: true })}
-          />
-        )}
-      </MobileSheet>
 
       {/* Mobile: Bottom sheet for STAR preview (legacy support) */}
       <MobileSheet
@@ -1508,7 +1344,6 @@ export function CareerStoriesPage() {
           onClose={() => { setDerivationStoryId(null); setDerivationInitialType(undefined); }}
           story={derivationStory}
           initialType={derivationInitialType as import('../../types/career-stories').DerivationType | undefined}
-          onNavigateToDerivation={(id) => setSearchParams({ tab: 'library', itemId: id }, { replace: true })}
         />
       )}
 
@@ -1519,7 +1354,6 @@ export function CareerStoriesPage() {
           onClose={() => { setShowPromotionPacket(false); setPacketInitialType(undefined); }}
           stories={allStories}
           initialType={packetInitialType as import('../../types/career-stories').PacketType | undefined}
-          onNavigateToDerivation={(id) => setSearchParams({ tab: 'library', itemId: id }, { replace: true })}
         />
       )}
 
