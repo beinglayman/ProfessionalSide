@@ -5,20 +5,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LibraryDetail } from './LibraryDetail';
 import type { StoryDerivation, CareerStory } from '../../types/career-stories';
 
-// Mock DerivationPreview — renders text prop directly
-vi.mock('./DerivationPreview', () => ({
-  DerivationPreview: ({ text }: { text: string | null }) => (
-    <div data-testid="derivation-preview">{text}</div>
-  ),
-}));
-
-// Mock SimpleMarkdown — renders content prop directly
-vi.mock('../ui/simple-markdown', () => ({
-  SimpleMarkdown: ({ content }: { content: string }) => (
-    <div data-testid="simple-markdown">{content}</div>
-  ),
-}));
-
 // Mock clipboard
 const mockClipboard = { writeText: vi.fn() };
 Object.assign(navigator, { clipboard: mockClipboard });
@@ -111,16 +97,16 @@ describe('LibraryDetail', () => {
     mockClipboard.writeText.mockResolvedValue(undefined);
   });
 
-  it('renders DerivationPreview for single-kind', () => {
+  it('renders content for single-kind derivation', () => {
     renderDetail(makeSingle());
-    expect(screen.getByTestId('derivation-preview')).toBeInTheDocument();
-    expect(screen.queryByTestId('simple-markdown')).not.toBeInTheDocument();
+    // The derivation text is rendered via AnnotatedText which may split text with emphasis <strong> tags
+    expect(screen.getByTestId('derivation-detail')).toHaveTextContent(/led.*migration/);
   });
 
-  it('renders SimpleMarkdown for packet-kind', () => {
+  it('renders content for packet-kind derivation', () => {
     renderDetail(makePacket());
-    expect(screen.getByTestId('simple-markdown')).toBeInTheDocument();
-    expect(screen.queryByTestId('derivation-preview')).not.toBeInTheDocument();
+    // Packet text should be rendered
+    expect(screen.getByText(/past quarter/)).toBeInTheDocument();
   });
 
   it('shows source story names from snapshots', () => {
@@ -165,14 +151,16 @@ describe('LibraryDetail', () => {
   it('calls onBack when back button is clicked', async () => {
     const onBack = vi.fn();
     renderDetail(makeSingle(), { onBack });
-    await userEvent.click(screen.getByText('Back to library'));
+    await userEvent.click(screen.getByLabelText('Back to library'));
     expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it('shows metadata line with type, word count, and date', () => {
+  it('shows metadata with type badge and word count', () => {
     renderDetail(makeSingle());
-    expect(screen.getByText('Interview Answer')).toBeInTheDocument();
-    expect(screen.getByText('10 words')).toBeInTheDocument();
+    // Word count appears in provenance line and footer — at least one exists
+    expect(screen.getAllByText(/10\s*words/).length).toBeGreaterThanOrEqual(1);
+    // Type badge (span) should be present alongside the combined title
+    expect(screen.getByText('Interview Answer', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('calls onRegenerate when Regenerate is clicked', async () => {
@@ -189,5 +177,29 @@ describe('LibraryDetail', () => {
     renderDetail(makeSingle(), { onNavigateToStory });
     await userEvent.click(screen.getByText('Auth Migration Story'));
     expect(onNavigateToStory).toHaveBeenCalledWith('s-1');
+  });
+
+  // =========================================================================
+  // TITLE CONSISTENCY: LibraryCard ↔ LibraryDetail must show same title
+  // =========================================================================
+
+  it('shows combined title matching LibraryCard format for single', () => {
+    renderDetail(makeSingle());
+    // getTitle(item, label) → "Interview Answer — Auth Migration Story"
+    expect(screen.getByText('Interview Answer — Auth Migration Story')).toBeInTheDocument();
+  });
+
+  it('shows combined title matching LibraryCard format for packet', () => {
+    renderDetail(makePacket());
+    // getTitle(item, label) → "Promotion — Auth Migration + 1 more"
+    expect(screen.getByText('Promotion — Auth Migration + 1 more')).toBeInTheDocument();
+  });
+
+  it('falls back to type label when no snapshots', () => {
+    const item = makeSingle({ storySnapshots: undefined });
+    renderDetail(item);
+    // No snapshots → title = just the label, rendered in the h2
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading.textContent).toBe('Interview Answer');
   });
 });

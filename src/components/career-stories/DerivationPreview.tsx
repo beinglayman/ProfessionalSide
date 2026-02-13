@@ -11,7 +11,7 @@ import { Loader2, MessageSquare, User } from 'lucide-react';
 import type { DerivationType } from '../../types/career-stories';
 import { DERIVATION_TYPE_META } from './constants';
 
-interface FrameProps {
+export interface FrameProps {
   text: string;
   charCount?: number;
   wordCount?: number;
@@ -142,7 +142,7 @@ function TeamShareFrame({ text }: FrameProps) {
 // FRAME MAP
 // =============================================================================
 
-const FRAME_MAP: Record<DerivationType, React.FC<FrameProps>> = {
+export const FRAME_MAP: Record<DerivationType, React.FC<FrameProps>> = {
   linkedin: LinkedInFrame,
   resume: ResumeFrame,
   interview: InterviewFrame,
