@@ -41,6 +41,11 @@ interface Format7Data {
     content: string;
     prompt?: string;
   }>;
+  phases?: Array<{
+    name: string;
+    summary: string;
+    activityIds?: string[];
+  }>;
   activities?: Array<{
     id: string;
     description: string;
@@ -53,6 +58,8 @@ interface Format7Data {
   context?: {
     primary_focus?: string;
   };
+  dominantRole?: string;
+  impactHighlights?: string[];
 }
 
 /** Journal content for building sections */
