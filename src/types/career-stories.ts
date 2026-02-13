@@ -526,6 +526,7 @@ export interface StoryAnnotation {
   endOffset: number;
   annotatedText: string;
   style: AnnotationStyle;
+  color: string | null;
   note: string | null;
   createdAt: string;
   updatedAt: string;

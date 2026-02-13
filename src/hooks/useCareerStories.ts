@@ -675,6 +675,7 @@ export const useCreateAnnotation = () => {
         endOffset: number;
         annotatedText: string;
         style: AnnotationStyle;
+        color?: string | null;
         note?: string | null;
       };
     }) => CareerStoriesService.createAnnotation(storyId, input),
@@ -694,7 +695,7 @@ export const useUpdateAnnotation = () => {
     mutationFn: ({ storyId, annotationId, input }: {
       storyId: string;
       annotationId: string;
-      input: { note?: string | null; style?: AnnotationStyle };
+      input: { note?: string | null; style?: AnnotationStyle; color?: string | null };
     }) => CareerStoriesService.updateAnnotation(storyId, annotationId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
@@ -745,6 +746,7 @@ export const useCreateDerivationAnnotation = () => {
         endOffset: number;
         annotatedText: string;
         style: AnnotationStyle;
+        color?: string | null;
         note?: string | null;
       };
     }) => CareerStoriesService.createDerivationAnnotation(derivationId, input),
@@ -761,7 +763,7 @@ export const useUpdateDerivationAnnotation = () => {
     mutationFn: ({ derivationId, annotationId, input }: {
       derivationId: string;
       annotationId: string;
-      input: { note?: string | null; style?: AnnotationStyle };
+      input: { note?: string | null; style?: AnnotationStyle; color?: string | null };
     }) => CareerStoriesService.updateDerivationAnnotation(derivationId, annotationId, input),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['career-stories', 'derivation-annotations', variables.derivationId] });

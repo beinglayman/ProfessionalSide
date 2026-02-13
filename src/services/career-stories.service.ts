@@ -473,6 +473,7 @@ export class CareerStoriesService {
     endOffset: number;
     annotatedText: string;
     style: AnnotationStyle;
+    color?: string | null;
     note?: string | null;
   }): Promise<ApiResponse<StoryAnnotation>> {
     const response = await api.post<ApiResponse<StoryAnnotation>>(
@@ -488,6 +489,7 @@ export class CareerStoriesService {
   static async updateAnnotation(storyId: string, annotationId: string, input: {
     note?: string | null;
     style?: AnnotationStyle;
+    color?: string | null;
   }): Promise<ApiResponse<StoryAnnotation>> {
     const response = await api.patch<ApiResponse<StoryAnnotation>>(
       `/career-stories/stories/${storyId}/annotations/${annotationId}`,
@@ -523,6 +525,7 @@ export class CareerStoriesService {
     endOffset: number;
     annotatedText: string;
     style: AnnotationStyle;
+    color?: string | null;
     note?: string | null;
   }): Promise<ApiResponse<StoryAnnotation>> {
     const response = await api.post<ApiResponse<StoryAnnotation>>(
@@ -535,6 +538,7 @@ export class CareerStoriesService {
   static async updateDerivationAnnotation(derivationId: string, annotationId: string, input: {
     note?: string | null;
     style?: AnnotationStyle;
+    color?: string | null;
   }): Promise<ApiResponse<StoryAnnotation>> {
     const response = await api.patch<ApiResponse<StoryAnnotation>>(
       `/career-stories/derivations/${derivationId}/annotations/${annotationId}`,
