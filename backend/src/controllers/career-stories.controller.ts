@@ -1545,6 +1545,8 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
       storyIds: [storyId],
       storySnapshots,
       text: result.text,
+      sections: result.sections,
+      sectionOrder: result.sectionOrder,
       charCount: result.charCount,
       wordCount: result.wordCount,
       speakingTimeSec: result.speakingTimeSec,
@@ -1557,6 +1559,9 @@ export const deriveStory = asyncHandler(async (req: Request, res: Response): Pro
       featureCode: 'derive_story',
       creditCost: affordability.cost,
     });
+
+    // Snapshot parent story sources into derivation
+    await StoryDerivationService.snapshotSources(saved.id, [storyId], 'single');
 
     sendSuccess(res, { ...result, derivationId: saved.id });
   } catch (error) {
@@ -1616,6 +1621,8 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
       storyIds,
       storySnapshots,
       text: result.text,
+      sections: result.sections,
+      sectionOrder: result.sectionOrder,
       charCount: result.charCount,
       wordCount: result.wordCount,
       tone,
@@ -1625,6 +1632,9 @@ export const derivePacket = asyncHandler(async (req: Request, res: Response): Pr
       featureCode: 'derive_packet',
       creditCost: affordability.cost,
     });
+
+    // Snapshot parent story sources into derivation
+    await StoryDerivationService.snapshotSources(saved.id, storyIds, 'packet');
 
     sendSuccess(res, { ...result, derivationId: saved.id });
   } catch (error) {
@@ -1693,6 +1703,103 @@ export const deleteDerivation = asyncHandler(async (req: Request, res: Response)
   }
 
   sendSuccess(res, { deleted: true });
+});
+
+// ============================================================================
+// DERIVATION SOURCES
+// ============================================================================
+
+/**
+ * GET /api/v1/career-stories/derivations/:derivationId/sources
+ * List sources for a derivation.
+ */
+export const listDerivationSources = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const sources = await storySourceService.getSourcesForDerivation(derivationId);
+  sendSuccess(res, sources);
+});
+
+/**
+ * POST /api/v1/career-stories/derivations/:derivationId/sources
+ * Add a user_note source to a derivation section.
+ */
+export const addDerivationSource = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = createSourceSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const { sectionKey, content } = parseResult.data;
+  const source = await storySourceService.createDerivationUserNote(derivationId, sectionKey, content);
+  sendSuccess(res, source, 'Source added', 201);
+});
+
+/**
+ * PATCH /api/v1/career-stories/derivations/:derivationId/sources/:sourceId
+ * Exclude or restore a derivation source (set excludedAt).
+ */
+export const updateDerivationSource = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { derivationId, sourceId } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const parseResult = updateSourceSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return void sendError(res, 'Invalid request body', 400, formatZodErrors(parseResult.error));
+  }
+
+  const derivation = await prisma.storyDerivation.findFirst({
+    where: { id: derivationId, userId },
+    select: { id: true },
+  });
+  if (!derivation) {
+    return void sendError(res, 'Derivation not found', 404);
+  }
+
+  const isOwned = await storySourceService.verifyDerivationOwnership(sourceId, derivationId);
+  if (!isOwned) {
+    return void sendError(res, 'Source not found', 404);
+  }
+
+  const { excludedAt } = parseResult.data;
+  const source = await storySourceService.updateDerivationExcludedAt(
+    sourceId,
+    derivationId,
+    excludedAt ? new Date(excludedAt) : null
+  );
+  sendSuccess(res, source, excludedAt ? 'Source excluded' : 'Source restored');
 });
 
 // ============================================================================

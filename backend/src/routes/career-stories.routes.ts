@@ -69,6 +69,10 @@ import {
   listStoryDerivations,
   listDerivationsByKind,
   deleteDerivation,
+  // Derivation Sources
+  listDerivationSources,
+  addDerivationSource,
+  updateDerivationSource,
 } from '../controllers/career-stories.controller';
 import {
   analyzeEntry,
@@ -152,6 +156,13 @@ router.get('/stories/:storyId/annotations', listAnnotations);
 router.post('/stories/:storyId/annotations', createAnnotation);
 router.patch('/stories/:storyId/annotations/:annotationId', updateAnnotation);
 router.delete('/stories/:storyId/annotations/:annotationId', deleteAnnotation);
+
+// ============================================================================
+// DERIVATION SOURCES
+// ============================================================================
+router.get('/derivations/:derivationId/sources', listDerivationSources);
+router.post('/derivations/:derivationId/sources', addDerivationSource);
+router.patch('/derivations/:derivationId/sources/:sourceId', updateDerivationSource);
 
 // ============================================================================
 // DERIVATION ANNOTATIONS
