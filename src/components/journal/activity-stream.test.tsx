@@ -67,7 +67,7 @@ describe('ActivityStream — inline drafts', () => {
       />
     );
     // Switch to Draft Stories tab
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     expect(screen.getByText('Authentication System Overhaul')).toBeInTheDocument();
   });
 
@@ -82,7 +82,7 @@ describe('ActivityStream — inline drafts', () => {
       />
     );
     // Toggle button shows count badge inside the Draft Stories button
-    const draftsButton = screen.getByText('Draft Stories').closest('button')!;
+    const draftsButton = screen.getByText('Drafts').closest('button')!;
     expect(draftsButton).toBeInTheDocument();
     expect(draftsButton.querySelector('span')).toHaveTextContent('2');
   });
@@ -94,7 +94,7 @@ describe('ActivityStream — inline drafts', () => {
         storyGroups={[]}
       />
     );
-    expect(screen.queryByText('Draft Stories')).not.toBeInTheDocument();
+    expect(screen.queryByText('Drafts')).not.toBeInTheDocument();
   });
 
   it('renders Create Story CTA on draft cards', () => {
@@ -106,7 +106,7 @@ describe('ActivityStream — inline drafts', () => {
       />
     );
     // Switch to Draft Stories tab first
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     expect(screen.getByText('Create Story')).toBeInTheDocument();
   });
 
@@ -120,7 +120,7 @@ describe('ActivityStream — inline drafts', () => {
       />
     );
     // Switch to Draft Stories tab first
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Create Story'));
     expect(onPromote).toHaveBeenCalledWith('story-auth');
   });
@@ -137,7 +137,7 @@ describe('ActivityStream — inline drafts', () => {
     expect(screen.getByText('Activity 0 in This Week')).toBeInTheDocument();
 
     // Click "Draft Stories" toggle
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
 
     // Activities hidden, draft still visible
     expect(screen.queryByText('Activity 0 in This Week')).not.toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('ActivityStream — expand/collapse in Draft Stories mode', () => {
     );
 
     // Switch to Draft Stories tab
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
 
     // First group is expanded by default, so button shows "Collapse"
     const collapseButton = screen.getByRole('button', { name: /collapse/i });
@@ -194,7 +194,7 @@ describe('ActivityStream — expand/collapse in Draft Stories mode', () => {
     );
 
     // Switch to Draft Stories
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
 
     // Draft card visible initially (first group expanded)
     expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
@@ -219,7 +219,7 @@ describe('ActivityStream — expand state persists across tab switches', () => {
     );
 
     // Switch to Draft Stories and expand a card
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Auth Overhaul'));
 
     // Collapse button should be visible (card is expanded)
@@ -230,7 +230,7 @@ describe('ActivityStream — expand state persists across tab switches', () => {
     expect(screen.getByText('Activity 0 in This Week')).toBeInTheDocument();
 
     // Switch back to Draft Stories — card should still be expanded
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     expect(screen.getByRole('button', { name: /collapse/i })).toBeInTheDocument();
   });
 });
@@ -266,7 +266,7 @@ describe('ActivityStream — empty states', () => {
     );
 
     // Switch to drafts, verify content exists
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     expect(screen.getByText('Auth Overhaul')).toBeInTheDocument();
   });
 });
@@ -337,7 +337,7 @@ describe('ActivityStream — draft card activity cap', () => {
     );
 
     // Switch to drafts and expand the card
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('WebSocket Work'));
 
     // Only first ACTIVITIES_PER_EDGE_LIMIT should be visible
@@ -365,7 +365,7 @@ describe('ActivityStream — draft card activity cap', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Feature Work'));
 
     // Click "+2 more"
@@ -393,7 +393,7 @@ describe('ActivityStream — draft card activity cap', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByRole('heading', { name: 'Bug Fixes' }));
 
     // Expand, then collapse
@@ -418,7 +418,7 @@ describe('ActivityStream — draft card activity cap', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Small Story'));
 
     // All activities visible, no "+N more"
@@ -442,7 +442,7 @@ describe('ActivityStream — draft card metric highlighting', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Performance Win'));
 
     // Should have <mark> elements for the metrics
@@ -468,7 +468,7 @@ describe('ActivityStream — draft card metric highlighting', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Cost Reduction'));
 
     const marks = container.querySelectorAll('mark');
@@ -491,7 +491,7 @@ describe('ActivityStream — draft card metric highlighting', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Draft Stories'));
+    fireEvent.click(screen.getByText('Drafts'));
     fireEvent.click(screen.getByText('Plain Story'));
 
     // Description text should be present (appears in both collapsed preview and expanded view)
