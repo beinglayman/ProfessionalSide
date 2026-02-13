@@ -998,17 +998,7 @@ export function CareerStoriesPage() {
 
       {/* Main content area - same width as Activity tab (max-w-7xl) */}
       <div className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6 space-y-4">
-          {/* Page title */}
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Stories
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Your achievements, told as compelling narratives
-            </p>
-          </div>
-
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-4 space-y-2">
           {/* Detail View: Full story */}
           {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
