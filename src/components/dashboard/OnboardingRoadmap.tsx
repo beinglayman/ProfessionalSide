@@ -28,7 +28,7 @@ export function OnboardingRoadmap() {
   const integrations = integrationsData?.integrations ?? [];
 
   const steps: RoadmapStep[] = useMemo(() => {
-    const hasConnection = integrations.some((i) => i.isActive);
+    const hasConnection = integrations.some((i) => i.isConnected);
     const activitiesTotal =
       activitiesData && 'pagination' in activitiesData
         ? activitiesData.pagination.total
@@ -58,7 +58,7 @@ export function OnboardingRoadmap() {
 
   // SVG dimensions (compact)
   const width = 560;
-  const height = 56;
+  const height = 90;
   const padX = 40;
   const amplitude = 14;
   const midY = height / 2;
@@ -172,7 +172,11 @@ export function OnboardingRoadmap() {
         {/* Current step description + CTA */}
         <div className="mt-1 flex flex-col items-center text-center px-4">
           <p className="text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Next:</span> {currentStep.description}
+            {completedCount >= steps.length - 1 ? (
+              <><span className="font-medium text-primary-700">Almost there!</span> {currentStep.description}</>
+            ) : (
+              <><span className="font-medium text-gray-800">Next:</span> {currentStep.description}</>
+            )}
           </p>
           <Button size="sm" className="mt-2" onClick={() => navigate(currentStep.route)}>
             {currentStep.label}

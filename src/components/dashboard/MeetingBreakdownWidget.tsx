@@ -50,7 +50,7 @@ export function MeetingBreakdownWidget() {
 
   const integrations = integrationsData?.integrations ?? [];
   const hasCalendarIntegration = integrations.some(
-    (i) => i.isActive && CALENDAR_SOURCES.includes(i.toolType)
+    (i) => i.isConnected && CALENDAR_SOURCES.includes(i.toolType)
   );
 
   const breakdown = useMemo(() => {

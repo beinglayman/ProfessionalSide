@@ -572,7 +572,7 @@ export function ProfileViewPage() {
       const integration = integrations.find((i) => i.toolType === toolType);
       let status: IntegrationStatus = 'disconnected';
 
-      if (integration?.isActive) {
+      if (integration?.isConnected) {
         const validation = validations[toolType];
         status = validation?.status === 'valid' || !validation ? 'active' : 'error';
       }

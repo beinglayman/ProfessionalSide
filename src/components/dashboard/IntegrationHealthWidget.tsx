@@ -198,7 +198,7 @@ export function IntegrationHealthWidget() {
       const validation = validations[integ.toolType];
       let status: RowStatus = 'disconnected';
 
-      if (integ.isActive) {
+      if (integ.isConnected) {
         if (validation?.status === 'expired') status = 'stale';
         else if (validation?.status === 'invalid') status = 'error';
         else status = 'active';
@@ -210,7 +210,7 @@ export function IntegrationHealthWidget() {
       return {
         toolType: integ.toolType,
         name: getToolName(integ.toolType),
-        isConnected: integ.isActive,
+        isConnected: integ.isConnected,
         status,
         lastUsedAt: integ.lastUsedAt,
         sparklineData: sparkline,

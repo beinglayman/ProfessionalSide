@@ -33,6 +33,7 @@ export interface MCPTool {
 export interface MCPIntegration {
   toolType: string;
   isActive: boolean;
+  isConnected: boolean;
   lastUsedAt: string | null;
   scope: string | null;
   createdAt: string;
