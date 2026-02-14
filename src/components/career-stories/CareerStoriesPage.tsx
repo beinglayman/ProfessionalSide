@@ -1053,7 +1053,7 @@ export function CareerStoriesPage() {
 
           {/* Summary bar + banner — above FilterBar for consistent layering */}
           {!(pageTab === 'stories' && viewMode === 'detail') && !(pageTab === 'library' && selectedLibraryItem) && (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {/* Stories summary */}
               {pageTab === 'stories' && allStories.length > 0 && (
                 <div className="flex items-center justify-between gap-4">
