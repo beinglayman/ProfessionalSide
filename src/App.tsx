@@ -19,6 +19,7 @@ import { ActivityFeedPage } from './pages/activity/feed';
 import { ProfileViewPage } from './pages/profile/view';
 import { PublicProfilePage } from './pages/profile/public-view';
 import { DashboardPage } from './pages/dashboard';
+import { DashboardHomePage } from './pages/dashboard/home';
 import WorkspaceDiscoveryPage from './pages/workspaces/discovery';
 import WorkspaceDetailPage from './pages/workspaces/[workspaceId]';
 import NetworkPage from './pages/network';
@@ -85,7 +86,7 @@ const AppRoutes: React.FC = () => {
           path="/"
           element={
             isAuthenticated ? (
-              <Navigate to="/timeline" replace />
+              <Navigate to="/dashboard" replace />
             ) : (
               <HomePage />
             )
@@ -94,13 +95,13 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/login"
           element={
-            isAuthenticated ? <Navigate to="/timeline" replace /> : <LoginPage />
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
           }
         />
         <Route
           path="/register"
           element={
-            isAuthenticated ? <Navigate to="/timeline" replace /> : <RegisterPage />
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
           }
         />
         <Route 
@@ -117,7 +118,7 @@ const AppRoutes: React.FC = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <DashboardHomePage />
             </ProtectedRoute>
           }
         />
