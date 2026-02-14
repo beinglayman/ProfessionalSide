@@ -31,7 +31,7 @@ const WORK_AREAS = [
 ] as const;
 
 const INTENSITY_COLORS: Record<IntensityLevel, string> = {
-  0: 'bg-gray-100',
+  0: 'bg-gray-50 border border-dashed border-gray-200',
   1: 'bg-primary-100',
   2: 'bg-primary-200',
   3: 'bg-primary-400',
@@ -99,11 +99,16 @@ export function CompetencyKPIWidget() {
       }
     }
 
-    const intensityGrid = WORK_AREAS.map((area) => ({
-      name: area.name,
-      icon: area.icon,
-      days: last14Days.map((day) => toIntensity(counts[area.name][day] ?? 0, max)),
-    }));
+    const intensityGrid = WORK_AREAS.map((area) => {
+      const rawCounts = last14Days.map((day) => counts[area.name][day] ?? 0);
+      return {
+        name: area.name,
+        icon: area.icon,
+        days: rawCounts.map((c) => toIntensity(c, max)),
+        counts: rawCounts,
+        total: rawCounts.reduce((s, c) => s + c, 0),
+      };
+    });
 
     return { grid: intensityGrid, hasData: max > 0 };
   }, [activities, last14Days]);
@@ -154,20 +159,25 @@ export function CompetencyKPIWidget() {
     },
   }), []);
 
-  // Day labels for heatmap
-  const dayLabels = useMemo(() => {
-    const months: { label: string; colStart: number }[] = [];
+  // Column header labels for heatmap (day abbreviations with month markers)
+  const columnLabels = useMemo(() => {
     let lastMonth = '';
-    last14Days.forEach((dateStr, i) => {
-      const d = new Date(dateStr);
+    return last14Days.map((dateStr, i) => {
+      const d = new Date(dateStr + 'T12:00:00'); // noon to avoid timezone shift
+      const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'narrow' }); // M, T, W...
       const month = d.toLocaleDateString('en-US', { month: 'short' });
-      if (month !== lastMonth) {
-        months.push({ label: month, colStart: i });
-        lastMonth = month;
-      }
+      const showMonth = month !== lastMonth;
+      if (showMonth) lastMonth = month;
+      const isToday = i === last14Days.length - 1;
+      return { dayAbbr, month: showMonth ? month : '', isToday };
     });
-    return months;
   }, [last14Days]);
+
+  // Format a date string for tooltip display
+  const formatTooltipDate = (dateStr: string) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -211,50 +221,60 @@ export function CompetencyKPIWidget() {
 
       <CardContent>
         {!hasData ? emptyState : view === 'heatmap' ? (
-          <div>
-            <div className="overflow-x-auto">
-              <div className="inline-block">
-                {grid.map((area) => {
-                  const Icon = area.icon;
-                  return (
-                    <div key={area.name} className="flex items-center gap-3 mb-1">
-                      <div className="flex items-center gap-1.5 w-[130px] shrink-0">
-                        <Icon className="h-3.5 w-3.5 text-primary-500" />
-                        <span className="text-xs text-gray-600 truncate">{area.name}</span>
-                      </div>
-                      <div className="flex gap-[3px]">
-                        {area.days.map((level, di) => (
-                          <div
-                            key={di}
-                            className={cn(
-                              'w-3 h-3 rounded-sm transition-transform hover:scale-125',
-                              INTENSITY_COLORS[level]
-                            )}
-                            title={`${last14Days[di]} — ${area.name}`}
-                          />
-                        ))}
-                      </div>
+          <div className="space-y-0">
+            {/* Column headers — month markers + day abbreviations */}
+            <div className="flex items-end gap-3 mb-1.5">
+              <div className="w-[120px] shrink-0" />
+              <div className="flex flex-1 gap-1">
+                {columnLabels.map((col, i) => (
+                  <div key={i} className="flex-1 text-center min-w-0">
+                    {col.month && (
+                      <div className="text-[9px] font-medium text-gray-500 leading-none mb-0.5">{col.month}</div>
+                    )}
+                    <div className={cn(
+                      'text-[9px] leading-none',
+                      col.isToday ? 'text-primary-600 font-bold' : 'text-gray-400',
+                    )}>
+                      {col.dayAbbr}
                     </div>
-                  );
-                })}
-
-                {/* Day labels */}
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="w-[130px] shrink-0" />
-                  <div className="flex relative" style={{ width: 14 * 15 }}>
-                    {dayLabels.map((m) => (
-                      <span
-                        key={m.label + m.colStart}
-                        className="text-[10px] text-gray-400 absolute"
-                        style={{ left: m.colStart * 15 }}
-                      >
-                        {m.label}
-                      </span>
-                    ))}
                   </div>
-                </div>
+                ))}
               </div>
+              <div className="w-10 shrink-0" />
             </div>
+
+            {/* Heatmap rows */}
+            {grid.map((area) => {
+              const Icon = area.icon;
+              return (
+                <div key={area.name} className="flex items-center gap-3 mb-1">
+                  <div className="flex items-center gap-1.5 w-[120px] shrink-0">
+                    <Icon className="h-3.5 w-3.5 text-primary-500" />
+                    <span className="text-xs text-gray-600 truncate">{area.name}</span>
+                  </div>
+                  <div className="flex flex-1 gap-1">
+                    {area.days.map((level, di) => {
+                      const isToday = di === last14Days.length - 1;
+                      const count = area.counts[di];
+                      return (
+                        <div
+                          key={di}
+                          className={cn(
+                            'flex-1 aspect-square rounded-sm transition-transform hover:scale-110',
+                            INTENSITY_COLORS[level],
+                            isToday && 'ring-1 ring-primary-400 ring-offset-1',
+                          )}
+                          title={`${area.name} — ${formatTooltipDate(last14Days[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="w-10 shrink-0 text-right text-xs font-medium text-gray-500 tabular-nums">
+                    {area.total}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="h-[280px]">

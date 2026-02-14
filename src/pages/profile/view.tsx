@@ -591,7 +591,7 @@ export function ProfileViewPage() {
 
   // Filter activities for the selected tool
   const toolActivities = useMemo(() => {
-    const all = activitiesData?.activities ?? [];
+    const all = activitiesData && 'data' in activitiesData ? activitiesData.data : [];
     return all.filter((a) => a.source === selectedTool);
   }, [activitiesData, selectedTool]);
 
@@ -601,7 +601,7 @@ export function ProfileViewPage() {
   const draftStories = useMemo(() => allStories.filter((s) => !s.isPublished), [allStories]);
 
   // All activities for the activity tab
-  const allActivities = activitiesData?.activities ?? [];
+  const allActivities = activitiesData && 'data' in activitiesData ? activitiesData.data : [];
 
   // Playbook items (derivations + packets)
   const playbook: StoryDerivation[] = useMemo(() => {
