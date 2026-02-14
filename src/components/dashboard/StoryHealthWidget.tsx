@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, CheckCircle, PenLine, Clock, Activity, BarChart3, Package } from 'lucide-react';
+import { BookOpen, CheckCircle, XCircle, PenLine, Activity, BarChart3, Package } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { cn } from '../../lib/utils';
 import { useListCareerStories, usePackets } from '../../hooks/useCareerStories';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { BRAG_DOC_CATEGORIES } from '../career-stories/constants';
-import type { CareerStory, BragDocCategory } from '../../types/career-stories';
+import type { CareerStory } from '../../types/career-stories';
 
 function MiniGauge({ score }: { score: number }) {
   const r = 20;
@@ -34,12 +34,6 @@ function MiniGauge({ score }: { score: number }) {
   );
 }
 
-function getHealthLabel(score: number) {
-  if (score >= 75) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Healthy' };
-  if (score >= 50) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Needs Attention' };
-  return { bg: 'bg-red-100', text: 'text-red-700', label: 'At Risk' };
-}
-
 export function StoryHealthWidget() {
   const { data: storiesResult } = useListCareerStories();
   const { data: packets } = usePackets();
@@ -54,41 +48,29 @@ export function StoryHealthWidget() {
 
   const publishedCount = stories.filter((s) => s.isPublished).length;
 
-  // Draft stories from activity grouping
   const draftGroupCount = useMemo(() => {
     if (!activitiesData || !isGroupedResponse(activitiesData)) return 0;
     return activitiesData.groups.filter((g) => g.key !== 'unassigned').length;
   }, [activitiesData]);
 
-  const pendingReviewCount = stories.filter((s) => s.needsRegeneration).length;
   const packetsCount = packets?.length ?? 0;
 
-  // Coverage: unique categories used vs total BRAG_DOC_CATEGORIES
-  const totalCategories = BRAG_DOC_CATEGORIES.length;
-  const usedCategories = useMemo(() => {
+  // Coverage: which BRAG_DOC_CATEGORIES have stories
+  const coveredCategories = useMemo(() => {
     const cats = new Set<string>();
     for (const s of stories) {
       if (s.category) cats.add(s.category);
     }
-    return cats.size;
+    return cats;
   }, [stories]);
-  const coveragePercent = totalCategories > 0 ? Math.round((usedCategories / totalCategories) * 100) : 0;
 
   // Health score: published ratio × 100
   const healthScore = stories.length > 0 ? Math.round((publishedCount / stories.length) * 100) : 0;
-  const health = getHealthLabel(healthScore);
 
   const cards = [
     {
       title: 'Impact Score',
-      content: (
-        <div className="flex items-center gap-3">
-          <MiniGauge score={healthScore} />
-          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', health.bg, health.text)}>
-            {health.label}
-          </span>
-        </div>
-      ),
+      content: <MiniGauge score={healthScore} />,
       icon: Activity,
       iconColor: 'text-primary-500',
       iconBg: 'bg-primary-50',
@@ -111,14 +93,6 @@ export function StoryHealthWidget() {
       link: '/stories',
     },
     {
-      title: 'Pending Review',
-      content: <p className="text-3xl font-bold text-red-700">{pendingReviewCount}</p>,
-      icon: Clock,
-      iconColor: 'text-red-500',
-      iconBg: 'bg-red-50',
-      link: '/stories',
-    },
-    {
       title: 'Packets',
       content: <p className="text-3xl font-bold text-gray-900">{packetsCount}</p>,
       icon: Package,
@@ -129,17 +103,23 @@ export function StoryHealthWidget() {
     {
       title: 'Coverage',
       content: (
-        <div>
-          <p className="text-xl font-bold text-gray-900">
-            {usedCategories}/{totalCategories}
-          </p>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+        <div className="grid grid-cols-2 gap-1">
+          {BRAG_DOC_CATEGORIES.map((cat) => (
             <div
-              className="h-full rounded-full bg-primary-500 transition-all"
-              style={{ width: `${coveragePercent}%` }}
-            />
-          </div>
-          <p className="mt-1 text-[10px] text-gray-400">{coveragePercent}% areas covered</p>
+              key={cat.value}
+              className={cn(
+                'flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium',
+                coveredCategories.has(cat.value) ? 'text-emerald-700' : 'text-red-400'
+              )}
+            >
+              {coveredCategories.has(cat.value) ? (
+                <CheckCircle className="h-2.5 w-2.5 flex-shrink-0" />
+              ) : (
+                <XCircle className="h-2.5 w-2.5 flex-shrink-0" />
+              )}
+              <span className="truncate">{cat.label}</span>
+            </div>
+          ))}
         </div>
       ),
       icon: BarChart3,
@@ -155,7 +135,7 @@ export function StoryHealthWidget() {
         <CardTitle className="text-lg">Story Health</CardTitle>
       </CardHeader>
       <CardContent className="pb-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {cards.map((card) => {
             const Icon = card.icon;
             const inner = (

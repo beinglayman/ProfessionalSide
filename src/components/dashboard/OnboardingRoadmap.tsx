@@ -56,11 +56,11 @@ export function OnboardingRoadmap() {
   const completedCount = steps.filter((s) => s.completed).length;
   const allDone = completedCount === steps.length;
 
-  // SVG dimensions
+  // SVG dimensions (compact)
   const width = 560;
-  const height = 180;
+  const height = 56;
   const padX = 40;
-  const amplitude = 40;
+  const amplitude = 14;
   const midY = height / 2;
   const segmentCount = 200;
 
@@ -90,26 +90,26 @@ export function OnboardingRoadmap() {
 
   return (
     <Card className="overflow-hidden rounded-xl">
-      <CardHeader className="pb-1">
+      <CardHeader className="py-2 px-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Your Roadmap</CardTitle>
-          <span className="text-xs text-gray-500">
-            {completedCount} of {steps.length} milestones
+          <CardTitle className="text-base">Your Roadmap</CardTitle>
+          <span className="text-[11px] text-gray-500">
+            {completedCount}/{steps.length} milestones
           </span>
         </div>
       </CardHeader>
 
-      <CardContent className="px-2 pb-4">
+      <CardContent className="px-2 pb-3 pt-0">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full"
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Future path (dashed) */}
-          <path d={fullPath} fill="none" stroke="#d1d5db" strokeWidth={3} strokeDasharray="8 6" />
+          <path d={fullPath} fill="none" stroke="#d1d5db" strokeWidth={2} strokeDasharray="6 4" />
           {/* Progress path (solid purple) */}
           {progressPath && (
-            <path d={progressPath} fill="none" stroke="#5D259F" strokeWidth={3} strokeLinecap="round" />
+            <path d={progressPath} fill="none" stroke="#5D259F" strokeWidth={2} strokeLinecap="round" />
           )}
 
           {/* Milestones */}
@@ -125,10 +125,10 @@ export function OnboardingRoadmap() {
               <g key={step.id}>
                 <text
                   x={cx}
-                  y={labelAbove ? cy - 22 : cy + 30}
+                  y={labelAbove ? cy - 14 : cy + 20}
                   textAnchor="middle"
                   className={cn(
-                    'text-[11px] font-medium',
+                    'text-[9px] font-medium',
                     isCompleted && 'fill-primary-700',
                     isCurrent && 'fill-primary-800 font-semibold',
                     isFuture && 'fill-gray-400'
@@ -139,8 +139,8 @@ export function OnboardingRoadmap() {
 
                 {isCurrent && (
                   <circle
-                    cx={cx} cy={cy} r={16}
-                    fill="none" stroke="#5D259F" strokeWidth={2} opacity={0.3}
+                    cx={cx} cy={cy} r={10}
+                    fill="none" stroke="#5D259F" strokeWidth={1.5} opacity={0.3}
                     className="animate-ping"
                     style={{ transformOrigin: `${cx}px ${cy}px` }}
                   />
@@ -148,19 +148,19 @@ export function OnboardingRoadmap() {
 
                 <circle
                   cx={cx} cy={cy}
-                  r={isCurrent ? 12 : 10}
+                  r={isCurrent ? 7 : 6}
                   fill={isFuture ? '#e5e7eb' : '#5D259F'}
-                  stroke="white" strokeWidth={3}
+                  stroke="white" strokeWidth={2}
                 />
 
                 {isCompleted && (
-                  <text x={cx} y={cy + 4} textAnchor="middle" className="fill-white text-[12px] font-bold">
+                  <text x={cx} y={cy + 3} textAnchor="middle" className="fill-white text-[8px] font-bold">
                     &#10003;
                   </text>
                 )}
 
                 {isCurrent && (
-                  <text x={cx} y={cy + 4} textAnchor="middle" className="fill-white text-[12px]">
+                  <text x={cx} y={cy + 3} textAnchor="middle" className="fill-white text-[8px]">
                     &#9873;
                   </text>
                 )}
@@ -170,11 +170,11 @@ export function OnboardingRoadmap() {
         </svg>
 
         {/* Current step description + CTA */}
-        <div className="mt-2 flex items-center justify-between px-4">
-          <p className="text-sm text-gray-600">
+        <div className="mt-1 flex flex-col items-center text-center px-4">
+          <p className="text-xs text-gray-600">
             <span className="font-medium text-gray-800">Next:</span> {currentStep.description}
           </p>
-          <Button size="sm" onClick={() => navigate(currentStep.route)}>
+          <Button size="sm" className="mt-2" onClick={() => navigate(currentStep.route)}>
             {currentStep.label}
           </Button>
         </div>

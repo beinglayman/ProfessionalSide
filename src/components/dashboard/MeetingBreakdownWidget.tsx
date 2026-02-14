@@ -94,7 +94,9 @@ export function MeetingBreakdownWidget() {
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Calendar className="h-10 w-10 text-gray-300 mb-3" />
             <p className="text-sm text-gray-500">
-              Connect Google Calendar or Outlook to see meeting breakdown
+              {hasCalendarIntegration
+                ? 'No meeting data synced yet. Try syncing your calendar.'
+                : 'Connect Google Calendar or Outlook to see meeting breakdown'}
             </p>
           </div>
         </CardContent>
