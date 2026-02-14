@@ -382,7 +382,7 @@ export const TOOL_META: Record<ConnectedTool, { label: string; color: string; bg
 
 export const mockReducedProfile: MockReducedProfile = {
   name: 'Alexandra Chen',
-  role: 'Team Lead',
+  role: 'Developer',
   title: 'Senior Software Engineer',
   company: 'TechVault Inc.',
   avatar: '',

@@ -13,15 +13,16 @@ interface ProfessionalBasicsProps {
 }
 
 const ROLES = [
-  'Individual Contributor',
-  'Team Lead',
-  'Manager',
-  'Senior Manager',
-  'Director',
-  'VP',
-  'C-Suite',
-  'Founder',
-  'Freelancer / Consultant',
+  'Developer',
+  'Designer',
+  'Tester / QA',
+  'Product Manager',
+  'Project Manager',
+  'Engineering Manager',
+  'Data / Analytics',
+  'DevOps / SRE',
+  'Security',
+  'Technical Writer',
   'Other',
 ];
 
