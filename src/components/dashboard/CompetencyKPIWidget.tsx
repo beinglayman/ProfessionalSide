@@ -170,11 +170,12 @@ export function CompetencyKPIWidget() {
     return last14Days.map((dateStr, i) => {
       const d = new Date(dateStr + 'T12:00:00'); // noon to avoid timezone shift
       const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'narrow' }); // M, T, W...
+      const dayNum = d.getDate();
       const month = d.toLocaleDateString('en-US', { month: 'short' });
       const showMonth = month !== lastMonth;
       if (showMonth) lastMonth = month;
       const isToday = i === last14Days.length - 1;
-      return { dayAbbr, month: showMonth ? month : '', isToday };
+      return { dayAbbr, dayNum, month: showMonth ? month : '', isToday };
     });
   }, [last14Days]);
 
@@ -230,26 +231,35 @@ export function CompetencyKPIWidget() {
             {/* Column headers — month markers + day abbreviations */}
             <div className="flex items-end gap-3 mb-1.5">
               <div className="w-[120px] shrink-0" />
-              <div className="flex flex-1 gap-1">
+              <div className="flex gap-1">
                 {columnLabels.map((col, i) => (
-                  <div key={i} className="flex-1 text-center min-w-0">
+                  <div key={i} className="w-[30px] text-center">
                     {col.month && (
-                      <div className="text-[9px] font-medium text-gray-500 leading-none mb-0.5">{col.month}</div>
+                      <div className="text-[8px] font-medium text-gray-500 leading-none mb-0.5">{col.month}</div>
                     )}
                     <div className={cn(
-                      'text-[9px] leading-none',
+                      'text-[8px] leading-none',
                       col.isToday ? 'text-primary-600 font-bold' : 'text-gray-400',
                     )}>
                       {col.dayAbbr}
                     </div>
+                    <div className={cn(
+                      'text-[7px] leading-none mt-0.5',
+                      col.isToday ? 'text-primary-600 font-bold' : 'text-gray-300',
+                    )}>
+                      {col.dayNum}
+                    </div>
+                    {col.isToday && (
+                      <div className="mx-auto mt-0.5 w-1 h-1 rounded-full bg-primary-500" />
+                    )}
                   </div>
                 ))}
               </div>
               <div className="w-10 shrink-0" />
             </div>
 
-            {/* Heatmap rows */}
-            {grid.map((area) => {
+            {/* Heatmap rows (hide empty rows) */}
+            {grid.filter((area) => area.total > 0).map((area) => {
               const Icon = area.icon;
               return (
                 <div key={area.name} className="flex items-center gap-3 mb-1">
@@ -257,14 +267,14 @@ export function CompetencyKPIWidget() {
                     <Icon className="h-3.5 w-3.5 text-primary-500" />
                     <span className="text-xs text-gray-600 truncate">{area.name}</span>
                   </div>
-                  <div className="flex flex-1 gap-1">
+                  <div className="flex gap-1">
                     {area.days.map((level, di) => {
                       const count = area.counts[di];
                       return (
                         <div
                           key={di}
                           className={cn(
-                            'flex-1 aspect-square rounded-sm transition-transform hover:scale-110',
+                            'w-[30px] h-[30px] rounded-sm transition-transform hover:scale-110',
                             INTENSITY_COLORS[level],
                           )}
                           title={`${area.name} — ${formatTooltipDate(last14Days[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
