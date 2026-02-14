@@ -21,7 +21,6 @@ import {
   Activity,
   Calendar,
   Clock,
-  Edit,
   Library,
   Mic,
   Share2,
@@ -38,6 +37,20 @@ import {
 /* ------------------------------------------------------------------ */
 
 type Tab = 'published' | 'drafts' | 'activity' | 'playbook';
+
+/* ── Header gradient variations (purple / primary family) ── */
+const HEADER_GRADIENTS = [
+  { id: 1, name: 'Deep Purple', class: 'bg-gradient-to-br from-primary-700 via-primary-800 to-gray-900', dot: 'bg-primary-700' },
+  { id: 2, name: 'Purple Dusk', class: 'bg-gradient-to-br from-purple-700 via-primary-900 to-slate-900', dot: 'bg-purple-700' },
+  { id: 3, name: 'Violet Fade', class: 'bg-gradient-to-br from-violet-600 via-purple-800 to-primary-950', dot: 'bg-violet-600' },
+  { id: 4, name: 'Royal Indigo', class: 'bg-gradient-to-br from-indigo-600 via-primary-800 to-purple-950', dot: 'bg-indigo-600' },
+  { id: 5, name: 'Plum Night', class: 'bg-gradient-to-br from-primary-800 via-purple-900 to-gray-950', dot: 'bg-primary-800' },
+  { id: 6, name: 'Amethyst', class: 'bg-gradient-to-br from-purple-600 via-violet-700 to-primary-900', dot: 'bg-purple-600' },
+  { id: 7, name: 'Grape Noir', class: 'bg-gradient-to-br from-primary-900 via-purple-800 to-violet-950', dot: 'bg-primary-900' },
+  { id: 8, name: 'Soft Mauve', class: 'bg-gradient-to-br from-purple-500 via-primary-700 to-slate-800', dot: 'bg-purple-500' },
+  { id: 9, name: 'Midnight Iris', class: 'bg-gradient-to-br from-indigo-700 via-violet-900 to-primary-950', dot: 'bg-indigo-700' },
+  { id: 10, name: 'Orchid', class: 'bg-gradient-to-br from-fuchsia-700 via-purple-800 to-primary-900', dot: 'bg-fuchsia-700' },
+];
 
 /* ── Status-based ring colors for Icon Row ── */
 const STATUS_RING: Record<string, { ring: string; dotClass: string; label: string; pulse: boolean }> = {
@@ -122,8 +135,8 @@ function ToolIconRow({
             className={cn(
               'flex h-10 w-10 items-center justify-center rounded-full ring-2 transition-all',
               statusCfg.ring,
-              isSelected ? 'scale-110 ring-[3px] shadow-md bg-white' : 'hover:scale-105',
-              !isSelected && (ta.status === 'disconnected' ? 'bg-white/10' : 'bg-white/90'),
+              isSelected ? 'scale-110 ring-[3px] shadow-md' : 'hover:scale-105',
+              'bg-white',
             )}
             title={meta.label}
           >
@@ -498,6 +511,7 @@ export function ProfileV21() {
   const p = mockReducedProfile;
   const initials = getInitials(p.name);
   const [activeTab, setActiveTab] = useState<Tab>('published');
+  const [headerVariant, setHeaderVariant] = useState(0);
   const [selectedToolId, setSelectedToolId] = useState<ConnectedTool>(
     p.connectedTools[0]?.tool ?? 'github',
   );
@@ -514,12 +528,35 @@ export function ProfileV21() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ── Hero Band ── */}
-      <div className="bg-gradient-to-br from-primary-700 via-primary-800 to-gray-900">
+      <div className={cn('relative', HEADER_GRADIENTS[headerVariant].class)}>
+        {/* Gradient switcher dots */}
+        <div className="absolute right-4 top-4 flex gap-1.5">
+          {HEADER_GRADIENTS.map((g, idx) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setHeaderVariant(idx)}
+              className={cn(
+                'h-3 w-3 rounded-full border transition-all',
+                idx === headerVariant
+                  ? 'border-white scale-125 ring-1 ring-white/50'
+                  : 'border-white/40 hover:border-white/80',
+                g.dot,
+              )}
+              title={g.name}
+            />
+          ))}
+        </div>
+
         <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-10">
           {/* Avatar */}
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-white">
-            <span className="text-2xl font-bold">{initials}</span>
-          </div>
+          {p.avatar ? (
+            <img src={p.avatar} alt={p.name} className="h-20 w-20 rounded-full object-cover ring-4 ring-white/20" />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-white">
+              <span className="text-2xl font-bold">{initials}</span>
+            </div>
+          )}
 
           {/* Name */}
           <h1 className="mt-4 text-2xl font-bold text-white">{p.name}</h1>
@@ -539,20 +576,10 @@ export function ProfileV21() {
           </div>
 
           {/* Detail Panel — selected tool */}
-          <div className="mt-1 w-full max-w-md">
+          <div className="mt-3 w-full">
             <ToolDetailPanel tool={selectedTool} />
           </div>
 
-          {/* Stats + Edit */}
-          <div className="mt-4 flex items-center gap-4">
-            <p className="text-sm text-white/60">
-              {p.publishedStories.length} stories &middot; {p.totalActivities} activities
-            </p>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/25">
-              <Edit className="h-3.5 w-3.5" />
-              Edit
-            </button>
-          </div>
         </div>
       </div>
 
