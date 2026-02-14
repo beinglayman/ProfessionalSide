@@ -123,7 +123,7 @@ function ToolIconRow({
               'flex h-10 w-10 items-center justify-center rounded-full ring-2 transition-all',
               statusCfg.ring,
               isSelected ? 'scale-110 ring-[3px] shadow-md bg-white' : 'hover:scale-105',
-              ta.status === 'disconnected' ? 'bg-gray-50' : 'bg-white',
+              !isSelected && (ta.status === 'disconnected' ? 'bg-white/10' : 'bg-white/90'),
             )}
             title={meta.label}
           >
@@ -144,12 +144,12 @@ function ToolDetailPanel({ tool }: { tool: MockToolActivity }) {
   const statusCfg = STATUS_RING[tool.status] ?? STATUS_RING.disconnected;
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-200 bg-white/60 px-4 py-3 transition-all">
+    <div className="mt-3 rounded-xl border border-white/20 bg-white/10 px-4 py-3 transition-all">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ToolIcon tool={tool.tool as ToolType} size={24} disabled={tool.status === 'disconnected'} />
           <div>
-            <h4 className="text-sm font-semibold text-gray-800">{meta.label}</h4>
+            <h4 className="text-sm font-semibold text-white">{meta.label}</h4>
             <div className="mt-0.5 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 {statusCfg.pulse && (
@@ -157,9 +157,9 @@ function ToolDetailPanel({ tool }: { tool: MockToolActivity }) {
                 )}
                 <span className={cn('relative inline-flex h-2 w-2 rounded-full', statusCfg.dotClass)} />
               </span>
-              <span className="text-xs text-gray-500">{statusCfg.label}</span>
+              <span className="text-xs text-white/70">{statusCfg.label}</span>
               {tool.status === 'active' && tool.recentItems.length > 0 && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-white/50">
                   &middot; Synced {formatRelativeTime(tool.recentItems[0].date)}
                 </span>
               )}
@@ -168,19 +168,19 @@ function ToolDetailPanel({ tool }: { tool: MockToolActivity }) {
         </div>
         {tool.activityCount > 0 && (
           <div className="text-right">
-            <p className="text-lg font-bold text-gray-800">{tool.activityCount}</p>
-            <p className="text-[10px] text-gray-400">activities</p>
+            <p className="text-lg font-bold text-white">{tool.activityCount}</p>
+            <p className="text-[10px] text-white/50">activities</p>
           </div>
         )}
       </div>
 
       {/* Recent items preview */}
       {tool.recentItems.length > 0 && (
-        <ul className="mt-2 space-y-1 border-t border-gray-100 pt-2">
+        <ul className="mt-2 space-y-1 border-t border-white/20 pt-2">
           {tool.recentItems.slice(0, 3).map((item, idx) => (
             <li key={idx} className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="truncate text-gray-600">{item.title}</span>
-              <span className="shrink-0 text-gray-400">
+              <span className="truncate text-white/80">{item.title}</span>
+              <span className="shrink-0 text-white/50">
                 {formatRelativeTime(item.date)}
               </span>
             </li>
@@ -190,14 +190,14 @@ function ToolDetailPanel({ tool }: { tool: MockToolActivity }) {
 
       {/* Disconnected state */}
       {tool.status === 'disconnected' && (
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-white/40">
           Connect this tool to start capturing activities.
         </p>
       )}
 
       {/* Error state */}
       {tool.status === 'error' && (
-        <p className="mt-2 text-xs text-red-500">
+        <p className="mt-2 text-xs text-red-300">
           Sync issue detected. Reconnect to resume activity capture.
         </p>
       )}
@@ -514,18 +514,18 @@ export function ProfileV21() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ── Hero Band ── */}
-      <div className="bg-gradient-to-r from-primary-50 to-primary-100">
+      <div className="bg-gradient-to-br from-primary-700 via-primary-800 to-gray-900">
         <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-10">
           {/* Avatar */}
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-primary-700 shadow-sm ring-4 ring-white">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-white">
             <span className="text-2xl font-bold">{initials}</span>
           </div>
 
           {/* Name */}
-          <h1 className="mt-4 text-2xl font-bold text-gray-900">{p.name}</h1>
+          <h1 className="mt-4 text-2xl font-bold text-white">{p.name}</h1>
 
           {/* Role + Title */}
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-white/80">
             {p.role} &middot; {p.title} at {p.company}
           </p>
 
@@ -545,10 +545,10 @@ export function ProfileV21() {
 
           {/* Stats + Edit */}
           <div className="mt-4 flex items-center gap-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-white/60">
               {p.publishedStories.length} stories &middot; {p.totalActivities} activities
             </p>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+            <button className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/25">
               <Edit className="h-3.5 w-3.5" />
               Edit
             </button>
