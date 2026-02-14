@@ -230,9 +230,9 @@ export function CompetencyKPIWidget() {
             {/* Column headers — month markers + day abbreviations */}
             <div className="flex items-end gap-3 mb-1.5">
               <div className="w-[120px] shrink-0" />
-              <div className="flex gap-[3px]">
+              <div className="flex flex-1 gap-1">
                 {columnLabels.map((col, i) => (
-                  <div key={i} className="w-3.5 text-center">
+                  <div key={i} className="flex-1 text-center min-w-0">
                     {col.month && (
                       <div className="text-[9px] font-medium text-gray-500 leading-none mb-0.5">{col.month}</div>
                     )}
@@ -257,14 +257,14 @@ export function CompetencyKPIWidget() {
                     <Icon className="h-3.5 w-3.5 text-primary-500" />
                     <span className="text-xs text-gray-600 truncate">{area.name}</span>
                   </div>
-                  <div className="flex gap-[3px]">
+                  <div className="flex flex-1 gap-1">
                     {area.days.map((level, di) => {
                       const count = area.counts[di];
                       return (
                         <div
                           key={di}
                           className={cn(
-                            'w-3.5 h-3.5 rounded-sm transition-transform hover:scale-125',
+                            'flex-1 aspect-square rounded-sm transition-transform hover:scale-110',
                             INTENSITY_COLORS[level],
                           )}
                           title={`${area.name} — ${formatTooltipDate(last14Days[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
