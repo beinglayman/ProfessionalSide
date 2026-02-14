@@ -205,7 +205,7 @@ export function Header({ networkType, onNetworkTypeChange }: HeaderProps) {
                     "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150",
                     isActiveLink('/register')
                       ? "bg-primary-600 text-white shadow-sm"
-                      : "bg-gray-900 text-white hover:bg-gray-800"
+                      : "bg-primary-600 text-white hover:bg-primary-700"
                   )}
                 >
                   Sign up
