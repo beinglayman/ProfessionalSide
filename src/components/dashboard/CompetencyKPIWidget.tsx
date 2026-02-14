@@ -113,28 +113,29 @@ export function CompetencyKPIWidget() {
     return { grid: intensityGrid, hasData: max > 0 };
   }, [activities, last14Days]);
 
-  // Radar data: average intensity per area, scaled to 0–100
-  const radarData = useMemo(() => {
-    const labels = grid.map((a) => a.name);
-    const values = grid.map((a) => {
+  // Radar values: average intensity per area, scaled to 0–100
+  const radarValues = useMemo(() => {
+    return grid.map((a) => {
       const avg = a.days.reduce((s, v) => s + v, 0) / a.days.length;
       return Math.round((avg / 4) * 100);
     });
-
-    return {
-      labels,
-      datasets: [{
-        label: 'Activity %',
-        data: values,
-        backgroundColor: 'rgba(93, 37, 159, 0.2)',
-        borderColor: '#7C3AED',
-        borderWidth: 2,
-        pointBackgroundColor: '#7C3AED',
-        pointRadius: 4,
-        fill: true,
-      }],
-    };
   }, [grid]);
+
+  const radarData = useMemo(() => ({
+    labels: grid.map((a) => a.name),
+    datasets: [{
+      label: 'Activity %',
+      data: radarValues,
+      backgroundColor: 'rgba(93, 37, 159, 0.2)',
+      borderColor: '#7C3AED',
+      borderWidth: 2,
+      pointBackgroundColor: '#7C3AED',
+      pointRadius: 4,
+      fill: true,
+    }],
+  }), [grid, radarValues]);
+
+  const dynamicMax = Math.max(40, Math.ceil(Math.max(...radarValues, 1) / 10) * 10);
 
   const radarOptions = useMemo(() => ({
     responsive: true,
@@ -142,11 +143,15 @@ export function CompetencyKPIWidget() {
     scales: {
       r: {
         min: 0,
-        max: 100,
-        ticks: { stepSize: 25, display: true, backdropColor: 'transparent', font: { size: 9 }, color: '#9CA3AF' },
+        max: dynamicMax,
+        ticks: { stepSize: dynamicMax / 4, display: true, backdropColor: 'transparent', font: { size: 9 }, color: '#9CA3AF' },
         grid: { color: '#E5E7EB' },
         angleLines: { color: '#E5E7EB' },
-        pointLabels: { font: { size: 11, weight: '500' as const }, color: '#374151' },
+        pointLabels: {
+          font: { size: 11, weight: '500' as const },
+          color: '#374151',
+          callback: (label: string, index: number) => `${label} (${radarValues[index]}%)`,
+        },
       },
     },
     plugins: {
@@ -157,7 +162,7 @@ export function CompetencyKPIWidget() {
         },
       },
     },
-  }), []);
+  }), [dynamicMax, radarValues]);
 
   // Column header labels for heatmap (day abbreviations with month markers)
   const columnLabels = useMemo(() => {
