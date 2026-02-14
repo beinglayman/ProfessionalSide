@@ -1,8 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useListCareerStories, usePackets, useSingleDerivations } from '../../hooks/useCareerStories';
@@ -67,18 +65,18 @@ export function OnboardingRoadmap() {
   const completedCount = steps.filter((s) => s.completed).length;
   const allDone = completedCount === steps.length;
 
-  // SVG dimensions — compact single arch
+  // SVG dimensions — taller viewBox for reasonable scaling
   const width = 560;
-  const height = 70;
-  const padX = 36;
-  const amplitude = 8;
-  const midY = height / 2 + 8; // shift down to leave room for labels above
+  const height = 130;
+  const padX = 40;
+  const amplitude = 22;
+  const midY = 65;
   const pointsPerSegment = 60;
 
   const milestoneXs = steps.map((_, i) => padX + (i / (steps.length - 1)) * (width - padX * 2));
   const milestoneYs = steps.map((_, i) => {
     const t = i / (steps.length - 1);
-    return midY - amplitude * Math.sin(t * Math.PI);
+    return midY - amplitude * Math.sin(t * Math.PI * 2);
   });
 
   // Per-segment paths (5 segments between 6 milestones)
@@ -91,7 +89,7 @@ export function OnboardingRoadmap() {
       for (let i = 0; i <= pointsPerSegment; i++) {
         const t = startT + (i / pointsPerSegment) * (endT - startT);
         const x = padX + t * (width - padX * 2);
-        const y = midY - amplitude * Math.sin(t * Math.PI);
+        const y = midY - amplitude * Math.sin(t * Math.PI * 2);
         points.push(`${i === 0 ? 'M' : 'L'}${x},${y}`);
       }
       result.push({ d: points.join(' '), completed: steps[seg].completed });
@@ -110,43 +108,46 @@ export function OnboardingRoadmap() {
 
   if (minimized) {
     return (
-      <Card className="overflow-hidden rounded-xl">
+      <div className="overflow-hidden rounded-xl bg-gradient-to-br from-[#4C1D95] via-[#5B21B6] to-[#7C3AED] shadow-lg">
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-xs text-gray-500">
-            Your Roadmap: {completedCount}/{steps.length} completed
+          <span className="text-xs text-white/70">
+            Getting Started: {completedCount}/{steps.length} completed
           </span>
           <button
             onClick={() => toggleMinimized(false)}
-            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            className="text-xs text-white/80 hover:text-white font-medium"
           >
             Expand
           </button>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="overflow-hidden rounded-xl">
-      <CardHeader className="py-2 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Your Roadmap</CardTitle>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-500">
-              {completedCount}/{steps.length} milestones
-            </span>
-            <button
-              onClick={() => toggleMinimized(true)}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-              aria-label="Minimize roadmap"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+    <div className="overflow-hidden rounded-xl bg-gradient-to-br from-[#4C1D95] via-[#5B21B6] to-[#7C3AED] shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between py-3 px-4">
+        <div>
+          <h3 className="text-base font-semibold text-white">Getting Started</h3>
+          <p className="text-xs text-white/60 mt-0.5">Complete each step to unlock your full experience</p>
         </div>
-      </CardHeader>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-white/50">
+            {completedCount}/{steps.length}
+          </span>
+          <button
+            onClick={() => toggleMinimized(true)}
+            className="rounded p-1 text-white/40 hover:bg-white/10 hover:text-white/70 transition-colors"
+            aria-label="Minimize roadmap"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
 
-      <CardContent className="px-2 pb-3 pt-0">
+      {/* Roadmap SVG */}
+      <div className="px-2 pb-1">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full"
@@ -158,8 +159,8 @@ export function OnboardingRoadmap() {
               key={i}
               d={seg.d}
               fill="none"
-              stroke={seg.completed ? '#5D259F' : '#d1d5db'}
-              strokeWidth={2}
+              stroke={seg.completed ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)'}
+              strokeWidth={1.5}
               strokeDasharray={seg.completed ? 'none' : '6 4'}
               strokeLinecap="round"
             />
@@ -173,19 +174,21 @@ export function OnboardingRoadmap() {
             const isCurrent = i === currentStepIndex;
             const isFuture = !isCompleted && !isCurrent;
 
+            // Alternate label above/below based on wave position
+            const labelAbove = cy >= midY;
+            const labelY = labelAbove ? cy - 7 : cy + 9;
+
             return (
               <g key={step.id} className="cursor-pointer" onClick={() => navigate(step.route)}>
-                {/* Label — always above */}
+                {/* Label */}
                 <text
                   x={cx}
-                  y={cy - 14}
+                  y={labelY}
                   textAnchor="middle"
-                  className={cn(
-                    'text-[9px] font-medium select-none',
-                    isCompleted && 'fill-primary-700',
-                    isCurrent && 'fill-primary-800 font-semibold',
-                    isFuture && 'fill-gray-400',
-                  )}
+                  fill={isCompleted ? 'rgba(255,255,255,0.85)' : isCurrent ? 'white' : 'rgba(255,255,255,0.35)'}
+                  fontSize={6}
+                  fontWeight={isCurrent ? 600 : 500}
+                  className="select-none"
                 >
                   {step.label}
                 </text>
@@ -193,8 +196,8 @@ export function OnboardingRoadmap() {
                 {/* Pulsing ring for current step */}
                 {isCurrent && (
                   <circle
-                    cx={cx} cy={cy} r={10}
-                    fill="none" stroke="#5D259F" strokeWidth={1.5} opacity={0.3}
+                    cx={cx} cy={cy} r={7}
+                    fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={1}
                     className="animate-ping"
                     style={{ transformOrigin: `${cx}px ${cy}px` }}
                   />
@@ -203,21 +206,22 @@ export function OnboardingRoadmap() {
                 {/* Milestone circle */}
                 <circle
                   cx={cx} cy={cy}
-                  r={isCurrent ? 7 : 6}
-                  fill={isFuture ? '#e5e7eb' : '#5D259F'}
-                  stroke="white" strokeWidth={2}
+                  r={isCurrent ? 3.5 : 3}
+                  fill={isFuture ? 'rgba(255,255,255,0.15)' : 'white'}
+                  stroke={isFuture ? 'rgba(255,255,255,0.3)' : isCompleted ? 'rgba(91,33,182,0.5)' : 'transparent'}
+                  strokeWidth={1}
                 />
 
                 {/* Checkmark for completed */}
                 {isCompleted && (
-                  <text x={cx} y={cy + 3} textAnchor="middle" className="fill-white text-[8px] font-bold">
+                  <text x={cx} y={cy + 1.5} textAnchor="middle" fill="#5B21B6" fontSize={5} fontWeight="bold">
                     &#10003;
                   </text>
                 )}
 
                 {/* Flag for current */}
                 {isCurrent && (
-                  <text x={cx} y={cy + 3} textAnchor="middle" className="fill-white text-[8px]">
+                  <text x={cx} y={cy + 1.5} textAnchor="middle" fill="#5B21B6" fontSize={5}>
                     &#9873;
                   </text>
                 )}
@@ -225,21 +229,27 @@ export function OnboardingRoadmap() {
             );
           })}
         </svg>
+      </div>
 
-        {/* Current step CTA — compact horizontal row */}
-        <div className="mt-1 flex items-center justify-between px-4">
-          <p className="text-xs text-gray-600">
-            {completedCount >= steps.length - 1 ? (
-              <><span className="font-medium text-primary-700">Almost there!</span> {currentStep.description}</>
-            ) : (
-              <><span className="font-medium text-gray-800">Next:</span> {currentStep.description}</>
-            )}
-          </p>
-          <Button size="sm" variant="ghost" className="text-xs text-primary-600 hover:text-primary-700 shrink-0" onClick={() => navigate(currentStep.route)}>
-            {currentStep.label} &rarr;
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* CTA — centered, cohesive */}
+      <div className="pb-3 flex flex-col items-center text-center gap-1 px-4">
+        <p className="text-xs text-white/70">
+          {completedCount >= steps.length - 1 ? (
+            <><span className="font-medium text-white">Almost there!</span> {currentStep.description}</>
+          ) : (
+            <><span className="font-medium text-white">Next:</span> {currentStep.description}</>
+          )}
+        </p>
+        <button
+          onClick={() => navigate(currentStep.route)}
+          className={cn(
+            'text-xs font-medium text-white/90 hover:text-white',
+            'bg-white/10 hover:bg-white/20 rounded-full px-4 py-1 transition-colors',
+          )}
+        >
+          {currentStep.label} &rarr;
+        </button>
+      </div>
+    </div>
   );
 }
