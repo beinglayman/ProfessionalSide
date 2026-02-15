@@ -54,7 +54,7 @@ function getISODay(date: Date): string {
 export function CompetencyKPIWidget() {
   const [view, setView] = useState<ViewMode>('heatmap');
 
-  const { data: activitiesData } = useActivities({ limit: 200 });
+  const { data: activitiesData } = useActivities({ limit: 400 });
   const activities = useMemo(() => {
     if (!activitiesData) return [];
     if (isGroupedResponse(activitiesData)) {
@@ -63,17 +63,25 @@ export function CompetencyKPIWidget() {
     return activitiesData.data ?? [];
   }, [activitiesData]);
 
-  // Build last 14 days
-  const last14Days = useMemo(() => {
+  // Build last 28 days
+  const last28Days = useMemo(() => {
     const days: string[] = [];
     const today = new Date();
-    for (let i = 13; i >= 0; i--) {
+    for (let i = 27; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       days.push(getISODay(d));
     }
     return days;
   }, []);
+
+  const isWeekStart = (index: number) => index > 0 && index % 7 === 0;
+
+  const isWeekend = (dateStr: string) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    const day = d.getDay();
+    return day === 0 || day === 6;
+  };
 
   // Map activities → work area × day grid
   const { grid, hasData } = useMemo(() => {
@@ -82,14 +90,14 @@ export function CompetencyKPIWidget() {
 
     for (const area of WORK_AREAS) {
       counts[area.name] = {};
-      for (const day of last14Days) {
+      for (const day of last28Days) {
         counts[area.name][day] = 0;
       }
     }
 
     for (const activity of activities) {
       const day = getISODay(new Date(activity.timestamp));
-      if (!last14Days.includes(day)) continue;
+      if (!last28Days.includes(day)) continue;
 
       for (const area of WORK_AREAS) {
         if (area.sources.includes(activity.source as any)) {
@@ -100,7 +108,7 @@ export function CompetencyKPIWidget() {
     }
 
     const intensityGrid = WORK_AREAS.map((area) => {
-      const rawCounts = last14Days.map((day) => counts[area.name][day] ?? 0);
+      const rawCounts = last28Days.map((day) => counts[area.name][day] ?? 0);
       return {
         name: area.name,
         icon: area.icon,
@@ -111,7 +119,7 @@ export function CompetencyKPIWidget() {
     });
 
     return { grid: intensityGrid, hasData: max > 0 };
-  }, [activities, last14Days]);
+  }, [activities, last28Days]);
 
   // Radar values: average intensity per area, scaled to 0–100
   const radarValues = useMemo(() => {
@@ -167,17 +175,17 @@ export function CompetencyKPIWidget() {
   // Column header labels for heatmap (day abbreviations with month markers)
   const columnLabels = useMemo(() => {
     let lastMonth = '';
-    return last14Days.map((dateStr, i) => {
+    return last28Days.map((dateStr, i) => {
       const d = new Date(dateStr + 'T12:00:00'); // noon to avoid timezone shift
       const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'narrow' }); // M, T, W...
       const dayNum = d.getDate();
       const month = d.toLocaleDateString('en-US', { month: 'short' });
       const showMonth = month !== lastMonth;
       if (showMonth) lastMonth = month;
-      const isToday = i === last14Days.length - 1;
+      const isToday = i === last28Days.length - 1;
       return { dayAbbr, dayNum, month: showMonth ? month : '', isToday };
     });
-  }, [last14Days]);
+  }, [last28Days]);
 
   // Format a date string for tooltip display
   const formatTooltipDate = (dateStr: string) => {
@@ -233,13 +241,13 @@ export function CompetencyKPIWidget() {
               <div className="w-[120px] shrink-0" />
               <div className="flex gap-1">
                 {columnLabels.map((col, i) => (
-                  <div key={i} className="w-[30px] text-center">
+                  <div key={i} className={cn('w-[20px] text-center', isWeekStart(i) && 'ml-1.5')}>
                     {col.month && (
                       <div className="text-[8px] font-medium text-gray-500 leading-none mb-0.5">{col.month}</div>
                     )}
                     <div className={cn(
                       'text-[8px] leading-none',
-                      col.isToday ? 'text-primary-600 font-bold' : 'text-gray-400',
+                      col.isToday ? 'text-primary-600 font-bold' : isWeekend(last28Days[i]) ? 'text-gray-300' : 'text-gray-400',
                     )}>
                       {col.dayAbbr}
                     </div>
@@ -270,14 +278,18 @@ export function CompetencyKPIWidget() {
                   <div className="flex gap-1">
                     {area.days.map((level, di) => {
                       const count = area.counts[di];
+                      const isToday = di === last28Days.length - 1;
                       return (
                         <div
                           key={di}
                           className={cn(
-                            'w-[30px] h-[30px] rounded-sm transition-transform hover:scale-110',
+                            'w-[20px] h-[20px] rounded-sm transition-transform hover:scale-110',
                             INTENSITY_COLORS[level],
+                            isWeekStart(di) && 'ml-1.5',
+                            isWeekend(last28Days[di]) && level === 0 && 'bg-gray-50',
+                            isToday && 'ring-1 ring-primary-400',
                           )}
-                          title={`${area.name} — ${formatTooltipDate(last14Days[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
+                          title={`${area.name} — ${formatTooltipDate(last28Days[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
                         />
                       );
                     })}
