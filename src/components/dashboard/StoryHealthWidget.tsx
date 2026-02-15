@@ -173,7 +173,7 @@ export function StoryHealthWidget() {
             const inner = (
               <div
                 className={cn(
-                  'rounded-xl border border-gray-100 bg-white p-4 transition-shadow hover:shadow-md',
+                  'h-full rounded-xl border border-gray-100 bg-white p-4 transition-shadow hover:shadow-md',
                   card.link && 'cursor-pointer'
                 )}
               >
