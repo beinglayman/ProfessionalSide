@@ -170,7 +170,7 @@ export function CompetencyKPIWidget() {
             {/* Column headers — month markers + day abbreviations */}
             <div className="flex items-end gap-3 mb-1.5">
               <div className="w-[120px] shrink-0" />
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-1">
                 {columnLabels.map((col, i) => (
                   <div key={i} className={cn('w-[20px] text-center', isWeekStart(i) && 'ml-1.5')}>
                     {col.month && (
@@ -194,7 +194,7 @@ export function CompetencyKPIWidget() {
                   </div>
                 ))}
               </div>
-              <div className="w-10 shrink-0" />
+              <span className="w-10 shrink-0 text-right text-[8px] font-medium text-gray-400">Total</span>
             </div>
 
             {/* Heatmap rows (hide empty rows) */}
@@ -206,7 +206,7 @@ export function CompetencyKPIWidget() {
                     <Icon className="h-3.5 w-3.5 text-primary-500" />
                     <span className="text-xs text-gray-600 truncate">{area.name}</span>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-1">
                     {area.days.map((level, di) => {
                       const count = area.counts[di];
                       const isToday = di === visibleDays.length - 1;
