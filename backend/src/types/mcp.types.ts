@@ -314,6 +314,7 @@ export interface ConfluenceActivity {
     lastModifiedBy: string;
     url: string;
     excerpt?: string;
+    labels?: string[];
   }>;
   blogPosts: Array<{
     id: string;
@@ -327,6 +328,7 @@ export interface ConfluenceActivity {
     author: string;
     url: string;
     excerpt?: string;
+    labels?: string[];
   }>;
   comments: Array<{
     id: string;

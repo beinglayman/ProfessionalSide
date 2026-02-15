@@ -429,7 +429,8 @@ export class ConfluenceTool {
             lastModifiedBy: authorName,
             author: authorName,
             url: page._links?.webui ? `${this.siteUrl}${page._links.webui}` : '',
-            excerpt: page.body?.storage?.value ? this.extractExcerpt(page.body.storage.value) : ''
+            excerpt: page.body?.storage?.value ? this.extractExcerpt(page.body.storage.value) : '',
+            labels: (page.labels?.results || []).map((l: any) => l.name || l.prefix + '/' + l.name).filter(Boolean),
           };
         })
       );
@@ -519,7 +520,8 @@ export class ConfluenceTool {
             publishedDate: post.version?.createdAt || post.createdAt,
             author: authorName,
             url: post._links?.webui ? `${this.siteUrl}${post._links.webui}` : '',
-            excerpt: post.body?.storage?.value ? this.extractExcerpt(post.body.storage.value) : ''
+            excerpt: post.body?.storage?.value ? this.extractExcerpt(post.body.storage.value) : '',
+            labels: (post.labels?.results || []).map((l: any) => l.name || l.prefix + '/' + l.name).filter(Boolean),
           };
         })
       );

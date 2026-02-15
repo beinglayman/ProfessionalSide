@@ -954,6 +954,76 @@ Return ONLY valid JSON, no additional text.
           });
         });
       }
+
+      if (toolType === MCPToolType.CONFLUENCE) {
+        const confluenceData = data as ConfluenceActivity;
+
+        // Add pages as documentation category
+        if (confluenceData.pages?.length) {
+          categories.push({
+            type: 'documentation',
+            label: 'Confluence Pages',
+            summary: `${confluenceData.pages.length} pages created/updated`,
+            suggestedEntryType: 'achievement',
+            items: confluenceData.pages.slice(0, 10).map(page => ({
+              id: `confluence-${page.id}`,
+              source: MCPToolType.CONFLUENCE,
+              type: 'page',
+              title: page.title,
+              description: page.excerpt || `Page in ${page.space?.name || page.space?.key || 'unknown space'}`,
+              url: page.url || '',
+              importance: (page.version || 1) > 3 ? 'high' as const : 'medium' as const,
+              selected: true
+            }))
+          });
+
+          // Add top pages as artifacts
+          confluenceData.pages.slice(0, 3).forEach(page => {
+            artifacts.push({
+              type: 'confluence_page',
+              source: MCPToolType.CONFLUENCE,
+              title: page.title,
+              url: page.url || '',
+              description: page.excerpt || 'Confluence page',
+              importance: (page.version || 1) > 3 ? 'high' : 'medium'
+            });
+          });
+
+          // Extract skills from page labels
+          confluenceData.pages.forEach(page => {
+            page.labels?.forEach(label => {
+              skills.add(label);
+            });
+          });
+        }
+
+        // Add blog posts as documentation category
+        if (confluenceData.blogPosts?.length) {
+          categories.push({
+            type: 'documentation',
+            label: 'Confluence Blog Posts',
+            summary: `${confluenceData.blogPosts.length} blog posts published`,
+            suggestedEntryType: 'achievement',
+            items: confluenceData.blogPosts.map(post => ({
+              id: `confluence-blog-${post.id}`,
+              source: MCPToolType.CONFLUENCE,
+              type: 'blog_post',
+              title: post.title,
+              description: post.excerpt || `Blog post by ${post.author || 'unknown'}`,
+              url: post.url || '',
+              importance: 'medium' as const,
+              selected: true
+            }))
+          });
+
+          // Extract skills from blog post labels
+          confluenceData.blogPosts.forEach(post => {
+            post.labels?.forEach(label => {
+              skills.add(label);
+            });
+          });
+        }
+      }
     });
 
     return {
