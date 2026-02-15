@@ -179,7 +179,7 @@ export function CompetencyKPIWidget() {
             {grid.filter((area) => area.total > 0).map((area) => {
               const Icon = area.icon;
               return (
-                <div key={area.name} className="flex items-center gap-3 mb-1">
+                <div key={area.name} className="flex items-center gap-3 py-1.5 border-b border-gray-100 last:border-b-0">
                   <div className="flex items-center gap-1.5 w-[120px] shrink-0">
                     <Icon className="h-3.5 w-3.5 text-primary-500" />
                     <span className="text-xs text-gray-600 truncate">{area.name}</span>
