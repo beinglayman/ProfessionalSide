@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import {
   FileText, MessageSquare, Code, Users, Paintbrush, Grid3X3,
 } from 'lucide-react';
@@ -47,17 +47,35 @@ export function CompetencyKPIWidget() {
     return activitiesData.data ?? [];
   }, [activitiesData]);
 
-  // Build last 28 days
-  const last28Days = useMemo(() => {
+  // Build last 35 days (5 weeks max)
+  const last35Days = useMemo(() => {
     const days: string[] = [];
     const today = new Date();
-    for (let i = 27; i >= 0; i--) {
+    for (let i = 34; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       days.push(getISODay(d));
     }
     return days;
   }, []);
+
+  // Responsive week count based on container width
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visibleWeeks, setVisibleWeeks] = useState(4);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const available = entry.contentRect.width - 184; // label + gaps + totals
+      const weeks = available >= 844 ? 5 : available >= 674 ? 4 : available >= 504 ? 3 : available >= 334 ? 2 : 1;
+      setVisibleWeeks(weeks);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const visibleDays = useMemo(() => last35Days.slice(-(visibleWeeks * 7)), [last35Days, visibleWeeks]);
 
   const isWeekStart = (index: number) => index > 0 && index % 7 === 0;
 
@@ -74,14 +92,14 @@ export function CompetencyKPIWidget() {
 
     for (const area of WORK_AREAS) {
       counts[area.name] = {};
-      for (const day of last28Days) {
+      for (const day of visibleDays) {
         counts[area.name][day] = 0;
       }
     }
 
     for (const activity of activities) {
       const day = getISODay(new Date(activity.timestamp));
-      if (!last28Days.includes(day)) continue;
+      if (!visibleDays.includes(day)) continue;
 
       for (const area of WORK_AREAS) {
         if (area.sources.includes(activity.source as any)) {
@@ -92,7 +110,7 @@ export function CompetencyKPIWidget() {
     }
 
     const intensityGrid = WORK_AREAS.map((area) => {
-      const rawCounts = last28Days.map((day) => counts[area.name][day] ?? 0);
+      const rawCounts = visibleDays.map((day) => counts[area.name][day] ?? 0);
       return {
         name: area.name,
         icon: area.icon,
@@ -103,22 +121,22 @@ export function CompetencyKPIWidget() {
     });
 
     return { grid: intensityGrid, hasData: max > 0 };
-  }, [activities, last28Days]);
+  }, [activities, visibleDays]);
 
   // Column header labels for heatmap (day abbreviations with month markers)
   const columnLabels = useMemo(() => {
     let lastMonth = '';
-    return last28Days.map((dateStr, i) => {
+    return visibleDays.map((dateStr, i) => {
       const d = new Date(dateStr + 'T12:00:00'); // noon to avoid timezone shift
       const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'narrow' }); // M, T, W...
       const dayNum = d.getDate();
       const month = d.toLocaleDateString('en-US', { month: 'short' });
       const showMonth = month !== lastMonth;
       if (showMonth) lastMonth = month;
-      const isToday = i === last28Days.length - 1;
+      const isToday = i === visibleDays.length - 1;
       return { dayAbbr, dayNum, month: showMonth ? month : '', isToday };
     });
-  }, [last28Days]);
+  }, [visibleDays]);
 
   // Format a date string for tooltip display
   const formatTooltipDate = (dateStr: string) => {
@@ -138,11 +156,15 @@ export function CompetencyKPIWidget() {
       <CardHeader className="pb-4">
         <div className="flex items-center gap-2">
           <Grid3X3 className="h-5 w-5 text-primary-600" />
-          <CardTitle className="text-base">Work Distribution</CardTitle>
+          <div>
+            <CardTitle className="text-base">Work Distribution</CardTitle>
+            <p className="text-xs text-gray-400">Last {visibleWeeks} {visibleWeeks === 1 ? 'week' : 'weeks'}</p>
+          </div>
         </div>
       </CardHeader>
 
       <CardContent>
+        <div ref={containerRef}>
         {!hasData ? emptyState : (
           <div className="space-y-0">
             {/* Column headers — month markers + day abbreviations */}
@@ -156,7 +178,7 @@ export function CompetencyKPIWidget() {
                     )}
                     <div className={cn(
                       'text-[8px] leading-none',
-                      col.isToday ? 'text-primary-600 font-bold' : isWeekend(last28Days[i]) ? 'text-gray-300' : 'text-gray-400',
+                      col.isToday ? 'text-primary-600 font-bold' : isWeekend(visibleDays[i]) ? 'text-gray-300' : 'text-gray-400',
                     )}>
                       {col.dayAbbr}
                     </div>
@@ -187,7 +209,7 @@ export function CompetencyKPIWidget() {
                   <div className="flex gap-1">
                     {area.days.map((level, di) => {
                       const count = area.counts[di];
-                      const isToday = di === last28Days.length - 1;
+                      const isToday = di === visibleDays.length - 1;
                       return (
                         <div
                           key={di}
@@ -195,10 +217,10 @@ export function CompetencyKPIWidget() {
                             'w-[20px] h-[20px] rounded-sm transition-transform hover:scale-110',
                             INTENSITY_COLORS[level],
                             isWeekStart(di) && 'ml-1.5',
-                            isWeekend(last28Days[di]) && level === 0 && 'bg-gray-50',
+                            isWeekend(visibleDays[di]) && level === 0 && 'bg-gray-50',
                             isToday && 'ring-1 ring-primary-400',
                           )}
-                          title={`${area.name} — ${formatTooltipDate(last28Days[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
+                          title={`${area.name} — ${formatTooltipDate(visibleDays[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
                         />
                       );
                     })}
@@ -211,6 +233,7 @@ export function CompetencyKPIWidget() {
             })}
           </div>
         )}
+        </div>
       </CardContent>
 
       {hasData && (
