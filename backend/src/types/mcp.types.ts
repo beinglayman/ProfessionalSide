@@ -116,6 +116,63 @@ export interface GitHubActivity {
     language: string;
     lastActivity: Date;
   }>;
+  releases?: Array<{
+    id: number;
+    tagName: string;
+    name: string;
+    body?: string;
+    author: string;
+    publishedAt: Date;
+    url: string;
+    repository?: string;
+    isDraft: boolean;
+    isPrerelease: boolean;
+  }>;
+  workflowRuns?: Array<{
+    id: number;
+    name: string;
+    status: string;
+    conclusion?: string;
+    workflowName: string;
+    event: string;
+    branch?: string;
+    runNumber: number;
+    createdAt: Date;
+    updatedAt: Date;
+    url: string;
+    repository?: string;
+  }>;
+  deployments?: Array<{
+    id: number;
+    environment: string;
+    description?: string;
+    creator: string;
+    createdAt: Date;
+    updatedAt: Date;
+    url: string;
+    repository?: string;
+    status?: string;
+    statusDescription?: string;
+  }>;
+  reviewComments?: Array<{
+    id: number;
+    prNumber: number;
+    prTitle?: string;
+    body: string;
+    author: string;
+    path: string;
+    createdAt: Date;
+    url: string;
+    repository?: string;
+  }>;
+  starredRepos?: Array<{
+    name: string;
+    description?: string;
+    language?: string;
+    stars: number;
+    url: string;
+    starredAt?: Date;
+  }>;
 }
 
 // Jira types
@@ -140,6 +197,13 @@ export interface JiraActivity {
     description?: string;
     commentCount?: number;
     url: string;
+    labels?: string[];
+    issueLinks?: Array<{
+      type: string;
+      linkedIssueKey: string;
+      linkedIssueSummary?: string;
+      linkedIssueStatus?: string;
+    }>;
   }>;
   projects: Array<{
     key: string;
@@ -156,6 +220,33 @@ export interface JiraActivity {
     startDate?: Date | string;
     endDate?: Date | string;
     goal?: string;
+  }>;
+  changelogs?: Array<{
+    issueKey: string;
+    issueSummary?: string;
+    field: string;
+    fromValue?: string;
+    toValue?: string;
+    author: string;
+    timestamp: Date;
+  }>;
+  worklogs?: Array<{
+    issueKey: string;
+    issueSummary?: string;
+    author: string;
+    timeSpentSeconds: number;
+    comment?: string;
+    started: Date;
+    url?: string;
+  }>;
+  versions?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    projectKey: string;
+    released: boolean;
+    releaseDate?: string;
+    url?: string;
   }>;
 }
 

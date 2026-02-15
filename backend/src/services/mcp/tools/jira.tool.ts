@@ -109,15 +109,28 @@ export class JiraTool {
 
       console.log(`[Jira Tool] Fetched ${issues.length} issues, ${projects.length} projects, ${sprints.length} sprints`);
 
+      // Stage 2: Fetch supplementary data (depends on issues/projects from Stage 1)
+      const [changelogs, worklogs, versions] = await Promise.all([
+        this.fetchChangelogs(issues),
+        this.fetchWorklogs(issues, startDate, endDate),
+        this.fetchVersions(projects)
+      ]);
+
+      console.log(`[Jira Tool] Fetched ${changelogs.length} changelogs, ${worklogs.length} worklogs, ${versions.length} versions`);
+
       // Compile activity data
       const activity: JiraActivity = {
         issues,
         projects,
-        sprints
+        sprints,
+        changelogs,
+        worklogs,
+        versions
       };
 
       // Calculate total items
-      const itemCount = issues.length + projects.length + sprints.length;
+      const itemCount = issues.length + projects.length + sprints.length +
+        changelogs.length + worklogs.length + versions.length;
 
       console.log(`[Jira Tool] === Summary ===`);
       console.log(`[Jira Tool] Issues: ${issues.length}`);
@@ -203,7 +216,7 @@ export class JiraTool {
       const response = await this.jiraApi!.post('/rest/api/3/search/jql', {
         jql,
         maxResults: 50,
-        fields: ['summary', 'status', 'assignee', 'reporter', 'priority', 'project', 'issuetype', 'created', 'updated', 'timespent', 'timeestimate', 'description', 'comment']
+        fields: ['summary', 'status', 'assignee', 'reporter', 'priority', 'project', 'issuetype', 'created', 'updated', 'timespent', 'timeestimate', 'description', 'comment', 'labels', 'issuelinks']
       });
 
       console.log(`[Jira Tool] Found ${response.data.issues?.length || 0} issues`);
@@ -227,7 +240,17 @@ export class JiraTool {
         timeEstimate: issue.fields.timeestimate,
         description: issue.fields.description?.content?.[0]?.content?.[0]?.text || '',
         commentCount: issue.fields.comment?.total || 0,
-        url: `${this.siteUrl}/browse/${issue.key}`
+        url: `${this.siteUrl}/browse/${issue.key}`,
+        labels: issue.fields.labels || [],
+        issueLinks: (issue.fields.issuelinks || []).map((link: any) => {
+          const linkedIssue = link.outwardIssue || link.inwardIssue;
+          return {
+            type: link.outwardIssue ? link.type?.outward : link.type?.inward,
+            linkedIssueKey: linkedIssue?.key || '',
+            linkedIssueSummary: linkedIssue?.fields?.summary || '',
+            linkedIssueStatus: linkedIssue?.fields?.status?.name || '',
+          };
+        }).filter((l: any) => l.linkedIssueKey),
       }));
     } catch (error: any) {
       console.error('[Jira Tool] Error fetching issues:', {
@@ -347,6 +370,134 @@ export class JiraTool {
   }
 
   /**
+   * Fetch issue changelogs (status transitions, assignee changes, priority changes)
+   * Only extracts meaningful field changes — skips noisy changes like description edits.
+   */
+  private async fetchChangelogs(issues: any[]): Promise<any[]> {
+    if (!issues.length) return [];
+
+    const allChangelogs: any[] = [];
+    const MEANINGFUL_FIELDS = ['status', 'assignee', 'priority', 'Sprint', 'Fix Version'];
+    const issuesToQuery = issues.slice(0, 15);
+
+    for (const issue of issuesToQuery) {
+      try {
+        const response = await this.jiraApi!.get(`/rest/api/3/issue/${issue.key}/changelog`, {
+          params: { maxResults: 20 }
+        });
+
+        for (const history of (response.data.values || [])) {
+          for (const item of (history.items || [])) {
+            if (!MEANINGFUL_FIELDS.includes(item.field)) continue;
+
+            allChangelogs.push({
+              issueKey: issue.key,
+              issueSummary: issue.summary,
+              field: item.field,
+              fromValue: item.fromString || item.from,
+              toValue: item.toString || item.to,
+              author: history.author?.displayName || '',
+              timestamp: new Date(history.created),
+            });
+          }
+        }
+      } catch (error: any) {
+        console.error(`[Jira Tool] Error fetching changelog for ${issue.key}:`, error.message);
+      }
+    }
+
+    // Cap at 100 entries, most recent first
+    allChangelogs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const capped = allChangelogs.slice(0, 100);
+    console.log(`[Jira Tool] Fetched ${capped.length} changelog entries`);
+    return capped;
+  }
+
+  /**
+   * Fetch detailed worklogs for issues with time tracking
+   */
+  private async fetchWorklogs(issues: any[], startDate: Date, endDate: Date): Promise<any[]> {
+    if (!issues.length) return [];
+
+    const allWorklogs: any[] = [];
+    // Only fetch for issues that have time logged
+    const issuesWithTime = issues.filter(i => i.timeSpent && i.timeSpent > 0);
+
+    for (const issue of issuesWithTime.slice(0, 15)) {
+      try {
+        const response = await this.jiraApi!.get(`/rest/api/3/issue/${issue.key}/worklog`, {
+          params: { maxResults: 20 }
+        });
+
+        for (const worklog of (response.data.worklogs || [])) {
+          const started = new Date(worklog.started);
+          // Filter to date range
+          if (started < startDate || started > endDate) continue;
+
+          // Extract comment text from ADF (Atlassian Document Format) if present
+          let comment = '';
+          if (worklog.comment?.content) {
+            comment = worklog.comment.content
+              .map((block: any) => block.content?.map((c: any) => c.text).join('') || '')
+              .join(' ')
+              .trim();
+          }
+
+          allWorklogs.push({
+            issueKey: issue.key,
+            issueSummary: issue.summary,
+            author: worklog.author?.displayName || '',
+            timeSpentSeconds: worklog.timeSpentSeconds || 0,
+            comment,
+            started,
+            url: `${this.siteUrl}/browse/${issue.key}?focusedWorklogId=${worklog.id}`,
+          });
+        }
+      } catch (error: any) {
+        console.error(`[Jira Tool] Error fetching worklogs for ${issue.key}:`, error.message);
+      }
+    }
+
+    const capped = allWorklogs.slice(0, 50);
+    console.log(`[Jira Tool] Fetched ${capped.length} worklogs`);
+    return capped;
+  }
+
+  /**
+   * Fetch project versions (releases)
+   */
+  private async fetchVersions(projects: any[]): Promise<any[]> {
+    if (!projects.length) return [];
+
+    const allVersions: any[] = [];
+
+    for (const project of projects.slice(0, 10)) {
+      try {
+        const response = await this.jiraApi!.get(`/rest/api/3/project/${project.key}/versions`, {
+          params: { maxResults: 10, orderBy: '-releaseDate' }
+        });
+
+        for (const version of (response.data || [])) {
+          allVersions.push({
+            id: String(version.id),
+            name: version.name,
+            description: version.description || '',
+            projectKey: project.key,
+            released: version.released || false,
+            releaseDate: version.releaseDate || '',
+            url: `${this.siteUrl}/projects/${project.key}/versions/${version.id}`,
+          });
+        }
+      } catch (error: any) {
+        console.error(`[Jira Tool] Error fetching versions for ${project.key}:`, error.message);
+      }
+    }
+
+    console.log(`[Jira Tool] Fetched ${allVersions.length} versions`);
+    return allVersions;
+  }
+
+  /**
    * Extract skills from Jira activity
    */
   public extractSkills(activity: JiraActivity): string[] {
@@ -396,6 +547,37 @@ export class JiraTool {
       }
     });
 
+    // Extract from labels — skill signals like "security", "performance", "api"
+    const labelSkillMap: Record<string, string> = {
+      'security': 'Security',
+      'performance': 'Performance Optimization',
+      'api': 'API Development',
+      'frontend': 'Frontend Development',
+      'backend': 'Backend Development',
+      'infrastructure': 'Infrastructure',
+      'devops': 'DevOps',
+      'testing': 'Testing',
+      'documentation': 'Documentation',
+      'ux': 'UX Design',
+      'data': 'Data Engineering',
+      'mobile': 'Mobile Development',
+    };
+
+    activity.issues.forEach(issue => {
+      issue.labels?.forEach(label => {
+        const mapped = labelSkillMap[label.toLowerCase()];
+        if (mapped) skills.add(mapped);
+      });
+    });
+
+    // Signals from new data
+    if (activity.versions?.some(v => v.released)) {
+      skills.add('Release Management');
+    }
+    if (activity.worklogs?.length) {
+      skills.add('Time Management');
+    }
+
     return Array.from(skills);
   }
 
@@ -414,6 +596,16 @@ export class JiraTool {
 
     activity.projects.forEach(project => {
       if (project.lead) collaborators.add(project.lead);
+    });
+
+    // Add changelog authors (who transitioned issues)
+    activity.changelogs?.forEach(entry => {
+      if (entry.author) collaborators.add(entry.author);
+    });
+
+    // Add worklog authors (who logged time)
+    activity.worklogs?.forEach(entry => {
+      if (entry.author) collaborators.add(entry.author);
     });
 
     return Array.from(collaborators);
@@ -480,16 +672,65 @@ export class JiraTool {
       descriptionParts.push(`Active in ${activeSprints.length} sprint(s): ${activeSprints.map(s => s.name).join(', ')}.`);
     }
 
-    // Time tracking
-    const totalTimeSpent = activity.issues.reduce((sum, issue) => sum + (issue.timeSpent || 0), 0);
-    if (totalTimeSpent > 0) {
-      const hours = Math.floor(totalTimeSpent / 3600);
-      const minutes = Math.floor((totalTimeSpent % 3600) / 60);
-      descriptionParts.push(`Total time logged: ${hours}h ${minutes}m.`);
+    // Time tracking (from worklogs if available, otherwise aggregate)
+    if (activity.worklogs?.length) {
+      const totalWorklogSeconds = activity.worklogs.reduce((sum, w) => sum + w.timeSpentSeconds, 0);
+      const hours = Math.floor(totalWorklogSeconds / 3600);
+      const minutes = Math.floor((totalWorklogSeconds % 3600) / 60);
+      const uniqueIssues = new Set(activity.worklogs.map(w => w.issueKey)).size;
+      descriptionParts.push(`Logged ${hours}h ${minutes}m across ${uniqueIssues} tasks.`);
+    } else {
+      const totalTimeSpent = activity.issues.reduce((sum, issue) => sum + (issue.timeSpent || 0), 0);
+      if (totalTimeSpent > 0) {
+        const hours = Math.floor(totalTimeSpent / 3600);
+        const minutes = Math.floor((totalTimeSpent % 3600) / 60);
+        descriptionParts.push(`Total time logged: ${hours}h ${minutes}m.`);
+      }
+    }
+
+    // Status transitions
+    if (activity.changelogs?.length) {
+      const doneTransitions = activity.changelogs.filter(c =>
+        c.field === 'status' && (c.toValue === 'Done' || c.toValue === 'Closed')
+      ).length;
+      if (doneTransitions > 0) {
+        descriptionParts.push(`Moved ${doneTransitions} issue(s) to Done.`);
+      }
+    }
+
+    // Release context
+    if (activity.versions?.length) {
+      const released = activity.versions.filter(v => v.released);
+      if (released.length > 0) {
+        descriptionParts.push(`Contributing to release(s): ${released.map(v => v.name).join(', ')}.`);
+      }
+    }
+
+    // Issue link context
+    const allLinks = activity.issues.flatMap(i => i.issueLinks || []);
+    if (allLinks.length > 0) {
+      const blocking = allLinks.filter(l => l.type === 'blocks').length;
+      const blockedBy = allLinks.filter(l => l.type === 'is blocked by').length;
+      if (blocking > 0 || blockedBy > 0) {
+        const parts = [];
+        if (blocking > 0) parts.push(`blocking ${blocking}`);
+        if (blockedBy > 0) parts.push(`blocked by ${blockedBy}`);
+        descriptionParts.push(`Dependencies: ${parts.join(', ')}.`);
+      }
     }
 
     // Generate artifacts
     const artifacts: any[] = [];
+
+    // Add released versions as artifacts (shipping signal)
+    activity.versions?.filter(v => v.released).slice(0, 2).forEach(version => {
+      artifacts.push({
+        type: 'link',
+        title: `Release: ${version.name}`,
+        url: version.url,
+        description: `${version.projectKey} release`
+      });
+    });
 
     // Add significant issues as artifacts
     activity.issues.slice(0, 5).forEach(issue => {

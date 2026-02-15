@@ -140,5 +140,103 @@ export function transformGitHubActivity(data: any): ActivityInput[] {
     }
   }
 
+  // Transform releases
+  if (data.releases?.length) {
+    for (const release of data.releases) {
+      const releaseBody = release.body?.trim() || '';
+
+      activities.push({
+        source: 'github',
+        sourceId: `release:${release.repository}@${release.tagName}`,
+        sourceUrl: release.url,
+        title: release.name || release.tagName,
+        // Release notes often contain Jira refs and changelog entries
+        description: releaseBody
+          ? `Released ${release.tagName}. ${release.isPrerelease ? '(Pre-release) ' : ''}${releaseBody}`
+          : `Released ${release.tagName}.${release.isPrerelease ? ' (Pre-release)' : ''}`,
+        timestamp: new Date(release.publishedAt),
+        rawData: {
+          tagName: release.tagName,
+          author: release.author,
+          repository: release.repository,
+          isDraft: release.isDraft,
+          isPrerelease: release.isPrerelease,
+          body: releaseBody,
+        },
+      });
+    }
+  }
+
+  // Transform workflow runs
+  if (data.workflowRuns?.length) {
+    for (const run of data.workflowRuns) {
+      activities.push({
+        source: 'github',
+        sourceId: `workflow:${run.repository}#${run.runNumber}`,
+        sourceUrl: run.url,
+        title: `${run.workflowName} #${run.runNumber}`,
+        description: `${run.event} on ${run.branch || 'unknown'} — ${run.conclusion || run.status}`,
+        timestamp: new Date(run.createdAt),
+        rawData: {
+          runNumber: run.runNumber,
+          status: run.status,
+          conclusion: run.conclusion,
+          event: run.event,
+          branch: run.branch,
+          workflowName: run.workflowName,
+          repository: run.repository,
+        },
+      });
+    }
+  }
+
+  // Transform deployments
+  if (data.deployments?.length) {
+    for (const deployment of data.deployments) {
+      activities.push({
+        source: 'github',
+        sourceId: `deploy:${deployment.repository}:${deployment.environment}:${deployment.id}`,
+        sourceUrl: deployment.url,
+        title: `Deploy to ${deployment.environment}`,
+        description: deployment.description
+          ? `${deployment.description} — ${deployment.status || 'deployed'}`
+          : `Deployed to ${deployment.environment} — ${deployment.status || 'deployed'}`,
+        timestamp: new Date(deployment.createdAt),
+        rawData: {
+          environment: deployment.environment,
+          status: deployment.status,
+          statusDescription: deployment.statusDescription,
+          creator: deployment.creator,
+          repository: deployment.repository,
+        },
+      });
+    }
+  }
+
+  // Transform review comments
+  if (data.reviewComments?.length) {
+    for (const comment of data.reviewComments) {
+      activities.push({
+        source: 'github',
+        sourceId: `review-comment:${comment.repository}#${comment.prNumber}:${comment.id}`,
+        sourceUrl: comment.url,
+        title: `Code review on PR #${comment.prNumber}`,
+        // Comment body may contain cross-tool refs
+        description: comment.body || '',
+        timestamp: new Date(comment.createdAt),
+        rawData: {
+          prNumber: comment.prNumber,
+          prTitle: comment.prTitle,
+          author: comment.author,
+          path: comment.path,
+          repository: comment.repository,
+          body: comment.body,
+        },
+      });
+    }
+  }
+
+  // Note: starredRepos are NOT transformed — they're context for skill extraction, not activities
+
   return activities;
 }

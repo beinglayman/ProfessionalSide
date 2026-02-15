@@ -75,12 +75,26 @@ export class GitHubTool {
       // Stage 2: Fetch commits using repo list and authenticated user login
       const commits = await this.fetchCommits(startDate, endDate, repos, userInfo?.login);
 
+      // Stage 3: Fetch supplementary data in parallel (non-blocking)
+      const [releases, workflowRuns, deployments, reviewComments, starredRepos] = await Promise.all([
+        this.fetchReleases(startDate, endDate, repos),
+        this.fetchWorkflowRuns(startDate, endDate, repos),
+        this.fetchDeployments(startDate, endDate, repos),
+        this.fetchReviewComments(pullRequests),
+        this.fetchStarredRepos()
+      ]);
+
       // Compile activity data
       const activity: GitHubActivity = {
         commits,
         pullRequests,
         issues,
-        repositories: repos
+        repositories: repos,
+        releases,
+        workflowRuns,
+        deployments,
+        reviewComments,
+        starredRepos
       };
 
       // Calculate total items
@@ -88,7 +102,12 @@ export class GitHubTool {
         commits.length +
         pullRequests.length +
         issues.length +
-        repos.length;
+        repos.length +
+        releases.length +
+        workflowRuns.length +
+        deployments.length +
+        reviewComments.length +
+        starredRepos.length;
 
       // Store in memory-only session
       const sessionId = this.sessionService.createSession(
@@ -455,6 +474,234 @@ export class GitHubTool {
   }
 
   /**
+   * Fetch releases from active repos within date range
+   */
+  private async fetchReleases(startDate: Date, endDate: Date, repos: any[]): Promise<any[]> {
+    if (!repos.length) return [];
+
+    const allReleases: any[] = [];
+    const reposToQuery = repos.slice(0, 10);
+
+    await Promise.all(
+      reposToQuery.map(async (repo) => {
+        const [owner, repoName] = repo.name.split('/');
+        try {
+          const response = await this.githubApi.get(`/repos/${owner}/${repoName}/releases`, {
+            params: { per_page: 5 }
+          });
+
+          for (const release of response.data) {
+            const publishedAt = new Date(release.published_at || release.created_at);
+            if (publishedAt >= startDate && publishedAt <= endDate) {
+              allReleases.push({
+                id: release.id,
+                tagName: release.tag_name,
+                name: release.name || release.tag_name,
+                body: release.body || '',
+                author: release.author?.login || '',
+                publishedAt,
+                url: release.html_url,
+                repository: repo.name,
+                isDraft: release.draft || false,
+                isPrerelease: release.prerelease || false,
+              });
+            }
+          }
+        } catch (error: any) {
+          console.error(`[GitHub Tool] Error fetching releases for ${repo.name}:`, error.message);
+        }
+      })
+    );
+
+    console.log(`[GitHub Tool] Fetched ${allReleases.length} releases`);
+    return allReleases;
+  }
+
+  /**
+   * Fetch GitHub Actions workflow runs from active repos within date range
+   */
+  private async fetchWorkflowRuns(startDate: Date, endDate: Date, repos: any[]): Promise<any[]> {
+    if (!repos.length) return [];
+
+    const allRuns: any[] = [];
+    const reposToQuery = repos.slice(0, 10);
+
+    await Promise.all(
+      reposToQuery.map(async (repo) => {
+        const [owner, repoName] = repo.name.split('/');
+        try {
+          const response = await this.githubApi.get(`/repos/${owner}/${repoName}/actions/runs`, {
+            params: {
+              created: `>=${startDate.toISOString().split('T')[0]}`,
+              per_page: 10
+            }
+          });
+
+          for (const run of (response.data.workflow_runs || [])) {
+            allRuns.push({
+              id: run.id,
+              name: run.name,
+              status: run.status,
+              conclusion: run.conclusion,
+              workflowName: run.name,
+              event: run.event,
+              branch: run.head_branch,
+              runNumber: run.run_number,
+              createdAt: new Date(run.created_at),
+              updatedAt: new Date(run.updated_at),
+              url: run.html_url,
+              repository: repo.name,
+            });
+          }
+        } catch (error: any) {
+          // 404 = Actions not enabled on this repo — expected, not an error
+          if (error.response?.status !== 404) {
+            console.error(`[GitHub Tool] Error fetching workflow runs for ${repo.name}:`, error.message);
+          }
+        }
+      })
+    );
+
+    // Cap at 30 total, most recent first
+    allRuns.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const capped = allRuns.slice(0, 30);
+    console.log(`[GitHub Tool] Fetched ${capped.length} workflow runs`);
+    return capped;
+  }
+
+  /**
+   * Fetch deployments from active repos within date range
+   */
+  private async fetchDeployments(startDate: Date, endDate: Date, repos: any[]): Promise<any[]> {
+    if (!repos.length) return [];
+
+    const allDeployments: any[] = [];
+    const reposToQuery = repos.slice(0, 5);
+
+    await Promise.all(
+      reposToQuery.map(async (repo) => {
+        const [owner, repoName] = repo.name.split('/');
+        try {
+          const response = await this.githubApi.get(`/repos/${owner}/${repoName}/deployments`, {
+            params: { per_page: 5 }
+          });
+
+          for (const deployment of response.data) {
+            const createdAt = new Date(deployment.created_at);
+            if (createdAt < startDate || createdAt > endDate) continue;
+
+            // Fetch latest status for this deployment
+            let status: string | undefined;
+            let statusDescription: string | undefined;
+            try {
+              const statusResponse = await this.githubApi.get(
+                `/repos/${owner}/${repoName}/deployments/${deployment.id}/statuses`,
+                { params: { per_page: 1 } }
+              );
+              if (statusResponse.data.length > 0) {
+                status = statusResponse.data[0].state;
+                statusDescription = statusResponse.data[0].description;
+              }
+            } catch {
+              // Status fetch is best-effort
+            }
+
+            allDeployments.push({
+              id: deployment.id,
+              environment: deployment.environment,
+              description: deployment.description || '',
+              creator: deployment.creator?.login || '',
+              createdAt,
+              updatedAt: new Date(deployment.updated_at),
+              url: `https://github.com/${repo.name}/deployments/${deployment.environment}`,
+              repository: repo.name,
+              status,
+              statusDescription,
+            });
+          }
+        } catch (error: any) {
+          console.error(`[GitHub Tool] Error fetching deployments for ${repo.name}:`, error.message);
+        }
+      })
+    );
+
+    console.log(`[GitHub Tool] Fetched ${allDeployments.length} deployments`);
+    return allDeployments;
+  }
+
+  /**
+   * Fetch review comments (inline code comments) on PRs
+   */
+  private async fetchReviewComments(pullRequests: any[]): Promise<any[]> {
+    if (!pullRequests.length) return [];
+
+    const allComments: any[] = [];
+    // Only fetch for merged/reviewed PRs, limit to 10
+    const prsToQuery = pullRequests
+      .filter(pr => pr.reviewStatus === 'merged' || pr.isReviewed)
+      .slice(0, 10);
+
+    await Promise.all(
+      prsToQuery.map(async (pr) => {
+        const [owner, repoName] = (pr.repository || '').split('/');
+        if (!owner || !repoName) return;
+
+        try {
+          const response = await this.githubApi.get(
+            `/repos/${owner}/${repoName}/pulls/${pr.id}/comments`,
+            { params: { per_page: 20 } }
+          );
+
+          for (const comment of response.data) {
+            allComments.push({
+              id: comment.id,
+              prNumber: pr.id,
+              prTitle: pr.title,
+              body: comment.body || '',
+              author: comment.user?.login || '',
+              path: comment.path || '',
+              createdAt: new Date(comment.created_at),
+              url: comment.html_url,
+              repository: pr.repository,
+            });
+          }
+        } catch (error: any) {
+          console.error(`[GitHub Tool] Error fetching review comments for PR #${pr.id}:`, error.message);
+        }
+      })
+    );
+
+    // Cap at 50 total
+    const capped = allComments.slice(0, 50);
+    console.log(`[GitHub Tool] Fetched ${capped.length} review comments`);
+    return capped;
+  }
+
+  /**
+   * Fetch recently starred repositories
+   */
+  private async fetchStarredRepos(): Promise<any[]> {
+    try {
+      const response = await this.githubApi.get('/user/starred', {
+        params: { sort: 'created', direction: 'desc', per_page: 10 },
+        headers: { Accept: 'application/vnd.github.v3.star+json' }
+      });
+
+      return response.data.map((item: any) => ({
+        name: item.repo.full_name,
+        description: item.repo.description || '',
+        language: item.repo.language || '',
+        stars: item.repo.stargazers_count || 0,
+        url: item.repo.html_url,
+        starredAt: item.starred_at ? new Date(item.starred_at) : undefined,
+      }));
+    } catch (error: any) {
+      console.error('[GitHub Tool] Error fetching starred repos:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Extract skills from GitHub activity
    * @param activity GitHub activity data
    * @returns Array of detected skills
@@ -469,7 +716,26 @@ export class GitHubTool {
       }
     });
 
-    // Extract skills from commit messages and PR titles
+    // Extract languages from starred repos
+    activity.starredRepos?.forEach(repo => {
+      if (repo.language) {
+        skills.add(repo.language);
+      }
+    });
+
+    // CI/CD signals from workflow runs and deployments
+    if (activity.workflowRuns?.length) {
+      skills.add('GitHub Actions');
+      skills.add('CI/CD');
+    }
+    if (activity.deployments?.length) {
+      skills.add('Deployment');
+    }
+    if (activity.releases?.length) {
+      skills.add('Release Management');
+    }
+
+    // Extract skills from commit messages, PR titles, and workflow names
     const skillKeywords = [
       'React', 'Vue', 'Angular', 'Node.js', 'Python', 'Java', 'TypeScript',
       'JavaScript', 'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP',
@@ -480,7 +746,9 @@ export class GitHubTool {
     const searchText = [
       ...activity.commits.map(c => c.message),
       ...activity.pullRequests.map(pr => pr.title),
-      ...activity.issues.map(i => i.title)
+      ...activity.issues.map(i => i.title),
+      ...(activity.workflowRuns || []).map(r => r.workflowName),
+      ...(activity.releases || []).map(r => r.name),
     ].join(' ').toLowerCase();
 
     skillKeywords.forEach(skill => {
@@ -508,6 +776,19 @@ export class GitHubTool {
     activity.issues.forEach(issue => {
       if (issue.assignee) collaborators.add(issue.assignee);
       if (issue.author) collaborators.add(issue.author);
+    });
+
+    // Add review comment authors
+    activity.reviewComments?.forEach(comment => {
+      if (comment.author) collaborators.add(comment.author);
+    });
+
+    // Add release authors and deployment creators
+    activity.releases?.forEach(release => {
+      if (release.author) collaborators.add(release.author);
+    });
+    activity.deployments?.forEach(deployment => {
+      if (deployment.creator) collaborators.add(deployment.creator);
     });
 
     return Array.from(collaborators);
@@ -561,8 +842,34 @@ export class GitHubTool {
       descriptionParts.push(`Active in ${activity.repositories.length} repositories using ${Array.from(languages).join(', ')}.`);
     }
 
+    if (activity.releases?.length) {
+      const names = activity.releases.slice(0, 3).map(r => r.name || r.tagName).join(', ');
+      descriptionParts.push(`Published ${activity.releases.length} release(s): ${names}.`);
+    }
+
+    if (activity.workflowRuns?.length) {
+      const passed = activity.workflowRuns.filter(r => r.conclusion === 'success').length;
+      const failed = activity.workflowRuns.filter(r => r.conclusion === 'failure').length;
+      descriptionParts.push(`${activity.workflowRuns.length} CI/CD runs (${passed} passed, ${failed} failed).`);
+    }
+
+    if (activity.deployments?.length) {
+      const environments = [...new Set(activity.deployments.map(d => d.environment))];
+      descriptionParts.push(`Deployed to ${environments.join(', ')}.`);
+    }
+
     // Generate artifacts
     const artifacts: any[] = [];
+
+    // Add releases as artifacts (highest value — shipping signal)
+    activity.releases?.slice(0, 2).forEach(release => {
+      artifacts.push({
+        type: 'link',
+        title: `${release.tagName}: ${release.name}`,
+        url: release.url,
+        description: `Release ${release.tagName}`
+      });
+    });
 
     // Add significant PRs as artifacts
     activity.pullRequests.slice(0, 3).forEach(pr => {
@@ -581,6 +888,16 @@ export class GitHubTool {
         title: commit.message.split('\n')[0],
         url: commit.url,
         description: `Commit ${commit.sha.substring(0, 7)}`
+      });
+    });
+
+    // Add deployments as artifacts
+    activity.deployments?.slice(0, 2).forEach(deployment => {
+      artifacts.push({
+        type: 'link',
+        title: `Deploy to ${deployment.environment}`,
+        url: deployment.url,
+        description: `${deployment.status || 'deployed'} - ${deployment.repository}`
       });
     });
 

@@ -348,7 +348,23 @@ Return ONLY valid JSON, no additional text.
     summary += `- ${activity.commits?.length || 0} commits\n`;
     summary += `- ${activity.pullRequests?.length || 0} pull requests\n`;
     summary += `- ${activity.issues?.length || 0} issues\n`;
-    summary += `- ${activity.repositories?.length || 0} active repositories\n\n`;
+    summary += `- ${activity.repositories?.length || 0} active repositories\n`;
+    if (activity.releases?.length) {
+      summary += `- ${activity.releases.length} releases published\n`;
+    }
+    if (activity.workflowRuns?.length) {
+      const passed = activity.workflowRuns.filter(r => r.conclusion === 'success').length;
+      const failed = activity.workflowRuns.filter(r => r.conclusion === 'failure').length;
+      summary += `- ${activity.workflowRuns.length} CI/CD workflow runs (${passed} passed, ${failed} failed)\n`;
+    }
+    if (activity.deployments?.length) {
+      const environments = [...new Set(activity.deployments.map(d => d.environment))];
+      summary += `- ${activity.deployments.length} deployments (${environments.join(', ')})\n`;
+    }
+    if (activity.reviewComments?.length) {
+      summary += `- ${activity.reviewComments.length} code review comments\n`;
+    }
+    summary += '\n';
 
     // Top PRs
     if (activity.pullRequests?.length > 0) {
@@ -386,6 +402,34 @@ Return ONLY valid JSON, no additional text.
       summary += '\n';
     }
 
+    // Releases
+    if (activity.releases?.length) {
+      summary += `Releases:\n`;
+      activity.releases.slice(0, 5).forEach((release, idx) => {
+        summary += `  ${idx + 1}. ${release.tagName} - ${release.name}\n`;
+        summary += `     URL: ${release.url}\n`;
+      });
+      summary += '\n';
+    }
+
+    // CI/CD Workflow Runs
+    if (activity.workflowRuns?.length) {
+      summary += `Recent CI/CD:\n`;
+      activity.workflowRuns.slice(0, 5).forEach((run, idx) => {
+        summary += `  ${idx + 1}. [${run.conclusion || run.status}] ${run.workflowName} #${run.runNumber} on ${run.branch || 'unknown'}\n`;
+      });
+      summary += '\n';
+    }
+
+    // Deployments
+    if (activity.deployments?.length) {
+      summary += `Deployments:\n`;
+      activity.deployments.slice(0, 5).forEach((deployment, idx) => {
+        summary += `  ${idx + 1}. [${deployment.status || 'deployed'}] ${deployment.environment} - ${deployment.description || deployment.repository}\n`;
+      });
+      summary += '\n';
+    }
+
     return summary;
   }
 
@@ -396,13 +440,64 @@ Return ONLY valid JSON, no additional text.
     let summary = `\n**Jira Activity:**\n`;
     summary += `- ${activity.issues?.length || 0} issues\n`;
     summary += `- ${activity.sprints?.length || 0} active sprints\n`;
-    summary += `- ${activity.projects?.length || 0} projects\n\n`;
+    summary += `- ${activity.projects?.length || 0} projects\n`;
+    if (activity.changelogs?.length) {
+      summary += `- ${activity.changelogs.length} status transitions\n`;
+    }
+    if (activity.worklogs?.length) {
+      const totalSeconds = activity.worklogs.reduce((sum, w) => sum + w.timeSpentSeconds, 0);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      summary += `- ${activity.worklogs.length} time entries (${hours}h ${minutes}m logged)\n`;
+    }
+    if (activity.versions?.length) {
+      const released = activity.versions.filter(v => v.released).length;
+      summary += `- ${activity.versions.length} project versions (${released} released)\n`;
+    }
+    summary += '\n';
 
     if (activity.issues?.length > 0) {
       summary += `Issues:\n`;
       activity.issues.slice(0, 8).forEach((issue, idx) => {
         summary += `  ${idx + 1}. [${issue.status}] ${issue.key}: ${issue.summary}\n`;
-        summary += `     Assignee: ${issue.assignee || 'unassigned'}, URL: ${issue.url}\n`;
+        summary += `     Assignee: ${issue.assignee || 'unassigned'}`;
+        if (issue.labels?.length) {
+          summary += `, Labels: ${issue.labels.join(', ')}`;
+        }
+        summary += `\n     URL: ${issue.url}\n`;
+      });
+      summary += '\n';
+    }
+
+    // Status transitions
+    if (activity.changelogs?.length) {
+      const statusChanges = activity.changelogs.filter(c => c.field === 'status');
+      if (statusChanges.length > 0) {
+        summary += `Status Transitions:\n`;
+        statusChanges.slice(0, 5).forEach((entry, idx) => {
+          summary += `  ${idx + 1}. ${entry.issueKey}: ${entry.fromValue} → ${entry.toValue} by ${entry.author}\n`;
+        });
+        summary += '\n';
+      }
+    }
+
+    // Time logged
+    if (activity.worklogs?.length) {
+      summary += `Time Logged:\n`;
+      activity.worklogs.slice(0, 5).forEach((entry, idx) => {
+        const hours = Math.floor(entry.timeSpentSeconds / 3600);
+        const minutes = Math.floor((entry.timeSpentSeconds % 3600) / 60);
+        const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        summary += `  ${idx + 1}. ${entry.issueKey}: ${timeStr}${entry.comment ? ` - ${entry.comment}` : ''}\n`;
+      });
+      summary += '\n';
+    }
+
+    // Versions/Releases
+    if (activity.versions?.length) {
+      summary += `Releases:\n`;
+      activity.versions.slice(0, 5).forEach((version, idx) => {
+        summary += `  ${idx + 1}. ${version.name} (${version.projectKey}) - ${version.released ? 'Released' : 'Upcoming'}\n`;
       });
       summary += '\n';
     }
@@ -678,11 +773,185 @@ Return ONLY valid JSON, no additional text.
           });
         }
 
+        // Add releases as achievements
+        if (githubData.releases?.length) {
+          categories.push({
+            type: 'achievement',
+            label: 'GitHub Releases',
+            summary: `${githubData.releases.length} releases published`,
+            suggestedEntryType: 'achievement',
+            items: githubData.releases.map(r => ({
+              id: `github-release-${r.id}`,
+              source: MCPToolType.GITHUB,
+              type: 'release',
+              title: `${r.tagName}: ${r.name}`,
+              description: r.body?.substring(0, 200) || '',
+              url: r.url,
+              importance: 'high' as const,
+              selected: true
+            }))
+          });
+
+          githubData.releases.slice(0, 2).forEach(r => {
+            artifacts.push({
+              type: 'github_release',
+              source: MCPToolType.GITHUB,
+              title: `${r.tagName}: ${r.name}`,
+              url: r.url,
+              description: `Release ${r.tagName}`,
+              importance: 'high'
+            });
+          });
+        }
+
+        // Add workflow runs as learning category (CI/CD signals)
+        if (githubData.workflowRuns?.length) {
+          const passed = githubData.workflowRuns.filter(r => r.conclusion === 'success').length;
+          const failed = githubData.workflowRuns.filter(r => r.conclusion === 'failure').length;
+          categories.push({
+            type: 'learning',
+            label: 'GitHub CI/CD',
+            summary: `${githubData.workflowRuns.length} workflow runs (${passed} passed, ${failed} failed)`,
+            suggestedEntryType: 'learning',
+            items: githubData.workflowRuns.slice(0, 5).map(r => ({
+              id: `github-workflow-${r.id}`,
+              source: MCPToolType.GITHUB,
+              type: 'workflow_run',
+              title: `${r.workflowName} #${r.runNumber}`,
+              description: `${r.event} on ${r.branch || 'unknown'} — ${r.conclusion || r.status}`,
+              url: r.url,
+              importance: r.conclusion === 'failure' ? 'high' as const : 'low' as const,
+              selected: r.conclusion === 'failure'
+            }))
+          });
+          skills.add('GitHub Actions');
+          skills.add('CI/CD');
+        }
+
+        // Add deployments as achievements
+        if (githubData.deployments?.length) {
+          const environments = [...new Set(githubData.deployments.map(d => d.environment))];
+          categories.push({
+            type: 'achievement',
+            label: 'GitHub Deployments',
+            summary: `${githubData.deployments.length} deployments to ${environments.join(', ')}`,
+            suggestedEntryType: 'achievement',
+            items: githubData.deployments.map(d => ({
+              id: `github-deploy-${d.id}`,
+              source: MCPToolType.GITHUB,
+              type: 'deployment',
+              title: `Deploy to ${d.environment}`,
+              description: `${d.status || 'deployed'} - ${d.repository}`,
+              url: d.url,
+              importance: 'high' as const,
+              selected: true
+            }))
+          });
+          skills.add('Deployment');
+        }
+
         // Extract skills from repositories
         githubData.repositories?.forEach(repo => {
           if (repo.language) {
             skills.add(repo.language);
           }
+        });
+
+        // Extract skills from starred repos
+        githubData.starredRepos?.forEach(repo => {
+          if (repo.language) {
+            skills.add(repo.language);
+          }
+        });
+      }
+
+      if (toolType === MCPToolType.JIRA) {
+        const jiraData = data as JiraActivity;
+
+        // Add completed issues as achievements
+        const completedIssues = (jiraData.issues || []).filter(i =>
+          i.statusCategory === 'Done' || i.status === 'Done' || i.status === 'Closed'
+        );
+        if (completedIssues.length > 0) {
+          categories.push({
+            type: 'achievement',
+            label: 'Jira Completed Issues',
+            summary: `${completedIssues.length} issues completed`,
+            suggestedEntryType: 'achievement',
+            items: completedIssues.slice(0, 10).map(issue => ({
+              id: `jira-${issue.key}`,
+              source: MCPToolType.JIRA,
+              type: 'issue',
+              title: `${issue.key}: ${issue.summary}`,
+              description: `${issue.issueType || 'Issue'} - ${issue.status}`,
+              url: issue.url,
+              importance: issue.priority === 'Critical' || issue.priority === 'High' ? 'high' as const : 'medium' as const,
+              selected: true
+            }))
+          });
+
+          // Add top completed issues as artifacts
+          completedIssues.slice(0, 3).forEach(issue => {
+            artifacts.push({
+              type: 'jira_issue',
+              source: MCPToolType.JIRA,
+              title: `${issue.key}: ${issue.summary}`,
+              url: issue.url,
+              description: `${issue.issueType || 'Issue'} - Completed`,
+              importance: issue.priority === 'Critical' || issue.priority === 'High' ? 'high' : 'medium'
+            });
+          });
+        }
+
+        // Add in-progress issues as collaboration
+        const inProgressIssues = (jiraData.issues || []).filter(i =>
+          i.statusCategory === 'In Progress' || i.status === 'In Progress'
+        );
+        if (inProgressIssues.length > 0) {
+          categories.push({
+            type: 'collaboration',
+            label: 'Jira In Progress',
+            summary: `${inProgressIssues.length} issues in progress`,
+            suggestedEntryType: 'achievement',
+            items: inProgressIssues.slice(0, 10).map(issue => ({
+              id: `jira-${issue.key}`,
+              source: MCPToolType.JIRA,
+              type: 'issue',
+              title: `${issue.key}: ${issue.summary}`,
+              description: `${issue.issueType || 'Issue'} - ${issue.status}`,
+              url: issue.url,
+              importance: 'medium' as const,
+              selected: false
+            }))
+          });
+        }
+
+        // Add released versions as achievements
+        const releasedVersions = (jiraData.versions || []).filter(v => v.released);
+        if (releasedVersions.length > 0) {
+          categories.push({
+            type: 'achievement',
+            label: 'Jira Releases',
+            summary: `${releasedVersions.length} versions released`,
+            suggestedEntryType: 'achievement',
+            items: releasedVersions.map(v => ({
+              id: `jira-version-${v.id}`,
+              source: MCPToolType.JIRA,
+              type: 'version',
+              title: v.name,
+              description: v.description || `${v.projectKey} release`,
+              url: v.url || '',
+              importance: 'high' as const,
+              selected: true
+            }))
+          });
+        }
+
+        // Extract skills from labels
+        jiraData.issues?.forEach(issue => {
+          issue.labels?.forEach(label => {
+            skills.add(label);
+          });
         });
       }
     });

@@ -6,9 +6,10 @@
 
 import { ActivityInput } from '../../career-stories/activity-persistence.service';
 import { transformGitHubActivity } from './github.transformer';
+import { transformJiraActivity } from './jira.transformer';
 import { transformOneDriveActivity } from './onedrive.transformer';
 
-export type SupportedToolType = 'github' | 'onedrive';
+export type SupportedToolType = 'github' | 'jira' | 'onedrive';
 
 /**
  * Transform tool-specific data into unified ActivityInput array
@@ -20,6 +21,8 @@ export function transformToolActivity(
   switch (toolType) {
     case 'github':
       return transformGitHubActivity(data);
+    case 'jira':
+      return transformJiraActivity(data);
     case 'onedrive':
       return transformOneDriveActivity(data);
     default:
@@ -29,4 +32,5 @@ export function transformToolActivity(
 }
 
 export { transformGitHubActivity } from './github.transformer';
+export { transformJiraActivity } from './jira.transformer';
 export { transformOneDriveActivity } from './onedrive.transformer';
