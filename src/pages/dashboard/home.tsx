@@ -1,6 +1,7 @@
 import {
   OnboardingRoadmap,
   CompetencyKPIWidget,
+  WorkRadarWidget,
   IntegrationHealthWidget,
   MeetingBreakdownWidget,
   StoryHealthWidget,
@@ -20,10 +21,13 @@ export function DashboardHomePage() {
       {/* Row 2: Competency / KPI toggle (full-width) */}
       <CompetencyKPIWidget />
 
-      {/* Row 3: Integration Health + Meeting Breakdown (side by side) */}
+      {/* Row 3: Radar + Meeting Breakdown (left) | Integration Health (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-6">
+          <WorkRadarWidget />
+          <MeetingBreakdownWidget />
+        </div>
         <IntegrationHealthWidget />
-        <MeetingBreakdownWidget />
       </div>
 
       {/* Row 4: Story Health (full-width stat cards) */}

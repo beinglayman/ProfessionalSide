@@ -165,7 +165,7 @@ export function MeetingBreakdownWidget() {
       </CardHeader>
 
       <CardContent>
-        <div className="flex flex-col gap-1 rounded-lg overflow-hidden" style={{ height: 280 }}>
+        <div className="flex flex-col gap-1 rounded-lg overflow-hidden" style={{ height: 160 }}>
           <div className="flex gap-1" style={{ flex: row1Total / (totalHours || 1) }}>
             {row1.map((item) => renderBlock(item, item.hours / (row1Total || 1), true))}
           </div>

@@ -1,25 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   FileText, MessageSquare, Code, Users, Paintbrush, Grid3X3,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
 import { cn } from '../../lib/utils';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip as ChartTooltip,
-  Legend,
-} from 'chart.js';
-import { Radar } from 'react-chartjs-2';
 import type { IntensityLevel } from '../dashboard-v2/types';
-
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, Legend);
-
-type ViewMode = 'heatmap' | 'radar';
 
 const WORK_AREAS = [
   { name: 'Engineering', sources: ['github'], icon: Code },
@@ -52,8 +38,6 @@ function getISODay(date: Date): string {
 }
 
 export function CompetencyKPIWidget() {
-  const [view, setView] = useState<ViewMode>('heatmap');
-
   const { data: activitiesData } = useActivities({ limit: 400 });
   const activities = useMemo(() => {
     if (!activitiesData) return [];
@@ -121,57 +105,6 @@ export function CompetencyKPIWidget() {
     return { grid: intensityGrid, hasData: max > 0 };
   }, [activities, last28Days]);
 
-  // Radar values: average intensity per area, scaled to 0–100
-  const radarValues = useMemo(() => {
-    return grid.map((a) => {
-      const avg = a.days.reduce((s, v) => s + v, 0) / a.days.length;
-      return Math.round((avg / 4) * 100);
-    });
-  }, [grid]);
-
-  const radarData = useMemo(() => ({
-    labels: grid.map((a) => a.name),
-    datasets: [{
-      label: 'Activity %',
-      data: radarValues,
-      backgroundColor: 'rgba(93, 37, 159, 0.2)',
-      borderColor: '#7C3AED',
-      borderWidth: 2,
-      pointBackgroundColor: '#7C3AED',
-      pointRadius: 4,
-      fill: true,
-    }],
-  }), [grid, radarValues]);
-
-  const dynamicMax = Math.max(40, Math.ceil(Math.max(...radarValues, 1) / 10) * 10);
-
-  const radarOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      r: {
-        min: 0,
-        max: dynamicMax,
-        ticks: { stepSize: dynamicMax / 4, display: true, backdropColor: 'transparent', font: { size: 9 }, color: '#9CA3AF' },
-        grid: { color: '#E5E7EB' },
-        angleLines: { color: '#E5E7EB' },
-        pointLabels: {
-          font: { size: 11, weight: '500' as const },
-          color: '#374151',
-          callback: (label: string, index: number) => `${label} (${radarValues[index]}%)`,
-        },
-      },
-    },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx: { parsed: { r: number } }) => `${ctx.parsed.r}% activity level`,
-        },
-      },
-    },
-  }), [dynamicMax, radarValues]);
-
   // Column header labels for heatmap (day abbreviations with month markers)
   const columnLabels = useMemo(() => {
     let lastMonth = '';
@@ -203,38 +136,14 @@ export function CompetencyKPIWidget() {
   return (
     <Card>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Grid3X3 className="h-5 w-5 text-primary-600" />
-            <CardTitle className="text-base">Work Distribution</CardTitle>
-          </div>
-
-          {/* Toggle */}
-          <div className="flex rounded-lg border border-gray-200 text-xs">
-            <button
-              onClick={() => setView('heatmap')}
-              className={cn(
-                'px-3 py-1.5 rounded-l-lg transition-colors',
-                view === 'heatmap' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-500 hover:bg-gray-50'
-              )}
-            >
-              Heatmap
-            </button>
-            <button
-              onClick={() => setView('radar')}
-              className={cn(
-                'px-3 py-1.5 rounded-r-lg transition-colors',
-                view === 'radar' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-500 hover:bg-gray-50'
-              )}
-            >
-              Radar
-            </button>
-          </div>
+        <div className="flex items-center gap-2">
+          <Grid3X3 className="h-5 w-5 text-primary-600" />
+          <CardTitle className="text-base">Work Distribution</CardTitle>
         </div>
       </CardHeader>
 
       <CardContent>
-        {!hasData ? emptyState : view === 'heatmap' ? (
+        {!hasData ? emptyState : (
           <div className="space-y-0">
             {/* Column headers — month markers + day abbreviations */}
             <div className="flex items-end gap-3 mb-1.5">
@@ -301,14 +210,10 @@ export function CompetencyKPIWidget() {
               );
             })}
           </div>
-        ) : (
-          <div className="h-[280px]">
-            <Radar data={radarData} options={radarOptions} />
-          </div>
         )}
       </CardContent>
 
-      {hasData && view === 'heatmap' && (
+      {hasData && (
         <CardFooter className="pt-2">
           <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
             <span>Less</span>
