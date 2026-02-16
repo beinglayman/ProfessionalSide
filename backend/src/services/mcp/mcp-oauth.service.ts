@@ -342,9 +342,8 @@ export class MCPOAuthService {
     // Generate secure state parameter (CSRF protection)
     const state = crypto.randomBytes(32).toString('hex');
 
-    // Store state temporarily (you might want to use Redis in production)
-    // For now, we'll encode userId and toolType in the state
-    const stateData = Buffer.from(JSON.stringify({ userId, toolType, state })).toString('base64');
+    // Encode userId, toolType, random state, and iat (issued-at) for expiry check
+    const stateData = Buffer.from(JSON.stringify({ userId, toolType, state, iat: Date.now() })).toString('base64');
 
     // Build authorization URL
     const params = new URLSearchParams({
@@ -432,13 +431,14 @@ export class MCPOAuthService {
     // Generate secure state parameter
     const state = crypto.randomBytes(32).toString('hex');
 
-    // Store state with all tool types
+    // Store state with all tool types + iat for expiry check
     const stateData = Buffer.from(
       JSON.stringify({
         userId,
         toolTypes: tools,
         groupType,
-        state
+        state,
+        iat: Date.now()
       })
     ).toString('base64');
 
@@ -478,6 +478,18 @@ export class MCPOAuthService {
     try {
       // Decode and validate state
       const stateData = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+
+      // Validate state expiry (iat + 10 minutes)
+      const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+      if (!stateData.iat) {
+        log.warn('OAuth state missing iat (pre-migration state), rejecting', { toolType: stateData.toolType, userId: stateData.userId });
+        throw new Error('Authorization state missing timestamp — please reconnect');
+      }
+      if (Date.now() - stateData.iat > STATE_MAX_AGE_MS) {
+        log.error('OAuth state expired', { toolType: stateData.toolType, userId: stateData.userId, ageMs: Date.now() - stateData.iat });
+        throw new Error('Authorization state expired (older than 10 minutes)');
+      }
+
       const { userId, toolType, toolTypes, groupType } = stateData;
 
       // Determine which tools to connect (group or single)

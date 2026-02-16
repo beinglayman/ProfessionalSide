@@ -232,3 +232,33 @@ describe('MCPOAuthService: refresh mutex', () => {
     expect(mockPost).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('MCPOAuthService: state parameter expiry', () => {
+  it('generates state with iat timestamp', () => {
+    const result = service.getAuthorizationUrl('user-1', 'github');
+    expect(result).not.toBeNull();
+    const stateData = JSON.parse(Buffer.from(result!.state, 'base64').toString('utf8'));
+    expect(stateData.iat).toBeDefined();
+    expect(typeof stateData.iat).toBe('number');
+    expect(Date.now() - stateData.iat).toBeLessThan(1000);
+  });
+
+  it('rejects state with no iat (legacy)', async () => {
+    const legacyState = Buffer.from(JSON.stringify({
+      userId: 'u1', toolType: 'github', state: 'abc'
+    })).toString('base64');
+
+    const result = await service.handleCallback('code', legacyState);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects state older than 10 minutes', async () => {
+    const staleState = Buffer.from(JSON.stringify({
+      userId: 'u1', toolType: 'github', state: 'abc',
+      iat: Date.now() - 11 * 60 * 1000
+    })).toString('base64');
+
+    const result = await service.handleCallback('code', staleState);
+    expect(result.success).toBe(false);
+  });
+});
