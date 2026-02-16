@@ -2,9 +2,12 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Harden the MCPOAuthService (singleton, 7 reliability fixes), build a CLI testing layer, split the class, and wire real OAuth into onboarding.
+**Goal:** Harden the MCPOAuthService (singleton, 6 reliability fixes), build a CLI testing layer, and wire real OAuth into onboarding.
 
-**Architecture:** Fix the singleton bug first (17 independent `new MCPOAuthService()` → 1 exported instance), then layer 7 reliability fixes onto it (retry, proactive refresh, mutex, encryption fail-fast, state expiry, PKCE, revocation). A CLI proves all paths work before touching any UI code. Class split (OAuthFlowService + TokenManager) happens after fixes are proven. Onboarding wiring is last — it's "just wiring" by that point.
+**Architecture:** Fix the singleton bug first (17 independent `new MCPOAuthService()` → 1 exported instance), then layer 6 reliability fixes onto it (retry with 429 handling, proactive refresh, mutex, encryption fail-fast, state expiry, revocation). A CLI proves all paths work before touching any UI code. Onboarding wiring is last — it's "just wiring" by that point.
+
+**Review:** Plan reviewed by RJ (7→8.5/10), DLG, and GSE. 7 changes applied — see `2026-02-16-impl-plan-review.md`.
+**Cut (per review):** PKCE (YAGNI — confidential client with client_secret), Class Split (zero user value — defer to follow-up ticket).
 
 **Tech Stack:** TypeScript, Node.js, Prisma ORM, vitest, commander (CLI), React + React Query (frontend)
 
@@ -12,7 +15,7 @@
 
 ---
 
-## Phase 1: Singleton + Structured Logging + 7 Fixes (~1.5 days)
+## Phase 1: Singleton + Structured Logging + 6 Fixes (~1.5 days)
 
 ### Task 1: Export singleton + structured log object
 
@@ -46,11 +49,25 @@ describe('MCPOAuthService: singleton', () => {
 Run: `cd backend && npx vitest run src/services/mcp/mcp-oauth.service.test.ts --reporter verbose`
 Expected: FAIL — `oauthService` is not exported
 
-**Step 3: Add structured log object and export singleton**
+**Step 3: Add structured log object, make encrypt/decrypt public, export singleton**
 
 In `backend/src/services/mcp/mcp-oauth.service.ts`:
 
-1. Add log object at top of file (after imports, before class):
+1. **Make `encrypt()` and `decrypt()` public** (review finding #1 — needed by tests and CLI):
+
+```typescript
+// Before
+private encrypt(text: string): string {
+private decrypt(text: string): string {
+
+// After
+public encrypt(text: string): string {
+public decrypt(text: string): string {
+```
+
+> These are utility methods, not a security boundary. Anyone who can import the singleton can already call `getAccessToken()`. Exposing encrypt/decrypt enables testing with realistic token fixtures and CLI operations like `simulate-failure`.
+
+2. Add log object at top of file (after imports, before class):
 
 ```typescript
 const DEBUG = process.env.DEBUG_OAUTH === 'true' || process.env.NODE_ENV === 'development';
@@ -136,16 +153,26 @@ Files to update (12 files — same pattern each):
 
 **Step 2: Update controllers**
 
-In `backend/src/controllers/mcp.controller.ts`, the service is instantiated inline at lines 174, 225, 270, 358. Each looks like:
+> **NOTE (review finding #5):** The controller does NOT use static imports like the tool fetchers. It uses **dynamic `await import()`** inside each handler function. The pattern is different:
+
+In `backend/src/controllers/mcp.controller.ts`, the service is instantiated via dynamic import at lines 174, 225, 270, 358. Each looks like:
 ```typescript
+// Current pattern (dynamic import inside handler)
+const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
 const oauthService = new MCPOAuthService();
 ```
 
-Replace each with the module-level import at the top:
+Fix: Add a **top-level static import** and delete all 4 dynamic import blocks:
 ```typescript
+// Add at top of file (static import)
 import { oauthService } from '../services/mcp/mcp-oauth.service';
+
+// Then delete these 4 blocks inside handlers:
+// Line 174: const { MCPOAuthService } = await import(...); const oauthService = new MCPOAuthService();
+// Line 225: same
+// Line 270: same
+// Line 358: same
 ```
-Then delete all 4 inline `const oauthService = new MCPOAuthService();` lines.
 
 Same for `backend/src/controllers/mcp-simple.controller.ts:27`.
 
@@ -176,33 +203,37 @@ git commit -m "refactor(oauth): replace 17 new MCPOAuthService() with singleton 
 
 **Step 1: Write the failing tests**
 
+> **NOTE (review finding #2):** The singleton `export const oauthService = new MCPOAuthService()` runs the constructor at module load time. Testing "constructor throws when env is missing" requires `vi.resetModules()` + dynamic `import()` so the module re-evaluates. Do NOT use `require()` — it may not work in ESM context.
+
 Add to `mcp-oauth.service.test.ts`:
 
 ```typescript
 describe('MCPOAuthService: Fix 4 — encryption key', () => {
-  it('throws when ENCRYPTION_KEY and MCP_ENCRYPTION_KEY are both missing', () => {
-    // Clear all encryption env vars
-    vi.stubEnv('ENCRYPTION_KEY', '');
-    vi.stubEnv('MCP_ENCRYPTION_KEY', '');
+  afterEach(() => {
+    // Restore env and module cache for subsequent tests
+    vi.stubEnv('ENCRYPTION_KEY', 'test-encryption-key-for-unit-tests');
+    vi.resetModules();
+  });
+
+  it('throws when ENCRYPTION_KEY and MCP_ENCRYPTION_KEY are both missing', async () => {
+    vi.resetModules();
     delete process.env.ENCRYPTION_KEY;
     delete process.env.MCP_ENCRYPTION_KEY;
 
-    expect(() => {
-      // Must create fresh instance to test constructor
-      const { MCPOAuthService } = require('./mcp-oauth.service');
-      new MCPOAuthService();
-    }).toThrow('ENCRYPTION_KEY or MCP_ENCRYPTION_KEY environment variable is required');
+    // Module-level singleton instantiation will throw during import
+    await expect(() => import('./mcp-oauth.service')).rejects.toThrow(
+      'ENCRYPTION_KEY or MCP_ENCRYPTION_KEY environment variable is required'
+    );
   });
 
-  it('accepts MCP_ENCRYPTION_KEY as fallback', () => {
-    vi.stubEnv('ENCRYPTION_KEY', '');
-    vi.stubEnv('MCP_ENCRYPTION_KEY', 'valid-key');
+  it('accepts MCP_ENCRYPTION_KEY as fallback', async () => {
+    vi.resetModules();
     delete process.env.ENCRYPTION_KEY;
+    process.env.MCP_ENCRYPTION_KEY = 'valid-key';
 
-    expect(() => {
-      const { MCPOAuthService } = require('./mcp-oauth.service');
-      new MCPOAuthService();
-    }).not.toThrow();
+    // Should import without throwing
+    const mod = await import('./mcp-oauth.service');
+    expect(mod.oauthService).toBeDefined();
   });
 });
 ```
@@ -258,7 +289,9 @@ git commit -m "fix(oauth): remove unsafe encryption key fallback chain, fail fas
 
 **Step 1: Write the failing tests**
 
-Add to test file. These tests need to mock axios and Prisma:
+Add to test file. These tests need to mock axios and Prisma.
+
+> **NOTE (review finding #7):** The `beforeEach` below creates a fresh service instance and is used by ALL subsequent describe blocks (Tasks 5-9). Place the mocks and `beforeEach` at the **file level** (outside any `describe`), so all test blocks share the same `service` variable. Tasks 5, 6, and 9 reference `service` without redeclaring it.
 
 ```typescript
 import axios from 'axios';
@@ -269,6 +302,7 @@ vi.mock('../../lib/prisma', () => ({
     mCPIntegration: {
       findUnique: vi.fn(),
       upsert: vi.fn(),
+      update: vi.fn(),
     },
     mCPPrivacyLog: {
       create: vi.fn(),
@@ -276,17 +310,24 @@ vi.mock('../../lib/prisma', () => ({
   },
 }));
 
-describe('MCPOAuthService: Fix 1 — retry on refresh', () => {
-  let service: any;
+// Shared service instance — used by all describe blocks below
+let service: any;
 
-  beforeEach(async () => {
-    vi.stubEnv('ENCRYPTION_KEY', 'test-key-for-retry-tests');
-    vi.stubEnv('GITHUB_CLIENT_ID', 'test-id');
-    vi.stubEnv('GITHUB_CLIENT_SECRET', 'test-secret');
-    vi.resetModules();
-    const mod = await import('./mcp-oauth.service');
-    service = new mod.MCPOAuthService();
-  });
+beforeEach(async () => {
+  vi.stubEnv('ENCRYPTION_KEY', 'test-key-for-retry-tests');
+  vi.stubEnv('GITHUB_CLIENT_ID', 'test-id');
+  vi.stubEnv('GITHUB_CLIENT_SECRET', 'test-secret');
+  vi.resetModules();
+  vi.mocked(axios.post).mockReset();
+  vi.mocked(axios.delete).mockReset();
+  const { prisma } = await import('../../lib/prisma');
+  (prisma.mCPIntegration.findUnique as any).mockReset();
+  (prisma.mCPIntegration.upsert as any).mockReset();
+  const mod = await import('./mcp-oauth.service');
+  service = new mod.MCPOAuthService();
+});
+
+describe('MCPOAuthService: Fix 1 — retry on refresh', () => {
 
   it('retries on 503 and succeeds on third attempt', async () => {
     const { prisma } = await import('../../lib/prisma');
@@ -324,6 +365,26 @@ describe('MCPOAuthService: Fix 1 — retry on refresh', () => {
     const result = await service.getAccessToken('u1', 'github');
     expect(result).toBeNull();
     expect(mockPost).toHaveBeenCalledTimes(1); // No retry
+  });
+
+  it('retries on 429 and honors Retry-After header', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      refreshToken: service.encrypt('mock-refresh-token'),
+      expiresAt: new Date(Date.now() - 1000),
+      accessToken: service.encrypt('old-token'),
+    });
+    (prisma.mCPIntegration.upsert as any).mockResolvedValue({});
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost
+      .mockRejectedValueOnce({ response: { status: 429, headers: { 'retry-after': '2' } }, message: 'Too Many Requests' })
+      .mockResolvedValueOnce({ data: { access_token: 'new-token', refresh_token: 'new-refresh' } });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBe('new-token');
+    expect(mockPost).toHaveBeenCalledTimes(2); // Retried after 429
   });
 
   it('returns null after 3 failed attempts (503)', async () => {
@@ -407,14 +468,21 @@ private async doRefresh(userId: string, toolType: MCPToolType): Promise<string |
     } catch (error: any) {
       const status = error.response?.status;
 
+      // 400/401 = permanent failure (invalid_grant, revoked). Don't retry.
       if (status === 400 || status === 401) {
         log.error('Refresh token permanently invalid', { toolType, userId, status, errorBody: error.response?.data });
         return null;
       }
 
+      // 429 or 5xx = transient. Retry with backoff.
+      // For 429, honor Retry-After header if present (cap at 60s).
       if (attempt < MAX_ATTEMPTS) {
-        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-        log.warn('Refresh failed, retrying', { toolType, userId, attempt, nextRetryMs: delay, error: error.message });
+        let delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        if (status === 429) {
+          const retryAfter = parseInt(error.response?.headers?.['retry-after'], 10);
+          if (!isNaN(retryAfter)) delay = Math.min(retryAfter * 1000, 60000);
+        }
+        log.warn('Refresh failed, retrying', { toolType, userId, attempt, nextRetryMs: delay, status, error: error.message });
         await new Promise(r => setTimeout(r, delay));
       } else {
         log.error('Refresh exhausted all attempts', { toolType, userId, attempts: MAX_ATTEMPTS, error: error.message });
@@ -687,97 +755,11 @@ git commit -m "feat(oauth): add iat timestamp to state parameter, reject stale/l
 
 ---
 
-### Task 8: Fix 6 — PKCE (conditional)
-
-**Files:**
-- Modify: `backend/src/services/mcp/mcp-oauth.service.ts` (getAuthorizationUrl + handleCallback)
-- Test: `backend/src/services/mcp/mcp-oauth.service.test.ts`
-
-**Step 1: Write the failing tests**
-
-```typescript
-describe('MCPOAuthService: Fix 6 — PKCE', () => {
-  it('adds code_challenge for Jira (PKCE provider)', () => {
-    // Requires ATLASSIAN_CLIENT_ID to be set
-    vi.stubEnv('ATLASSIAN_CLIENT_ID', 'test-atlassian-id');
-    vi.stubEnv('ATLASSIAN_CLIENT_SECRET', 'test-atlassian-secret');
-
-    const result = service.getAuthorizationUrl('u1', 'jira');
-    if (result) {
-      const url = new URL(result.url);
-      expect(url.searchParams.get('code_challenge')).not.toBeNull();
-      expect(url.searchParams.get('code_challenge_method')).toBe('S256');
-    }
-  });
-
-  it('does NOT add code_challenge for GitHub (non-PKCE)', () => {
-    const result = service.getAuthorizationUrl('u1', 'github');
-    expect(result).not.toBeNull();
-    const url = new URL(result!.url);
-    expect(url.searchParams.get('code_challenge')).toBeNull();
-  });
-});
-```
-
-**Step 2: Run tests — FAIL** (no PKCE exists)
-
-**Step 3: Implement**
-
-Add to class:
-```typescript
-private pkceVerifiers = new Map<string, { verifier: string; createdAt: number }>();
-```
-
-In `getAuthorizationUrl()`, after building params:
-```typescript
-const PKCE_PROVIDERS = new Set([
-  MCPToolType.JIRA, MCPToolType.CONFLUENCE, MCPToolType.OUTLOOK,
-  MCPToolType.TEAMS, MCPToolType.ONEDRIVE, MCPToolType.ONENOTE,
-  MCPToolType.GOOGLE_WORKSPACE
-]);
-
-if (PKCE_PROVIDERS.has(toolType)) {
-  const codeVerifier = crypto.randomBytes(32).toString('base64url');
-  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-  params.append('code_challenge', codeChallenge);
-  params.append('code_challenge_method', 'S256');
-  this.pkceVerifiers.set(state, { verifier: codeVerifier, createdAt: Date.now() });
-}
-```
-
-In `handleCallback()`, before token exchange:
-```typescript
-const pkceEntry = this.pkceVerifiers.get(stateData.state);
-if (pkceEntry) {
-  // Include code_verifier in token exchange
-  tokenParams.append('code_verifier', pkceEntry.verifier);
-  this.pkceVerifiers.delete(stateData.state);
-}
-```
-
-Add TTL sweep (call periodically or in constructor):
-```typescript
-private cleanupPkceVerifiers(): void {
-  const MAX_AGE_MS = 15 * 60 * 1000;
-  const now = Date.now();
-  for (const [key, entry] of this.pkceVerifiers) {
-    if (now - entry.createdAt > MAX_AGE_MS) this.pkceVerifiers.delete(key);
-  }
-}
-```
-
-**Step 4: Run tests — PASS**
-
-**Step 5: Commit**
-
-```bash
-git add backend/src/services/mcp/mcp-oauth.service.ts backend/src/services/mcp/mcp-oauth.service.test.ts
-git commit -m "feat(oauth): add PKCE for Atlassian/Microsoft/Google providers"
-```
+> **Task 8 (PKCE) — CUT per review.** Confidential client with `client_secret` — PKCE adds complexity (in-memory map, TTL sweep, restart vulnerability) for zero practical security benefit. Deferred to follow-up ticket if architecture changes to SPA-based OAuth.
 
 ---
 
-### Task 9: Fix 7 — Token revocation on disconnect + controller rewire
+### Task 8: Fix 7 — Token revocation on disconnect + controller rewire
 
 **Files:**
 - Modify: `backend/src/services/mcp/mcp-oauth.service.ts:753-782` (disconnectIntegration)
@@ -878,7 +860,7 @@ git commit -m "feat(oauth): add token revocation on disconnect + rewire controll
 
 ## Phase 2: OAuth CLI (~1 day)
 
-### Task 10: Create CLI scaffold with `status` and `inspect` commands
+### Task 9: Create CLI scaffold with `status` and `inspect` commands
 
 **Files:**
 - Create: `backend/src/cli/oauth-cli.ts`
@@ -1018,7 +1000,7 @@ git commit -m "feat(oauth-cli): scaffold with status and inspect commands"
 
 ---
 
-### Task 11: Add `refresh`, `validate-all`, `disconnect`, `simulate-failure` commands
+### Task 10: Add `refresh`, `validate-all`, `disconnect`, `simulate-failure` commands
 
 **Files:**
 - Modify: `backend/src/cli/oauth-cli.ts`
@@ -1136,82 +1118,13 @@ git commit -m "feat(oauth-cli): add refresh, validate-all, disconnect, simulate-
 
 ---
 
-## Phase 3: Class Split (~0.5 day)
-
-### Task 12: Extract TokenManager from MCPOAuthService
-
-**Files:**
-- Create: `backend/src/services/mcp/token-manager.ts`
-- Modify: `backend/src/services/mcp/mcp-oauth.service.ts` (rename to OAuthFlowService, remove token methods)
-- Modify: All 12 tool fetcher imports
-- Test: Run existing tests to verify no behavioral change
-
-**Step 1: Create `token-manager.ts`**
-
-Extract these methods from `MCPOAuthService`:
-- `encrypt()` / `decrypt()`
-- `storeTokens()`
-- `getAccessToken()` (with proactive refresh)
-- `refreshAccessToken()` / `doRefresh()` (with retry + mutex)
-- `revokeTokenAtProvider()`
-- `disconnectIntegration()`
-- `validateIntegration()` / `validateAllIntegrations()`
-
-The `TokenManager` class takes the encryption key in constructor, owns the refresh mutex map and PKCE verifier map.
-
-Export singleton:
-```typescript
-export const tokenManager = new TokenManager();
-```
-
-**Step 2: Slim down MCPOAuthService → OAuthFlowService**
-
-Remaining methods:
-- `initializeOAuthConfigs()`
-- `getAuthorizationUrl()` / `getAuthorizationUrlForGroup()`
-- `handleCallback()` — calls `tokenManager.storeTokens()`
-- `isToolAvailable()` / `getAvailableTools()`
-- `logConfigurationDiagnostics()`
-
-Rename file or keep the same file but rename the class. Export:
-```typescript
-export const oauthFlowService = new OAuthFlowService(tokenManager);
-```
-
-Also keep backward-compatible export:
-```typescript
-export const oauthService = oauthFlowService; // backward compat
-```
-
-**Step 3: Update tool fetcher imports**
-
-All `*.tool.ts` files: change from `import { oauthService }` to `import { tokenManager }`. They only call `getAccessToken()`.
-
-**Step 4: Update controller imports**
-
-Controllers need `oauthFlowService` (for auth URLs, callbacks) and `tokenManager` (for disconnect).
-
-**Step 5: Update CLI imports**
-
-CLI imports both.
-
-**Step 6: Run ALL tests**
-
-Run: `cd backend && npx vitest run --reporter verbose`
-Expected: All tests pass (pure refactor, no behavioral change)
-
-**Step 7: Commit**
-
-```bash
-git add backend/src/services/mcp/token-manager.ts backend/src/services/mcp/mcp-oauth.service.ts backend/src/services/mcp/tools/ backend/src/controllers/ backend/src/cli/oauth-cli.ts backend/src/services/mcp/mcp-oauth.service.test.ts
-git commit -m "refactor(oauth): split MCPOAuthService into OAuthFlowService + TokenManager"
-```
+> **Phase 3 (Class Split) — CUT per review.** 0.5 days of refactoring that touches every file already modified in Phase 1, ships zero user value. The singleton from Phase 1 is sufficient. Deferred to follow-up ticket when file size becomes painful (~1200+ lines).
 
 ---
 
-## Phase 4: Onboarding Wiring (~1.5 days)
+## Phase 3: Onboarding Wiring (~1.5 days)
 
-### Task 13: Fix frontend MCPToolType in both files
+### Task 11: Fix frontend MCPToolType in both files
 
 **Files:**
 - Modify: `src/types/mcp.types.ts:2-12`
@@ -1272,7 +1185,7 @@ git commit -m "fix(types): add zoom and google_workspace to frontend MCPToolType
 
 ---
 
-### Task 14: Replace onboarding tool list with 4 real buckets
+### Task 12: Replace onboarding tool list with 4 real buckets
 
 **Files:**
 - Modify: `src/pages/onboarding/steps/connect-tools.tsx:14-79`
@@ -1339,7 +1252,7 @@ git commit -m "feat(onboarding): replace 8 hardcoded tools with 4 real OAuth buc
 
 ---
 
-### Task 15: Replace setTimeout with real OAuth hooks
+### Task 13: Replace setTimeout with real OAuth hooks
 
 **Files:**
 - Modify: `src/pages/onboarding/steps/connect-tools.tsx:93-112`
@@ -1401,7 +1314,7 @@ git commit -m "feat(onboarding): replace setTimeout with real OAuth hooks"
 
 ---
 
-### Task 16: Onboarding return detection in callback
+### Task 14: Onboarding return detection in callback
 
 **Files:**
 - Modify: `src/pages/mcp/callback.tsx:54-76` (success handler)
@@ -1443,7 +1356,7 @@ git commit -m "feat(onboarding): detect onboarding origin in OAuth callback, red
 
 ---
 
-### Task 17: Connection gate (1+ bucket required)
+### Task 15: Connection gate (1+ bucket required)
 
 **Files:**
 - Modify: `src/pages/onboarding/steps/connect-tools.tsx`
@@ -1475,9 +1388,9 @@ git commit -m "feat(onboarding): require at least 1 real connection before proce
 
 ---
 
-## Phase 5: Polish (~0.5 day)
+## Phase 4: Polish (~0.5 day)
 
-### Task 18: Error UX for tools without transformers
+### Task 16: Error UX for tools without transformers
 
 **Files:**
 - Modify: `src/pages/onboarding/steps/connect-tools.tsx`
@@ -1497,14 +1410,14 @@ git commit -m "feat(onboarding): show 'coming soon' for tools without transforme
 
 ---
 
-### Task 19: Update architecture docs
+### Task 17: Update architecture docs
 
 **Files:**
 - Modify: `docs/plans/auth-onboarding/tools-integration-architecture.md`
 
 **Step 1: Update the OAuth section**
 
-Document: singleton pattern, retry, proactive refresh, mutex, PKCE, state expiry, revocation. Reference the class split (OAuthFlowService + TokenManager).
+Document: singleton pattern, retry with 429 handling, proactive refresh, mutex, state expiry, revocation. Note PKCE and class split deferred to follow-up tickets.
 
 **Step 2: Commit**
 
@@ -1519,10 +1432,11 @@ git commit -m "docs: update architecture with OAuth reliability fixes"
 
 | Phase | Tasks | Key files | Tests |
 |-------|-------|-----------|-------|
-| 1: Singleton + 7 Fixes | Tasks 1-9 | `mcp-oauth.service.ts`, 12 tool fetchers, 2 controllers | ~20 unit tests |
-| 2: CLI | Tasks 10-11 | `oauth-cli.ts` (NEW) | Manual CLI scenarios |
-| 3: Class Split | Task 12 | `token-manager.ts` (NEW), rename service, update imports | Existing tests pass |
-| 4: Onboarding | Tasks 13-17 | `connect-tools.tsx`, `callback.tsx`, 2 type files | Manual browser tests |
-| 5: Polish | Tasks 18-19 | `connect-tools.tsx`, architecture doc | — |
+| 1: Singleton + 6 Fixes | Tasks 1-8 | `mcp-oauth.service.ts`, 12 tool fetchers, 2 controllers | ~20 unit tests |
+| 2: CLI | Tasks 9-10 | `oauth-cli.ts` (NEW) | Manual CLI scenarios |
+| 3: Onboarding | Tasks 11-15 | `connect-tools.tsx`, `callback.tsx`, 2 type files | Manual browser tests |
+| 4: Polish | Tasks 16-17 | `connect-tools.tsx`, architecture doc | — |
 
-**Total: 19 tasks, ~5 days**
+**Total: 17 tasks, ~4.25 days**
+
+**Cut (per review):** PKCE (Task 8 original) — YAGNI. Class Split (Phase 3 original) — zero user value. See `2026-02-16-impl-plan-review.md`.

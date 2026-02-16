@@ -197,12 +197,12 @@ This tests the MODULE EVALUATION throwing (because the singleton constructor run
 
 | Phase | Before | After | Delta |
 |-------|--------|-------|-------|
-| 1: Singleton + Fixes | Tasks 1-9 (7 fixes) | Tasks 1-7 + Task 9 (6 fixes, no PKCE) | -1 task |
-| 2: CLI | Tasks 10-11 | Tasks 8-9 (renumbered) | No change |
+| 1: Singleton + Fixes | Tasks 1-9 (7 fixes) | Tasks 1-8 (6 fixes, no PKCE) | -1 task |
+| 2: CLI | Tasks 10-11 | Tasks 9-10 (renumbered) | No change |
 | 3: Class Split | Task 12 | **CUT** | -1 task, -0.5 days |
-| 4: Onboarding | Tasks 13-17 | Tasks 10-14 (renumbered) | No change |
-| 5: Polish | Tasks 18-19 | Tasks 15-16 (renumbered) | No change |
-| **Total** | **19 tasks, ~5 days** | **16 tasks, ~4.25 days** | **-3 tasks, -0.75 days** |
+| 3: Onboarding (was 4) | Tasks 13-17 | Tasks 11-15 (renumbered) | No change |
+| 4: Polish (was 5) | Tasks 18-19 | Tasks 16-17 (renumbered) | No change |
+| **Total** | **19 tasks, ~5 days** | **17 tasks, ~4.25 days** | **-2 tasks, -0.75 days** |
 
 ### Scores (post-debate)
 
