@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, FigmaActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,13 +14,11 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class FigmaTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private figmaApi: AxiosInstance;
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
 
@@ -45,7 +43,7 @@ export class FigmaTool {
   ): Promise<MCPServiceResponse<FigmaActivity>> {
     try {
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.FIGMA);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.FIGMA);
       if (!accessToken) {
         return {
           success: false,

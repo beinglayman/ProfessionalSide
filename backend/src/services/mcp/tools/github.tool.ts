@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, GitHubActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,13 +14,11 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class GitHubTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private githubApi: AxiosInstance;
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
 
@@ -45,7 +43,7 @@ export class GitHubTool {
   ): Promise<MCPServiceResponse<GitHubActivity>> {
     try {
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.GITHUB);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.GITHUB);
       if (!accessToken) {
         return {
           success: false,

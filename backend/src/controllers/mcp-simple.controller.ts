@@ -9,7 +9,7 @@ import {
   MCPAction,
   isMCPToolType
 } from '../types/mcp.types';
-import { MCPOAuthService } from '../services/mcp/mcp-oauth.service';
+import { oauthService } from '../services/mcp/mcp-oauth.service';
 import { MCPSessionService } from '../services/mcp/mcp-session.service';
 import { MCPPrivacyService } from '../services/mcp/mcp-privacy.service';
 
@@ -18,13 +18,11 @@ import { MCPPrivacyService } from '../services/mcp/mcp-privacy.service';
  */
 export class MCPSimpleController {
   private prisma: PrismaClient;
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
 
   constructor() {
     this.prisma = prisma;
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
   }
@@ -37,7 +35,7 @@ export class MCPSimpleController {
       const userId = (req as any).userId;
 
       // Get all available tools
-      const availableTools = this.oauthService.getAvailableTools();
+      const availableTools = oauthService.getAvailableTools();
 
       // Get user's integration status
       const integrationStatus = await this.privacyService.getUserIntegrationStatus(userId);
@@ -74,7 +72,7 @@ export class MCPSimpleController {
       const { toolType } = MCPOAuthInitiateSchema.parse(req.body);
 
       // Check if tool is available
-      if (!this.oauthService.isToolAvailable(toolType)) {
+      if (!oauthService.isToolAvailable(toolType)) {
         res.status(400).json({
           success: false,
           error: `${toolType} integration is not configured`
@@ -83,7 +81,7 @@ export class MCPSimpleController {
       }
 
       // Generate authorization URL
-      const authData = this.oauthService.getAuthorizationUrl(userId, toolType);
+      const authData = oauthService.getAuthorizationUrl(userId, toolType);
       if (!authData) {
         res.status(500).json({
           success: false,
@@ -128,7 +126,7 @@ export class MCPSimpleController {
         return;
       }
 
-      const result = await this.oauthService.handleCallback(
+      const result = await oauthService.handleCallback(
         code as string,
         state as string
       );

@@ -6,6 +6,7 @@ import { format7Transformer } from '../services/mcp/format7-transformer.service'
 import { getContentSanitizerService } from '../services/mcp/content-sanitizer.service';
 import { MCPToolType } from '../types/mcp.types';
 import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
+import { oauthService } from '../services/mcp/mcp-oauth.service';
 
 // Mock data store for development
 const mockIntegrations = new Map<string, any>();
@@ -219,8 +220,7 @@ export const validateIntegrations = asyncHandler(async (req: Request, res: Respo
   }
 
   try {
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
+
 
     console.log(`[MCP Controller] Validating integrations for user ${userId}`);
 
@@ -270,8 +270,7 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
 
   try {
     // Use OAuth service to get authorization URL
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
+
 
     const result = oauthService.getAuthorizationUrl(userId, toolType);
 
@@ -315,8 +314,7 @@ export const initiateGroupOAuth = asyncHandler(async (req: Request, res: Respons
 
   try {
     // Use OAuth service to get group authorization URL
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
+
 
     const result = oauthService.getAuthorizationUrlForGroup(userId, groupType);
 
@@ -403,8 +401,7 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
     console.log(`[MCP OAuth] Processing callback for ${toolType}, user ${userId}`);
 
     // Use OAuth service to handle callback for all tools
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
+
 
     const result = await oauthService.handleCallback(code as string, state as string);
 

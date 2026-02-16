@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, TeamsActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,13 +14,11 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class TeamsTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private graphApi: AxiosInstance;
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
 
@@ -42,11 +40,11 @@ export class TeamsTool {
   ): Promise<MCPServiceResponse<TeamsActivity>> {
     try {
       // Get access token (can use either TEAMS or OUTLOOK token as both use Microsoft Graph)
-      let accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.TEAMS);
+      let accessToken = await oauthService.getAccessToken(userId, MCPToolType.TEAMS);
 
       // Fallback to Outlook token if Teams not connected (same Microsoft account)
       if (!accessToken) {
-        accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.OUTLOOK);
+        accessToken = await oauthService.getAccessToken(userId, MCPToolType.OUTLOOK);
       }
 
       if (!accessToken) {
