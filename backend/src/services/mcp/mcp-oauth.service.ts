@@ -5,6 +5,15 @@ import { MCPToolType, MCPOAuthConfig, MCPOAuthTokens, MCPAction } from '../../ty
 import { MCPPrivacyService } from './mcp-privacy.service';
 import { prisma } from '../../lib/prisma';
 
+const DEBUG = process.env.DEBUG_OAUTH === 'true' || process.env.NODE_ENV === 'development';
+
+const log = {
+  debug: (msg: string, data?: object) => DEBUG && console.log(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+  info:  (msg: string, data?: object) => console.log(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+  warn:  (msg: string, data?: object) => console.warn(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+  error: (msg: string, data?: object) => console.error(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+};
+
 /**
  * MCP OAuth Service - Handles OAuth authentication for external tools
  *
@@ -280,7 +289,7 @@ export class MCPOAuthService {
    * @param text Plain text to encrypt
    * @returns Encrypted text
    */
-  private encrypt(text: string): string {
+  public encrypt(text: string): string {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(
       'aes-256-cbc',
@@ -297,7 +306,7 @@ export class MCPOAuthService {
    * @param text Encrypted text
    * @returns Decrypted text
    */
-  private decrypt(text: string): string {
+  public decrypt(text: string): string {
     const parts = text.split(':');
     const iv = Buffer.from(parts[0], 'hex');
     const encryptedText = parts[1];
@@ -890,3 +899,6 @@ export class MCPOAuthService {
     return Array.from(this.oauthConfigs.keys());
   }
 }
+
+// Singleton instance — all consumers import this, never `new MCPOAuthService()`
+export const oauthService = new MCPOAuthService();
