@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui/button';
-import { Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, ExternalLink, Loader2, Clock } from 'lucide-react';
+import { useMCPOAuth, useMCPGroupOAuth, useMCPIntegrations } from '../../../hooks/useMCP';
+import { MCPToolType } from '../../../services/mcp.service';
 
 interface ConnectToolsProps {
   data: Record<string, unknown>;
@@ -11,70 +13,51 @@ interface ConnectToolsProps {
   isLastStep?: boolean;
 }
 
-interface Tool {
+interface ToolBucket {
   id: string;
   name: string;
   description: string;
   icon: string;
-  category: 'project' | 'code' | 'docs' | 'communication';
+  toolType?: MCPToolType;
+  groupType?: 'atlassian' | 'microsoft';
+  subTools: string[];
+  comingSoon?: boolean;
 }
 
-const AVAILABLE_TOOLS: Tool[] = [
-  {
-    id: 'jira',
-    name: 'Jira',
-    description: 'Track project tasks, sprints, and contributions',
-    icon: '🔷',
-    category: 'project',
-  },
+const TOOL_BUCKETS: ToolBucket[] = [
   {
     id: 'github',
     name: 'GitHub',
-    description: 'Pull requests, commits, and code reviews',
+    description: 'Pull requests, commits, code reviews, and releases',
     icon: '🐙',
-    category: 'code',
+    toolType: MCPToolType.GITHUB,
+    subTools: ['PRs', 'Commits', 'Reviews'],
   },
   {
-    id: 'gitlab',
-    name: 'GitLab',
-    description: 'Merge requests, pipelines, and repositories',
-    icon: '🦊',
-    category: 'code',
+    id: 'atlassian',
+    name: 'Atlassian',
+    description: 'Jira issues, sprints, and Confluence docs',
+    icon: '🔷',
+    groupType: 'atlassian',
+    subTools: ['Jira', 'Confluence'],
   },
   {
-    id: 'confluence',
-    name: 'Confluence',
-    description: 'Documentation, pages, and knowledge base',
-    icon: '📘',
-    category: 'docs',
+    id: 'microsoft',
+    name: 'Microsoft 365',
+    description: 'Outlook calendar, Teams messages, and OneDrive files',
+    icon: '📧',
+    groupType: 'microsoft',
+    subTools: ['Outlook', 'Teams', 'OneDrive'],
+    comingSoon: true,
   },
   {
-    id: 'slack',
-    name: 'Slack',
-    description: 'Key messages, threads, and contributions',
-    icon: '💬',
-    category: 'communication',
-  },
-  {
-    id: 'linear',
-    name: 'Linear',
-    description: 'Issues, projects, and team activity',
-    icon: '⚡',
-    category: 'project',
-  },
-  {
-    id: 'notion',
-    name: 'Notion',
-    description: 'Pages, databases, and team docs',
-    icon: '📝',
-    category: 'docs',
-  },
-  {
-    id: 'bitbucket',
-    name: 'Bitbucket',
-    description: 'Repositories, pull requests, and pipelines',
-    icon: '🪣',
-    category: 'code',
+    id: 'google',
+    name: 'Google Workspace',
+    description: 'Calendar events and Google Drive activity',
+    icon: '🔍',
+    toolType: MCPToolType.GOOGLE_WORKSPACE,
+    subTools: ['Calendar', 'Drive'],
+    comingSoon: true,
   },
 ];
 
@@ -84,50 +67,69 @@ export function ConnectToolsStep({
   onNext,
   onPrevious,
 }: ConnectToolsProps) {
-  const existingConnections = (data.connectedTools as string[]) || [];
-  const [connectedTools, setConnectedTools] = useState<Set<string>>(new Set(existingConnections));
   const [connectingTool, setConnectingTool] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleConnectTool = async (toolId: string) => {
-    setConnectingTool(toolId);
+  const { data: integrationData } = useMCPIntegrations();
+  const { mutate: initiateOAuth } = useMCPOAuth();
+  const { mutate: initiateGroupOAuth } = useMCPGroupOAuth();
+
+  // Determine which buckets have real connections
+  const connectedBucketIds = new Set<string>();
+  const integrations = integrationData?.integrations ?? [];
+  for (const integration of integrations) {
+    if (!integration.isConnected) continue;
+    const toolType = integration.toolType;
+    // Map individual tool types back to their bucket
+    if (toolType === 'github') connectedBucketIds.add('github');
+    if (toolType === 'jira' || toolType === 'confluence') connectedBucketIds.add('atlassian');
+    if (toolType === 'outlook' || toolType === 'teams' || toolType === 'onedrive' || toolType === 'onenote' || toolType === 'sharepoint') connectedBucketIds.add('microsoft');
+    if (toolType === 'google_workspace') connectedBucketIds.add('google');
+  }
+
+  const hasRealConnection = connectedBucketIds.size > 0;
+
+  const handleConnectTool = (bucket: ToolBucket) => {
+    if (bucket.comingSoon) return;
+
+    setConnectingTool(bucket.id);
     setError('');
 
-    try {
-      // TODO: Replace with actual MCP OAuth flow
-      // For now, simulate a connection delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+    // Save onboarding state before OAuth redirect (page will unload)
+    localStorage.setItem('onboarding-oauth-return', JSON.stringify({
+      step: 'connect-tools',
+      ts: Date.now(),
+    }));
 
-      const updated = new Set(connectedTools);
-      updated.add(toolId);
-      setConnectedTools(updated);
-
-      // Save connected tools to onboarding data
-      await onUpdate({ connectedTools: Array.from(updated) });
-    } catch (err) {
-      setError(`Failed to connect ${toolId}. Please try again.`);
-    } finally {
-      setConnectingTool(null);
+    if (bucket.groupType) {
+      initiateGroupOAuth({ groupType: bucket.groupType }, {
+        onSuccess: (data) => { window.location.href = data.authUrl; },
+        onError: (err: any) => {
+          setError(err.response?.data?.error || `Failed to connect ${bucket.name}`);
+          setConnectingTool(null);
+        },
+      });
+    } else if (bucket.toolType) {
+      initiateOAuth({ toolType: bucket.toolType }, {
+        onSuccess: (data) => { window.location.href = data.authUrl; },
+        onError: (err: any) => {
+          setError(err.response?.data?.error || `Failed to connect ${bucket.name}`);
+          setConnectingTool(null);
+        },
+      });
     }
   };
 
-  const handleDisconnectTool = async (toolId: string) => {
-    const updated = new Set(connectedTools);
-    updated.delete(toolId);
-    setConnectedTools(updated);
-    await onUpdate({ connectedTools: Array.from(updated) });
-  };
-
   const handleFinish = async () => {
-    if (connectedTools.size === 0) {
+    if (!hasRealConnection) {
       setError('Connect at least one tool to continue. InChronicle needs your work activity to create stories.');
       return;
     }
 
     setIsLoading(true);
     try {
-      await onUpdate({ connectedTools: Array.from(connectedTools) });
+      await onUpdate({ connectedTools: Array.from(connectedBucketIds) });
       await onNext();
     } catch (err) {
       setError('Failed to save. Please try again.');
@@ -153,57 +155,86 @@ export function ConnectToolsStep({
         </div>
       )}
 
-      {connectedTools.size > 0 && (
+      {hasRealConnection && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-700 font-medium">
-            {connectedTools.size} tool{connectedTools.size > 1 ? 's' : ''} connected — your activity will start appearing on your Timeline.
+            {connectedBucketIds.size} tool{connectedBucketIds.size > 1 ? 's' : ''} connected — your activity will start appearing on your Timeline.
           </p>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
-        {AVAILABLE_TOOLS.map((tool) => {
-          const isConnected = connectedTools.has(tool.id);
-          const isConnecting = connectingTool === tool.id;
+        {TOOL_BUCKETS.map((bucket) => {
+          const isConnected = connectedBucketIds.has(bucket.id);
+          const isConnecting = connectingTool === bucket.id;
+          const isComingSoon = bucket.comingSoon;
 
           return (
             <div
-              key={tool.id}
-              className={`relative flex items-center gap-3 p-4 rounded-lg border-2 transition-all duration-200 ${
+              key={bucket.id}
+              className={`relative flex flex-col gap-2 p-4 rounded-lg border-2 transition-all duration-200 ${
                 isConnected
                   ? 'border-green-400 bg-green-50'
+                  : isComingSoon
+                  ? 'border-gray-100 bg-gray-50 opacity-75'
                   : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
-              <div className="text-2xl flex-shrink-0">{tool.icon}</div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-gray-900">{tool.name}</p>
-                <p className="text-xs text-gray-500 truncate">{tool.description}</p>
-              </div>
-              <div className="flex-shrink-0">
-                {isConnected ? (
-                  <button
-                    onClick={() => handleDisconnectTool(tool.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors"
-                  >
-                    <Check className="w-3 h-3" />
-                    Connected
-                  </button>
-                ) : isConnecting ? (
-                  <div className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Connecting...
+              <div className="flex items-center gap-3">
+                <div className="text-2xl flex-shrink-0">{bucket.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm text-gray-900">{bucket.name}</p>
+                    {isComingSoon && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-gray-500 bg-gray-200 rounded-full">
+                        <Clock className="w-2.5 h-2.5" />
+                        Coming Soon
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => handleConnectTool(tool.id)}
-                    disabled={connectingTool !== null}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 rounded-md hover:bg-primary-100 transition-colors disabled:opacity-50"
+                  <p className="text-xs text-gray-500">{bucket.description}</p>
+                </div>
+                <div className="flex-shrink-0">
+                  {isConnected ? (
+                    <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-md">
+                      <Check className="w-3 h-3" />
+                      Connected
+                    </span>
+                  ) : isConnecting ? (
+                    <div className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Connecting...
+                    </div>
+                  ) : isComingSoon ? (
+                    <span className="px-2.5 py-1.5 text-xs font-medium text-gray-400">
+                      &mdash;
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleConnectTool(bucket)}
+                      disabled={connectingTool !== null}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 rounded-md hover:bg-primary-100 transition-colors disabled:opacity-50"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Connect
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* Sub-tool chips */}
+              <div className="flex flex-wrap gap-1.5 ml-10">
+                {bucket.subTools.map((sub) => (
+                  <span
+                    key={sub}
+                    className={`px-2 py-0.5 text-[11px] rounded-full ${
+                      isConnected
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
                   >
-                    <ExternalLink className="w-3 h-3" />
-                    Connect
-                  </button>
-                )}
+                    {sub}
+                  </span>
+                ))}
               </div>
             </div>
           );
@@ -222,7 +253,7 @@ export function ConnectToolsStep({
 
         <Button
           onClick={handleFinish}
-          disabled={isLoading || connectedTools.size === 0}
+          disabled={isLoading || !hasRealConnection}
           className="flex items-center space-x-2"
         >
           {isLoading ? (
@@ -230,8 +261,10 @@ export function ConnectToolsStep({
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Finishing...</span>
             </>
-          ) : (
+          ) : hasRealConnection ? (
             <span>Get Started</span>
+          ) : (
+            <span>Connect at least 1 tool to continue</span>
           )}
         </Button>
       </div>
