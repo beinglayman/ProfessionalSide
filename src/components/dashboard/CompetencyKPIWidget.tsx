@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import {
   FileText, MessageSquare, Code, Users, Paintbrush, Grid3X3,
 } from 'lucide-react';
@@ -6,6 +6,12 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card
 import { cn } from '../../lib/utils';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import type { IntensityLevel } from '../dashboard-v2/types';
+
+const SOURCE_NAMES: Record<string, string> = {
+  github: 'GitHub', jira: 'Jira', confluence: 'Confluence', slack: 'Slack',
+  teams: 'Teams', figma: 'Figma', 'google-docs': 'Google Docs',
+  'google-calendar': 'Calendar', 'google-meet': 'Meet', outlook: 'Outlook',
+};
 
 const WORK_AREAS = [
   { name: 'Engineering', sources: ['github'], icon: Code },
@@ -85,15 +91,18 @@ export function CompetencyKPIWidget() {
     return day === 0 || day === 6;
   };
 
-  // Map activities → work area × day grid
+  // Map activities → work area × day grid (with per-source breakdown per cell)
   const { grid, hasData } = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
+    const sourceCounts: Record<string, Record<string, Record<string, number>>> = {}; // area → day → source → count
     let max = 0;
 
     for (const area of WORK_AREAS) {
       counts[area.name] = {};
+      sourceCounts[area.name] = {};
       for (const day of visibleDays) {
         counts[area.name][day] = 0;
+        sourceCounts[area.name][day] = {};
       }
     }
 
@@ -104,24 +113,66 @@ export function CompetencyKPIWidget() {
       for (const area of WORK_AREAS) {
         if (area.sources.includes(activity.source as any)) {
           counts[area.name][day] = (counts[area.name][day] ?? 0) + 1;
+          sourceCounts[area.name][day][activity.source] = (sourceCounts[area.name][day][activity.source] ?? 0) + 1;
           if (counts[area.name][day] > max) max = counts[area.name][day];
+        }
+      }
+    }
+
+    // Also collect per-cell activity titles for rich tooltips
+    const cellActivities: Record<string, Record<string, { title: string; source: string }[]>> = {};
+    for (const area of WORK_AREAS) {
+      cellActivities[area.name] = {};
+      for (const day of visibleDays) cellActivities[area.name][day] = [];
+    }
+    for (const activity of activities) {
+      const day = getISODay(new Date(activity.timestamp));
+      if (!visibleDays.includes(day)) continue;
+      for (const area of WORK_AREAS) {
+        if (area.sources.includes(activity.source as any)) {
+          cellActivities[area.name][day].push({ title: activity.title, source: activity.source });
         }
       }
     }
 
     const intensityGrid = WORK_AREAS.map((area) => {
       const rawCounts = visibleDays.map((day) => counts[area.name][day] ?? 0);
+      const sourceBreakdowns = visibleDays.map((day) => {
+        return Object.entries(sourceCounts[area.name][day] ?? {})
+          .sort((a, b) => b[1] - a[1])
+          .map(([src, cnt]) => ({ source: SOURCE_NAMES[src] ?? src, count: cnt }));
+      });
+      const recentItems = visibleDays.map((day) => {
+        return (cellActivities[area.name][day] ?? []).slice(0, 2).map((a) => ({
+          title: a.title.length > 35 ? a.title.slice(0, 35).trimEnd() + '…' : a.title,
+          source: SOURCE_NAMES[a.source] ?? a.source,
+        }));
+      });
       return {
         name: area.name,
         icon: area.icon,
         days: rawCounts.map((c) => toIntensity(c, max)),
         counts: rawCounts,
+        sourceBreakdowns,
+        recentItems,
         total: rawCounts.reduce((s, c) => s + c, 0),
       };
     });
 
     return { grid: intensityGrid, hasData: max > 0 };
   }, [activities, visibleDays]);
+
+  // Hover tooltip state
+  const [hoveredCell, setHoveredCell] = useState<{ areaIdx: number; dayIdx: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleCellHover = useCallback((e: React.MouseEvent, areaIdx: number, dayIdx: number) => {
+    if (!gridContainerRef.current) return;
+    const rect = gridContainerRef.current.getBoundingClientRect();
+    setHoveredCell({ areaIdx, dayIdx });
+    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }, []);
 
   // Column header labels for heatmap (day abbreviations with month markers)
   const columnLabels = useMemo(() => {
@@ -166,7 +217,7 @@ export function CompetencyKPIWidget() {
       <CardContent>
         <div ref={containerRef}>
         {!hasData ? emptyState : (
-          <div className="space-y-0">
+          <div className="relative space-y-0" ref={gridContainerRef}>
             {/* Column headers — month markers + day abbreviations */}
             <div className="flex items-end gap-3 mb-1.5">
               <div className="w-[120px] shrink-0" />
@@ -198,7 +249,7 @@ export function CompetencyKPIWidget() {
             </div>
 
             {/* Heatmap rows (hide empty rows) */}
-            {grid.filter((area) => area.total > 0).map((area) => {
+            {grid.filter((area) => area.total > 0).map((area, areaIdx) => {
               const Icon = area.icon;
               return (
                 <div key={area.name} className="flex items-center gap-3 py-1.5 border-b border-gray-100 last:border-b-0">
@@ -208,19 +259,19 @@ export function CompetencyKPIWidget() {
                   </div>
                   <div className="flex gap-1 flex-1">
                     {area.days.map((level, di) => {
-                      const count = area.counts[di];
                       const isToday = di === visibleDays.length - 1;
                       return (
                         <div
                           key={di}
                           className={cn(
-                            'w-[20px] h-[20px] rounded-sm transition-transform hover:scale-110',
+                            'w-[20px] h-[20px] rounded-sm transition-transform hover:scale-110 cursor-default',
                             INTENSITY_COLORS[level],
                             isWeekStart(di) && 'ml-1.5',
                             isWeekend(visibleDays[di]) && level === 0 && 'bg-gray-50',
                             isToday && 'ring-1 ring-primary-400',
                           )}
-                          title={`${area.name} — ${formatTooltipDate(visibleDays[di])}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
+                          onMouseEnter={(e) => handleCellHover(e, areaIdx, di)}
+                          onMouseLeave={() => setHoveredCell(null)}
                         />
                       );
                     })}
@@ -231,6 +282,57 @@ export function CompetencyKPIWidget() {
                 </div>
               );
             })}
+
+            {/* Hover tooltip */}
+            {hoveredCell && tooltipPos && (() => {
+              const visibleAreas = grid.filter((a) => a.total > 0);
+              const area = visibleAreas[hoveredCell.areaIdx];
+              if (!area) return null;
+              const di = hoveredCell.dayIdx;
+              const count = area.counts[di];
+              const items = area.recentItems[di];
+              const remaining = count - items.length;
+              const dateStr = formatTooltipDate(visibleDays[di]);
+
+              return (
+                <div
+                  className="absolute z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+                  style={{ left: tooltipPos.x, top: tooltipPos.y + 24, transform: 'translateX(-50%)' }}
+                >
+                  <div className="rounded-lg bg-gray-900 text-white shadow-xl min-w-[180px] max-w-[260px] overflow-hidden">
+                    {/* Header */}
+                    <div className="px-3 pt-2.5 pb-1.5 border-b border-gray-700/60">
+                      <p className="text-[11px] font-semibold">{area.name}</p>
+                      <p className="text-[10px] text-gray-400">{dateStr}</p>
+                    </div>
+
+                    {count === 0 ? (
+                      <div className="px-3 py-2.5">
+                        <p className="text-[10px] text-gray-500">No activity</p>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2">
+                        {/* Activity list */}
+                        <div className="space-y-1.5">
+                          {items.map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-2">
+                              <div className="w-1 h-3.5 rounded-full bg-primary-500/60 shrink-0 mt-px" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] text-gray-200 leading-tight truncate">{item.title}</p>
+                                <p className="text-[9px] text-gray-500">{item.source}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {remaining > 0 && (
+                          <p className="text-[9px] text-gray-500 mt-1.5">+{remaining} more</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
         </div>
