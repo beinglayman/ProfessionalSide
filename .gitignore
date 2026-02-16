@@ -103,3 +103,6 @@ public/logo-compare.html
 
 # Semantic search index
 src/.ck/
+
+# Recovered plan/design archive (from deleted commits)
+.archive/
