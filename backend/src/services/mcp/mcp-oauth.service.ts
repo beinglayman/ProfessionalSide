@@ -652,8 +652,16 @@ export class MCPOAuthService {
         connectedAt: integration.connectedAt
       });
 
-      // Check if token is expired
-      if (integration.expiresAt && new Date() > integration.expiresAt) {
+      // Check if token is expired or will expire within 5 minutes (proactive refresh)
+      const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+      const needsRefresh = integration.expiresAt &&
+        new Date() > new Date(integration.expiresAt.getTime() - REFRESH_BUFFER_MS);
+
+      if (needsRefresh) {
+        log.info('Proactive refresh triggered', {
+          toolType, userId,
+          expiresInMs: integration.expiresAt!.getTime() - Date.now()
+        });
         // Try to refresh the token
         if (integration.refreshToken) {
           const refreshed = await this.refreshAccessToken(userId, toolType);
@@ -661,7 +669,10 @@ export class MCPOAuthService {
             return refreshed;
           }
         }
-        return null;
+        // If already expired and refresh failed, return null
+        if (new Date() > integration.expiresAt!) {
+          return null;
+        }
       }
 
       // Ensure accessToken exists before decrypting

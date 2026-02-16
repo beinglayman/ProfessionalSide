@@ -165,3 +165,36 @@ describe('MCPOAuthService: retry on refresh', () => {
     expect(mockPost).toHaveBeenCalledTimes(3);
   });
 });
+
+describe('MCPOAuthService: proactive refresh', () => {
+  it('triggers refresh when token expires in <5 minutes', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('current-token'),
+      refreshToken: service.encrypt('refresh-token'),
+      expiresAt: new Date(Date.now() + 3 * 60 * 1000), // 3 min from now (within 5-min buffer)
+    });
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost.mockResolvedValueOnce({ data: { access_token: 'refreshed-token' } });
+    (prisma.mCPIntegration.upsert as any).mockResolvedValue({});
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBe('refreshed-token');
+  });
+
+  it('does NOT trigger refresh when token expires in >5 minutes', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('current-token'),
+      refreshToken: service.encrypt('refresh-token'),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min from now
+    });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBe('current-token');
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+});
