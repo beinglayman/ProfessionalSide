@@ -35,11 +35,12 @@ export class MCPOAuthService {
     this.prisma = prisma; // Use singleton Prisma client
     this.privacyService = new MCPPrivacyService();
 
-    // Initialize encryption key from environment
-    this.encryptionKey = process.env.ENCRYPTION_KEY || process.env.MCP_ENCRYPTION_KEY || process.env.JWT_SECRET || 'default-key';
-    if (this.encryptionKey === 'default-key') {
-      console.warn('[MCP OAuth] WARNING: Using default encryption key. Set ENCRYPTION_KEY in environment.');
+    // Initialize encryption key from environment — fail fast if missing
+    const encKey = process.env.ENCRYPTION_KEY || process.env.MCP_ENCRYPTION_KEY;
+    if (!encKey) {
+      throw new Error('[MCPOAuthService] ENCRYPTION_KEY or MCP_ENCRYPTION_KEY environment variable is required');
     }
+    this.encryptionKey = encKey;
 
     // Initialize OAuth configurations
     this.initializeOAuthConfigs();
