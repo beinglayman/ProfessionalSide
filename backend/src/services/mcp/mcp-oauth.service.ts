@@ -678,80 +678,84 @@ export class MCPOAuthService {
   }
 
   /**
-   * Refresh an access token
-   * @param userId User ID
-   * @param toolType Tool type
-   * @returns New access token or null
+   * Refresh an access token (pass-through to doRefresh, mutex added in Task 6)
    */
   private async refreshAccessToken(
     userId: string,
     toolType: MCPToolType
   ): Promise<string | null> {
-    try {
-      const integration = await this.prisma.mCPIntegration.findUnique({
-        where: {
-          userId_toolType: {
-            userId,
-            toolType
-          }
+    return this.doRefresh(userId, toolType);
+  }
+
+  /**
+   * Actual refresh implementation with retry + exponential backoff
+   */
+  private async doRefresh(
+    userId: string,
+    toolType: MCPToolType
+  ): Promise<string | null> {
+    const MAX_ATTEMPTS = 3;
+    const BASE_DELAY_MS = 1000;
+
+    const integration = await this.prisma.mCPIntegration.findUnique({
+      where: { userId_toolType: { userId, toolType } }
+    });
+
+    if (!integration || !integration.refreshToken) return null;
+
+    const config = this.oauthConfigs.get(toolType);
+    if (!config) return null;
+
+    const refreshToken = this.decrypt(integration.refreshToken);
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const tokenResponse = await axios.post(
+          config.tokenUrl,
+          new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token'
+          }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' } }
+        );
+
+        const tokens = tokenResponse.data;
+        await this.storeTokens(userId, toolType, {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token || refreshToken,
+          expiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+          scope: tokens.scope
+        });
+
+        await this.privacyService.recordConsent(userId, toolType, MCPAction.TOKEN_REFRESHED, true);
+        log.info('Token refreshed', { toolType, userId, attempt });
+        return tokens.access_token;
+      } catch (error: any) {
+        const status = error.response?.status;
+
+        // 400/401 = permanent failure (invalid_grant, revoked). Don't retry.
+        if (status === 400 || status === 401) {
+          log.error('Refresh token permanently invalid', { toolType, userId, status, errorBody: error.response?.data });
+          return null;
         }
-      });
 
-      if (!integration || !integration.refreshToken) {
-        return null;
-      }
-
-      const config = this.oauthConfigs.get(toolType);
-      if (!config) {
-        return null;
-      }
-
-      const refreshToken = this.decrypt(integration.refreshToken);
-
-      // Request new tokens
-      const tokenResponse = await axios.post(
-        config.tokenUrl,
-        new URLSearchParams({
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-          refresh_token: refreshToken,
-          grant_type: 'refresh_token'
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Accept: 'application/json'
+        // 429 or 5xx = transient. Retry with backoff.
+        if (attempt < MAX_ATTEMPTS) {
+          let delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          if (status === 429) {
+            const retryAfter = parseInt(error.response?.headers?.['retry-after'], 10);
+            if (!isNaN(retryAfter)) delay = Math.min(retryAfter * 1000, 60000);
           }
+          log.warn('Refresh failed, retrying', { toolType, userId, attempt, nextRetryMs: delay, status, error: error.message });
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          log.error('Refresh exhausted all attempts', { toolType, userId, attempts: MAX_ATTEMPTS, error: error.message });
         }
-      );
-
-      const tokens = tokenResponse.data;
-
-      // Update stored tokens
-      await this.storeTokens(userId, toolType, {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token || refreshToken, // Keep old refresh token if not provided
-        expiresAt: tokens.expires_in
-          ? new Date(Date.now() + tokens.expires_in * 1000)
-          : undefined,
-        scope: tokens.scope
-      });
-
-      // Log token refresh
-      await this.privacyService.recordConsent(
-        userId,
-        toolType,
-        MCPAction.TOKEN_REFRESHED,
-        true
-      );
-
-      console.log(`[MCP OAuth] Refreshed token for ${toolType}, user ${userId}`);
-
-      return tokens.access_token;
-    } catch (error) {
-      console.error(`[MCP OAuth] Error refreshing token for ${toolType}:`, error);
-      return null;
+      }
     }
+    return null;
   }
 
   /**

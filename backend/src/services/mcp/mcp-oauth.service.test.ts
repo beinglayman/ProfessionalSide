@@ -1,9 +1,37 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import axios from 'axios';
 
 // Set required env var BEFORE importing the service
 vi.stubEnv('ENCRYPTION_KEY', 'test-encryption-key-for-unit-tests');
 vi.stubEnv('GITHUB_CLIENT_ID', 'test-github-id');
 vi.stubEnv('GITHUB_CLIENT_SECRET', 'test-github-secret');
+
+vi.mock('axios');
+vi.mock('../../lib/prisma', () => ({
+  prisma: {
+    mCPIntegration: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      upsert: vi.fn(),
+      update: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    mCPPrivacyLog: {
+      create: vi.fn(),
+    },
+  },
+}));
+
+vi.mock('./mcp-privacy.service', () => {
+  return {
+    MCPPrivacyService: class {
+      recordConsent = vi.fn().mockResolvedValue(undefined);
+      logIntegrationAction = vi.fn().mockResolvedValue(undefined);
+      getUserIntegrationStatus = vi.fn().mockResolvedValue(new Map());
+      getPrivacyStatus = vi.fn().mockReturnValue({});
+    },
+  };
+});
 
 describe('MCPOAuthService: singleton', () => {
   it('exports a singleton instance', async () => {
@@ -15,7 +43,6 @@ describe('MCPOAuthService: singleton', () => {
 
 describe('MCPOAuthService: encryption key', () => {
   afterEach(() => {
-    // Restore env and module cache for subsequent tests
     vi.stubEnv('ENCRYPTION_KEY', 'test-encryption-key-for-unit-tests');
     vi.resetModules();
   });
@@ -25,7 +52,6 @@ describe('MCPOAuthService: encryption key', () => {
     delete process.env.ENCRYPTION_KEY;
     delete process.env.MCP_ENCRYPTION_KEY;
 
-    // Module-level singleton instantiation will throw during import
     await expect(() => import('./mcp-oauth.service')).rejects.toThrow(
       'ENCRYPTION_KEY or MCP_ENCRYPTION_KEY environment variable is required'
     );
@@ -36,8 +62,106 @@ describe('MCPOAuthService: encryption key', () => {
     delete process.env.ENCRYPTION_KEY;
     process.env.MCP_ENCRYPTION_KEY = 'valid-key';
 
-    // Should import without throwing
     const mod = await import('./mcp-oauth.service');
     expect(mod.oauthService).toBeDefined();
+  });
+});
+
+// --- Shared service instance for Tasks 4-8 ---
+// Uses a fresh MCPOAuthService instance (not the singleton) to avoid module-level side effects
+let service: any;
+
+beforeEach(async () => {
+  vi.stubEnv('ENCRYPTION_KEY', 'test-key-for-retry-tests');
+  vi.stubEnv('GITHUB_CLIENT_ID', 'test-id');
+  vi.stubEnv('GITHUB_CLIENT_SECRET', 'test-secret');
+  vi.resetModules();
+  vi.mocked(axios.post).mockReset();
+  vi.mocked(axios.delete).mockReset();
+  const { prisma } = await import('../../lib/prisma');
+  (prisma.mCPIntegration.findUnique as any).mockReset();
+  (prisma.mCPIntegration.upsert as any).mockReset();
+  (prisma.mCPIntegration.update as any).mockReset();
+  const mod = await import('./mcp-oauth.service');
+  service = new mod.MCPOAuthService();
+});
+
+describe('MCPOAuthService: retry on refresh', () => {
+  it('retries on 503 and succeeds on third attempt', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      refreshToken: service.encrypt('mock-refresh-token'),
+      expiresAt: new Date(Date.now() - 1000),
+      accessToken: service.encrypt('old-token'),
+    });
+    (prisma.mCPIntegration.upsert as any).mockResolvedValue({});
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost
+      .mockRejectedValueOnce({ response: { status: 503 }, message: 'Service Unavailable' })
+      .mockRejectedValueOnce({ response: { status: 503 }, message: 'Service Unavailable' })
+      .mockResolvedValueOnce({ data: { access_token: 'new-token', refresh_token: 'new-refresh' } });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBe('new-token');
+    expect(mockPost).toHaveBeenCalledTimes(3);
+  });
+
+  it('does NOT retry on 400 (permanent failure)', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      refreshToken: service.encrypt('mock-refresh-token'),
+      expiresAt: new Date(Date.now() - 1000),
+      accessToken: service.encrypt('old-token'),
+    });
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost.mockRejectedValueOnce({ response: { status: 400, data: { error: 'invalid_grant' } }, message: 'Bad Request' });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBeNull();
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on 429 and honors Retry-After header', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      refreshToken: service.encrypt('mock-refresh-token'),
+      expiresAt: new Date(Date.now() - 1000),
+      accessToken: service.encrypt('old-token'),
+    });
+    (prisma.mCPIntegration.upsert as any).mockResolvedValue({});
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost
+      .mockRejectedValueOnce({ response: { status: 429, headers: { 'retry-after': '1' } }, message: 'Too Many Requests' })
+      .mockResolvedValueOnce({ data: { access_token: 'new-token', refresh_token: 'new-refresh' } });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBe('new-token');
+    expect(mockPost).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns null after 3 failed attempts (503)', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      refreshToken: service.encrypt('mock-refresh-token'),
+      expiresAt: new Date(Date.now() - 1000),
+      accessToken: service.encrypt('old-token'),
+    });
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost
+      .mockRejectedValueOnce({ response: { status: 503 }, message: 'fail 1' })
+      .mockRejectedValueOnce({ response: { status: 503 }, message: 'fail 2' })
+      .mockRejectedValueOnce({ response: { status: 503 }, message: 'fail 3' });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBeNull();
+    expect(mockPost).toHaveBeenCalledTimes(3);
   });
 });
