@@ -297,4 +297,91 @@ describe('MCPOAuthService: revocation on disconnect', () => {
     const result = await service.disconnectIntegration('u1', 'github');
     expect(result).toBe(true);
   });
+
+  it('completes disconnect even if access token is corrupted', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: 'not-encrypted-garbage-data',
+    });
+    (prisma.mCPIntegration.update as any).mockResolvedValue({});
+
+    const result = await service.disconnectIntegration('u1', 'github');
+    expect(result).toBe(true);
+  });
+});
+
+describe('MCPOAuthService: edge cases', () => {
+  it('returns null when access token in DB is corrupted', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: 'not-a-valid-encrypted-string',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // far future
+    });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when refresh token in DB is corrupted', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('old-token'),
+      refreshToken: 'corrupted-not-encrypted',
+      expiresAt: new Date(Date.now() - 1000), // expired
+    });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBeNull();
+    // Should not attempt HTTP refresh with corrupted token
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  it('returns decrypted token when expiresAt is null (no expiry)', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('valid-token'),
+      refreshToken: service.encrypt('refresh-token'),
+      expiresAt: null,
+    });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBe('valid-token');
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  it('returns null for inactive integration', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: false,
+      accessToken: service.encrypt('token'),
+    });
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no integration exists', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue(null);
+
+    const result = await service.getAccessToken('u1', 'github');
+    expect(result).toBeNull();
+  });
+
+  it('rejects malformed (non-base64) state in handleCallback', async () => {
+    const result = await service.handleCallback('code', '%%%not-base64%%%');
+    expect(result.success).toBe(false);
+  });
+
+  it('returns false when disconnecting non-existent integration', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue(null);
+
+    const result = await service.disconnectIntegration('u1', 'github');
+    expect(result).toBe(false);
+  });
 });

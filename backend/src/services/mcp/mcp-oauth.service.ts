@@ -654,16 +654,14 @@ export class MCPOAuthService {
       });
 
       if (!integration || !integration.isActive) {
-        console.log(`[MCP OAuth] No integration found for ${toolType}`);
+        log.debug('No active integration found', { toolType, userId });
         return null;
       }
 
-      // Debug log to track stored scope
-      console.log(`[MCP OAuth] Retrieved token for ${toolType}:`, {
-        scope: integration.scope,
-        expiresAt: integration.expiresAt,
+      log.debug('Retrieved integration', {
+        toolType, userId,
+        hasExpiry: !!integration.expiresAt,
         hasRefreshToken: !!integration.refreshToken,
-        connectedAt: integration.connectedAt
       });
 
       // Check if token is expired or will expire within 5 minutes (proactive refresh)
@@ -691,13 +689,18 @@ export class MCPOAuthService {
 
       // Ensure accessToken exists before decrypting
       if (!integration.accessToken) {
-        console.error(`[MCP OAuth] No access token stored for ${toolType}`);
+        log.warn('No access token stored', { toolType, userId });
         return null;
       }
 
-      return this.decrypt(integration.accessToken);
-    } catch (error) {
-      console.error(`[MCP OAuth] Error getting access token for ${toolType}:`, error);
+      try {
+        return this.decrypt(integration.accessToken);
+      } catch (decryptError: any) {
+        log.error('Failed to decrypt access token (corrupted?)', { toolType, userId, error: decryptError.message });
+        return null;
+      }
+    } catch (error: any) {
+      log.error('Error getting access token', { toolType, userId, error: error.message });
       return null;
     }
   }
@@ -734,6 +737,7 @@ export class MCPOAuthService {
   ): Promise<string | null> {
     const MAX_ATTEMPTS = 3;
     const BASE_DELAY_MS = 1000;
+    const MAX_RETRY_DELAY_MS = 60_000;
 
     const integration = await this.prisma.mCPIntegration.findUnique({
       where: { userId_toolType: { userId, toolType } }
@@ -744,7 +748,13 @@ export class MCPOAuthService {
     const config = this.oauthConfigs.get(toolType);
     if (!config) return null;
 
-    const refreshToken = this.decrypt(integration.refreshToken);
+    let refreshToken: string;
+    try {
+      refreshToken = this.decrypt(integration.refreshToken);
+    } catch (decryptError: any) {
+      log.error('Failed to decrypt refresh token (corrupted?)', { toolType, userId, error: decryptError.message });
+      return null;
+    }
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
@@ -784,7 +794,7 @@ export class MCPOAuthService {
           let delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
           if (status === 429) {
             const retryAfter = parseInt(error.response?.headers?.['retry-after'], 10);
-            if (!isNaN(retryAfter)) delay = Math.min(retryAfter * 1000, 60000);
+            if (!isNaN(retryAfter)) delay = Math.min(retryAfter * 1000, MAX_RETRY_DELAY_MS);
           }
           log.warn('Refresh failed, retrying', { toolType, userId, attempt, nextRetryMs: delay, status, error: error.message });
           await new Promise(r => setTimeout(r, delay));
@@ -859,8 +869,12 @@ export class MCPOAuthService {
 
       // Revoke token at provider (best-effort)
       if (integration.accessToken) {
-        const decryptedToken = this.decrypt(integration.accessToken);
-        await this.revokeTokenAtProvider(toolType, decryptedToken);
+        try {
+          const decryptedToken = this.decrypt(integration.accessToken);
+          await this.revokeTokenAtProvider(toolType, decryptedToken);
+        } catch (decryptError: any) {
+          log.warn('Could not decrypt token for revocation (proceeding with disconnect)', { toolType, userId, error: decryptError.message });
+        }
       }
 
       // Soft-delete: deactivate the integration

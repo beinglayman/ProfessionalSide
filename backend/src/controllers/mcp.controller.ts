@@ -20,7 +20,6 @@ export const getAvailableTools = asyncHandler(async (req: Request, res: Response
   if (!userId) {
     sendError(res, 'Unauthorized: User not authenticated', 401);
     return;
-    return;
   }
 
   try {
