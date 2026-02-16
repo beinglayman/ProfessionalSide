@@ -184,6 +184,23 @@ describe('MCPOAuthService: proactive refresh', () => {
     expect(result).toBe('refreshed-token');
   });
 
+  it('falls back to current token when proactive refresh fails but token not yet expired', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('still-valid-token'),
+      refreshToken: service.encrypt('refresh-token'),
+      expiresAt: new Date(Date.now() + 3 * 60 * 1000), // 3 min from now (within buffer, but not yet expired)
+    });
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost.mockRejectedValueOnce({ response: { status: 400 }, message: 'invalid_grant' });
+
+    const result = await service.getAccessToken('u1', 'github');
+    // Token isn't actually expired, so it should fall back to decrypting the current token
+    expect(result).toBe('still-valid-token');
+  });
+
   it('does NOT trigger refresh when token expires in >5 minutes', async () => {
     const { prisma } = await import('../../lib/prisma');
     (prisma.mCPIntegration.findUnique as any).mockResolvedValue({

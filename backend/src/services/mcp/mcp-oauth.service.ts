@@ -292,7 +292,7 @@ export class MCPOAuthService {
    * @param text Plain text to encrypt
    * @returns Encrypted text
    */
-  public encrypt(text: string): string {
+  private encrypt(text: string): string {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(
       'aes-256-cbc',
@@ -309,7 +309,7 @@ export class MCPOAuthService {
    * @param text Encrypted text
    * @returns Decrypted text
    */
-  public decrypt(text: string): string {
+  private decrypt(text: string): string {
     const parts = text.split(':');
     const iv = Buffer.from(parts[0], 'hex');
     const encryptedText = parts[1];
@@ -842,7 +842,12 @@ export class MCPOAuthService {
           { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
       }
-      // Microsoft/Atlassian/Figma/Zoom: no standard revocation endpoint for confidential clients
+      // Atlassian (Jira/Confluence): No revocation endpoint for OAuth 2.0 3LO confidential apps.
+      // Microsoft (Outlook/Teams/OneDrive/OneNote): Revocation requires admin-level consent; B2C tokens
+      //   are short-lived and expire naturally. No user-facing revoke endpoint.
+      // Figma / Zoom: No documented token revocation API for confidential OAuth apps.
+      // For these providers, disconnectIntegration still deactivates the DB record, so the token
+      // becomes unusable on our side even though the provider hasn't been notified.
       log.info('Token revoked at provider', { toolType });
     } catch (error: any) {
       // Best-effort: log but don't fail disconnect

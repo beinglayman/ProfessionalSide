@@ -8,9 +8,6 @@ import { MCPToolType } from '../types/mcp.types';
 import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
 import { oauthService } from '../services/mcp/mcp-oauth.service';
 
-// Mock data store for development
-const mockIntegrations = new Map<string, any>();
-
 /**
  * Get available MCP tools and their connection status
  */
@@ -219,8 +216,6 @@ export const validateIntegrations = asyncHandler(async (req: Request, res: Respo
   }
 
   try {
-
-
     console.log(`[MCP Controller] Validating integrations for user ${userId}`);
 
     // Validate all integrations
@@ -268,9 +263,6 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
   }
 
   try {
-    // Use OAuth service to get authorization URL
-
-
     const result = oauthService.getAuthorizationUrl(userId, toolType);
 
     if (!result) {
@@ -312,9 +304,6 @@ export const initiateGroupOAuth = asyncHandler(async (req: Request, res: Respons
   }
 
   try {
-    // Use OAuth service to get group authorization URL
-
-
     const result = oauthService.getAuthorizationUrlForGroup(userId, groupType);
 
     if (!result) {
@@ -398,9 +387,6 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
     }
 
     console.log(`[MCP OAuth] Processing callback for ${toolType}, user ${userId}`);
-
-    // Use OAuth service to handle callback for all tools
-
 
     const result = await oauthService.handleCallback(code as string, state as string);
 

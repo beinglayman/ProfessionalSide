@@ -193,6 +193,10 @@ program
   .description('Corrupt refresh token → trigger real 400 → restore')
   .requiredOption('--user <userId>', 'User ID')
   .action(async (tool, opts) => {
+    console.warn('\n⚠️  WARNING: This command temporarily corrupts the refresh token in the DB.');
+    console.warn('   If you Ctrl+C before step 5 completes, the token will remain corrupted.');
+    console.warn('   You would need to manually restore it or re-authenticate.\n');
+
     process.env.DEBUG_OAUTH = 'true';
     const userId = opts.user;
 

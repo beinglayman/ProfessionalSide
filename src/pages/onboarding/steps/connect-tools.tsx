@@ -118,22 +118,18 @@ export function ConnectToolsStep({
       ts: Date.now(),
     }));
 
+    const callbacks = {
+      onSuccess: (data: { authUrl: string }) => { window.location.href = data.authUrl; },
+      onError: (err: any) => {
+        setError(err.response?.data?.error || `Failed to connect ${bucket.name}`);
+        setConnectingTool(null);
+      },
+    };
+
     if (bucket.groupType) {
-      initiateGroupOAuth({ groupType: bucket.groupType }, {
-        onSuccess: (data) => { window.location.href = data.authUrl; },
-        onError: (err: any) => {
-          setError(err.response?.data?.error || `Failed to connect ${bucket.name}`);
-          setConnectingTool(null);
-        },
-      });
+      initiateGroupOAuth({ groupType: bucket.groupType }, callbacks);
     } else if (bucket.toolType) {
-      initiateOAuth({ toolType: bucket.toolType }, {
-        onSuccess: (data) => { window.location.href = data.authUrl; },
-        onError: (err: any) => {
-          setError(err.response?.data?.error || `Failed to connect ${bucket.name}`);
-          setConnectingTool(null);
-        },
-      });
+      initiateOAuth({ toolType: bucket.toolType }, callbacks);
     }
   };
 
