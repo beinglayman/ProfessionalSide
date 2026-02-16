@@ -198,3 +198,37 @@ describe('MCPOAuthService: proactive refresh', () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 });
+
+describe('MCPOAuthService: refresh mutex', () => {
+  it('deduplicates concurrent refresh calls (only 1 actual refresh)', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('old-token'),
+      refreshToken: service.encrypt('refresh-token'),
+      expiresAt: new Date(Date.now() - 1000), // expired
+    });
+    (prisma.mCPIntegration.upsert as any).mockResolvedValue({});
+
+    const mockPost = vi.mocked(axios.post);
+    mockPost.mockImplementation(() =>
+      new Promise(resolve => setTimeout(() => resolve({
+        data: { access_token: 'new-token', refresh_token: 'new-refresh' }
+      } as any), 50))
+    );
+
+    // Fire 5 concurrent requests
+    const results = await Promise.all([
+      service.getAccessToken('u1', 'github'),
+      service.getAccessToken('u1', 'github'),
+      service.getAccessToken('u1', 'github'),
+      service.getAccessToken('u1', 'github'),
+      service.getAccessToken('u1', 'github'),
+    ]);
+
+    // All should get the same token
+    results.forEach(r => expect(r).toBe('new-token'));
+    // But axios.post should only be called ONCE (the mutex deduplicates)
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+});

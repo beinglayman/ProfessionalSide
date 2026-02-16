@@ -30,6 +30,8 @@ export class MCPOAuthService {
 
   // OAuth configurations per tool
   private oauthConfigs: Map<MCPToolType, MCPOAuthConfig> = new Map();
+  // Mutex: deduplicates concurrent refresh calls per user+tool
+  private refreshPromises = new Map<string, Promise<string | null>>();
 
   constructor() {
     this.prisma = prisma; // Use singleton Prisma client
@@ -689,13 +691,26 @@ export class MCPOAuthService {
   }
 
   /**
-   * Refresh an access token (pass-through to doRefresh, mutex added in Task 6)
+   * Refresh an access token with mutex to prevent concurrent refresh races
    */
   private async refreshAccessToken(
     userId: string,
     toolType: MCPToolType
   ): Promise<string | null> {
-    return this.doRefresh(userId, toolType);
+    const key = `${userId}:${toolType}`;
+    const existing = this.refreshPromises.get(key);
+    if (existing) {
+      log.info('Mutex: waiting on in-flight refresh', { toolType, userId });
+      return existing;
+    }
+
+    const promise = this.doRefresh(userId, toolType);
+    this.refreshPromises.set(key, promise);
+    try {
+      return await promise;
+    } finally {
+      this.refreshPromises.delete(key);
+    }
   }
 
   /**
