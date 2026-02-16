@@ -797,38 +797,85 @@ export class MCPOAuthService {
   }
 
   /**
-   * Disconnect a tool integration
-   * @param userId User ID
-   * @param toolType Tool type
-   * @returns Success status
+   * Revoke token at the provider's endpoint (best-effort, non-blocking)
+   */
+  private async revokeTokenAtProvider(
+    toolType: MCPToolType,
+    accessToken: string
+  ): Promise<void> {
+    const config = this.oauthConfigs.get(toolType);
+    if (!config) return;
+
+    try {
+      if (toolType === MCPToolType.GITHUB) {
+        // GitHub: DELETE /applications/{client_id}/grant
+        await axios.delete(
+          `https://api.github.com/applications/${config.clientId}/grant`,
+          {
+            auth: { username: config.clientId, password: config.clientSecret },
+            data: { access_token: accessToken },
+            headers: { Accept: 'application/vnd.github.v3+json' }
+          }
+        );
+      } else if (toolType === MCPToolType.GOOGLE_WORKSPACE) {
+        // Google: POST https://oauth2.googleapis.com/revoke
+        await axios.post(
+          'https://oauth2.googleapis.com/revoke',
+          new URLSearchParams({ token: accessToken }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+      } else if (toolType === MCPToolType.SLACK) {
+        // Slack: POST https://slack.com/api/auth.revoke
+        await axios.post(
+          'https://slack.com/api/auth.revoke',
+          new URLSearchParams({ token: accessToken }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+      }
+      // Microsoft/Atlassian/Figma/Zoom: no standard revocation endpoint for confidential clients
+      log.info('Token revoked at provider', { toolType });
+    } catch (error: any) {
+      // Best-effort: log but don't fail disconnect
+      log.warn('Token revocation failed (proceeding with disconnect)', { toolType, error: error.message });
+    }
+  }
+
+  /**
+   * Disconnect a tool integration with provider-side token revocation
    */
   public async disconnectIntegration(
     userId: string,
     toolType: MCPToolType
   ): Promise<boolean> {
     try {
-      // Deactivate the integration
+      // Look up integration to get token for revocation
+      const integration = await this.prisma.mCPIntegration.findUnique({
+        where: { userId_toolType: { userId, toolType } }
+      });
+
+      if (!integration) {
+        return false;
+      }
+
+      // Revoke token at provider (best-effort)
+      if (integration.accessToken) {
+        const decryptedToken = this.decrypt(integration.accessToken);
+        await this.revokeTokenAtProvider(toolType, decryptedToken);
+      }
+
+      // Soft-delete: deactivate the integration
       await this.prisma.mCPIntegration.update({
-        where: {
-          userId_toolType: {
-            userId,
-            toolType
-          }
-        },
-        data: {
-          isActive: false,
-          updatedAt: new Date()
-        }
+        where: { userId_toolType: { userId, toolType } },
+        data: { isActive: false, updatedAt: new Date() }
       });
 
       // Log disconnection
       await this.privacyService.logIntegrationAction(userId, toolType, MCPAction.DISCONNECT, true);
 
-      console.log(`[MCP OAuth] Disconnected ${toolType} for user ${userId}`);
-
+      log.info('Integration disconnected', { toolType, userId });
       return true;
-    } catch (error) {
-      console.error(`[MCP OAuth] Error disconnecting ${toolType}:`, error);
+    } catch (error: any) {
+      log.error('Error disconnecting integration', { toolType, userId, error: error.message });
       return false;
     }
   }

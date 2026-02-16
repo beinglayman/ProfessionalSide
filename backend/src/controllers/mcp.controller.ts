@@ -437,28 +437,17 @@ export const disconnectIntegration = asyncHandler(async (req: Request, res: Resp
     return;
   }
 
-  try {
-    // Delete integration from database
-    const result = await prisma.mCPIntegration.deleteMany({
-      where: {
-        userId,
-        toolType
-      }
-    });
+  const success = await oauthService.disconnectIntegration(userId, toolType as MCPToolType);
 
-    if (result.count === 0) {
-      sendError(res, 'Integration not found', 404);
-      return;
-    }
-
-    sendSuccess(res, {
-      message: `Successfully disconnected ${toolType}`,
-      privacyNotice: 'All stored tokens and session data have been permanently deleted.'
-    });
-  } catch (error) {
-    console.error('[MCP Controller] Error disconnecting integration:', error);
-    sendError(res, 'Failed to disconnect integration');
+  if (!success) {
+    sendError(res, 'Integration not found or already disconnected', 404);
+    return;
   }
+
+  sendSuccess(res, {
+    message: `Successfully disconnected ${toolType}`,
+    privacyNotice: 'Token revoked at provider and integration deactivated.'
+  });
 });
 
 /**

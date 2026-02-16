@@ -262,3 +262,39 @@ describe('MCPOAuthService: state parameter expiry', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('MCPOAuthService: revocation on disconnect', () => {
+  it('calls GitHub revocation endpoint on disconnect', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('token-to-revoke'),
+    });
+    (prisma.mCPIntegration.update as any).mockResolvedValue({});
+
+    const mockDelete = vi.mocked(axios.delete);
+    mockDelete.mockResolvedValueOnce({} as any);
+
+    await service.disconnectIntegration('u1', 'github');
+
+    expect(mockDelete).toHaveBeenCalledWith(
+      expect.stringContaining('api.github.com/applications'),
+      expect.objectContaining({ data: { access_token: 'token-to-revoke' } })
+    );
+  });
+
+  it('completes disconnect even if revocation fails', async () => {
+    const { prisma } = await import('../../lib/prisma');
+    (prisma.mCPIntegration.findUnique as any).mockResolvedValue({
+      id: '1', userId: 'u1', toolType: 'github', isActive: true,
+      accessToken: service.encrypt('token-to-revoke'),
+    });
+    (prisma.mCPIntegration.update as any).mockResolvedValue({});
+
+    const mockDelete = vi.mocked(axios.delete);
+    mockDelete.mockRejectedValueOnce(new Error('404 Not Found'));
+
+    const result = await service.disconnectIntegration('u1', 'github');
+    expect(result).toBe(true);
+  });
+});

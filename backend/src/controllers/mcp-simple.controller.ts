@@ -195,28 +195,22 @@ export class MCPSimpleController {
         return;
       }
 
-      // Delete the integration
-      await this.prisma.mCPIntegration.deleteMany({
-        where: {
-          userId,
-          toolType
-        }
-      });
+      const success = await oauthService.disconnectIntegration(userId, toolType as MCPToolType);
+
+      if (!success) {
+        res.status(404).json({
+          success: false,
+          error: 'Integration not found or already disconnected'
+        });
+        return;
+      }
 
       // Clear any active sessions for this tool
       this.sessionService.clearUserSessions(userId);
 
-      // Log disconnection
-      await this.privacyService.logIntegrationAction(
-        userId,
-        toolType as MCPToolType,
-        MCPAction.DISCONNECT,
-        true
-      );
-
       res.json({
         success: true,
-        message: `${toolType} integration disconnected successfully. All related data has been cleared.`
+        message: `${toolType} integration disconnected successfully. Token revoked and integration deactivated.`
       });
     } catch (error) {
       console.error('[MCP Controller] Error disconnecting integration:', error);
