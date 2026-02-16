@@ -11,7 +11,7 @@ import { cn, formatRelativeTime } from '../../lib/utils';
 import type { CareerStory, DerivationType, WritingStyle, DeriveStoryResponse, StoryDerivation } from '../../types/career-stories';
 import { useDeriveStory, useStoryDerivations } from '../../hooks/useCareerStories';
 import { useFeatureCosts, useWalletBalance } from '../../hooks/useBilling';
-import { DerivationPreview } from './DerivationPreview';
+import { DerivationPreview, normalizeDerivationText } from './DerivationPreview';
 import { WRITING_STYLES, USER_PROMPT_MAX_LENGTH, DERIVATION_TYPE_META } from './constants';
 import { Button } from '../ui/button';
 import {
@@ -140,8 +140,9 @@ export function DerivationModal({ isOpen, onClose, story, initialType, onNavigat
   }, [story.id, selectedDerivation, tone, customPrompt, deriveMutation]);
 
   const handleCopy = useCallback(async () => {
-    const text = viewingSaved?.text || generatedResult?.text;
-    if (!text) return;
+    const raw = viewingSaved?.text || generatedResult?.text;
+    if (!raw) return;
+    const text = normalizeDerivationText(raw);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -249,7 +250,7 @@ export function DerivationModal({ isOpen, onClose, story, initialType, onNavigat
                 )}
               >
                 <Clock className="h-2.5 w-2.5 flex-shrink-0" />
-                <span className="truncate">{d.text.slice(0, 30)}{d.text.length > 30 ? '...' : ''}</span>
+                <span className="truncate">{normalizeDerivationText(d.text).slice(0, 30)}{d.text.length > 30 ? '...' : ''}</span>
                 <span className="flex-shrink-0 text-gray-400">{formatRelativeTime(d.createdAt)}</span>
               </button>
             ))}

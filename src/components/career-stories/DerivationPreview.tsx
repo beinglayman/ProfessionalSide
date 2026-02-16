@@ -28,6 +28,29 @@ interface DerivationPreviewProps {
   storyTitle?: string;
 }
 
+/**
+ * Guard against legacy saved derivations that stored raw LLM JSON as text.
+ * If text looks like a JSON sections array, convert to readable format.
+ */
+export function normalizeDerivationText(text: string): string {
+  if (!text.trimStart().startsWith('{')) return text;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.sections && Array.isArray(parsed.sections)) {
+      return parsed.sections
+        .map((s: { title?: string; content?: string }) => {
+          if (s.title && s.content) return `${s.content}`;
+          return s.content || '';
+        })
+        .filter(Boolean)
+        .join('\n\n');
+    }
+  } catch {
+    // Not JSON — return as-is
+  }
+  return text;
+}
+
 // =============================================================================
 // SKELETON
 // =============================================================================
@@ -212,10 +235,11 @@ export function DerivationPreview({
 
   // Render appropriate frame via map lookup
   const Frame = FRAME_MAP[derivation];
+  const displayText = normalizeDerivationText(text);
 
   return (
     <div className="space-y-3">
-      <Frame text={text} charCount={charCount} wordCount={wordCount} />
+      <Frame text={displayText} charCount={charCount} wordCount={wordCount} />
 
       {/* Word/char count footer */}
       {(wordCount || charCount) && (
