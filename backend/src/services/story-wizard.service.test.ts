@@ -695,20 +695,22 @@ describe('evaluateStory scoring', () => {
   });
 
   it('should give higher score with metrics in answers', async () => {
-    const entry = await prisma.journalEntry.create({
-      data: {
-        authorId: TEST_USER_ID,
-        workspaceId: TEST_WORKSPACE_ID,
-        sourceMode: 'demo',
-        title: 'Test Entry',
-        description: 'Test description with enough content to pass validation',
-        fullContent: 'This is a test entry with sufficient content for the wizard.',
-        activityIds: [],
-        skills: [],
-        visibility: 'workspace',
-        groupingMethod: 'temporal',
-      },
-    });
+    const entryData = {
+      authorId: TEST_USER_ID,
+      workspaceId: TEST_WORKSPACE_ID,
+      sourceMode: 'demo' as const,
+      title: 'Test Entry',
+      description: 'Test description with enough content to pass validation',
+      fullContent: 'This is a test entry with sufficient content for the wizard.',
+      activityIds: [],
+      skills: [],
+      visibility: 'workspace' as const,
+      groupingMethod: 'temporal',
+    };
+
+    // Create two separate entries to avoid unique constraint on journalEntryId
+    const entryForMetric = await prisma.journalEntry.create({ data: entryData });
+    const entryForBaseline = await prisma.journalEntry.create({ data: entryData });
 
     const service = createStoryWizardService(true);
 
@@ -718,7 +720,7 @@ describe('evaluateStory scoring', () => {
     };
 
     const withMetric = await service.generateStory({
-      journalEntryId: entry.id,
+      journalEntryId: entryForMetric.id,
       answers: answersWithMetric,
       archetype: 'firefighter',
       framework: 'STAR',
@@ -726,7 +728,7 @@ describe('evaluateStory scoring', () => {
 
     // Answers without metric
     const withoutMetric = await service.generateStory({
-      journalEntryId: entry.id,
+      journalEntryId: entryForBaseline.id,
       answers: {},
       archetype: 'firefighter',
       framework: 'STAR',

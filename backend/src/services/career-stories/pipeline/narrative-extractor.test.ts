@@ -322,13 +322,13 @@ describe('NarrativeExtractor', () => {
       expect(result.data.narrative?.components).toHaveLength(4);
 
       const componentNames = result.data.narrative?.components.map((c) => c.name);
-      expect(componentNames).toEqual(['situation', 'objective', 'action', 'result']);
+      expect(componentNames).toEqual(['situation', 'obstacles', 'actions', 'results']);
     });
 
-    it('extracts objective from goal language', () => {
-      const objectiveActivities = [
+    it('extracts obstacles from challenge language', () => {
+      const obstacleActivities = [
         createActivity('a1', 'jira', 'Goal: Improve page load time', {
-          description: 'Objective: Reduce page load time from 5s to under 1s to improve user experience.',
+          description: 'Obstacle: Limited engineering bandwidth and unclear requirements blocked progress.',
           rawData: { assignee: 'honey.arora' },
         }),
         createActivity('a2', 'github', 'Implement caching layer', {
@@ -338,15 +338,15 @@ describe('NarrativeExtractor', () => {
           rawData: { creator: 'Honey Arora' },
         }),
       ];
-      const cluster = createCluster(objectiveActivities);
+      const cluster = createCluster(obstacleActivities);
 
       const result = narrativeExtractor.process(
         { cluster, persona: testPersona },
         { framework: 'SOAR' }
       );
 
-      const objective = result.data.narrative?.components.find((c) => c.name === 'objective');
-      expect(objective).toBeDefined();
+      const obstacles = result.data.narrative?.components.find((c) => c.name === 'obstacles');
+      expect(obstacles).toBeDefined();
     });
   });
 
@@ -367,7 +367,7 @@ describe('NarrativeExtractor', () => {
       expect(result.data.narrative?.components).toHaveLength(5);
 
       const componentNames = result.data.narrative?.components.map((c) => c.name);
-      expect(componentNames).toEqual(['situation', 'hindsight', 'action', 'result', 'example']);
+      expect(componentNames).toEqual(['situation', 'hindrances', 'actions', 'results', 'evaluation']);
     });
   });
 
