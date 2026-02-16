@@ -112,7 +112,7 @@ export function WorkRadarWidget() {
     }],
   }), [grid, radarValues]);
 
-  const dynamicMax = Math.max(40, Math.ceil(Math.max(...radarValues, 1) / 10) * 10);
+  const dynamicMax = Math.ceil(Math.max(...radarValues, 1) / 10) * 10;
 
   const radarOptions = useMemo(() => ({
     responsive: true,
