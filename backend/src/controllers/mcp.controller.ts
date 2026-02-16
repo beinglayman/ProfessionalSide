@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { format7Transformer } from '../services/mcp/format7-transformer.service';
 import { getContentSanitizerService } from '../services/mcp/content-sanitizer.service';
 import { MCPToolType } from '../types/mcp.types';
+import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
 
 // Mock data store for development
 const mockIntegrations = new Map<string, any>();
@@ -118,6 +119,23 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
       google_workspace: { name: 'Google Workspace', description: 'Google Docs, Sheets, Slides, Drive, and Meet' }
     };
 
+    // Demo mode: show tools as connected to match seeded demo activities
+    // Each integration group got connected at a different time (staggered onboarding)
+    const isDemo = isDemoModeRequest(req);
+    const demoConnectedTools = new Set([
+      'github', 'jira', 'confluence', 'slack', 'figma', 'outlook', 'google_workspace'
+    ]);
+    const demoConnectedAtByTool: Record<string, string> = {
+      github:          new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString(), // 4 weeks ago (first)
+      jira:            new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(), // ~3.5 weeks ago
+      confluence:      new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(), // same as Jira (Atlassian group)
+      slack:           new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(), // 3 weeks ago
+      google_workspace:new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), // 2 weeks ago
+      figma:           new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // ~1.5 weeks ago
+      outlook:         new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago (latest)
+    };
+    const demoLastSyncAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours ago
+
     // Ensure all tools are represented
     const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'zoom', 'google_workspace'];
     const integrationMap = new Map(integrations.map(i => [i.toolType, i]));
@@ -135,6 +153,23 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
           tool: existing.toolType
         };
       }
+
+      // In demo mode, mark matching tools as connected
+      if (isDemo && demoConnectedTools.has(tool)) {
+        return {
+          toolType: tool,
+          tool,
+          name: metadata.name,
+          description: metadata.description,
+          isConnected: true,
+          connectedAt: demoConnectedAtByTool[tool] ?? demoLastSyncAt,
+          lastSyncAt: demoLastSyncAt,
+          lastUsedAt: demoLastSyncAt,
+          isActive: true,
+          scope: 'read'
+        };
+      }
+
       // Return placeholder with consistent structure and metadata
       return {
         toolType: tool,
@@ -166,6 +201,20 @@ export const validateIntegrations = asyncHandler(async (req: Request, res: Respo
 
   if (!userId) {
     sendError(res, 'Unauthorized: User not authenticated', 401);
+    return;
+  }
+
+  // Demo mode: return all demo-connected tools as valid
+  if (isDemoModeRequest(req)) {
+    const demoTools = ['github', 'jira', 'confluence', 'slack', 'figma', 'outlook', 'google_workspace'];
+    const validations: Record<string, { status: string }> = {};
+    for (const tool of demoTools) {
+      validations[tool] = { status: 'valid' };
+    }
+    sendSuccess(res, {
+      validations,
+      summary: { valid: demoTools.length, expired: 0, invalid: 0, total: demoTools.length }
+    });
     return;
   }
 
