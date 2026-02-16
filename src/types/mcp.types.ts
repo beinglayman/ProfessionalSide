@@ -9,7 +9,9 @@ export type MCPToolType =
   | 'teams'
   | 'onedrive'
   | 'onenote'
-  | 'sharepoint';
+  | 'sharepoint'
+  | 'zoom'
+  | 'google_workspace';
 
 // Integration Group Types
 export type MCPIntegrationGroupType = 'atlassian' | 'microsoft';

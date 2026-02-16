@@ -20,7 +20,9 @@ export enum MCPToolType {
   TEAMS = 'teams',
   SHAREPOINT = 'sharepoint',
   ONEDRIVE = 'onedrive',
-  ONENOTE = 'onenote'
+  ONENOTE = 'onenote',
+  ZOOM = 'zoom',
+  GOOGLE_WORKSPACE = 'google_workspace',
 }
 
 export interface MCPTool {
