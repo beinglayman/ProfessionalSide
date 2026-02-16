@@ -68,7 +68,24 @@ export function MCPCallbackPage() {
         // Invalidate the integrations cache to refetch updated status
         queryClient.invalidateQueries({ queryKey: ['mcp', 'integrations'] });
 
-        // Redirect to settings integrations tab after 2 seconds
+        // Check if user came from onboarding
+        const onboardingReturn = localStorage.getItem('onboarding-oauth-return');
+        if (onboardingReturn) {
+          try {
+            const parsed = JSON.parse(onboardingReturn);
+            // Only honor if < 15 min old (stale guard)
+            if (Date.now() - parsed.ts < 15 * 60 * 1000) {
+              localStorage.removeItem('onboarding-oauth-return');
+              setTimeout(() => {
+                navigate('/onboarding', { state: { returnToStep: 'connect-tools' } });
+              }, 2000);
+              return;
+            }
+          } catch { /* malformed localStorage — fall through to default */ }
+          localStorage.removeItem('onboarding-oauth-return');
+        }
+
+        // Default: redirect to settings integrations tab after 2 seconds
         setTimeout(() => {
           navigate('/settings', { state: { tab: 'integrations' } });
         }, 2000);
