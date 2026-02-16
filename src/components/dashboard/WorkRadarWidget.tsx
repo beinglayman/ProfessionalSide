@@ -12,7 +12,6 @@ import {
   Legend,
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
-import type { IntensityLevel } from '../dashboard-v2/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, Legend);
 
@@ -24,15 +23,6 @@ const WORK_AREAS = [
   { name: 'Meetings', sources: ['google-calendar', 'google-meet', 'outlook'], icon: Users },
   { name: 'Design', sources: ['figma'], icon: Paintbrush },
 ] as const;
-
-function toIntensity(count: number, max: number): IntensityLevel {
-  if (count === 0) return 0;
-  const ratio = count / Math.max(max, 1);
-  if (ratio <= 0.25) return 1;
-  if (ratio <= 0.5) return 2;
-  if (ratio <= 0.75) return 3;
-  return 4;
-}
 
 function getISODay(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -60,14 +50,10 @@ export function WorkRadarWidget() {
   }, []);
 
   const grid = useMemo(() => {
-    const counts: Record<string, Record<string, number>> = {};
-    let max = 0;
+    const counts: Record<string, number> = {};
 
     for (const area of WORK_AREAS) {
-      counts[area.name] = {};
-      for (const day of last28Days) {
-        counts[area.name][day] = 0;
-      }
+      counts[area.name] = 0;
     }
 
     for (const activity of activities) {
@@ -76,27 +62,22 @@ export function WorkRadarWidget() {
 
       for (const area of WORK_AREAS) {
         if (area.sources.includes(activity.source as any)) {
-          counts[area.name][day] = (counts[area.name][day] ?? 0) + 1;
-          if (counts[area.name][day] > max) max = counts[area.name][day];
+          counts[area.name]++;
         }
       }
     }
 
-    return WORK_AREAS.map((area) => {
-      const rawCounts = last28Days.map((day) => counts[area.name][day] ?? 0);
-      return {
-        name: area.name,
-        days: rawCounts.map((c) => toIntensity(c, max)),
-      };
-    });
+    return WORK_AREAS.map((area) => ({
+      name: area.name,
+      total: counts[area.name],
+    }));
   }, [activities, last28Days]);
 
+  const maxTotal = Math.max(...grid.map((a) => a.total), 1);
+
   const radarValues = useMemo(() => {
-    return grid.map((a) => {
-      const avg = a.days.reduce((s, v) => s + v, 0) / a.days.length;
-      return Math.round((avg / 4) * 100);
-    });
-  }, [grid]);
+    return grid.map((a) => Math.round((a.total / maxTotal) * 100));
+  }, [grid, maxTotal]);
 
   const radarData = useMemo(() => ({
     labels: grid.map((a) => a.name),
@@ -127,7 +108,7 @@ export function WorkRadarWidget() {
         pointLabels: {
           font: { size: 11, weight: '500' as const },
           color: '#374151',
-          callback: (label: string, index: number) => `${label} (${radarValues[index]}%)`,
+          callback: (label: string, index: number) => `${label} (${grid[index].total})`,
         },
       },
     },
@@ -135,11 +116,11 @@ export function WorkRadarWidget() {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx: { parsed: { r: number } }) => `${ctx.parsed.r}% activity level`,
+          label: (ctx: { parsed: { r: number } }) => `${ctx.parsed.r}% relative activity`,
         },
       },
     },
-  }), [dynamicMax, radarValues]);
+  }), [dynamicMax, radarValues, grid]);
 
   return (
     <Card>
