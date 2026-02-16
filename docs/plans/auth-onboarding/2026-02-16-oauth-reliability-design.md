@@ -125,7 +125,9 @@ log.info('Proactive refresh triggered', {
 
 ### Fix 3: Refresh Mutex
 
-Requires singleton (Fix #0) to work. In-memory `Map` on the single instance:
+Requires singleton (Fix #0) to work. In-memory `Map` on the single instance.
+
+**Scaling note**: This mutex is single-process only. If the app scales to multiple instances (PM2 cluster, Kubernetes pods), move to Redis `SET NX EX` or Postgres advisory locks. Today this is a single-process Node.js app, so in-memory is sufficient.
 
 ```typescript
 private refreshPromises = new Map<string, Promise<string | null>>();
@@ -187,7 +189,18 @@ In `handleCallback()`:
 
 ```typescript
 const STATE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
-if (stateData.iat && Date.now() - stateData.iat > STATE_MAX_AGE_MS) {
+
+// Backward compatibility: states without iat were issued before this fix.
+// Treat missing iat as expired — forces re-auth, which is safe since the user
+// just needs to click "Connect" again. No silent pass-through of legacy states.
+if (!stateData.iat) {
+  log.warn('OAuth state missing iat (pre-migration state), rejecting', {
+    toolType: stateData.toolType, userId: stateData.userId
+  });
+  throw new Error('Authorization state missing timestamp — please reconnect');
+}
+
+if (Date.now() - stateData.iat > STATE_MAX_AGE_MS) {
   log.error('OAuth state expired', {
     toolType: stateData.toolType,
     userId: stateData.userId,
@@ -196,6 +209,8 @@ if (stateData.iat && Date.now() - stateData.iat > STATE_MAX_AGE_MS) {
   throw new Error('Authorization state expired (older than 10 minutes)');
 }
 ```
+
+**Migration note**: Existing users with in-flight OAuth redirects (i.e., clicked "Connect" but haven't completed the callback) will see a one-time error. This is a ~5-second window for any active user. No data loss — they just re-click "Connect."
 
 ### Fix 6: PKCE (Conditional)
 
@@ -212,14 +227,28 @@ if (PKCE_PROVIDERS.has(toolType)) {
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
   params.append('code_challenge', codeChallenge);
   params.append('code_challenge_method', 'S256');
-  // Store codeVerifier in state for callback
-  statePayload.codeVerifier = codeVerifier;
+
+  // Store verifier server-side, keyed by the random state value.
+  // DO NOT embed in the state parameter — it travels through the provider redirect,
+  // which defeats PKCE's purpose (verifier must never leave the server).
+  this.pkceVerifiers.set(statePayload.state, {
+    verifier: codeVerifier,
+    createdAt: Date.now()
+  });
 }
 ```
 
-In `handleCallback()`, include `code_verifier` in the token exchange request when present.
+**Server-side storage**: `pkceVerifiers` is a `Map<string, { verifier: string; createdAt: number }>` on the singleton. Entries are cleaned up in `handleCallback()` after use, and a 15-minute TTL sweep prevents orphaned entries.
+
+In `handleCallback()`, look up `code_verifier` by the random state value and include it in the token exchange request. Delete the entry after use.
 
 ### Fix 7: Token Revocation on Disconnect
+
+**Critical prerequisite (from critique triage)**: The API disconnect endpoint (`mcp.controller.ts:396`) currently does a raw `prisma.mCPIntegration.deleteMany()` — it bypasses the OAuth service entirely. This means:
+1. Revocation logic added to the service would never execute in production
+2. Hard-delete destroys the integration row, losing audit trail (when connected, by whom)
+
+**Required controller change**: Replace raw Prisma call with `oauthService.disconnectIntegration()`, which performs revocation + soft-delete (`isActive: false`).
 
 New method, called from `disconnectIntegration()` before setting `isActive: false`:
 
@@ -329,14 +358,51 @@ Options:
 
 ### `simulate-failure` (the scary scenario)
 
-The CLI sets a flag that makes the next `doRefresh()` call for that tool return a mock 400 `invalid_grant` response instead of calling the real provider. This tests:
+Tests the graceful degradation path:
 
 1. Does retry correctly skip 400 (permanent failure)?
 2. Does `getAccessToken()` return `null` gracefully?
 3. Does the tool fetcher handle the `null` without crashing?
 4. What does the user see in the UI?
 
-Implementation: A `Map<string, boolean>` on the singleton that `doRefresh()` checks before the real axios call. Only settable via CLI (not exposed in production API).
+**Implementation — no test flags in production code**:
+
+The CLI does NOT inject a `Map<string, boolean>` into the singleton. Instead, it uses dependency injection on the HTTP layer:
+
+```typescript
+// oauth-cli.ts — simulate-failure command
+import { oauthService } from '../services/mcp/mcp-oauth.service';
+
+async function simulateFailure(toolType: string, userId: string) {
+  // 1. Corrupt the refresh token in DB (reversible — we save the original)
+  const integration = await prisma.mCPIntegration.findUnique({
+    where: { userId_toolType: { userId, toolType } }
+  });
+  const originalRefreshToken = integration.refreshToken; // encrypted
+
+  // 2. Set refresh token to a known-invalid value
+  await prisma.mCPIntegration.update({
+    where: { id: integration.id },
+    data: { refreshToken: oauthService.encrypt('INVALID_TOKEN_FOR_TESTING') }
+  });
+
+  log.info('Refresh token corrupted — next refresh will hit real provider and get 400', { toolType, userId });
+
+  // 3. Force a refresh to trigger the failure path
+  const result = await oauthService.getAccessToken(userId, toolType as MCPToolType);
+  log.info('Result after simulated failure', { result: result ? 'got token (unexpected)' : 'null (expected)' });
+
+  // 4. Restore original token
+  await prisma.mCPIntegration.update({
+    where: { id: integration.id },
+    data: { refreshToken: originalRefreshToken }
+  });
+
+  log.info('Original refresh token restored', { toolType, userId });
+}
+```
+
+This exercises the **real** retry → 400 → bail-out path without any test infrastructure in production code. The production `doRefresh()` method stays clean — no flags, no mocks, no conditional branches for testing.
 
 ### User Authentication
 
@@ -456,7 +522,11 @@ const hasRealConnection = data?.integrations?.some(i => i.isConnected) ?? false;
 
 ### 5e. Frontend Type Fix
 
-Add `zoom` and `google_workspace` to `src/types/mcp.types.ts` to match backend enum.
+Add `zoom` and `google_workspace` to **both** frontend type definitions:
+- `src/types/mcp.types.ts` — union type (line 2)
+- `src/services/mcp.service.ts` — enum (line 13)
+
+These are two independent definitions of the same concept. Fixing only one leaves compile-time/runtime mismatches.
 
 ---
 
@@ -474,6 +544,7 @@ Add `zoom` and `google_workspace` to `src/types/mcp.types.ts` to match backend e
 8. Fix 5: State parameter expiry (`iat` + 10-min check)
 9. Fix 6: PKCE (conditional, Atlassian/Microsoft/Google only)
 10. Fix 7: Token revocation on disconnect
+11. Rewire `disconnectIntegration` controller to call `oauthService.disconnectIntegration()` instead of raw `prisma.deleteMany` (critique gap #1)
 
 ### Phase 2: OAuth CLI (~1 day)
 
@@ -492,12 +563,12 @@ Add `zoom` and `google_workspace` to `src/types/mcp.types.ts` to match backend e
 
 ### Phase 4: Onboarding Wiring (~1.5 days)
 
-1. Replace `connect-tools.tsx` tool list with 4 real buckets
-2. Replace `setTimeout(1500)` with real OAuth hooks
-3. Add localStorage state preservation before redirect
-4. Update `callback.tsx` to detect onboarding origin
-5. Add connection gate (1+ bucket required)
-6. Fix frontend `MCPToolType` (add `zoom`, `google_workspace`)
+1. Fix frontend `MCPToolType` in both `src/types/mcp.types.ts` and `src/services/mcp.service.ts` (compile-time prerequisite for steps 2-6)
+2. Replace `connect-tools.tsx` tool list with 4 real buckets
+3. Replace `setTimeout(1500)` with real OAuth hooks
+4. Add localStorage state preservation before redirect
+5. Update `callback.tsx` to detect onboarding origin + error rendering for failed OAuth (e.g., `admin_consent_required`)
+6. Add connection gate (1+ bucket required)
 
 ### Phase 5: Polish (~0.5 day)
 
@@ -535,8 +606,155 @@ The design was reviewed by the Grumpy Staff Engineer persona. Key corrections in
 | `backend/src/services/mcp/mcp-oauth.service.ts` | OAuth lifecycle (892→~1000 lines) | Singleton + 7 fixes + structured logging |
 | `backend/src/cli/oauth-cli.ts` | **NEW** — OAuth CLI testing tool | 6 commands |
 | `backend/src/services/mcp/tools/*.tool.ts` (12 files) | Tool fetchers | `new MCPOAuthService()` → `import { oauthService }` |
-| `backend/src/controllers/mcp.controller.ts` | Request handlers | `new MCPOAuthService()` → `import { oauthService }` |
+| `backend/src/controllers/mcp.controller.ts` | Request handlers | Singleton import + rewire `disconnectIntegration` to use service (not raw Prisma) |
 | `backend/src/controllers/mcp-simple.controller.ts` | Simplified controller | `new MCPOAuthService()` → `import { oauthService }` |
 | `src/pages/onboarding/steps/connect-tools.tsx` | Onboarding connection UI | Real OAuth + 4 buckets |
 | `src/pages/mcp/callback.tsx` | OAuth callback | Onboarding return detection |
-| `src/types/mcp.types.ts` | Frontend types | Add `zoom`, `google_workspace` |
+| `src/types/mcp.types.ts` | Frontend types (union) | Add `zoom`, `google_workspace` |
+| `src/services/mcp.service.ts` | Frontend types (enum) | Add `ZOOM`, `GOOGLE_WORKSPACE` — **both files must be updated** |
+
+---
+
+## Critique Review (2026-02-16)
+
+Product engineering critique reviewed via GSE triage. See `2026-02-16-product-engineering-critique.md` (immutable).
+
+**3 real gaps incorporated into design**:
+
+| # | Gap | Severity | Design change |
+|---|---|---|---|
+| 1 | Disconnect controller does raw `prisma.deleteMany`, bypasses service revocation path | High | Added prerequisite note to Fix 7 + Phase 1 step 11: rewire controller |
+| 2 | Frontend tool type duplicated in `mcp.types.ts` AND `mcp.service.ts`; design only named one | Medium | Section 5e now names both files |
+| 3 | In-memory mutex assumes single-process; not documented | Low | Added scaling note to Fix 3 |
+
+8 other critique items were already addressed in the original design. No sequencing or architectural changes needed.
+
+---
+
+## Test Plan
+
+### Unit Tests (vitest — per-fix coverage)
+
+| Fix | Test | What it proves |
+|-----|------|----------------|
+| #0 Singleton | Import `oauthService` from two different modules, assert `===` | Same instance everywhere |
+| #1 Retry | Mock axios to fail twice (503), succeed third → returns token | Backoff works, 3 attempts max |
+| #1 Retry | Mock axios to return 400 on first call → returns null immediately | Permanent failure short-circuits (no retry) |
+| #1 Retry | Mock axios to fail 3x (503) → returns null | Exhausted attempts returns null, not throw |
+| #2 Proactive | Set `expiresAt` to 3 min from now → triggers refresh | 5-min buffer works |
+| #2 Proactive | Set `expiresAt` to 10 min from now → no refresh | Buffer doesn't over-trigger |
+| #3 Mutex | Call `getAccessToken()` 5x concurrently with expired token → assert refresh called once | Deduplication works |
+| #3 Mutex | Second concurrent caller gets same result as first | Waiters resolve correctly |
+| #4 Encryption | Unset `ENCRYPTION_KEY` and `MCP_ENCRYPTION_KEY` → constructor throws | Fail-fast on missing key |
+| #4 Encryption | Set only `MCP_ENCRYPTION_KEY` → constructor succeeds | Fallback within safe set works |
+| #5 State `iat` | Generate state, wait 0ms, validate → passes | Fresh state accepted |
+| #5 State `iat` | Generate state with `iat` 11 min ago → throws "expired" | Stale state rejected |
+| #5 State `iat` | State with no `iat` field → throws "missing timestamp" | Legacy state rejected (no silent pass-through) |
+| #6 PKCE | Generate auth URL for Jira → URL contains `code_challenge` param | PKCE added for supported providers |
+| #6 PKCE | Generate auth URL for GitHub → URL has no `code_challenge` | PKCE skipped for unsupported |
+| #6 PKCE | After `handleCallback()`, verifier entry is deleted from map | No orphaned verifiers |
+| #7 Revocation | Mock GitHub revocation endpoint, call disconnect → endpoint called | Revocation fires |
+| #7 Revocation | Mock revocation to fail (404) → disconnect still completes | Best-effort, no throw |
+| #7 Controller | Call disconnect API endpoint → `oauthService.disconnectIntegration()` called (not raw Prisma) | Controller rewired |
+
+### CLI Integration Tests (manual — documented in CLI README)
+
+| Command | Scenario | Expected output |
+|---------|----------|-----------------|
+| `status` | No `--user` flag | Lists all users with integration counts |
+| `status --user <id>` | Valid user with 3 tools | Per-tool: connected/expired, token age, expires-in |
+| `inspect github --user <id>` | Connected GitHub | Expiry countdown, scopes, connected-at, has refresh token |
+| `refresh github --user <id>` | Token not expired | Force-refreshes, shows new expiry |
+| `refresh github --user <id> --verbose` | Token not expired | Shows retry attempts (should be 1), timing |
+| `validate-all --user <id>` | Mix of valid/expired | Color-coded pass/fail per tool |
+| `disconnect github --user <id>` | Connected GitHub | Shows revocation attempt + result |
+| `simulate-failure github --user <id>` | Connected GitHub | Corrupts token → triggers real 400 → restores token |
+
+### Onboarding E2E Tests (manual — browser)
+
+| Scenario | Steps | Expected |
+|----------|-------|----------|
+| Happy path | Click "Connect GitHub" → authorize → return | Onboarding resumes at connect-tools step, GitHub shows connected |
+| Onboarding return | Click "Connect Atlassian" → authorize → callback | Redirect to onboarding (not settings), Jira+Confluence show connected |
+| Stale return | Click Connect, wait >15 min, complete callback | Redirect to settings (stale guard triggers) |
+| Gate enforcement | Land on connect-tools with 0 connections | "Next" button disabled |
+| Error display | OAuth fails (e.g., user denies permission) | Error message shown inline, not crash |
+
+**Target**: ~20 unit tests (Phase 1), 8 CLI scenarios (Phase 2), 5 onboarding scenarios (Phase 4).
+
+---
+
+## Rollback Strategy
+
+Each phase is independently revertable because they ship as separate commits/PRs.
+
+### Phase 1 Rollback (Singleton + 7 Fixes)
+
+**Risk**: Fix 4 (encryption key fail-fast) could break startup if env var is missing in some environment.
+
+- **Pre-deploy check**: Verify `ENCRYPTION_KEY` or `MCP_ENCRYPTION_KEY` is set in all environments before merging. Add to deployment checklist.
+- **If startup fails**: Revert single commit. The old fallback chain (`|| JWT_SECRET || 'default-key'`) restores immediately.
+- **Fix 5 (state `iat`)**: In-flight OAuth redirects (started before deploy, callback after) will see "missing timestamp" error. These users re-click Connect. No data loss. Window is ~seconds for any active user.
+- **All other fixes** (retry, proactive refresh, mutex, PKCE, revocation): Pure additions — worst case they do nothing, never break existing behavior. Revocation is best-effort (catch block).
+
+### Phase 2 Rollback (CLI)
+
+- CLI is a new file with zero production-code changes. Delete the file. No rollback complexity.
+
+### Phase 3 Rollback (Class Split)
+
+- **Risk**: Import path changes across 17+ files.
+- **Mitigation**: Class split is a refactor with no behavioral change. If imports break, revert the PR. The singleton from Phase 1 still works.
+
+### Phase 4 Rollback (Onboarding Wiring)
+
+- **Risk**: OAuth redirect leaves onboarding, callback doesn't return correctly.
+- **Mitigation**: The old `setTimeout(1500)` simulated flow is terrible but harmless. If onboarding wiring has issues, revert the `connect-tools.tsx` + `callback.tsx` changes. Settings page OAuth continues to work regardless.
+
+### General Rollback Principle
+
+No phase depends on a previous phase's **code changes** being live (only on them being correct). Phase 2 CLI tests Phase 1 code, but Phase 2's CLI file can be deleted without affecting Phase 1. Phase 4 onboarding uses the same OAuth hooks that settings already uses.
+
+---
+
+## Definition of Done
+
+### Phase 1: Singleton + 7 Fixes
+
+- [ ] All 17 `new MCPOAuthService()` replaced with singleton import — grep returns 0 matches
+- [ ] `ENCRYPTION_KEY` missing → app crashes at startup with clear error message
+- [ ] Retry: 503 on refresh → 3 attempts with 1s/2s/4s delays (visible in logs)
+- [ ] Retry: 400 on refresh → immediate null return, no retry (visible in logs)
+- [ ] Proactive refresh fires when token expires in <5 minutes
+- [ ] Concurrent `getAccessToken()` calls with expired token → exactly 1 refresh call
+- [ ] State parameter without `iat` → rejected (not silently accepted)
+- [ ] State parameter older than 10 minutes → rejected
+- [ ] PKCE: Atlassian/Microsoft/Google auth URLs include `code_challenge`; GitHub does not
+- [ ] Disconnect via API → calls revocation endpoint (verified via CLI `disconnect` command logs)
+- [ ] Disconnect via API → soft-delete (not hard-delete) — integration row preserved with `isActive: false`
+- [ ] 20 unit tests passing
+
+### Phase 2: OAuth CLI
+
+- [ ] All 6 commands executable via `npx ts-node backend/src/cli/oauth-cli.ts <command>`
+- [ ] `status` shows per-user integration summary
+- [ ] `inspect` shows token metadata (not the token itself)
+- [ ] `refresh --verbose` shows retry/backoff behavior
+- [ ] `simulate-failure` corrupts token, triggers real 400, restores token — all visible in output
+- [ ] `--json` flag works for scripting
+
+### Phase 3: Class Split
+
+- [ ] `TokenManager` and `OAuthFlowService` both export singleton instances
+- [ ] Tool fetchers import `tokenManager` only
+- [ ] Controllers import `oauthFlowService` only
+- [ ] All existing tests still pass (no behavioral change)
+
+### Phase 4: Onboarding Wiring
+
+- [ ] `connect-tools.tsx` shows 4 buckets (GitHub, Atlassian, Microsoft 365, Google Workspace) — no GitLab/Linear/Notion/Bitbucket
+- [ ] Click "Connect" → real OAuth redirect (not setTimeout)
+- [ ] After OAuth callback → returns to onboarding connect-tools step (not settings)
+- [ ] At least 1 bucket connected before "Next" enables
+- [ ] Both `src/types/mcp.types.ts` and `src/services/mcp.service.ts` include `zoom` and `google_workspace`
+- [ ] Failed OAuth shows error message inline (not crash or silent failure)
