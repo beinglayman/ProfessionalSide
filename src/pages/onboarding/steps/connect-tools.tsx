@@ -24,7 +24,27 @@ interface ToolBucket {
   comingSoon?: boolean;
 }
 
-const TOOL_BUCKETS: ToolBucket[] = [
+/** localStorage key for preserving onboarding state across OAuth redirects */
+export const ONBOARDING_STORAGE_KEY = 'onboarding-oauth-return';
+
+/**
+ * Maps each backend tool type to its onboarding bucket ID.
+ * Tools not listed here (figma, slack, zoom) don't have a bucket yet
+ * and won't light up any onboarding card if connected via settings.
+ */
+export const TOOL_TO_BUCKET: Record<string, string> = {
+  github: 'github',
+  jira: 'atlassian',
+  confluence: 'atlassian',
+  outlook: 'microsoft',
+  teams: 'microsoft',
+  onedrive: 'microsoft',
+  onenote: 'microsoft',
+  sharepoint: 'microsoft',
+  google_workspace: 'google',
+};
+
+export const TOOL_BUCKETS: ToolBucket[] = [
   {
     id: 'github',
     name: 'GitHub',
@@ -80,12 +100,8 @@ export function ConnectToolsStep({
   const integrations = integrationData?.integrations ?? [];
   for (const integration of integrations) {
     if (!integration.isConnected) continue;
-    const toolType = integration.toolType;
-    // Map individual tool types back to their bucket
-    if (toolType === 'github') connectedBucketIds.add('github');
-    if (toolType === 'jira' || toolType === 'confluence') connectedBucketIds.add('atlassian');
-    if (toolType === 'outlook' || toolType === 'teams' || toolType === 'onedrive' || toolType === 'onenote' || toolType === 'sharepoint') connectedBucketIds.add('microsoft');
-    if (toolType === 'google_workspace') connectedBucketIds.add('google');
+    const bucketId = TOOL_TO_BUCKET[integration.toolType];
+    if (bucketId) connectedBucketIds.add(bucketId);
   }
 
   const hasRealConnection = connectedBucketIds.size > 0;
@@ -97,7 +113,7 @@ export function ConnectToolsStep({
     setError('');
 
     // Save onboarding state before OAuth redirect (page will unload)
-    localStorage.setItem('onboarding-oauth-return', JSON.stringify({
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
       step: 'connect-tools',
       ts: Date.now(),
     }));
