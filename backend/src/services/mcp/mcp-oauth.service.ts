@@ -361,20 +361,22 @@ export class MCPOAuthService {
       state: stateData
     });
 
-    // Add tool-specific parameters
-    if (toolType === MCPToolType.OUTLOOK || toolType === MCPToolType.TEAMS) {
+    // Add provider-specific parameters
+    if (toolType === MCPToolType.JIRA || toolType === MCPToolType.CONFLUENCE) {
+      // Atlassian 3LO requires audience + prompt
+      params.append('audience', 'api.atlassian.com');
+      params.append('prompt', 'consent');
+    } else if (toolType === MCPToolType.OUTLOOK || toolType === MCPToolType.TEAMS ||
+               toolType === MCPToolType.ONEDRIVE || toolType === MCPToolType.ONENOTE) {
       params.append('response_mode', 'query');
       params.append('prompt', 'consent');
-      params.append('access_type', 'offline'); // Request refresh token for Microsoft
+      params.append('access_type', 'offline');
     } else if (toolType === MCPToolType.GOOGLE_WORKSPACE) {
-      params.append('access_type', 'offline'); // Request refresh token for Google
-      params.append('prompt', 'consent'); // Force consent screen to ensure refresh token
+      params.append('access_type', 'offline');
+      params.append('prompt', 'consent');
     } else if (toolType === MCPToolType.SLACK) {
       params.append('user_scope', config.scope);
-    } else if (toolType === MCPToolType.GITHUB) {
-      // GitHub doesn't need special parameters
     }
-    // Figma, Jira, Confluence don't need access_type parameter
 
     const url = `${config.authorizationUrl}?${params.toString()}`;
 
@@ -456,13 +458,17 @@ export class MCPOAuthService {
       response_type: 'code',
       scope: combinedScopes,
       state: stateData,
-      access_type: 'offline'
     });
 
-    // Add tool-specific parameters based on group
-    if (groupType === 'microsoft') {
+    // Add provider-specific parameters based on group
+    if (groupType === 'atlassian') {
+      // Atlassian 3LO requires audience + prompt
+      params.append('audience', 'api.atlassian.com');
+      params.append('prompt', 'consent');
+    } else if (groupType === 'microsoft') {
       params.append('response_mode', 'query');
       params.append('prompt', 'consent');
+      params.append('access_type', 'offline');
     }
 
     const url = `${primaryConfig.authorizationUrl}?${params.toString()}`;
