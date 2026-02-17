@@ -16,17 +16,23 @@ const CATEGORY_COLORS: Record<string, string> = {
   'External': '#DDD6FE',
   'Ad Hoc': '#CFAFF3',
   'Interview': '#E7D7F9',
+  'Workshop': '#8B5CF6',
+  'Incident': '#6D28D9',
+  'Team Meeting': '#B4A0E5',
   Other: '#F3EBFC',
 };
 
 const CATEGORY_KEYWORDS: [string, string[]][] = [
   ['Team Standup', ['standup', 'stand-up', 'daily', 'scrum']],
   ['One-on-One', ['1:1', '1-1', 'one-on-one', 'one on one', '1on1']],
-  ['Sprint Planning', ['sprint', 'planning', 'grooming', 'backlog', 'retro']],
-  ['Design Review', ['design', 'review', 'ux', 'ui', 'wireframe', 'figma']],
+  ['Sprint Planning', ['sprint', 'planning', 'grooming', 'backlog', 'retro', 'retrospective']],
+  ['Design Review', ['design review', 'ux review', 'ui review', 'wireframe', 'figma']],
   ['All Hands', ['all hands', 'all-hands', 'town hall', 'company']],
   ['External', ['external', 'client', 'customer', 'vendor', 'partner']],
   ['Interview', ['interview', 'hiring', 'candidate']],
+  ['Workshop', ['workshop', 'training', 'onboarding', 'brown bag', 'lunch and learn', 'knowledge sharing', 'demo', 'presentation']],
+  ['Incident', ['incident', 'postmortem', 'post-mortem', 'outage', 'sev1', 'sev2', 'war room']],
+  ['Team Meeting', ['team sync', 'project sync', 'team meeting', 'kickoff', 'kick-off', 'brainstorm', 'tech debt']],
   ['Ad Hoc', ['sync', 'catch up', 'catchup', 'quick chat']],
 ];
 
@@ -39,8 +45,12 @@ function categorizeMeeting(title: string): string {
 }
 
 function getTextColor(bgColor: string): string {
-  const lightColors = ['#CFAFF3', '#E7D7F9', '#F3EBFC', '#DDD6FE', '#C4B5FD'];
-  return lightColors.includes(bgColor) ? '#3b1764' : '#ffffff';
+  const hex = bgColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.5 ? '#3b1764' : '#ffffff';
 }
 
 export function MeetingBreakdownWidget() {
@@ -69,15 +79,38 @@ export function MeetingBreakdownWidget() {
     }
 
     return Object.entries(counts)
-      .map(([category, count]) => ({
+      .map(([category, c]) => ({
         category,
-        hours: count,
+        count: c,
         color: CATEGORY_COLORS[category] ?? '#9CA3AF',
       }))
-      .sort((a, b) => b.hours - a.hours);
+      .sort((a, b) => b.count - a.count);
   }, [activitiesData]);
 
-  const totalHours = breakdown.reduce((s, b) => s + b.hours, 0);
+  const totalCount = breakdown.reduce((s, b) => s + b.count, 0);
+
+  // Compute time period from activity timestamps
+  const timePeriodLabel = useMemo(() => {
+    if (!activitiesData) return '';
+
+    const activities = isGroupedResponse(activitiesData)
+      ? activitiesData.groups.flatMap((g) => g.activities ?? [])
+      : activitiesData.data ?? [];
+
+    const calendarActivities = activities.filter((a) => CALENDAR_SOURCES.includes(a.source));
+    if (calendarActivities.length === 0) return '';
+
+    const timestamps = calendarActivities.map((a) => new Date(a.timestamp).getTime());
+    const earliest = new Date(Math.min(...timestamps));
+    const latest = new Date(Math.max(...timestamps));
+    const daysDiff = Math.round((latest.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff <= 1) return 'Today';
+    if (daysDiff <= 7) return 'This week';
+    if (daysDiff <= 14) return 'Last 2 weeks';
+    if (daysDiff <= 31) return 'This month';
+    return `Last ${daysDiff} days`;
+  }, [activitiesData]);
 
   if (!hasCalendarIntegration || breakdown.length === 0) {
     return (
@@ -107,25 +140,26 @@ export function MeetingBreakdownWidget() {
   // Split into two rows for treemap layout
   const row1 = breakdown.slice(0, Math.min(3, breakdown.length));
   const row2 = breakdown.slice(3);
-  const row1Total = row1.reduce((s, b) => s + b.hours, 0);
-  const row2Total = row2.reduce((s, b) => s + b.hours, 0);
+  const row1Total = row1.reduce((s, b) => s + b.count, 0);
+  const row2Total = row2.reduce((s, b) => s + b.count, 0);
 
   function renderBlock(
-    item: { category: string; hours: number; color: string },
+    item: { category: string; count: number; color: string },
     flexBase: number,
     isLargeRow: boolean
   ) {
-    const isHovered = hoveredCategory === item.category;
-    const isDimmed = hoveredCategory !== null && !isHovered;
-    const pct = ((item.hours / totalHours) * 100).toFixed(0);
+    const isActive = hoveredCategory === item.category;
+    const isDimmed = hoveredCategory !== null && !isActive;
+    const pct = ((item.count / totalCount) * 100).toFixed(0);
+    const showPctInline = (item.count / totalCount) * 100 >= 15;
 
     return (
       <div
         key={item.category}
         className={cn(
-          'relative flex flex-col items-center justify-center rounded-md transition-all duration-200 cursor-default',
+          'relative flex flex-col items-center justify-center rounded-md transition-all duration-200 cursor-default select-none',
           isDimmed && 'opacity-50',
-          isHovered && 'ring-2 ring-white shadow-lg z-10'
+          isActive && 'ring-2 ring-white shadow-lg z-10'
         )}
         style={{
           flex: flexBase,
@@ -134,15 +168,16 @@ export function MeetingBreakdownWidget() {
         }}
         onMouseEnter={() => setHoveredCategory(item.category)}
         onMouseLeave={() => setHoveredCategory(null)}
+        onClick={() => setHoveredCategory((prev) => (prev === item.category ? null : item.category))}
       >
         <span className={cn(isLargeRow ? 'text-sm' : 'text-xs', 'font-semibold')}>
           {item.category}
         </span>
         <span className={cn(isLargeRow ? 'text-lg' : 'text-base', 'font-bold mt-0.5')}>
-          {item.hours}
+          {item.count}
         </span>
-        {isHovered && (
-          <span className="text-[10px] mt-0.5 opacity-80">{pct}% of total</span>
+        {(showPctInline || isActive) && (
+          <span className="text-[10px] mt-0.5 opacity-80">{pct}%</span>
         )}
       </div>
     );
@@ -159,26 +194,31 @@ export function MeetingBreakdownWidget() {
             <CardTitle className="text-lg">Meeting Breakdown</CardTitle>
           </div>
           <span className="text-xs text-gray-400">
-            {totalHours} meetings total
+            {totalCount} meetings{timePeriodLabel ? ` \u00b7 ${timePeriodLabel}` : ''}
           </span>
         </div>
       </CardHeader>
 
       <CardContent>
         <div className="flex flex-col gap-1 rounded-lg overflow-hidden" style={{ height: 160 }}>
-          <div className="flex gap-1" style={{ flex: row1Total / (totalHours || 1) }}>
-            {row1.map((item) => renderBlock(item, item.hours / (row1Total || 1), true))}
+          <div className="flex gap-1" style={{ flex: row1Total / (totalCount || 1) }}>
+            {row1.map((item) => renderBlock(item, item.count / (row1Total || 1), true))}
           </div>
 
           {row2.length > 0 && (
-            <div className="flex gap-1" style={{ flex: row2Total / (totalHours || 1) }}>
-              {row2.map((item) => renderBlock(item, item.hours / (row2Total || 1), false))}
+            <div className="flex gap-1" style={{ flex: row2Total / (totalCount || 1) }}>
+              {row2.map((item) => renderBlock(item, item.count / (row2Total || 1), false))}
+              {/* Spacer to prevent row-2 blocks from stretching disproportionately */}
+              <div
+                className="rounded-md"
+                style={{ flex: (row1Total - row2Total) / (totalCount || 1) }}
+              />
             </div>
           )}
         </div>
 
         <p className="mt-3 text-[10px] text-gray-400 text-center">
-          {breakdown.length} meeting categories &middot; hover to inspect
+          {breakdown.length} meeting categories &middot; tap or hover for details
         </p>
       </CardContent>
     </Card>
