@@ -47,6 +47,9 @@ export class ModelSelectorService {
   private quickModel!: ProviderConfig;
   private premiumModel!: ProviderConfig;
 
+  /** Timestamp until which the premium model is known to be rate-limited */
+  private premiumRateLimitedUntil = 0;
+
   private taskModelMap: Record<TaskType, 'quick' | 'premium'> = {
     categorize: 'quick',
     analyze: 'quick',
@@ -137,7 +140,7 @@ export class ModelSelectorService {
       costPerMillion: { input: 2.50, output: 10.00 }
     };
 
-    console.log('✅ Using Azure OpenAI');
+    console.log(`✅ Using Azure OpenAI (quick: ${this.quickModel.model}, premium: ${this.premiumModel.model})`);
   }
 
   /**
@@ -149,48 +152,48 @@ export class ModelSelectorService {
     quality: QualityLevel = 'balanced',
     options: TaskExecutionOptions = {}
   ): Promise<{ content: string; model: string; estimatedCost: number }> {
-    const startTime = Date.now();
-    const modelConfig = this.selectOptimalModel(task, quality);
+    let modelConfig = this.selectOptimalModel(task, quality);
+
+    // If premium model is known rate-limited and we have a different quick model, skip to it
+    if (
+      modelConfig === this.premiumModel &&
+      modelConfig !== this.quickModel &&
+      Date.now() < this.premiumRateLimitedUntil
+    ) {
+      console.log(`⚡ Premium model rate-limited for ${Math.ceil((this.premiumRateLimitedUntil - Date.now()) / 1000)}s more, using ${this.quickModel.model}`);
+      modelConfig = this.quickModel;
+    }
 
     console.log(`🎯 Executing ${task} with ${modelConfig.model} (${quality} quality)`);
 
     try {
-      let content: string;
-      let inputTokens = 0;
-      let outputTokens = 0;
-
-      if (this.provider === 'anthropic' && this.anthropicClient) {
-        const result = await this.executeWithAnthropic(messages, modelConfig.model, options);
-        content = result.content;
-        inputTokens = result.inputTokens;
-        outputTokens = result.outputTokens;
-      } else if (this.provider === 'openai' && this.openaiClient) {
-        const result = await this.executeWithOpenAI(this.openaiClient, messages, modelConfig.model, options);
-        content = result.content;
-        inputTokens = result.inputTokens;
-        outputTokens = result.outputTokens;
-      } else if (this.provider === 'azure' && this.azureClient) {
-        const result = await this.executeWithOpenAI(this.azureClient, messages, modelConfig.model, options);
-        content = result.content;
-        inputTokens = result.inputTokens;
-        outputTokens = result.outputTokens;
-      } else {
-        throw new Error('No LLM client available');
-      }
-
-      const estimatedCost = this.calculateCost(modelConfig, inputTokens, outputTokens);
-      const duration = Date.now() - startTime;
-
-      console.log(
-        `✅ ${task} completed in ${duration}ms using ${modelConfig.model}`,
-        `(${inputTokens}/${outputTokens} tokens, $${estimatedCost.toFixed(4)})`
-      );
-
-      return { content, model: modelConfig.model, estimatedCost };
-    } catch (error) {
+      return await this.executeTaskOnce(task, messages, modelConfig, options);
+    } catch (error: any) {
       console.error(`❌ Error executing ${task} with ${modelConfig.model}:`, error);
 
-      // If premium model fails, try quick model as fallback
+      // Handle 429 rate limit
+      if (error?.status === 429) {
+        const retryAfter = parseInt(error?.headers?.get?.('retry-after') || '60', 10);
+
+        // Remember this model is rate-limited
+        if (modelConfig === this.premiumModel) {
+          this.premiumRateLimitedUntil = Date.now() + retryAfter * 1000;
+        }
+
+        // If a different quick model exists, fall back immediately (don't wait)
+        if (modelConfig !== this.quickModel) {
+          console.log(`🔄 Rate limited on ${modelConfig.model}, falling back to ${this.quickModel.model}`);
+          return this.executeTask(task, messages, 'quick', options);
+        }
+
+        // Both models are the same deployment — wait and retry once
+        const waitMs = Math.min(retryAfter, 30) * 1000;
+        console.log(`⏳ Rate limited (429). Retrying after ${waitMs / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+        return await this.executeTaskOnce(task, messages, modelConfig, options);
+      }
+
+      // Non-429 error: if premium failed, try quick as fallback
       if (modelConfig === this.premiumModel && modelConfig !== this.quickModel) {
         console.log('🔄 Falling back to quick model...');
         return this.executeTask(task, messages, 'quick', options);
@@ -198,6 +201,47 @@ export class ModelSelectorService {
 
       throw error;
     }
+  }
+
+  private async executeTaskOnce(
+    task: TaskType,
+    messages: ChatCompletionMessageParam[],
+    modelConfig: ProviderConfig,
+    options: TaskExecutionOptions
+  ): Promise<{ content: string; model: string; estimatedCost: number }> {
+    const startTime = Date.now();
+    let content: string;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    if (this.provider === 'anthropic' && this.anthropicClient) {
+      const result = await this.executeWithAnthropic(messages, modelConfig.model, options);
+      content = result.content;
+      inputTokens = result.inputTokens;
+      outputTokens = result.outputTokens;
+    } else if (this.provider === 'openai' && this.openaiClient) {
+      const result = await this.executeWithOpenAI(this.openaiClient, messages, modelConfig.model, options);
+      content = result.content;
+      inputTokens = result.inputTokens;
+      outputTokens = result.outputTokens;
+    } else if (this.provider === 'azure' && this.azureClient) {
+      const result = await this.executeWithOpenAI(this.azureClient, messages, modelConfig.model, options);
+      content = result.content;
+      inputTokens = result.inputTokens;
+      outputTokens = result.outputTokens;
+    } else {
+      throw new Error('No LLM client available');
+    }
+
+    const estimatedCost = this.calculateCost(modelConfig, inputTokens, outputTokens);
+    const duration = Date.now() - startTime;
+
+    console.log(
+      `✅ ${task} completed in ${duration}ms using ${modelConfig.model}`,
+      `(${inputTokens}/${outputTokens} tokens, $${estimatedCost.toFixed(4)})`
+    );
+
+    return { content, model: modelConfig.model, estimatedCost };
   }
 
   private async executeWithAnthropic(

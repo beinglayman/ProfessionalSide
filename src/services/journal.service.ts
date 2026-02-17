@@ -542,6 +542,7 @@ export class JournalService {
     generatedAt: string;
     category: string | null;
     skills: string[];
+    usedFallback?: boolean;
   }> {
     const response = await api.post<ApiResponse<any>>(
       `/journal/entries/${entryId}/regenerate`,

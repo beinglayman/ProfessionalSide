@@ -433,8 +433,12 @@ export default function JournalPage() {
     });
 
     try {
-      await JournalService.regenerateNarrative(journalId, 'professional');
-      setToastMessage('Narrative regenerated successfully');
+      const result = await JournalService.regenerateNarrative(journalId, 'professional');
+      if (result.usedFallback) {
+        setToastMessage('AI unavailable (rate limited) — used basic summary. Try again in a minute.');
+      } else {
+        setToastMessage('Narrative re-enhanced with AI');
+      }
       // Force refetch to update UI
       queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
       queryClient.refetchQueries({ queryKey: ['activities'] });
