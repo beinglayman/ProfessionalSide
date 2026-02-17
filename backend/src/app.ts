@@ -808,6 +808,12 @@ console.log('User routes mounted');
 // SSE events routes MUST be before activityRoutes (which has /api/v1 catch-all with authenticate middleware)
 app.use('/api/v1/events', eventsRoutes);
 console.log('Events routes mounted');
+// MCP routes MUST be before activityRoutes — activityRoutes is mounted at /api/v1 with
+// router.use(authenticate) which intercepts ALL /api/v1/* requests including MCP callback
+if (mcpRoutes) {
+  app.use('/api/v1/mcp', mcpRoutes);
+  console.log('✅ MCP routes enabled');
+}
 app.use('/api/v1/journal', journalRoutes);
 app.use('/api/v1', activityRoutes); // Activity routes: /journal-entries/:id/activities, /activity-stats
 app.use('/api/v1/network', networkRoutes);
@@ -832,16 +838,10 @@ app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/career-stories', careerStoriesRoutes);
 app.use('/api/v1/demo', demoRoutes);
-// Note: eventsRoutes moved earlier (before activityRoutes) to avoid auth middleware interception
-
-// MCP routes - conditionally loaded based on environment to avoid tsx hot-reload issues
-if (mcpRoutes) {
-  app.use('/api/v1/mcp', mcpRoutes);
-  console.log('✅ MCP routes enabled (production mode)');
-} else if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_MCP !== 'true') {
+// Note: eventsRoutes and MCP routes moved earlier (before activityRoutes) to avoid auth middleware interception
+if (!mcpRoutes && process.env.NODE_ENV !== 'production' && process.env.ENABLE_MCP !== 'true') {
   console.log('⚠️  MCP routes disabled in development (tsx hot-reload limitation)');
   console.log('   To enable MCP in development: set ENABLE_MCP=true');
-  console.log('   For testing MCP: use production build (npm run build && npm start)');
 }
 
 app.use('/api/debug', debugRoutes);

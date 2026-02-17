@@ -882,10 +882,10 @@ export class MCPOAuthService {
         }
       }
 
-      // Soft-delete: deactivate the integration
+      // Soft-delete: deactivate and mark disconnected
       await this.prisma.mCPIntegration.update({
         where: { userId_toolType: { userId, toolType } },
-        data: { isActive: false, updatedAt: new Date() }
+        data: { isActive: false, isConnected: false, updatedAt: new Date() }
       });
 
       // Log disconnection

@@ -87,9 +87,9 @@ export function MCPCallbackPage() {
         // Redirect after delay
         setTimeout(() => {
           if (redirectToOnboarding) {
-            navigate('/onboarding', { state: { returnToStep: 'connect-tools' } });
+            navigate('/onboarding?returnToStep=connect-tools');
           } else {
-            navigate('/settings', { state: { tab: 'integrations' } });
+            navigate('/settings?tab=integrations');
           }
         }, REDIRECT_DELAY_MS);
         return;
@@ -149,7 +149,7 @@ export function MCPCallbackPage() {
               )}
               <div className="space-y-3">
                 <Button
-                  onClick={() => navigate('/settings', { state: { tab: 'integrations' } })}
+                  onClick={() => navigate('/settings?tab=integrations')}
                   className="w-full"
                 >
                   Back to Settings
