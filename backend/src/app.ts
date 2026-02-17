@@ -808,8 +808,7 @@ console.log('User routes mounted');
 // SSE events routes MUST be before activityRoutes (which has /api/v1 catch-all with authenticate middleware)
 app.use('/api/v1/events', eventsRoutes);
 console.log('Events routes mounted');
-// MCP routes MUST be before activityRoutes — activityRoutes is mounted at /api/v1 with
-// router.use(authenticate) which intercepts ALL /api/v1/* requests including MCP callback
+// MCP routes MUST be before activityRoutes — callback endpoints are public (OAuth redirects from external providers)
 if (mcpRoutes) {
   app.use('/api/v1/mcp', mcpRoutes);
   console.log('✅ MCP routes enabled');
