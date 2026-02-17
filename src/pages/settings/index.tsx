@@ -14,7 +14,7 @@ type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy' | 'integr
 
 // Additional Settings Component
 function AdditionalSettings() {
-  const [feedAgeLimit, setFeedAgeLimit] = useState(7);
+  const [feedAgeLimit, setFeedAgeLimit] = useState(30);
   const [hasChanges, setHasChanges] = useState(false);
 
   const handleFeedAgeLimitChange = (value: number) => {
@@ -57,7 +57,7 @@ function AdditionalSettings() {
             <div className="flex-1">
               <h4 className="font-medium text-gray-900 mb-1">Feed Age Limit</h4>
               <p className="text-sm text-gray-600 mb-3">
-                Show journal entries from the last N days in your activity feed. Older entries will be filtered out.
+                Show activities from the last N days in your activity feed. Older activities will be filtered out.
               </p>
               <div className="flex items-center space-x-4">
                 <label htmlFor="feed-age-limit" className="text-sm font-medium text-gray-700">

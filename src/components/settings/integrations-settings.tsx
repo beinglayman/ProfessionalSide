@@ -187,7 +187,7 @@ export function IntegrationsSettings() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Integrations</h2>
         <p className="mt-2 text-gray-600">
-          Connect external tools to automatically import your work activity into journal entries.
+          Connect external tools to automatically import your work activity.
         </p>
       </div>
 
@@ -459,7 +459,7 @@ export function IntegrationsSettings() {
             <ol className="mt-2 text-sm text-gray-600 space-y-1 list-decimal list-inside">
               <li>Click "Connect" to authorize InChronicle to access your tool</li>
               <li>You'll be redirected to the tool's OAuth page to grant permissions</li>
-              <li>Once connected, you can import data when creating new journal entries</li>
+              <li>Once connected, you can import data to create career stories</li>
               <li>Your data is fetched on-demand and never stored permanently without consent</li>
             </ol>
           </div>

@@ -256,7 +256,7 @@ export function PrivacySettings() {
         <PrivacySetting
           icon={<Download className="h-5 w-5" />}
           title="Download Your Data"
-          description="Get a copy of all your data including profile information, journal entries, achievements, and more"
+          description="Get a copy of all your data including profile information, career stories, published stories, narratives, and more"
           action={
             <Button
               onClick={handleDownloadData}
@@ -292,7 +292,7 @@ export function PrivacySettings() {
               </div>
               <div className="flex items-center space-x-2">
                 <Check className="h-3 w-3" />
-                <span>All journal entries and comments</span>
+                <span>All career stories</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Check className="h-3 w-3" />
@@ -355,7 +355,7 @@ export function PrivacySettings() {
               <p>When you delete your profile, the following will happen:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Your profile and all personal information will be permanently deleted</li>
-                <li>All your journal entries, comments, and achievements will be removed</li>
+                <li>All your activity log, career stories, and narratives will be removed</li>
                 <li>Your network connections will be terminated</li>
                 <li>You will be removed from all workspaces</li>
                 <li>Your data cannot be recovered after deletion</li>
@@ -403,7 +403,7 @@ export function PrivacySettings() {
         onClose={() => setShowDeleteConfirmation(false)}
         onConfirm={handleDeleteProfile}
         title="Delete Your Profile"
-        description="This will permanently delete your InChronicle account and all associated data. Your profile, journal entries, achievements, and connections will be completely removed and cannot be recovered."
+        description="This will permanently delete your InChronicle account and all associated data. Your profile, activity log, career stories, and narratives will be completely removed and cannot be recovered."
         confirmText="Delete My Profile"
         confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
         requiresTyping={true}

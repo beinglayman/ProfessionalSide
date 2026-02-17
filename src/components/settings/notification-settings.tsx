@@ -272,7 +272,7 @@ export function NotificationSettings() {
           <NotificationSetting
             icon={<Heart className="h-4 w-4" />}
             title="Likes & Reactions"
-            description="When someone likes or reacts to your journal entries or achievements"
+            description="When someone likes or reacts to your career story"
             checked={localPreferences.likes}
             onChange={(checked) => handlePreferenceChange('likes', checked)}
           />
@@ -288,7 +288,7 @@ export function NotificationSettings() {
           <NotificationSetting
             icon={<FileText className="h-4 w-4" />}
             title="Mentions"
-            description="When someone mentions you in a journal entry, comment, or discussion"
+            description="When someone mentions you in a career story"
             checked={localPreferences.mentions}
             onChange={(checked) => handlePreferenceChange('mentions', checked)}
           />

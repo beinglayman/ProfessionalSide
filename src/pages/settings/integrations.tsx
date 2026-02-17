@@ -99,7 +99,7 @@ const IntegrationsPage: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Integrations</h1>
         <p className="text-gray-600">
-          Connect your external tools to import work activity into journal entries
+          Connect your workspace tools to import your work activity
         </p>
       </div>
 
@@ -379,7 +379,7 @@ const IntegrationsPage: React.FC = () => {
             </p>
             <p>
               <strong>Q: Can InChronicle access my tools without my permission?</strong><br />
-              A: No. We only access tools when you explicitly request data import during journal creation.
+              A: No. We only access tools to fetch metadata of your work that we use to create Career Stories for you.
             </p>
           </div>
         </CardContent>
