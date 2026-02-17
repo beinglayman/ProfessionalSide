@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { api } from '../lib/api';
+import { getErrorConsole } from '../contexts/ErrorConsoleContext';
 // TODO: Add toast notifications when toast library is available
 // import { toast } from 'sonner';
 
@@ -29,6 +30,61 @@ interface FetchOptions {
   generateContent?: boolean;
   workspaceName?: string;
   privacy?: 'private' | 'team' | 'network' | 'public';
+}
+
+/**
+ * Surface sync issues (per-tool errors, 0-record warnings) to ErrorConsole (Cmd+E).
+ */
+function surfaceSyncIssues(
+  requestedTools: string[],
+  returnedSources: string[],
+  errors?: Record<string, string> | null,
+  rawData?: Record<string, any> | null,
+) {
+  const { captureError } = getErrorConsole();
+  if (!captureError) return;
+
+  // Surface per-tool fetch errors
+  if (errors) {
+    for (const [tool, message] of Object.entries(errors)) {
+      captureError({
+        severity: 'error',
+        source: `Sync:${tool}`,
+        message: `${tool} sync failed: ${message}`,
+        context: { tool, phase: 'fetch' },
+      });
+    }
+  }
+
+  // Surface tools that returned 0 records (success but empty)
+  if (rawData) {
+    for (const [tool, data] of Object.entries(rawData)) {
+      if (!data) continue;
+      const totalItems = Object.values(data).reduce(
+        (sum: number, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+        0,
+      );
+      if (totalItems === 0) {
+        captureError({
+          severity: 'warn',
+          source: `Sync:${tool}`,
+          message: `${tool} returned 0 records — check scopes, date range, or reconnect`,
+          context: { tool, phase: 'fetch', dataKeys: Object.keys(data) },
+        });
+      }
+    }
+  }
+
+  // Surface tools that were requested but missing from response entirely
+  const missingTools = requestedTools.filter(t => !returnedSources.includes(t) && !(errors && t in errors));
+  for (const tool of missingTools) {
+    captureError({
+      severity: 'warn',
+      source: `Sync:${tool}`,
+      message: `${tool} was requested but not returned — tool may not be connected`,
+      context: { tool, phase: 'fetch' },
+    });
+  }
 }
 
 export function useMCPMultiSource() {
@@ -107,6 +163,9 @@ export function useMCPMultiSource() {
       console.log('[useMCPMultiSource] Total activities:', result.data?.organized ?
         Object.values(result.data.organized).reduce((sum: number, cat: any) => sum + (cat.items?.length || 0), 0) : 0);
 
+      // Surface sync issues to ErrorConsole (Cmd+E)
+      surfaceSyncIssues(toolTypes, result.data?.sources || [], result.data?.errors, result.data?.rawData);
+
       setState({
         isFetching: false,
         fetchError: null,
@@ -170,6 +229,9 @@ export function useMCPMultiSource() {
       });
 
       const result = response.data;
+
+      // Surface sync issues to ErrorConsole (Cmd+E)
+      surfaceSyncIssues(toolTypes, result.data?.sources || [], result.data?.errors, result.data?.rawData);
 
       setState(prev => ({
         ...prev,
@@ -320,6 +382,21 @@ export function useMCPMultiSource() {
       console.log('[useMCPMultiSource] Entry type:', format7Entry?.entry_metadata?.type);
       console.log('[useMCPMultiSource] Activities:', format7Entry?.activities?.length);
       console.log('[useMCPMultiSource] Sources:', format7Entry?.context?.sources_included);
+
+      // Surface warnings if no activities returned
+      const { captureError: capture } = getErrorConsole();
+      if (capture && (!format7Entry?.activities?.length)) {
+        const sources = format7Entry?.context?.sources_included || [];
+        const missingTools = toolTypes.filter(t => !sources.includes(t));
+        for (const tool of missingTools) {
+          capture({
+            severity: 'warn',
+            source: `Sync:${tool}`,
+            message: `${tool} returned no data for Format7 — check connection or date range`,
+            context: { tool, phase: 'format7' },
+          });
+        }
+      }
 
       setState({
         isFetching: false,

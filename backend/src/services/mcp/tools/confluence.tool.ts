@@ -82,21 +82,24 @@ export class ConfluenceTool {
     }
 
     // Find resource with Confluence scopes (Atlassian may return separate resources for Jira and Confluence)
-    const confluenceResource = resourcesResponse.data.find((resource: any) =>
+    let confluenceResource = resourcesResponse.data.find((resource: any) =>
       resource.scopes && resource.scopes.some((scope: string) => scope.includes('confluence'))
     );
 
+    // Fallback: if no resource has explicit Confluence scopes, use the first resource.
+    // In many Atlassian setups, Jira and Confluence share the same cloudId/site,
+    // and the accessible-resources endpoint may not always include scopes per product.
     if (!confluenceResource) {
-      console.error('[Confluence Tool] No resource with Confluence scopes found!');
-      console.error('[Confluence Tool] Available resources:', resourcesResponse.data.map((r: any) => ({
+      console.warn('[Confluence Tool] No resource with explicit Confluence scopes found — falling back to first resource');
+      console.warn('[Confluence Tool] Available resources:', resourcesResponse.data.map((r: any) => ({
         id: r.id,
         name: r.name,
         scopes: r.scopes
       })));
-      throw new Error('No Confluence-enabled resource found. Please ensure Confluence scopes are granted during OAuth.');
+      confluenceResource = resourcesResponse.data[0];
     }
 
-    // Use the Confluence-enabled resource
+    // Use the selected resource
     this.cloudId = confluenceResource.id;
     this.siteUrl = confluenceResource.url;  // Store for user-facing URLs
     const siteName = confluenceResource.name;
@@ -227,6 +230,11 @@ export class ConfluenceTool {
       );
 
       console.log(`[Confluence Tool] Successfully fetched ${itemCount} total items for user ${userId}`);
+
+      if (itemCount === 0) {
+        console.warn(`[Confluence Tool] ⚠ ZERO records fetched — possible causes: wrong cloud ID, insufficient scopes, or no activity in date range`);
+        console.warn(`[Confluence Tool] Cloud ID: ${this.cloudId}, Site: ${this.siteUrl}, Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      }
 
       return {
         success: true,

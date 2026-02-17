@@ -16,6 +16,7 @@
 
 import { setDemoSyncStatus, getDemoDataset } from './demo-mode.service';
 import { API_BASE_URL } from '../lib/api';
+import { getErrorConsole } from '../contexts/ErrorConsoleContext';
 
 const LAST_SYNC_KEY = 'app-last-sync-at';
 
@@ -320,6 +321,29 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
 
     const data = await response.json();
     const result = data.data || data;
+
+    // Surface per-tool sync errors/warnings to ErrorConsole (Cmd+E)
+    const { captureError } = getErrorConsole();
+    if (captureError) {
+      if (result.errors) {
+        for (const [tool, message] of Object.entries(result.errors)) {
+          captureError({
+            severity: 'error',
+            source: `Sync:${tool}`,
+            message: `${tool} sync failed: ${message}`,
+            context: { tool, phase: 'live-sync' },
+          });
+        }
+      }
+      if (result.activityCount === 0) {
+        captureError({
+          severity: 'warn',
+          source: 'Sync',
+          message: 'Sync completed with 0 activities — check tool connections and date range',
+          context: { activitiesBySource: result.activitiesBySource, phase: 'live-sync' },
+        });
+      }
+    }
 
     // Build integrations from result
     const integrations = buildIntegrations(result.activitiesBySource || {});

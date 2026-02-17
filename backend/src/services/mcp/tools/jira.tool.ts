@@ -136,6 +136,11 @@ export class JiraTool {
       console.log(`[Jira Tool] Sprints: ${sprints.length}`);
       console.log(`[Jira Tool] Total items: ${itemCount}`);
 
+      if (itemCount === 0) {
+        console.warn(`[Jira Tool] ⚠ ZERO records fetched — possible causes: wrong cloud ID, insufficient scopes, or no activity in date range`);
+        console.warn(`[Jira Tool] Cloud ID: ${this.cloudId}, Site: ${this.siteUrl}, Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      }
+
       // Store in memory-only session
       const sessionId = this.sessionService.createSession(
         userId,
@@ -209,12 +214,15 @@ export class JiraTool {
 
       console.log(`[Jira Tool] Fetching issues with JQL: ${jql}`);
 
-      // Updated to use /search/jql endpoint (old /search endpoint deprecated as of Oct 2024)
+      // /rest/api/3/search/jql is a GET endpoint (POST /search deprecated Oct 2024, returns 410 Gone)
       // Migration guide: https://developer.atlassian.com/changelog/#CHANGE-2046
-      const response = await this.jiraApi!.post('/rest/api/3/search/jql', {
-        jql,
-        maxResults: 50,
-        fields: ['summary', 'status', 'assignee', 'reporter', 'priority', 'project', 'issuetype', 'created', 'updated', 'timespent', 'timeestimate', 'description', 'comment', 'labels', 'issuelinks']
+      const fields = 'summary,status,assignee,reporter,priority,project,issuetype,created,updated,timespent,timeestimate,description,comment,labels,issuelinks';
+      const response = await this.jiraApi!.get('/rest/api/3/search/jql', {
+        params: {
+          jql,
+          maxResults: 50,
+          fields,
+        }
       });
 
       console.log(`[Jira Tool] Found ${response.data.issues?.length || 0} issues`);
@@ -256,7 +264,7 @@ export class JiraTool {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
-        endpoint: '/rest/api/3/search'
+        endpoint: '/rest/api/3/search/jql'
       });
       return [];
     }
