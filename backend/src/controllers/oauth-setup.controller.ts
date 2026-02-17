@@ -127,6 +127,11 @@ export const configureOAuthProvider = async (req: Request, res: Response): Promi
 
     await writeEnvFile(envPath, entries);
 
+    // Hot-reload into process.env so no restart needed
+    for (const [key, val] of entries) {
+      process.env[key] = val;
+    }
+
     console.log(`[OAuth Setup] ${contract.name} credentials configured by admin ${req.admin?.email || 'unknown'}`);
 
     sendSuccess(res, {
