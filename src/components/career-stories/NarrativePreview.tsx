@@ -597,11 +597,15 @@ export function NarrativePreview({
             </div>
           </header>
 
-          {/* Re-enhance nudge for draft stories */}
-          {story && !story.isPublished && story.needsRegeneration && (
+          {/* Re-enhance nudge for draft stories — show for any unpublished story */}
+          {story && !story.isPublished && (
             <div className="mx-6 lg:mx-8 mt-1 mb-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
               <Sparkles className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
-              <span className="text-xs text-amber-800 flex-1">This story can be improved with AI</span>
+              <span className="text-xs text-amber-800 flex-1">
+                {story.needsRegeneration
+                  ? 'Activities changed — re-enhance to update this story'
+                  : 'Polish this story with AI before sharing'}
+              </span>
               <button
                 onClick={onRegenerate}
                 disabled={isLoading}
