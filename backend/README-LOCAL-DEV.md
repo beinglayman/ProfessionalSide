@@ -93,6 +93,10 @@ npm run oauth-cli -- validate
 
 See `.env.mcp.template` for exact callback URLs and scopes per provider.
 
+### Shared provider contract
+
+All OAuth env key names, callback paths, and scopes are defined once in `src/services/mcp/oauth-provider-contract.ts`. This module is imported by the CLI, admin API, and the runtime OAuth service — so if env key names change, all three stay in sync at compile time.
+
 ---
 
 ## Career Stories Pipeline Testing
