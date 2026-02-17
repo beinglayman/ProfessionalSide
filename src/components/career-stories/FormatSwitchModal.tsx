@@ -67,7 +67,7 @@ function buildGeneratingFacts(story: CareerStory, targetFramework: NarrativeFram
 
   // Story-specific facts first
   if (activityCount > 0) {
-    facts.push(`Analyzing ${activityCount} ${activityCount === 1 ? 'activity' : 'activities'} from your journal...`);
+    facts.push(`Analyzing ${activityCount} ${activityCount === 1 ? 'activity' : 'activities'} from your timeline...`);
   }
   if (story.title) {
     facts.push(`Rewriting "${story.title.length > 40 ? story.title.slice(0, 37) + '...' : story.title}"...`);
