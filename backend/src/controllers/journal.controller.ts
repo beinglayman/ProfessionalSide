@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
 import { JournalService } from '../services/journal.service';
 import { sendSuccess, sendError, sendPaginated, asyncHandler } from '../utils/response.utils';
 import { createNotificationForEvent } from '../routes/notification.routes';
@@ -257,6 +258,45 @@ export const clearAllData = asyncHandler(async (req: Request, res: Response): Pr
 
 // Alias for backward compatibility
 export const clearDemoData = clearAllData;
+
+/**
+ * DEV ONLY: Clear all journal entries + activities for current user in ANY mode.
+ * Blocked in production. Used for rapid iteration when testing live integrations.
+ */
+export const devClearAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  if (process.env.NODE_ENV === 'production') {
+    return void sendError(res, 'Not available in production', 403);
+  }
+
+  const userId = req.user?.id;
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const isDemoMode = req.headers['x-demo-mode'] === 'true';
+  const sourceMode = isDemoMode ? 'demo' : 'production';
+
+  const [entriesResult, activitiesResult] = await prisma.$transaction([
+    prisma.journalEntry.deleteMany({
+      where: { authorId: userId, sourceMode },
+    }),
+    isDemoMode
+      ? prisma.demoToolActivity.deleteMany({ where: { userId } })
+      : prisma.toolActivity.deleteMany({ where: { userId } }),
+  ]);
+
+  // Also clear career stories linked to these entries
+  const storiesResult = await prisma.careerStory.deleteMany({
+    where: { userId, sourceMode },
+  });
+
+  sendSuccess(res, {
+    deletedEntries: entriesResult.count,
+    deletedActivities: activitiesResult.count,
+    deletedStories: storiesResult.count,
+    sourceMode,
+  }, `DEV: Cleared ${entriesResult.count} entries, ${activitiesResult.count} activities, ${storiesResult.count} stories (${sourceMode})`);
+});
 
 /**
  * Publish journal entry

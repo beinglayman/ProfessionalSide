@@ -24,7 +24,7 @@ import {
   setDemoDataset,
   DemoDataset,
 } from '../../services/demo-mode.service';
-import { fetchStatus, clearDemoData, AppStatus } from '../../services/status.service';
+import { fetchStatus, clearDemoData, devClearAllData, AppStatus } from '../../services/status.service';
 
 export const DemoTab: React.FC = () => {
   const [isDemo, setIsDemo] = useState(() => isDemoMode());
@@ -300,6 +300,44 @@ export const DemoTab: React.FC = () => {
               <>
                 <Trash2 className="h-4 w-4" />
                 Clear Demo Data
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* DEV: Clear Live Data (only when in live mode) */}
+      {!isDemo && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Dev Tools (Live Mode)</h3>
+          <button
+            onClick={async () => {
+              if (!confirm('DELETE all live journal entries, activities, and career stories? This cannot be undone.')) return;
+              setIsClearing(true);
+              setError(null);
+              try {
+                const result = await devClearAllData();
+                setError(null);
+                alert(`Cleared ${result.deletedEntries} entries, ${result.deletedActivities} activities, ${result.deletedStories} stories`);
+                window.dispatchEvent(new CustomEvent('journal-data-changed'));
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to clear data');
+              } finally {
+                setIsClearing(false);
+              }
+            }}
+            disabled={isClearing}
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-red-800 hover:bg-red-900/30 disabled:opacity-50 text-red-400 text-sm font-medium rounded-lg transition-colors"
+          >
+            {isClearing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Clearing...
+              </>
+            ) : (
+              <>
+                <Trash2 className="h-4 w-4" />
+                Clear Live Data (entries + activities + stories)
               </>
             )}
           </button>

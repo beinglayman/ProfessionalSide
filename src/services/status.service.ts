@@ -122,3 +122,33 @@ export async function clearDemoData(): Promise<{ deletedEntries: number; deleted
 
   return result;
 }
+
+/**
+ * DEV ONLY: Clear all data (entries + activities + stories) for current mode.
+ * Works in both demo and live mode. Blocked in production builds.
+ */
+export async function devClearAllData(): Promise<{ deletedEntries: number; deletedActivities: number; deletedStories: number }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const headers = buildHeaders(token);
+
+  const response = await fetch(`${API_BASE_URL}/journal/entries/bulk/dev-clear`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body?.error || `Failed to clear data: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const result = data.data || { deletedEntries: 0, deletedActivities: 0, deletedStories: 0 };
+
+  window.dispatchEvent(new CustomEvent('journal-data-changed', { detail: result }));
+
+  return result;
+}
