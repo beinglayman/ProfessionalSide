@@ -50,7 +50,7 @@ export const MCPPrivacyNotice: React.FC<MCPPrivacyNoticeProps> = ({
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
                 <span>
-                  <strong>Your Control:</strong> Only the journal entries you publish are saved
+                  <strong>Your Control:</strong> Only the career stories you publish are saved
                 </span>
               </div>
               <div className="flex items-start gap-2">

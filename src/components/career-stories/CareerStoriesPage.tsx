@@ -1270,7 +1270,7 @@ export function CareerStoriesPage() {
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">No stories yet</h3>
                   <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                    Promote journal entries from the Journal page to create career stories.
+                    Promote draft stories from the timeline page to create career stories.
                   </p>
                 </div>
               )}
@@ -1334,7 +1334,7 @@ export function CareerStoriesPage() {
                       className="w-full border border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
                     >
                       <p className="text-xs text-gray-400">
-                        More stories to tell &middot; <span className="text-primary-500 font-medium">Promote from journal</span>
+                        More stories to tell &middot; <span className="text-primary-500 font-medium">Promote from draft stories</span>
                       </p>
                     </button>
                   )}

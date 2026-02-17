@@ -93,7 +93,7 @@ export const MCPConsentDialog: React.FC<MCPConsentDialogProps> = ({
                   <li>• Data is fetched temporarily (memory only)</li>
                   <li>• Auto-deleted after 30 minutes</li>
                   <li>• Nothing saved without your explicit approval</li>
-                  <li>• You control what gets included in your journal</li>
+                  <li>• You control what gets included in your career stories</li>
                 </ul>
               </div>
             </div>
