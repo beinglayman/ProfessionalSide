@@ -4,7 +4,7 @@
  * Imported by:
  *   - oauth-cli.ts (setup + validate commands)
  *   - oauth-setup.controller.ts (admin API endpoints)
- *   - mcp-oauth.service.ts will import from here in Day 4 refactor
+ *   - mcp-oauth.service.ts (initializeOAuthConfigs — env keys + callback paths)
  */
 
 export interface ProviderContract {
