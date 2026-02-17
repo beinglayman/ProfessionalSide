@@ -55,6 +55,46 @@ docker compose down -v
 | User | inchronicle |
 | Password | inchronicle_dev |
 
+## OAuth Provider Setup
+
+The backend needs OAuth app credentials (Client ID + Secret) to let users connect their external tools. These are **per-environment, not per-user** — one OAuth app registration per provider serves all users. Each user authenticates through the frontend onboarding flow using these shared app credentials.
+
+### Quick setup (guided CLI)
+
+```bash
+# Set up all providers interactively
+npm run oauth-cli -- setup
+
+# Set up a specific provider
+npm run oauth-cli -- setup --provider github
+
+# Check what's configured
+npm run oauth-cli -- status
+
+# Validate configuration (env keys, callbacks, encryption key)
+npm run oauth-cli -- validate
+```
+
+### Manual setup
+
+1. Copy the MCP template: `cp .env.mcp.template .env.mcp.reference` (for reference)
+2. Create one OAuth app per provider at the provider console (URLs in `.env.mcp.template`)
+3. Add the Client ID and Client Secret to your `.env`
+4. Ensure `ENCRYPTION_KEY` is set (generate with `openssl rand -base64 32`)
+
+### Provider quick reference
+
+| Provider | Console | One app serves | Shared credentials? |
+|---|---|---|---|
+| GitHub | [github.com/settings/developers](https://github.com/settings/developers) | All GitHub users | No (separate app) |
+| Atlassian | [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/) | All Jira + Confluence users | Yes, one app for both tools |
+| Google | [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials) | All Drive + Calendar users | No (consent screen required first) |
+| Microsoft | [portal.azure.com](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps) | All Outlook + Teams + OneDrive + OneNote users | Yes, one app for all four tools |
+
+See `.env.mcp.template` for exact callback URLs and scopes per provider.
+
+---
+
 ## Career Stories Pipeline Testing
 
 The career stories feature includes mock data endpoints for local testing:

@@ -5,6 +5,15 @@ import { MCPToolType, MCPOAuthConfig, MCPOAuthTokens, MCPAction } from '../../ty
 import { MCPPrivacyService } from './mcp-privacy.service';
 import { prisma } from '../../lib/prisma';
 
+const DEBUG = process.env.DEBUG_OAUTH === 'true' || process.env.NODE_ENV === 'development';
+
+const log = {
+  debug: (msg: string, data?: object) => DEBUG && console.log(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+  info:  (msg: string, data?: object) => console.log(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+  warn:  (msg: string, data?: object) => console.warn(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+  error: (msg: string, data?: object) => console.error(`[OAuth] ${msg}`, JSON.stringify(data ?? {})),
+};
+
 /**
  * MCP OAuth Service - Handles OAuth authentication for external tools
  *
@@ -21,16 +30,19 @@ export class MCPOAuthService {
 
   // OAuth configurations per tool
   private oauthConfigs: Map<MCPToolType, MCPOAuthConfig> = new Map();
+  // Mutex: deduplicates concurrent refresh calls per user+tool
+  private refreshPromises = new Map<string, Promise<string | null>>();
 
   constructor() {
     this.prisma = prisma; // Use singleton Prisma client
     this.privacyService = new MCPPrivacyService();
 
-    // Initialize encryption key from environment
-    this.encryptionKey = process.env.ENCRYPTION_KEY || process.env.MCP_ENCRYPTION_KEY || process.env.JWT_SECRET || 'default-key';
-    if (this.encryptionKey === 'default-key') {
-      console.warn('[MCP OAuth] WARNING: Using default encryption key. Set ENCRYPTION_KEY in environment.');
+    // Initialize encryption key from environment — fail fast if missing
+    const encKey = process.env.ENCRYPTION_KEY || process.env.MCP_ENCRYPTION_KEY;
+    if (!encKey) {
+      throw new Error('[MCPOAuthService] ENCRYPTION_KEY or MCP_ENCRYPTION_KEY environment variable is required');
     }
+    this.encryptionKey = encKey;
 
     // Initialize OAuth configurations
     this.initializeOAuthConfigs();
@@ -330,9 +342,8 @@ export class MCPOAuthService {
     // Generate secure state parameter (CSRF protection)
     const state = crypto.randomBytes(32).toString('hex');
 
-    // Store state temporarily (you might want to use Redis in production)
-    // For now, we'll encode userId and toolType in the state
-    const stateData = Buffer.from(JSON.stringify({ userId, toolType, state })).toString('base64');
+    // Encode userId, toolType, random state, and iat (issued-at) for expiry check
+    const stateData = Buffer.from(JSON.stringify({ userId, toolType, state, iat: Date.now() })).toString('base64');
 
     // Build authorization URL
     const params = new URLSearchParams({
@@ -420,13 +431,14 @@ export class MCPOAuthService {
     // Generate secure state parameter
     const state = crypto.randomBytes(32).toString('hex');
 
-    // Store state with all tool types
+    // Store state with all tool types + iat for expiry check
     const stateData = Buffer.from(
       JSON.stringify({
         userId,
         toolTypes: tools,
         groupType,
-        state
+        state,
+        iat: Date.now()
       })
     ).toString('base64');
 
@@ -466,6 +478,18 @@ export class MCPOAuthService {
     try {
       // Decode and validate state
       const stateData = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+
+      // Validate state expiry (iat + 10 minutes)
+      const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+      if (!stateData.iat) {
+        log.warn('OAuth state missing iat (pre-migration state), rejecting', { toolType: stateData.toolType, userId: stateData.userId });
+        throw new Error('Authorization state missing timestamp — please reconnect');
+      }
+      if (Date.now() - stateData.iat > STATE_MAX_AGE_MS) {
+        log.error('OAuth state expired', { toolType: stateData.toolType, userId: stateData.userId, ageMs: Date.now() - stateData.iat });
+        throw new Error('Authorization state expired (older than 10 minutes)');
+      }
+
       const { userId, toolType, toolTypes, groupType } = stateData;
 
       // Determine which tools to connect (group or single)
@@ -630,20 +654,26 @@ export class MCPOAuthService {
       });
 
       if (!integration || !integration.isActive) {
-        console.log(`[MCP OAuth] No integration found for ${toolType}`);
+        log.debug('No active integration found', { toolType, userId });
         return null;
       }
 
-      // Debug log to track stored scope
-      console.log(`[MCP OAuth] Retrieved token for ${toolType}:`, {
-        scope: integration.scope,
-        expiresAt: integration.expiresAt,
+      log.debug('Retrieved integration', {
+        toolType, userId,
+        hasExpiry: !!integration.expiresAt,
         hasRefreshToken: !!integration.refreshToken,
-        connectedAt: integration.connectedAt
       });
 
-      // Check if token is expired
-      if (integration.expiresAt && new Date() > integration.expiresAt) {
+      // Check if token is expired or will expire within 5 minutes (proactive refresh)
+      const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+      const needsRefresh = integration.expiresAt &&
+        new Date() > new Date(integration.expiresAt.getTime() - REFRESH_BUFFER_MS);
+
+      if (needsRefresh) {
+        log.info('Proactive refresh triggered', {
+          toolType, userId,
+          expiresInMs: integration.expiresAt!.getTime() - Date.now()
+        });
         // Try to refresh the token
         if (integration.refreshToken) {
           const refreshed = await this.refreshAccessToken(userId, toolType);
@@ -651,132 +681,220 @@ export class MCPOAuthService {
             return refreshed;
           }
         }
-        return null;
+        // If already expired and refresh failed, return null
+        if (new Date() > integration.expiresAt!) {
+          return null;
+        }
       }
 
       // Ensure accessToken exists before decrypting
       if (!integration.accessToken) {
-        console.error(`[MCP OAuth] No access token stored for ${toolType}`);
+        log.warn('No access token stored', { toolType, userId });
         return null;
       }
 
-      return this.decrypt(integration.accessToken);
-    } catch (error) {
-      console.error(`[MCP OAuth] Error getting access token for ${toolType}:`, error);
+      try {
+        return this.decrypt(integration.accessToken);
+      } catch (decryptError: any) {
+        log.error('Failed to decrypt access token (corrupted?)', { toolType, userId, error: decryptError.message });
+        return null;
+      }
+    } catch (error: any) {
+      log.error('Error getting access token', { toolType, userId, error: error.message });
       return null;
     }
   }
 
   /**
-   * Refresh an access token
-   * @param userId User ID
-   * @param toolType Tool type
-   * @returns New access token or null
+   * Refresh an access token with mutex to prevent concurrent refresh races
    */
   private async refreshAccessToken(
     userId: string,
     toolType: MCPToolType
   ): Promise<string | null> {
+    const key = `${userId}:${toolType}`;
+    const existing = this.refreshPromises.get(key);
+    if (existing) {
+      log.info('Mutex: waiting on in-flight refresh', { toolType, userId });
+      return existing;
+    }
+
+    const promise = this.doRefresh(userId, toolType);
+    this.refreshPromises.set(key, promise);
     try {
-      const integration = await this.prisma.mCPIntegration.findUnique({
-        where: {
-          userId_toolType: {
-            userId,
-            toolType
-          }
-        }
-      });
-
-      if (!integration || !integration.refreshToken) {
-        return null;
-      }
-
-      const config = this.oauthConfigs.get(toolType);
-      if (!config) {
-        return null;
-      }
-
-      const refreshToken = this.decrypt(integration.refreshToken);
-
-      // Request new tokens
-      const tokenResponse = await axios.post(
-        config.tokenUrl,
-        new URLSearchParams({
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-          refresh_token: refreshToken,
-          grant_type: 'refresh_token'
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Accept: 'application/json'
-          }
-        }
-      );
-
-      const tokens = tokenResponse.data;
-
-      // Update stored tokens
-      await this.storeTokens(userId, toolType, {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token || refreshToken, // Keep old refresh token if not provided
-        expiresAt: tokens.expires_in
-          ? new Date(Date.now() + tokens.expires_in * 1000)
-          : undefined,
-        scope: tokens.scope
-      });
-
-      // Log token refresh
-      await this.privacyService.recordConsent(
-        userId,
-        toolType,
-        MCPAction.TOKEN_REFRESHED,
-        true
-      );
-
-      console.log(`[MCP OAuth] Refreshed token for ${toolType}, user ${userId}`);
-
-      return tokens.access_token;
-    } catch (error) {
-      console.error(`[MCP OAuth] Error refreshing token for ${toolType}:`, error);
-      return null;
+      return await promise;
+    } finally {
+      this.refreshPromises.delete(key);
     }
   }
 
   /**
-   * Disconnect a tool integration
-   * @param userId User ID
-   * @param toolType Tool type
-   * @returns Success status
+   * Actual refresh implementation with retry + exponential backoff
+   */
+  private async doRefresh(
+    userId: string,
+    toolType: MCPToolType
+  ): Promise<string | null> {
+    const MAX_ATTEMPTS = 3;
+    const BASE_DELAY_MS = 1000;
+    const MAX_RETRY_DELAY_MS = 60_000;
+
+    const integration = await this.prisma.mCPIntegration.findUnique({
+      where: { userId_toolType: { userId, toolType } }
+    });
+
+    if (!integration || !integration.refreshToken) return null;
+
+    const config = this.oauthConfigs.get(toolType);
+    if (!config) return null;
+
+    let refreshToken: string;
+    try {
+      refreshToken = this.decrypt(integration.refreshToken);
+    } catch (decryptError: any) {
+      log.error('Failed to decrypt refresh token (corrupted?)', { toolType, userId, error: decryptError.message });
+      return null;
+    }
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const tokenResponse = await axios.post(
+          config.tokenUrl,
+          new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token'
+          }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' } }
+        );
+
+        const tokens = tokenResponse.data;
+        await this.storeTokens(userId, toolType, {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token || refreshToken,
+          expiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+          scope: tokens.scope
+        });
+
+        await this.privacyService.recordConsent(userId, toolType, MCPAction.TOKEN_REFRESHED, true);
+        log.info('Token refreshed', { toolType, userId, attempt });
+        return tokens.access_token;
+      } catch (error: any) {
+        const status = error.response?.status;
+
+        // 400/401 = permanent failure (invalid_grant, revoked). Don't retry.
+        if (status === 400 || status === 401) {
+          log.error('Refresh token permanently invalid', { toolType, userId, status, errorBody: error.response?.data });
+          return null;
+        }
+
+        // 429 or 5xx = transient. Retry with backoff.
+        if (attempt < MAX_ATTEMPTS) {
+          let delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          if (status === 429) {
+            const retryAfter = parseInt(error.response?.headers?.['retry-after'], 10);
+            if (!isNaN(retryAfter)) delay = Math.min(retryAfter * 1000, MAX_RETRY_DELAY_MS);
+          }
+          log.warn('Refresh failed, retrying', { toolType, userId, attempt, nextRetryMs: delay, status, error: error.message });
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          log.error('Refresh exhausted all attempts', { toolType, userId, attempts: MAX_ATTEMPTS, error: error.message });
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Revoke token at the provider's endpoint (best-effort, non-blocking)
+   */
+  private async revokeTokenAtProvider(
+    toolType: MCPToolType,
+    accessToken: string
+  ): Promise<void> {
+    const config = this.oauthConfigs.get(toolType);
+    if (!config) return;
+
+    try {
+      if (toolType === MCPToolType.GITHUB) {
+        // GitHub: DELETE /applications/{client_id}/grant
+        await axios.delete(
+          `https://api.github.com/applications/${config.clientId}/grant`,
+          {
+            auth: { username: config.clientId, password: config.clientSecret },
+            data: { access_token: accessToken },
+            headers: { Accept: 'application/vnd.github.v3+json' }
+          }
+        );
+      } else if (toolType === MCPToolType.GOOGLE_WORKSPACE) {
+        // Google: POST https://oauth2.googleapis.com/revoke
+        await axios.post(
+          'https://oauth2.googleapis.com/revoke',
+          new URLSearchParams({ token: accessToken }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+      } else if (toolType === MCPToolType.SLACK) {
+        // Slack: POST https://slack.com/api/auth.revoke
+        await axios.post(
+          'https://slack.com/api/auth.revoke',
+          new URLSearchParams({ token: accessToken }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+      }
+      // Atlassian (Jira/Confluence): No revocation endpoint for OAuth 2.0 3LO confidential apps.
+      // Microsoft (Outlook/Teams/OneDrive/OneNote): Revocation requires admin-level consent; B2C tokens
+      //   are short-lived and expire naturally. No user-facing revoke endpoint.
+      // Figma / Zoom: No documented token revocation API for confidential OAuth apps.
+      // For these providers, disconnectIntegration still deactivates the DB record, so the token
+      // becomes unusable on our side even though the provider hasn't been notified.
+      log.info('Token revoked at provider', { toolType });
+    } catch (error: any) {
+      // Best-effort: log but don't fail disconnect
+      log.warn('Token revocation failed (proceeding with disconnect)', { toolType, error: error.message });
+    }
+  }
+
+  /**
+   * Disconnect a tool integration with provider-side token revocation
    */
   public async disconnectIntegration(
     userId: string,
     toolType: MCPToolType
   ): Promise<boolean> {
     try {
-      // Deactivate the integration
-      await this.prisma.mCPIntegration.update({
-        where: {
-          userId_toolType: {
-            userId,
-            toolType
-          }
-        },
-        data: {
-          isActive: false,
-          updatedAt: new Date()
+      // Look up integration to get token for revocation
+      const integration = await this.prisma.mCPIntegration.findUnique({
+        where: { userId_toolType: { userId, toolType } }
+      });
+
+      if (!integration) {
+        return false;
+      }
+
+      // Revoke token at provider (best-effort)
+      if (integration.accessToken) {
+        try {
+          const decryptedToken = this.decrypt(integration.accessToken);
+          await this.revokeTokenAtProvider(toolType, decryptedToken);
+        } catch (decryptError: any) {
+          log.warn('Could not decrypt token for revocation (proceeding with disconnect)', { toolType, userId, error: decryptError.message });
         }
+      }
+
+      // Soft-delete: deactivate and mark disconnected
+      await this.prisma.mCPIntegration.update({
+        where: { userId_toolType: { userId, toolType } },
+        data: { isActive: false, isConnected: false, updatedAt: new Date() }
       });
 
       // Log disconnection
       await this.privacyService.logIntegrationAction(userId, toolType, MCPAction.DISCONNECT, true);
 
-      console.log(`[MCP OAuth] Disconnected ${toolType} for user ${userId}`);
-
+      log.info('Integration disconnected', { toolType, userId });
       return true;
-    } catch (error) {
-      console.error(`[MCP OAuth] Error disconnecting ${toolType}:`, error);
+    } catch (error: any) {
+      log.error('Error disconnecting integration', { toolType, userId, error: error.message });
       return false;
     }
   }
@@ -890,3 +1008,6 @@ export class MCPOAuthService {
     return Array.from(this.oauthConfigs.keys());
   }
 }
+
+// Singleton instance — all consumers import this, never `new MCPOAuthService()`
+export const oauthService = new MCPOAuthService();

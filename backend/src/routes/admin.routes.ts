@@ -17,6 +17,11 @@ import {
   deleteJournalEntry,
   getAdminPermissions
 } from '../controllers/admin.controller';
+import {
+  getOAuthProviders,
+  configureOAuthProvider,
+  validateOAuthConfig
+} from '../controllers/oauth-setup.controller';
 
 const router = Router();
 
@@ -135,5 +140,32 @@ router.delete('/journal-entries/:entryId', requirePermission('journal_entries', 
  * @query   limit - Number of logs to retrieve
  */
 router.get('/activity-logs', requireSuperAdmin, getAdminActivityLogs);
+
+// ============================================================================
+// OAuth Provider Setup (Admin Wizard)
+// ============================================================================
+
+/**
+ * @route   GET /api/v1/admin/oauth/providers
+ * @desc    List all OAuth providers with config status, setup instructions, callback URLs
+ * @access  Private (Admin)
+ */
+router.get('/oauth/providers', requirePermission('system', 'read'), getOAuthProviders);
+
+/**
+ * @route   POST /api/v1/admin/oauth/providers/:provider/configure
+ * @desc    Save OAuth credentials for a provider to .env
+ * @access  Private (Admin - system:update)
+ * @params  provider - github, atlassian, google, microsoft
+ * @body    { clientId: string, clientSecret: string, optionalKeys?: Record<string, string> }
+ */
+router.post('/oauth/providers/:provider/configure', requirePermission('system', 'update'), configureOAuthProvider);
+
+/**
+ * @route   GET /api/v1/admin/oauth/validate
+ * @desc    Validate all OAuth provider configurations in .env
+ * @access  Private (Admin)
+ */
+router.get('/oauth/validate', requirePermission('system', 'read'), validateOAuthConfig);
 
 export default router;

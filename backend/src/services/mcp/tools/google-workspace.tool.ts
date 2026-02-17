@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { MCPToolType, GoogleWorkspaceActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,12 +14,10 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class GoogleWorkspaceTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
   }
@@ -36,7 +34,7 @@ export class GoogleWorkspaceTool {
   ): Promise<MCPServiceResponse<GoogleWorkspaceActivity>> {
     try {
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.GOOGLE_WORKSPACE);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.GOOGLE_WORKSPACE);
       if (!accessToken) {
         return {
           success: false,

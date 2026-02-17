@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, ZoomActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,13 +14,11 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class ZoomTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private zoomApi: AxiosInstance;
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
 
@@ -46,7 +44,7 @@ export class ZoomTool {
   ): Promise<MCPServiceResponse<ZoomActivity>> {
     try {
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.ZOOM);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.ZOOM);
       if (!accessToken) {
         return {
           success: false,

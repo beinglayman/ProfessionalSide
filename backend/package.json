@@ -24,7 +24,8 @@
     "db:seed-billing": "tsx prisma/seed-billing.ts",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "test": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "oauth-cli": "tsx src/cli/oauth-cli.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -46,6 +47,7 @@
     "axios": "^1.10.0",
     "bcryptjs": "^2.4.3",
     "canvas-confetti": "^1.9.4",
+    "commander": "^14.0.3",
     "cors": "^2.8.5",
     "csv-writer": "^1.6.0",
     "date-fns": "^4.1.0",

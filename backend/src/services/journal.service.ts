@@ -1944,6 +1944,7 @@ export class JournalService {
     generatedAt: Date;
     category: string | null;
     skills: string[];
+    usedFallback: boolean;
   }> {
     // 1. Find the entry (uses sourceMode filter for ownership validation)
     const entry = await prisma.journalEntry.findFirst({
@@ -1987,6 +1988,8 @@ export class JournalService {
       userEmail = user?.email || undefined;
     }
 
+    let usedFallback = false;
+
     if (selector) {
       try {
         generationOutput = await this.generateNarrativeWithLLM(
@@ -2004,6 +2007,7 @@ export class JournalService {
 
     // Use fallback if LLM generation failed or not available
     if (!generationOutput) {
+      usedFallback = true;
       const fallback = this.generateFallbackNarrative(entry.title, activities, toolSummary);
       generationOutput = {
         description: fallback.description,
@@ -2060,6 +2064,7 @@ export class JournalService {
       generatedAt: updated.generatedAt!,
       category: updated.category,
       skills: updated.skills,
+      usedFallback,
     };
   }
 

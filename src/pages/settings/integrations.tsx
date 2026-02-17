@@ -3,6 +3,7 @@ import { Shield, Check, X, Loader2, ExternalLink, RefreshCw, Trash2, Clock, Aler
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { MCPPrivacyNotice } from '../../components/mcp/MCPPrivacyNotice';
+import { OAuthSetupWizard } from '../../components/admin/oauth';
 import { useMCPTools, useMCPPrivacy } from '../../hooks/useMCP';
 import { MCPToolType } from '../../services/mcp.service';
 import { useToast } from '../../contexts/ToastContext';
@@ -46,6 +47,8 @@ const IntegrationsPage: React.FC = () => {
 
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [connectingTool, setConnectingTool] = useState<MCPToolType | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<MCPToolType | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
 
   const handleConnect = (toolType: MCPToolType) => {
     setConnectingTool(toolType);
@@ -53,14 +56,20 @@ const IntegrationsPage: React.FC = () => {
   };
 
   const handleDisconnect = (toolType: MCPToolType) => {
-    if (confirm(`Are you sure you want to disconnect ${toolType}? This will clear all associated tokens.`)) {
+    if (confirmDisconnect === toolType) {
       disconnect(toolType);
+      setConfirmDisconnect(null);
+    } else {
+      setConfirmDisconnect(toolType);
     }
   };
 
   const handleDeleteAllData = () => {
-    if (confirm('Are you sure you want to delete all MCP data? This includes all integrations and audit logs. This action cannot be undone.')) {
+    if (confirmDeleteAll) {
       deleteAllData();
+      setConfirmDeleteAll(false);
+    } else {
+      setConfirmDeleteAll(true);
     }
   };
 
@@ -94,14 +103,27 @@ const IntegrationsPage: React.FC = () => {
         </p>
       </div>
 
+      {/* OAuth Provider Setup — visible to all, configure action admin-only */}
+      <div className="mb-8">
+        <OAuthSetupWizard />
+      </div>
+
       {/* Privacy Notice */}
       <div className="mb-8">
         <MCPPrivacyNotice variant="detailed" />
       </div>
 
-      {/* Tool Grid */}
+      {/* Tool Grid — GitHub first, then connected tools, then the rest */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {Object.values(MCPToolType).map(toolType => {
+        {[...Object.values(MCPToolType)].sort((a, b) => {
+          // GitHub always first
+          if (a === MCPToolType.GITHUB) return -1;
+          if (b === MCPToolType.GITHUB) return 1;
+          // Connected tools next
+          const aConn = getToolStatus(a).isConnected ? 0 : 1;
+          const bConn = getToolStatus(b).isConnected ? 0 : 1;
+          return aConn - bConn;
+        }).map(toolType => {
           const status = getToolStatus(toolType);
           const isCurrentlyConnecting = isConnecting && connectingTool === toolType;
 
@@ -141,16 +163,42 @@ const IntegrationsPage: React.FC = () => {
 
                 {status.isConnected ? (
                   <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleDisconnect(toolType)}
-                      disabled={isDisconnecting}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Disconnect
-                    </Button>
+                    {confirmDisconnect === toolType ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleDisconnect(toolType)}
+                          disabled={isDisconnecting}
+                        >
+                          {isDisconnecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Confirm'
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmDisconnect(null)}
+                          disabled={isDisconnecting}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDisconnect(toolType)}
+                        disabled={isDisconnecting}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Disconnect
+                      </Button>
+                    )}
                     {status.scope && (
                       <p className="text-xs text-gray-500 text-center">
                         Scope: {status.scope}
@@ -273,19 +321,40 @@ const IntegrationsPage: React.FC = () => {
                       Delete all MCP data including integrations and audit logs
                     </p>
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleDeleteAllData}
-                    disabled={isDeletingData}
-                  >
-                    {isDeletingData ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                    Delete All Data
-                  </Button>
+                  {confirmDeleteAll ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteAllData}
+                        disabled={isDeletingData}
+                      >
+                        {isDeletingData ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Yes, delete everything'
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmDeleteAll(false)}
+                        disabled={isDeletingData}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteAllData}
+                      disabled={isDeletingData}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      Delete All Data
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

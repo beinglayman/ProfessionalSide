@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, ConfluenceActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,7 +14,6 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class ConfluenceTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private confluenceApi: AxiosInstance | null = null;
@@ -23,7 +22,6 @@ export class ConfluenceTool {
   private userDisplayNameCache = new Map<string, string>(); // accountId -> displayName
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
   }
@@ -133,7 +131,7 @@ export class ConfluenceTool {
       console.log(`[Confluence Tool] Starting fetch for user ${userId}`);
 
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.CONFLUENCE);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.CONFLUENCE);
       if (!accessToken) {
         console.log('[Confluence Tool] No access token found');
         return {

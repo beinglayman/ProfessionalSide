@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Plus, ArrowUpRight, Star, TrendingUp } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, Plus, ArrowUpRight, Star, TrendingUp, Sparkles, RefreshCw } from 'lucide-react';
 import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import { format } from 'date-fns';
 import { ActivityCard } from './activity-card';
@@ -221,6 +221,8 @@ export function ActivityStream({
                         isExpanded={expandedDrafts.has(draft.key)}
                         onToggleExpand={() => toggleDraft(draft.key)}
                         onPromoteToCareerStory={onPromoteToCareerStory}
+                        onRegenerateNarrative={onRegenerateNarrative}
+                        isRegenerateLoading={regeneratingEntryId === draft.storyMetadata?.id}
                       />
                     )}
                   />
@@ -279,6 +281,8 @@ interface InlineDraftCardProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onPromoteToCareerStory?: (entryId: string) => void;
+  onRegenerateNarrative?: (entryId: string) => void;
+  isRegenerateLoading?: boolean;
 }
 
 /** purple-600 — shared with border/badge colors across draft cards */
@@ -336,6 +340,8 @@ function InlineDraftCardInner({
   isExpanded: controlledExpanded,
   onToggleExpand: controlledToggle,
   onPromoteToCareerStory,
+  onRegenerateNarrative,
+  isRegenerateLoading,
 }: InlineDraftCardProps & { meta: NonNullable<ActivityGroup['storyMetadata']> }) {
   const [internalExpanded, setInternalExpanded] = useState(false);
   const isExpanded = controlledExpanded ?? internalExpanded;
@@ -511,6 +517,29 @@ function InlineDraftCardInner({
                 <p className="text-[15px] text-gray-800 leading-[1.7]">
                   {highlightMetrics(meta.description)}
                 </p>
+              )}
+
+              {/* Re-enhance nudge for drafts with content */}
+              {meta.description && !meta.isPublished && onRegenerateNarrative && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                  <span className="text-xs text-amber-800 flex-1">Polish this draft with AI before promoting</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRegenerateNarrative(meta.id);
+                    }}
+                    disabled={isRegenerateLoading}
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+                  >
+                    {isRegenerateLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    Re-enhance
+                  </button>
+                </div>
               )}
 
               {/* Impact highlights */}

@@ -46,14 +46,34 @@ User hits "Sync"   → Fetch → Transform → Persist → Cluster → Generate 
 ### Layer 1: OAuth & Token Management
 
 ```
-backend/src/services/mcp/mcp-oauth.service.ts
+backend/src/services/mcp/mcp-oauth.service.ts  (singleton: import { oauthService })
+backend/src/services/mcp/mcp-oauth.service.test.ts  (23 tests)
+backend/src/cli/oauth-cli.ts  (6 CLI commands)
 ```
 
-- OAuth 2.0 with PKCE for public clients
+- **Singleton pattern**: One exported `oauthService` instance, all 12 tool fetchers and 2 controllers use static import (no `new MCPOAuthService()`)
 - Tokens AES-256 encrypted at rest in `MCPIntegration` table
 - Per-tool: `@@unique([userId, toolType])`
-- Auto-refresh on expiry
 - Group OAuth: one Atlassian auth covers both Jira + Confluence
+
+**Reliability fixes (Feb 2026)**:
+1. **Retry with backoff**: 3 attempts on 5xx/429, exponential backoff, honors `Retry-After` header. 400/401 = permanent failure, no retry.
+2. **Proactive refresh**: Triggers refresh 5 minutes before expiry, not after.
+3. **Refresh mutex**: `Map<string, Promise>` deduplicates concurrent refresh calls per user+tool.
+4. **Encryption fail-fast**: Constructor throws if `ENCRYPTION_KEY`/`MCP_ENCRYPTION_KEY` missing. No fallback to `JWT_SECRET` or `'default-key'`.
+5. **State parameter expiry**: `iat` timestamp in OAuth state, 10-minute max age, rejects legacy states without `iat`.
+6. **Token revocation on disconnect**: Calls provider-specific revocation endpoint before deactivating integration. Best-effort (disconnect succeeds even if revocation fails).
+
+**Deferred**: PKCE (YAGNI — confidential client with `client_secret`), class split (zero user value at current file size).
+
+**CLI** (`npm run oauth-cli -- <command>`): `status`, `inspect`, `refresh`, `validate-all`, `disconnect`, `simulate-failure`, `setup --provider <name>`, `validate`.
+
+**Admin API** (3 endpoints for frontend setup wizard):
+- `GET /api/v1/admin/oauth/providers` — list all providers with status, setup instructions, callback URLs
+- `POST /api/v1/admin/oauth/providers/:provider/configure` — write clientId/clientSecret to .env + hot-reload into `process.env`
+- `GET /api/v1/admin/oauth/validate` — validate all provider configs
+
+**Shared Provider Contract**: `backend/src/services/mcp/oauth-provider-contract.ts` — single source of truth for env keys, callback paths, console URLs, scopes. Imported by CLI and API controller.
 
 ### Layer 2: Tool Fetchers
 
@@ -199,6 +219,30 @@ syncProductionActivities(userId, toolTypes, dateRange)
 
 ## Recent Commits (Feb 2026)
 
+### OAuth Reliability & Onboarding (feat/oauth-reliability branch)
+
+| Commit | Change |
+|--------|--------|
+| `afcbe9e` | Singleton export + structured log object |
+| `6ab3083` | Replace 17 `new MCPOAuthService()` with singleton import |
+| `40fadb0` | Remove unsafe encryption key fallback chain |
+| `d2fe47b` | Retry with exponential backoff on refresh failure |
+| `e04f0b3` | Proactive token refresh 5 min before expiry |
+| `e1c726d` | Refresh mutex to prevent concurrent refresh races |
+| `03aa4cf` | State parameter `iat` timestamp, reject stale/legacy states |
+| `4553a8e` | Token revocation on disconnect + controller rewire |
+| `0e4367c` | OAuth CLI: status, inspect, refresh, validate-all, disconnect, simulate-failure |
+| `ac74ebe` | Hardening: decrypt safety, structured logging, edge case tests (23 total) |
+| `eaa2738` | OAuth setup CLI plan (lean 5-day) |
+| `5b65de4` | Add commander dependency + oauth-cli npm script |
+| `3f3f634` | Fix stale env template + add OAuth setup guide to README |
+| `589fc8d` | Pre-execution plan for setup CLI |
+| `ef46160` | Scaling fixes plan for 1000+ user readiness |
+| `3c3fd57` | Admin API + shared provider contract for OAuth setup wizard |
+| `2c5fcf8` | Add zoom + google_workspace to frontend MCPToolType |
+| `5e0a4e3` | Onboarding: 4 real OAuth buckets, real hooks, connection gate, Coming Soon |
+| `1288318` | OAuth callback: onboarding return detection with 15-min stale guard |
+
 ### `5bc4b91` — Fetch unfetched GitHub & Jira data (+1,186 lines)
 
 **GitHub additions**: releases, workflow runs, deployments, review comments, starred repos — all within existing `repo read:user` scopes.
@@ -267,6 +311,7 @@ Google Meet participant data requires Admin SDK (organization-level consent). Wo
 
 | Decision | Choice | Why |
 |----------|--------|-----|
+| OAuth service | Singleton, not per-request instances | Enables refresh mutex, consistent state, simpler imports |
 | Token storage | AES-256 encrypted in PostgreSQL | Minimal attack surface, no separate secrets service needed |
 | Data retention | Memory-only, 30-min TTL sessions | GDPR compliant by design — no right-to-erasure complexity |
 | Clustering approach | Shared refs > keywords | Deterministic, zero false positives (PROJ-123 in PR body = same project) |
@@ -299,7 +344,12 @@ Google Meet participant data requires Admin SDK (organization-level consent). Wo
 | `backend/src/routes/mcp.routes.ts` | API endpoints |
 | `backend/src/controllers/mcp.controller.ts` | Request handlers |
 | `src/services/mcp.service.ts` | Frontend API client |
-| `src/pages/onboarding/steps/connect-tools.tsx` | Tool connection UI |
+| `src/pages/onboarding/steps/connect-tools.tsx` | Onboarding tool connection (4 OAuth buckets, real hooks) |
+| `src/pages/mcp/callback.tsx` | OAuth callback with onboarding return detection |
+| `backend/src/cli/oauth-cli.ts` | OAuth CLI (8 commands: setup, validate, status, inspect, refresh, validate-all, disconnect, simulate-failure) |
+| `backend/src/services/mcp/oauth-provider-contract.ts` | Shared provider contract (env keys, callback paths, scopes, console URLs for all 4 providers) |
+| `backend/src/controllers/oauth-setup.controller.ts` | Admin API for OAuth provider setup wizard (3 endpoints) |
+| `backend/src/services/mcp/mcp-oauth.service.test.ts` | OAuth service tests (23 tests) |
 
 ---
 

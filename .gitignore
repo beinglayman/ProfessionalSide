@@ -26,6 +26,7 @@ docs/cd6
 .env.test.local
 .env.production.local
 backend/.env
+backend/.env.bak
 backend/.env.local
 *.local
 

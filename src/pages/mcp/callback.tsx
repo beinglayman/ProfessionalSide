@@ -4,6 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, XCircle, Loader2, Terminal } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useErrorConsole } from '../../contexts/ErrorConsoleContext';
+import { ONBOARDING_STORAGE_KEY } from '../onboarding/steps/connect-tools';
+
+const REDIRECT_DELAY_MS = 2000;
+const ONBOARDING_RETURN_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
 export function MCPCallbackPage() {
   const navigate = useNavigate();
@@ -55,23 +59,39 @@ export function MCPCallbackPage() {
       if (success === 'true' && (tool || tools)) {
         setStatus('success');
 
-        // Handle both single tool and multiple tools
-        if (tools) {
-          const toolList = tools.split(',');
-          const toolNames = toolList.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' and ');
-          setMessage(`Successfully connected ${toolNames}! Redirecting to settings...`);
-        } else if (tool) {
-          const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
-          setMessage(`Successfully connected ${toolName}! Redirecting to settings...`);
-        }
-
         // Invalidate the integrations cache to refetch updated status
         queryClient.invalidateQueries({ queryKey: ['mcp', 'integrations'] });
 
-        // Redirect to settings integrations tab after 2 seconds
+        // Determine redirect destination before setting message
+        let redirectToOnboarding = false;
+        const onboardingReturn = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (onboardingReturn) {
+          try {
+            const parsed = JSON.parse(onboardingReturn);
+            redirectToOnboarding = Date.now() - parsed.ts < ONBOARDING_RETURN_MAX_AGE_MS;
+          } catch { /* malformed localStorage — fall through to default */ }
+          localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+        }
+
+        // Set message with correct destination
+        const destination = redirectToOnboarding ? 'onboarding' : 'settings';
+        if (tools) {
+          const toolList = tools.split(',');
+          const toolNames = toolList.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' and ');
+          setMessage(`Successfully connected ${toolNames}! Redirecting to ${destination}...`);
+        } else if (tool) {
+          const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+          setMessage(`Successfully connected ${toolName}! Redirecting to ${destination}...`);
+        }
+
+        // Redirect after delay
         setTimeout(() => {
-          navigate('/settings', { state: { tab: 'integrations' } });
-        }, 2000);
+          if (redirectToOnboarding) {
+            navigate('/onboarding?returnToStep=connect-tools');
+          } else {
+            navigate('/settings?tab=integrations');
+          }
+        }, REDIRECT_DELAY_MS);
         return;
       }
 
@@ -129,7 +149,7 @@ export function MCPCallbackPage() {
               )}
               <div className="space-y-3">
                 <Button
-                  onClick={() => navigate('/settings', { state: { tab: 'integrations' } })}
+                  onClick={() => navigate('/settings?tab=integrations')}
                   className="w-full"
                 >
                   Back to Settings

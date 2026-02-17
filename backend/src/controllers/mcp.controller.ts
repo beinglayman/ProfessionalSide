@@ -6,9 +6,7 @@ import { format7Transformer } from '../services/mcp/format7-transformer.service'
 import { getContentSanitizerService } from '../services/mcp/content-sanitizer.service';
 import { MCPToolType } from '../types/mcp.types';
 import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
-
-// Mock data store for development
-const mockIntegrations = new Map<string, any>();
+import { oauthService } from '../services/mcp/mcp-oauth.service';
 
 /**
  * Get available MCP tools and their connection status
@@ -18,7 +16,6 @@ export const getAvailableTools = asyncHandler(async (req: Request, res: Response
 
   if (!userId) {
     sendError(res, 'Unauthorized: User not authenticated', 401);
-    return;
     return;
   }
 
@@ -219,9 +216,6 @@ export const validateIntegrations = asyncHandler(async (req: Request, res: Respo
   }
 
   try {
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
-
     console.log(`[MCP Controller] Validating integrations for user ${userId}`);
 
     // Validate all integrations
@@ -269,10 +263,6 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
   }
 
   try {
-    // Use OAuth service to get authorization URL
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
-
     const result = oauthService.getAuthorizationUrl(userId, toolType);
 
     if (!result) {
@@ -314,10 +304,6 @@ export const initiateGroupOAuth = asyncHandler(async (req: Request, res: Respons
   }
 
   try {
-    // Use OAuth service to get group authorization URL
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
-
     const result = oauthService.getAuthorizationUrlForGroup(userId, groupType);
 
     if (!result) {
@@ -402,10 +388,6 @@ export const handleOAuthCallback = asyncHandler(async (req: Request, res: Respon
 
     console.log(`[MCP OAuth] Processing callback for ${toolType}, user ${userId}`);
 
-    // Use OAuth service to handle callback for all tools
-    const { MCPOAuthService } = await import('../services/mcp/mcp-oauth.service');
-    const oauthService = new MCPOAuthService();
-
     const result = await oauthService.handleCallback(code as string, state as string);
 
     if (!result.success) {
@@ -440,28 +422,17 @@ export const disconnectIntegration = asyncHandler(async (req: Request, res: Resp
     return;
   }
 
-  try {
-    // Delete integration from database
-    const result = await prisma.mCPIntegration.deleteMany({
-      where: {
-        userId,
-        toolType
-      }
-    });
+  const success = await oauthService.disconnectIntegration(userId, toolType as MCPToolType);
 
-    if (result.count === 0) {
-      sendError(res, 'Integration not found', 404);
-      return;
-    }
-
-    sendSuccess(res, {
-      message: `Successfully disconnected ${toolType}`,
-      privacyNotice: 'All stored tokens and session data have been permanently deleted.'
-    });
-  } catch (error) {
-    console.error('[MCP Controller] Error disconnecting integration:', error);
-    sendError(res, 'Failed to disconnect integration');
+  if (!success) {
+    sendError(res, 'Integration not found or already disconnected', 404);
+    return;
   }
+
+  sendSuccess(res, {
+    message: `Successfully disconnected ${toolType}`,
+    privacyNotice: 'Token revoked at provider and integration deactivated.'
+  });
 });
 
 /**

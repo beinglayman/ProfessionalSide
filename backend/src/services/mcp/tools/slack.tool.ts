@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, SlackActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,13 +14,11 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class SlackTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private slackApi: AxiosInstance;
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
 
@@ -42,7 +40,7 @@ export class SlackTool {
   ): Promise<MCPServiceResponse<SlackActivity>> {
     try {
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.SLACK);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.SLACK);
       if (!accessToken) {
         return {
           success: false,

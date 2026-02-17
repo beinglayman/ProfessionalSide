@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { MCPToolType, JiraActivity, MCPServiceResponse } from '../../../types/mcp.types';
-import { MCPOAuthService } from '../mcp-oauth.service';
+import { oauthService } from '../mcp-oauth.service';
 import { MCPSessionService } from '../mcp-session.service';
 import { MCPPrivacyService } from '../mcp-privacy.service';
 
@@ -14,7 +14,6 @@ import { MCPPrivacyService } from '../mcp-privacy.service';
  * - User consent required
  */
 export class JiraTool {
-  private oauthService: MCPOAuthService;
   private sessionService: MCPSessionService;
   private privacyService: MCPPrivacyService;
   private jiraApi: AxiosInstance | null = null;
@@ -22,7 +21,6 @@ export class JiraTool {
   private siteUrl: string | null = null;  // Actual domain for browse URLs
 
   constructor() {
-    this.oauthService = new MCPOAuthService();
     this.sessionService = MCPSessionService.getInstance();
     this.privacyService = new MCPPrivacyService();
   }
@@ -73,7 +71,7 @@ export class JiraTool {
   ): Promise<MCPServiceResponse<JiraActivity>> {
     try {
       // Get access token
-      const accessToken = await this.oauthService.getAccessToken(userId, MCPToolType.JIRA);
+      const accessToken = await oauthService.getAccessToken(userId, MCPToolType.JIRA);
       if (!accessToken) {
         return {
           success: false,
