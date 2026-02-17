@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { MCPToolType, MCPOAuthConfig, MCPOAuthTokens, MCPAction } from '../../types/mcp.types';
 import { MCPPrivacyService } from './mcp-privacy.service';
 import { prisma } from '../../lib/prisma';
+import { PROVIDER_CONTRACTS, getBackendUrl } from './oauth-provider-contract';
 
 const DEBUG = process.env.DEBUG_OAUTH === 'true' || process.env.NODE_ENV === 'development';
 
@@ -52,12 +53,18 @@ export class MCPOAuthService {
    * Initialize OAuth configurations for each tool
    */
   private initializeOAuthConfigs(): void {
+    const backendUrl = getBackendUrl();
+    const ghContract = PROVIDER_CONTRACTS.github;
+    const atlContract = PROVIDER_CONTRACTS.atlassian;
+    const msContract = PROVIDER_CONTRACTS.microsoft;
+    const gContract = PROVIDER_CONTRACTS.google;
+
     // GitHub OAuth configuration
-    if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+    if (process.env[ghContract.envKeys.clientId] && process.env[ghContract.envKeys.clientSecret]) {
       this.oauthConfigs.set(MCPToolType.GITHUB, {
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        redirectUri: process.env.GITHUB_REDIRECT_URI || 'http://localhost:3002/api/v1/mcp/callback/github',
+        clientId: process.env[ghContract.envKeys.clientId]!,
+        clientSecret: process.env[ghContract.envKeys.clientSecret]!,
+        redirectUri: process.env.GITHUB_REDIRECT_URI || `${backendUrl}${ghContract.callbackPaths[0]}`,
         authorizationUrl: 'https://github.com/login/oauth/authorize',
         tokenUrl: 'https://github.com/login/oauth/access_token',
         scope: 'repo read:user' // Minimal scope for reading repos and user info
@@ -65,13 +72,13 @@ export class MCPOAuthService {
     }
 
     // Jira OAuth configuration (OAuth 2.0 for Atlassian Cloud)
-    // Uses shared ATLASSIAN credentials
-    if (process.env.ATLASSIAN_CLIENT_ID && process.env.ATLASSIAN_CLIENT_SECRET) {
+    // Uses shared ATLASSIAN credentials from provider contract
+    if (process.env[atlContract.envKeys.clientId] && process.env[atlContract.envKeys.clientSecret]) {
       this.oauthConfigs.set(MCPToolType.JIRA, {
-        clientId: process.env.ATLASSIAN_CLIENT_ID,
-        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET,
+        clientId: process.env[atlContract.envKeys.clientId]!,
+        clientSecret: process.env[atlContract.envKeys.clientSecret]!,
         redirectUri: process.env.JIRA_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/jira`,
+          `${backendUrl}${atlContract.callbackPaths[0]}`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
         // CLASSIC scopes (Atlassian recommended approach) + Jira Software granular (no classic alternative)
@@ -100,14 +107,14 @@ export class MCPOAuthService {
     }
 
     // Outlook (Microsoft Graph) OAuth configuration
-    // Uses shared MICROSOFT credentials
+    // Uses shared MICROSOFT credentials from provider contract
     const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
-    if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
+    if (process.env[msContract.envKeys.clientId] && process.env[msContract.envKeys.clientSecret]) {
       this.oauthConfigs.set(MCPToolType.OUTLOOK, {
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        clientId: process.env[msContract.envKeys.clientId]!,
+        clientSecret: process.env[msContract.envKeys.clientSecret]!,
         redirectUri: process.env.OUTLOOK_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/outlook`,
+          `${backendUrl}${msContract.callbackPaths[0]}`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
         scope: 'User.Read Mail.Read Calendars.Read offline_access'
@@ -115,10 +122,10 @@ export class MCPOAuthService {
 
       // Microsoft Teams OAuth configuration (uses same Microsoft app credentials)
       this.oauthConfigs.set(MCPToolType.TEAMS, {
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        clientId: process.env[msContract.envKeys.clientId]!,
+        clientSecret: process.env[msContract.envKeys.clientSecret]!,
         redirectUri: process.env.TEAMS_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/teams`,
+          `${backendUrl}${msContract.callbackPaths[1]}`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
         // Read user's own channel messages + all chats (no admin consent required)
@@ -141,10 +148,10 @@ export class MCPOAuthService {
 
       // OneDrive OAuth configuration (uses same Microsoft app credentials)
       this.oauthConfigs.set(MCPToolType.ONEDRIVE, {
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        clientId: process.env[msContract.envKeys.clientId]!,
+        clientSecret: process.env[msContract.envKeys.clientSecret]!,
         redirectUri: process.env.ONEDRIVE_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/onedrive`,
+          `${backendUrl}${msContract.callbackPaths[2]}`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
         // Files.Read - Read files user has access to (no admin consent required)
@@ -154,10 +161,10 @@ export class MCPOAuthService {
 
       // OneNote OAuth configuration (uses same Microsoft app credentials)
       this.oauthConfigs.set(MCPToolType.ONENOTE, {
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        clientId: process.env[msContract.envKeys.clientId]!,
+        clientSecret: process.env[msContract.envKeys.clientSecret]!,
         redirectUri: process.env.ONENOTE_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/onenote`,
+          `${backendUrl}${msContract.callbackPaths[3]}`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
         // Notes.Read - Read OneNote notebooks (no admin consent required)
@@ -166,13 +173,13 @@ export class MCPOAuthService {
     }
 
     // Confluence OAuth configuration (Atlassian)
-    // Uses shared ATLASSIAN credentials
-    if (process.env.ATLASSIAN_CLIENT_ID && process.env.ATLASSIAN_CLIENT_SECRET) {
+    // Uses shared ATLASSIAN credentials from provider contract
+    if (process.env[atlContract.envKeys.clientId] && process.env[atlContract.envKeys.clientSecret]) {
       this.oauthConfigs.set(MCPToolType.CONFLUENCE, {
-        clientId: process.env.ATLASSIAN_CLIENT_ID,
-        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET,
+        clientId: process.env[atlContract.envKeys.clientId]!,
+        clientSecret: process.env[atlContract.envKeys.clientSecret]!,
         redirectUri: process.env.CONFLUENCE_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/confluence`,
+          `${backendUrl}${atlContract.callbackPaths[1]}`,
         authorizationUrl: 'https://auth.atlassian.com/authorize',
         tokenUrl: 'https://auth.atlassian.com/oauth/token',
         // GRANULAR scopes - required for v2 REST API
@@ -218,12 +225,12 @@ export class MCPOAuthService {
     }
 
     // Google Workspace OAuth configuration
-    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    if (process.env[gContract.envKeys.clientId] && process.env[gContract.envKeys.clientSecret]) {
       this.oauthConfigs.set(MCPToolType.GOOGLE_WORKSPACE, {
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        clientId: process.env[gContract.envKeys.clientId]!,
+        clientSecret: process.env[gContract.envKeys.clientSecret]!,
         redirectUri: process.env.GOOGLE_REDIRECT_URI ||
-          `${process.env.BACKEND_URL || 'http://localhost:3002'}/api/v1/mcp/callback/google_workspace`,
+          `${backendUrl}${gContract.callbackPaths[0]}`,
         authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenUrl: 'https://oauth2.googleapis.com/token',
         // Read-only access to Drive (includes Docs, Sheets, Slides, Meet recordings) and Calendar
