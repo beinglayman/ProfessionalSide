@@ -81,7 +81,7 @@ export function MeetingBreakdownWidget() {
 
   if (!hasCalendarIntegration || breakdown.length === 0) {
     return (
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden min-h-[280px]">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
@@ -149,7 +149,7 @@ export function MeetingBreakdownWidget() {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden min-h-[280px]">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
