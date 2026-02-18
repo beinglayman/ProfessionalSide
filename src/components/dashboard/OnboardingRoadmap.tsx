@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Check, Circle, ArrowRight, Globe, Send, BookOpen } from 'lucide-react';
+import { X, Check, Circle, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useMCPIntegrations } from '../../hooks/useMCP';
 import { useListCareerStories, usePackets, useSingleDerivations } from '../../hooks/useCareerStories';
@@ -17,8 +17,6 @@ interface NodeDef {
   /** SVG coords (set in layout) */
   cx: number;
   cy: number;
-  /** Is this a branch node (smaller, offset from trunk) */
-  branch?: boolean;
 }
 
 interface TooltipContent {
@@ -77,21 +75,20 @@ const CONNECTION_GROUPS = [
 
 // ─── SVG Layout ─────────────────────────────────────────────────────────────
 //
-//  Trunk: Sign Up ── Tools ── Stories (hub)
-//  Branches from Stories:          ┬── Publish (top branch)
-//                                  ├── Share   (middle branch)
-//                                  └── Playbook (bottom branch)
+//  Zig-zag S-path (2 nodes per row, alternating direction):
+//
+//  Row 1 (L→R):  Sign Up ──────────── Connect Tools
+//                                          │
+//  Row 2 (R→L):  Publish ←──────── Your Stories
+//                   │
+//  Row 3 (L→R):  Share ────────────── Build Playbook
 
 const SVG_W = 600;
-const SVG_H = 100;
+const SVG_H = 180;
 
-// Trunk node positions (left to right)
-const TRUNK_X = [50, 180, 310];
-const TRUNK_Y = 50;
-
-// Branch node positions (fanning out from Stories hub)
-const BRANCH_X = 480;
-const BRANCH_YS = [22, 50, 78]; // top, mid, bottom
+const LEFT_X = 80;
+const RIGHT_X = 520;
+const ROW_YS = [28, 90, 152]; // row 1, 2, 3
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -146,26 +143,21 @@ export function OnboardingRoadmap() {
   const toolsCompleted = isDemo ? hasAllTools : hasConnection;
 
   const nodes: NodeDef[] = useMemo(() => [
-    // Trunk
-    { id: 'signup', label: 'Sign Up', description: 'Account created', completed: true, route: '/', cx: TRUNK_X[0], cy: TRUNK_Y },
-    { id: 'tools', label: isDemo ? 'Tools Connected' : 'Connect Tools', description: 'Link your work tools', completed: toolsCompleted, route: '/settings?tab=integrations', cx: TRUNK_X[1], cy: TRUNK_Y },
-    { id: 'stories', label: 'Your Stories', description: 'Create career stories from your work', completed: totalStories > 0, route: '/stories', cx: TRUNK_X[2], cy: TRUNK_Y },
-    // Branches from Stories
-    { id: 'publish', label: 'Publish', description: 'Share to your professional network', completed: hasPublished, route: '/stories', cx: BRANCH_X, cy: BRANCH_YS[0], branch: true },
-    { id: 'share', label: 'Share', description: 'Send for review, recruiter, or 1:1', completed: hasShared, route: '/stories', cx: BRANCH_X, cy: BRANCH_YS[1], branch: true },
-    { id: 'playbook', label: 'Build Playbook', description: 'Combine stories into a career playbook', completed: hasPlaybook, route: '/stories', cx: BRANCH_X, cy: BRANCH_YS[2], branch: true },
+    // Row 1 (L→R)
+    { id: 'signup', label: 'Sign Up', description: 'Account created', completed: true, route: '/', cx: LEFT_X, cy: ROW_YS[0] },
+    { id: 'tools', label: isDemo ? 'Tools Connected' : 'Connect Tools', description: 'Link your work tools', completed: toolsCompleted, route: '/settings?tab=integrations', cx: RIGHT_X, cy: ROW_YS[0] },
+    // Row 2 (R→L)
+    { id: 'stories', label: 'Your Stories', description: 'Create career stories from your work', completed: totalStories > 0, route: '/stories', cx: RIGHT_X, cy: ROW_YS[1] },
+    { id: 'publish', label: 'Publish', description: 'Share to your professional network', completed: hasPublished, route: '/stories', cx: LEFT_X, cy: ROW_YS[1] },
+    // Row 3 (L→R)
+    { id: 'share', label: 'Share', description: 'Send for review, recruiter, or 1:1', completed: hasShared, route: '/stories', cx: LEFT_X, cy: ROW_YS[2] },
+    { id: 'playbook', label: 'Build Playbook', description: 'Combine stories into a career playbook', completed: hasPlaybook, route: '/stories', cx: RIGHT_X, cy: ROW_YS[2] },
   ], [isDemo, toolsCompleted, totalStories, hasPublished, hasShared, hasPlaybook]);
 
-  // Current step = first incomplete trunk node, or first incomplete branch
+  // Current step = first incomplete node in sequence
   const currentNodeId = useMemo(() => {
-    const trunkIds = ['signup', 'tools', 'stories'];
-    for (const id of trunkIds) {
-      const n = nodes.find((nd) => nd.id === id);
-      if (n && !n.completed) return id;
-    }
-    // Trunk done — find first incomplete branch
-    const branchIds = ['publish', 'share', 'playbook'];
-    for (const id of branchIds) {
+    const order = ['signup', 'tools', 'stories', 'publish', 'share', 'playbook'];
+    for (const id of order) {
       const n = nodes.find((nd) => nd.id === id);
       if (n && !n.completed) return id;
     }
@@ -370,40 +362,26 @@ export function OnboardingRoadmap() {
 
   // ── Helpers for SVG edges ───────────────────────────────────────────────
 
-  const trunkLine = (x1: number, x2: number, completed: boolean) => (
-    <line
-      key={`trunk-${x1}-${x2}`}
-      x1={x1} y1={TRUNK_Y} x2={x2} y2={TRUNK_Y}
-      stroke={completed ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)'}
-      strokeWidth={1.5}
-      strokeDasharray={completed ? 'none' : '6 4'}
-      strokeLinecap="round"
-    />
-  );
+  const strokeStyle = (completed: boolean) => ({
+    stroke: completed ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)',
+    strokeWidth: 1.5,
+    strokeDasharray: completed ? 'none' : '6 4',
+    strokeLinecap: 'round' as const,
+  });
 
-  const branchCurve = (toY: number, completed: boolean) => {
-    const sx = TRUNK_X[2]; // stories hub x
-    const ex = BRANCH_X;
-    const mid = (sx + ex) / 2;
-    return (
-      <path
-        key={`branch-${toY}`}
-        d={`M${sx},${TRUNK_Y} C${mid},${TRUNK_Y} ${mid},${toY} ${ex},${toY}`}
-        fill="none"
-        stroke={completed ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)'}
-        strokeWidth={1.2}
-        strokeDasharray={completed ? 'none' : '5 3'}
-        strokeLinecap="round"
-      />
-    );
-  };
-
-  // Branch icons
-  const BRANCH_ICONS: Record<string, React.FC<{ className?: string }>> = {
-    publish: Globe,
-    share: Send,
-    playbook: BookOpen,
-  };
+  // Zig-zag segments: 3 horizontal lines + 2 vertical curves
+  const segments = [
+    // 1. Row 1 horizontal: Sign Up → Connect Tools
+    { type: 'h' as const, y: ROW_YS[0], x1: LEFT_X, x2: RIGHT_X, completed: nodes[0].completed },
+    // 2. Right vertical curve: Connect Tools ↓ Your Stories
+    { type: 'v' as const, x: RIGHT_X, y1: ROW_YS[0], y2: ROW_YS[1], completed: nodes[1].completed },
+    // 3. Row 2 horizontal: Your Stories → Publish (R→L)
+    { type: 'h' as const, y: ROW_YS[1], x1: RIGHT_X, x2: LEFT_X, completed: nodes[2].completed },
+    // 4. Left vertical curve: Publish ↓ Share
+    { type: 'v' as const, x: LEFT_X, y1: ROW_YS[1], y2: ROW_YS[2], completed: nodes[3].completed },
+    // 5. Row 3 horizontal: Share → Build Playbook
+    { type: 'h' as const, y: ROW_YS[2], x1: LEFT_X, x2: RIGHT_X, completed: nodes[4].completed },
+  ];
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -427,30 +405,23 @@ export function OnboardingRoadmap() {
       <div className="px-2 pb-1 relative" ref={svgContainerRef}>
         <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full" preserveAspectRatio="xMidYMid meet" onMouseLeave={() => setHoveredNode(null)}>
 
-          {/* Trunk edges */}
-          {trunkLine(TRUNK_X[0], TRUNK_X[1], nodes[0].completed)}
-          {trunkLine(TRUNK_X[1], TRUNK_X[2], nodes[1].completed)}
-
-          {/* Branch curves from Stories hub */}
-          {branchCurve(BRANCH_YS[0], nodes[2].completed)}
-          {branchCurve(BRANCH_YS[1], nodes[2].completed)}
-          {branchCurve(BRANCH_YS[2], nodes[2].completed)}
+          {/* Zig-zag path segments */}
+          {segments.map((seg, i) => {
+            const style = strokeStyle(seg.completed);
+            if (seg.type === 'h') {
+              return <line key={`seg-${i}`} x1={seg.x1} y1={seg.y} x2={seg.x2} y2={seg.y} {...style} />;
+            }
+            // Vertical curve (smooth bend)
+            const midY = (seg.y1 + seg.y2) / 2;
+            return <path key={`seg-${i}`} d={`M${seg.x},${seg.y1} C${seg.x},${midY} ${seg.x},${midY} ${seg.x},${seg.y2}`} fill="none" {...style} />;
+          })}
 
           {/* Nodes */}
           {nodes.map((node) => {
             const isCompleted = node.completed;
             const isCurrent = node.id === currentNodeId;
             const isFuture = !isCompleted && !isCurrent;
-            const isBranch = node.branch;
-            const isStoryHub = node.id === 'stories';
-            const r = isStoryHub ? 5 : isBranch ? 3 : 3.5;
-
-            // Label positioning
-            const labelY = isBranch ? node.cy + 1 : (node.cy >= TRUNK_Y ? node.cy - 8 : node.cy + 10);
-            const labelX = isBranch ? node.cx + 8 : node.cx;
-            const anchor = isBranch ? 'start' : 'middle';
-
-            const BranchIcon = isBranch ? BRANCH_ICONS[node.id] : null;
+            const r = 3.5;
 
             return (
               <g
@@ -461,16 +432,11 @@ export function OnboardingRoadmap() {
                 onMouseLeave={() => setHoveredNode(null)}
               >
                 {/* Hit area */}
-                <circle cx={node.cx} cy={node.cy} r={isBranch ? 14 : 12} fill="transparent" />
+                <circle cx={node.cx} cy={node.cy} r={12} fill="transparent" />
 
                 {/* Pulsing ring for current */}
                 {isCurrent && (
                   <circle cx={node.cx} cy={node.cy} r={r + 4} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={1} className="animate-ping" style={{ transformOrigin: `${node.cx}px ${node.cy}px` }} />
-                )}
-
-                {/* Story hub: bigger glowing ring */}
-                {isStoryHub && (
-                  <circle cx={node.cx} cy={node.cy} r={r + 2} fill="none" stroke={isCompleted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)'} strokeWidth={0.5} />
                 )}
 
                 {/* Node circle */}
@@ -482,31 +448,28 @@ export function OnboardingRoadmap() {
                 />
 
                 {/* Checkmark / flag */}
-                {isCompleted && !isBranch && (
+                {isCompleted && (
                   <text x={node.cx} y={node.cy + 1.5} textAnchor="middle" fill="#5B21B6" fontSize={r * 1.2} fontWeight="bold">&#10003;</text>
                 )}
-                {isCurrent && !isBranch && (
+                {isCurrent && (
                   <text x={node.cx} y={node.cy + 1.5} textAnchor="middle" fill="#5B21B6" fontSize={r * 1.2}>&#9873;</text>
-                )}
-                {isCompleted && isBranch && (
-                  <text x={node.cx} y={node.cy + 1} textAnchor="middle" fill="#5B21B6" fontSize={3} fontWeight="bold">&#10003;</text>
                 )}
 
                 {/* Label */}
                 <text
-                  x={labelX} y={labelY}
-                  textAnchor={anchor}
+                  x={node.cx} y={node.cy - 8}
+                  textAnchor="middle"
                   fill={isCompleted ? 'rgba(255,255,255,0.85)' : isCurrent ? 'white' : 'rgba(255,255,255,0.35)'}
-                  fontSize={isBranch ? 5.5 : 5.5}
-                  fontWeight={isCurrent || isStoryHub ? 600 : 500}
+                  fontSize={5.5}
+                  fontWeight={isCurrent ? 600 : 500}
                   className="select-none"
                 >
                   {node.label}
                 </text>
 
-                {/* Story hub: small stats below label */}
-                {isStoryHub && totalStories > 0 && (
-                  <text x={node.cx} y={node.cy + 16} textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize={4}>
+                {/* Story stats below label */}
+                {node.id === 'stories' && totalStories > 0 && (
+                  <text x={node.cx} y={node.cy + 10} textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize={4}>
                     {totalStories} {totalStories === 1 ? 'story' : 'stories'} · {publishedCount} published
                   </text>
                 )}
@@ -647,7 +610,7 @@ export function OnboardingRoadmap() {
 
       {/* CTA bar */}
       {currentNode && (
-        <div className="pb-2 flex items-center justify-center gap-2 px-4">
+        <div className="pb-2 flex items-center justify-end gap-2 px-4">
           <p className="text-xs text-white/70">
             <span className="font-medium text-white">Next:</span> {currentNode.description}
           </p>
