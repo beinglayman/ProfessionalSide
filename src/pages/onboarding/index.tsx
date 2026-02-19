@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Check, User, Plug } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { productionOnboardingService } from '../../services/onboarding-production.service';
@@ -32,6 +32,7 @@ export function OnboardingPage() {
   const [onboardingData, setOnboardingData] = useState({});
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { updateProfile, refetch } = useProfile();
 
   useEffect(() => {
@@ -42,7 +43,14 @@ export function OnboardingPage() {
           setOnboardingData(existingData);
         }
 
-        const targetStep = await productionOnboardingService.getCurrentStep();
+        // Guard: redirect completed users back to timeline
+        const progress = await productionOnboardingService.getOnboardingProgress();
+        if (progress?.isCompleted && location.pathname === '/onboarding') {
+          navigate('/timeline', { replace: true });
+          return;
+        }
+
+        const targetStep = progress?.currentStep ?? 0;
         const safeStep = Math.min(targetStep, ONBOARDING_STEPS.length - 1);
         setCurrentStep(safeStep);
 
@@ -59,7 +67,7 @@ export function OnboardingPage() {
     };
 
     loadOnboardingData();
-  }, []);
+  }, [location.pathname, navigate]);
 
   const updateOnboardingData = async (stepData: any) => {
     const updatedData = { ...onboardingData, ...stepData };
