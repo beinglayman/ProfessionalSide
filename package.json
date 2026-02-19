@@ -16,6 +16,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:onboarding:real": "E2E_REAL_OAUTH=true playwright test e2e/onboarding.real-oauth.spec.ts --project=chromium",
     "test:e2e:onboarding:real:headed": "E2E_REAL_OAUTH=true playwright test e2e/onboarding.real-oauth.spec.ts --project=chromium --headed",
+    "e2e:setup": "node e2e/scripts/e2e-setup.mjs",
+    "e2e:teardown": "node e2e/scripts/e2e-teardown.mjs",
     "e2e:oauth:readiness": "node e2e/scripts/check-real-oauth-readiness.mjs",
     "screenshots": "playwright test --project=chromium",
     "screenshots:mobile": "playwright test --project=mobile",
