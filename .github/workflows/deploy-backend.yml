@@ -36,6 +36,13 @@ jobs:
             --name "${{ secrets.BACKEND_APPNAME }}" \
             --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-backend:latest"
 
+      - name: Set App Settings
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZ_RG }}" \
+            --name "${{ secrets.BACKEND_APPNAME }}" \
+            --settings ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}"
+
       - name: Restart Web App
         run: az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.BACKEND_APPNAME }}"
 
