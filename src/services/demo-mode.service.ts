@@ -26,15 +26,14 @@ const DEFAULT_SYNC_STATUS: DemoSyncStatus = {
 
 /**
  * Check if demo mode is enabled globally.
- * Demo mode is ON by default for new users.
+ * Demo mode is off by default. Toggle via Cmd+E.
  */
 export function isDemoMode(): boolean {
   if (isServerSide()) {
-    return true; // Default to demo for SSR
+    return false;
   }
   const value = localStorage.getItem(DEMO_MODE_KEY);
-  // Demo mode ON by default - only OFF if explicitly 'false'
-  return value !== 'false';
+  return value === 'true';
 }
 
 export function enableDemoMode(): void {
