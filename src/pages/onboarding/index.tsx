@@ -4,6 +4,7 @@ import { Check, User, Plug } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { productionOnboardingService } from '../../services/onboarding-production.service';
 import { useProfile } from '../../hooks/useProfile';
+import { disableDemoMode } from '../../services/demo-mode.service';
 
 import { ProfessionalBasicsStepClean } from './steps/professional-basics-clean';
 import { ConnectToolsStep } from './steps/connect-tools';
@@ -118,6 +119,10 @@ export function OnboardingPage() {
       await productionOnboardingService.markOnboardingComplete();
       await updateProfile(finalData);
       await refetch();
+
+      // User completed onboarding with real tool connections — switch to live mode.
+      // Existing demo accounts that never re-onboard are unaffected.
+      disableDemoMode();
 
       // Navigate to Timeline — the core product experience
       navigate('/timeline');

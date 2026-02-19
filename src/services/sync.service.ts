@@ -282,7 +282,59 @@ export async function resetDemoData(callbacks: SyncCallbacks): Promise<void> {
 }
 
 /**
- * Run live sync - fetches real data from connected tools (GitHub, OneDrive)
+ * Fetch the user's connected tool types from the integrations endpoint.
+ * Returns only tools that are marked as connected (have valid OAuth tokens).
+ */
+async function getConnectedToolTypes(token: string): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/mcp/integrations`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const integrations = data?.data?.integrations ?? data?.integrations ?? [];
+    return integrations
+      .filter((i: { isConnected: boolean }) => i.isConnected)
+      .map((i: { toolType: string }) => i.toolType);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Parse a sync error response into a human-readable message.
+ * Handles raw JSON responses from the backend.
+ */
+function parseSyncError(status: number, responseText: string): string {
+  try {
+    const parsed = JSON.parse(responseText);
+    const rawError: string = parsed.error || parsed.message || responseText;
+
+    // Extract tool-level errors like "github: GitHub not connected..."
+    const toolErrorPattern = /(\w+): (.+?)(?:;|$)/g;
+    const disconnected: string[] = [];
+    let match;
+    while ((match = toolErrorPattern.exec(rawError)) !== null) {
+      if (match[2].toLowerCase().includes('not connected')) {
+        disconnected.push(match[1]);
+      }
+    }
+
+    if (disconnected.length > 0) {
+      const names = disconnected.map(t => t.charAt(0).toUpperCase() + t.slice(1));
+      return `${names.join(' and ')} not connected. Connect your tools in Settings to sync.`;
+    }
+
+    // Generic backend error — strip JSON wrapper
+    return rawError;
+  } catch {
+    // Not JSON — return as-is but trim
+    return responseText.slice(0, 200);
+  }
+}
+
+/**
+ * Run live sync - fetches real data from connected tools
  * and persists to ToolActivity table, creates journal entries with narratives.
  * Uses progressive updates to show results as they become available.
  */
@@ -302,6 +354,12 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
       throw new Error('No access token found');
     }
 
+    // Fetch actually connected tools instead of hardcoding
+    const connectedTools = await getConnectedToolTypes(token);
+    if (connectedTools.length === 0) {
+      throw new Error('No tools connected. Connect GitHub, Jira, or other tools in Settings to sync your activity.');
+    }
+
     const response = await fetch(`${API_BASE_URL}/mcp/sync-and-persist`, {
       method: 'POST',
       headers: {
@@ -309,14 +367,14 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
         'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
-        toolTypes: ['github', 'onedrive'],
+        toolTypes: connectedTools,
         consentGiven: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Sync failed: ${response.status} - ${errorText}`);
+      throw new Error(parseSyncError(response.status, errorText));
     }
 
     const data = await response.json();

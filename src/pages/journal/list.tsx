@@ -581,7 +581,7 @@ export default function JournalPage() {
           console.error('Live sync failed:', error);
           setIsSyncing(false);
           setShowSyncModal(false);
-          setToastMessage(`Sync failed: ${error.message}`);
+          setToastMessage(error.message);
         },
       });
     }
