@@ -16,6 +16,7 @@ import {
   checkExportStatus,
   downloadExportData,
   deleteUserProfile,
+  hardDeleteUser,
   getPrivacySettings,
   updatePrivacySettings
 } from '../controllers/user.controller';
@@ -55,5 +56,6 @@ router.post('/export-data', requestDataExport);
 router.get('/export-data/:exportId/status', checkExportStatus);
 router.get('/export-data/:exportId/download', downloadExportData);
 router.delete('/profile', deleteUserProfile);
+router.delete('/hard-delete', hardDeleteUser);
 
 export default router;

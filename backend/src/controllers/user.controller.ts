@@ -422,6 +422,28 @@ export const deleteUserProfile = asyncHandler(async (req: Request, res: Response
 });
 
 /**
+ * Hard-delete user (E2E teardown only, non-production)
+ */
+export const hardDeleteUser = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return void sendError(res, 'Hard delete is not available in production', 403);
+  }
+
+  try {
+    await userService.hardDeleteUser(userId);
+    sendSuccess(res, null, 'User hard-deleted successfully');
+  } catch (error: any) {
+    throw error;
+  }
+});
+
+/**
  * Get privacy settings
  */
 export const getPrivacySettings = asyncHandler(async (req: Request, res: Response): Promise<void> => {

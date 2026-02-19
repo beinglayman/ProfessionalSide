@@ -728,6 +728,24 @@ export class UserService {
   }
 
   /**
+   * Hard-delete a user and all associated data.
+   * Only available in non-production environments for E2E teardown.
+   */
+  async hardDeleteUser(userId: string) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Hard delete is not available in production');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // UserSession has no FK relation to User, so clean up manually
+      await tx.userSession.deleteMany({ where: { userId } });
+
+      // prisma.user.delete cascades to related models with FK relations
+      await tx.user.delete({ where: { id: userId } });
+    });
+  }
+
+  /**
    * Get privacy settings
    */
   async getPrivacySettings(userId: string) {
