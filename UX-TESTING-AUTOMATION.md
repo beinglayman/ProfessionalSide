@@ -21,6 +21,8 @@ npm run test:e2e:headed
 npm run screenshots:all
 ```
 
+For onboarding tests with real provider accounts (GitHub/Atlassian/Google/Microsoft), see `docs/E2E-REAL-OAUTH.md`.
+
 ---
 
 ## Local UI + Production API

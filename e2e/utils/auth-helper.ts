@@ -18,21 +18,64 @@ export interface AuthCredentials {
   password: string;
 }
 
-/**
- * Load credentials from environment variables
- */
-export function getCredentials(): AuthCredentials {
-  const email = process.env.E2E_EMAIL;
-  const password = process.env.E2E_PASSWORD;
+export type CredentialProfile = 'default' | 'real-oauth';
+
+export interface CredentialOptions {
+  profile?: CredentialProfile;
+}
+
+const REAL_OAUTH_PROFILE: CredentialProfile = 'real-oauth';
+
+function resolveEnvKeys(profile: CredentialProfile): {
+  emailKey: string;
+  passwordKey: string;
+} {
+  if (profile === REAL_OAUTH_PROFILE) {
+    return {
+      emailKey: 'E2E_REAL_EMAIL',
+      passwordKey: 'E2E_REAL_PASSWORD',
+    };
+  }
+
+  return {
+    emailKey: 'E2E_EMAIL',
+    passwordKey: 'E2E_PASSWORD',
+  };
+}
+
+function resolveCredentials(profile: CredentialProfile): AuthCredentials {
+  const { emailKey, passwordKey } = resolveEnvKeys(profile);
+  const fallbackToDefault = profile === REAL_OAUTH_PROFILE;
+
+  const email =
+    process.env[emailKey] || (fallbackToDefault ? process.env.E2E_EMAIL : undefined);
+  const password =
+    process.env[passwordKey] || (fallbackToDefault ? process.env.E2E_PASSWORD : undefined);
 
   if (!email || !password) {
-    throw new Error(
-      'Missing E2E credentials. Set E2E_EMAIL and E2E_PASSWORD environment variables.\n' +
-        'You can create e2e/.env.e2e file (see e2e/.env.example)'
-    );
+    const guidance = profile === REAL_OAUTH_PROFILE
+      ? 'Set E2E_REAL_EMAIL + E2E_REAL_PASSWORD (or fallback E2E_EMAIL + E2E_PASSWORD).'
+      : 'Set E2E_EMAIL + E2E_PASSWORD.';
+
+    throw new Error(`Missing E2E credentials for profile "${profile}". ${guidance}`);
   }
 
   return { email, password };
+}
+
+/**
+ * Load credentials from environment variables
+ */
+export function getCredentials(options: CredentialOptions = {}): AuthCredentials {
+  return resolveCredentials(options.profile || 'default');
+}
+
+/**
+ * Load credentials for real OAuth provider tests.
+ * Falls back to E2E_EMAIL/E2E_PASSWORD when dedicated real credentials are not set.
+ */
+export function getRealOAuthCredentials(): AuthCredentials {
+  return resolveCredentials(REAL_OAUTH_PROFILE);
 }
 
 /**
