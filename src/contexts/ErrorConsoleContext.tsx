@@ -107,8 +107,8 @@ interface ErrorConsoleContextType {
 
   // UI controls
   isOpen: boolean;
-  activeTab: 'errors' | 'traces' | 'demo';
-  setActiveTab: (tab: 'errors' | 'traces' | 'demo') => void;
+  activeTab: 'errors' | 'traces' | 'demo' | 'e2e';
+  setActiveTab: (tab: 'errors' | 'traces' | 'demo' | 'e2e') => void;
   toggleConsole: () => void;
   openConsole: () => void;
   closeConsole: () => void;
@@ -155,7 +155,7 @@ export const ErrorConsoleProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [errors, setErrors] = useState<CapturedError[]>([]);
   const [traces, setTraces] = useState<RequestTrace[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'errors' | 'traces' | 'demo'>('errors');
+  const [activeTab, setActiveTab] = useState<'errors' | 'traces' | 'demo' | 'e2e'>('errors');
   const originalConsoleError = useRef<typeof console.error | null>(null);
   const originalConsoleWarn = useRef<typeof console.warn | null>(null);
   const pendingTraces = useRef<Map<string, { trace: RequestTrace; startTime: number }>>(new Map());

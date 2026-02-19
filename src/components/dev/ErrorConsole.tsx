@@ -29,6 +29,7 @@ import {
   TraceStatus,
 } from '../../contexts/ErrorConsoleContext';
 import { DemoTab } from './DemoTab';
+import { E2ETab } from './E2ETab';
 import { isDemoMode } from '../../services/demo-mode.service';
 
 // ===== ERROR SEVERITY CONFIG =====
@@ -531,6 +532,16 @@ export const ErrorConsole: React.FC = () => {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setActiveTab('e2e')}
+                className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                  activeTab === 'e2e'
+                    ? 'bg-gray-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                E2E
+              </button>
             </div>
 
             {/* Status badges */}
@@ -577,8 +588,8 @@ export const ErrorConsole: React.FC = () => {
           </div>
         </div>
 
-        {/* Toolbar (hidden in demo tab) */}
-        {activeTab !== 'demo' && (
+        {/* Toolbar (hidden in demo/e2e tabs) */}
+        {activeTab !== 'demo' && activeTab !== 'e2e' && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-700 bg-gray-800/50">
           <div className="flex items-center gap-1">
             <Filter size={14} className="text-gray-500" />
@@ -687,7 +698,9 @@ export const ErrorConsole: React.FC = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'demo' ? (
+          {activeTab === 'e2e' ? (
+            <E2ETab />
+          ) : activeTab === 'demo' ? (
             <DemoTab />
           ) : activeTab === 'errors' ? (
             filteredErrors.length === 0 ? (
@@ -717,7 +730,9 @@ export const ErrorConsole: React.FC = () => {
         {/* Footer */}
         <div className="px-4 py-2 border-t border-gray-700 bg-gray-800/50 rounded-b-lg">
           <p className="text-xs text-gray-500">
-            {activeTab === 'demo'
+            {activeTab === 'e2e'
+              ? 'E2E tools for test account lifecycle: reset sessions and delete test users.'
+              : activeTab === 'demo'
               ? 'Toggle demo mode for YC pitch demos. Demo data is isolated from real user data.'
               : activeTab === 'errors'
               ? 'Captures: console.error, console.warn, unhandled exceptions, promise rejections, API errors'
