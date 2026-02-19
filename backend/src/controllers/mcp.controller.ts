@@ -1848,13 +1848,15 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
       return;
     }
 
-    // Default to GitHub and OneDrive if no tools specified
-    const tools = toolTypes?.length > 0 ? toolTypes : ['github', 'onedrive'];
-    const validTools = ['github', 'onedrive']; // Only these two have transformers for now
-    const selectedTools = tools.filter((t: string) => validTools.includes(t));
+    // Tools that have both a fetch tool and a transformer
+    const supportedTools = ['github', 'jira', 'confluence', 'onedrive'];
+
+    // Use requested tools, or fall back to all supported tools
+    const tools = toolTypes?.length > 0 ? toolTypes : supportedTools;
+    const selectedTools = tools.filter((t: string) => supportedTools.includes(t));
 
     if (selectedTools.length === 0) {
-      sendError(res, `No supported tools specified. Currently supported: ${validTools.join(', ')}`, 400);
+      sendError(res, `No supported tools specified. Currently supported: ${supportedTools.join(', ')}`, 400);
       return;
     }
 
@@ -1863,6 +1865,8 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     // Import required services
     const { GitHubTool } = await import('../services/mcp/tools/github.tool');
     const { OneDriveTool } = await import('../services/mcp/tools/onedrive.tool');
+    const { JiraTool } = await import('../services/mcp/tools/jira.tool');
+    const { ConfluenceTool } = await import('../services/mcp/tools/confluence.tool');
     const { transformToolActivity } = await import('../services/mcp/transformers');
     const { runProductionSync } = await import('../services/career-stories/production-sync.service');
     // ActivityInput is a type, import separately
@@ -1898,6 +1902,12 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
           result = await tool.fetchActivity(userId, parsedDateRange);
         } else if (toolType === 'onedrive') {
           const tool = new OneDriveTool();
+          result = await tool.fetchActivity(userId, parsedDateRange);
+        } else if (toolType === 'jira') {
+          const tool = new JiraTool();
+          result = await tool.fetchActivity(userId, parsedDateRange);
+        } else if (toolType === 'confluence') {
+          const tool = new ConfluenceTool();
           result = await tool.fetchActivity(userId, parsedDateRange);
         }
 
