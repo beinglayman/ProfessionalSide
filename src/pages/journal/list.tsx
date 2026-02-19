@@ -111,7 +111,10 @@ export default function JournalPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(() => sessionStorage.getItem('banner-dismissed-timeline') === '1');
   const [openPublishMenus, setOpenPublishMenus] = useState<Set<string>>(new Set());
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
+  };
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; journalId: string | null }>({
     open: false,
@@ -400,11 +403,11 @@ export default function JournalPage() {
 
     try {
       await deleteMutation.mutateAsync(journalId);
-      setToastMessage('Journal entry deleted successfully');
+      showToast('Journal entry deleted successfully');
     } catch (error: any) {
       const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
       console.error('❌ Failed to delete journal:', { journalId, error: errorMessage });
-      setToastMessage(`Failed to delete: ${errorMessage}`);
+      showToast(`Failed to delete: ${errorMessage}`, 'error');
     }
   };
 
@@ -435,9 +438,9 @@ export default function JournalPage() {
     try {
       const result = await JournalService.regenerateNarrative(journalId, 'professional');
       if (result.usedFallback) {
-        setToastMessage('AI unavailable (rate limited) — used basic summary. Try again in a minute.');
+        showToast('AI unavailable (rate limited) — used basic summary. Try again in a minute.', 'error');
       } else {
-        setToastMessage('Narrative re-enhanced with AI');
+        showToast('Narrative re-enhanced with AI');
       }
       // Force refetch to update UI
       queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
@@ -445,7 +448,7 @@ export default function JournalPage() {
     } catch (error: any) {
       const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
       console.error('❌ Failed to regenerate narrative:', { journalId, error: errorMessage });
-      setToastMessage(`Failed to regenerate: ${errorMessage}`);
+      showToast(`Failed to regenerate: ${errorMessage}`, 'error');
     } finally {
       setRegeneratingEntryId(null);
     }
@@ -459,20 +462,20 @@ export default function JournalPage() {
         await JournalService.publishJournalEntry(journal.id, {
           visibility: 'workspace'
         });
-        setToastMessage('Entry unpublished successfully');
+        showToast('Entry unpublished successfully');
       } else {
         // Publish - set visibility to network
         await JournalService.publishJournalEntry(journal.id, {
           visibility: 'network',
           abstractContent: journal.abstractContent || journal.description
         });
-        setToastMessage('Entry published to network successfully');
+        showToast('Entry published to network successfully');
       }
 
       // Refetch entries to update UI
       queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
     } catch (error) {
-      setToastMessage('Failed to update entry');
+      showToast('Failed to update entry', 'error');
       console.error('Publish toggle error:', error);
     }
 
@@ -484,12 +487,11 @@ export default function JournalPage() {
     });
   };
 
-  // Auto-hide toast message
+  // Auto-hide toast message — errors stay longer
   useEffect(() => {
     if (toastMessage) {
-      const timer = setTimeout(() => {
-        setToastMessage(null);
-      }, 3000);
+      const duration = toastMessage.type === 'error' ? 5000 : 3000;
+      const timer = setTimeout(() => setToastMessage(null), duration);
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
@@ -500,7 +502,7 @@ export default function JournalPage() {
       await rechronicleMutation.mutateAsync({ id: journalId, comment });
 
       // Show success message
-      setToastMessage(comment ? 'Entry rechronicled with your comment!' : 'Entry rechronicled!');
+      showToast(comment ? 'Entry rechronicled with your comment!' : 'Entry rechronicled!');
     } catch (error) {
       console.error('❌ Failed to ReChronicle entry:', error);
       // Show user-friendly error
@@ -581,7 +583,12 @@ export default function JournalPage() {
           console.error('Live sync failed:', error);
           setIsSyncing(false);
           setShowSyncModal(false);
-          setToastMessage(error.message);
+          const msg = error.message;
+          if (msg.includes('not connected') || msg.includes('No tools connected')) {
+            showToast('No tools connected. Go to Settings > Integrations to connect.', 'error');
+          } else {
+            showToast(msg || 'Sync failed. Please try again.', 'error');
+          }
         },
       });
     }
@@ -636,6 +643,17 @@ export default function JournalPage() {
 
   // Check if this is empty state (no activities)
   const isEmpty = !activitiesLoading && !hasActivities;
+
+  // Auto-sync on first visit: user has connected tools but never synced
+  const autoSyncTriggered = useRef(false);
+  useEffect(() => {
+    if (autoSyncTriggered.current || isSyncing || activitiesLoading) return;
+    if (getLastSyncAt() === null && hasIntegrations) {
+      autoSyncTriggered.current = true;
+      handleSync();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasIntegrations, activitiesLoading, isSyncing]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
@@ -788,10 +806,14 @@ export default function JournalPage() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-bottom-2 duration-300">
+        <div className={`fixed bottom-4 right-4 z-50 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-bottom-2 duration-300 ${
+          toastMessage.type === 'error' ? 'bg-red-600' : 'bg-green-600'
+        }`}>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-sm font-medium">{toastMessage}</span>
+            {toastMessage.type === 'error'
+              ? <AlertCircle className="h-4 w-4" />
+              : <CheckCircle2 className="h-4 w-4" />}
+            <span className="text-sm font-medium">{toastMessage.text}</span>
           </div>
         </div>
       )}
