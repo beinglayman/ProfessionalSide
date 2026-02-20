@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Globe, Users, ArrowLeft, Edit, Link2, CreditCard } from 'lucide-react';
+import { User, Bell, Shield, Globe, ArrowLeft, Edit, Link2, CreditCard } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import NetworkSettings from '../../components/settings/network-settings';
 import NotificationSettings from '../../components/settings/notification-settings';
 import PrivacySettings from '../../components/settings/privacy-settings';
 import ProfileVisibility from '../../components/settings/profile-visibility';
@@ -10,7 +9,7 @@ import IntegrationsSettings from '../../components/settings/integrations-setting
 import BillingSettings from '../../components/settings/billing-settings';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 
-type SettingsTab = 'profile' | 'network' | 'notifications' | 'privacy' | 'integrations' | 'billing';
+type SettingsTab = 'profile' | 'notifications' | 'privacy' | 'integrations' | 'billing';
 
 const settingsTabs = [
   {
@@ -18,12 +17,6 @@ const settingsTabs = [
     label: 'Profile',
     icon: User,
     description: 'Manage your profile information and preferences'
-  },
-  {
-    id: 'network' as SettingsTab,
-    label: 'Network',
-    icon: Users,
-    description: 'Configure workspace collaboration and network settings'
   },
   {
     id: 'notifications' as SettingsTab,
@@ -54,7 +47,7 @@ const settingsTabs = [
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as SettingsTab | null;
-  const validTabs: SettingsTab[] = ['profile', 'network', 'notifications', 'privacy', 'integrations', 'billing'];
+  const validTabs: SettingsTab[] = ['profile', 'notifications', 'privacy', 'integrations', 'billing'];
   const [activeTab, setActiveTab] = useState<SettingsTab>(
     tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'profile'
   );
@@ -68,9 +61,6 @@ export function SettingsPage() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'network':
-        return <NetworkSettings />;
-      
       case 'profile':
         return (
           <div className="space-y-6">
