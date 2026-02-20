@@ -134,7 +134,7 @@ model UserProfile {
   profileCompleteness Int      @default(0)
 
   // Privacy settings
-  profileVisibility         String  @default("network") // public, network
+  profileVisibility         String  @default("private") // public, private
   showEmail                 Boolean @default(false)
   showLocation              Boolean @default(true)
   showCompany               Boolean @default(true)

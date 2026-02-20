@@ -317,7 +317,7 @@ export class StoryPublishingService {
         where: { userId },
         select: { profileVisibility: true },
       });
-      const visibility = profile?.profileVisibility ?? 'network';
+      const visibility = profile?.profileVisibility ?? 'private';
       if (visibility !== 'public') {
         return { stories: [], total: 0, totalCount: 0, viewerAccess: 'none' };
       }
@@ -375,7 +375,7 @@ export class StoryPublishingService {
 
     if (!profile) return null;
 
-    const visibility = profile.profile?.profileVisibility ?? 'network';
+    const visibility = profile.profile?.profileVisibility ?? 'private';
     if (visibility !== 'public') {
       return null;
     }

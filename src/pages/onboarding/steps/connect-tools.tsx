@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui/button';
-import { Check, ExternalLink, Loader2, Clock } from 'lucide-react';
+import { Check, ExternalLink, Loader2 } from 'lucide-react';
 import { useMCPOAuth, useMCPGroupOAuth, useMCPIntegrations } from '../../../hooks/useMCP';
 import { MCPToolType } from '../../../services/mcp.service';
 
@@ -68,7 +68,6 @@ export const TOOL_BUCKETS: ToolBucket[] = [
     icon: '📧',
     groupType: 'microsoft',
     subTools: ['Outlook', 'Teams', 'OneDrive'],
-    comingSoon: true,
   },
   {
     id: 'google',
@@ -77,7 +76,6 @@ export const TOOL_BUCKETS: ToolBucket[] = [
     icon: '🔍',
     toolType: MCPToolType.GOOGLE_WORKSPACE,
     subTools: ['Calendar', 'Drive'],
-    comingSoon: true,
   },
 ];
 

@@ -158,9 +158,6 @@ test.describe('Onboarding Workflow', () => {
       await expect(page.getByText('Microsoft 365')).toBeVisible();
       await expect(page.getByText('Google Workspace')).toBeVisible();
 
-      // Verify "Coming Soon" badges
-      await expect(page.getByText('Coming Soon').first()).toBeVisible();
-
       // Verify sub-tool chips
       await expect(page.getByText('PRs')).toBeVisible();
       await expect(page.getByText('Commits')).toBeVisible();

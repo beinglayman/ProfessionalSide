@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Users, Mail, MapPin, Building, Check, X, Link2, Copy, ExternalLink, Pencil } from 'lucide-react';
+import { Globe, Lock, Mail, Check, X, Link2, Copy, ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { usePrivacySettings, useUpdatePrivacySettings } from '../../hooks/useDataPrivacy';
@@ -286,7 +286,7 @@ export function ProfileVisibility() {
   const updatePrivacySettings = useUpdatePrivacySettings();
   
   const [localSettings, setLocalSettings] = useState({
-    profileVisibility: 'network' as 'public' | 'network',
+    profileVisibility: 'private' as 'public' | 'private',
     showEmail: false,
     showLocation: true,
     showCompany: true,
@@ -376,18 +376,18 @@ export function ProfileVisibility() {
           <div className="flex items-center space-x-3">
             <input
               type="radio"
-              id="visibility-network"
+              id="visibility-private"
               name="profileVisibility"
-              value="network"
-              checked={localSettings.profileVisibility === 'network'}
-              onChange={() => handleSettingChange('profileVisibility', 'network')}
+              value="private"
+              checked={localSettings.profileVisibility === 'private'}
+              onChange={() => handleSettingChange('profileVisibility', 'private')}
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
             />
-            <label htmlFor="visibility-network" className="flex items-center space-x-2">
-              <Users className="h-4 w-4 text-blue-600" />
+            <label htmlFor="visibility-private" className="flex items-center space-x-2">
+              <Lock className="h-4 w-4 text-gray-600" />
               <div>
-                <span className="text-sm font-medium text-gray-900">Network Only</span>
-                <p className="text-xs text-gray-600">Only your connections and workspace members can view</p>
+                <span className="text-sm font-medium text-gray-900">Private</span>
+                <p className="text-xs text-gray-600">Only you can view your profile</p>
               </div>
             </label>
           </div>
@@ -411,48 +411,6 @@ export function ProfileVisibility() {
             description="Show your email address on your profile"
             checked={localSettings.showEmail}
             onChange={(checked) => handleSettingChange('showEmail', checked)}
-          />
-          
-          <VisibilitySetting
-            icon={<MapPin className="h-4 w-4" />}
-            title="Location"
-            description="Display your current location or city"
-            checked={localSettings.showLocation}
-            onChange={(checked) => handleSettingChange('showLocation', checked)}
-          />
-          
-          <VisibilitySetting
-            icon={<Building className="h-4 w-4" />}
-            title="Company"
-            description="Show your current company or organization"
-            checked={localSettings.showCompany}
-            onChange={(checked) => handleSettingChange('showCompany', checked)}
-          />
-        </div>
-      </div>
-
-      {/* Additional Visibility Settings */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Additional Settings</h3>
-          <p className="text-sm text-gray-600">Advanced visibility and discoverability options</p>
-        </div>
-        
-        <div className="space-y-4">
-          <VisibilitySetting
-            icon={<Users className="h-4 w-4" />}
-            title="Connections"
-            description="Allow others to see your network connections"
-            checked={localSettings.showConnections}
-            onChange={(checked) => handleSettingChange('showConnections', checked)}
-          />
-          
-          <VisibilitySetting
-            icon={<Globe className="h-4 w-4" />}
-            title="Search Engine Indexing"
-            description="Allow search engines to index your public profile"
-            checked={localSettings.allowSearchEngineIndexing}
-            onChange={(checked) => handleSettingChange('allowSearchEngineIndexing', checked)}
           />
         </div>
       </div>

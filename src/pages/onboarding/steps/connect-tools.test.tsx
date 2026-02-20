@@ -3,8 +3,7 @@
  *
  * Tests for:
  * - Bucket rendering (4 buckets with correct names and sub-tool chips)
- * - "Coming Soon" badges on Microsoft and Google
- * - Connect button disabled for comingSoon buckets
+ * - Connect buttons for all buckets
  * - Real OAuth hook wiring (initiateOAuth / initiateGroupOAuth)
  * - localStorage state preservation before OAuth redirect
  * - Connection gate (Next button disabled when no tools connected)
@@ -97,22 +96,15 @@ describe('ConnectToolsStep: rendering', () => {
     expect(screen.getByText('Drive')).toBeInTheDocument();
   });
 
-  it('shows "Coming Soon" badge on Microsoft and Google buckets', () => {
+  it('shows Connect buttons for all buckets', () => {
     renderConnectTools();
 
-    const comingSoonBadges = screen.getAllByText('Coming Soon');
-    expect(comingSoonBadges).toHaveLength(2);
-  });
-
-  it('shows Connect buttons only for non-comingSoon buckets', () => {
-    renderConnectTools();
-
-    // Only GitHub and Atlassian should have inline Connect buttons
+    // All 4 buckets should have inline Connect buttons
     // Use exact text match to exclude the bottom "Connect at least 1 tool..." button
     const connectButtons = screen.getAllByText('Connect', { exact: true })
       .map(el => el.closest('button'))
       .filter(Boolean);
-    expect(connectButtons).toHaveLength(2);
+    expect(connectButtons).toHaveLength(4);
   });
 });
 
@@ -240,15 +232,13 @@ describe('ConnectToolsStep: OAuth wiring', () => {
     expect(Date.now() - stored.ts).toBeLessThan(1000);
   });
 
-  it('does not call any OAuth hook for comingSoon buckets', async () => {
-    // comingSoon buckets have no clickable connect button, so we verify
-    // there are only 2 inline Connect buttons (GitHub + Atlassian)
+  it('shows Connect buttons for all buckets', async () => {
     renderConnectTools();
 
     const connectButtons = screen.getAllByText('Connect', { exact: true })
       .map(el => el.closest('button'))
       .filter(Boolean);
-    expect(connectButtons).toHaveLength(2);
+    expect(connectButtons).toHaveLength(4);
   });
 
   it('shows error message when OAuth initiation fails', async () => {

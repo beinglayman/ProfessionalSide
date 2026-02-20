@@ -106,7 +106,7 @@ export function useUpdatePrivacySettings() {
   
   return useMutation({
     mutationFn: async (settings: {
-      profileVisibility?: 'public' | 'network';
+      profileVisibility?: 'public' | 'private';
       showEmail?: boolean;
       showLocation?: boolean;
       showCompany?: boolean;
@@ -138,7 +138,7 @@ export function usePrivacySettings() {
         console.error('❌ Privacy settings API error:', error);
         // Return default privacy settings if not found
         return {
-          profileVisibility: 'network',
+          profileVisibility: 'private',
           showEmail: false,
           showLocation: true,
           showCompany: true,

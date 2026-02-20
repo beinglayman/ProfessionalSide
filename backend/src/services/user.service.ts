@@ -765,7 +765,7 @@ export class UserService {
 
     // Return default values if profile doesn't exist
     return {
-      profileVisibility: profile?.profileVisibility ?? 'network',
+      profileVisibility: profile?.profileVisibility ?? 'private',
       showEmail: profile?.showEmail ?? false,
       showLocation: profile?.showLocation ?? true,
       showCompany: profile?.showCompany ?? true,
@@ -782,7 +782,7 @@ export class UserService {
       where: { userId },
       create: {
         userId,
-        profileVisibility: settings.profileVisibility ?? 'network',
+        profileVisibility: settings.profileVisibility ?? 'private',
         showEmail: settings.showEmail ?? false,
         showLocation: settings.showLocation ?? true,
         showCompany: settings.showCompany ?? true,
