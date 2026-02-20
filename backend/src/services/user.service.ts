@@ -643,24 +643,12 @@ export class UserService {
    */
   async requestDataExport(userId: string, options: any) {
     const exportId = `export_${userId}_${Date.now()}`;
-    
-    // For demo purposes, we'll simulate the export process
-    // In production, this would queue a background job
-    const exportRequest = {
+
+    return {
       exportId,
       status: 'processing' as const,
       createdAt: new Date().toISOString(),
-      estimatedCompletionTime: new Date(Date.now() + 3000).toISOString() // 3 seconds from now
-    };
-
-    // Simulate processing by gathering user data
-    const userData = await this.getUserDataForExport(userId);
-    
-    // In production, save this to a DataExport table and queue background processing
-    // For demo, we'll just return the export info
-    return {
-      success: true,
-      data: exportRequest
+      estimatedCompletionTime: new Date(Date.now() + 3000).toISOString()
     };
   }
 
@@ -683,19 +671,14 @@ export class UserService {
    * Download export data
    */
   async downloadExportData(userId: string, exportId: string) {
-    // Verify the export belongs to the user
     if (!exportId.includes(userId)) {
       throw new Error('Export not found');
     }
 
-    // For demo purposes, we'll create a simple JSON file
     const userData = await this.getUserDataForExport(userId);
-    const exportData = JSON.stringify(userData, null, 2);
-    
-    // In production, this would be a zip file created during the background job
-    // For demo, we'll return a simple response
+
     return {
-      filePath: Buffer.from(exportData).toString('base64'), // Base64 encoded for demo
+      data: JSON.stringify(userData, null, 2),
       fileName: `inchronicle-data-export-${new Date().toISOString().split('T')[0]}.json`
     };
   }
@@ -820,7 +803,6 @@ export class UserService {
         workExperiences: true,
         education: true,
         certifications: true,
-        // languages: true, // Comment out if languages table doesn't exist
         skills: {
           include: {
             skill: true
@@ -832,6 +814,70 @@ export class UserService {
     if (!user) {
       throw new Error('User not found');
     }
+
+    const [careerStories, achievements, journalEntries, sentConnections, receivedConnections, workspaceMemberships, notificationPreferences] = await Promise.all([
+      prisma.careerStory.findMany({
+        where: { userId, sourceMode: 'production' },
+        select: {
+          id: true, title: true, framework: true, sections: true,
+          archetype: true, category: true, role: true,
+          visibility: true, isPublished: true, publishedAt: true,
+          createdAt: true, updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.achievement.findMany({
+        where: { userId },
+        select: {
+          id: true, title: true, description: true, impact: true,
+          skills: true, status: true, achievedAt: true,
+          createdAt: true, updatedAt: true,
+        },
+        orderBy: { achievedAt: 'desc' },
+      }),
+      prisma.journalEntry.findMany({
+        where: { authorId: userId, sourceMode: 'production' },
+        select: {
+          id: true, title: true, description: true,
+          category: true, tags: true, skills: true,
+          visibility: true, isPublished: true,
+          createdAt: true, updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.networkConnection.findMany({
+        where: { senderId: userId },
+        select: {
+          id: true, status: true, tier: true, context: true,
+          sharedWorkspaces: true, createdAt: true,
+          receiver: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.networkConnection.findMany({
+        where: { receiverId: userId },
+        select: {
+          id: true, status: true, tier: true, context: true,
+          sharedWorkspaces: true, createdAt: true,
+          sender: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.workspaceMember.findMany({
+        where: { userId },
+        select: {
+          role: true, joinedAt: true, isActive: true,
+          workspace: { select: { id: true, name: true, isPersonal: true } },
+        },
+      }),
+      prisma.notificationPreferences.findFirst({
+        where: { userId },
+        select: {
+          emailNotifications: true, pushNotifications: true,
+          likes: true, comments: true, mentions: true,
+          workspaceInvites: true, achievements: true, systemUpdates: true,
+          digestFrequency: true, quietHoursStart: true, quietHoursEnd: true,
+        },
+      }),
+    ]);
 
     return {
       profile: {
@@ -846,21 +892,59 @@ export class UserService {
         yearsOfExperience: user.yearsOfExperience,
         avatar: user.avatar,
         createdAt: user.createdAt,
-        profile: user.profile
       },
+      privacySettings: user.profile ? {
+        profileVisibility: user.profile.profileVisibility,
+        showEmail: user.profile.showEmail,
+        showLocation: user.profile.showLocation,
+        showCompany: user.profile.showCompany,
+        showConnections: user.profile.showConnections,
+        allowSearchEngineIndexing: user.profile.allowSearchEngineIndexing,
+      } : null,
       workExperiences: user.workExperiences,
       education: user.education,
       certifications: user.certifications,
-      // languages: user.languages, // Comment out if languages table doesn't exist
       skills: user.skills.map(us => ({
         skill: us.skill.name,
         category: us.skill.category,
         level: us.level,
         endorsements: us.endorsements,
-        yearsOfExp: us.yearsOfExp
+        yearsOfExp: us.yearsOfExp,
       })),
+      careerStories,
+      achievements,
+      journalEntries,
+      networkConnections: {
+        sent: sentConnections.map(c => ({
+          id: c.id,
+          connectedUser: c.receiver,
+          status: c.status,
+          tier: c.tier,
+          context: c.context,
+          sharedWorkspaces: c.sharedWorkspaces,
+          createdAt: c.createdAt,
+        })),
+        received: receivedConnections.map(c => ({
+          id: c.id,
+          connectedUser: c.sender,
+          status: c.status,
+          tier: c.tier,
+          context: c.context,
+          sharedWorkspaces: c.sharedWorkspaces,
+          createdAt: c.createdAt,
+        })),
+      },
+      workspaceMemberships: workspaceMemberships.map(wm => ({
+        workspaceId: wm.workspace.id,
+        workspaceName: wm.workspace.name,
+        isPersonal: wm.workspace.isPersonal,
+        role: wm.role,
+        joinedAt: wm.joinedAt,
+        isActive: wm.isActive,
+      })),
+      notificationPreferences,
       exportedAt: new Date().toISOString(),
-      exportVersion: '1.0'
+      exportVersion: '2.0',
     };
   }
 

@@ -382,14 +382,10 @@ export const downloadExportData = asyncHandler(async (req: Request, res: Respons
 
   try {
     const downloadInfo = await userService.downloadExportData(userId, exportId);
-    
-    // Set headers for JSON file download
+
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${downloadInfo.fileName}"`);
-    
-    // Decode base64 data and send as JSON
-    const jsonData = Buffer.from(downloadInfo.filePath, 'base64').toString('utf-8');
-    res.send(jsonData);
+    res.send(downloadInfo.data);
   } catch (error: any) {
     if ((error as any).message === 'Export not found' || (error as any).message === 'Export not ready') {
       return void sendError(res, (error as any).message, 404);

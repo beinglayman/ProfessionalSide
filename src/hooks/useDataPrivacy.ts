@@ -55,11 +55,11 @@ export function useDownloadExportData() {
       });
       
       // Create download link
-      const blob = new Blob([response.data], { type: 'application/zip' });
+      const blob = new Blob([response.data], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `inchronicle-data-export-${new Date().toISOString().split('T')[0]}.zip`;
+      link.download = `inchronicle-data-export-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
