@@ -9,8 +9,8 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
+import { compileSafe, SafeTemplate } from './handlebars-safe';
 
 // =============================================================================
 // TYPES
@@ -148,17 +148,17 @@ const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
 let systemTemplate: string;
-let userTemplateCompiled: Handlebars.TemplateDelegate;
+let userTemplateCompiled: SafeTemplate;
 
 try {
   systemTemplate = readFileSync(join(TEMPLATES_DIR, 'career-story-system.prompt.md'), 'utf-8');
   const userTemplateRaw = readFileSync(join(TEMPLATES_DIR, 'career-story-user.prompt.md'), 'utf-8');
-  userTemplateCompiled = Handlebars.compile(userTemplateRaw);
+  userTemplateCompiled = compileSafe(userTemplateRaw);
 } catch (error) {
   console.warn('Failed to load career story prompt templates, using fallback:', (error as Error).message);
   systemTemplate = `You are a career coach transforming journal entries into career story narratives.
 Return valid JSON with sections matching the requested framework.`;
-  userTemplateCompiled = Handlebars.compile(
+  userTemplateCompiled = compileSafe(
     `Transform this journal entry into a "{{framework}}" career story.
 Title: {{title}}
 Content: {{fullContent}}

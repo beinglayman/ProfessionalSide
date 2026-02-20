@@ -10,8 +10,8 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
+import { compileSafe, SafeTemplate } from './handlebars-safe';
 import type { StoryArchetype } from './career-story.prompt';
 import type { ArchetypeSignals } from '../../../cli/story-coach/types';
 
@@ -56,14 +56,14 @@ export const ARCHETYPE_PREFIXES: Record<StoryArchetype, string> = {
 
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
-let wizardTemplate: Handlebars.TemplateDelegate;
+let wizardTemplate: SafeTemplate;
 
 try {
   const raw = readFileSync(join(TEMPLATES_DIR, 'wizard-questions.prompt.md'), 'utf-8');
-  wizardTemplate = Handlebars.compile(raw);
+  wizardTemplate = compileSafe(raw);
 } catch (error) {
   console.warn('Failed to load wizard-questions template:', (error as Error).message);
-  wizardTemplate = Handlebars.compile(
+  wizardTemplate = compileSafe(
     'Generate 6 D-I-G questions (3 dig, 2 impact, 1 growth) for a {{archetype}} story about: {{entryTitle}}'
   );
 }

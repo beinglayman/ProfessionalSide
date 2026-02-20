@@ -10,8 +10,8 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
+import { compileSafe, SafeTemplate } from './handlebars-safe';
 import type { DerivationType, PacketType } from '../../../controllers/career-stories.schemas';
 import type { StoryArchetype, WritingStyle } from './career-story.prompt';
 
@@ -78,8 +78,8 @@ export interface PacketPromptParams {
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
 let systemTemplate: string;
-const DERIVATION_TEMPLATES: Record<string, Handlebars.TemplateDelegate> = {};
-const PACKET_TEMPLATES: Record<string, Handlebars.TemplateDelegate> = {};
+const DERIVATION_TEMPLATES: Record<string, SafeTemplate> = {};
+const PACKET_TEMPLATES: Record<string, SafeTemplate> = {};
 
 const DERIVATION_TYPES: DerivationType[] = [
   'interview', 'linkedin', 'resume', 'one-on-one', 'self-assessment', 'team-share',
@@ -103,22 +103,22 @@ try {
 
   for (const type of DERIVATION_TYPES) {
     const raw = readFileSync(join(TEMPLATES_DIR, `derivation-${type}.prompt.md`), 'utf-8');
-    DERIVATION_TEMPLATES[type] = Handlebars.compile(raw);
+    DERIVATION_TEMPLATES[type] = compileSafe(raw);
   }
 
   for (const type of PACKET_TYPES) {
     const raw = readFileSync(join(TEMPLATES_DIR, PACKET_TEMPLATE_FILES[type]), 'utf-8');
-    PACKET_TEMPLATES[type] = Handlebars.compile(raw);
+    PACKET_TEMPLATES[type] = compileSafe(raw);
   }
 } catch (error) {
   console.warn('Failed to load derivation prompt templates:', (error as Error).message);
   systemTemplate = 'You are a career communication specialist. Rewrite the story for the specified audience. Return only the derived text.';
   for (const type of DERIVATION_TYPES) {
-    DERIVATION_TEMPLATES[type] = Handlebars.compile(
+    DERIVATION_TEMPLATES[type] = compileSafe(
       `Rewrite this story as a {{derivationType}} format.\nTitle: {{title}}\n{{#each sections}}{{@key}}: {{this.summary}}\n{{/each}}`
     );
   }
-  const fallbackPacket = Handlebars.compile(
+  const fallbackPacket = compileSafe(
     `Generate a document from these stories.\n{{#each stories}}Title: {{this.title}}\n{{#each this.sections}}{{@key}}: {{this.summary}}\n{{/each}}\n---\n{{/each}}`
   );
   for (const type of PACKET_TYPES) {
