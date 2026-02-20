@@ -222,6 +222,18 @@ export class CareerStoryService {
     return getToolActivityTable(this.isDemoMode);
   }
 
+  /** Fetch activity rows by IDs for ranking in LLM prompts. */
+  private async fetchActivityRowsForRanking(
+    activityIds: string[],
+  ): Promise<Array<{ id: string; source: string; title: string; rawData?: any; timestamp?: Date }>> {
+    if (activityIds.length === 0) return [];
+    const table = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
+    return (table.findMany as Function)({
+      where: { id: { in: activityIds } },
+      select: { id: true, source: true, title: true, rawData: true, timestamp: true },
+    });
+  }
+
   private mapStory(story: {
     id: string;
     userId: string;
@@ -843,17 +855,9 @@ export class CareerStoryService {
     let category: string | undefined;
 
     if (this.hasRichJournalContent(journalContent)) {
-      // Fetch activity rows for ranking in LLM prompt
-      const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
-      const activityRows = entry.activityIds.length > 0
-        ? await (activityTable.findMany as Function)({
-            where: { id: { in: entry.activityIds } },
-            select: { id: true, source: true, title: true, rawData: true, timestamp: true },
-          })
-        : [];
+      const activityRows = await this.fetchActivityRowsForRanking(entry.activityIds);
 
       // Primary: Use LLM to transform journal content into framework-specific sections
-      // This produces interview-ready narratives that emphasize contributions and impact
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         useFramework,
@@ -1206,14 +1210,7 @@ export class CareerStoryService {
         category: journalEntry.category,
       };
 
-      // Fetch activity rows for ranking in LLM prompt
-      const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
-      const regenActivityRows = story.activityIds.length > 0
-        ? await (activityTable.findMany as Function)({
-            where: { id: { in: story.activityIds } },
-            select: { id: true, source: true, title: true, rawData: true, timestamp: true },
-          })
-        : [];
+      const regenActivityRows = await this.fetchActivityRowsForRanking(story.activityIds);
 
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,

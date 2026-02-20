@@ -387,4 +387,32 @@ describe('enforceQuestionCount', () => {
     expect(result[1].id).toBe('ff-impact-1');
     expect(result[2].id).toBe('ff-growth-1'); // fallback for 3rd slot
   });
+
+  // Regression: bug where fallbackIdx started at result.length, skipping earlier fallbacks
+  it('pads a single growth question with dig + impact fallbacks (not two growth)', () => {
+    const input = [makeQuestion('growth', 1)];
+    const result = enforceQuestionCount(input, 'ff');
+    expect(result).toHaveLength(3);
+    expect(result[0].phase).toBe('growth'); // original
+    expect(result[1].phase).toBe('dig');    // fallback — must NOT be impact
+    expect(result[2].phase).toBe('impact'); // fallback — must NOT be growth
+  });
+
+  it('pads a single impact question with dig + growth fallbacks', () => {
+    const input = [makeQuestion('impact', 1)];
+    const result = enforceQuestionCount(input, 'ff');
+    expect(result).toHaveLength(3);
+    expect(result[0].phase).toBe('impact'); // original
+    expect(result[1].phase).toBe('dig');    // fallback
+    expect(result[2].phase).toBe('growth'); // fallback
+  });
+
+  it('pads two same-phase questions with a missing-phase fallback', () => {
+    const input = [makeQuestion('dig', 1), makeQuestion('dig', 2)];
+    const result = enforceQuestionCount(input, 'ff');
+    expect(result).toHaveLength(3);
+    expect(result[0].phase).toBe('dig');
+    expect(result[1].phase).toBe('dig');
+    expect(result[2].phase).toBe('impact'); // first non-dig fallback
+  });
 });

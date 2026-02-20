@@ -62,7 +62,7 @@ import {
   KnownContext,
 } from './ai/prompts/wizard-questions.prompt';
 import { buildLLMInput } from './career-stories/llm-input.builder';
-import { rankActivities } from './career-stories/activity-context.adapter';
+import { rankActivities, buildKnownContext } from './career-stories/activity-context.adapter';
 
 // Re-export types for convenience
 export { StoryArchetype, ExtractedContext } from './ai/prompts/career-story.prompt';
@@ -378,6 +378,30 @@ export class StoryWizardService {
 
   constructor(private isDemoMode: boolean = true) {}
 
+  /** Fetch activity rows by IDs from the correct table (demo vs production). */
+  private async fetchActivityRows(
+    activityIds: string[],
+    extraSelect?: Record<string, boolean>,
+  ): Promise<any[]> {
+    if (activityIds.length === 0) return [];
+    const table = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
+    return (table.findMany as Function)({
+      where: { id: { in: activityIds } },
+      select: { id: true, source: true, title: true, rawData: true, timestamp: true, ...extraSelect },
+    });
+  }
+
+  /** Fetch + rank activities, return contexts. Returns [] if no activities. */
+  private async fetchRankedContexts(
+    activityIds: string[],
+    format7Data: Record<string, any> | null,
+    selfIdentifier: string,
+  ): Promise<import('./career-stories/activity-context.adapter').ActivityContext[]> {
+    const rows = await this.fetchActivityRows(activityIds);
+    if (rows.length === 0) return [];
+    return rankActivities(rows, format7Data, selfIdentifier, 20).map(r => r.context);
+  }
+
   /**
    * Step 1: Analyze journal entry → archetype + questions.
    * @throws {WizardError} If entry not found or has insufficient content
@@ -427,48 +451,14 @@ export class StoryWizardService {
     const detection = await detectArchetype(entryFile);
 
     // Fetch + rank activities for knownContext (what the system already knows)
-    const analyzeActivityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
-    const analyzeActivityRows = entry.activityIds?.length > 0
-      ? await (analyzeActivityTable.findMany as Function)({
-          where: { id: { in: entry.activityIds } },
-          select: { id: true, source: true, title: true, rawData: true, timestamp: true },
-        })
-      : [];
-
-    const rankedForContext = analyzeActivityRows.length > 0
-      ? rankActivities(
-          analyzeActivityRows,
-          (entry.format7Data as Record<string, any>) || null,
-          userId,
-          20,
-        ).map(r => r.context)
-      : [];
+    const rankedForContext = await this.fetchRankedContexts(
+      entry.activityIds || [],
+      (entry.format7Data as Record<string, any>) || null,
+      userId,
+    );
 
     // Extract primitives from activities — prompt layer doesn't know ActivityContext (RH-5)
-    const knownContext: KnownContext | undefined = rankedForContext.length > 0
-      ? {
-          dateRange: (() => {
-            const dates = rankedForContext.map(a => a.date).filter(d => d !== 'unknown').sort();
-            return dates.length >= 2 ? `${dates[0]} to ${dates[dates.length - 1]}` : undefined;
-          })(),
-          collaborators: (() => {
-            const all = [...new Set(rankedForContext.flatMap(a => a.people))];
-            return all.length > 0 ? all.slice(0, 8).join(', ') : undefined;
-          })(),
-          codeStats: (() => {
-            const total = rankedForContext.reduce((sum, a) => {
-              const m = a.scope?.match(/\+(\d+)/);
-              return sum + (m ? parseInt(m[1]) : 0);
-            }, 0);
-            return total > 0 ? `${total}+ lines of code` : undefined;
-          })(),
-          tools: [...new Set(rankedForContext.map(a => a.source))].join(', ') || undefined,
-          labels: (() => {
-            const all = [...new Set(rankedForContext.flatMap(a => a.labels || []))];
-            return all.length > 0 ? all.join(', ') : undefined;
-          })(),
-        }
-      : undefined;
+    const knownContext: KnownContext | undefined = buildKnownContext(rankedForContext);
 
     // Try dynamic LLM-generated questions, fall back to static
     const entryText = [entry.fullContent, entry.description].filter(Boolean).join('\n\n');
@@ -545,16 +535,10 @@ export class StoryWizardService {
       extractedContext,
     });
 
-    // Rank and adapt activities (separate composable step — RH-2)
-    // Activities are fetched later for source creation; rank them here for the prompt
-    const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
-    const allActivityRows = entry.activityIds.length > 0
-      ? await (activityTable.findMany as Function)({
-          where: { id: { in: entry.activityIds } },
-          select: { id: true, source: true, sourceUrl: true, title: true, rawData: true, timestamp: true },
-        })
-      : [];
+    // Fetch activities for ranking AND source creation (needs sourceUrl for sources)
+    const allActivityRows = await this.fetchActivityRows(entry.activityIds, { sourceUrl: true });
 
+    // Rank and adapt activities (separate composable step — RH-2)
     const rankedActivities = allActivityRows.length > 0
       ? rankActivities(
           allActivityRows,

@@ -15,7 +15,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { buildLLMInput } from './llm-input.builder';
-import { toActivityContext, rankActivities } from './activity-context.adapter';
+import { toActivityContext, rankActivities, buildKnownContext } from './activity-context.adapter';
 import { enforceQuestionCount } from '../ai/prompts/wizard-questions.prompt';
 
 describe('Pipeline integration: mock data → LLM input', () => {
@@ -115,19 +115,18 @@ describe('Pipeline integration: mock data → LLM input', () => {
     expect(ranked[0].context.source).toBe('github');
   });
 
-  it('ranked activities produce valid knownContext primitives (RH-5)', () => {
+  it('buildKnownContext produces valid primitives from ranked activities (RH-5)', () => {
     const ranked = rankActivities(mockActivities as any[], null, 'honey.arora');
+    const knownContext = buildKnownContext(ranked.map(r => r.context));
 
-    // Extract knownContext the same way story-wizard.service does
-    const allPeople = [...new Set(ranked.flatMap(a => a.context.people))];
-    const allLabels = [...new Set(ranked.flatMap(a => a.context.labels || []))];
-
-    expect(allPeople).toContain('bob.chen');
-    expect(allPeople).toContain('sarah.kim');
-    expect(allPeople).not.toContain('honey.arora');
-    expect(allLabels).toContain('security');
+    expect(knownContext).toBeDefined();
+    expect(knownContext!.collaborators).toContain('bob.chen');
+    expect(knownContext!.collaborators).toContain('sarah.kim');
+    expect(knownContext!.collaborators).not.toContain('honey.arora');
+    expect(knownContext!.labels).toContain('security');
+    expect(knownContext!.tools).toContain('github');
     // These are string primitives, not ActivityContext[] (RH-5)
-    expect(typeof allPeople.join(', ')).toBe('string');
+    expect(typeof knownContext!.collaborators).toBe('string');
   });
 
   it('enforceQuestionCount pads empty to 3 fallbacks (RJ-6)', () => {

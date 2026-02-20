@@ -62,6 +62,17 @@ const EDGE_SCORES: Record<string, number> = {
   primary: 3, outcome: 2.5, supporting: 1.5, contextual: 0.5,
 };
 
+/** Named thresholds for ranking heuristic signals. */
+const RANKING = {
+  MIN_RICH_BODY_CHARS: 50,
+  SIGNIFICANT_CODE_CHURN: 200,
+  MODERATE_CODE_CHURN: 50,
+  TEAM_COLLABORATION_MIN: 3,
+  HIGH_REACTION_COUNT: 10,
+  LOW_REACTION_COUNT: 3,
+  MAX_COLLABORATORS_IN_CONTEXT: 8,
+} as const;
+
 // ============================================================================
 // MAIN EXPORT
 // ============================================================================
@@ -132,7 +143,7 @@ export function rankActivities(
     }
 
     // Signal 2: Has rich body content
-    if (ctx.body && ctx.body.length > 50) {
+    if (ctx.body && ctx.body.length > RANKING.MIN_RICH_BODY_CHARS) {
       score += 2;
       signals.push(`body:${ctx.body.length}chars`);
     }
@@ -140,11 +151,11 @@ export function rankActivities(
     // Signal 3: Code scope (from ctx.scope, set by GitHub extractor)
     const scopeMatch = ctx.scope?.match(/\+(\d+)\/-(\d+)/);
     const codeSize = scopeMatch ? parseInt(scopeMatch[1]) + parseInt(scopeMatch[2]) : 0;
-    if (codeSize > 200) { score += 1.5; signals.push(`code:${codeSize}`); }
-    else if (codeSize > 50) { score += 0.5; signals.push(`code:${codeSize}`); }
+    if (codeSize > RANKING.SIGNIFICANT_CODE_CHURN) { score += 1.5; signals.push(`code:${codeSize}`); }
+    else if (codeSize > RANKING.MODERATE_CODE_CHURN) { score += 0.5; signals.push(`code:${codeSize}`); }
 
     // Signal 4: People involved
-    if (ctx.people.length >= 3) { score += 1.5; signals.push(`people:${ctx.people.length}`); }
+    if (ctx.people.length >= RANKING.TEAM_COLLABORATION_MIN) { score += 1.5; signals.push(`people:${ctx.people.length}`); }
     else if (ctx.people.length >= 1) { score += 0.5; signals.push(`people:${ctx.people.length}`); }
 
     // Signal 5: High-signal labels
@@ -162,8 +173,8 @@ export function rankActivities(
     if (ctx.sentiment) {
       const totalReactions = ctx.sentiment.split(', ')
         .reduce((sum, pair) => sum + parseInt(pair.split(':')[1] || '0'), 0);
-      if (totalReactions >= 10) { score += 1.0; signals.push(`reactions:${totalReactions}`); }
-      else if (totalReactions >= 3) { score += 0.5; signals.push(`reactions:${totalReactions}`); }
+      if (totalReactions >= RANKING.HIGH_REACTION_COUNT) { score += 1.0; signals.push(`reactions:${totalReactions}`); }
+      else if (totalReactions >= RANKING.LOW_REACTION_COUNT) { score += 0.5; signals.push(`reactions:${totalReactions}`); }
     }
 
     // Signal 8: Structural connections (from ctx.linkedItems)
@@ -232,10 +243,7 @@ function extractGitHub(act: ActivityLike, raw: Record<string, any>, self: string
 }
 
 function extractJira(act: ActivityLike, raw: Record<string, any>, self: string, date: string): ActivityContext {
-  // Body from comments
-  const bodyRaw = raw.comments && Array.isArray(raw.comments)
-    ? raw.comments.map((c: any) => `${c.author || 'unknown'}: ${c.body || ''}`).join('\n')
-    : '';
+  const bodyRaw = extractCommentBodies(raw);
 
   const people = collectPeople(
     [raw.assignee, raw.reporter, ...(raw.watchers || []), ...(raw.mentions || []),
@@ -319,9 +327,7 @@ function extractGoogleCalendar(act: ActivityLike, raw: Record<string, any>, self
 }
 
 function extractGoogleDocs(act: ActivityLike, raw: Record<string, any>, self: string, date: string): ActivityContext {
-  const bodyRaw = raw.comments && Array.isArray(raw.comments)
-    ? raw.comments.map((c: any) => `${c.author || 'unknown'}: ${c.body || ''}`).join('\n')
-    : '';
+  const bodyRaw = extractCommentBodies(raw);
 
   const people = collectPeople(
     [raw.owner, raw.lastModifiedBy, ...(raw.contributors || []),
@@ -341,9 +347,7 @@ function extractGoogleDocs(act: ActivityLike, raw: Record<string, any>, self: st
 }
 
 function extractGoogleSheets(act: ActivityLike, raw: Record<string, any>, self: string, date: string): ActivityContext {
-  const bodyRaw = raw.comments && Array.isArray(raw.comments)
-    ? raw.comments.map((c: any) => `${c.author || 'unknown'}: ${c.body || ''}`).join('\n')
-    : '';
+  const bodyRaw = extractCommentBodies(raw);
 
   const people = collectPeople(
     [raw.owner, raw.lastModifiedBy, ...(raw.mentions || []),
@@ -388,8 +392,50 @@ function extractDefault(act: ActivityLike, raw: Record<string, any>, self: strin
 }
 
 // ============================================================================
+// KNOWN CONTEXT BUILDER
+// ============================================================================
+
+/**
+ * Extract primitive strings from ranked activity contexts for the wizard prompt.
+ * Returns undefined if no contexts provided. The return shape matches KnownContext
+ * from wizard-questions.prompt.ts — primitives only, no ActivityContext leak (RH-5).
+ */
+export function buildKnownContext(
+  contexts: ActivityContext[],
+): { dateRange?: string; collaborators?: string; codeStats?: string; tools?: string; labels?: string } | undefined {
+  if (contexts.length === 0) return undefined;
+
+  const dates = contexts.map(a => a.date).filter(d => d !== 'unknown').sort();
+  const dateRange = dates.length >= 2 ? `${dates[0]} to ${dates[dates.length - 1]}` : undefined;
+
+  const allPeople = [...new Set(contexts.flatMap(a => a.people))];
+  const collaborators = allPeople.length > 0
+    ? allPeople.slice(0, RANKING.MAX_COLLABORATORS_IN_CONTEXT).join(', ')
+    : undefined;
+
+  const totalLines = contexts.reduce((sum, a) => {
+    const m = a.scope?.match(/\+(\d+)/);
+    return sum + (m ? parseInt(m[1]) : 0);
+  }, 0);
+  const codeStats = totalLines > 0 ? `${totalLines}+ lines of code` : undefined;
+
+  const tools = [...new Set(contexts.map(a => a.source))].join(', ') || undefined;
+
+  const allLabels = [...new Set(contexts.flatMap(a => a.labels || []))];
+  const labels = allLabels.length > 0 ? allLabels.join(', ') : undefined;
+
+  return { dateRange, collaborators, codeStats, tools, labels };
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
+
+/** Extract body text from a comments array (shared by Jira, Google Docs, Google Sheets). */
+function extractCommentBodies(raw: Record<string, any>): string {
+  if (!raw.comments || !Array.isArray(raw.comments)) return '';
+  return raw.comments.map((c: any) => `${c.author || 'unknown'}: ${c.body || ''}`).join('\n');
+}
 
 // RH-1: Adapter is a pure data normalizer — no template engine knowledge.
 // scanAndStrip() handles security (credentials/PII).

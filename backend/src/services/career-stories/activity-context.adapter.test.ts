@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toActivityContext, rankActivities, ActivityContext } from './activity-context.adapter';
+import { toActivityContext, rankActivities, buildKnownContext, ActivityContext } from './activity-context.adapter';
 
 // ============================================================================
 // Per-tool extraction tests (grounded in mock data shapes)
@@ -240,6 +240,121 @@ describe('toActivityContext: Default (Confluence, Figma, OneDrive, etc.)', () =>
   });
 });
 
+describe('toActivityContext: Google Docs', () => {
+  const docsActivity = {
+    id: 'gdoc-1',
+    source: 'google-docs',
+    title: 'Architecture Decision Record: Auth Migration',
+    timestamp: new Date('2024-05-12'),
+    rawData: {
+      owner: 'honey.arora',
+      lastModifiedBy: 'honey.arora',
+      contributors: ['bob.chen', 'sarah.kim'],
+      suggestedEditors: ['vikram.patel'],
+      comments: [
+        { author: 'bob.chen', body: 'Should we consider OAuth2 here?' },
+        { author: 'sarah.kim', body: 'Looks good, approved.' },
+      ],
+    },
+  };
+
+  it('sets userRole to authored when user is owner', () => {
+    const ctx = toActivityContext(docsActivity as any, 'honey.arora');
+    expect(ctx.userRole).toBe('authored');
+  });
+
+  it('sets userRole to contributed when user is contributor', () => {
+    const ctx = toActivityContext(docsActivity as any, 'bob.chen');
+    expect(ctx.userRole).toBe('contributed');
+  });
+
+  it('sets userRole to mentioned for others', () => {
+    const ctx = toActivityContext(docsActivity as any, 'vikram.patel');
+    expect(ctx.userRole).toBe('mentioned');
+  });
+
+  it('extracts people from owner, lastModifiedBy, contributors, suggestedEditors, comments', () => {
+    const ctx = toActivityContext(docsActivity as any, 'honey.arora');
+    expect(ctx.people).toContain('bob.chen');
+    expect(ctx.people).toContain('sarah.kim');
+    expect(ctx.people).toContain('vikram.patel');
+    expect(ctx.people).not.toContain('honey.arora');
+  });
+
+  it('extracts comment bodies via shared extractCommentBodies helper', () => {
+    const ctx = toActivityContext(docsActivity as any, 'honey.arora');
+    expect(ctx.body).toContain('OAuth2');
+    expect(ctx.body).toContain('approved');
+  });
+
+  it('sets source to google-docs', () => {
+    const ctx = toActivityContext(docsActivity as any, 'honey.arora');
+    expect(ctx.source).toBe('google-docs');
+  });
+
+  it('handles no comments gracefully', () => {
+    const noComments = { ...docsActivity, rawData: { owner: 'honey.arora' } };
+    const ctx = toActivityContext(noComments as any, 'honey.arora');
+    expect(ctx.body).toBeUndefined();
+  });
+});
+
+describe('toActivityContext: Google Sheets', () => {
+  const sheetsActivity = {
+    id: 'gsheet-1',
+    source: 'google-sheets',
+    title: 'Q2 Sprint Metrics',
+    timestamp: new Date('2024-06-01'),
+    rawData: {
+      owner: 'honey.arora',
+      lastModifiedBy: 'bob.chen',
+      mentions: ['sarah.kim'],
+      sheets: ['Sprint 1', 'Sprint 2', 'Sprint 3'],
+      comments: [
+        { author: 'bob.chen', body: 'Updated velocity numbers' },
+      ],
+    },
+  };
+
+  it('sets userRole to authored when user is owner', () => {
+    const ctx = toActivityContext(sheetsActivity as any, 'honey.arora');
+    expect(ctx.userRole).toBe('authored');
+  });
+
+  it('sets userRole to mentioned for non-owner', () => {
+    const ctx = toActivityContext(sheetsActivity as any, 'bob.chen');
+    expect(ctx.userRole).toBe('mentioned');
+  });
+
+  it('extracts people from owner, lastModifiedBy, mentions, comments', () => {
+    const ctx = toActivityContext(sheetsActivity as any, 'honey.arora');
+    expect(ctx.people).toContain('bob.chen');
+    expect(ctx.people).toContain('sarah.kim');
+    expect(ctx.people).not.toContain('honey.arora');
+  });
+
+  it('extracts scope from sheets.length', () => {
+    const ctx = toActivityContext(sheetsActivity as any, 'honey.arora');
+    expect(ctx.scope).toBe('3 sheets');
+  });
+
+  it('extracts comment bodies via shared extractCommentBodies helper', () => {
+    const ctx = toActivityContext(sheetsActivity as any, 'honey.arora');
+    expect(ctx.body).toContain('velocity numbers');
+  });
+
+  it('sets source to google-sheets', () => {
+    const ctx = toActivityContext(sheetsActivity as any, 'honey.arora');
+    expect(ctx.source).toBe('google-sheets');
+  });
+
+  it('handles missing sheets gracefully', () => {
+    const noSheets = { ...sheetsActivity, rawData: { owner: 'honey.arora' } };
+    const ctx = toActivityContext(noSheets as any, 'honey.arora');
+    expect(ctx.scope).toBeUndefined();
+  });
+});
+
 // ============================================================================
 // Ranking tests
 // ============================================================================
@@ -349,5 +464,84 @@ describe('edge cases', () => {
     const ctx = toActivityContext(activity as any, 'me');
     expect(ctx.source).toBe('slack');
     expect(ctx.people).toEqual([]);
+  });
+});
+
+// ============================================================================
+// buildKnownContext
+// ============================================================================
+
+describe('buildKnownContext', () => {
+  const mkContext = (overrides: Partial<ActivityContext> = {}): ActivityContext => ({
+    title: 'Test',
+    date: '2024-05-15',
+    source: 'github',
+    people: ['alice'],
+    userRole: 'authored',
+    ...overrides,
+  });
+
+  it('returns undefined for empty array', () => {
+    expect(buildKnownContext([])).toBeUndefined();
+  });
+
+  it('extracts dateRange from sorted dates', () => {
+    const ctx = buildKnownContext([
+      mkContext({ date: '2024-06-01' }),
+      mkContext({ date: '2024-05-01' }),
+      mkContext({ date: '2024-05-15' }),
+    ]);
+    expect(ctx?.dateRange).toBe('2024-05-01 to 2024-06-01');
+  });
+
+  it('returns undefined dateRange for single date', () => {
+    const ctx = buildKnownContext([mkContext({ date: '2024-05-15' })]);
+    expect(ctx?.dateRange).toBeUndefined();
+  });
+
+  it('deduplicates collaborators across activities', () => {
+    const ctx = buildKnownContext([
+      mkContext({ people: ['alice', 'bob'] }),
+      mkContext({ people: ['bob', 'charlie'] }),
+    ]);
+    expect(ctx?.collaborators).toBe('alice, bob, charlie');
+  });
+
+  it('caps collaborators at 8', () => {
+    const people = Array.from({ length: 12 }, (_, i) => `person-${i}`);
+    const ctx = buildKnownContext([mkContext({ people })]);
+    expect(ctx?.collaborators?.split(', ')).toHaveLength(8);
+  });
+
+  it('sums code stats from scope fields', () => {
+    const ctx = buildKnownContext([
+      mkContext({ scope: '+450/-120, 15 files' }),
+      mkContext({ scope: '+100/-30, 5 files' }),
+    ]);
+    expect(ctx?.codeStats).toBe('550+ lines of code');
+  });
+
+  it('aggregates tools', () => {
+    const ctx = buildKnownContext([
+      mkContext({ source: 'github' }),
+      mkContext({ source: 'jira' }),
+      mkContext({ source: 'github' }),
+    ]);
+    expect(ctx?.tools).toBe('github, jira');
+  });
+
+  it('aggregates labels', () => {
+    const ctx = buildKnownContext([
+      mkContext({ labels: ['security', 'breaking'] }),
+      mkContext({ labels: ['security', 'migration'] }),
+    ]);
+    expect(ctx?.labels).toBe('security, breaking, migration');
+  });
+
+  it('returns undefined for fields with no data', () => {
+    const ctx = buildKnownContext([mkContext({ people: [], labels: undefined, scope: undefined })]);
+    expect(ctx?.collaborators).toBeUndefined();
+    expect(ctx?.labels).toBeUndefined();
+    expect(ctx?.codeStats).toBeUndefined();
   });
 });

@@ -209,11 +209,22 @@ export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): strin
     sectionGuidelines,
     style: style || undefined,
     userPrompt: userPrompt || undefined,
-    // B-3: Escape Handlebars syntax in user-authored activity content before template rendering
+    // B-3: Escape Handlebars syntax in ALL user-authored activity fields before template rendering.
+    // Every string field from ActivityContext originates from rawData (PR titles, Jira labels,
+    // Slack reaction names, collaborator names, etc.) and could contain {{ syntax.
     activities: activities?.map(a => ({
       ...a,
-      body: escapeHandlebarsInput(a.body),
       title: escapeHandlebarsInput(a.title),
+      body: escapeHandlebarsInput(a.body),
+      source: escapeHandlebarsInput(a.source),
+      sourceSubtype: a.sourceSubtype ? escapeHandlebarsInput(a.sourceSubtype) : undefined,
+      people: a.people?.map(p => escapeHandlebarsInput(p)),
+      labels: a.labels?.map(l => escapeHandlebarsInput(l)),
+      scope: a.scope ? escapeHandlebarsInput(a.scope) : undefined,
+      container: a.container ? escapeHandlebarsInput(a.container) : undefined,
+      state: a.state ? escapeHandlebarsInput(a.state) : undefined,
+      sentiment: a.sentiment ? escapeHandlebarsInput(a.sentiment) : undefined,
+      linkedItems: a.linkedItems?.map(l => escapeHandlebarsInput(l)),
     })) || undefined,
   });
 }

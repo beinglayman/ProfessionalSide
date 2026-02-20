@@ -112,21 +112,35 @@ const FALLBACK_QUESTIONS: ParsedWizardQuestion[] = [
 
 /**
  * Enforce exactly 3 questions. Slice if too many, pad with fallbacks if too few. (RJ-6)
+ * Pads from the beginning of FALLBACK_QUESTIONS, skipping any phase already present.
  * Exported for testability.
  */
 export function enforceQuestionCount(
   questions: ParsedWizardQuestion[],
   prefix?: string,
 ): ParsedWizardQuestion[] {
-  let result = questions.slice(0, TARGET_QUESTION_COUNT);
-  let fallbackIdx = result.length;
-  while (result.length < TARGET_QUESTION_COUNT) {
+  const result = questions.slice(0, TARGET_QUESTION_COUNT);
+  const presentPhases = new Set(result.map(q => q.phase));
+  let fallbackIdx = 0;
+  while (result.length < TARGET_QUESTION_COUNT && fallbackIdx < FALLBACK_QUESTIONS.length) {
     const fallback = FALLBACK_QUESTIONS[fallbackIdx];
+    fallbackIdx++;
+    if (presentPhases.has(fallback.phase)) continue;
+    presentPhases.add(fallback.phase);
     result.push({
       ...fallback,
       id: prefix ? `${prefix}-${fallback.phase}-1` : fallback.id,
     });
-    fallbackIdx++;
+  }
+  // If still short (all phases present), pad from beginning without phase dedup
+  let extraIdx = 0;
+  while (result.length < TARGET_QUESTION_COUNT) {
+    const fallback = FALLBACK_QUESTIONS[extraIdx % FALLBACK_QUESTIONS.length];
+    result.push({
+      ...fallback,
+      id: prefix ? `${prefix}-${fallback.phase}-${result.length}` : `fallback-${fallback.phase}-${result.length}`,
+    });
+    extraIdx++;
   }
   return result;
 }

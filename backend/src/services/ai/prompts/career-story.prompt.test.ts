@@ -284,4 +284,34 @@ describe('activities in prompt (peer parameter — RH-3)', () => {
     const prompt = getCareerStoryUserPrompt(createParams());
     expect(prompt).not.toContain('Source Activities');
   });
+
+  it('escapes Handlebars syntax in ALL activity fields, not just body and title', () => {
+    const prompt = getCareerStoryUserPrompt(createParams({
+      activities: [{
+        title: 'Fix {{injection}} bug',
+        date: '2024-05-15',
+        source: 'github',
+        people: ['{{hacker}}'],
+        userRole: 'authored',
+        body: 'Body with {{template}} syntax',
+        labels: ['{{malicious-label}}'],
+        scope: '{{scope-injection}}',
+        sentiment: '{{react}}:5',
+        state: '{{state}}',
+        linkedItems: ['{{linked}}'],
+      }],
+    }));
+    // None of the raw {{ should survive into the rendered prompt
+    expect(prompt).not.toContain('{{injection}}');
+    expect(prompt).not.toContain('{{hacker}}');
+    expect(prompt).not.toContain('{{template}}');
+    expect(prompt).not.toContain('{{malicious-label}}');
+    expect(prompt).not.toContain('{{scope-injection}}');
+    expect(prompt).not.toContain('{{react}}');
+    expect(prompt).not.toContain('{{state}}');
+    expect(prompt).not.toContain('{{linked}}');
+    // But the escaped content should still be present
+    expect(prompt).toContain('injection');
+    expect(prompt).toContain('hacker');
+  });
 });
