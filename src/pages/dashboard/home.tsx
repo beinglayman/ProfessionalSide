@@ -18,7 +18,9 @@ export function DashboardHomePage() {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <div className="mt-1 flex items-center gap-2">
           <p className="text-sm text-gray-500">Mindful growth starts with seeing your work.</p>
-          <SyncStatusIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
+          <span className="ml-auto">
+            <SyncStatusIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
+          </span>
         </div>
       </div>
 
