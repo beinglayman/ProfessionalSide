@@ -60,6 +60,7 @@ export class UserService {
         industry: true,
         yearsOfExperience: true,
         avatar: true,
+        profileUrl: true,
         createdAt: true,
         profile: {
           select: {
@@ -861,5 +862,95 @@ export class UserService {
       exportedAt: new Date().toISOString(),
       exportVersion: '1.0'
     };
+  }
+
+  /**
+   * Get Chronicle data by profile URL slug
+   * Returns null if user not found, inactive, or profile not public
+   */
+  async getChronicleBySlug(slug: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        profileUrl: slug,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        title: true,
+        company: true,
+        avatar: true,
+        profileUrl: true,
+        profile: {
+          select: {
+            profileVisibility: true,
+            allowSearchEngineIndexing: true,
+          },
+        },
+        careerStories: {
+          where: {
+            isPublished: true,
+            sourceMode: 'production',
+          },
+          select: {
+            id: true,
+            title: true,
+            framework: true,
+            archetype: true,
+            category: true,
+            role: true,
+            sections: true,
+            publishedAt: true,
+          },
+          orderBy: { publishedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    // Check profile visibility — if not public, return private indicator
+    if (user.profile?.profileVisibility !== 'public') {
+      return { isPrivate: true };
+    }
+
+    return {
+      user: {
+        name: user.name,
+        title: user.title,
+        company: user.company,
+        avatar: user.avatar,
+        profileUrl: user.profileUrl,
+      },
+      stories: user.careerStories,
+      meta: {
+        allowSearchEngineIndexing: user.profile?.allowSearchEngineIndexing ?? false,
+      },
+    };
+  }
+
+  /**
+   * Update user's profile URL slug
+   */
+  async updateProfileUrl(userId: string, newUrl: string) {
+    const { validateProfileUrl, isProfileUrlAvailable } = await import('../utils/profile-url.utils');
+
+    const validation = validateProfileUrl(newUrl);
+    if (!validation.isValid) {
+      throw Object.assign(new Error(validation.error!), { statusCode: 400 });
+    }
+
+    const available = await isProfileUrlAvailable(prisma, newUrl, userId);
+    if (!available) {
+      throw Object.assign(new Error('This profile URL is already taken'), { statusCode: 409 });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { profileUrl: newUrl },
+      select: { profileUrl: true },
+    });
+
+    return updated;
   }
 }

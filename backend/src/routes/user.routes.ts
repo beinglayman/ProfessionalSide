@@ -18,15 +18,21 @@ import {
   deleteUserProfile,
   hardDeleteUser,
   getPrivacySettings,
-  updatePrivacySettings
+  updatePrivacySettings,
+  getChronicle,
+  updateProfileUrl
 } from '../controllers/user.controller';
 import { authenticate, optionalAuth } from '../middleware/auth.middleware';
+import { chronicleRateLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 
 // Public routes (with optional auth) - specific routes BEFORE parametric
 router.get('/search', optionalAuth, searchUsers);
 router.get('/skills/all', getAllSkills);
+
+// Public Chronicle endpoint (no auth, rate limited)
+router.get('/chronicle/:slug', chronicleRateLimiter, getChronicle);
 
 // Protected routes (require authentication) - must be BEFORE /:userId
 router.get('/profile/me', authenticate, getMyProfile);
@@ -48,6 +54,9 @@ router.delete('/skills/:skillId', removeUserSkill);
 
 // Social features
 router.post('/:userId/skills/:skillId/endorse', endorseUserSkill);
+
+// Profile URL management
+router.put('/profile-url', updateProfileUrl);
 
 // Privacy and data management
 router.get('/privacy-settings', getPrivacySettings);

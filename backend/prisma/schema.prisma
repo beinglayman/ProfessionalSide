@@ -30,6 +30,7 @@ model User {
   welcomeEmailSent         Boolean  @default(false)
   hasSeenOnboardingOverlay Boolean  @default(false)
   onboardingSkipped        Boolean  @default(false)
+  profileUrl               String?  @unique
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 

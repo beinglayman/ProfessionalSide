@@ -38,5 +38,5 @@ EXPOSE 4173
 # Set working user for Railway
 USER node
 
-# Start the application directly
-CMD ["npm", "run", "preview"]
+# Start the application with SSR-capable Express server
+CMD ["node", "server.mjs"]

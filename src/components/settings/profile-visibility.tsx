@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Users, Mail, MapPin, Building, Check, X } from 'lucide-react';
+import { Globe, Users, Mail, MapPin, Building, Check, X, Link2, Copy, ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { usePrivacySettings, useUpdatePrivacySettings } from '../../hooks/useDataPrivacy';
 import { useToast } from '../../contexts/ToastContext';
+import { api } from '../../lib/api';
 
 interface ToggleSwitchProps {
   checked: boolean;
@@ -84,6 +85,197 @@ function VisibilitySetting({ icon, title, description, checked, onChange, disabl
           disabled={disabled}
         />
       </div>
+    </div>
+  );
+}
+
+function ChronicleUrlSection() {
+  const { toast } = useToast();
+  const [currentSlug, setCurrentSlug] = useState<string | null>(null);
+  const [editSlug, setEditSlug] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [isLoadingSlug, setIsLoadingSlug] = useState(true);
+
+  // Fetch current profileUrl from user profile
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get('/users/profile/me');
+        const slug = res.data?.data?.profileUrl ?? null;
+        setCurrentSlug(slug);
+        setEditSlug(slug ?? '');
+      } catch {
+        // Ignore — slug will show as empty
+      } finally {
+        setIsLoadingSlug(false);
+      }
+    })();
+  }, []);
+
+  const validateSlug = (value: string): string | null => {
+    if (value.length < 3 || value.length > 50) return 'Must be between 3 and 50 characters';
+    if (!/^[a-z0-9-]+$/.test(value)) return 'Only lowercase letters, numbers, and hyphens';
+    if (value.includes('--')) return 'No consecutive hyphens';
+    if (value.startsWith('-') || value.endsWith('-')) return 'Cannot start or end with a hyphen';
+    return null;
+  };
+
+  const handleSlugChange = (value: string) => {
+    const normalized = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    setEditSlug(normalized);
+    setSlugError(validateSlug(normalized));
+  };
+
+  const handleSave = async () => {
+    const error = validateSlug(editSlug);
+    if (error) { setSlugError(error); return; }
+    if (editSlug === currentSlug) { setIsEditing(false); return; }
+
+    setIsSaving(true);
+    setSlugError(null);
+    try {
+      await api.put('/users/profile-url', { profileUrl: editSlug });
+      setCurrentSlug(editSlug);
+      setIsEditing(false);
+      toast.success('Chronicle URL updated successfully');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const message = err?.response?.data?.error;
+      if (status === 409) {
+        setSlugError('This URL is already taken');
+      } else if (status === 400) {
+        setSlugError(message || 'Invalid URL format');
+      } else {
+        setSlugError('Failed to update URL');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!currentSlug) return;
+    try {
+      await navigator.clipboard.writeText(`https://inchronicle.com/${currentSlug}`);
+      toast.success('Chronicle URL copied to clipboard');
+    } catch {
+      toast.error('Failed to copy URL');
+    }
+  };
+
+  const chronicleUrl = currentSlug ? `inchronicle.com/${currentSlug}` : null;
+
+  if (isLoadingSlug) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="animate-pulse h-20 bg-gray-100 rounded" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="mb-4">
+        <div className="flex items-center space-x-2 mb-2">
+          <Link2 className="h-5 w-5 text-primary-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Career Chronicle URL</h3>
+        </div>
+        <p className="text-sm text-gray-600">
+          Your shareable profile link. Anyone with this URL can see your public Career Chronicle.
+        </p>
+      </div>
+
+      {!isEditing ? (
+        <div className="space-y-3">
+          {chronicleUrl ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-1 min-w-0">
+                <span className="text-sm text-gray-700 truncate">{chronicleUrl}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleCopy} title="Copy URL">
+                <Copy className="h-4 w-4" />
+              </Button>
+              <a
+                href={`https://${chronicleUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 h-9 w-9"
+                title="Open Chronicle"
+              >
+                <ExternalLink className="h-4 w-4 text-gray-600" />
+              </a>
+              <Button variant="outline" size="sm" onClick={() => { setEditSlug(currentSlug ?? ''); setIsEditing(true); setSlugError(null); }}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 italic">
+              No Chronicle URL set. Complete onboarding to get one, or set one manually.
+            </p>
+          )}
+          {!currentSlug && (
+            <Button variant="outline" size="sm" onClick={() => { setIsEditing(true); setSlugError(null); }}>
+              Set Chronicle URL
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="chronicle-slug" className="block text-sm font-medium text-gray-700 mb-1">
+              Chronicle URL
+            </label>
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-500 shrink-0">inchronicle.com/</span>
+              <input
+                id="chronicle-slug"
+                type="text"
+                value={editSlug}
+                onChange={(e) => handleSlugChange(e.target.value)}
+                className={cn(
+                  'flex-1 rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none',
+                  slugError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                )}
+                placeholder="your-name"
+                maxLength={50}
+                autoFocus
+              />
+            </div>
+            {slugError && <p className="text-xs text-red-600 mt-1">{slugError}</p>}
+            {!slugError && editSlug.length >= 3 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Preview: <span className="font-medium">inchronicle.com/{editSlug}</span>
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={isSaving || !!slugError || editSlug.length < 3}
+              className="bg-primary-600 hover:bg-primary-700"
+            >
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-1.5" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Save
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setEditSlug(currentSlug ?? ''); setSlugError(null); }} disabled={isSaving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -201,6 +393,9 @@ export function ProfileVisibility() {
           </div>
         </div>
       </div>
+
+      {/* Career Chronicle URL */}
+      <ChronicleUrlSection />
 
       {/* Contact Information Visibility */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">

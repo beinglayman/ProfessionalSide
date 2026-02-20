@@ -466,7 +466,7 @@ export const getPrivacySettings = asyncHandler(async (req: Request, res: Respons
  */
 export const updatePrivacySettings = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  
+
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
@@ -475,6 +475,64 @@ export const updatePrivacySettings = asyncHandler(async (req: Request, res: Resp
     const settings = await userService.updatePrivacySettings(userId, req.body);
     sendSuccess(res, settings, 'Privacy settings updated successfully');
   } catch (error: any) {
+    throw error;
+  }
+});
+
+/**
+ * Get Chronicle data by slug (public, no auth required)
+ */
+export const getChronicle = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { slug } = req.params;
+
+  if (!slug) {
+    return void sendError(res, 'Slug is required', 400);
+  }
+
+  const result = await userService.getChronicleBySlug(slug);
+
+  if (!result) {
+    return void sendError(res, 'Not found', 404);
+  }
+
+  if ('isPrivate' in result) {
+    return void sendError(res, 'Not found', 404);
+  }
+
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  sendSuccess(res, result);
+});
+
+/**
+ * Update own profile URL slug (authenticated)
+ */
+export const updateProfileUrl = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const { profileUrl } = req.body;
+
+  if (!profileUrl || typeof profileUrl !== 'string') {
+    return void sendError(res, 'profileUrl is required', 400);
+  }
+
+  try {
+    const updated = await userService.updateProfileUrl(userId, profileUrl);
+    sendSuccess(res, updated, 'Profile URL updated successfully');
+  } catch (error: any) {
+    // Handle P2002 unique constraint violation (race condition)
+    if (error.code === 'P2002') {
+      return void sendError(res, 'This profile URL is already taken', 409);
+    }
+    if (error.statusCode === 409) {
+      return void sendError(res, error.message, 409);
+    }
+    if (error.statusCode === 400) {
+      return void sendError(res, error.message, 400);
+    }
     throw error;
   }
 });

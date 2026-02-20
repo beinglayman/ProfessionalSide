@@ -6,6 +6,7 @@ import {
   CompleteOnboardingInput,
   OnboardingDataResponse
 } from '../types/onboarding.types';
+import { generateUniqueProfileUrl } from '../utils/profile-url.utils';
 
 export class OnboardingService {
   /**
@@ -95,6 +96,23 @@ export class OnboardingService {
 
     // Synchronize onboarding data to main user record
     await this.syncOnboardingDataToUser(userId, onboardingData);
+
+    // Generate profile URL slug if not already set
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { profileUrl: true, name: true } });
+    if (user && !user.profileUrl) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const slug = await generateUniqueProfileUrl(prisma, user.name);
+          await prisma.user.update({ where: { id: userId }, data: { profileUrl: slug } });
+          break;
+        } catch (err: any) {
+          // P2002 = unique constraint violation (race condition) — retry
+          if (err.code !== 'P2002' || attempt === 2) {
+            console.error('Failed to generate profile URL:', err.message);
+          }
+        }
+      }
+    }
 
     // Mark onboarding as complete
     return await prisma.onboardingData.update({

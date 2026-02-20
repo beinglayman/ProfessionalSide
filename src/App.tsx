@@ -37,6 +37,7 @@ import { ProfilePrototypesPage } from './pages/prototypes/profile-prototypes';
 import { TimelineHeaderPrototypesPage } from './pages/prototypes/timeline-header-prototypes';
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
+const ChroniclePage = React.lazy(() => import('./pages/chronicle'));
 
 export type NetworkType = 'organization' | 'global';
 
@@ -283,6 +284,15 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <WorkspaceDetailPage />
             </ProtectedRoute>
+          }
+        />
+        {/* Public Career Chronicle permalink — must be LAST (catch-all for /:slug) */}
+        <Route
+          path="/:slug"
+          element={
+            <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>}>
+              <ChroniclePage />
+            </React.Suspense>
           }
         />
       </Routes>
