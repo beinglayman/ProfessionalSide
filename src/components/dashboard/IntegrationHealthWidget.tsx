@@ -6,6 +6,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
+import { formatRelativeTime } from '../../lib/format';
 import { useMCPIntegrations, useMCPIntegrationValidation } from '../../hooks/useMCP';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import type { MCPIntegration } from '../../services/mcp.service';
@@ -29,19 +30,6 @@ const STATUS_CONFIG: Record<RowStatus, { dotClass: string; label: string; pulse:
   error: { dotClass: 'bg-red-500', label: 'Error', pulse: false },
   disconnected: { dotClass: 'bg-gray-300', label: 'Disconnected', pulse: false },
 };
-
-function formatRelativeTime(isoDate: string | null): string {
-  if (!isoDate) return '--';
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
 
 function Sparkline({ data, className }: { data: number[]; className?: string }) {
   if (!data.length || data.every((v) => v === 0)) return null;

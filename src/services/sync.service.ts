@@ -285,7 +285,7 @@ export async function resetDemoData(callbacks: SyncCallbacks): Promise<void> {
  * Fetch the user's connected tool types from the integrations endpoint.
  * Returns only tools that are marked as connected (have valid OAuth tokens).
  */
-async function getConnectedToolTypes(token: string): Promise<string[]> {
+export async function getConnectedToolTypes(token: string): Promise<string[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/mcp/integrations`, {
       headers: { Authorization: `Bearer ${token}` },

@@ -6,13 +6,20 @@ import {
   MeetingBreakdownWidget,
   StoryHealthWidget,
 } from '../../components/dashboard';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { SyncStatusIndicator } from '../../components/dashboard/SyncStatusIndicator';
 
 export function DashboardHomePage() {
+  const { isSyncing, lastSyncAt } = useAutoSync();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">Mindful growth starts with seeing your work.</p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="text-sm text-gray-500">Mindful growth starts with seeing your work.</p>
+          <SyncStatusIndicator isSyncing={isSyncing} lastSyncAt={lastSyncAt} />
+        </div>
       </div>
 
       {/* Row 1: Onboarding (full-width, auto-hides when complete) */}
