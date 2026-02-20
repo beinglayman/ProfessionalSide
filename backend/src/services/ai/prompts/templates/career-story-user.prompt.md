@@ -53,6 +53,24 @@ The user has provided the following specific instructions for this regeneration.
 > {{userPrompt}}
 {{/if}}
 
+{{#if activities}}
+## Source Activities (Raw Evidence)
+
+These are the actual activities from the user's tools. Use specific details from these
+when writing each section. Prefer facts from here over the narrative summary above.
+
+{{#each activities}}
+- [{{date}}] {{source}}{{#if sourceSubtype}}/{{sourceSubtype}}{{/if}}: {{title}}
+  {{#if body}}  Details: {{body}}{{/if}}
+  {{#if people}}  People: {{people}}{{/if}}
+  {{#if labels}}  Labels: {{labels}}{{/if}}
+  {{#if scope}}  Scope: {{scope}}{{/if}}
+  {{#if sentiment}}  Team response: {{sentiment}}{{/if}}
+  {{#if linkedItems}}  Connected to: {{linkedItems}}{{/if}}
+  {{#if state}}  Status: {{state}}{{/if}}
+{{/each}}
+{{/if}}
+
 ## Target Framework: {{framework}}
 
 Generate sections for the {{framework}} framework:

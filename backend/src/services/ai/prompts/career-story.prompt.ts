@@ -10,7 +10,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
-import { compileSafe, SafeTemplate } from './handlebars-safe';
+import { compileSafe, SafeTemplate, escapeHandlebarsInput } from './handlebars-safe';
+import type { ActivityContext } from '../../career-stories/activity-context.adapter';
 
 // =============================================================================
 // TYPES
@@ -78,6 +79,8 @@ export interface CareerStoryPromptParams {
   archetype?: StoryArchetype;
   /** Optional: Extracted context from Story Coach D-I-G questions */
   extractedContext?: ExtractedContext;
+  /** PEER of journalEntry, not a child — raw evidence from tools (RH-3) */
+  activities?: ActivityContext[];
 }
 
 export interface CareerStorySection {
@@ -181,7 +184,7 @@ export function getCareerStorySystemPrompt(): string {
  * Get the user prompt for career story generation.
  */
 export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): string {
-  const { journalEntry, framework, style, userPrompt } = params;
+  const { journalEntry, framework, style, userPrompt, activities } = params;
   const sectionKeys = FRAMEWORK_SECTIONS[framework];
   const sectionsList = sectionKeys.join(', ');
 
@@ -206,6 +209,12 @@ export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): strin
     sectionGuidelines,
     style: style || undefined,
     userPrompt: userPrompt || undefined,
+    // B-3: Escape Handlebars syntax in user-authored activity content before template rendering
+    activities: activities?.map(a => ({
+      ...a,
+      body: escapeHandlebarsInput(a.body),
+      title: escapeHandlebarsInput(a.title),
+    })) || undefined,
   });
 }
 
@@ -275,6 +284,27 @@ function formatExtractedContext(ctx: ExtractedContext): string {
   }
 
   return sections.join('\n');
+}
+
+/**
+ * Log token usage and warn if input exceeds threshold (RJ-7, B-2).
+ */
+export function logTokenUsage(
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined,
+  storyTitle: string,
+): void {
+  if (!usage) return;
+  const { prompt_tokens = 0, completion_tokens = 0, total_tokens = 0 } = usage;
+  console.log(
+    `[Career Story LLM] tokens: ${prompt_tokens} in / ${completion_tokens} out / ${total_tokens} total` +
+    ` | story: ${storyTitle?.slice(0, 40)}`
+  );
+  if (prompt_tokens > 15000) {
+    console.warn(
+      `[Career Story LLM] WARNING: input tokens (${prompt_tokens}) exceed 15K threshold. ` +
+      `Check activity count or body truncation. Story: ${storyTitle}`
+    );
+  }
 }
 
 /**

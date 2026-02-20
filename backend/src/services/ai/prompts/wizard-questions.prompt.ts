@@ -5,6 +5,9 @@
  * journal entry content and detected archetype signals.
  * Falls back to static question bank on any failure.
  *
+ * Updated: 3 gap-targeted questions instead of 6 generic.
+ * The system already knows timeline, people, and scope from activities.
+ *
  * @module wizard-questions.prompt
  */
 
@@ -26,6 +29,8 @@ export interface WizardQuestionPromptParams {
   entryContent: string;
   signals: ArchetypeSignals;
   questionIdPrefix: string;
+  /** Primitives extracted from ranked activities — NOT ActivityContext[] (RH-5) */
+  knownContext?: KnownContext;
 }
 
 export interface ParsedWizardQuestion {
@@ -33,6 +38,15 @@ export interface ParsedWizardQuestion {
   question: string;
   phase: 'dig' | 'impact' | 'growth';
   hint: string;
+}
+
+/** Primitives only — no dependency on ActivityContext type (RH-5) */
+export interface KnownContext {
+  dateRange?: string;
+  collaborators?: string;
+  codeStats?: string;
+  tools?: string;
+  labels?: string;
 }
 
 // =============================================================================
@@ -64,7 +78,7 @@ try {
 } catch (error) {
   console.warn('Failed to load wizard-questions template:', (error as Error).message);
   wizardTemplate = compileSafe(
-    'Generate 6 D-I-G questions (3 dig, 2 impact, 1 growth) for a {{archetype}} story about: {{entryTitle}}'
+    'Generate 3 D-I-G questions (1 dig, 1 impact, 1 growth) for a {{archetype}} story about: {{entryTitle}}'
   );
 }
 
@@ -83,6 +97,39 @@ Your style:
 Your job: generate questions that pull out what they KNOW but didn't WRITE.
 
 You MUST return valid JSON and nothing else.`;
+
+// =============================================================================
+// QUESTION COUNT ENFORCEMENT (RJ-6)
+// =============================================================================
+
+const TARGET_QUESTION_COUNT = 3;
+
+const FALLBACK_QUESTIONS: ParsedWizardQuestion[] = [
+  { id: 'fallback-dig-1', question: 'What was the biggest obstacle you faced?', phase: 'dig', hint: 'Describe the moment it went wrong.' },
+  { id: 'fallback-impact-1', question: 'What would have happened if you hadn\'t been involved?', phase: 'impact', hint: 'Estimate the cost or consequence.' },
+  { id: 'fallback-growth-1', question: 'What specific metric proves this was successful?', phase: 'growth', hint: 'Give me the number.' },
+];
+
+/**
+ * Enforce exactly 3 questions. Slice if too many, pad with fallbacks if too few. (RJ-6)
+ * Exported for testability.
+ */
+export function enforceQuestionCount(
+  questions: ParsedWizardQuestion[],
+  prefix?: string,
+): ParsedWizardQuestion[] {
+  let result = questions.slice(0, TARGET_QUESTION_COUNT);
+  let fallbackIdx = result.length;
+  while (result.length < TARGET_QUESTION_COUNT) {
+    const fallback = FALLBACK_QUESTIONS[fallbackIdx];
+    result.push({
+      ...fallback,
+      id: prefix ? `${prefix}-${fallback.phase}-1` : fallback.id,
+    });
+    fallbackIdx++;
+  }
+  return result;
+}
 
 // =============================================================================
 // PROMPT BUILDER
@@ -116,10 +163,17 @@ export function buildWizardQuestionMessages(
     }
   }
 
+  // Build knownContext for template — only include if any field has data
+  const knownContext = params.knownContext;
+  const hasKnownContext = knownContext &&
+    (knownContext.dateRange || knownContext.collaborators || knownContext.codeStats ||
+     knownContext.tools || knownContext.labels);
+
   const userContent = wizardTemplate({
     ...params,
     presentSignals,
     missingSignals,
+    knownContext: hasKnownContext ? knownContext : undefined,
   });
 
   return [
@@ -133,10 +187,10 @@ export function buildWizardQuestionMessages(
 // =============================================================================
 
 const VALID_PHASES = new Set(['dig', 'impact', 'growth']);
-const PHASE_COUNTS = { dig: 3, impact: 2, growth: 1 };
 
 /**
  * Parse and validate LLM response into WizardQuestion[].
+ * Accepts 3 questions (new) or 6 questions (legacy compatibility).
  * Returns null on any failure (triggers static fallback).
  */
 export function parseWizardQuestionsResponse(
@@ -154,13 +208,12 @@ export function parseWizardQuestionsResponse(
 
     // Accept either root array or { questions: [...] }
     const questions: unknown[] = Array.isArray(parsed) ? parsed : parsed?.questions;
-    if (!Array.isArray(questions) || questions.length !== 6) {
+    if (!Array.isArray(questions) || questions.length < 1) {
       return null;
     }
 
     // Validate each question
     const result: ParsedWizardQuestion[] = [];
-    const phaseCounts = { dig: 0, impact: 0, growth: 0 };
 
     for (const q of questions) {
       if (typeof q !== 'object' || q === null) return null;
@@ -177,23 +230,12 @@ export function parseWizardQuestionsResponse(
       const expectedPrefix = `${prefix}-${phase}-`;
       if (!obj.id.startsWith(expectedPrefix)) return null;
 
-      phaseCounts[phase]++;
-
       result.push({
         id: obj.id,
         question: obj.question,
         phase,
         hint: obj.hint,
       });
-    }
-
-    // Validate phase distribution: exactly 3 dig, 2 impact, 1 growth
-    if (
-      phaseCounts.dig !== PHASE_COUNTS.dig ||
-      phaseCounts.impact !== PHASE_COUNTS.impact ||
-      phaseCounts.growth !== PHASE_COUNTS.growth
-    ) {
-      return null;
     }
 
     return result;

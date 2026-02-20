@@ -27,12 +27,14 @@ import { getModelSelector } from '../ai/model-selector.service';
 import {
   buildCareerStoryMessages,
   parseCareerStoryResponse,
+  logTokenUsage,
   FrameworkName as PromptFrameworkName,
   JournalEntryContent,
   FRAMEWORK_SECTIONS,
   WritingStyle,
 } from '../ai/prompts/career-story.prompt';
 import { buildLLMInput } from './llm-input.builder';
+import { rankActivities } from './activity-context.adapter';
 
 /** Simplified Format7Data type for journal content extraction */
 interface Format7Data {
@@ -432,7 +434,8 @@ export class CareerStoryService {
     title: string,
     activityIds: string[],
     style?: WritingStyle,
-    userPrompt?: string
+    userPrompt?: string,
+    activityRows?: Array<{ id: string; source: string; title: string; rawData?: any; timestamp?: Date }>,
   ): Promise<{ sections: NarrativeSections; category?: string } | null> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
@@ -452,18 +455,33 @@ export class CareerStoryService {
       },
     });
 
+    // Rank activities as peer data for the prompt (RH-2, RH-3)
+    // Empty selfIdentifier: promote/regen paths don't have user identity at this layer,
+    // so no one is excluded from people lists — this is intentional (F-3)
+    const rankedActivities = activityRows && activityRows.length > 0
+      ? rankActivities(
+          activityRows as any[],
+          (content.format7Data as Record<string, any>) || null,
+          '',
+          20,
+        ).map(r => r.context)
+      : undefined;
+
     const messages = buildCareerStoryMessages({
       journalEntry,
       framework: framework as PromptFrameworkName,
       style,
       userPrompt,
+      activities: rankedActivities,
     });
 
     try {
       const result = await modelSelector.executeTask('generate', messages, 'balanced', {
-        maxTokens: 2000,
+        maxTokens: 2500,
         temperature: 0.7,
       });
+
+      logTokenUsage(result.usage, title);
 
       const parsed = parseCareerStoryResponse(result.content);
       if (!parsed) {
@@ -825,13 +843,25 @@ export class CareerStoryService {
     let category: string | undefined;
 
     if (this.hasRichJournalContent(journalContent)) {
+      // Fetch activity rows for ranking in LLM prompt
+      const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
+      const activityRows = entry.activityIds.length > 0
+        ? await (activityTable.findMany as Function)({
+            where: { id: { in: entry.activityIds } },
+            select: { id: true, source: true, title: true, rawData: true, timestamp: true },
+          })
+        : [];
+
       // Primary: Use LLM to transform journal content into framework-specific sections
       // This produces interview-ready narratives that emphasize contributions and impact
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         useFramework,
         entry.title || 'Career Story',
-        entry.activityIds
+        entry.activityIds,
+        undefined,
+        undefined,
+        activityRows,
       );
 
       if (llmResult) {
@@ -1176,13 +1206,23 @@ export class CareerStoryService {
         category: journalEntry.category,
       };
 
+      // Fetch activity rows for ranking in LLM prompt
+      const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
+      const regenActivityRows = story.activityIds.length > 0
+        ? await (activityTable.findMany as Function)({
+            where: { id: { in: story.activityIds } },
+            select: { id: true, source: true, title: true, rawData: true, timestamp: true },
+          })
+        : [];
+
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         nextFramework,
         journalEntry.title || story.title,
         story.activityIds,
         style,
-        userPrompt
+        userPrompt,
+        regenActivityRows,
       );
 
       if (llmResult) {

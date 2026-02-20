@@ -256,3 +256,32 @@ describe('parseCareerStoryResponse', () => {
     expect(result!.reasoning).toBe('');
   });
 });
+
+describe('activities in prompt (peer parameter — RH-3)', () => {
+  it('includes activities section when activities are provided as peer', () => {
+    const prompt = getCareerStoryUserPrompt(createParams({
+      // Activities are a PEER param, NOT inside journalEntry
+      activities: [{
+        title: 'feat(auth): OAuth2 flow',
+        date: '2024-05-15',
+        source: 'github',
+        sourceSubtype: 'pr',
+        people: ['bob.chen'],
+        userRole: 'authored',
+        body: 'Implements OAuth2 with PKCE',
+        labels: ['security'],
+        scope: '+450/-120, 15 files',
+        state: 'merged',
+      }],
+    }));
+    expect(prompt).toContain('Source Activities');
+    expect(prompt).toContain('OAuth2 with PKCE');
+    expect(prompt).toContain('bob.chen');
+    expect(prompt).toContain('+450/-120');
+  });
+
+  it('does NOT include activities section when no activities', () => {
+    const prompt = getCareerStoryUserPrompt(createParams());
+    expect(prompt).not.toContain('Source Activities');
+  });
+});
