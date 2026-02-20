@@ -32,6 +32,7 @@ import {
   FRAMEWORK_SECTIONS,
   WritingStyle,
 } from '../ai/prompts/career-story.prompt';
+import { buildLLMInput } from './llm-input.builder';
 
 /** Simplified Format7Data type for journal content extraction */
 interface Format7Data {
@@ -439,29 +440,17 @@ export class CareerStoryService {
       return null;
     }
 
-    // Build journal entry content for the prompt
-    const f7 = content.format7Data || {};
-    const phases = f7.phases?.map((p: { name: string; summary: string; activityIds?: string[] }) => ({
-      name: p.name,
-      summary: p.summary,
-      activityIds: p.activityIds || [],
-    })) || f7.frameworkComponents?.map((c: { name: string; content: string }) => ({
-      name: c.name,
-      summary: c.content,
-      activityIds: [] as string[],
-    })) || null;
-
-    const journalEntry: JournalEntryContent = {
-      title,
-      description: content.description,
-      fullContent: content.fullContent,
-      category: content.category,
-      dominantRole: f7.dominantRole || f7.context?.primary_focus || null,
-      phases,
-      impactHighlights: f7.impactHighlights || f7.summary?.skills_demonstrated || null,
-      skills: f7.summary?.technologies_used || null,
-      activityIds,
-    };
+    // Build journal entry content via unified builder
+    const journalEntry = buildLLMInput({
+      journalEntry: {
+        title,
+        description: content.description,
+        fullContent: content.fullContent,
+        category: content.category,
+        activityIds,
+        format7Data: content.format7Data,
+      },
+    });
 
     const messages = buildCareerStoryMessages({
       journalEntry,

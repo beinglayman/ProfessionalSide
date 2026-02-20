@@ -58,6 +58,7 @@ import {
   parseWizardQuestionsResponse,
   ARCHETYPE_PREFIXES,
 } from './ai/prompts/wizard-questions.prompt';
+import { buildLLMInput } from './career-stories/llm-input.builder';
 
 // Re-export types for convenience
 export { StoryArchetype, ExtractedContext } from './ai/prompts/career-story.prompt';
@@ -479,7 +480,7 @@ export class StoryWizardService {
         authorId: userId,
         sourceMode: this.isDemoMode ? 'demo' : 'production',
       },
-      select: { id: true, title: true, description: true, fullContent: true, category: true, activityIds: true },
+      select: { id: true, title: true, description: true, fullContent: true, category: true, activityIds: true, format7Data: true },
     });
 
     if (!entry) {
@@ -489,18 +490,11 @@ export class StoryWizardService {
 
     const extractedContext = answersToContext(answers);
 
-    // Build content for prompt (uses extended buildCareerStoryMessages)
-    const journalEntryContent: JournalEntryContent = {
-      title: entry.title || 'Untitled',
-      description: entry.description,
-      fullContent: entry.fullContent,
-      category: entry.category,
-      dominantRole: null,
-      phases: null,
-      impactHighlights: extractedContext.metric ? [extractedContext.metric] : null,
-      skills: null,
-      activityIds: entry.activityIds,
-    };
+    // Build content for prompt — unified builder extracts format7Data (phases, skills, etc.)
+    const journalEntryContent = buildLLMInput({
+      journalEntry: entry,
+      extractedContext,
+    });
 
     // Generate via LLM with archetype + context
     const { sections, category } = await this.generateSections(journalEntryContent, framework, archetype, extractedContext);
