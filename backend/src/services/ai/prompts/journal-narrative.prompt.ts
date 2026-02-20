@@ -9,8 +9,8 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
+import { compileSafe, SafeTemplate } from './handlebars-safe';
 
 // =============================================================================
 // TYPES
@@ -55,19 +55,19 @@ const TEMPLATES_DIR = join(__dirname, 'templates');
 
 // Load templates once at startup
 let systemTemplate: string;
-let userTemplateCompiled: Handlebars.TemplateDelegate;
+let userTemplateCompiled: SafeTemplate;
 let exampleJson: string;
 
 try {
   systemTemplate = readFileSync(join(TEMPLATES_DIR, 'draft-story-system.prompt.md'), 'utf-8');
   const userTemplateRaw = readFileSync(join(TEMPLATES_DIR, 'draft-story-user.prompt.md'), 'utf-8');
-  userTemplateCompiled = Handlebars.compile(userTemplateRaw);
+  userTemplateCompiled = compileSafe(userTemplateRaw);
   exampleJson = readFileSync(join(TEMPLATES_DIR, 'draft-story-example.json'), 'utf-8');
 } catch (error) {
   // Templates may not exist during tests - provide fallbacks
   console.warn('Failed to load prompt templates, using fallback prompts:', (error as Error).message);
   systemTemplate = 'You are a professional journal writer. Write in first person. Return valid JSON.';
-  userTemplateCompiled = Handlebars.compile(
+  userTemplateCompiled = compileSafe(
     'Generate a journal entry for "{{title}}" based on:\n{{activitiesText}}\n\nReturn JSON with description and fullContent.'
   );
   exampleJson = '{}';
