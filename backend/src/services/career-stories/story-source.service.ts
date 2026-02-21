@@ -20,11 +20,25 @@ const VAGUE_PATTERNS = [
   { pattern: /dramatically\s+(improved|reduced|increased)/i, suggestion: 'Replace with specific numbers' },
 ];
 
+// Ungrounded claim detection — flags quantified claims in unsourced sections
+const UNGROUNDED_PATTERNS = [
+  { pattern: /\d+%\s*(improvement|reduction|increase|faster|better|decrease|growth)/i, suggestion: 'Add a source to verify this percentage claim' },
+  { pattern: /saved\s+\$[\d,]+/i, suggestion: 'Add a source to verify this cost claim' },
+  { pattern: /led\s+a\s+team\s+of\s+\d+/i, suggestion: 'Add a source to verify team size' },
+  { pattern: /first\s+(ever|time|to)\b/i, suggestion: 'Add a source to verify this superlative claim' },
+  { pattern: /\d+x\s*(improvement|faster|better|more)/i, suggestion: 'Add a source to verify this multiplier claim' },
+];
+
 export interface SourceCoverage {
   total: number;
   sourced: number;
   gaps: string[];
   vagueMetrics: Array<{
+    sectionKey: string;
+    match: string;
+    suggestion: string;
+  }>;
+  ungroundedClaims: Array<{
     sectionKey: string;
     match: string;
     suggestion: string;
@@ -99,11 +113,29 @@ export class StorySourceService {
       }
     }
 
+    // Detect ungrounded claims in unsourced sections only
+    const ungroundedClaims: SourceCoverage['ungroundedClaims'] = [];
+    for (const key of gaps) {
+      const summary = sections[key]?.summary || '';
+      for (const { pattern, suggestion } of UNGROUNDED_PATTERNS) {
+        const match = summary.match(pattern);
+        if (match) {
+          ungroundedClaims.push({
+            sectionKey: key,
+            match: match[0],
+            suggestion,
+          });
+          break; // One warning per section
+        }
+      }
+    }
+
     return {
       total: sectionKeys.length,
       sourced: sourcedSections.size,
       gaps,
       vagueMetrics,
+      ungroundedClaims,
     };
   }
 
