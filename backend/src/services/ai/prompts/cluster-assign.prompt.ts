@@ -12,6 +12,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
+import { compileSafe, SafeTemplate } from './handlebars-safe';
 
 // =============================================================================
 // TYPES
@@ -56,16 +57,16 @@ Handlebars.registerHelper('truncate', (str: string, len: number) => {
 });
 
 let systemTemplate: string;
-let userTemplate: Handlebars.TemplateDelegate;
+let userTemplate: SafeTemplate;
 
 try {
   systemTemplate = readFileSync(join(TEMPLATES_DIR, 'cluster-assign-system.prompt.md'), 'utf-8');
   const userRaw = readFileSync(join(TEMPLATES_DIR, 'cluster-assign-user.prompt.md'), 'utf-8');
-  userTemplate = Handlebars.compile(userRaw);
+  userTemplate = compileSafe(userRaw);
 } catch (error) {
   console.warn('Failed to load cluster-assign prompt templates:', (error as Error).message);
   systemTemplate = 'You are a work activity clustering engine. Assign each candidate to KEEP, MOVE, or NEW. Return only JSON.';
-  userTemplate = Handlebars.compile(
+  userTemplate = compileSafe(
     '{{#each candidates}}{{this.id}}. [{{this.source}}] "{{this.title}}"\n{{/each}}\nRespond as JSON.'
   );
 }
