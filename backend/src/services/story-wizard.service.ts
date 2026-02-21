@@ -472,7 +472,13 @@ export class StoryWizardService {
     );
     const isDynamic = questions !== null;
     if (!questions) {
-      questions = transformQuestions(detection.primary.archetype);
+      const allStatic = transformQuestions(detection.primary.archetype);
+      // Static bank has 6 questions per archetype; pick 1 per phase to match dynamic path's 3 (RJ-6)
+      const byPhase = new Map<string, WizardQuestion>();
+      for (const q of allStatic) {
+        if (!byPhase.has(q.phase)) byPhase.set(q.phase, q);
+      }
+      questions = [...byPhase.values()].slice(0, 3);
     }
 
     console.log(`${this.logPrefix} analyzeEntry complete`, {
