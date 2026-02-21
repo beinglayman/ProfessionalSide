@@ -27,14 +27,11 @@ import { getModelSelector } from '../ai/model-selector.service';
 import {
   buildCareerStoryMessages,
   parseCareerStoryResponse,
-  logTokenUsage,
   FrameworkName as PromptFrameworkName,
   JournalEntryContent,
   FRAMEWORK_SECTIONS,
   WritingStyle,
 } from '../ai/prompts/career-story.prompt';
-import { buildLLMInput } from './llm-input.builder';
-import { rankActivities } from './activity-context.adapter';
 
 /** Simplified Format7Data type for journal content extraction */
 interface Format7Data {
@@ -220,18 +217,6 @@ export class CareerStoryService {
 
   private get activityTable() {
     return getToolActivityTable(this.isDemoMode);
-  }
-
-  /** Fetch activity rows by IDs for ranking in LLM prompts. */
-  private async fetchActivityRowsForRanking(
-    activityIds: string[],
-  ): Promise<Array<{ id: string; source: string; title: string; rawData?: any; timestamp?: Date }>> {
-    if (activityIds.length === 0) return [];
-    const table = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
-    return (table.findMany as Function)({
-      where: { id: { in: activityIds } },
-      select: { id: true, source: true, title: true, rawData: true, timestamp: true },
-    });
   }
 
   private mapStory(story: {
@@ -446,8 +431,7 @@ export class CareerStoryService {
     title: string,
     activityIds: string[],
     style?: WritingStyle,
-    userPrompt?: string,
-    activityRows?: Array<{ id: string; source: string; title: string; rawData?: any; timestamp?: Date }>,
+    userPrompt?: string
   ): Promise<{ sections: NarrativeSections; category?: string } | null> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
@@ -455,45 +439,42 @@ export class CareerStoryService {
       return null;
     }
 
-    // Build journal entry content via unified builder
-    const journalEntry = buildLLMInput({
-      journalEntry: {
-        title,
-        description: content.description,
-        fullContent: content.fullContent,
-        category: content.category,
-        activityIds,
-        format7Data: content.format7Data,
-      },
-    });
+    // Build journal entry content for the prompt
+    const f7 = content.format7Data || {};
+    const phases = f7.phases?.map((p: { name: string; summary: string; activityIds?: string[] }) => ({
+      name: p.name,
+      summary: p.summary,
+      activityIds: p.activityIds || [],
+    })) || f7.frameworkComponents?.map((c: { name: string; content: string }) => ({
+      name: c.name,
+      summary: c.content,
+      activityIds: [] as string[],
+    })) || null;
 
-    // Rank activities as peer data for the prompt (RH-2, RH-3)
-    // Empty selfIdentifier: promote/regen paths don't have user identity at this layer,
-    // so no one is excluded from people lists — this is intentional (F-3)
-    const rankedActivities = activityRows && activityRows.length > 0
-      ? rankActivities(
-          activityRows as any[],
-          (content.format7Data as Record<string, any>) || null,
-          '',
-          20,
-        ).map(r => r.context)
-      : undefined;
+    const journalEntry: JournalEntryContent = {
+      title,
+      description: content.description,
+      fullContent: content.fullContent,
+      category: content.category,
+      dominantRole: f7.dominantRole || f7.context?.primary_focus || null,
+      phases,
+      impactHighlights: f7.impactHighlights || f7.summary?.skills_demonstrated || null,
+      skills: f7.summary?.technologies_used || null,
+      activityIds,
+    };
 
     const messages = buildCareerStoryMessages({
       journalEntry,
       framework: framework as PromptFrameworkName,
       style,
       userPrompt,
-      activities: rankedActivities,
     });
 
     try {
       const result = await modelSelector.executeTask('generate', messages, 'balanced', {
-        maxTokens: 2500,
+        maxTokens: 2000,
         temperature: 0.7,
       });
-
-      logTokenUsage(result.usage, title);
 
       const parsed = parseCareerStoryResponse(result.content);
       if (!parsed) {
@@ -855,17 +836,13 @@ export class CareerStoryService {
     let category: string | undefined;
 
     if (this.hasRichJournalContent(journalContent)) {
-      const activityRows = await this.fetchActivityRowsForRanking(entry.activityIds);
-
       // Primary: Use LLM to transform journal content into framework-specific sections
+      // This produces interview-ready narratives that emphasize contributions and impact
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         useFramework,
         entry.title || 'Career Story',
-        entry.activityIds,
-        undefined,
-        undefined,
-        activityRows,
+        entry.activityIds
       );
 
       if (llmResult) {
@@ -1210,16 +1187,13 @@ export class CareerStoryService {
         category: journalEntry.category,
       };
 
-      const regenActivityRows = await this.fetchActivityRowsForRanking(story.activityIds);
-
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,
         nextFramework,
         journalEntry.title || story.title,
         story.activityIds,
         style,
-        userPrompt,
-        regenActivityRows,
+        userPrompt
       );
 
       if (llmResult) {

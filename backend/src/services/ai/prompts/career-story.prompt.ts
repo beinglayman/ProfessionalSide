@@ -9,9 +9,8 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import Handlebars from 'handlebars';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
-import { compileSafe, SafeTemplate, escapeHandlebarsInput } from './handlebars-safe';
-import type { ActivityContext } from '../../career-stories/activity-context.adapter';
 
 // =============================================================================
 // TYPES
@@ -79,8 +78,6 @@ export interface CareerStoryPromptParams {
   archetype?: StoryArchetype;
   /** Optional: Extracted context from Story Coach D-I-G questions */
   extractedContext?: ExtractedContext;
-  /** PEER of journalEntry, not a child — raw evidence from tools (RH-3) */
-  activities?: ActivityContext[];
 }
 
 export interface CareerStorySection {
@@ -151,17 +148,17 @@ const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
 let systemTemplate: string;
-let userTemplateCompiled: SafeTemplate;
+let userTemplateCompiled: Handlebars.TemplateDelegate;
 
 try {
   systemTemplate = readFileSync(join(TEMPLATES_DIR, 'career-story-system.prompt.md'), 'utf-8');
   const userTemplateRaw = readFileSync(join(TEMPLATES_DIR, 'career-story-user.prompt.md'), 'utf-8');
-  userTemplateCompiled = compileSafe(userTemplateRaw);
+  userTemplateCompiled = Handlebars.compile(userTemplateRaw);
 } catch (error) {
   console.warn('Failed to load career story prompt templates, using fallback:', (error as Error).message);
   systemTemplate = `You are a career coach transforming journal entries into career story narratives.
 Return valid JSON with sections matching the requested framework.`;
-  userTemplateCompiled = compileSafe(
+  userTemplateCompiled = Handlebars.compile(
     `Transform this journal entry into a "{{framework}}" career story.
 Title: {{title}}
 Content: {{fullContent}}
@@ -184,7 +181,7 @@ export function getCareerStorySystemPrompt(): string {
  * Get the user prompt for career story generation.
  */
 export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): string {
-  const { journalEntry, framework, style, userPrompt, activities } = params;
+  const { journalEntry, framework, style, userPrompt } = params;
   const sectionKeys = FRAMEWORK_SECTIONS[framework];
   const sectionsList = sectionKeys.join(', ');
 
@@ -209,23 +206,6 @@ export function getCareerStoryUserPrompt(params: CareerStoryPromptParams): strin
     sectionGuidelines,
     style: style || undefined,
     userPrompt: userPrompt || undefined,
-    // B-3: Escape Handlebars syntax in ALL user-authored activity fields before template rendering.
-    // Every string field from ActivityContext originates from rawData (PR titles, Jira labels,
-    // Slack reaction names, collaborator names, etc.) and could contain {{ syntax.
-    activities: activities?.map(a => ({
-      ...a,
-      title: escapeHandlebarsInput(a.title),
-      body: escapeHandlebarsInput(a.body),
-      source: escapeHandlebarsInput(a.source),
-      sourceSubtype: a.sourceSubtype ? escapeHandlebarsInput(a.sourceSubtype) : undefined,
-      people: a.people?.map(p => escapeHandlebarsInput(p)),
-      labels: a.labels?.map(l => escapeHandlebarsInput(l)),
-      scope: a.scope ? escapeHandlebarsInput(a.scope) : undefined,
-      container: a.container ? escapeHandlebarsInput(a.container) : undefined,
-      state: a.state ? escapeHandlebarsInput(a.state) : undefined,
-      sentiment: a.sentiment ? escapeHandlebarsInput(a.sentiment) : undefined,
-      linkedItems: a.linkedItems?.map(l => escapeHandlebarsInput(l)),
-    })) || undefined,
   });
 }
 
@@ -295,27 +275,6 @@ function formatExtractedContext(ctx: ExtractedContext): string {
   }
 
   return sections.join('\n');
-}
-
-/**
- * Log token usage and warn if input exceeds threshold (RJ-7, B-2).
- */
-export function logTokenUsage(
-  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined,
-  storyTitle: string,
-): void {
-  if (!usage) return;
-  const { prompt_tokens = 0, completion_tokens = 0, total_tokens = 0 } = usage;
-  console.log(
-    `[Career Story LLM] tokens: ${prompt_tokens} in / ${completion_tokens} out / ${total_tokens} total` +
-    ` | story: ${storyTitle?.slice(0, 40)}`
-  );
-  if (prompt_tokens > 15000) {
-    console.warn(
-      `[Career Story LLM] WARNING: input tokens (${prompt_tokens}) exceed 15K threshold. ` +
-      `Check activity count or body truncation. Story: ${storyTitle}`
-    );
-  }
 }
 
 /**

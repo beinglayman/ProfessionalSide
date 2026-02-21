@@ -41,7 +41,6 @@ import {
   JournalEntryContent,
   FrameworkName as PromptFrameworkName,
   parseCareerStoryResponse,
-  logTokenUsage,
   FRAMEWORK_SECTIONS,
   StoryArchetype,
   ExtractedContext,
@@ -57,12 +56,8 @@ import { JournalEntryFile, ArchetypeSignals } from '../cli/story-coach/types';
 import {
   buildWizardQuestionMessages,
   parseWizardQuestionsResponse,
-  enforceQuestionCount,
   ARCHETYPE_PREFIXES,
-  KnownContext,
 } from './ai/prompts/wizard-questions.prompt';
-import { buildLLMInput } from './career-stories/llm-input.builder';
-import { rankActivities, buildKnownContext } from './career-stories/activity-context.adapter';
 
 // Re-export types for convenience
 export { StoryArchetype, ExtractedContext } from './ai/prompts/career-story.prompt';
@@ -378,30 +373,6 @@ export class StoryWizardService {
 
   constructor(private isDemoMode: boolean = true) {}
 
-  /** Fetch activity rows by IDs from the correct table (demo vs production). */
-  private async fetchActivityRows(
-    activityIds: string[],
-    extraSelect?: Record<string, boolean>,
-  ): Promise<any[]> {
-    if (activityIds.length === 0) return [];
-    const table = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
-    return (table.findMany as Function)({
-      where: { id: { in: activityIds } },
-      select: { id: true, source: true, title: true, rawData: true, timestamp: true, ...extraSelect },
-    });
-  }
-
-  /** Fetch + rank activities, return contexts. Returns [] if no activities. */
-  private async fetchRankedContexts(
-    activityIds: string[],
-    format7Data: Record<string, any> | null,
-    selfIdentifier: string,
-  ): Promise<import('./career-stories/activity-context.adapter').ActivityContext[]> {
-    const rows = await this.fetchActivityRows(activityIds);
-    if (rows.length === 0) return [];
-    return rankActivities(rows, format7Data, selfIdentifier, 20).map(r => r.context);
-  }
-
   /**
    * Step 1: Analyze journal entry → archetype + questions.
    * @throws {WizardError} If entry not found or has insufficient content
@@ -419,7 +390,7 @@ export class StoryWizardService {
         authorId: userId,
         sourceMode: this.isDemoMode ? 'demo' : 'production',
       },
-      select: { id: true, title: true, description: true, fullContent: true, category: true, activityIds: true, format7Data: true },
+      select: { id: true, title: true, description: true, fullContent: true, category: true },
     });
 
     if (!entry) {
@@ -450,16 +421,6 @@ export class StoryWizardService {
 
     const detection = await detectArchetype(entryFile);
 
-    // Fetch + rank activities for knownContext (what the system already knows)
-    const rankedForContext = await this.fetchRankedContexts(
-      entry.activityIds || [],
-      (entry.format7Data as Record<string, any>) || null,
-      userId,
-    );
-
-    // Extract primitives from activities — prompt layer doesn't know ActivityContext (RH-5)
-    const knownContext: KnownContext | undefined = buildKnownContext(rankedForContext);
-
     // Try dynamic LLM-generated questions, fall back to static
     const entryText = [entry.fullContent, entry.description].filter(Boolean).join('\n\n');
     let questions = await this.generateDynamicQuestions(
@@ -468,7 +429,6 @@ export class StoryWizardService {
       entry.title || 'Untitled',
       entryText,
       detection.signals,
-      knownContext,
     );
     const isDynamic = questions !== null;
     if (!questions) {
@@ -519,7 +479,7 @@ export class StoryWizardService {
         authorId: userId,
         sourceMode: this.isDemoMode ? 'demo' : 'production',
       },
-      select: { id: true, title: true, description: true, fullContent: true, category: true, activityIds: true, format7Data: true },
+      select: { id: true, title: true, description: true, fullContent: true, category: true, activityIds: true },
     });
 
     if (!entry) {
@@ -529,27 +489,21 @@ export class StoryWizardService {
 
     const extractedContext = answersToContext(answers);
 
-    // Build content for prompt — unified builder extracts format7Data (phases, skills, etc.)
-    const journalEntryContent = buildLLMInput({
-      journalEntry: entry,
-      extractedContext,
-    });
+    // Build content for prompt (uses extended buildCareerStoryMessages)
+    const journalEntryContent: JournalEntryContent = {
+      title: entry.title || 'Untitled',
+      description: entry.description,
+      fullContent: entry.fullContent,
+      category: entry.category,
+      dominantRole: null,
+      phases: null,
+      impactHighlights: extractedContext.metric ? [extractedContext.metric] : null,
+      skills: null,
+      activityIds: entry.activityIds,
+    };
 
-    // Fetch activities for ranking AND source creation (needs sourceUrl for sources)
-    const allActivityRows = await this.fetchActivityRows(entry.activityIds, { sourceUrl: true });
-
-    // Rank and adapt activities (separate composable step — RH-2)
-    const rankedActivities = allActivityRows.length > 0
-      ? rankActivities(
-          allActivityRows,
-          (entry.format7Data as Record<string, any>) || null,
-          userId,
-          20,
-        ).map(r => r.context)
-      : undefined;
-
-    // Generate via LLM with archetype + context + activities as PEER (RH-3)
-    const { sections, category } = await this.generateSections(journalEntryContent, framework, archetype, extractedContext, rankedActivities);
+    // Generate via LLM with archetype + context
+    const { sections, category } = await this.generateSections(journalEntryContent, framework, archetype, extractedContext);
 
     // Build hook
     const hook = extractedContext.realStory?.slice(0, 200)
@@ -590,7 +544,14 @@ export class StoryWizardService {
     const canSetFk = !this.isDemoMode;
     const sectionKeys = FRAMEWORK_SECTIONS[framework as PromptFrameworkName] || [];
 
-    // Reuse allActivityRows fetched above for ranking — no duplicate query
+    // Fetch ALL story activities for hydration (toolType, url, role)
+    const activityTable = this.isDemoMode ? prisma.demoToolActivity : prisma.toolActivity;
+    const allActivityRows = entry.activityIds.length > 0
+      ? await (activityTable.findMany as Function)({
+          where: { id: { in: entry.activityIds } },
+          select: { id: true, source: true, sourceUrl: true, title: true, rawData: true },
+        })
+      : [];
     const activityMap = new Map<string, any>(allActivityRows.map((a: any) => [a.id, a]));
 
     // Check if LLM evidence IDs actually resolve to real activities
@@ -794,7 +755,6 @@ export class StoryWizardService {
     entryTitle: string,
     entryContent: string,
     signals: ArchetypeSignals,
-    knownContext?: KnownContext,
   ): Promise<WizardQuestion[] | null> {
     const modelSelector = getModelSelector();
     if (!modelSelector) return null;
@@ -807,7 +767,6 @@ export class StoryWizardService {
       entryContent,
       signals,
       questionIdPrefix: prefix,
-      knownContext,
     });
 
     try {
@@ -822,11 +781,8 @@ export class StoryWizardService {
         return null;
       }
 
-      // Enforce exactly 3 questions (RJ-6)
-      const enforced = enforceQuestionCount(parsed, prefix);
-
       // Convert to WizardQuestion[] and add static checkbox options
-      return enforced.map((q) => {
+      return parsed.map((q) => {
         const wizardQ: WizardQuestion = {
           id: q.id,
           question: q.question,
@@ -854,30 +810,26 @@ export class StoryWizardService {
     journalEntry: JournalEntryContent,
     framework: FrameworkName,
     archetype: StoryArchetype,
-    extractedContext: ExtractedContext,
-    activities?: import('./career-stories/activity-context.adapter').ActivityContext[],
+    extractedContext: ExtractedContext
   ): Promise<{ sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }>; category?: string }> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
       return { sections: this.buildFallbackSections(framework, journalEntry) };
     }
 
-    // Use updated buildCareerStoryMessages with archetype + context + activities as PEER (RH-3)
+    // Use updated buildCareerStoryMessages with archetype + context
     const messages = buildCareerStoryMessages({
       journalEntry,
       framework: framework as PromptFrameworkName,
       archetype,
       extractedContext,
-      activities,
     });
 
     try {
       const result = await modelSelector.executeTask('generate', messages, 'balanced', {
-        maxTokens: 2500,
+        maxTokens: 2000,
         temperature: 0.7,
       });
-
-      logTokenUsage(result.usage, journalEntry.title);
 
       const parsed = parseCareerStoryResponse(result.content);
       if (!parsed) return { sections: this.buildFallbackSections(framework, journalEntry) };

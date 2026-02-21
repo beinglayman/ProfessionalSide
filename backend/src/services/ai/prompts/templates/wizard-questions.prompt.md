@@ -1,4 +1,4 @@
-Generate exactly 3 targeted interview questions for this journal entry. Every question MUST reference a specific fact, name, tool, number, or event from the entry. If the entry is vague, your questions should pull out the concrete facts that are missing. If the entry is detailed, your questions should go deeper into the facts that are already there.
+Generate 6 contextual D-I-G interview questions for this journal entry. Every question MUST reference a specific fact, name, tool, number, or event from the entry. If the entry is vague, your questions should pull out the concrete facts that are missing. If the entry is detailed, your questions should go deeper into the facts that are already there.
 
 ## Journal Entry: "{{entryTitle}}"
 
@@ -30,29 +30,21 @@ Probe for these MISSING elements:
 All key signals are already present — go deeper into what's there.
 {{/if}}
 
-{{#if knownContext}}
-## What the System Already Knows (DO NOT ask about these)
+## D-I-G Protocol
 
-The following facts are already available from the user's tools:
-{{#if knownContext.dateRange}}- **Timeline**: {{knownContext.dateRange}}{{/if}}
-{{#if knownContext.collaborators}}- **People involved**: {{knownContext.collaborators}}{{/if}}
-{{#if knownContext.codeStats}}- **Code scope**: {{knownContext.codeStats}}{{/if}}
-{{#if knownContext.tools}}- **Tools used**: {{knownContext.tools}}{{/if}}
-{{#if knownContext.labels}}- **Labels/tags**: {{knownContext.labels}}{{/if}}
+Generate exactly 6 questions in this distribution:
 
-DO NOT generate questions about timeline, people involved, or scope — the system has this data.
-{{/if}}
+- **3 DIG questions** (dig-1, dig-2, dig-3): Find the real story underneath the summary.
+  - dig-1: Ask about how it started. The trigger, the alert, the moment they noticed. Hint should say "Describe the moment" or "What time was it?"
+  - dig-2: Ask about a key person or decision. Who did they work with? What trade-off did they make? Hint should say "Name the person" or "What were the options?"
+  - dig-3: Ask about the hardest part. The obstacle, the dead end, the thing that almost failed. Hint should say "What went wrong?" or "What did you try that didn't work?"
 
-## Generate exactly 3 questions
+- **2 IMPACT questions** (impact-1, impact-2): Make the outcome concrete and counterfactual.
+  - impact-1: Ask "what would have happened otherwise?" or "what was at risk?" Hint should demand a number or a consequence: "Estimate the cost" or "How many users were affected?"
+  - impact-2: Ask for a before-and-after metric. Hint should say "Give me the number" or "What changed from X to Y?"
 
-Target what the system CANNOT infer:
-1. **The obstacle** (dig-1) — "What almost went wrong?" (always ask)
-2. **The counterfactual** (impact-1) — "What would have happened without you?" (always ask)
-3. **The gap** (growth-1) — Whatever the data is missing. Choose ONE:
-   - If no metric: ask for the number that proves success
-   - If no named people: ask who pushed back or helped most
-   - If no decision: ask what the hardest choice was
-   - If no learning: ask what changed in how they work
+- **1 GROWTH question** (growth-1): Extract what changed permanently.
+  - Ask what they do differently now, or what they built because of this. Hint should say "Is it still in use?" or "How do you handle this now?"
 
 ## Rules for Questions
 
@@ -86,13 +78,21 @@ WHY bad: Passive. Does not tell them what to write.
 GOOD hint: "Name the person and their role."
 WHY good: Tells them exactly what to type.
 
+## Handling Vague vs Detailed Entries
+
+- If the entry is **vague** (few names, no numbers, no specific tools): ask questions that EXTRACT concrete facts. Use hints that demand specifics: "Give me a number," "Name the system," "What day was this?"
+- If the entry is **detailed** (names people, cites metrics, describes specific events): ask questions that go DEEPER into what is already there. Use hints that ask for the story behind the fact: "What happened right before that?", "Why that person specifically?"
+
 ## Output Format
 
-Return a JSON array with exactly 3 objects. Use question ID prefix "{{questionIdPrefix}}":
+Return a JSON array with exactly 6 objects. Use question ID prefix "{{questionIdPrefix}}":
 
 [
   {"id": "{{questionIdPrefix}}-dig-1", "phase": "dig", "question": "...", "hint": "..."},
+  {"id": "{{questionIdPrefix}}-dig-2", "phase": "dig", "question": "...", "hint": "..."},
+  {"id": "{{questionIdPrefix}}-dig-3", "phase": "dig", "question": "...", "hint": "..."},
   {"id": "{{questionIdPrefix}}-impact-1", "phase": "impact", "question": "...", "hint": "..."},
+  {"id": "{{questionIdPrefix}}-impact-2", "phase": "impact", "question": "...", "hint": "..."},
   {"id": "{{questionIdPrefix}}-growth-1", "phase": "growth", "question": "...", "hint": "..."}
 ]
 
