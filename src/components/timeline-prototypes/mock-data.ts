@@ -130,6 +130,33 @@ export function getDayKey(timestamp: string): string {
   return timestamp.slice(0, 10); // YYYY-MM-DD
 }
 
+// Utility: get activities belonging to a draft story (by tool match + date range)
+export function getActivitiesForDraft(draft: MockDraftStory): MockActivity[] {
+  const start = new Date(draft.dateRange.start).getTime();
+  const end = new Date(draft.dateRange.end).getTime();
+  return mockActivities.filter(a => {
+    const t = new Date(a.timestamp).getTime();
+    return draft.tools.includes(a.source) && t >= start && t <= end;
+  });
+}
+
+// Pre-computed draft → activity ID mapping
+export const draftActivityMap: Record<string, string[]> = Object.fromEntries(
+  mockDraftStories.map(d => [d.id, getActivitiesForDraft(d).map(a => a.id)])
+);
+
+// Reverse mapping: activity ID → draft IDs it belongs to
+export const activityDraftMap: Record<string, string[]> = (() => {
+  const map: Record<string, string[]> = {};
+  for (const [draftId, activityIds] of Object.entries(draftActivityMap)) {
+    for (const aId of activityIds) {
+      if (!map[aId]) map[aId] = [];
+      map[aId].push(draftId);
+    }
+  }
+  return map;
+})();
+
 // Summary stats
 export const mockStats = {
   totalActivities: mockActivities.length,

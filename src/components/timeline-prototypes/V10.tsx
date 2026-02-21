@@ -1,20 +1,19 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 import {
-  mockActivities,
-  mockDraftStories,
-  mockStats,
-  SOURCE_META,
-  type ActivitySource,
+  mockTemporalGroups, mockDraftStories, mockActivities, SOURCE_META,
+  getActivitiesForDraft, draftActivityMap, activityDraftMap,
+  type ActivitySource, type MockDraftStory, type MockActivity, type TemporalGroup,
 } from './mock-data';
-import { GitBranch, SquareKanban, Hash, FileText, Figma, Video, BarChart3, Clock } from 'lucide-react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { GitBranch, SquareKanban, Hash, FileText, Figma, Video, ChevronDown, ChevronRight, Star, ArrowUpRight, ArrowLeft, Eye } from 'lucide-react';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
 
 const timeAgo = (ts: string) => {
   const diff = Date.now() - new Date(ts).getTime();
@@ -38,196 +37,396 @@ function SourceIcon({ source, className }: { source: ActivitySource; className?:
   return <>{icons[source]}</>;
 }
 
-const formatRange = (start: string, end: string) => {
-  const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const e = new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${s} — ${e}`;
-};
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+/** Compact activity row used in the left-column timeline feed. */
+function ActivityCard({
+  activity,
+  isHighlighted,
+  isLast,
+}: {
+  activity: MockActivity;
+  isHighlighted: boolean;
+  isLast: boolean;
+}) {
+  const meta = SOURCE_META[activity.source];
+  return (
+    <div className="relative flex gap-3">
+      {/* Timeline spine connector */}
+      <div className="flex flex-col items-center">
+        <div
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10',
+            isHighlighted ? 'ring-2 ring-purple-300 ring-offset-2' : '',
+          )}
+          style={{ backgroundColor: `${meta.color}18` }}
+        >
+          <SourceIcon source={activity.source} className="w-3.5 h-3.5" style={{ color: meta.color } as React.CSSProperties} />
+        </div>
+        {!isLast && <div className="w-px flex-1 bg-gray-200 min-h-[16px]" />}
+      </div>
+
+      {/* Card body */}
+      <div
+        className={cn(
+          'flex-1 mb-3 rounded-xl px-4 py-3 transition-all',
+          isHighlighted
+            ? 'bg-purple-50/70 ring-2 ring-purple-200 shadow-sm'
+            : 'bg-white border border-gray-100 hover:border-gray-200',
+        )}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className={cn('text-sm font-medium text-gray-900 leading-snug', isHighlighted && 'text-purple-900')}>
+            {activity.title}
+          </p>
+          <span className="text-[11px] text-gray-400 whitespace-nowrap shrink-0 pt-0.5">
+            {timeAgo(activity.timestamp)}
+          </span>
+        </div>
+        {activity.description && (
+          <p className="text-xs text-gray-500 mt-1 line-clamp-1">{activity.description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Inline expanded draft card rendered inside the activity feed. */
+function InlineDraftCard({
+  draft,
+  onDeactivate,
+}: {
+  draft: MockDraftStory;
+  onDeactivate: () => void;
+}) {
+  return (
+    <div className="relative flex gap-3">
+      {/* Spine connector -- decorative purple dot */}
+      <div className="flex flex-col items-center">
+        <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center shrink-0 z-10 shadow-md">
+          <Star className="w-3.5 h-3.5 text-white" />
+        </div>
+        <div className="w-px flex-1 bg-purple-300 min-h-[16px]" />
+      </div>
+
+      {/* The card itself */}
+      <div className="flex-1 mb-3 bg-white border-2 border-purple-400 rounded-2xl p-5 shadow-md relative">
+        {/* Back to sidebar button */}
+        <button
+          onClick={onDeactivate}
+          className="absolute top-3 right-3 inline-flex items-center gap-1 text-[11px] text-purple-500 hover:text-purple-700 font-medium transition-colors"
+        >
+          <ArrowLeft className="w-3 h-3" />
+          Back to sidebar
+        </button>
+
+        {/* Role badge */}
+        <div className="flex items-center gap-2 mb-2">
+          <Badge className="bg-purple-100 text-purple-700 text-[10px] border-0">
+            {draft.dominantRole}
+          </Badge>
+          <span className="text-[11px] text-gray-400">{draft.activityCount} activities</span>
+        </div>
+
+        {/* Title */}
+        <h3 className="text-base font-bold text-gray-900 mb-1.5 pr-24">{draft.title}</h3>
+
+        {/* Description */}
+        <p className="text-sm text-gray-600 leading-relaxed mb-4">{draft.description}</p>
+
+        {/* Source icons */}
+        <div className="flex items-center gap-4 mb-3">
+          <div className="flex items-center gap-1.5">
+            {draft.tools.map((tool) => (
+              <div
+                key={tool}
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${SOURCE_META[tool].color}15` }}
+              >
+                <SourceIcon source={tool} className="w-3.5 h-3.5" style={{ color: SOURCE_META[tool].color } as React.CSSProperties} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Topic chips */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {draft.topics.map((topic) => (
+            <span
+              key={topic}
+              className="px-2.5 py-1 bg-purple-50 text-purple-700 text-xs rounded-full font-medium"
+            >
+              {topic}
+            </span>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <button className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+          Create Story
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Sidebar draft card -- resting (non-activated) state. */
+function SidebarDraftCard({
+  draft,
+  onActivate,
+}: {
+  draft: MockDraftStory;
+  onActivate: () => void;
+}) {
+  return (
+    <button
+      onClick={onActivate}
+      className="w-full text-left bg-white border border-gray-200 border-l-4 border-l-purple-400 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+    >
+      <p className="font-semibold text-sm text-gray-900 line-clamp-1">{draft.title}</p>
+      <div className="flex items-center gap-2 mt-1.5">
+        <span className="text-[11px] text-gray-400">{draft.activityCount} activities</span>
+        <span className="text-gray-200">|</span>
+        <div className="flex items-center gap-1">
+          {draft.tools.map((tool) => (
+            <SourceIcon
+              key={tool}
+              source={tool}
+              className="w-3 h-3 text-gray-400"
+            />
+          ))}
+        </div>
+      </div>
+      <span className="inline-flex items-center gap-1 text-[11px] text-purple-500 font-medium mt-2">
+        <ArrowUpRight className="w-3 h-3" />
+        Create Story
+      </span>
+    </button>
+  );
+}
+
+/** Ghost placeholder in sidebar when a draft is activated. */
+function SidebarGhost({
+  draft,
+  onDeactivate,
+}: {
+  draft: MockDraftStory;
+  onDeactivate: () => void;
+}) {
+  return (
+    <button
+      onClick={onDeactivate}
+      className="w-full text-left bg-purple-50/50 border border-dashed border-purple-200 rounded-xl p-3 cursor-pointer hover:bg-purple-50 transition-colors"
+    >
+      <p className="text-sm text-purple-400 font-medium flex items-center gap-1.5">
+        <Eye className="w-3.5 h-3.5" />
+        Viewing in timeline
+      </p>
+      <p className="text-[11px] text-purple-300 mt-0.5 line-clamp-1">{draft.title}</p>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export function TimelineV10() {
-  // Find most active source
-  const sortedSources = [...mockStats.bySource].sort((a, b) => b.count - a.count);
-  const mostActive = sortedSources[0];
+  const [activatedDraftIds, setActivatedDraftIds] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  // Chart data
-  const chartData = {
-    labels: sortedSources.map((s) => SOURCE_META[s.source].name),
-    datasets: [
-      {
-        label: 'Activities',
-        data: sortedSources.map((s) => s.count),
-        backgroundColor: sortedSources.map((s) => SOURCE_META[s.source].color),
-        borderRadius: 6,
-        barThickness: 28,
-      },
-    ],
+  // Activate / deactivate helpers
+  const activateDraft = (id: string) => {
+    setActivatedDraftIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
   };
 
-  const chartOptions = {
-    indexAxis: 'y' as const,
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#1f2937',
-        titleFont: { size: 12 },
-        bodyFont: { size: 11 },
-        padding: 10,
-        cornerRadius: 8,
-      },
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { stepSize: 1, font: { size: 11 } },
-      },
-      y: {
-        grid: { display: false },
-        ticks: { font: { size: 12, weight: '500' as const } },
-      },
-    },
+  const deactivateDraft = (id: string) => {
+    setActivatedDraftIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
-  const sortedActivities = [...mockActivities].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // Build the set of highlighted activity IDs (activities belonging to any activated draft)
+  const highlightedActivityIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const draftId of activatedDraftIds) {
+      const activityIds = draftActivityMap[draftId];
+      if (activityIds) {
+        for (const aId of activityIds) set.add(aId);
+      }
+    }
+    return set;
+  }, [activatedDraftIds]);
+
+  // For each activated draft, find its insertion point: the index of its most recent
+  // contributing activity within each temporal group.
+  const draftInsertionMap = useMemo(() => {
+    const map: Record<string, { groupKey: string; afterActivityId: string }> = {};
+    for (const draftId of activatedDraftIds) {
+      const activityIds = draftActivityMap[draftId];
+      if (!activityIds || activityIds.length === 0) continue;
+
+      // Find which temporal group contains the most recent activity for this draft
+      for (const group of mockTemporalGroups) {
+        const matchInGroup = group.activities.find((a) => activityIds.includes(a.id));
+        if (matchInGroup) {
+          map[draftId] = { groupKey: group.key, afterActivityId: matchInGroup.id };
+          break; // First temporal group match = most recent since groups are chronological
+        }
+      }
+    }
+    return map;
+  }, [activatedDraftIds]);
+
+  // Map from draft ID to MockDraftStory for quick lookup
+  const draftMap = useMemo(
+    () => Object.fromEntries(mockDraftStories.map((d) => [d.id, d])),
+    [],
   );
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Activity Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Overview of your professional activity</p>
+          <h1 className="text-2xl font-bold text-gray-900">Kanban + Inline Timeline</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Click a draft story in the sidebar to expand it inline within the activity feed
+          </p>
         </div>
 
-        {/* Stats Hero */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
-                Total Activities
-              </p>
-              <p className="text-3xl font-bold text-gray-900">{mockStats.totalActivities}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
-                Sources Connected
-              </p>
-              <p className="text-3xl font-bold text-gray-900">{mockStats.bySource.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
-                Draft Stories
-              </p>
-              <p className="text-3xl font-bold text-primary-600">{mockStats.draftStoryCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
-                Most Active
-              </p>
-              <div className="flex items-center gap-2">
-                <SourceIcon source={mostActive.source} className="w-5 h-5 text-gray-700" />
-                <p className="text-lg font-bold text-gray-900">
-                  {SOURCE_META[mostActive.source].name}
-                </p>
-              </div>
-              <p className="text-xs text-gray-400">{mostActive.count} activities</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Two-column layout */}
+        <div className="grid grid-cols-[1fr,280px] gap-6">
+          {/* ==================== LEFT COLUMN -- Activity Feed ==================== */}
+          <div>
+            {mockTemporalGroups.map((group) => {
+              const isCollapsed = collapsedGroups.has(group.key);
 
-        {/* Chart */}
-        <Card className="shadow-sm mb-6">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="w-5 h-5 text-primary-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Activity by Source</h2>
-            </div>
-            <div className="h-[220px]">
-              <Bar data={chartData} options={chartOptions} />
-            </div>
-          </CardContent>
-        </Card>
+              // Determine which activated drafts should be inserted in this group
+              const draftsInGroup = Object.entries(draftInsertionMap)
+                .filter(([, info]) => info.groupKey === group.key)
+                .map(([draftId]) => draftId);
 
-        {/* Compact Activity List */}
-        <Card className="shadow-sm mb-6">
-          <CardContent className="p-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent Activity</h2>
-            <div className="divide-y divide-gray-100">
-              {sortedActivities.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 py-2">
-                  <div
-                    className="w-6 h-6 rounded flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${SOURCE_META[activity.source].color}15` }}
+              return (
+                <div key={group.key} className="mb-6">
+                  {/* Group heading */}
+                  <button
+                    onClick={() => toggleGroup(group.key)}
+                    className="flex items-center gap-2 mb-3 group cursor-pointer"
                   >
-                    <SourceIcon source={activity.source} className="w-3 h-3" />
-                  </div>
-                  <p className="text-sm text-gray-900 truncate flex-1">{activity.title}</p>
-                  <span className="text-[11px] text-gray-400 whitespace-nowrap flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {timeAgo(activity.timestamp)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Draft Stories Banners */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Draft Stories</h2>
-          {mockDraftStories.map((story) => (
-            <div
-              key={story.id}
-              className="rounded-xl p-5 text-white shadow-md"
-              style={{
-                background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%)',
-              }}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-white/20 text-white text-[10px] border-0">
-                      {story.dominantRole}
-                    </Badge>
-                    <span className="text-xs text-white/70">
-                      {story.activityCount} activities
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                    )}
+                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider group-hover:text-gray-700 transition-colors">
+                      {group.label}
+                    </h2>
+                    <span className="text-[11px] text-gray-300 font-normal">
+                      {group.activities.length} activities
                     </span>
-                  </div>
-                  <h3 className="text-lg font-bold mb-1">{story.title}</h3>
-                  <p className="text-sm text-white/80 line-clamp-2 mb-3">{story.description}</p>
+                  </button>
 
-                  <div className="flex items-center gap-4">
-                    {/* Tool icons */}
-                    <div className="flex items-center gap-1.5">
-                      {story.tools.map((tool) => (
-                        <div
-                          key={tool}
-                          className="w-6 h-6 rounded bg-white/20 flex items-center justify-center"
-                        >
-                          <SourceIcon source={tool} className="w-3.5 h-3.5 text-white" />
-                        </div>
-                      ))}
+                  {/* Group content */}
+                  {!isCollapsed && (
+                    <div className="pl-1">
+                      {group.activities.map((activity, idx) => {
+                        const isHighlighted = highlightedActivityIds.has(activity.id);
+                        const isLastInGroup = idx === group.activities.length - 1 && draftsInGroup.length === 0;
+
+                        // Check if any activated draft should render after this activity
+                        const draftsAfterThis = draftsInGroup.filter(
+                          (draftId) => draftInsertionMap[draftId]?.afterActivityId === activity.id,
+                        );
+
+                        return (
+                          <React.Fragment key={activity.id}>
+                            <ActivityCard
+                              activity={activity}
+                              isHighlighted={isHighlighted}
+                              isLast={isLastInGroup && draftsAfterThis.length === 0}
+                            />
+                            {/* Render inline draft cards that anchor after this activity */}
+                            {draftsAfterThis.map((draftId) => {
+                              const draft = draftMap[draftId];
+                              if (!draft) return null;
+                              return (
+                                <InlineDraftCard
+                                  key={`inline-${draftId}`}
+                                  draft={draft}
+                                  onDeactivate={() => deactivateDraft(draftId)}
+                                />
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
-                    <span className="text-xs text-white/60">
-                      {formatRange(story.dateRange.start, story.dateRange.end)}
-                    </span>
-                  </div>
+                  )}
                 </div>
-                <button className="shrink-0 bg-white text-primary-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-white/90 transition-colors">
-                  Create Story
-                </button>
-              </div>
+              );
+            })}
+          </div>
+
+          {/* ==================== RIGHT COLUMN -- Sticky Draft Sidebar ==================== */}
+          <div className="sticky top-6 self-start">
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="w-4 h-4 text-purple-500" />
+              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                Draft Stories
+              </h2>
+              <Badge variant="secondary" className="text-[10px] ml-auto">
+                {mockDraftStories.length}
+              </Badge>
             </div>
-          ))}
+
+            <div className="space-y-3">
+              {mockDraftStories.map((draft) => {
+                const isActivated = activatedDraftIds.has(draft.id);
+
+                if (isActivated) {
+                  return (
+                    <SidebarGhost
+                      key={draft.id}
+                      draft={draft}
+                      onDeactivate={() => deactivateDraft(draft.id)}
+                    />
+                  );
+                }
+
+                return (
+                  <SidebarDraftCard
+                    key={draft.id}
+                    draft={draft}
+                    onActivate={() => activateDraft(draft.id)}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Sidebar footer hint */}
+            <p className="text-[11px] text-gray-300 mt-5 text-center leading-relaxed">
+              Click a draft to see it in context within the activity timeline
+            </p>
+          </div>
         </div>
       </div>
     </div>

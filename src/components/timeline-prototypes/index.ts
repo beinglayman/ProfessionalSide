@@ -19,5 +19,5 @@ export const timelinePrototypes = [
   { id: 'v7', name: 'Chat Bubbles', Component: TimelineV7 },
   { id: 'v8', name: 'Swimlane Rows', Component: TimelineV8 },
   { id: 'v9', name: 'Focus Carousel', Component: TimelineV9 },
-  { id: 'v10', name: 'Activity Dashboard', Component: TimelineV10 },
+  { id: 'v10', name: 'Kanban + Inline', Component: TimelineV10 },
 ];
