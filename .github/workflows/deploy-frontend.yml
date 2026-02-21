@@ -9,6 +9,7 @@ on:
       - 'public/**'
       - 'package.json'
       - 'Dockerfile'
+      - 'server.mjs'
       - '.github/workflows/deploy-frontend.yml'
 
 permissions:
