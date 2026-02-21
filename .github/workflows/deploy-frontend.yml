@@ -67,7 +67,11 @@ jobs:
           az webapp config container show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" -o json || echo "FAILED to get container config"
           echo ""
           echo "=== Recent Container Logs ==="
-          az webapp log tail -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --timeout 15 2>&1 || echo "Log tail timed out or failed"
+          az webapp log download -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --log-file /tmp/webapp-logs.zip 2>&1 || echo "Log download failed"
+          if [ -f /tmp/webapp-logs.zip ]; then
+            unzip -o /tmp/webapp-logs.zip -d /tmp/webapp-logs/ 2>&1 || echo "Unzip failed"
+            find /tmp/webapp-logs/ -name "*.log" -exec echo "--- {} ---" \; -exec tail -100 {} \; 2>&1 || echo "No logs found"
+          fi
           echo ""
           echo "=== Attempting stop/start cycle ==="
           az webapp stop -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
