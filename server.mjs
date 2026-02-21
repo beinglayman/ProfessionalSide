@@ -65,4 +65,4 @@ app.get('*', (req, res) => {
   res.send(INDEX_HTML);
 });
 
-app.listen(PORT, () => console.log(`Frontend server on :${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Frontend server on 0.0.0.0:${PORT}`));
