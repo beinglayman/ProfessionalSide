@@ -73,8 +73,17 @@ jobs:
             find /tmp/webapp-logs/ -name "*.log" -exec echo "--- {} ---" \; -exec tail -100 {} \; 2>&1 || echo "No logs found"
           fi
           echo ""
+          echo "=== App Service Plan ==="
+          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "{plan:appServicePlanId, sku:siteConfig.linuxFxVersion}" -o json || echo "FAILED"
+          echo ""
+          echo "=== Container Logs (last 200 lines) ==="
+          az webapp log show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" 2>&1 || echo "Log show failed"
+          echo ""
           echo "=== Attempting stop/start cycle ==="
           az webapp stop -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
-          sleep 10
+          sleep 15
           az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
-          echo "=== Stop/start complete ==="
+          sleep 30
+          echo "=== Checking health after restart ==="
+          curl -sI "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net/" || echo "Health check failed"
+          echo "=== Done ==="
