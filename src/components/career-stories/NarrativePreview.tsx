@@ -495,7 +495,13 @@ export function NarrativePreview({
               )}
 
               {totalWarnings > 0 && (
-                <span className="text-amber-600 flex items-center gap-0.5 text-[10px]">
+                <span
+                  className="text-amber-600 flex items-center gap-0.5 text-[10px] cursor-default"
+                  title={[
+                    ...(sourceCoverage?.vagueMetrics?.map((vm) => `${vm.sectionKey}: "${vm.match}" — ${vm.suggestion}`) || []),
+                    ...(sourceCoverage?.ungroundedClaims?.map((uc) => `${uc.sectionKey}: "${uc.match}" — ${uc.suggestion}`) || []),
+                  ].join('\n')}
+                >
                   <AlertTriangle className="w-3 h-3" />
                   {totalWarnings} unverified
                 </span>
@@ -673,6 +679,7 @@ export function NarrativePreview({
                   showCoaching={showCoaching}
                   sourceCount={activeSources.length}
                   warningCount={sectionVagueMetrics.length}
+                  warningTooltip={sectionVagueMetrics.map((w) => `"${w.match}" — ${w.suggestion}`).join('\n')}
                   isCollapsed={isSectionCollapsed}
                   onToggle={() => toggleSection(sectionKey)}
                   isLast={idx === sectionKeys.length - 1}

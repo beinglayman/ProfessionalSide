@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { capitalizeFirst, derivationSectionLabel } from './constants';
 import { normalizeSections, groupSourcesBySection } from './derivation-helpers';
-import type { StoryDerivation, CareerStory, StorySource } from '../../types/career-stories';
+import type { StoryDerivation, CareerStory, StorySource, SourceCoverage } from '../../types/career-stories';
+import { computeClientCoverage } from '../../lib/coverage';
 
 /**
  * Derives display data for LibraryDetail from item, stories, and sources.
@@ -35,6 +36,12 @@ export function useLibraryDetailData(
     const active = derivationSources.filter(s => !s.excludedAt);
     return groupSourcesBySection(active, sectionKeys);
   }, [derivationSources, sectionKeys]);
+
+  // Source coverage (vague metrics + ungrounded claims)
+  const sourceCoverage = useMemo<SourceCoverage>(
+    () => computeClientCoverage(derivationSources, normalized.sections, sectionKeys),
+    [derivationSources, normalized.sections, sectionKeys],
+  );
 
   // All active sources (for provenance icon stack)
   const activeSources = useMemo(
@@ -99,6 +106,7 @@ export function useLibraryDetailData(
     sectionKeys,
     normalized,
     sourcesBySection,
+    sourceCoverage,
     activeSources,
     uniqueTools,
     activitySources,

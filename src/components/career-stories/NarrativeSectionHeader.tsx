@@ -9,6 +9,7 @@ interface NarrativeSectionHeaderProps {
   showCoaching?: boolean;
   sourceCount?: number;
   warningCount?: number;
+  warningTooltip?: string;
   isCollapsed: boolean;
   onToggle: () => void;
   isLast?: boolean;
@@ -26,6 +27,7 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
   confidence,
   sourceCount,
   warningCount,
+  warningTooltip,
   isCollapsed,
   onToggle,
   isLast = false,
@@ -97,8 +99,8 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
               )}
               {warningCount !== undefined && warningCount > 0 && (
                 <span
-                  className="text-[10px] flex-shrink-0 text-amber-600 flex items-center gap-0.5"
-                  title="Unverified claims in this section"
+                  className="text-[10px] flex-shrink-0 text-amber-600 flex items-center gap-0.5 cursor-default"
+                  title={warningTooltip || 'Unverified claims in this section'}
                 >
                   <AlertTriangle className="w-3 h-3" />
                   {warningCount}
@@ -118,8 +120,8 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
           )}
           {isCollapsed && warningCount !== undefined && warningCount > 0 && (
             <span
-              className="text-[10px] text-amber-600 flex items-center gap-0.5"
-              title="Unverified claims in this section"
+              className="text-[10px] text-amber-600 flex items-center gap-0.5 cursor-default"
+              title={warningTooltip || 'Unverified claims in this section'}
             >
               <span className="text-gray-300">&middot;</span>
               <AlertTriangle className="w-3 h-3" />

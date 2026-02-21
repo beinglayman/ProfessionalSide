@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { ArrowLeft, Copy, Check, MoreHorizontal, Trash2, RefreshCw, Info, ExternalLink, Type, Mic, FileText, Eye } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Copy, Check, MoreHorizontal, Trash2, RefreshCw, Info, ExternalLink, Type, Mic, FileText, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, formatRelativeTime } from '../../lib/utils';
 import { copyToClipboard } from '../../lib/clipboard';
@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
-import type { StoryDerivation, CareerStory, DerivationType, StorySource, ToolType } from '../../types/career-stories';
+import type { StoryDerivation, CareerStory, DerivationType, StorySource, ToolType, SourceCoverage } from '../../types/career-stories';
 import { FRAME_MAP } from './DerivationPreview';
 import { useDerivationAnnotations, useDerivationSources } from '../../hooks/useCareerStories';
 import { NarrativeShell } from './NarrativeShell';
@@ -130,17 +130,22 @@ interface DocumentViewProps {
   text: string;
   activitySources: StorySource[];
   sourcesBySection: Record<string, StorySource[]>;
+  sourceCoverage: SourceCoverage;
   annotations: any[];
   shell: any;
 }
 
-function DocumentView({ item, sectionKeys, sections, text, activitySources, sourcesBySection, annotations, shell }: DocumentViewProps) {
+function DocumentView({ item, sectionKeys, sections, text, activitySources, sourcesBySection, sourceCoverage, annotations, shell }: DocumentViewProps) {
   return (
     <div className="px-6 pb-4 flex-1 overflow-y-auto">
       {sectionKeys.map((sectionKey, idx) => {
         const sectionText = sections[sectionKey]?.summary ?? text;
         const sectionSources = (sourcesBySection[sectionKey] || []).filter(s => s.sourceType === 'activity');
         const isLast = idx === sectionKeys.length - 1;
+        const sectionVagueMetrics = [
+          ...(sourceCoverage.vagueMetrics?.filter((vm) => vm.sectionKey === sectionKey) || []),
+          ...(sourceCoverage.ungroundedClaims?.filter((uc) => uc.sectionKey === sectionKey) || []),
+        ];
 
         return (
           <NarrativeSectionHeader
@@ -148,6 +153,9 @@ function DocumentView({ item, sectionKeys, sections, text, activitySources, sour
             sectionKey={sectionKey}
             label={sectionKeys.length === 1 ? capitalizeFirst(item.type) : derivationSectionLabel(sectionKey)}
             confidence={0.8}
+            sourceCount={sectionSources.length}
+            warningCount={sectionVagueMetrics.length}
+            warningTooltip={sectionVagueMetrics.map((w) => `"${w.match}" — ${w.suggestion}`).join('\n')}
             isCollapsed={false}
             onToggle={() => {}}
             isLast={isLast}
@@ -237,12 +245,15 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
     sectionKeys,
     normalized,
     sourcesBySection,
+    sourceCoverage,
     activeSources,
     uniqueTools,
     activitySources,
     estimatedTime,
     sectionTimings,
   } = useLibraryDetailData(item, allStories, derivationSources);
+
+  const totalWarnings = (sourceCoverage.vagueMetrics?.length || 0) + (sourceCoverage.ungroundedClaims?.length || 0);
 
   useEffect(() => {
     backButtonRef.current?.focus();
@@ -426,6 +437,23 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
                   </>
                 )}
 
+                {/* Unverified claims */}
+                {totalWarnings > 0 && (
+                  <>
+                    <span className="text-gray-300">&middot;</span>
+                    <span
+                      className="text-amber-600 flex items-center gap-0.5 cursor-default"
+                      title={[
+                        ...(sourceCoverage.vagueMetrics?.map((vm) => `${vm.sectionKey}: "${vm.match}" — ${vm.suggestion}`) || []),
+                        ...(sourceCoverage.ungroundedClaims?.map((uc) => `${uc.sectionKey}: "${uc.match}" — ${uc.suggestion}`) || []),
+                      ].join('\n')}
+                    >
+                      <AlertTriangle className="w-3 h-3" />
+                      {totalWarnings} unverified
+                    </span>
+                  </>
+                )}
+
                 {/* Custom prompt indicator */}
                 {item.customPrompt && (
                   <span title={`Custom prompt: ${item.customPrompt}`} className="text-gray-300 cursor-help">
@@ -459,6 +487,7 @@ export function LibraryDetail({ item, allStories, onBack, onDelete, onRegenerate
                 text={normalized.text}
                 activitySources={activitySources}
                 sourcesBySection={sourcesBySection}
+                sourceCoverage={sourceCoverage}
                 annotations={annotations}
                 shell={shell}
               />
