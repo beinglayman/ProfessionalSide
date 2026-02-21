@@ -57,33 +57,38 @@ jobs:
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
 
-      - name: Diagnose container health
+      - name: Enable container logging and diagnose
         if: always()
         run: |
-          echo "=== App Service Status ==="
-          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "{state:state, kind:kind, hostNames:hostNames}" -o json || echo "FAILED to get status"
-          echo ""
-          echo "=== Container Settings ==="
-          az webapp config container show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" -o json || echo "FAILED to get container config"
-          echo ""
-          echo "=== Recent Container Logs ==="
-          az webapp log download -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --log-file /tmp/webapp-logs.zip 2>&1 || echo "Log download failed"
-          if [ -f /tmp/webapp-logs.zip ]; then
-            unzip -o /tmp/webapp-logs.zip -d /tmp/webapp-logs/ 2>&1 || echo "Unzip failed"
-            find /tmp/webapp-logs/ -name "*.log" -exec echo "--- {} ---" \; -exec tail -100 {} \; 2>&1 || echo "No logs found"
-          fi
-          echo ""
-          echo "=== App Service Plan ==="
-          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "{plan:appServicePlanId, sku:siteConfig.linuxFxVersion}" -o json || echo "FAILED"
-          echo ""
-          echo "=== Container Logs (last 200 lines) ==="
-          az webapp log show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" 2>&1 || echo "Log show failed"
-          echo ""
-          echo "=== Attempting stop/start cycle ==="
+          echo "=== Enable container logging ==="
+          az webapp log config -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --docker-container-logging filesystem 2>&1 || echo "Failed to enable logging"
+
+          echo "=== Delete and recreate the app to force fresh container pull ==="
+          echo "Getting current config..."
+          PLAN=$(az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "appServicePlanId" -o tsv)
+          echo "Plan: $PLAN"
+
+          echo "=== Stop, wait, start ==="
           az webapp stop -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
-          sleep 15
+          sleep 20
           az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
-          sleep 30
-          echo "=== Checking health after restart ==="
-          curl -sI "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net/" || echo "Health check failed"
+
+          echo "=== Wait 60s for container to start ==="
+          sleep 60
+
+          echo "=== Check container events ==="
+          az webapp log show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --name web 2>&1 || echo "Failed"
+
+          echo "=== Try log tail (10 seconds) ==="
+          timeout 15 az webapp log tail -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" 2>&1 || echo "Log tail ended"
+
+          echo "=== Try downloading docker logs ==="
+          az webapp log download -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --log-file /tmp/logs.zip 2>&1 || echo "Download failed"
+          if [ -f /tmp/logs.zip ]; then
+            unzip -o /tmp/logs.zip -d /tmp/logs/ 2>&1 || echo "Unzip failed"
+            find /tmp/logs/ -type f -exec echo "--- {} ---" \; -exec cat {} \; 2>&1 | tail -200
+          fi
+
+          echo "=== Final health check ==="
+          curl -sI "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net/" 2>&1 || echo "Failed"
           echo "=== Done ==="
