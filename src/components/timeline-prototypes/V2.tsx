@@ -49,14 +49,9 @@ function SourceIcon({ source, className }: { source: ActivitySource; className?:
 // Types
 // ---------------------------------------------------------------------------
 
-/** A column item is either an activity card or a draft card */
-type ColumnItem =
-  | { kind: 'activity'; activity: MockActivity }
-  | { kind: 'draft'; draft: MockDraftStory; contributingActivities: MockActivity[] };
-
 interface ColumnData {
   group: TemporalGroup;
-  items: ColumnItem[];
+  activities: MockActivity[];
 }
 
 // ---------------------------------------------------------------------------
@@ -319,60 +314,13 @@ export function TimelineV2() {
     return sets;
   }, []);
 
-  // ---- determine which column each draft belongs to ----
-  // A draft is inserted at the top of the earliest column that contains one of
-  // its contributing activities.
-  const draftColumnAssignment = useMemo(() => {
-    const assignment: Record<string, string> = {}; // draftId -> group.key
-
-    for (const draft of mockDraftStories) {
-      const activityIds = draftActivityMap[draft.id] ?? [];
-      if (activityIds.length === 0) continue;
-
-      // Find the earliest temporal group that contains any contributing activity
-      let assignedGroupKey: string | null = null;
-
-      // We iterate from the last group (oldest) to the first (newest) so that
-      // the earliest relevant column (oldest) is found.
-      for (let i = mockTemporalGroups.length - 1; i >= 0; i--) {
-        const group = mockTemporalGroups[i];
-        const groupActivityIds = new Set(group.activities.map((a) => a.id));
-        const hasMatch = activityIds.some((id) => groupActivityIds.has(id));
-        if (hasMatch) {
-          assignedGroupKey = group.key;
-          break;
-        }
-      }
-
-      if (assignedGroupKey) {
-        assignment[draft.id] = assignedGroupKey;
-      }
-    }
-
-    return assignment;
-  }, []);
-
-  // ---- build column data ----
+  // ---- build column data (activities only, drafts go to dedicated column) ----
   const columns: ColumnData[] = useMemo(() => {
-    return mockTemporalGroups.map((group) => {
-      const items: ColumnItem[] = [];
-
-      // Insert draft cards assigned to this column at the top
-      for (const draft of mockDraftStories) {
-        if (draftColumnAssignment[draft.id] === group.key) {
-          const contributing = getActivitiesForDraft(draft);
-          items.push({ kind: 'draft', draft, contributingActivities: contributing });
-        }
-      }
-
-      // Then insert all activities in this group
-      for (const activity of group.activities) {
-        items.push({ kind: 'activity', activity });
-      }
-
-      return { group, items };
-    });
-  }, [draftColumnAssignment]);
+    return mockTemporalGroups.map((group) => ({
+      group,
+      activities: group.activities,
+    }));
+  }, []);
 
   // ---- hovered draft activity IDs ----
   const hoveredDraftActivityIds = useMemo(() => {
@@ -399,14 +347,14 @@ export function TimelineV2() {
           </p>
         </div>
 
-        {/* Kanban Grid */}
-        <div className="grid grid-cols-5 gap-4">
+        {/* Kanban Grid: 5 temporal columns + 2-wide draft stories column */}
+        <div className="grid grid-cols-7 gap-4">
+          {/* ── Temporal activity columns ── */}
           {columns.map((column) => {
-            const activityCount = column.group.activities.length;
-            const draftCount = column.items.filter((i) => i.kind === 'draft').length;
+            const activityCount = column.activities.length;
 
             return (
-              <div key={column.group.key} className="flex flex-col min-w-0">
+              <div key={column.group.key} className="col-span-1 flex flex-col min-w-0">
                 {/* Column Header */}
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-2">
@@ -417,14 +365,6 @@ export function TimelineV2() {
                       {activityCount}
                     </Badge>
                   </div>
-                  {draftCount > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-purple-500 fill-purple-500" />
-                      <span className="text-[10px] text-purple-500 font-medium">
-                        {draftCount}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Column Header Accent Bar */}
@@ -441,39 +381,13 @@ export function TimelineV2() {
 
                 {/* Scrollable Card Area */}
                 <div className="max-h-[70vh] overflow-y-auto space-y-3 pr-1 pb-2 scrollbar-thin">
-                  {column.items.length === 0 && (
+                  {column.activities.length === 0 && (
                     <div className="text-center py-8">
                       <p className="text-xs text-gray-400">No activities</p>
                     </div>
                   )}
 
-                  {column.items.map((item) => {
-                    if (item.kind === 'draft') {
-                      const { draft, contributingActivities } = item;
-                      const isExpanded = expandedDraftId === draft.id;
-
-                      return (
-                        <DraftCard
-                          key={`draft-${draft.id}`}
-                          draft={draft}
-                          contributingActivities={contributingActivities}
-                          isExpanded={isExpanded}
-                          onToggleExpand={() =>
-                            setExpandedDraftId((prev) =>
-                              prev === draft.id ? null : draft.id,
-                            )
-                          }
-                          onHoverStart={() => setHoveredDraftId(draft.id)}
-                          onHoverEnd={() => setHoveredDraftId(null)}
-                          isDimmed={
-                            isAnyDraftHovered && hoveredDraftId !== draft.id
-                          }
-                        />
-                      );
-                    }
-
-                    // Activity card
-                    const { activity } = item;
+                  {column.activities.map((activity) => {
                     const isHighlighted = hoveredDraftActivityIds.has(activity.id);
                     const isDimmed =
                       isAnyDraftHovered && !hoveredDraftActivityIds.has(activity.id);
@@ -491,6 +405,52 @@ export function TimelineV2() {
               </div>
             );
           })}
+
+          {/* ── Draft Stories column (spans 2 columns) ── */}
+          <div className="col-span-2 flex flex-col min-w-0">
+            {/* Column Header */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-purple-500 fill-purple-500" />
+                <h2 className="text-sm font-semibold text-purple-700">
+                  Draft Stories
+                </h2>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {mockDraftStories.length}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Purple Accent Bar */}
+            <div className="h-1 rounded-full mb-3 bg-purple-400" />
+
+            {/* Scrollable Draft Cards */}
+            <div className="max-h-[70vh] overflow-y-auto space-y-3 pr-1 pb-2 scrollbar-thin">
+              {mockDraftStories.map((draft) => {
+                const isExpanded = expandedDraftId === draft.id;
+                const contributing = getActivitiesForDraft(draft);
+
+                return (
+                  <DraftCard
+                    key={`draft-${draft.id}`}
+                    draft={draft}
+                    contributingActivities={contributing}
+                    isExpanded={isExpanded}
+                    onToggleExpand={() =>
+                      setExpandedDraftId((prev) =>
+                        prev === draft.id ? null : draft.id,
+                      )
+                    }
+                    onHoverStart={() => setHoveredDraftId(draft.id)}
+                    onHoverEnd={() => setHoveredDraftId(null)}
+                    isDimmed={
+                      isAnyDraftHovered && hoveredDraftId !== draft.id
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
