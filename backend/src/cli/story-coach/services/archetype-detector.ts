@@ -6,9 +6,9 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import Handlebars from 'handlebars';
 import { JournalEntryFile, ArchetypeDetection } from '../types';
-import { callLLM } from './llm-client';
+import { compileSafe } from '../../../services/ai/prompts/handlebars-safe';
+import { getModelSelector } from '../../../services/ai/model-selector.service';
 
 const PROMPTS_DIR = join(__dirname, '..', 'prompts');
 
@@ -17,7 +17,7 @@ const detectionTemplateRaw = readFileSync(
   join(PROMPTS_DIR, 'archetype-detection.prompt.md'),
   'utf-8'
 );
-const detectionTemplate = Handlebars.compile(detectionTemplateRaw);
+const detectionTemplate = compileSafe(detectionTemplateRaw);
 
 /**
  * Detect the best archetype for a journal entry
@@ -25,6 +25,30 @@ const detectionTemplate = Handlebars.compile(detectionTemplateRaw);
 export async function detectArchetype(
   entry: JournalEntryFile
 ): Promise<ArchetypeDetection> {
+  const defaultFallback: ArchetypeDetection = {
+    primary: {
+      archetype: 'firefighter',
+      confidence: 0.5,
+      reasoning: 'Default fallback - LLM not available or response could not be parsed',
+    },
+    alternatives: [],
+    signals: {
+      hasCrisis: false,
+      hasArchitecture: false,
+      hasStakeholders: false,
+      hasMultiplication: false,
+      hasMystery: false,
+      hasPioneering: false,
+      hasTurnaround: false,
+      hasPrevention: false,
+    },
+  };
+
+  const modelSelector = getModelSelector();
+  if (!modelSelector) {
+    return defaultFallback;
+  }
+
   const prompt = detectionTemplate({
     title: entry.title,
     category: entry.category || 'general',
@@ -33,19 +57,16 @@ export async function detectArchetype(
     impactHighlights: entry.impactHighlights,
   });
 
-  const response = await callLLM({
-    messages: [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    temperature: 0.3, // Lower temperature for more consistent detection
-  });
-
   try {
+    const result = await modelSelector.executeTask(
+      'analyze',
+      [{ role: 'user', content: prompt }],
+      'quick',
+      { temperature: 0.3 },
+    );
+
     // Parse JSON response
-    let content = response.trim();
+    let content = result.content.trim();
     // Remove markdown code blocks if present
     if (content.startsWith('```')) {
       content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
@@ -54,27 +75,7 @@ export async function detectArchetype(
     const detection = JSON.parse(content) as ArchetypeDetection;
     return detection;
   } catch (error) {
-    console.error('Failed to parse archetype detection response:', error);
-    console.error('Raw response:', response);
-
-    // Return default firefighter if parsing fails
-    return {
-      primary: {
-        archetype: 'firefighter',
-        confidence: 0.5,
-        reasoning: 'Default fallback - could not parse LLM response',
-      },
-      alternatives: [],
-      signals: {
-        hasCrisis: false,
-        hasArchitecture: false,
-        hasStakeholders: false,
-        hasMultiplication: false,
-        hasMystery: false,
-        hasPioneering: false,
-        hasTurnaround: false,
-        hasPrevention: false,
-      },
-    };
+    console.error('Failed to detect archetype:', error);
+    return defaultFallback;
   }
 }

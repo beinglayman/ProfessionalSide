@@ -77,7 +77,7 @@ async function enrichStoryWithSources(story: { id: string; framework: string; se
   } catch (error) {
     // Sources/annotations are supplementary — don't fail the whole request if enrichment fails
     console.error(`Failed to enrich story ${story.id} with sources:`, error);
-    return { ...story, sources: [], sourceCoverage: { total: 0, sourced: 0, gaps: [], vagueMetrics: [] }, annotations: [] };
+    return { ...story, sources: [], sourceCoverage: { total: 0, sourced: 0, gaps: [], vagueMetrics: [], ungroundedClaims: [] }, annotations: [] };
   }
 }
 
@@ -1101,7 +1101,7 @@ export const regenerateStory = asyncHandler(async (req: Request, res: Response):
   }
 
   const enriched = await enrichStoryWithSources(result.story!);
-  sendSuccess(res, { ...enriched, _sourceDebug: result._sourceDebug }, 'Story regenerated');
+  sendSuccess(res, enriched, 'Story regenerated');
 });
 
 /**

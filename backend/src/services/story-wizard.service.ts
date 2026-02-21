@@ -294,6 +294,30 @@ export function answersToContext(answers: Record<string, WizardAnswer>): Extract
     }
   }
 
+  // Fallback: extract names and metrics from ALL answer text if specific paths missed
+  if (!context.namedPeople || !context.metric) {
+    const allText = Object.values(answers)
+      .map((a) => combineAnswerParts(a))
+      .filter(Boolean)
+      .join('. ');
+
+    if (allText) {
+      if (!context.namedPeople) {
+        const extracted = extractNamedPeople(allText);
+        if (extracted && extracted.length > 0) {
+          context.namedPeople = extracted;
+        }
+      }
+      if (!context.metric) {
+        const metricPattern = /\d+%|\$[\d,]+|\d+\s*(hours?|days?|weeks?|months?|teams?|users?|engineers?)/i;
+        const match = allText.match(metricPattern);
+        if (match) {
+          context.metric = match[0];
+        }
+      }
+    }
+  }
+
   return context;
 }
 
@@ -582,13 +606,8 @@ export class StoryWizardService {
         archetype: archetype || null,
         journalEntryId: journalEntryId || null,
         category: category || null,
+        wizardAnswers: answers as any,
       },
-    });
-
-    // Store wizard answers on the story
-    await prisma.careerStory.update({
-      where: { id: story.id },
-      data: { wizardAnswers: answers as any },
     });
 
     // Populate activity sources from sections evidence

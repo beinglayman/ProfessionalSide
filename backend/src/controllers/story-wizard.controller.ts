@@ -106,7 +106,8 @@ export const generateStory = asyncHandler(async (req: Request, res: Response): P
 
   try {
     const result = await wizardService.generateStory(validation.data, userId);
-    sendSuccess(res, result);
+    const { _sourceDebug, ...clientResult } = result;
+    sendSuccess(res, clientResult);
   } catch (error) {
     if (handleWizardError(error, res)) return;
     throw error;
