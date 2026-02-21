@@ -56,3 +56,21 @@ jobs:
         run: |
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+
+      - name: Diagnose container health
+        if: always()
+        run: |
+          echo "=== App Service Status ==="
+          az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "{state:state, kind:kind, hostNames:hostNames}" -o json || echo "FAILED to get status"
+          echo ""
+          echo "=== Container Settings ==="
+          az webapp config container show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" -o json || echo "FAILED to get container config"
+          echo ""
+          echo "=== Recent Container Logs ==="
+          az webapp log tail -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --timeout 15 2>&1 || echo "Log tail timed out or failed"
+          echo ""
+          echo "=== Attempting stop/start cycle ==="
+          az webapp stop -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+          sleep 10
+          az webapp start -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
+          echo "=== Stop/start complete ==="
