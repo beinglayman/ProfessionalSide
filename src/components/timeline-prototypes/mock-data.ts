@@ -31,7 +31,7 @@ export interface TemporalGroup {
 
 export const SOURCE_META: Record<ActivitySource, { name: string; color: string; icon: string }> = {
   github: { name: 'GitHub', color: '#24292E', icon: 'Github' },
-  jira: { name: 'Jira', color: '#0052CC', icon: 'SquareKanban' },
+  jira: { name: 'Jira', color: '#0052CC', icon: 'KanbanSquare' },
   slack: { name: 'Slack', color: '#4A154B', icon: 'Hash' },
   confluence: { name: 'Confluence', color: '#172B4D', icon: 'FileText' },
   figma: { name: 'Figma', color: '#F24E1E', icon: 'Figma' },

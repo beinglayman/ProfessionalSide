@@ -2,7 +2,7 @@
 // Self-contained — no imports from real app services
 
 import React from 'react';
-import { GitBranch, SquareKanban, Hash, FileText, Figma, Video } from 'lucide-react';
+import { GitBranch, KanbanSquare, Hash, FileText, Figma, Video } from 'lucide-react';
 
 export type ActivitySource = 'github' | 'jira' | 'slack' | 'confluence' | 'figma' | 'google-meet';
 
@@ -44,7 +44,7 @@ export const mockHeaderData: HeaderData = {
 export function SourceIcon({ source, className }: { source: ActivitySource; className?: string }) {
   const icons: Record<ActivitySource, React.ReactNode> = {
     github: <GitBranch className={className} />,
-    jira: <SquareKanban className={className} />,
+    jira: <KanbanSquare className={className} />,
     slack: <Hash className={className} />,
     confluence: <FileText className={className} />,
     figma: <Figma className={className} />,

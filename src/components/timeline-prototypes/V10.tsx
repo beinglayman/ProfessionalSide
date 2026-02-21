@@ -9,7 +9,7 @@ import {
   getActivitiesForDraft, draftActivityMap, activityDraftMap,
   type ActivitySource, type MockDraftStory, type MockActivity, type TemporalGroup,
 } from './mock-data';
-import { GitBranch, SquareKanban, Hash, FileText, Figma, Video, ChevronDown, ChevronRight, Star, ArrowUpRight, ArrowLeft, Eye } from 'lucide-react';
+import { GitBranch, KanbanSquare, Hash, FileText, Figma, Video, ChevronDown, ChevronRight, Star, ArrowUpRight, ArrowLeft, Eye } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -28,7 +28,7 @@ const timeAgo = (ts: string) => {
 function SourceIcon({ source, className }: { source: ActivitySource; className?: string }) {
   const icons: Record<ActivitySource, React.ReactNode> = {
     github: <GitBranch className={className} />,
-    jira: <SquareKanban className={className} />,
+    jira: <KanbanSquare className={className} />,
     slack: <Hash className={className} />,
     confluence: <FileText className={className} />,
     figma: <Figma className={className} />,

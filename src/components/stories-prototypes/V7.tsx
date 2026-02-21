@@ -7,12 +7,12 @@ import {
   mockStories, mockStoryStats, CATEGORY_META, FRAMEWORK_META, STATUS_META, SECTION_COLORS, TOOL_META,
   getConfidenceLevel,
 } from './mock-data';
-import { BookOpen, Eye, TrendingUp, FileText, GitBranch, SquareKanban, Hash, Figma, Video } from 'lucide-react';
+import { BookOpen, Eye, TrendingUp, FileText, GitBranch, KanbanSquare, Hash, Figma, Video } from 'lucide-react';
 
 function ToolIcon({ tool, className }: { tool: string; className?: string }) {
   const icons: Record<string, React.ReactNode> = {
     github: <GitBranch className={className} />,
-    jira: <SquareKanban className={className} />,
+    jira: <KanbanSquare className={className} />,
     confluence: <FileText className={className} />,
     slack: <Hash className={className} />,
     figma: <Figma className={className} />,

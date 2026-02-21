@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Plug,
   Github,
-  SquareKanban,
+  KanbanSquare,
   Hash,
   Mail,
   Figma,
@@ -22,7 +22,7 @@ import type {
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   Github,
-  SquareKanban,
+  KanbanSquare,
   Hash,
   Mail,
   Figma,

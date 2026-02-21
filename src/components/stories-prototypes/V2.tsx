@@ -8,12 +8,12 @@ import {
   mockStories, CATEGORY_META, FRAMEWORK_META, STATUS_META, SECTION_COLORS, TOOL_META,
   getConfidenceLevel, type MockStory,
 } from './mock-data';
-import { Star, FileText, GitBranch, SquareKanban, Hash, Figma, Video, ChevronDown } from 'lucide-react';
+import { Star, FileText, GitBranch, KanbanSquare, Hash, Figma, Video, ChevronDown } from 'lucide-react';
 
 function ToolIcon({ tool, className }: { tool: string; className?: string }) {
   const icons: Record<string, React.ReactNode> = {
     github: <GitBranch className={className} />,
-    jira: <SquareKanban className={className} />,
+    jira: <KanbanSquare className={className} />,
     confluence: <FileText className={className} />,
     slack: <Hash className={className} />,
     figma: <Figma className={className} />,

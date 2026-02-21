@@ -115,7 +115,7 @@ export const mockIntegrations: IntegrationHealthData = {
   totalAvailable: 6,
   integrations: [
     { id: 'github', name: 'GitHub', icon: 'Github', connected: true, status: 'active', lastSync: new Date(Date.now() - 1000 * 60 * 15).toISOString(), activityVolume: 47, sparklineData: [12, 18, 15, 22, 19, 25, 20] },
-    { id: 'jira', name: 'Atlassian Jira', icon: 'SquareKanban', connected: true, status: 'stale', lastSync: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), activityVolume: 12, sparklineData: [8, 10, 6, 4, 3, 2, 1] },
+    { id: 'jira', name: 'Atlassian Jira', icon: 'KanbanSquare', connected: true, status: 'stale', lastSync: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), activityVolume: 12, sparklineData: [8, 10, 6, 4, 3, 2, 1] },
     { id: 'slack', name: 'Slack', icon: 'Hash', connected: true, status: 'active', lastSync: new Date(Date.now() - 1000 * 60 * 30).toISOString(), activityVolume: 156, sparklineData: [30, 28, 35, 40, 32, 38, 42] },
     { id: 'google', name: 'Google Workspace', icon: 'Mail', connected: true, status: 'active', lastSync: new Date(Date.now() - 1000 * 60 * 60).toISOString(), activityVolume: 89, sparklineData: [15, 20, 18, 22, 25, 20, 23] },
     { id: 'figma', name: 'Figma', icon: 'Figma', connected: false, status: 'disconnected', lastSync: '', activityVolume: 0, sparklineData: [0, 0, 0, 0, 0, 0, 0] },

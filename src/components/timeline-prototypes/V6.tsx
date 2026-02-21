@@ -10,7 +10,7 @@ import {
   type ActivitySource, type MockDraftStory, type MockActivity, type TemporalGroup,
 } from './mock-data';
 import {
-  GitBranch, SquareKanban, Hash, FileText, Figma, Video,
+  GitBranch, KanbanSquare, Hash, FileText, Figma, Video,
   ChevronDown, ChevronRight, Filter, Star, ArrowUp, ArrowDown,
 } from 'lucide-react';
 
@@ -37,7 +37,7 @@ const formatDateRange = (start: string, end: string): string => {
 function SourceIcon({ source, className }: { source: ActivitySource; className?: string }) {
   const icons: Record<ActivitySource, React.ReactNode> = {
     github: <GitBranch className={className} />,
-    jira: <SquareKanban className={className} />,
+    jira: <KanbanSquare className={className} />,
     slack: <Hash className={className} />,
     confluence: <FileText className={className} />,
     figma: <Figma className={className} />,
