@@ -57,31 +57,12 @@ jobs:
           az webapp config appsettings set -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --settings PORT=4173 WEBSITES_PORT=4173
           az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}"
 
-      - name: Force VM reallocation via plan scale
-        if: always()
+      - name: Health check
         run: |
-          echo "=== Get current plan SKU ==="
-          PLAN_NAME=$(az webapp show -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --query "appServicePlanId" -o tsv | rev | cut -d'/' -f1 | rev)
-          echo "Plan name: $PLAN_NAME"
-          CURRENT_SKU=$(az appservice plan show -g "${{ secrets.AZ_RG }}" -n "$PLAN_NAME" --query "sku.name" -o tsv)
-          echo "Current SKU: $CURRENT_SKU"
-
-          echo "=== Scale UP to B2 (forces new VM) ==="
-          az appservice plan update -g "${{ secrets.AZ_RG }}" -n "$PLAN_NAME" --sku B2 2>&1
-          echo "Waiting 30s for reallocation..."
+          echo "Waiting 30s for container to start..."
           sleep 30
-
-          echo "=== Scale BACK to original ($CURRENT_SKU) ==="
-          az appservice plan update -g "${{ secrets.AZ_RG }}" -n "$PLAN_NAME" --sku "$CURRENT_SKU" 2>&1
-          echo "Waiting 60s for container to start..."
-          sleep 60
-
-          echo "=== Enable container logging ==="
-          az webapp log config -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" --docker-container-logging filesystem 2>&1 || echo "Failed"
-
-          echo "=== Check container logs (15s) ==="
-          timeout 20 az webapp log tail -g "${{ secrets.AZ_RG }}" -n "${{ secrets.FRONTEND_APPNAME }}" 2>&1 || echo "Log tail ended"
-
-          echo "=== Final health check ==="
-          curl -sI "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net/" 2>&1 || echo "Health check failed"
-          echo "=== Done ==="
+          HTTP_STATUS=$(curl -sI -o /dev/null -w "%{http_code}" "https://${{ secrets.FRONTEND_APPNAME }}.azurewebsites.net/")
+          echo "Health check status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 500 ]; then
+            echo "::warning::Frontend returned HTTP $HTTP_STATUS after deploy"
+          fi
