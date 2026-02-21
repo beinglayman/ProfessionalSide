@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface NarrativeSectionHeaderProps {
@@ -8,6 +8,7 @@ interface NarrativeSectionHeaderProps {
   confidence: number;
   showCoaching?: boolean;
   sourceCount?: number;
+  warningCount?: number;
   isCollapsed: boolean;
   onToggle: () => void;
   isLast?: boolean;
@@ -24,6 +25,7 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
   label,
   confidence,
   sourceCount,
+  warningCount,
   isCollapsed,
   onToggle,
   isLast = false,
@@ -93,6 +95,15 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
                   {sourceCount} source{sourceCount !== 1 ? 's' : ''}
                 </span>
               )}
+              {warningCount !== undefined && warningCount > 0 && (
+                <span
+                  className="text-[10px] flex-shrink-0 text-amber-600 flex items-center gap-0.5"
+                  title="Unverified claims in this section"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  {warningCount}
+                </span>
+              )}
             </>
           )}
 
@@ -103,6 +114,16 @@ export const NarrativeSectionHeader: React.FC<NarrativeSectionHeaderProps> = ({
               showSourceMargin ? 'text-slate-500 font-medium' : 'text-gray-400'
             )}>
               <span className="text-gray-300">&middot;</span> {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {isCollapsed && warningCount !== undefined && warningCount > 0 && (
+            <span
+              className="text-[10px] text-amber-600 flex items-center gap-0.5"
+              title="Unverified claims in this section"
+            >
+              <span className="text-gray-300">&middot;</span>
+              <AlertTriangle className="w-3 h-3" />
+              {warningCount}
             </span>
           )}
         </div>

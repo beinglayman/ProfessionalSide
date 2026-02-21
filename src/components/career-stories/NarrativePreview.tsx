@@ -401,6 +401,7 @@ export function NarrativePreview({
   const coverageColor = sourceCoverage
     ? sourceCoverage.sourced === sourceCoverage.total ? 'text-emerald-600' : 'text-amber-600'
     : '';
+  const totalWarnings = (sourceCoverage?.vagueMetrics?.length || 0) + (sourceCoverage?.ungroundedClaims?.length || 0);
 
   return (
     <NarrativeShell
@@ -491,6 +492,13 @@ export function NarrativePreview({
                       : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </>
+              )}
+
+              {totalWarnings > 0 && (
+                <span className="text-amber-600 flex items-center gap-0.5 text-[10px]">
+                  <AlertTriangle className="w-3 h-3" />
+                  {totalWarnings} unverified
+                </span>
               )}
 
               <div className="flex items-center gap-1 ml-auto">
@@ -651,6 +659,10 @@ export function NarrativePreview({
               const sectionSources = sourcesBySection[sectionKey] || [];
               const activeSources = sectionSources.filter(s => !s.excludedAt && s.sourceType !== 'wizard_answer');
               const isSectionCollapsed = collapsedSections.has(sectionKey);
+              const sectionVagueMetrics = [
+                ...(sourceCoverage?.vagueMetrics?.filter((vm) => vm.sectionKey === sectionKey) || []),
+                ...(sourceCoverage?.ungroundedClaims?.filter((uc) => uc.sectionKey === sectionKey) || []),
+              ];
 
               return (
                 <NarrativeSectionHeader
@@ -660,6 +672,7 @@ export function NarrativePreview({
                   confidence={component.confidence}
                   showCoaching={showCoaching}
                   sourceCount={activeSources.length}
+                  warningCount={sectionVagueMetrics.length}
                   isCollapsed={isSectionCollapsed}
                   onToggle={() => toggleSection(sectionKey)}
                   isLast={idx === sectionKeys.length - 1}
@@ -715,9 +728,7 @@ export function NarrativePreview({
                     <SourceFootnotes
                       sources={sectionSources}
                       sectionKey={sectionKey}
-                      vagueMetrics={
-                        sourceCoverage?.vagueMetrics.filter((vm) => vm.sectionKey === sectionKey) || []
-                      }
+                      vagueMetrics={sectionVagueMetrics}
                       onExclude={handleExcludeSource}
                       onUndoExclude={handleUndoExclude}
                       isEditing={isEditing}

@@ -502,6 +502,11 @@ export interface SourceCoverage {
     match: string;
     suggestion: string;
   }>;
+  ungroundedClaims?: Array<{
+    sectionKey: string;
+    match: string;
+    suggestion: string;
+  }>;
 }
 
 // =============================================================================
