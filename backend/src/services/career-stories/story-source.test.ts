@@ -134,4 +134,82 @@ describe('StorySourceService', () => {
     expect(coverage.sourced).toBe(0);
     expect(coverage.gaps).toContain('situation');
   });
+
+  // =========================================================================
+  // UNGROUNDED CLAIMS
+  // =========================================================================
+
+  it('flags ungrounded percentage claim in unsourced section', () => {
+    const sections = {
+      result: { summary: 'We achieved a 40% improvement in response time.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['result']);
+    expect(coverage.ungroundedClaims.length).toBe(1);
+    expect(coverage.ungroundedClaims[0].sectionKey).toBe('result');
+    expect(coverage.ungroundedClaims[0].match).toContain('40%');
+  });
+
+  it('does NOT flag claims in sourced sections', () => {
+    const sources = [
+      { id: '1', storyId: 'x', derivationId: null, sectionKey: 'result', sourceType: 'activity', activityId: null, label: 'PR', content: null, url: null, annotation: null, toolType: null, role: null, questionId: null, sortOrder: 0, excludedAt: null, createdAt: new Date(), updatedAt: new Date() },
+    ];
+    const sections = {
+      result: { summary: 'We achieved a 40% improvement in response time.' },
+    };
+    const coverage = service.computeCoverage(sources as any, sections, ['result']);
+    expect(coverage.ungroundedClaims.length).toBe(0);
+  });
+
+  it('flags cost claims in unsourced sections', () => {
+    const sections = {
+      result: { summary: 'This saved $50,000 in operational costs.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['result']);
+    expect(coverage.ungroundedClaims.length).toBe(1);
+    expect(coverage.ungroundedClaims[0].match).toContain('saved $50,000');
+  });
+
+  it('flags team size claims in unsourced sections', () => {
+    const sections = {
+      action: { summary: 'I led a team of 12 engineers to build the system.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['action']);
+    expect(coverage.ungroundedClaims.length).toBe(1);
+    expect(coverage.ungroundedClaims[0].match).toContain('led a team of 12');
+  });
+
+  it('flags superlative claims in unsourced sections', () => {
+    const sections = {
+      result: { summary: 'This was the first ever automated deployment pipeline.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['result']);
+    expect(coverage.ungroundedClaims.length).toBe(1);
+    expect(coverage.ungroundedClaims[0].match).toContain('first ever');
+  });
+
+  it('flags multiplier claims in unsourced sections', () => {
+    const sections = {
+      result: { summary: 'We achieved 3x faster deployments.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['result']);
+    expect(coverage.ungroundedClaims.length).toBe(1);
+    expect(coverage.ungroundedClaims[0].match).toContain('3x faster');
+  });
+
+  it('returns empty ungroundedClaims when no patterns match', () => {
+    const sections = {
+      situation: { summary: 'The team was working on a new project.' },
+      action: { summary: 'We built a prototype.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['situation', 'action']);
+    expect(coverage.ungroundedClaims).toEqual([]);
+  });
+
+  it('limits to one ungrounded claim per section', () => {
+    const sections = {
+      result: { summary: 'We achieved 40% improvement and saved $100,000 and led a team of 5.' },
+    };
+    const coverage = service.computeCoverage([], sections, ['result']);
+    expect(coverage.ungroundedClaims.length).toBe(1);
+  });
 });

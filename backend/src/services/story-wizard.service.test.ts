@@ -253,13 +253,14 @@ describe('StoryWizardService', () => {
   });
 
   describe('analyzeEntry (dynamic questions)', () => {
+    // Ordered as dig, impact, growth to ensure enforceQuestionCount (3) gets all phases
     const VALID_DYNAMIC_QUESTIONS = JSON.stringify([
       { id: 'ff-dig-1', phase: 'dig', question: 'You mentioned getting paged at 2am — what did the alert say exactly?', hint: 'The specific error message or dashboard.' },
+      { id: 'ff-impact-1', phase: 'impact', question: 'You said $500K — how did you calculate that number?', hint: 'Revenue per minute, affected transactions.' },
+      { id: 'ff-growth-1', phase: 'growth', question: 'You mentioned comprehensive monitoring — what specifically did you set up after?', hint: 'A concrete runbook or alert that exists today.' },
       { id: 'ff-dig-2', phase: 'dig', question: 'Sarah from platform and Marcus from orders — who did you call first?', hint: 'Name the person and what you said.' },
       { id: 'ff-dig-3', phase: 'dig', question: 'What was the hardest dead end before you found the race condition?', hint: 'The wrong hypothesis you chased.' },
-      { id: 'ff-impact-1', phase: 'impact', question: 'You said $500K — how did you calculate that number?', hint: 'Revenue per minute, affected transactions.' },
       { id: 'ff-impact-2', phase: 'impact', question: 'How long from the 2am alert to the fix being deployed?', hint: 'Total minutes or hours.' },
-      { id: 'ff-growth-1', phase: 'growth', question: 'You mentioned comprehensive monitoring — what specifically did you set up after?', hint: 'A concrete runbook or alert that exists today.' },
     ]);
 
     afterEach(() => {
@@ -275,7 +276,8 @@ describe('StoryWizardService', () => {
       const service = createStoryWizardService(true);
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
-      expect(result.questions).toHaveLength(6);
+      // enforceQuestionCount trims to 3 (RJ-6)
+      expect(result.questions).toHaveLength(3);
       expect(result.questions[0].question).toContain('2am');
     });
 
@@ -289,14 +291,11 @@ describe('StoryWizardService', () => {
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
       const dig1 = result.questions.find((q) => q.id.includes('dig-1'));
-      const impact1 = result.questions.find((q) => q.id.includes('impact-1'));
       expect(dig1?.options).toBeDefined();
       expect(dig1?.options?.length).toBeGreaterThan(0);
-      expect(impact1?.options).toBeDefined();
-      expect(impact1?.options?.length).toBeGreaterThan(0);
     });
 
-    it('should preserve phase distribution (3/2/1) in dynamic questions', async () => {
+    it('should ensure all three D-I-G phases present in enforced questions', async () => {
       mockGetModelSelector.mockReturnValue({
         executeTask: vi.fn().mockResolvedValue({ content: VALID_DYNAMIC_QUESTIONS }),
       });
@@ -305,10 +304,11 @@ describe('StoryWizardService', () => {
       const service = createStoryWizardService(true);
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
+      // enforceQuestionCount ensures 1 per phase (D-I-G)
       const phases = result.questions.map((q) => q.phase);
-      expect(phases.filter((p) => p === 'dig')).toHaveLength(3);
-      expect(phases.filter((p) => p === 'impact')).toHaveLength(2);
-      expect(phases.filter((p) => p === 'growth')).toHaveLength(1);
+      expect(phases).toContain('dig');
+      expect(phases).toContain('impact');
+      expect(phases).toContain('growth');
     });
 
     it('should fall back to static questions when LLM returns invalid JSON', async () => {
@@ -320,8 +320,8 @@ describe('StoryWizardService', () => {
       const service = createStoryWizardService(true);
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
-      expect(result.questions).toHaveLength(6);
-      // Static firefighter questions start with "What was the moment"
+      // Static fallback picks 1 per D-I-G phase = 3 questions (RJ-6)
+      expect(result.questions).toHaveLength(3);
       expect(result.questions[0].question).toContain('moment you realized');
     });
 
@@ -332,7 +332,8 @@ describe('StoryWizardService', () => {
       const service = createStoryWizardService(true);
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
-      expect(result.questions).toHaveLength(6);
+      // Static fallback picks 1 per D-I-G phase = 3 questions (RJ-6)
+      expect(result.questions).toHaveLength(3);
       expect(result.questions[0].question).toContain('moment you realized');
     });
 
@@ -345,7 +346,8 @@ describe('StoryWizardService', () => {
       const service = createStoryWizardService(true);
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
-      expect(result.questions).toHaveLength(6);
+      // Static fallback picks 1 per D-I-G phase = 3 questions (RJ-6)
+      expect(result.questions).toHaveLength(3);
       expect(result.questions[0].question).toContain('moment you realized');
     });
 
@@ -358,23 +360,21 @@ describe('StoryWizardService', () => {
       const service = createStoryWizardService(true);
       const result = await service.analyzeEntry(entry.id, TEST_USER_ID);
 
-      // All question IDs should contain the standard patterns
+      // enforceQuestionCount trims to 3 — one per D-I-G phase
       const ids = result.questions.map((q) => q.id);
-      expect(ids.some((id) => id.includes('dig-1'))).toBe(true);
-      expect(ids.some((id) => id.includes('dig-2'))).toBe(true);
-      expect(ids.some((id) => id.includes('dig-3'))).toBe(true);
-      expect(ids.some((id) => id.includes('impact-1'))).toBe(true);
-      expect(ids.some((id) => id.includes('impact-2'))).toBe(true);
-      expect(ids.some((id) => id.includes('growth-1'))).toBe(true);
+      expect(ids.length).toBe(3);
+      // Should have dig, impact, and growth question IDs
+      expect(ids.some((id) => id.includes('dig'))).toBe(true);
+      expect(ids.some((id) => id.includes('impact'))).toBe(true);
+      expect(ids.some((id) => id.includes('growth'))).toBe(true);
 
-      // Verify answersToContext works with dynamic IDs
+      // Verify answersToContext works with enforced IDs
+      const digId = ids.find((id) => id.includes('dig'))!;
       const answers = {
-        [ids[0]]: { selected: ['paged'], freeText: 'Got paged at 2am' },
-        [ids[3]]: { selected: ['revenue_risk'], freeText: 'Would have lost $500K' },
+        [digId]: { selected: ['paged'], freeText: 'Got paged at 2am' },
       };
       const context = answersToContext(answers);
       expect(context.realStory).toBeTruthy();
-      expect(context.counterfactual).toBeTruthy();
     });
   });
 
@@ -590,6 +590,49 @@ describe('answersToContext', () => {
       'test': { selected: null as unknown as string[], freeText: undefined },
     });
     expect(result).toEqual({});
+  });
+
+  it('should extract namedPeople from ALL answers when dig-2 path misses', () => {
+    // Only has growth answer — no dig-2, so namedPeople isn't set via specific path
+    const result = answersToContext({
+      'any-growth-1': { selected: [], freeText: 'Sarah and Marcus helped with monitoring setup' },
+    });
+    expect(result.learning).toBe('Sarah and Marcus helped with monitoring setup');
+    expect(result.namedPeople).toEqual(expect.arrayContaining(['Sarah', 'Marcus']));
+  });
+
+  it('should extract metric from ALL answers when impact-2 path misses', () => {
+    // Only has dig-1 answer — no impact-2, so metric isn't set via specific path
+    const result = answersToContext({
+      'any-dig-1': { selected: [], freeText: 'Fixed a bug that affected 500 users per day' },
+    });
+    expect(result.realStory).toBe('Fixed a bug that affected 500 users per day');
+    expect(result.metric).toBe('500 users');
+  });
+
+  it('should NOT override namedPeople when dig-2 path already sets it', () => {
+    const result = answersToContext({
+      'firefighter-dig-2': { selected: [], freeText: 'Called Sarah for help' },
+      'any-growth-1': { selected: [], freeText: 'Marcus also helped later' },
+    });
+    // dig-2 path sets namedPeople to ['Sarah'], fallback should NOT override
+    expect(result.namedPeople).toEqual(['Sarah']);
+  });
+
+  it('should NOT override metric when impact-2 path already sets it', () => {
+    const result = answersToContext({
+      'any-impact-2': { selected: [], freeText: 'Fixed in 3 hours' },
+      'any-dig-1': { selected: [], freeText: 'Saved 50% of revenue' },
+    });
+    // impact-2 path sets metric, fallback should NOT override
+    expect(result.metric).toBe('Fixed in 3 hours');
+  });
+
+  it('should NOT set namedPeople to empty array when no names found in fallback', () => {
+    const result = answersToContext({
+      'any-growth-1': { selected: [], freeText: 'the system was improved' },
+    });
+    expect(result.namedPeople).toBeUndefined();
   });
 });
 

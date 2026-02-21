@@ -351,8 +351,8 @@ describe('NarrativePreview', () => {
       // Open the More dropdown
       await user.click(screen.getByLabelText('More actions'));
 
-      // Click Regenerate
-      await user.click(screen.getByText('Regenerate'));
+      // Click "Regenerate from scratch" (actual menu item text)
+      await user.click(screen.getByText('Regenerate from scratch'));
 
       expect(onRegenerate).toHaveBeenCalledTimes(1);
     });
@@ -455,7 +455,7 @@ describe('NarrativePreview', () => {
         <NarrativePreview
           {...defaultProps}
           sources={createSources()}
-          sourceCoverage={{ sourced: 2, total: 4, vagueMetrics: [] }}
+          sourceCoverage={{ sourced: 2, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
         />
       );
 
@@ -469,7 +469,7 @@ describe('NarrativePreview', () => {
         <NarrativePreview
           {...defaultProps}
           sources={createSources()}
-          sourceCoverage={{ sourced: 2, total: 4, vagueMetrics: [] }}
+          sourceCoverage={{ sourced: 2, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
         />
       );
 
@@ -492,7 +492,7 @@ describe('NarrativePreview', () => {
         <NarrativePreview
           {...defaultProps}
           sources={createSources()}
-          sourceCoverage={{ sourced: 2, total: 4, vagueMetrics: [] }}
+          sourceCoverage={{ sourced: 2, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
         />
       );
 
@@ -539,7 +539,7 @@ describe('NarrativePreview', () => {
       renderWithProviders(
         <NarrativePreview
           {...defaultProps}
-          sourceCoverage={{ sourced: 3, total: 4, vagueMetrics: [] }}
+          sourceCoverage={{ sourced: 3, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
         />
       );
 
