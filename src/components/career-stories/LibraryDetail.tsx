@@ -25,6 +25,7 @@ import { MarginColumn } from './MarginColumn';
 import { AnnotatedText } from './AnnotatedText';
 import { PracticeTimer } from './PracticeTimer';
 import { useLibraryDetailData } from './useLibraryDetailData';
+import { mergeWarningAnnotations } from '../../lib/warning-annotations';
 
 // =============================================================================
 // HELPERS
@@ -182,7 +183,7 @@ function DocumentView({ item, sectionKeys, sections, text, activitySources, sour
               <div className="relative">
                 <AnnotatedText
                   text={sectionText}
-                  annotations={annotations}
+                  annotations={mergeWarningAnnotations(annotations, sectionKey, sectionText, sourceCoverage)}
                   sectionKey={sectionKey}
                   showEmphasis={shell.showEmphasis}
                   onAnnotationClick={shell.annotationHandlers.onAnnotationClick}

@@ -53,24 +53,32 @@ export const AnnotatedText: React.FC<AnnotatedTextProps> = ({
   return (
     <p ref={contentRef} className={cn('text-[15px] leading-[1.75] text-gray-800', className)}>
       {sectionAnnotations.length > 0
-        ? splitTextByAnnotations(text, sectionAnnotations).map((seg, i) =>
-            seg.annotationId ? (
+        ? splitTextByAnnotations(text, sectionAnnotations).map((seg, i) => {
+            if (!seg.annotationId) {
+              return <React.Fragment key={`seg-${i}`}>{renderEmphasisContent(seg.text, showEmphasis, sectionKey)}</React.Fragment>;
+            }
+
+            const isWarning = seg.annotationId.startsWith('warning-');
+
+            return (
               <span
                 key={`ann-${seg.annotationId}`}
                 data-annotation-id={seg.annotationId}
                 className={cn(
-                  'relative cursor-pointer transition-shadow duration-150 rounded-sm group/ann inline',
+                  'relative transition-shadow duration-150 rounded-sm inline',
+                  isWarning ? 'cursor-default' : 'cursor-pointer group/ann',
                 )}
                 style={hoveredAnnotationId === seg.annotationId
                   ? { boxShadow: hoverRingShadow(seg.annotation?.color) }
                   : undefined
                 }
-                onClick={(e) => onAnnotationClick?.(seg.annotationId!, e.currentTarget)}
+                title={isWarning ? seg.annotation?.note || undefined : undefined}
+                onClick={isWarning ? undefined : (e) => onAnnotationClick?.(seg.annotationId!, e.currentTarget)}
                 onMouseEnter={() => onHoverAnnotation?.(seg.annotationId!)}
                 onMouseLeave={() => onHoverAnnotation?.(null)}
               >
                 {renderEmphasisContent(seg.text, showEmphasis, sectionKey)}
-                {onDeleteAnnotation && (
+                {!isWarning && onDeleteAnnotation && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -84,10 +92,8 @@ export const AnnotatedText: React.FC<AnnotatedTextProps> = ({
                   </button>
                 )}
               </span>
-            ) : (
-              <React.Fragment key={`seg-${i}`}>{renderEmphasisContent(seg.text, showEmphasis, sectionKey)}</React.Fragment>
-            )
-          )
+            );
+          })
         : renderEmphasisContent(text, showEmphasis, sectionKey)}
     </p>
   );

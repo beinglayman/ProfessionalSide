@@ -78,6 +78,7 @@ import { MarginColumn } from './MarginColumn';
 import { SourceMargin } from './SourceMargin';
 import { NarrativeShell } from './NarrativeShell';
 import { groupSourcesBySection } from './derivation-helpers';
+import { mergeWarningAnnotations } from '../../lib/warning-annotations';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -722,7 +723,7 @@ export function NarrativePreview({
                       showDeliveryCues={shell.practiceMode}
                       showEmphasis={shell.showEmphasis}
                       hideHeader
-                      annotations={story?.annotations}
+                      annotations={mergeWarningAnnotations(story?.annotations, sectionKey, component.text, sourceCoverage)}
                       onAnnotationClick={shell.annotationHandlers.onAnnotationClick}
                       onDeleteAnnotation={shell.annotationHandlers.onDeleteAnnotation}
                       hoveredAnnotationId={shell.annotationHandlers.hoveredAnnotationId}
