@@ -158,52 +158,62 @@ export function useOAuthFlow() {
 
 // ── Disconnect Flow Hook ───────────────────────────────────────────────────
 
+export interface PendingDisconnect {
+  tools: MCPToolType[];
+  label: string;
+}
+
 export function useDisconnectFlow() {
   const [disconnectingTool, setDisconnectingTool] = useState<MCPToolType | null>(null);
+  const [pendingDisconnect, setPendingDisconnect] = useState<PendingDisconnect | null>(null);
   const { mutate: disconnect, isPending: isDisconnecting } = useDisconnectIntegration();
 
-  const handleDisconnect = useCallback(
+  /** Opens the confirmation dialog for a single tool. */
+  const requestDisconnect = useCallback(
     (toolType: MCPToolType) => {
       const toolName = (TOOL_METADATA as any)[toolType]?.name ?? toolType;
-      if (!confirm(`Are you sure you want to disconnect ${toolName}?`)) return;
-
-      setDisconnectingTool(toolType);
-      disconnect(toolType, {
-        onSettled: () => setDisconnectingTool(null),
-      });
+      setPendingDisconnect({ tools: [toolType], label: toolName });
     },
-    [disconnect]
+    []
   );
 
-  const handleDisconnectGroup = useCallback(
+  /** Opens the confirmation dialog for all connected tools in a group. */
+  const requestDisconnectGroup = useCallback(
     (groupId: IntegrationGroupId, getConnectionStatus: (t: MCPToolType) => ConnectionStatus) => {
       const group = INTEGRATION_GROUPS.find(g => g.id === groupId);
       if (!group) return;
 
       const connectedTools = group.tools.filter(
         t => getConnectionStatus(t as MCPToolType) === 'connected'
-      );
+      ) as MCPToolType[];
       if (connectedTools.length === 0) return;
 
-      const toolNames = connectedTools
+      const label = connectedTools
         .map(t => (TOOL_METADATA as any)[t]?.name ?? t)
         .join(' and ');
-      if (!confirm(`Are you sure you want to disconnect ${toolNames}?`)) return;
-
-      connectedTools.forEach(tool => {
-        setDisconnectingTool(tool as MCPToolType);
-        disconnect(tool as MCPToolType, {
-          onSettled: () => setDisconnectingTool(null),
-        });
-      });
+      setPendingDisconnect({ tools: connectedTools, label });
     },
-    [disconnect]
+    []
   );
+
+  /** Executes the pending disconnect (called by ConfirmationDialog onConfirm). */
+  const confirmDisconnect = useCallback(() => {
+    if (!pendingDisconnect) return;
+    for (const tool of pendingDisconnect.tools) {
+      setDisconnectingTool(tool);
+      disconnect(tool, {
+        onSettled: () => setDisconnectingTool(null),
+      });
+    }
+  }, [disconnect, pendingDisconnect]);
 
   return {
     disconnectingTool,
     isDisconnecting,
-    handleDisconnect,
-    handleDisconnectGroup,
+    pendingDisconnect,
+    setPendingDisconnect,
+    requestDisconnect,
+    requestDisconnectGroup,
+    confirmDisconnect,
   };
 }
