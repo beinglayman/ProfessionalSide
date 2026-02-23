@@ -35,7 +35,7 @@ const JOURNAL_WINDOW_SIZE_DAYS = 7;
 const MIN_ACTIVITIES_PER_ENTRY = 3;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
-const DEFAULT_PRODUCTION_WORKSPACE_ID = 'production-workspace';
+const DEFAULT_WORKSPACE_NAME = 'My Workspace';
 
 // =============================================================================
 // TYPES
@@ -583,11 +583,23 @@ async function createProductionJournalEntries(
 ): Promise<{ entries: JournalEntryData[]; temporalCount: number; clusterCount: number }> {
   if (activities.length === 0) return { entries: [], temporalCount: 0, clusterCount: 0 };
 
-  // Query workspace ONCE
-  const workspace = await prisma.workspace.findFirst({
+  // Ensure workspace exists (create if missing — handles sync before onboarding completes)
+  let workspace = await prisma.workspace.findFirst({
     where: { members: { some: { userId } } },
   });
-  const workspaceId = workspace?.id || DEFAULT_PRODUCTION_WORKSPACE_ID;
+  if (!workspace) {
+    workspace = await prisma.workspace.create({
+      data: {
+        name: DEFAULT_WORKSPACE_NAME,
+        description: 'Auto-created during sync',
+        isPersonal: true,
+        allowTeamMembers: false,
+        members: { create: { userId, role: 'owner', permissions: {} } },
+      },
+    });
+    log.debug(`Created workspace ${workspace.id} for user ${userId}`);
+  }
+  const workspaceId = workspace.id;
 
   // 1. Find orphan activities (not in any cluster after Layer 1 + Layer 2)
   const clusteredIds = new Set(inMemoryClusters.flatMap(c => c.activityIds));
