@@ -64,6 +64,7 @@ import { JournalEntry } from '../../types/journal';
 import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry, useDeleteJournalEntry } from '../../hooks/useJournal';
 import { useQueryClient } from '@tanstack/react-query';
 import { JournalService } from '../../services/journal.service';
+import { CareerStoriesService } from '../../services/career-stories.service';
 import { useProfile } from '../../hooks/useProfile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
@@ -419,9 +420,16 @@ export default function JournalPage() {
   // Handle Story Wizard completion - navigate to career stories page with the new story
   const handleStoryWizardComplete = async (storyId: string) => {
     setStoryWizardEntryId(null);
-    // Ensure the career stories cache is fresh before navigating,
-    // otherwise the page may render with stale/empty data
-    await queryClient.invalidateQueries({ queryKey: ['career-stories', 'stories'] });
+    // Pre-fetch career stories so the data is in cache when the stories page mounts.
+    // invalidateQueries alone won't refetch since there's no active observer on this page.
+    await queryClient.fetchQuery({
+      queryKey: ['career-stories', 'stories'],
+      queryFn: async () => {
+        const response = await CareerStoriesService.listStories();
+        if (response.success && response.data) return response.data;
+        throw new Error(response.error || 'Failed to fetch career stories');
+      },
+    });
     navigate(`/stories?storyId=${storyId}&celebrate=true`);
   };
 
