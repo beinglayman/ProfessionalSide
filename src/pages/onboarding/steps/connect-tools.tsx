@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui/button';
-import { Check, ExternalLink, Loader2 } from 'lucide-react';
-import { useMCPOAuth, useMCPGroupOAuth, useMCPIntegrations } from '../../../hooks/useMCP';
+import { Check, Clock, ExternalLink, Loader2 } from 'lucide-react';
 import { MCPToolType } from '../../../services/mcp.service';
+import { ToolIcon } from '../../../components/icons/ToolIcons';
+import {
+  ONBOARDING_BUCKETS,
+  OnboardingBucket,
+  getOnboardingBucketId,
+} from '../../../constants/tool-groups';
+import { useToolConnections, useOAuthFlow } from '../../../hooks/useToolConnections';
 
 interface ConnectToolsProps {
   data: Record<string, unknown>;
@@ -13,71 +19,14 @@ interface ConnectToolsProps {
   isLastStep?: boolean;
 }
 
-interface ToolBucket {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  toolType?: MCPToolType;
-  groupType?: 'atlassian' | 'microsoft';
-  subTools: string[];
-  comingSoon?: boolean;
-}
-
 /** localStorage key for preserving onboarding state across OAuth redirects */
 export const ONBOARDING_STORAGE_KEY = 'onboarding-oauth-return';
 
 /**
- * Maps each backend tool type to its onboarding bucket ID.
- * Tools not listed here (figma, slack, zoom) don't have a bucket yet
- * and won't light up any onboarding card if connected via settings.
+ * @deprecated Use getOnboardingBucketId() from constants/tool-groups.ts instead.
+ * Kept as a re-export for backward compatibility with existing tests.
  */
-export const TOOL_TO_BUCKET: Record<string, string> = {
-  github: 'github',
-  jira: 'atlassian',
-  confluence: 'atlassian',
-  outlook: 'microsoft',
-  teams: 'microsoft',
-  onedrive: 'microsoft',
-  onenote: 'microsoft',
-  sharepoint: 'microsoft',
-  google_workspace: 'google',
-};
-
-export const TOOL_BUCKETS: ToolBucket[] = [
-  {
-    id: 'github',
-    name: 'GitHub',
-    description: 'Pull requests, commits, code reviews, and releases',
-    icon: '🐙',
-    toolType: MCPToolType.GITHUB,
-    subTools: ['PRs', 'Commits', 'Reviews'],
-  },
-  {
-    id: 'atlassian',
-    name: 'Atlassian',
-    description: 'Jira issues, sprints, and Confluence docs',
-    icon: '🔷',
-    groupType: 'atlassian',
-    subTools: ['Jira', 'Confluence'],
-  },
-  {
-    id: 'microsoft',
-    name: 'Microsoft 365',
-    description: 'Outlook calendar, Teams messages, and OneDrive files',
-    icon: '📧',
-    groupType: 'microsoft',
-    subTools: ['Outlook', 'Teams', 'OneDrive'],
-  },
-  {
-    id: 'google',
-    name: 'Google Workspace',
-    description: 'Calendar events and Google Drive activity',
-    icon: '🔍',
-    toolType: MCPToolType.GOOGLE_WORKSPACE,
-    subTools: ['Calendar', 'Drive'],
-  },
-];
+export { getOnboardingBucketId as _getOnboardingBucketId };
 
 export function ConnectToolsStep({
   data,
@@ -85,30 +34,15 @@ export function ConnectToolsStep({
   onNext,
   onPrevious,
 }: ConnectToolsProps) {
-  const [connectingTool, setConnectingTool] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const { data: integrationData } = useMCPIntegrations();
-  const { mutate: initiateOAuth } = useMCPOAuth();
-  const { mutate: initiateGroupOAuth } = useMCPGroupOAuth();
-
-  // Determine which buckets have real connections
-  const connectedBucketIds = new Set<string>();
-  const integrations = integrationData?.integrations ?? [];
-  for (const integration of integrations) {
-    if (!integration.isConnected) continue;
-    const bucketId = TOOL_TO_BUCKET[integration.toolType];
-    if (bucketId) connectedBucketIds.add(bucketId);
-  }
+  const { connectedBucketIds } = useToolConnections();
+  const { connectingId, error, setError, handleConnect, handleConnectGroup } = useOAuthFlow();
 
   const hasRealConnection = connectedBucketIds.size > 0;
 
-  const handleConnectTool = (bucket: ToolBucket) => {
+  const handleConnectBucket = (bucket: OnboardingBucket) => {
     if (bucket.comingSoon) return;
-
-    setConnectingTool(bucket.id);
-    setError('');
 
     // Save onboarding state before OAuth redirect (page will unload)
     localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
@@ -116,18 +50,10 @@ export function ConnectToolsStep({
       ts: Date.now(),
     }));
 
-    const callbacks = {
-      onSuccess: (data: { authUrl: string }) => { window.location.href = data.authUrl; },
-      onError: (err: any) => {
-        setError(err.response?.data?.error || `Failed to connect ${bucket.name}`);
-        setConnectingTool(null);
-      },
-    };
-
-    if (bucket.groupType) {
-      initiateGroupOAuth({ groupType: bucket.groupType }, callbacks);
+    if (bucket.groupId) {
+      handleConnectGroup(bucket.groupId);
     } else if (bucket.toolType) {
-      initiateOAuth({ toolType: bucket.toolType }, callbacks);
+      handleConnect(bucket.toolType);
     }
   };
 
@@ -174,9 +100,11 @@ export function ConnectToolsStep({
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
-        {TOOL_BUCKETS.map((bucket) => {
+        {ONBOARDING_BUCKETS.map((bucket) => {
           const isConnected = connectedBucketIds.has(bucket.id);
-          const isConnecting = connectingTool === bucket.id;
+          const isConnecting = connectingId === bucket.id
+            || connectingId === bucket.groupId
+            || connectingId === bucket.toolType;
           const isComingSoon = bucket.comingSoon;
 
           return (
@@ -191,7 +119,9 @@ export function ConnectToolsStep({
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="text-2xl flex-shrink-0">{bucket.icon}</div>
+                <div className="flex-shrink-0 p-1.5 rounded-lg bg-gray-50">
+                  <ToolIcon tool={bucket.iconTool} size={24} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm text-gray-900">{bucket.name}</p>
@@ -221,8 +151,8 @@ export function ConnectToolsStep({
                     </span>
                   ) : (
                     <button
-                      onClick={() => handleConnectTool(bucket)}
-                      disabled={connectingTool !== null}
+                      onClick={() => handleConnectBucket(bucket)}
+                      disabled={connectingId !== null}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 rounded-md hover:bg-primary-100 transition-colors disabled:opacity-50"
                     >
                       <ExternalLink className="w-3 h-3" />
@@ -233,7 +163,7 @@ export function ConnectToolsStep({
               </div>
               {/* Sub-tool chips */}
               <div className="flex flex-wrap gap-1.5 ml-10">
-                {bucket.subTools.map((sub) => (
+                {bucket.subToolLabels.map((sub) => (
                   <span
                     key={sub}
                     className={`px-2 py-0.5 text-[11px] rounded-full ${

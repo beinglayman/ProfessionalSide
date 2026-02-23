@@ -7,6 +7,7 @@ import { getContentSanitizerService } from '../services/mcp/content-sanitizer.se
 import { MCPToolType } from '../types/mcp.types';
 import { isDemoModeRequest } from '../middleware/demo-mode.middleware';
 import { oauthService } from '../services/mcp/mcp-oauth.service';
+import { TOOL_METADATA, ALL_TOOL_TYPES } from '../constants/tools';
 
 /**
  * Get available MCP tools and their connection status
@@ -101,20 +102,8 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
       }
     });
 
-    // Tool metadata
-    const toolMetadata: Record<string, { name: string; description: string }> = {
-      github: { name: 'GitHub', description: 'Code contributions and repositories' },
-      jira: { name: 'Jira', description: 'Task completions and sprint activity' },
-      figma: { name: 'Figma', description: 'Design contributions and projects' },
-      outlook: { name: 'Outlook', description: 'Meeting notes and calendar events' },
-      confluence: { name: 'Confluence', description: 'Documentation updates' },
-      slack: { name: 'Slack', description: 'Important messages and discussions' },
-      teams: { name: 'Microsoft Teams', description: 'Meeting notes and chat discussions' },
-      onedrive: { name: 'OneDrive', description: 'OneDrive file changes and collaboration' },
-      onenote: { name: 'OneNote', description: 'OneNote pages, notebooks, and notes' },
-      zoom: { name: 'Zoom', description: 'Meeting recordings and transcripts' },
-      google_workspace: { name: 'Google Workspace', description: 'Google Docs, Sheets, Slides, Drive, and Meet' }
-    };
+    // Tool metadata — single source of truth
+    const toolMetadata = TOOL_METADATA;
 
     // Demo mode: show tools as connected to match seeded demo activities
     // Each integration group got connected at a different time (staggered onboarding)
@@ -134,7 +123,7 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
     const demoLastSyncAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours ago
 
     // Ensure all tools are represented
-    const allTools = ['github', 'jira', 'figma', 'outlook', 'confluence', 'slack', 'teams', 'onedrive', 'onenote', 'zoom', 'google_workspace'];
+    const allTools = ALL_TOOL_TYPES;
     const integrationMap = new Map(integrations.map(i => [i.toolType, i]));
 
     const allIntegrations = allTools.map(tool => {

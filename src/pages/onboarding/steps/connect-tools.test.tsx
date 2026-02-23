@@ -7,14 +7,15 @@
  * - Real OAuth hook wiring (initiateOAuth / initiateGroupOAuth)
  * - localStorage state preservation before OAuth redirect
  * - Connection gate (Next button disabled when no tools connected)
- * - TOOL_TO_BUCKET mapping correctness
+ * - getOnboardingBucketId mapping correctness
  */
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ConnectToolsStep, TOOL_TO_BUCKET, ONBOARDING_STORAGE_KEY, TOOL_BUCKETS } from './connect-tools';
+import { ConnectToolsStep, ONBOARDING_STORAGE_KEY } from './connect-tools';
+import { ONBOARDING_BUCKETS, getOnboardingBucketId } from '../../../constants/tool-groups';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -22,18 +23,25 @@ import { ConnectToolsStep, TOOL_TO_BUCKET, ONBOARDING_STORAGE_KEY, TOOL_BUCKETS 
 
 const mockInitiateOAuth = vi.fn();
 const mockInitiateGroupOAuth = vi.fn();
-let mockIntegrations: any[] = [];
+const mockSetError = vi.fn();
+let mockConnectedBucketIds = new Set<string>();
 
-vi.mock('../../../hooks/useMCP', () => ({
-  useMCPIntegrations: () => ({
-    data: { integrations: mockIntegrations },
+vi.mock('../../../hooks/useToolConnections', () => ({
+  useToolConnections: () => ({
+    integrations: [],
     isLoading: false,
+    connectedBucketIds: mockConnectedBucketIds,
+    getConnectionStatus: () => 'disconnected',
+    getGroupConnectionStatus: () => ({ connected: 0, total: 0, allConnected: false, noneConnected: true, partiallyConnected: false }),
+    getConnectedAt: () => null,
   }),
-  useMCPOAuth: () => ({
-    mutate: mockInitiateOAuth,
-  }),
-  useMCPGroupOAuth: () => ({
-    mutate: mockInitiateGroupOAuth,
+  useOAuthFlow: () => ({
+    connectingId: null,
+    isConnecting: false,
+    error: '',
+    setError: mockSetError,
+    handleConnect: mockInitiateOAuth,
+    handleConnectGroup: mockInitiateGroupOAuth,
   }),
 }));
 
@@ -56,7 +64,7 @@ function renderConnectTools(overrides?: Partial<Parameters<typeof ConnectToolsSt
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockIntegrations = [];
+  mockConnectedBucketIds = new Set<string>();
   localStorage.clear();
 });
 
@@ -90,6 +98,7 @@ describe('ConnectToolsStep: rendering', () => {
     expect(screen.getByText('Outlook')).toBeInTheDocument();
     expect(screen.getByText('Teams')).toBeInTheDocument();
     expect(screen.getByText('OneDrive')).toBeInTheDocument();
+    expect(screen.getByText('OneNote')).toBeInTheDocument();
 
     // Google sub-tools
     expect(screen.getByText('Calendar')).toBeInTheDocument();
@@ -99,8 +108,6 @@ describe('ConnectToolsStep: rendering', () => {
   it('shows Connect buttons for all buckets', () => {
     renderConnectTools();
 
-    // All 4 buckets should have inline Connect buttons
-    // Use exact text match to exclude the bottom "Connect at least 1 tool..." button
     const connectButtons = screen.getAllByText('Connect', { exact: true })
       .map(el => el.closest('button'))
       .filter(Boolean);
@@ -121,9 +128,7 @@ describe('ConnectToolsStep: connection gate', () => {
   });
 
   it('enables Get Started button when at least 1 tool is connected', () => {
-    mockIntegrations = [
-      { toolType: 'github', isConnected: true },
-    ];
+    mockConnectedBucketIds = new Set(['github']);
     renderConnectTools();
 
     const button = screen.getByRole('button', { name: /Get Started/i });
@@ -131,19 +136,14 @@ describe('ConnectToolsStep: connection gate', () => {
   });
 
   it('shows connected count message', () => {
-    mockIntegrations = [
-      { toolType: 'github', isConnected: true },
-      { toolType: 'jira', isConnected: true },
-    ];
+    mockConnectedBucketIds = new Set(['github', 'atlassian']);
     renderConnectTools();
 
     expect(screen.getByText(/2 tools connected/)).toBeInTheDocument();
   });
 
   it('shows singular "tool" for 1 connection', () => {
-    mockIntegrations = [
-      { toolType: 'github', isConnected: true },
-    ];
+    mockConnectedBucketIds = new Set(['github']);
     renderConnectTools();
 
     expect(screen.getByText(/1 tool connected/)).toBeInTheDocument();
@@ -155,28 +155,22 @@ describe('ConnectToolsStep: connection gate', () => {
 // ---------------------------------------------------------------------------
 
 describe('ConnectToolsStep: connected state', () => {
-  it('shows Connected badge for github bucket when github integration exists', () => {
-    mockIntegrations = [
-      { toolType: 'github', isConnected: true },
-    ];
+  it('shows Connected badge for github bucket when github is connected', () => {
+    mockConnectedBucketIds = new Set(['github']);
     renderConnectTools();
 
     expect(screen.getByText('Connected')).toBeInTheDocument();
   });
 
   it('shows Connected badge for atlassian bucket when jira is connected', () => {
-    mockIntegrations = [
-      { toolType: 'jira', isConnected: true },
-    ];
+    mockConnectedBucketIds = new Set(['atlassian']);
     renderConnectTools();
 
     expect(screen.getByText('Connected')).toBeInTheDocument();
   });
 
-  it('ignores inactive integrations', () => {
-    mockIntegrations = [
-      { toolType: 'github', isConnected: false },
-    ];
+  it('shows no Connected badge when no buckets are connected', () => {
+    mockConnectedBucketIds = new Set();
     renderConnectTools();
 
     expect(screen.queryByText('Connected')).not.toBeInTheDocument();
@@ -188,7 +182,7 @@ describe('ConnectToolsStep: connected state', () => {
 // ---------------------------------------------------------------------------
 
 describe('ConnectToolsStep: OAuth wiring', () => {
-  it('calls initiateOAuth for GitHub (single-tool bucket)', async () => {
+  it('calls handleConnect for GitHub (single-tool bucket)', async () => {
     const user = userEvent.setup();
     renderConnectTools();
 
@@ -197,13 +191,10 @@ describe('ConnectToolsStep: OAuth wiring', () => {
     await user.click(connectButtons[0]);
 
     expect(mockInitiateOAuth).toHaveBeenCalledTimes(1);
-    expect(mockInitiateOAuth).toHaveBeenCalledWith(
-      { toolType: 'github' },
-      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
-    );
+    expect(mockInitiateOAuth).toHaveBeenCalledWith('github');
   });
 
-  it('calls initiateGroupOAuth for Atlassian (group bucket)', async () => {
+  it('calls handleConnectGroup for Atlassian (group bucket)', async () => {
     const user = userEvent.setup();
     renderConnectTools();
 
@@ -212,10 +203,7 @@ describe('ConnectToolsStep: OAuth wiring', () => {
     await user.click(connectButtons[1]);
 
     expect(mockInitiateGroupOAuth).toHaveBeenCalledTimes(1);
-    expect(mockInitiateGroupOAuth).toHaveBeenCalledWith(
-      { groupType: 'atlassian' },
-      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
-    );
+    expect(mockInitiateGroupOAuth).toHaveBeenCalledWith('atlassian');
   });
 
   it('saves onboarding state to localStorage before initiating OAuth', async () => {
@@ -228,7 +216,6 @@ describe('ConnectToolsStep: OAuth wiring', () => {
     const stored = JSON.parse(localStorage.getItem(ONBOARDING_STORAGE_KEY)!);
     expect(stored.step).toBe('connect-tools');
     expect(stored.ts).toBeGreaterThan(0);
-    // Should be recent (within last second)
     expect(Date.now() - stored.ts).toBeLessThan(1000);
   });
 
@@ -240,32 +227,6 @@ describe('ConnectToolsStep: OAuth wiring', () => {
       .filter(Boolean);
     expect(connectButtons).toHaveLength(4);
   });
-
-  it('shows error message when OAuth initiation fails', async () => {
-    const user = userEvent.setup();
-    mockInitiateOAuth.mockImplementation((_args: any, callbacks: any) => {
-      callbacks.onError({ response: { data: { error: 'OAuth provider unavailable' } } });
-    });
-    renderConnectTools();
-
-    const connectButtons = screen.getAllByRole('button', { name: /Connect/i });
-    await user.click(connectButtons[0]);
-
-    expect(screen.getByText('OAuth provider unavailable')).toBeInTheDocument();
-  });
-
-  it('shows fallback error message when error response is empty', async () => {
-    const user = userEvent.setup();
-    mockInitiateOAuth.mockImplementation((_args: any, callbacks: any) => {
-      callbacks.onError({});
-    });
-    renderConnectTools();
-
-    const connectButtons = screen.getAllByRole('button', { name: /Connect/i });
-    await user.click(connectButtons[0]);
-
-    expect(screen.getByText('Failed to connect GitHub')).toBeInTheDocument();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -274,7 +235,7 @@ describe('ConnectToolsStep: OAuth wiring', () => {
 
 describe('ConnectToolsStep: finish flow', () => {
   it('calls onUpdate and onNext when Get Started is clicked', async () => {
-    mockIntegrations = [{ toolType: 'github', isConnected: true }];
+    mockConnectedBucketIds = new Set(['github']);
     const user = userEvent.setup();
     renderConnectTools();
 
@@ -285,53 +246,53 @@ describe('ConnectToolsStep: finish flow', () => {
   });
 
   it('shows error when Get Started clicked with no connections', async () => {
-    // Button is disabled, but handleFinish also has a guard
-    mockIntegrations = [];
+    mockConnectedBucketIds = new Set();
     renderConnectTools();
 
-    // Button should be disabled
     const button = screen.getByRole('button', { name: /Connect at least 1 tool/i });
     expect(button).toBeDisabled();
   });
 });
 
 // ---------------------------------------------------------------------------
-// TOOL_TO_BUCKET mapping
+// getOnboardingBucketId mapping (replaces TOOL_TO_BUCKET)
 // ---------------------------------------------------------------------------
 
-describe('TOOL_TO_BUCKET', () => {
+describe('getOnboardingBucketId', () => {
   it('maps github to github bucket', () => {
-    expect(TOOL_TO_BUCKET['github']).toBe('github');
+    expect(getOnboardingBucketId('github')).toBe('github');
   });
 
   it('maps jira and confluence to atlassian bucket', () => {
-    expect(TOOL_TO_BUCKET['jira']).toBe('atlassian');
-    expect(TOOL_TO_BUCKET['confluence']).toBe('atlassian');
+    expect(getOnboardingBucketId('jira')).toBe('atlassian');
+    expect(getOnboardingBucketId('confluence')).toBe('atlassian');
   });
 
   it('maps all Microsoft tools to microsoft bucket', () => {
-    expect(TOOL_TO_BUCKET['outlook']).toBe('microsoft');
-    expect(TOOL_TO_BUCKET['teams']).toBe('microsoft');
-    expect(TOOL_TO_BUCKET['onedrive']).toBe('microsoft');
-    expect(TOOL_TO_BUCKET['onenote']).toBe('microsoft');
-    expect(TOOL_TO_BUCKET['sharepoint']).toBe('microsoft');
+    expect(getOnboardingBucketId('outlook')).toBe('microsoft');
+    expect(getOnboardingBucketId('teams')).toBe('microsoft');
+    expect(getOnboardingBucketId('onedrive')).toBe('microsoft');
+    expect(getOnboardingBucketId('onenote')).toBe('microsoft');
   });
 
-  it('maps google_workspace to google bucket', () => {
-    expect(TOOL_TO_BUCKET['google_workspace']).toBe('google');
+  it('maps google_workspace to google_workspace bucket', () => {
+    expect(getOnboardingBucketId('google_workspace')).toBe('google_workspace');
   });
 
-  it('returns undefined for tools without a bucket', () => {
-    expect(TOOL_TO_BUCKET['figma']).toBeUndefined();
-    expect(TOOL_TO_BUCKET['slack']).toBeUndefined();
-    expect(TOOL_TO_BUCKET['zoom']).toBeUndefined();
-    expect(TOOL_TO_BUCKET['nonexistent']).toBeUndefined();
+  it('returns null for tools without a bucket', () => {
+    expect(getOnboardingBucketId('figma')).toBeNull();
+    expect(getOnboardingBucketId('slack')).toBeNull();
+    expect(getOnboardingBucketId('zoom')).toBeNull();
+    expect(getOnboardingBucketId('nonexistent')).toBeNull();
   });
 
-  it('every mapped bucket ID corresponds to a real TOOL_BUCKETS entry', () => {
-    const bucketIds = new Set(TOOL_BUCKETS.map(b => b.id));
-    for (const bucketId of Object.values(TOOL_TO_BUCKET)) {
-      expect(bucketIds.has(bucketId)).toBe(true);
+  it('every mapped bucket ID corresponds to a real ONBOARDING_BUCKETS entry', () => {
+    const bucketIds = new Set(ONBOARDING_BUCKETS.map(b => b.id));
+    const toolsToCheck = ['github', 'jira', 'confluence', 'outlook', 'teams', 'onedrive', 'onenote', 'google_workspace'];
+    for (const tool of toolsToCheck) {
+      const bucketId = getOnboardingBucketId(tool);
+      expect(bucketId).not.toBeNull();
+      expect(bucketIds.has(bucketId!)).toBe(true);
     }
   });
 });

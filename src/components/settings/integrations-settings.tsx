@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Link2,
   CheckCircle,
-  XCircle,
   AlertCircle,
   Loader2,
-  ExternalLink,
   Shield,
   Clock,
   Database,
@@ -15,152 +13,46 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
-import { useMCPIntegrations, useMCPOAuth, useMCPGroupOAuth, useDisconnectIntegration } from '../../hooks/useMCP';
-import { MCPToolType, MCPIntegrationGroup } from '../../types/mcp.types';
+import { MCPToolType } from '../../types/mcp.types';
 import { ToolIcon, ToolType } from '../icons/ToolIcons';
 import { TOOL_METADATA } from '../../constants/tools';
-
-// Names from TOOL_METADATA; descriptions are settings-specific (action-oriented for onboarding)
-const toolConfigs: Record<MCPToolType, { name: string; description: string }> = {
-  github:           { name: TOOL_METADATA.github.name,           description: 'Connect your GitHub account to import code contributions, pull requests, and repository activity.' },
-  jira:             { name: TOOL_METADATA.jira.name,             description: 'Import task completions, story points, and sprint activity from Jira.' },
-  figma:            { name: TOOL_METADATA.figma.name,            description: 'Sync design contributions, file edits, and comments from Figma projects.' },
-  outlook:          { name: TOOL_METADATA.outlook.name,          description: 'Import meeting notes, email summaries, and calendar events from Outlook.' },
-  confluence:       { name: TOOL_METADATA.confluence.name,       description: 'Import documentation updates, page edits, and knowledge base contributions.' },
-  slack:            { name: TOOL_METADATA.slack.name,            description: 'Import important messages, thread discussions, and team collaboration highlights.' },
-  teams:            { name: TOOL_METADATA.teams.name,            description: 'Sync meeting notes, chat discussions, and collaboration activity from Microsoft Teams.' },
-  onedrive:         { name: TOOL_METADATA.onedrive.name,         description: 'Import OneDrive file changes and collaboration activity.' },
-  onenote:          { name: TOOL_METADATA.onenote.name,          description: 'Import OneNote pages, notebooks, and note-taking activity.' },
-  sharepoint:       { name: TOOL_METADATA.sharepoint.name,       description: 'Import SharePoint site activity, documents, and list updates.' },
-  zoom:             { name: TOOL_METADATA.zoom.name,             description: 'Import Zoom meeting recordings, transcripts, and participant data.' },
-  google_workspace: { name: TOOL_METADATA.google_workspace.name, description: 'Import Google Docs, Sheets, Slides, Drive files, and Meet recordings.' },
-};
-
-// Integration groups configuration
-const integrationGroups: MCPIntegrationGroup[] = [
-  {
-    id: 'atlassian',
-    name: 'Atlassian Suite',
-    description: 'Connect once to authorize both Jira and Confluence',
-    tools: ['jira', 'confluence'],
-    providerName: 'Atlassian'
-  },
-  {
-    id: 'microsoft',
-    name: 'Microsoft Suite',
-    description: 'Connect once to authorize Outlook, Teams, OneDrive, and OneNote',
-    tools: ['outlook', 'teams', 'onedrive', 'onenote'],
-    providerName: 'Microsoft'
-  }
-];
-
-// Standalone tools (not part of any group)
-const standaloneTools: MCPToolType[] = ['github', 'figma', 'slack', 'zoom', 'google_workspace'];
+import {
+  INTEGRATION_GROUPS,
+  STANDALONE_TOOLS,
+  IntegrationGroupId,
+} from '../../constants/tool-groups';
+import {
+  useToolConnections,
+  useOAuthFlow,
+  useDisconnectFlow,
+} from '../../hooks/useToolConnections';
 
 export function IntegrationsSettings() {
-  const { data, isLoading: integrationsLoading } = useMCPIntegrations();
-  const integrations = data?.integrations;
-  const { mutate: initiateOAuth, isPending: isConnecting } = useMCPOAuth();
-  const { mutate: initiateGroupOAuth, isPending: isGroupConnecting } = useMCPGroupOAuth();
-  const { mutate: disconnect, isPending: isDisconnecting } = useDisconnectIntegration();
-  const [connectingTool, setConnectingTool] = useState<MCPToolType | null>(null);
-  const [connectingGroup, setConnectingGroup] = useState<string | null>(null);
-  const [disconnectingTool, setDisconnectingTool] = useState<MCPToolType | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['atlassian', 'microsoft']));
+  const {
+    integrations,
+    isLoading: integrationsLoading,
+    getConnectionStatus,
+    getGroupConnectionStatus,
+    getConnectedAt,
+  } = useToolConnections();
 
-  const handleConnect = (toolType: MCPToolType) => {
-    setConnectingTool(toolType);
-    initiateOAuth(
-      { toolType },
-      {
-        onSuccess: (data) => {
-          // Redirect to OAuth URL
-          if (data.authUrl) {
-            window.location.href = data.authUrl;
-          }
-        },
-        onError: (error) => {
-          console.error('OAuth initiation failed:', error);
-          setConnectingTool(null);
-        }
-      }
-    );
-  };
+  const {
+    connectingId,
+    isConnecting,
+    handleConnect,
+    handleConnectGroup,
+  } = useOAuthFlow();
 
-  const handleDisconnect = (toolType: MCPToolType) => {
-    if (!confirm(`Are you sure you want to disconnect ${toolConfigs[toolType].name}?`)) {
-      return;
-    }
+  const {
+    disconnectingTool,
+    isDisconnecting,
+    handleDisconnect,
+    handleDisconnectGroup,
+  } = useDisconnectFlow();
 
-    setDisconnectingTool(toolType);
-    disconnect(
-      toolType,
-      {
-        onSuccess: () => {
-          setDisconnectingTool(null);
-        },
-        onError: (error) => {
-          console.error('Disconnect failed:', error);
-          setDisconnectingTool(null);
-        }
-      }
-    );
-  };
-
-  const getConnectionStatus = (toolType: MCPToolType) => {
-    if (!integrations) return 'disconnected';
-    const integration = integrations.find(i => i.tool === toolType);
-    return integration?.isConnected ? 'connected' : 'disconnected';
-  };
-
-  const getGroupConnectionStatus = (group: MCPIntegrationGroup) => {
-    const connectedCount = group.tools.filter(tool => getConnectionStatus(tool) === 'connected').length;
-    return {
-      connected: connectedCount,
-      total: group.tools.length,
-      allConnected: connectedCount === group.tools.length,
-      noneConnected: connectedCount === 0,
-      partiallyConnected: connectedCount > 0 && connectedCount < group.tools.length
-    };
-  };
-
-  const handleConnectGroup = (group: MCPIntegrationGroup) => {
-    setConnectingGroup(group.id);
-    initiateGroupOAuth(
-      { groupType: group.id },
-      {
-        onSuccess: (data) => {
-          // Redirect to OAuth URL (will authorize both tools at once)
-          if (data.authUrl) {
-            window.location.href = data.authUrl;
-          }
-        },
-        onError: (error) => {
-          console.error('Group OAuth initiation failed:', error);
-          setConnectingGroup(null);
-        }
-      }
-    );
-  };
-
-  const handleDisconnectGroup = (group: MCPIntegrationGroup) => {
-    const connectedTools = group.tools.filter(tool => getConnectionStatus(tool) === 'connected');
-
-    if (connectedTools.length === 0) return;
-
-    const toolNames = connectedTools.map(tool => toolConfigs[tool].name).join(' and ');
-    if (!confirm(`Are you sure you want to disconnect ${toolNames}?`)) {
-      return;
-    }
-
-    // Disconnect all connected tools in the group
-    connectedTools.forEach(tool => {
-      setDisconnectingTool(tool);
-      disconnect(tool, {
-        onSettled: () => setDisconnectingTool(null)
-      });
-    });
-  };
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(INTEGRATION_GROUPS.map(g => g.id))
+  );
 
   const toggleGroupExpanded = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -220,8 +112,8 @@ export function IntegrationsSettings() {
       {/* Integration Tools */}
       <div className="space-y-6">
         {/* Grouped Integrations */}
-        {integrationGroups.map(group => {
-          const groupStatus = getGroupConnectionStatus(group);
+        {INTEGRATION_GROUPS.map(group => {
+          const groupStatus = getGroupConnectionStatus(group.id as IntegrationGroupId);
           const isExpanded = expandedGroups.has(group.id);
 
           return (
@@ -264,11 +156,11 @@ export function IntegrationsSettings() {
                   <div className="flex items-center space-x-2 ml-4" onClick={(e) => e.stopPropagation()}>
                     {groupStatus.noneConnected ? (
                       <Button
-                        onClick={() => handleConnectGroup(group)}
+                        onClick={() => handleConnectGroup(group.id as IntegrationGroupId)}
                         className="bg-primary-600 hover:bg-primary-700"
-                        disabled={isGroupConnecting && connectingGroup === group.id}
+                        disabled={isConnecting && connectingId === group.id}
                       >
-                        {isGroupConnecting && connectingGroup === group.id ? (
+                        {isConnecting && connectingId === group.id ? (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
                           <Link2 className="h-4 w-4 mr-2" />
@@ -278,7 +170,7 @@ export function IntegrationsSettings() {
                     ) : (
                       <Button
                         variant="outline"
-                        onClick={() => handleDisconnectGroup(group)}
+                        onClick={() => handleDisconnectGroup(group.id as IntegrationGroupId, getConnectionStatus)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                         disabled={isDisconnecting}
                       >
@@ -293,11 +185,11 @@ export function IntegrationsSettings() {
               {isExpanded && (
                 <div className="bg-white divide-y divide-gray-100">
                   {group.tools.map(toolType => {
-                    const config = toolConfigs[toolType];
-                    const status = getConnectionStatus(toolType);
+                    const toolMeta = (TOOL_METADATA as any)[toolType];
+                    const status = getConnectionStatus(toolType as MCPToolType);
                     const isConnected = status === 'connected';
                     const isProcessing =
-                      (connectingTool === toolType && isConnecting) ||
+                      (connectingId === toolType && isConnecting) ||
                       (disconnectingTool === toolType && isDisconnecting);
 
                     return (
@@ -316,7 +208,7 @@ export function IntegrationsSettings() {
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
                                 <h4 className="text-base font-semibold text-gray-900">
-                                  {config.name}
+                                  {toolMeta?.name ?? toolType}
                                 </h4>
                                 {isConnected && (
                                   <div className="flex items-center space-x-1 text-green-600">
@@ -326,12 +218,12 @@ export function IntegrationsSettings() {
                                 )}
                               </div>
                               <p className="text-sm text-gray-600">
-                                {config.description}
+                                {toolMeta?.description ?? ''}
                               </p>
-                              {isConnected && integrations && (
+                              {isConnected && (
                                 <div className="text-xs text-gray-500 mt-2">
                                   Connected on {new Date(
-                                    integrations.find(i => i.tool === toolType)?.connectedAt || ''
+                                    getConnectedAt(toolType as MCPToolType) || ''
                                   ).toLocaleDateString()}
                                 </div>
                               )}
@@ -346,7 +238,7 @@ export function IntegrationsSettings() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDisconnect(toolType)}
+                                onClick={() => handleDisconnect(toolType as MCPToolType)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                               >
                                 Disconnect
@@ -354,7 +246,7 @@ export function IntegrationsSettings() {
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() => handleConnect(toolType)}
+                                onClick={() => handleConnect(toolType as MCPToolType)}
                                 className="bg-primary-600 hover:bg-primary-700"
                               >
                                 <Link2 className="h-4 w-4 mr-2" />
@@ -374,17 +266,16 @@ export function IntegrationsSettings() {
 
         {/* Standalone Integrations */}
         <div className="space-y-4">
-          {standaloneTools.map(toolType => {
-            const config = toolConfigs[toolType];
-            const status = getConnectionStatus(toolType);
+          {STANDALONE_TOOLS.map(tool => {
+            const status = getConnectionStatus(tool.toolType as MCPToolType);
             const isConnected = status === 'connected';
             const isProcessing =
-              (connectingTool === toolType && isConnecting) ||
-              (disconnectingTool === toolType && isDisconnecting);
+              (connectingId === tool.toolType && isConnecting) ||
+              (disconnectingTool === tool.toolType && isDisconnecting);
 
             return (
               <div
-                key={toolType}
+                key={tool.toolType}
                 className={cn(
                   "bg-white border rounded-lg p-6 transition-all",
                   isConnected ? "border-green-200 bg-green-50/30" : "border-gray-200",
@@ -394,12 +285,12 @@ export function IntegrationsSettings() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
                     <div className="p-3 rounded-lg bg-gray-50">
-                      <ToolIcon tool={toolType as ToolType} size={24} />
+                      <ToolIcon tool={tool.iconTool} size={24} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {config.name}
+                          {tool.name}
                         </h3>
                         {isConnected && (
                           <div className="flex items-center space-x-1 text-green-600">
@@ -409,12 +300,12 @@ export function IntegrationsSettings() {
                         )}
                       </div>
                       <p className="text-sm text-gray-600 mb-3">
-                        {config.description}
+                        {tool.description}
                       </p>
-                      {isConnected && integrations && (
+                      {isConnected && (
                         <div className="text-xs text-gray-500">
                           Connected on {new Date(
-                            integrations.find(i => i.tool === toolType)?.connectedAt || ''
+                            getConnectedAt(tool.toolType as MCPToolType) || ''
                           ).toLocaleDateString()}
                         </div>
                       )}
@@ -428,14 +319,14 @@ export function IntegrationsSettings() {
                     ) : isConnected ? (
                       <Button
                         variant="outline"
-                        onClick={() => handleDisconnect(toolType)}
+                        onClick={() => handleDisconnect(tool.toolType as MCPToolType)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                       >
                         Disconnect
                       </Button>
                     ) : (
                       <Button
-                        onClick={() => handleConnect(toolType)}
+                        onClick={() => handleConnect(tool.toolType as MCPToolType)}
                         className="bg-primary-600 hover:bg-primary-700"
                       >
                         <Link2 className="h-4 w-4 mr-2" />
