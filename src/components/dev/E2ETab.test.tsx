@@ -7,6 +7,7 @@ import { E2ETab } from './E2ETab';
 
 const mockLogout = vi.fn();
 const mockDelete = vi.fn();
+const mockGet = vi.fn();
 const mockClear = vi.fn();
 
 vi.mock('../../services/auth.service', () => ({
@@ -18,6 +19,7 @@ vi.mock('../../services/auth.service', () => ({
 vi.mock('../../lib/api', () => ({
   api: {
     delete: (...args: any[]) => mockDelete(...args),
+    get: (...args: any[]) => mockGet(...args),
   },
 }));
 
@@ -51,8 +53,8 @@ beforeEach(() => {
     get: () => originalLocation.href,
   });
 
-  // Mock window.confirm to auto-accept
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  // Default: all data-fetching endpoints return empty
+  mockGet.mockResolvedValue({ data: { data: null } });
 });
 
 afterEach(() => {
@@ -67,9 +69,8 @@ describe('E2ETab', () => {
     it('renders Reset Session and Delete User sections', () => {
       render(<E2ETab />);
 
-      // Heading + button both contain these texts, so use getAllByText
       expect(screen.getAllByText('Reset Session').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('Delete User').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/delete user/i).length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows Reset Session button', () => {
@@ -81,6 +82,11 @@ describe('E2ETab', () => {
       render(<E2ETab />);
       expect(screen.getByRole('button', { name: /delete user/i })).toBeInTheDocument();
     });
+
+    it('shows data preview section', () => {
+      render(<E2ETab />);
+      expect(screen.getByText('What will be deleted')).toBeInTheDocument();
+    });
   });
 
   describe('Reset Session', () => {
@@ -91,7 +97,6 @@ describe('E2ETab', () => {
       render(<E2ETab />);
       fireEvent.click(screen.getByRole('button', { name: /reset session/i }));
 
-      // Wait for async logout
       await vi.waitFor(() => {
         expect(mockLogout).toHaveBeenCalledOnce();
       });
@@ -113,63 +118,21 @@ describe('E2ETab', () => {
         expect(mockLogout).toHaveBeenCalledOnce();
       });
 
-      // Should still clear and redirect despite logout failure
       expect(mockClear).toHaveBeenCalled();
       expect(locationAssign).toBe('/login');
 
       clearStorage.mockRestore();
     });
-
-    it('does nothing when confirm is cancelled', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-      render(<E2ETab />);
-      fireEvent.click(screen.getByRole('button', { name: /reset session/i }));
-
-      expect(mockLogout).not.toHaveBeenCalled();
-    });
   });
 
   describe('Delete User', () => {
-    it('shows type-to-confirm after first confirm dialog', () => {
+    it('shows confirm/cancel buttons after clicking Delete User', () => {
       render(<E2ETab />);
 
-      // Click Delete User button
       fireEvent.click(screen.getByRole('button', { name: /delete user/i }));
 
-      // Should show type-to-confirm input
-      expect(screen.getByPlaceholderText('Type DELETE')).toBeInTheDocument();
       expect(screen.getByText('Confirm Delete')).toBeInTheDocument();
-    });
-
-    it('does not show confirm dialog when window.confirm is cancelled', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-      render(<E2ETab />);
-      fireEvent.click(screen.getByRole('button', { name: /delete user/i }));
-
-      // Should NOT show type-to-confirm
-      expect(screen.queryByPlaceholderText('Type DELETE')).not.toBeInTheDocument();
-    });
-
-    it('confirm button is disabled until user types DELETE', () => {
-      render(<E2ETab />);
-      fireEvent.click(screen.getByRole('button', { name: /delete user/i }));
-
-      const confirmBtn = screen.getByText('Confirm Delete');
-      expect(confirmBtn).toBeDisabled();
-
-      // Type partial text
-      fireEvent.change(screen.getByPlaceholderText('Type DELETE'), {
-        target: { value: 'DEL' },
-      });
-      expect(confirmBtn).toBeDisabled();
-
-      // Type full text
-      fireEvent.change(screen.getByPlaceholderText('Type DELETE'), {
-        target: { value: 'DELETE' },
-      });
-      expect(confirmBtn).not.toBeDisabled();
+      expect(screen.getByText('Cancel')).toBeInTheDocument();
     });
 
     it('calls hard-delete endpoint and redirects on success', async () => {
@@ -177,13 +140,8 @@ describe('E2ETab', () => {
 
       render(<E2ETab />);
 
-      // Step 1: click Delete User
+      // Click Delete User, then Confirm Delete
       fireEvent.click(screen.getByRole('button', { name: /delete user/i }));
-
-      // Step 2: type DELETE and confirm
-      fireEvent.change(screen.getByPlaceholderText('Type DELETE'), {
-        target: { value: 'DELETE' },
-      });
       fireEvent.click(screen.getByText('Confirm Delete'));
 
       await vi.waitFor(() => {
@@ -203,9 +161,6 @@ describe('E2ETab', () => {
       render(<E2ETab />);
 
       fireEvent.click(screen.getByRole('button', { name: /delete user/i }));
-      fireEvent.change(screen.getByPlaceholderText('Type DELETE'), {
-        target: { value: 'DELETE' },
-      });
       fireEvent.click(screen.getByText('Confirm Delete'));
 
       await vi.waitFor(() => {
@@ -215,14 +170,14 @@ describe('E2ETab', () => {
       });
     });
 
-    it('cancel button hides confirm dialog', () => {
+    it('cancel button hides confirm buttons', () => {
       render(<E2ETab />);
 
       fireEvent.click(screen.getByRole('button', { name: /delete user/i }));
-      expect(screen.getByPlaceholderText('Type DELETE')).toBeInTheDocument();
+      expect(screen.getByText('Confirm Delete')).toBeInTheDocument();
 
       fireEvent.click(screen.getByText('Cancel'));
-      expect(screen.queryByPlaceholderText('Type DELETE')).not.toBeInTheDocument();
+      expect(screen.queryByText('Confirm Delete')).not.toBeInTheDocument();
     });
   });
 });
