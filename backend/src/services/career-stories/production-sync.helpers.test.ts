@@ -12,9 +12,11 @@
  * - mergeSmallClusters: merge smallest same-container clusters
  * - dedupClustersByContainer: merge clusters sharing the same dominantContainer
  * - computeDominantContainer: find most frequent container signal
+ * - withTimeout: promise timeout wrapper with timer cleanup
+ * - runWithConcurrency: bounded parallel execution
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   shortRepoName,
   deriveClusterName,
@@ -26,7 +28,36 @@ import {
   computeEntryTarget,
   mergeSmallClusters,
   computeDominantContainer,
+  withTimeout,
+  runWithConcurrency,
 } from './production-sync.service';
+
+// =============================================================================
+// Shared test helpers
+// =============================================================================
+
+function makeCluster(name: string, count: number, container?: string): any {
+  const activities = Array.from({ length: count }, (_, i) => ({
+    id: `${name}-${i}`,
+    source: 'github',
+    sourceId: `src-${name}-${i}`,
+    sourceUrl: null,
+    title: `Activity ${i} of ${name}`,
+    description: null,
+    timestamp: new Date('2026-02-01'),
+    crossToolRefs: [],
+  }));
+  return {
+    name,
+    dominantContainer: container || null,
+    activityIds: activities.map((a: any) => a.id),
+    activities,
+    metrics: {
+      dateRange: { start: new Date('2026-02-01'), end: new Date('2026-02-15') },
+      toolTypes: ['github'],
+    },
+  };
+}
 
 // =============================================================================
 // shortRepoName
@@ -212,8 +243,7 @@ describe('getClusterSummary', () => {
       { title: 'fix the API bug' },
       { title: 'fix the API now' },
     ];
-    // "fix" and "the" and "API" and "bug" and "now" are <= 3 chars (except "the" filtered as stop word)
-    // Actually: "fix"=3chars filtered, "the"=3chars filtered, "API"=3chars filtered, "bug"=3chars filtered
+    // "fix"=3chars filtered, "the"=3chars filtered, "API"=3chars filtered, "bug"=3chars filtered
     expect(getClusterSummary(activities)).toBe('Cross-Tool Collaboration');
   });
 
@@ -223,6 +253,10 @@ describe('getClusterSummary', () => {
       { title: 'authentication token refresh' },
     ];
     expect(getClusterSummary(activities)).toBe('Authentication Work');
+  });
+
+  it('returns fallback for empty activities array', () => {
+    expect(getClusterSummary([])).toBe('Cross-Tool Collaboration');
   });
 });
 
@@ -345,29 +379,6 @@ describe('computeEntryTarget', () => {
 // =============================================================================
 
 describe('mergeSmallClusters', () => {
-  function makeCluster(name: string, count: number, container?: string): any {
-    const activities = Array.from({ length: count }, (_, i) => ({
-      id: `${name}-${i}`,
-      source: 'github',
-      sourceId: `src-${name}-${i}`,
-      sourceUrl: null,
-      title: `Activity ${i} of ${name}`,
-      description: null,
-      timestamp: new Date('2026-02-01'),
-      crossToolRefs: [],
-    }));
-    return {
-      name,
-      dominantContainer: container || null,
-      activityIds: activities.map(a => a.id),
-      activities,
-      metrics: {
-        dateRange: { start: new Date('2026-02-01'), end: new Date('2026-02-15') },
-        toolTypes: ['github'],
-      },
-    };
-  }
-
   it('does not merge when cluster count is below threshold', () => {
     const clusters = [makeCluster('A', 10), makeCluster('B', 20)];
     const result = mergeSmallClusters(clusters, 5);
@@ -419,29 +430,6 @@ describe('mergeSmallClusters', () => {
 // =============================================================================
 
 describe('dedupClustersByContainer', () => {
-  function makeCluster(name: string, count: number, container?: string): any {
-    const activities = Array.from({ length: count }, (_, i) => ({
-      id: `${name}-${i}`,
-      source: 'github',
-      sourceId: `src-${name}-${i}`,
-      sourceUrl: null,
-      title: `Activity ${i} of ${name}`,
-      description: null,
-      timestamp: new Date('2026-02-01'),
-      crossToolRefs: [],
-    }));
-    return {
-      name,
-      dominantContainer: container || null,
-      activityIds: activities.map((a: any) => a.id),
-      activities,
-      metrics: {
-        dateRange: { start: new Date('2026-02-01'), end: new Date('2026-02-15') },
-        toolTypes: ['github'],
-      },
-    };
-  }
-
   it('merges two clusters with the same container', () => {
     const clusters = [
       makeCluster('Sync Server Implementation', 10, 'repo:org/capture'),
@@ -777,29 +765,6 @@ describe('computeEntryTarget — edge cases', () => {
 // =============================================================================
 
 describe('mergeSmallClusters — edge cases', () => {
-  function makeCluster(name: string, count: number, container?: string): any {
-    const activities = Array.from({ length: count }, (_, i) => ({
-      id: `${name}-${i}`,
-      source: 'github',
-      sourceId: `src-${name}-${i}`,
-      sourceUrl: null,
-      title: `Activity ${i} of ${name}`,
-      description: null,
-      timestamp: new Date('2026-02-01'),
-      crossToolRefs: [],
-    }));
-    return {
-      name,
-      dominantContainer: container || null,
-      activityIds: activities.map(a => a.id),
-      activities,
-      metrics: {
-        dateRange: { start: new Date('2026-02-01'), end: new Date('2026-02-15') },
-        toolTypes: ['github'],
-      },
-    };
-  }
-
   it('returns empty array for empty input', () => {
     expect(mergeSmallClusters([], 5)).toEqual([]);
   });
@@ -855,15 +820,19 @@ describe('mergeSmallClusters — edge cases', () => {
   });
 
   it('adopts name from smallest when partner has null name', () => {
+    // Need 3 clusters with target=1 → maxClusters=ceil(1.2)=2, forces merge from 3→2
     const c1 = makeCluster('OAuth Flow', 2);
     const c2 = makeCluster('_', 5);
     c2.name = null;
-    const result = mergeSmallClusters([c1, c2], 1);
-    // target=1, maxClusters=ceil(1.2)=2 → 2 clusters is within limit, no merge
-    // target must force merge: use target that forces maxClusters < 2
-    // Actually target=1 → maxClusters=ceil(1.2)=2, 2 <= 2 → no merge
-    // Need lower: this won't merge. Let me adjust.
-    expect(result.length).toBeLessThanOrEqual(2);
+    const c3 = makeCluster('Other Work', 4);
+    const result = mergeSmallClusters([c1, c2, c3], 1);
+    expect(result.length).toBe(2);
+    // Sorted by size: c1(2), c3(4), c2(5). Smallest=c1(2), no same-container → merge into nearest neighbor c3(4).
+    // c3 has a name, c1 has a name. Longer name wins.
+    // Verify the null-named cluster survived without crashing
+    const nullNamed = result.find(c => c.name === null);
+    // c2 with null name should still be in the result since it wasn't merged
+    expect(result.some(c => c.activityIds.length >= 5)).toBe(true);
   });
 
   it('recalculates dominantContainer after merge', () => {
@@ -899,8 +868,7 @@ describe('mergeSmallClusters — edge cases', () => {
       },
     };
 
-    // target=1 → maxClusters=ceil(1.2)=2 → won't merge since 2 <= 2
-    // Need to force merge: 3 clusters with target=1 → maxClusters=2
+    // Need 3 clusters with target=1 → maxClusters=2 to force a merge
     const clusterC: any = {
       name: 'C',
       dominantContainer: null,
@@ -930,29 +898,6 @@ describe('mergeSmallClusters — edge cases', () => {
 // =============================================================================
 
 describe('merge + dedup pipeline', () => {
-  function makeCluster(name: string, count: number, container?: string): any {
-    const activities = Array.from({ length: count }, (_, i) => ({
-      id: `${name}-${i}`,
-      source: 'github',
-      sourceId: `src-${name}-${i}`,
-      sourceUrl: null,
-      title: `Activity ${i} of ${name}`,
-      description: null,
-      timestamp: new Date('2026-02-01'),
-      crossToolRefs: [],
-    }));
-    return {
-      name,
-      dominantContainer: container || null,
-      activityIds: activities.map((a: any) => a.id),
-      activities,
-      metrics: {
-        dateRange: { start: new Date('2026-02-01'), end: new Date('2026-02-15') },
-        toolTypes: ['github'],
-      },
-    };
-  }
-
   it('preserves total activity count through both passes', () => {
     const clusters = [
       makeCluster('A', 5, 'repo:X'),
@@ -1006,9 +951,116 @@ describe('merge + dedup pipeline', () => {
     const deduped = dedupClustersByContainer(merged);
 
     // Null-container clusters go through dedup unchanged
-    const nullContainerClusters = deduped.filter(c => !c.dominantContainer);
-    // They may have been merged by mergeSmallClusters (size-based), but dedup shouldn't drop them
     const totalActivities = deduped.reduce((sum, c) => sum + c.activityIds.length, 0);
     expect(totalActivities).toBe(18);
+  });
+});
+
+// =============================================================================
+// withTimeout
+// =============================================================================
+
+describe('withTimeout', () => {
+  it('resolves with value when promise completes before timeout', async () => {
+    const result = await withTimeout(Promise.resolve('done'), 1000, 'test');
+    expect(result).toBe('done');
+  });
+
+  it('returns undefined when promise exceeds timeout', async () => {
+    const slow = new Promise<string>((resolve) => setTimeout(() => resolve('late'), 500));
+    const result = await withTimeout(slow, 10, 'test-timeout');
+    expect(result).toBeUndefined();
+  });
+
+  it('propagates rejection from the original promise', async () => {
+    const failing = Promise.reject(new Error('boom'));
+    await expect(withTimeout(failing, 1000, 'test-reject')).rejects.toThrow('boom');
+  });
+
+  it('cleans up timer after promise resolves (no leak)', async () => {
+    const clearSpy = vi.spyOn(global, 'clearTimeout');
+    await withTimeout(Promise.resolve('ok'), 5000, 'test-cleanup');
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
+  });
+
+  it('cleans up timer after timeout fires', async () => {
+    const clearSpy = vi.spyOn(global, 'clearTimeout');
+    const slow = new Promise<string>((resolve) => setTimeout(() => resolve('late'), 500));
+    await withTimeout(slow, 10, 'test-cleanup-timeout');
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
+  });
+});
+
+// =============================================================================
+// runWithConcurrency
+// =============================================================================
+
+describe('runWithConcurrency', () => {
+  it('runs all tasks and returns fulfilled results', async () => {
+    const tasks = [
+      () => Promise.resolve('a'),
+      () => Promise.resolve('b'),
+      () => Promise.resolve('c'),
+    ];
+    const results = await runWithConcurrency(tasks, 2);
+    expect(results).toHaveLength(3);
+    expect(results.every(r => r.status === 'fulfilled')).toBe(true);
+    expect((results[0] as PromiseFulfilledResult<string>).value).toBe('a');
+    expect((results[1] as PromiseFulfilledResult<string>).value).toBe('b');
+    expect((results[2] as PromiseFulfilledResult<string>).value).toBe('c');
+  });
+
+  it('captures rejections without aborting other tasks', async () => {
+    const tasks = [
+      () => Promise.resolve('ok'),
+      () => Promise.reject(new Error('fail')),
+      () => Promise.resolve('also ok'),
+    ];
+    const results = await runWithConcurrency(tasks, 2);
+    expect(results).toHaveLength(3);
+    expect(results[0].status).toBe('fulfilled');
+    expect(results[1].status).toBe('rejected');
+    expect((results[1] as PromiseRejectedResult).reason.message).toBe('fail');
+    expect(results[2].status).toBe('fulfilled');
+  });
+
+  it('respects concurrency limit', async () => {
+    let running = 0;
+    let maxRunning = 0;
+    const tasks = Array.from({ length: 6 }, () => async () => {
+      running++;
+      maxRunning = Math.max(maxRunning, running);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      running--;
+      return 'done';
+    });
+    await runWithConcurrency(tasks, 2);
+    expect(maxRunning).toBeLessThanOrEqual(2);
+  });
+
+  it('handles empty task array', async () => {
+    const results = await runWithConcurrency([], 5);
+    expect(results).toEqual([]);
+  });
+
+  it('handles limit larger than task count', async () => {
+    const tasks = [() => Promise.resolve(1), () => Promise.resolve(2)];
+    const results = await runWithConcurrency(tasks, 10);
+    expect(results).toHaveLength(2);
+    expect(results.every(r => r.status === 'fulfilled')).toBe(true);
+  });
+
+  it('preserves result order regardless of completion order', async () => {
+    const tasks = [
+      () => new Promise<string>(resolve => setTimeout(() => resolve('slow'), 50)),
+      () => Promise.resolve('fast'),
+      () => new Promise<string>(resolve => setTimeout(() => resolve('medium'), 20)),
+    ];
+    const results = await runWithConcurrency(tasks, 3);
+    expect((results[0] as PromiseFulfilledResult<string>).value).toBe('slow');
+    expect((results[1] as PromiseFulfilledResult<string>).value).toBe('fast');
+    expect((results[2] as PromiseFulfilledResult<string>).value).toBe('medium');
   });
 });

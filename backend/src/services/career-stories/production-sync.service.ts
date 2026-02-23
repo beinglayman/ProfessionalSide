@@ -107,7 +107,7 @@ const log = {
 // UTILITIES
 // =============================================================================
 
-async function withTimeout<T>(
+export async function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
   label: string
@@ -125,7 +125,7 @@ async function withTimeout<T>(
 }
 
 /** Run async functions with bounded concurrency. */
-async function runWithConcurrency<T>(
+export async function runWithConcurrency<T>(
   tasks: Array<() => Promise<T>>,
   limit: number,
 ): Promise<PromiseSettledResult<T>[]> {
@@ -147,6 +147,9 @@ async function runWithConcurrency<T>(
   return results;
 }
 
+// TODO: Replace with word-boundary regex or LLM extraction for better precision.
+// Current substring matching produces false positives (e.g., "API" matches "capital").
+// Feeds JournalEntry.skills → profile + network filtering in frontend.
 function extractSkillsFromContent(content: string): string[] {
   const skillKeywords = [
     'React', 'TypeScript', 'JavaScript', 'Node.js', 'Python',
@@ -158,12 +161,18 @@ function extractSkillsFromContent(content: string): string[] {
     'Agile', 'Scrum', 'Code Review', 'Documentation',
   ];
 
-  return skillKeywords.filter((skill) =>
-    content.toLowerCase().includes(skill.toLowerCase())
-  );
+  const lower = content.toLowerCase();
+  return skillKeywords.filter((skill) => {
+    const pattern = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    return pattern.test(lower);
+  });
 }
 
 function computeDateRange(timestamps: Date[]): { start: Date; end: Date } {
+  if (timestamps.length === 0) {
+    const now = new Date();
+    return { start: now, end: now };
+  }
   const sorted = [...timestamps].sort((a, b) => a.getTime() - b.getTime());
   return { start: sorted[0], end: sorted[sorted.length - 1] };
 }
@@ -403,6 +412,7 @@ export function dedupClustersByContainer(
         existing.activities.push(...cluster.activities);
         existing.metrics.dateRange = computeDateRange(existing.activities.map(a => a.timestamp));
         existing.metrics.toolTypes = extractToolTypes(existing.activities);
+        existing.dominantContainer = computeDominantContainer(existing.activities);
         if (cluster.name && (!existing.name || cluster.name.length > existing.name.length)) {
           existing.name = cluster.name;
         }
@@ -435,7 +445,7 @@ export function dedupClustersByContainer(
 export async function runProductionSync(
   userId: string,
   activities: ActivityInput[],
-  options: { clearExisting?: boolean; backgroundNarratives?: boolean; quickMode?: boolean; skipPersist?: boolean; selfIdentifiers?: string[] } = {}
+  options: { clearExisting?: boolean; backgroundNarratives?: boolean; quickMode?: boolean; skipPersist?: boolean; selfIdentifiers?: string[]; skipNarratives?: boolean } = {}
 ): Promise<ProductionSyncResult> {
   log.info('Starting production sync', { userId, activityCount: activities.length, backgroundNarratives: options.backgroundNarratives, quickMode: options.quickMode, skipPersist: options.skipPersist });
 
@@ -547,7 +557,9 @@ export async function runProductionSync(
   log.debug(`Created ${journalResult.entries.length} journal entries (${journalResult.temporalCount} temporal, ${journalResult.clusterCount} cluster)`);
 
   // Step 5: Generate narratives (in background if requested for faster sync response)
-  if (options.backgroundNarratives) {
+  if (options.skipNarratives) {
+    log.info('Skipping narrative generation (skipNarratives option)');
+  } else if (options.backgroundNarratives) {
     // Fire and forget - don't await, let it complete in background
     // Emit per-entry events so frontend can update UI progressively
     log.info('Starting background narrative generation', { entryCount: journalResult.entries.length });
@@ -1308,12 +1320,33 @@ async function generateProductionNarratives(
 
   log.debug('ModelSelector available', selector.getModelInfo());
 
+  // Skip entries that already have generated narratives (generatedAt != null).
+  // This prevents burning Sonnet tokens on re-sync when activities haven't changed.
+  // Safety: createJournalEntryFromWindow/Cluster resets generatedAt to null when
+  // new activities are merged, so stale narratives always get regenerated.
+  const existingEntries = await prisma.journalEntry.findMany({
+    where: { id: { in: entries.map(e => e.id) } },
+    select: { id: true, generatedAt: true },
+  });
+  const alreadyGenerated = new Set(
+    existingEntries.filter(e => e.generatedAt !== null).map(e => e.id)
+  );
+  const needsNarrative = entries.filter(e => !alreadyGenerated.has(e.id));
+
+  if (needsNarrative.length < entries.length) {
+    log.info(`Skipping ${entries.length - needsNarrative.length} entries with existing narratives`);
+  }
+  if (needsNarrative.length === 0) {
+    log.info('All entries already have narratives, nothing to generate');
+    return;
+  }
+
   const journalService = new JournalService();
   const MAX_CONCURRENT_NARRATIVES = 3;
 
-  const narrativeTasks = entries.map((entry) => async () => {
+  const narrativeTasks = needsNarrative.map((entry) => async () => {
     log.debug(`Generating narrative for entry ${entry.id}`);
-    await journalService.regenerateNarrative(userId, entry.id, { style: 'professional', maxRetries: 2 });
+    await journalService.regenerateNarrative(userId, entry.id, { style: 'professional', maxRetries: 1 });
     log.debug(`Narrative generated for entry ${entry.id}`);
 
     // Emit SSE event for this entry if background generation
@@ -1329,9 +1362,9 @@ async function generateProductionNarratives(
     }
   });
 
-  log.info(`Generating narratives for ${entries.length} entries (max ${MAX_CONCURRENT_NARRATIVES} concurrent)`);
+  log.info(`Generating narratives for ${needsNarrative.length} entries (max ${MAX_CONCURRENT_NARRATIVES} concurrent, ${alreadyGenerated.size} skipped)`);
   const perEntryTimeout = 30_000;
-  const totalTimeout = perEntryTimeout * Math.ceil(entries.length / MAX_CONCURRENT_NARRATIVES) + 10_000;
+  const totalTimeout = perEntryTimeout * Math.ceil(needsNarrative.length / MAX_CONCURRENT_NARRATIVES) + 10_000;
 
   const results = await withTimeout(
     runWithConcurrency(narrativeTasks, MAX_CONCURRENT_NARRATIVES),
@@ -1344,11 +1377,11 @@ async function generateProductionNarratives(
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
         const error = r.reason instanceof Error ? r.reason.message : String(r.reason);
-        log.warn(`Failed to generate narrative for entry ${entries[i].id}`, { error });
+        log.warn(`Failed to generate narrative for entry ${needsNarrative[i].id}`, { error });
         sseService.broadcastToUser(userId, {
           type: 'data-changed',
           data: {
-            entryId: entries[i].id,
+            entryId: needsNarrative[i].id,
             status: 'error',
             error,
             timestamp: new Date().toISOString(),
@@ -1359,5 +1392,5 @@ async function generateProductionNarratives(
   }
 
   const succeeded = results ? results.filter(r => r.status === 'fulfilled').length : 0;
-  log.info(`Narrative generation complete: ${succeeded}/${entries.length} succeeded`);
+  log.info(`Narrative generation complete: ${succeeded}/${needsNarrative.length} succeeded (${alreadyGenerated.size} skipped)`);
 }
