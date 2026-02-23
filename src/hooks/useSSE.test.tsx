@@ -327,11 +327,11 @@ describe('useSSE', () => {
   });
 
   describe('Query Invalidation', () => {
-    it('invalidates queries immediately on narratives-complete', () => {
+    it('refetches queries immediately on narratives-complete', () => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(() => useSSE(), { wrapper: createWrapper(queryClient) });
 
@@ -342,16 +342,16 @@ describe('useSSE', () => {
         data: {},
       });
 
-      // Should invalidate immediately
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
+      // Should refetch immediately
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
     });
 
-    it('debounces query invalidation on data-changed events', () => {
+    it('debounces query refetch on data-changed events', () => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(() => useSSE(), { wrapper: createWrapper(queryClient) });
 
@@ -362,21 +362,21 @@ describe('useSSE', () => {
       instance.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: '2' } });
       instance.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: '3' } });
 
-      // Should not invalidate yet (debounced)
-      expect(invalidateSpy).not.toHaveBeenCalled();
+      // Should not refetch yet (debounced)
+      expect(refetchSpy).not.toHaveBeenCalled();
 
       // Advance past debounce delay
       vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS);
 
-      // Should invalidate only once
-      expect(invalidateSpy).toHaveBeenCalledTimes(2); // journal + activities
+      // Should refetch only once
+      expect(refetchSpy).toHaveBeenCalledTimes(2); // journal + activities
     });
 
-    it('cancels pending debounced invalidation on narratives-complete', () => {
+    it('cancels pending debounced refetch on narratives-complete', () => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(() => useSSE(), { wrapper: createWrapper(queryClient) });
 
@@ -389,12 +389,12 @@ describe('useSSE', () => {
       vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS / 2);
       instance.simulateEvent('narratives-complete', { type: 'narratives-complete', data: {} });
 
-      // Should have invalidated immediately from narratives-complete
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      // Should have refetched immediately from narratives-complete
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
 
       // Advance past original debounce - should not trigger again
       vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS);
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -445,6 +445,154 @@ describe('useSSE', () => {
     });
   });
 
+  describe('SSE Failure Scenarios', () => {
+    it('handles rapid consecutive errors without flooding reconnects', () => {
+      renderHook(() => useSSE(), { wrapper: createWrapper() });
+
+      const firstInstance = MockEventSource.getLatestInstance()!;
+
+      // Fire 3 rapid errors — only the first should trigger reconnect logic
+      firstInstance.simulateError();
+      firstInstance.simulateError();
+      firstInstance.simulateError();
+
+      // Should not reconnect immediately
+      expect(MockEventSource.instances).toHaveLength(1);
+
+      // After first delay, should create exactly one reconnection
+      vi.advanceTimersByTime(RECONNECT_DELAY_MS);
+      expect(MockEventSource.instances).toHaveLength(2);
+    });
+
+    it('resumes receiving events after successful reconnect', () => {
+      const onDataChanged = vi.fn();
+
+      renderHook(
+        () => useSSE({ onDataChanged }),
+        { wrapper: createWrapper() }
+      );
+
+      const firstInstance = MockEventSource.getLatestInstance()!;
+      firstInstance.simulateOpen();
+
+      // Receive one event on first connection
+      firstInstance.simulateEvent('data-changed', {
+        type: 'data-changed',
+        data: { entryId: 'before-disconnect' },
+      });
+
+      expect(onDataChanged).toHaveBeenCalledTimes(1);
+
+      // Connection dies
+      firstInstance.simulateError();
+      vi.advanceTimersByTime(RECONNECT_DELAY_MS);
+
+      // New connection established
+      const secondInstance = MockEventSource.getLatestInstance()!;
+      secondInstance.simulateOpen();
+
+      // Receive event on new connection
+      secondInstance.simulateEvent('data-changed', {
+        type: 'data-changed',
+        data: { entryId: 'after-reconnect' },
+      });
+
+      expect(onDataChanged).toHaveBeenCalledTimes(2);
+      expect(onDataChanged).toHaveBeenLastCalledWith({ entryId: 'after-reconnect' });
+    });
+
+    it('exhausts all reconnect attempts with increasing backoff', () => {
+      renderHook(() => useSSE(), { wrapper: createWrapper() });
+
+      for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+        const instance = MockEventSource.getLatestInstance()!;
+        instance.simulateError();
+
+        // Should not reconnect before the delay
+        const instancesBefore = MockEventSource.instances.length;
+        vi.advanceTimersByTime(RECONNECT_DELAY_MS * attempt - 1);
+        expect(MockEventSource.instances.length).toBe(instancesBefore);
+
+        // Should reconnect after the delay
+        vi.advanceTimersByTime(1);
+        expect(MockEventSource.instances.length).toBe(instancesBefore + 1);
+      }
+
+      // One more error — should NOT reconnect
+      const finalInstance = MockEventSource.getLatestInstance()!;
+      finalInstance.simulateError();
+      vi.advanceTimersByTime(RECONNECT_DELAY_MS * 100);
+
+      // 1 initial + MAX_RECONNECT_ATTEMPTS reconnections
+      expect(MockEventSource.instances.length).toBe(1 + MAX_RECONNECT_ATTEMPTS);
+    });
+
+    it('does not reconnect when error occurs during cleanup', () => {
+      const { unmount } = renderHook(() => useSSE(), { wrapper: createWrapper() });
+
+      const instance = MockEventSource.getLatestInstance()!;
+      instance.simulateOpen();
+
+      // Unmount triggers cleanup (sets closedByCleanup flag)
+      unmount();
+
+      // Simulate error after cleanup — should NOT trigger reconnect
+      instance.simulateError();
+      vi.advanceTimersByTime(RECONNECT_DELAY_MS * MAX_RECONNECT_ATTEMPTS);
+
+      // Should still only have the original instance
+      expect(MockEventSource.instances.length).toBe(1);
+    });
+
+    it('handles error on data-changed with malformed data field', () => {
+      const onDataChanged = vi.fn();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      renderHook(
+        () => useSSE({ onDataChanged }),
+        { wrapper: createWrapper() }
+      );
+
+      const instance = MockEventSource.getLatestInstance()!;
+
+      // Simulate event with invalid JSON
+      const listeners = instance.listeners.get('data-changed');
+      if (listeners) {
+        listeners.forEach(listener => {
+          listener({ data: '{broken json' } as MessageEvent);
+        });
+      }
+
+      expect(onDataChanged).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('debounced refetch still fires even if connection drops right after events', () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
+
+      renderHook(() => useSSE(), { wrapper: createWrapper(queryClient) });
+
+      const instance = MockEventSource.getLatestInstance()!;
+
+      // Receive data-changed event (starts debounce timer)
+      instance.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: '1' } });
+
+      // Connection dies immediately after
+      instance.simulateError();
+
+      // Debounced refetch should still fire (timer is independent of connection)
+      vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS);
+
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
+    });
+  });
+
   describe('Cleanup', () => {
     it('clears reconnect timeout on unmount', () => {
       const { unmount } = renderHook(() => useSSE(), { wrapper: createWrapper() });
@@ -462,11 +610,11 @@ describe('useSSE', () => {
       expect(MockEventSource.instances.length).toBe(1);
     });
 
-    it('clears invalidation timeout on unmount', () => {
+    it('clears refetch timeout on unmount', () => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       const { unmount } = renderHook(() => useSSE(), {
         wrapper: createWrapper(queryClient),
@@ -481,8 +629,8 @@ describe('useSSE', () => {
       // Advance past debounce delay
       vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS);
 
-      // Should not have invalidated
-      expect(invalidateSpy).not.toHaveBeenCalled();
+      // Should not have refetched
+      expect(refetchSpy).not.toHaveBeenCalled();
     });
   });
 });

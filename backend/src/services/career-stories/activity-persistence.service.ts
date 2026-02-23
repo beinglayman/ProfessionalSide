@@ -7,6 +7,7 @@
 
 import { PrismaClient, ToolActivity } from '@prisma/client';
 import { RefExtractorService, refExtractor } from './ref-extractor.service';
+import { isUniqueConstraintError } from '../../lib/prisma-errors';
 
 export interface ActivityInput {
   source: string;
@@ -87,16 +88,16 @@ export class ActivityPersistenceService {
   ): Promise<number> {
     let count = 0;
 
-    // Use transaction for batch operations
-    await this.prisma.$transaction(async (tx) => {
-      for (const activity of activities) {
-        const crossToolRefs = this.refExtractor.extractRefsFromMultiple([
-          activity.title,
-          activity.description,
-          activity.rawData ? JSON.stringify(activity.rawData) : null,
-        ]);
+    // Upsert each activity individually (no transaction — P2002 on one shouldn't abort all)
+    for (const activity of activities) {
+      const crossToolRefs = this.refExtractor.extractRefsFromMultiple([
+        activity.title,
+        activity.description,
+        activity.rawData ? JSON.stringify(activity.rawData) : null,
+      ]);
 
-        await tx.toolActivity.upsert({
+      try {
+        await this.prisma.toolActivity.upsert({
           where: {
             userId_source_sourceId: {
               userId,
@@ -124,8 +125,11 @@ export class ActivityPersistenceService {
           },
         });
         count++;
+      } catch (err) {
+        if (isUniqueConstraintError(err)) continue;
+        throw err;
       }
-    });
+    }
 
     return count;
   }

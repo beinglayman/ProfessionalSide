@@ -1,13 +1,10 @@
 /**
  * MCPCallbackPage Tests
  *
- * Tests for:
- * - Onboarding return detection (fresh localStorage → redirect to /onboarding)
- * - Default redirect (no localStorage → redirect to /settings)
- * - Stale localStorage ignored (>15 min old)
- * - Malformed localStorage handled gracefully
- * - localStorage cleanup after use
- * - Error state rendering
+ * Tests the post-OAuth callback page behavior:
+ * - Success flow: navigates to /timeline, sets sync-in-progress, fires background sync
+ * - Error flow: displays error messages, captures to error console
+ * - Missing params: shows missing parameters error
  */
 
 import React from 'react';
@@ -16,6 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ONBOARDING_STORAGE_KEY } from '../onboarding/steps/connect-tools';
+import { SYNC_IN_PROGRESS_KEY } from '../../constants/sync';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -41,6 +39,14 @@ vi.mock('../../contexts/ErrorConsoleContext', () => ({
   }),
 }));
 
+const mockRunLiveSync = vi.fn().mockResolvedValue(undefined);
+const mockSetLastSyncAt = vi.fn();
+
+vi.mock('../../services/sync.service', () => ({
+  runLiveSync: (...args: unknown[]) => mockRunLiveSync(...args),
+  setLastSyncAt: () => mockSetLastSyncAt(),
+}));
+
 // Lazy import so mocks are registered first
 let MCPCallbackPage: React.ComponentType;
 
@@ -48,7 +54,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   localStorage.clear();
-  // Dynamic import to ensure mocks are in place
+  sessionStorage.clear();
   const mod = await import('./callback');
   MCPCallbackPage = mod.MCPCallbackPage;
 });
@@ -62,85 +68,50 @@ function renderCallback(searchParams: string) {
     defaultOptions: { queries: { retry: false } },
   });
 
-  return render(
+  // Spy on invalidateQueries so we can assert it was called
+  const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+  render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/mcp/callback${searchParams}`]}>
         <MCPCallbackPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
+
+  return { queryClient, invalidateSpy };
 }
 
 // ---------------------------------------------------------------------------
-// Success: onboarding return detection
+// Success flow
 // ---------------------------------------------------------------------------
 
-describe('MCPCallbackPage: onboarding return', () => {
-  it('redirects to /onboarding when fresh onboarding-oauth-return exists', async () => {
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
-      step: 'connect-tools',
-      ts: Date.now(),
-    }));
-
+describe('MCPCallbackPage: success flow', () => {
+  it('navigates to /timeline on success', async () => {
     renderCallback('?success=true&tool=github');
 
     await waitFor(() => {
-      expect(screen.getByText(/Successfully connected Github/)).toBeInTheDocument();
-      expect(screen.getByText(/Redirecting to onboarding/)).toBeInTheDocument();
-    });
-
-    // Advance past redirect delay
-    vi.advanceTimersByTime(2500);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/onboarding',
-        { state: { returnToStep: 'connect-tools' } }
-      );
+      expect(mockNavigate).toHaveBeenCalledWith('/timeline', { replace: true });
     });
   });
 
-  it('redirects to /settings when no onboarding-oauth-return exists', async () => {
+  it('sets sync-in-progress sessionStorage', async () => {
     renderCallback('?success=true&tool=github');
 
     await waitFor(() => {
-      expect(screen.getByText(/Successfully connected Github/)).toBeInTheDocument();
-      expect(screen.getByText(/Redirecting to settings/)).toBeInTheDocument();
-    });
-
-    vi.advanceTimersByTime(2500);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/settings',
-        { state: { tab: 'integrations' } }
-      );
+      expect(sessionStorage.getItem(SYNC_IN_PROGRESS_KEY)).toBe('true');
     });
   });
 
-  it('ignores stale onboarding-oauth-return (>15 min old)', async () => {
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
-      step: 'connect-tools',
-      ts: Date.now() - 16 * 60 * 1000, // 16 min ago
-    }));
-
+  it('calls setLastSyncAt', async () => {
     renderCallback('?success=true&tool=github');
 
     await waitFor(() => {
-      expect(screen.getByText(/Redirecting to settings/)).toBeInTheDocument();
-    });
-
-    vi.advanceTimersByTime(2500);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/settings',
-        { state: { tab: 'integrations' } }
-      );
+      expect(mockSetLastSyncAt).toHaveBeenCalled();
     });
   });
 
-  it('cleans up localStorage after use (fresh)', async () => {
+  it('removes onboarding localStorage', async () => {
     localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
       step: 'connect-tools',
       ts: Date.now(),
@@ -153,62 +124,39 @@ describe('MCPCallbackPage: onboarding return', () => {
     });
   });
 
-  it('cleans up localStorage after use (stale)', async () => {
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
-      step: 'connect-tools',
-      ts: Date.now() - 20 * 60 * 1000,
-    }));
-
+  it('fires runLiveSync in background', async () => {
     renderCallback('?success=true&tool=github');
 
     await waitFor(() => {
-      expect(localStorage.getItem(ONBOARDING_STORAGE_KEY)).toBeNull();
+      expect(mockRunLiveSync).toHaveBeenCalled();
     });
   });
 
-  it('handles malformed localStorage gracefully (falls through to settings)', async () => {
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, 'not-valid-json{{{');
-
-    renderCallback('?success=true&tool=github');
+  it('invalidates integrations cache', async () => {
+    const { invalidateSpy } = renderCallback('?success=true&tool=github');
 
     await waitFor(() => {
-      expect(screen.getByText(/Redirecting to settings/)).toBeInTheDocument();
-    });
-
-    vi.advanceTimersByTime(2500);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/settings',
-        { state: { tab: 'integrations' } }
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['mcp', 'integrations'] })
       );
     });
-
-    // Should have been cleaned up
-    expect(localStorage.getItem(ONBOARDING_STORAGE_KEY)).toBeNull();
   });
-});
 
-// ---------------------------------------------------------------------------
-// Success: multi-tool
-// ---------------------------------------------------------------------------
-
-describe('MCPCallbackPage: multi-tool success', () => {
-  it('shows combined tool names for group OAuth', async () => {
+  it('handles multi-tool success', async () => {
     renderCallback('?success=true&tools=jira,confluence');
 
     await waitFor(() => {
-      expect(screen.getByText(/Successfully connected Jira and Confluence/)).toBeInTheDocument();
+      expect(mockNavigate).toHaveBeenCalledWith('/timeline', { replace: true });
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// Error states
+// Error flow
 // ---------------------------------------------------------------------------
 
 describe('MCPCallbackPage: error handling', () => {
-  it('shows error message for known error codes', async () => {
+  it('shows error for known error codes', async () => {
     renderCallback('?error=access_denied');
 
     await waitFor(() => {
@@ -217,7 +165,7 @@ describe('MCPCallbackPage: error handling', () => {
     });
   });
 
-  it('shows generic error for unknown error codes', async () => {
+  it('shows generic error for unknown codes', async () => {
     renderCallback('?error=some_new_error');
 
     await waitFor(() => {
@@ -237,12 +185,61 @@ describe('MCPCallbackPage: error handling', () => {
     });
   });
 
-  it('shows error when neither success nor error param present', async () => {
+  it('shows error when no params present', async () => {
     renderCallback('?random=param');
 
     await waitFor(() => {
       expect(screen.getByText('Connection Failed')).toBeInTheDocument();
       expect(screen.getByText('Missing required authorization parameters')).toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sync failure resilience
+// ---------------------------------------------------------------------------
+
+describe('MCPCallbackPage: sync failure resilience', () => {
+  it('navigates to /timeline even when runLiveSync rejects', async () => {
+    mockRunLiveSync.mockRejectedValueOnce(new Error('Network failure'));
+
+    renderCallback('?success=true&tool=github');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/timeline', { replace: true });
+    });
+  });
+
+  it('sets sync-in-progress flag before runLiveSync executes', async () => {
+    // Make runLiveSync hang to verify ordering
+    mockRunLiveSync.mockImplementationOnce(() => new Promise(() => {}));
+
+    renderCallback('?success=true&tool=github');
+
+    await waitFor(() => {
+      expect(sessionStorage.getItem(SYNC_IN_PROGRESS_KEY)).toBe('true');
+      expect(mockNavigate).toHaveBeenCalledWith('/timeline', { replace: true });
+    });
+  });
+
+  it('logs warning when runLiveSync fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Simulate sync error that reaches the onError callback
+    mockRunLiveSync.mockImplementationOnce((callbacks: { onError: (err: Error) => void }) => {
+      callbacks.onError(new Error('Sync timeout'));
+      return Promise.resolve();
+    });
+
+    renderCallback('?success=true&tool=github');
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Callback]'),
+        expect.stringContaining('Sync timeout')
+      );
+    });
+
+    consoleSpy.mockRestore();
   });
 });

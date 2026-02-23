@@ -1892,7 +1892,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     async function fetchAndPersistTool(
       toolType: string,
       fetchDateRange: { start: Date; end: Date },
-    ): Promise<{ activities: ActivityInputType[]; error?: string }> {
+    ): Promise<{ activities: ActivityInputType[]; error?: string; currentUser?: any }> {
       let result: any;
 
       // Streaming callback: persist partial data as the tool emits it per-stage
@@ -1946,7 +1946,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
         data: { source: toolType, count: activities.length, partial: false },
       });
 
-      return { activities };
+      return { activities, currentUser: result.currentUser };
     }
 
     // Parse date range (default: last 30 days, or 7 days for quickMode)
@@ -1972,18 +1972,38 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
       selectedTools.map((toolType: string) => fetchAndPersistTool(toolType, parsedDateRange))
     );
 
-    // Collect results
+    // Collect results + currentUser identifiers for self-filtering
     const allActivities: ActivityInputType[] = [];
     const fetchErrors: Record<string, string> = {};
+    const selfIdentifiers: string[] = [];
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') {
         allActivities.push(...r.value.activities);
         if (r.value.error) fetchErrors[selectedTools[i]] = r.value.error;
+        // Collect currentUser identifiers from each tool
+        const cu = r.value.currentUser;
+        if (cu) {
+          if (cu.login) selfIdentifiers.push(cu.login);
+          if (cu.displayName) selfIdentifiers.push(cu.displayName);
+          if (cu.email) selfIdentifiers.push(cu.email);
+          if (cu.accountId) selfIdentifiers.push(cu.accountId);
+          if (cu.userPrincipalName) selfIdentifiers.push(cu.userPrincipalName);
+        }
       } else {
         console.error(`[MCP Sync] Error with ${selectedTools[i]}:`, r.reason);
         fetchErrors[selectedTools[i]] = r.reason?.message || 'Unexpected error';
       }
     });
+
+    // Add user's name/email from auth context
+    if (req.user?.name) selfIdentifiers.push(req.user.name);
+    if (req.user?.email) {
+      selfIdentifiers.push(req.user.email);
+      const emailUsername = req.user.email.split('@')[0];
+      if (emailUsername) selfIdentifiers.push(emailUsername);
+    }
+    const uniqueSelfIdentifiers = [...new Set(selfIdentifiers.filter(Boolean))];
+    console.log(`[MCP Sync] Self identifiers for clustering: [${uniqueSelfIdentifiers.slice(0, 5).join(', ')}${uniqueSelfIdentifiers.length > 5 ? '...' : ''}]`);
 
     if (allActivities.length === 0) {
       const errorDetails = Object.entries(fetchErrors)
@@ -2013,6 +2033,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
       backgroundNarratives: !quickMode,
       quickMode: !!quickMode,
       skipPersist: !quickMode,
+      selfIdentifiers: uniqueSelfIdentifiers,
     });
 
     console.log(`[MCP Sync] Complete: ${result.activitiesSeeded} activities, ${result.entriesCreated} entries`);

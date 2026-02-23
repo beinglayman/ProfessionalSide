@@ -24,8 +24,16 @@ export function useActivities(params: GetActivitiesParams = {}, options?: { enab
       const response = await ActivityService.getActivities(paramsWithTimezone);
 
       if (response.success && response.data) {
-        return response.data;
+        const data = response.data;
+        // Debug: log when activities arrive to trace SSE→refetch→render chain
+        if ('groups' in data && data.groups.length > 0) {
+          console.log(`[useActivities] Fetched ${data.groups.length} groups, ${data.pagination?.total ?? '?'} total (groupBy: ${params.groupBy})`);
+        }
+        return data;
       }
+
+      // Log failed responses to trace silent failures
+      console.warn('[useActivities] API response not successful:', response.error || 'unknown error');
 
       // Return empty response on error
       if (params.groupBy) {

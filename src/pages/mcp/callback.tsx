@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Loader2, Terminal } from 'lucide-react';
+import { XCircle, Loader2, Terminal } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useErrorConsole } from '../../contexts/ErrorConsoleContext';
 import { ONBOARDING_STORAGE_KEY } from '../onboarding/steps/connect-tools';
+import { runLiveSync, setLastSyncAt } from '../../services/sync.service';
+import { SYNC_IN_PROGRESS_KEY } from '../../constants/sync';
 
-const REDIRECT_DELAY_MS = 2000;
-const ONBOARDING_RETURN_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
 export function MCPCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { captureOAuthError, openConsole } = useErrorConsole();
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
+  const [status, setStatus] = useState<'processing' | 'error'>('processing');
   const [message, setMessage] = useState('Processing authorization...');
   const [errorCode, setErrorCode] = useState<string | null>(null);
 
@@ -57,41 +57,31 @@ export function MCPCallbackPage() {
 
       // Check for success from backend redirect
       if (success === 'true' && (tool || tools)) {
-        setStatus('success');
-
         // Invalidate the integrations cache to refetch updated status
         queryClient.invalidateQueries({ queryKey: ['mcp', 'integrations'] });
 
-        // Determine redirect destination before setting message
-        let redirectToOnboarding = false;
-        const onboardingReturn = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-        if (onboardingReturn) {
-          try {
-            const parsed = JSON.parse(onboardingReturn);
-            redirectToOnboarding = Date.now() - parsed.ts < ONBOARDING_RETURN_MAX_AGE_MS;
-          } catch { /* malformed localStorage — fall through to default */ }
-          localStorage.removeItem(ONBOARDING_STORAGE_KEY);
-        }
+        // Clean up onboarding localStorage if present (no longer needed — we go straight to timeline)
+        localStorage.removeItem(ONBOARDING_STORAGE_KEY);
 
-        // Set message with correct destination
-        const destination = redirectToOnboarding ? 'onboarding' : 'settings';
-        if (tools) {
-          const toolList = tools.split(',');
-          const toolNames = toolList.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' and ');
-          setMessage(`Successfully connected ${toolNames}! Redirecting to ${destination}...`);
-        } else if (tool) {
-          const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
-          setMessage(`Successfully connected ${toolName}! Redirecting to ${destination}...`);
-        }
+        // Mark as synced so journal page auto-sync guard doesn't trigger modal
+        setLastSyncAt();
 
-        // Redirect after delay
-        setTimeout(() => {
-          if (redirectToOnboarding) {
-            navigate('/onboarding?returnToStep=connect-tools');
-          } else {
-            navigate('/settings?tab=integrations');
-          }
-        }, REDIRECT_DELAY_MS);
+        // Signal timeline to show syncing indicator (full sync running in background)
+        sessionStorage.setItem(SYNC_IN_PROGRESS_KEY, 'true');
+
+        // Navigate immediately — no blocking sync on callback page
+        navigate('/timeline', { replace: true });
+
+        // Fire full sync in background — backend does chunked persist + SSE per tool:
+        // first 15 activities persisted → SSE data-changed → remaining persisted → SSE data-changed
+        // Timeline picks up each SSE event via useSSE → refetchQueries → incremental render
+        const noopCallbacks = {
+          onStateUpdate: () => {},
+          onComplete: () => {},
+          onError: (err: Error) => console.warn('[Callback] Background sync error:', err.message),
+        };
+        runLiveSync(noopCallbacks).catch(() => {});
+
         return;
       }
 
@@ -122,16 +112,6 @@ export function MCPCallbackPage() {
                 Connecting Your Account
               </h2>
               <p className="text-gray-600">{message}</p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                Connection Successful!
-              </h2>
-              <p className="text-gray-600 mb-6">{message}</p>
             </>
           )}
 

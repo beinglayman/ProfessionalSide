@@ -49,7 +49,7 @@ export function RegisterPage() {
       navigate('/onboarding');
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError(error.message || 'An error occurred during registration. Please try again.');
+      setError(error.response?.data?.error || error.message || 'An error occurred during registration. Please try again.');
     }
   };
 

@@ -70,6 +70,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspaces } from '../../hooks/useWorkspace';
 import { isDemoMode } from '../../services/demo-mode.service';
 import { runDemoSync, runLiveSync, SyncState, SyncResult, getLastSyncAt } from '../../services/sync.service';
+import { SYNC_IN_PROGRESS_KEY, JOURNAL_DATA_CHANGED_EVENT } from '../../constants/sync';
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 
 import { ActivityStream } from '../../components/journal/activity-stream';
@@ -130,7 +131,7 @@ export default function JournalPage() {
   // Sync modal state
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncState, setSyncState] = useState<SyncState | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(() => sessionStorage.getItem(SYNC_IN_PROGRESS_KEY) === 'true');
   const [lastSyncAt, setLastSyncAtState] = useState<string | null>(() => getLastSyncAt());
   /**
    * True while LLM narratives are being generated in the background.
@@ -176,9 +177,12 @@ export default function JournalPage() {
       setPendingEnhancementIds(new Set()); // Clear all pending
     },
     onDataChanged: (data) => {
-      // Don't remove from pendingEnhancementIds here - the query invalidation
-      // is debounced, so we let the data refresh happen first. The StoryGroupHeader
-      // will stop showing the animation once hasLLMContent becomes true.
+      // Clear background sync indicator when first data arrives
+      if (isSyncing && sessionStorage.getItem(SYNC_IN_PROGRESS_KEY)) {
+        sessionStorage.removeItem(SYNC_IN_PROGRESS_KEY);
+        setIsSyncing(false);
+        setNarrativesGenerating(true); // Narratives still generating in background
+      }
     },
   });
 
@@ -198,16 +202,29 @@ export default function JournalPage() {
     return () => clearTimeout(timeout);
   }, [narrativesGenerating, queryClient]);
 
+  // Safety timeout: if no SSE data-changed arrives within 60s, clear the sync banner
+  useEffect(() => {
+    if (!isSyncing || showSyncModal) return;
+
+    const timeout = setTimeout(() => {
+      sessionStorage.removeItem(SYNC_IN_PROGRESS_KEY);
+      setIsSyncing(false);
+      queryClient.refetchQueries({ queryKey: ['activities'] });
+    }, 60000);
+
+    return () => clearTimeout(timeout);
+  }, [isSyncing, showSyncModal, queryClient]);
+
   // Listen for external data changes to refresh (browser events, not SSE)
   useEffect(() => {
     const handleDataChanged = () => {
-      // Invalidate to mark as stale (bypasses staleTime), React Query will refetch active ones
-      queryClient.invalidateQueries({ queryKey: ['journal'] });
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
+      // Force refetch (not just invalidate) to guarantee fresh data renders
+      queryClient.refetchQueries({ queryKey: ['journal'] });
+      queryClient.refetchQueries({ queryKey: ['activities'] });
     };
 
-    window.addEventListener('journal-data-changed', handleDataChanged);
-    return () => window.removeEventListener('journal-data-changed', handleDataChanged);
+    window.addEventListener(JOURNAL_DATA_CHANGED_EVENT, handleDataChanged);
+    return () => window.removeEventListener(JOURNAL_DATA_CHANGED_EVENT, handleDataChanged);
   }, [queryClient]);
 
   // Fetch journal entries from backend first (without workspace validation)
@@ -747,6 +764,14 @@ export default function JournalPage() {
             >
               <X className="h-3 w-3" />
             </button>
+          </div>
+        )}
+
+        {/* Background sync indicator — shown when arriving from OAuth callback */}
+        {isSyncing && !showSyncModal && (
+          <div className="px-3 py-2 rounded-md flex items-center gap-2 bg-blue-50 border border-blue-200 animate-pulse">
+            <RefreshCw className="h-3.5 w-3.5 text-blue-600 animate-spin flex-shrink-0" />
+            <p className="text-xs text-blue-700">Importing your activity — items will appear below as they arrive...</p>
           </div>
         )}
 

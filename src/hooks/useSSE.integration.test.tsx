@@ -3,7 +3,7 @@
  *
  * Tests the flow:
  * 1. SSE receives data-changed event with entryId
- * 2. Debounced query invalidation triggers
+ * 2. Debounced query refetch triggers
  * 3. Callbacks are invoked with correct data
  */
 
@@ -53,6 +53,10 @@ class MockEventSource {
   simulateOpen() {
     this.readyState = 1;
     this.onopen?.();
+  }
+
+  simulateError(error?: Event) {
+    this.onerror?.(error || new Event('error'));
   }
 
   simulateEvent(type: string, data: unknown) {
@@ -215,9 +219,9 @@ describe('SSE Per-Story Updates', () => {
     });
   });
 
-  describe('Query Invalidation for Stories', () => {
-    it('debounces invalidation when multiple entries complete rapidly', () => {
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+  describe('Query Refetch for Stories', () => {
+    it('debounces refetch when multiple entries complete rapidly', () => {
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(
         () => useSSE(),
@@ -236,23 +240,23 @@ describe('SSE Per-Story Updates', () => {
         }
       });
 
-      // Before debounce - should not have invalidated
-      expect(invalidateSpy).not.toHaveBeenCalled();
+      // Before debounce - should not have refetched
+      expect(refetchSpy).not.toHaveBeenCalled();
 
       // Advance past debounce
       act(() => {
         vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS + 10);
       });
 
-      // Should only invalidate once (debounced)
+      // Should only refetch once (debounced)
       // 2 calls: one for 'journal', one for 'activities'
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
     });
 
-    it('invalidates immediately on narratives-complete (final event)', () => {
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    it('refetches immediately on narratives-complete (final event)', () => {
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(
         () => useSSE(),
@@ -269,11 +273,11 @@ describe('SSE Per-Story Updates', () => {
       });
 
       // Should invalidate immediately (no debounce)
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
     });
 
     it('cancels pending debounce when narratives-complete arrives', () => {
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(
         () => useSSE(),
@@ -303,7 +307,7 @@ describe('SSE Per-Story Updates', () => {
       });
 
       // Should have invalidated immediately from narratives-complete
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
 
       // Advance past original debounce - should NOT invalidate again
       act(() => {
@@ -311,7 +315,7 @@ describe('SSE Per-Story Updates', () => {
       });
 
       // Still only 2 calls (debounced one was cancelled)
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -373,7 +377,7 @@ describe('SSE Per-Story Updates', () => {
     it('handles typical sync flow: multiple data-changed then narratives-complete', () => {
       const onDataChanged = vi.fn();
       const onNarrativesComplete = vi.fn();
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
       renderHook(
         () => useSSE({ onDataChanged, onNarrativesComplete }),
@@ -396,7 +400,7 @@ describe('SSE Per-Story Updates', () => {
       });
 
       expect(onDataChanged).toHaveBeenCalledTimes(3);
-      expect(invalidateSpy).toHaveBeenCalledTimes(2); // First batch
+      expect(refetchSpy).toHaveBeenCalledTimes(2); // First batch
 
       // Stories 4-6 complete
       act(() => {
@@ -410,7 +414,7 @@ describe('SSE Per-Story Updates', () => {
       });
 
       expect(onDataChanged).toHaveBeenCalledTimes(6);
-      expect(invalidateSpy).toHaveBeenCalledTimes(4); // Second batch
+      expect(refetchSpy).toHaveBeenCalledTimes(4); // Second batch
 
       // Stories 7-8 complete, then narratives-complete
       act(() => {
@@ -431,8 +435,8 @@ describe('SSE Per-Story Updates', () => {
       expect(onNarrativesComplete).toHaveBeenCalledTimes(1);
       expect(onNarrativesComplete).toHaveBeenCalledWith({ entriesUpdated: 8 });
 
-      // Final invalidation from narratives-complete (immediate)
-      expect(invalidateSpy).toHaveBeenCalledTimes(6);
+      // Final refetch from narratives-complete (immediate)
+      expect(refetchSpy).toHaveBeenCalledTimes(6);
     });
 
     it('handles mixed success and error statuses', () => {
@@ -477,6 +481,142 @@ describe('SSE Per-Story Updates', () => {
       });
 
       expect(onNarrativesComplete).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('SSE Failure During Active Sync', () => {
+    it('receives partial events, disconnects, reconnects, and continues', () => {
+      const onDataChanged = vi.fn();
+      const onNarrativesComplete = vi.fn();
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
+
+      renderHook(
+        () => useSSE({ onDataChanged, onNarrativesComplete }),
+        { wrapper: createTestWrapper(queryClient) }
+      );
+
+      const sse1 = MockEventSource.getLatestInstance()!;
+      act(() => { sse1.simulateOpen(); });
+
+      // Receive first 3 stories
+      act(() => {
+        sse1.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-1', status: 'complete' } });
+        sse1.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-2', status: 'complete' } });
+        sse1.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-3', status: 'complete' } });
+      });
+
+      expect(onDataChanged).toHaveBeenCalledTimes(3);
+
+      // Let debounce fire for first batch
+      act(() => { vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS + 10); });
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
+
+      // Connection dies
+      act(() => { sse1.simulateError(); });
+
+      // Reconnect after delay
+      act(() => { vi.advanceTimersByTime(3000); });
+
+      const sse2 = MockEventSource.getLatestInstance()!;
+      act(() => { sse2.simulateOpen(); });
+
+      // Remaining stories arrive on new connection
+      act(() => {
+        sse2.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-4', status: 'complete' } });
+        sse2.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-5', status: 'complete' } });
+      });
+
+      expect(onDataChanged).toHaveBeenCalledTimes(5);
+
+      // narratives-complete on reconnected connection
+      act(() => {
+        sse2.simulateEvent('narratives-complete', {
+          type: 'narratives-complete',
+          data: { entriesUpdated: 5 },
+        });
+      });
+
+      expect(onNarrativesComplete).toHaveBeenCalledTimes(1);
+      expect(onNarrativesComplete).toHaveBeenCalledWith({ entriesUpdated: 5 });
+    });
+
+    it('fires pending debounced refetch even when connection drops', () => {
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
+
+      renderHook(
+        () => useSSE(),
+        { wrapper: createTestWrapper(queryClient) }
+      );
+
+      const sse = MockEventSource.getLatestInstance()!;
+      act(() => { sse.simulateOpen(); });
+
+      // Receive events (starts debounce timer)
+      act(() => {
+        sse.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-1' } });
+        sse.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-2' } });
+      });
+
+      // Connection drops immediately
+      act(() => { sse.simulateError(); });
+
+      // Before debounce — no refetch yet
+      expect(refetchSpy).not.toHaveBeenCalled();
+
+      // Debounce fires (independent of connection state)
+      act(() => { vi.advanceTimersByTime(INVALIDATION_DEBOUNCE_MS + 10); });
+
+      // Refetch should still fire — data was received before disconnect
+      expect(refetchSpy).toHaveBeenCalledTimes(2);
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
+    });
+
+    it('handles permanent SSE failure — events received before death still work', () => {
+      const onDataChanged = vi.fn();
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
+
+      renderHook(
+        () => useSSE({ onDataChanged }),
+        { wrapper: createTestWrapper(queryClient) }
+      );
+
+      const sse = MockEventSource.getLatestInstance()!;
+      act(() => { sse.simulateOpen(); });
+
+      // Receive some events
+      act(() => {
+        sse.simulateEvent('data-changed', { type: 'data-changed', data: { entryId: 'story-1', status: 'complete' } });
+      });
+
+      expect(onDataChanged).toHaveBeenCalledTimes(1);
+
+      // Connection dies and all reconnect attempts fail
+      for (let i = 0; i < 5; i++) {
+        const instance = MockEventSource.getLatestInstance()!;
+        act(() => { instance.simulateError(); });
+        act(() => { vi.advanceTimersByTime(3000 * (i + 1)); });
+      }
+
+      // Exhaust final attempt
+      const lastInstance = MockEventSource.getLatestInstance()!;
+      act(() => { lastInstance.simulateError(); });
+      act(() => { vi.advanceTimersByTime(100000); });
+
+      // No more instances created — gave up
+      const totalInstances = MockEventSource.instances.length;
+
+      // The one event we received should have been processed
+      expect(onDataChanged).toHaveBeenCalledTimes(1);
+      expect(onDataChanged).toHaveBeenCalledWith({ entryId: 'story-1', status: 'complete' });
+
+      // Debounced refetch from the one event should have fired
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['journal'] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['activities'] });
+
+      // No further reconnect attempts
+      act(() => { vi.advanceTimersByTime(100000); });
+      expect(MockEventSource.instances.length).toBe(totalInstances);
     });
   });
 });

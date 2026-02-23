@@ -17,6 +17,7 @@
 import { setDemoSyncStatus, getDemoDataset } from './demo-mode.service';
 import { API_BASE_URL } from '../lib/api';
 import { getErrorConsole } from '../contexts/ErrorConsoleContext';
+import { JOURNAL_DATA_CHANGED_EVENT } from '../constants/sync';
 
 const LAST_SYNC_KEY = 'app-last-sync-at';
 
@@ -115,7 +116,7 @@ export function getLastSyncAt(): string | null {
 }
 
 /** Store the last sync timestamp */
-function setLastSyncAt(): void {
+export function setLastSyncAt(): void {
   try {
     localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   } catch {
@@ -194,7 +195,7 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, SYNC_PHASE_DELAY_ACTIVITIES_MS));
 
     // Notify journal to refresh activities
-    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+    window.dispatchEvent(new CustomEvent(JOURNAL_DATA_CHANGED_EVENT));
 
     // Phase 3: Show generating stories (entries are already created by backend)
     const entries: EntryPreview[] = (result.entryPreviews || []).map((e: EntryPreview) => ({
@@ -224,7 +225,7 @@ export async function runDemoSync(callbacks: SyncCallbacks): Promise<void> {
     });
 
     // Notify again for stories
-    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+    window.dispatchEvent(new CustomEvent(JOURNAL_DATA_CHANGED_EVENT));
 
     // Update sync timestamps
     setLastSyncAt();
@@ -416,7 +417,7 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
     });
 
     // Notify journal to refresh activities immediately
-    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+    window.dispatchEvent(new CustomEvent(JOURNAL_DATA_CHANGED_EVENT));
 
     // Phase 3: Show generating stories
     const entries: EntryPreview[] = (result.entryPreviews || []).map((e: EntryPreview) => ({
@@ -446,7 +447,7 @@ export async function runLiveSync(callbacks: SyncCallbacks): Promise<void> {
     });
 
     // Notify again for stories
-    window.dispatchEvent(new CustomEvent('journal-data-changed'));
+    window.dispatchEvent(new CustomEvent(JOURNAL_DATA_CHANGED_EVENT));
 
     // Update sync timestamp
     setLastSyncAt();

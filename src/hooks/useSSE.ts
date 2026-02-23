@@ -97,8 +97,11 @@ export function useSSE({
     }
     invalidationTimeoutRef.current = setTimeout(() => {
       console.log('[SSE] Debounced query invalidation triggered');
-      queryClientRef.current.invalidateQueries({ queryKey: ['journal'] });
-      queryClientRef.current.invalidateQueries({ queryKey: ['activities'] });
+      // Use refetchType: 'active' (default) to refetch all mounted queries matching the prefix.
+      // Also force refetch (not just invalidate) to guarantee data refresh even if
+      // keepPreviousData is masking the stale→fresh transition.
+      queryClientRef.current.refetchQueries({ queryKey: ['journal'] });
+      queryClientRef.current.refetchQueries({ queryKey: ['activities'] });
     }, INVALIDATION_DEBOUNCE_MS);
   }, []); // No dependencies - uses ref
 
@@ -175,9 +178,9 @@ export function useSSE({
           invalidationTimeoutRef.current = null;
         }
 
-        // Final invalidation - immediate, not debounced
-        queryClientRef.current.invalidateQueries({ queryKey: ['journal'] });
-        queryClientRef.current.invalidateQueries({ queryKey: ['activities'] });
+        // Final refetch - immediate, not debounced
+        queryClientRef.current.refetchQueries({ queryKey: ['journal'] });
+        queryClientRef.current.refetchQueries({ queryKey: ['activities'] });
 
         // Call user callback
         onNarrativesCompleteRef.current?.(data.data);

@@ -1,0 +1,12 @@
+/** Prisma error code for unique constraint violations */
+export const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
+
+/** Type guard: check if an error is a Prisma unique constraint violation (P2002) */
+export function isUniqueConstraintError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: string }).code === PRISMA_UNIQUE_CONSTRAINT
+  );
+}
