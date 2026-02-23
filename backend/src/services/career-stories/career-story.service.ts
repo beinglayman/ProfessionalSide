@@ -131,6 +131,19 @@ export interface NarrativeSections {
   [key: string]: NarrativeSection;
 }
 
+/** Build an activityId → YYYY-MM-DD date lookup from activity rows with timestamps. */
+export function buildDateLookup(
+  rows: Array<{ id: string; timestamp?: Date | null }>,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (row.timestamp) {
+      map.set(row.id, new Date(row.timestamp).toISOString().split('T')[0]);
+    }
+  }
+  return map;
+}
+
 /** Input section from API - allows optional summary/text */
 export interface InputSection {
   summary?: string;
@@ -366,11 +379,15 @@ export class CareerStoryService {
   private buildSectionsFromJournalContent(
     content: JournalContent,
     framework: FrameworkName,
-    activityIds: string[]
+    activityIds: string[],
+    dateByActivityId?: Map<string, string>
   ): NarrativeSections {
     const sections: NarrativeSections = {};
     const sectionKeys = NARRATIVE_FRAMEWORKS[framework] || [];
-    const defaultEvidence = activityIds.map((activityId) => ({ activityId }));
+    const defaultEvidence = activityIds.map((activityId) => ({
+      activityId,
+      date: dateByActivityId?.get(activityId),
+    }));
 
     // If we have frameworkComponents, use them directly
     const components = content.format7Data?.frameworkComponents || [];
@@ -501,10 +518,15 @@ export class CareerStoryService {
         return null;
       }
 
+      const dateByActivityId = buildDateLookup(activityRows || []);
+
       // Convert parsed sections to NarrativeSections format
       const sections: NarrativeSections = {};
       const sectionKeys = NARRATIVE_FRAMEWORKS[framework] || [];
-      const defaultEvidence = activityIds.map((activityId) => ({ activityId }));
+      const defaultEvidence = activityIds.map((activityId) => ({
+        activityId,
+        date: dateByActivityId.get(activityId),
+      }));
 
       // Log which sections LLM returned vs expected
       const returnedKeys = Object.keys(parsed.sections);
@@ -523,6 +545,7 @@ export class CareerStoryService {
               ? parsedSection.evidence.map((e) => ({
                   activityId: e.activityId,
                   description: e.description,
+                  date: dateByActivityId.get(e.activityId),
                 }))
               : defaultEvidence,
           };
@@ -868,6 +891,8 @@ export class CareerStoryService {
         activityRows,
       );
 
+      const dateByActivityId = buildDateLookup(activityRows);
+
       if (llmResult) {
         sections = llmResult.sections;
         category = llmResult.category;
@@ -876,7 +901,8 @@ export class CareerStoryService {
         sections = this.buildSectionsFromJournalContent(
           journalContent,
           useFramework,
-          entry.activityIds
+          entry.activityIds,
+          dateByActivityId
         );
       }
     } else {
@@ -1211,6 +1237,7 @@ export class CareerStoryService {
       };
 
       const regenActivityRows = await this.fetchActivityRowsForRanking(story.activityIds);
+      const dateByActivityId = buildDateLookup(regenActivityRows);
 
       const llmResult = await this.generateSectionsWithLLM(
         journalContent,
@@ -1230,7 +1257,8 @@ export class CareerStoryService {
         sections = this.buildSectionsFromJournalContent(
           journalContent,
           nextFramework,
-          story.activityIds
+          story.activityIds,
+          dateByActivityId
         );
       }
     } else {

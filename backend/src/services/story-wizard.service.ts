@@ -35,6 +35,7 @@ import { Prisma } from '@prisma/client';
 import {
   createCareerStoryService,
   FrameworkName,
+  buildDateLookup,
 } from './career-stories/career-story.service';
 import {
   buildCareerStoryMessages,
@@ -568,6 +569,8 @@ export class StoryWizardService {
     // Fetch activities for ranking AND source creation (needs sourceUrl for sources)
     const allActivityRows = await this.fetchActivityRows(entry.activityIds, { sourceUrl: true });
 
+    const dateByActivityId = buildDateLookup(allActivityRows);
+
     // Rank and adapt activities (separate composable step — RH-2)
     const rankedActivities = allActivityRows.length > 0
       ? rankActivities(
@@ -579,7 +582,7 @@ export class StoryWizardService {
       : undefined;
 
     // Generate via LLM with archetype + context + activities as PEER (RH-3)
-    const { sections, category } = await this.generateSections(journalEntryContent, framework, archetype, extractedContext, rankedActivities);
+    const { sections, category } = await this.generateSections(journalEntryContent, framework, archetype, extractedContext, rankedActivities, dateByActivityId);
 
     // Build hook
     const hook = extractedContext.realStory?.slice(0, 200)
@@ -881,10 +884,11 @@ export class StoryWizardService {
     archetype: StoryArchetype,
     extractedContext: ExtractedContext,
     activities?: import('./career-stories/activity-context.adapter').ActivityContext[],
-  ): Promise<{ sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }>; category?: string }> {
+    dateByActivityId?: Map<string, string>,
+  ): Promise<{ sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string; date?: string }> }>; category?: string }> {
     const modelSelector = getModelSelector();
     if (!modelSelector) {
-      return { sections: this.buildFallbackSections(framework, journalEntry) };
+      return { sections: this.buildFallbackSections(framework, journalEntry, dateByActivityId) };
     }
 
     // Use updated buildCareerStoryMessages with archetype + context + activities as PEER (RH-3)
@@ -905,37 +909,44 @@ export class StoryWizardService {
       logTokenUsage(result.usage, journalEntry.title);
 
       const parsed = parseCareerStoryResponse(result.content);
-      if (!parsed) return { sections: this.buildFallbackSections(framework, journalEntry) };
+      if (!parsed) return { sections: this.buildFallbackSections(framework, journalEntry, dateByActivityId) };
 
       const sectionKeys = FRAMEWORK_SECTIONS[framework as PromptFrameworkName] || [];
-      const sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }> = {};
+      const sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string; date?: string }> }> = {};
 
       for (const key of sectionKeys) {
         const section = parsed.sections[key];
         sections[key] = {
           summary: section?.summary || `${key} details pending`,
-          evidence: section?.evidence || journalEntry.activityIds.map((id) => ({ activityId: id })),
+          evidence: (section?.evidence || journalEntry.activityIds.map((id) => ({ activityId: id }))).map((e) => ({
+            ...e,
+            date: e.activityId ? dateByActivityId?.get(e.activityId) : undefined,
+          })),
         };
       }
 
       return { sections, category: parsed.category };
     } catch (error) {
       console.error('Story generation failed:', error);
-      return { sections: this.buildFallbackSections(framework, journalEntry) };
+      return { sections: this.buildFallbackSections(framework, journalEntry, dateByActivityId) };
     }
   }
 
   private buildFallbackSections(
     framework: FrameworkName,
-    journalEntry: JournalEntryContent
-  ): Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }> {
+    journalEntry: JournalEntryContent,
+    dateByActivityId?: Map<string, string>,
+  ): Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string; date?: string }> }> {
     const sectionKeys = FRAMEWORK_SECTIONS[framework as PromptFrameworkName] || ['situation', 'task', 'action', 'result'];
-    const sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string }> }> = {};
+    const sections: Record<string, { summary: string; evidence: Array<{ activityId?: string; description?: string; date?: string }> }> = {};
 
     for (const key of sectionKeys) {
       sections[key] = {
         summary: `${key}: ${journalEntry.description || journalEntry.title || 'Details pending'}`,
-        evidence: journalEntry.activityIds.map((id) => ({ activityId: id })),
+        evidence: journalEntry.activityIds.map((id) => ({
+          activityId: id,
+          date: dateByActivityId?.get(id),
+        })),
       };
     }
 
