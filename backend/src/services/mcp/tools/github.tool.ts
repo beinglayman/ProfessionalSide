@@ -39,7 +39,8 @@ export class GitHubTool {
    */
   public async fetchActivity(
     userId: string,
-    dateRange?: { start?: Date; end?: Date }
+    dateRange?: { start?: Date; end?: Date },
+    options?: { onPartialData?: (data: Partial<GitHubActivity>) => void }
   ): Promise<MCPServiceResponse<GitHubActivity>> {
     try {
       // Get access token
@@ -70,8 +71,28 @@ export class GitHubTool {
         this.fetchIssues(startDate, endDate)
       ]);
 
+      // Emit partial data after Stage 1 so caller can persist PRs + issues immediately
+      if (options?.onPartialData && (pullRequests.length > 0 || issues.length > 0)) {
+        options.onPartialData({
+          pullRequests,
+          issues,
+          repositories: repos,
+          commits: [],
+        });
+      }
+
       // Stage 2: Fetch commits using repo list and authenticated user login
       const commits = await this.fetchCommits(startDate, endDate, repos, userInfo?.login);
+
+      // Emit partial data after Stage 2 so caller can persist commits
+      if (options?.onPartialData && commits.length > 0) {
+        options.onPartialData({
+          commits,
+          pullRequests: [],
+          issues: [],
+          repositories: [],
+        });
+      }
 
       // Stage 3: Fetch supplementary data in parallel (non-blocking)
       const [releases, workflowRuns, deployments, reviewComments, starredRepos] = await Promise.all([

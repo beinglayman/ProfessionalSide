@@ -1823,7 +1823,7 @@ export const sanitizeForNetwork = asyncHandler(async (req: Request, res: Respons
  */
 export const syncAndPersist = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  const { toolTypes, dateRange, consentGiven } = req.body;
+  const { toolTypes, dateRange, consentGiven, quickMode, maxActivities } = req.body;
 
   if (!userId) {
     sendError(res, 'Unauthorized: User not authenticated', 401);
@@ -1858,10 +1858,100 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     const { ConfluenceTool } = await import('../services/mcp/tools/confluence.tool');
     const { transformToolActivity } = await import('../services/mcp/transformers');
     const { runProductionSync } = await import('../services/career-stories/production-sync.service');
+    const { ActivityPersistenceService } = await import('../services/career-stories/activity-persistence.service');
+    const { sseService } = await import('../services/sse.service');
     // ActivityInput is a type, import separately
     type ActivityInputType = import('../services/career-stories/activity-persistence.service').ActivityInput;
 
-    // Parse date range (default: last 30 days)
+    const persistenceService = new ActivityPersistenceService(prisma);
+
+    // Track which sourceIds have already been persisted via streaming
+    const streamedSourceIds = new Set<string>();
+
+    // --- Helper: persist + SSE a batch of activities (used by streaming callback) ---
+    async function persistAndBroadcast(
+      activities: ActivityInputType[],
+      toolType: string,
+      label: string,
+    ): Promise<void> {
+      if (activities.length === 0) return;
+      // Deduplicate against already-streamed activities
+      const fresh = activities.filter(a => !streamedSourceIds.has(`${a.source}:${a.sourceId}`));
+      if (fresh.length === 0) return;
+      for (const a of fresh) streamedSourceIds.add(`${a.source}:${a.sourceId}`);
+
+      await persistenceService.persistActivities(userId!, fresh);
+      sseService.broadcastToUser(userId!, {
+        type: 'data-changed',
+        data: { source: toolType, count: fresh.length, partial: true },
+      });
+      console.log(`[MCP Sync] ✓ ${toolType} [${label}]: ${fresh.length} persisted + SSE sent`);
+    }
+
+    // --- Helper: fetch + persist a single tool with streaming ---
+    async function fetchAndPersistTool(
+      toolType: string,
+      fetchDateRange: { start: Date; end: Date },
+    ): Promise<{ activities: ActivityInputType[]; error?: string }> {
+      let result: any;
+
+      // Streaming callback: persist partial data as the tool emits it per-stage
+      const onPartialData = (partialData: any) => {
+        const partial = transformToolActivity(toolType, partialData);
+        if (partial.length > 0) {
+          // Sort newest first, persist immediately (fire-and-forget for speed)
+          const sorted = [...partial].sort((a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          persistAndBroadcast(sorted, toolType, 'stream').catch(e =>
+            console.error(`[MCP Sync] Stream persist error for ${toolType}:`, e)
+          );
+        }
+      };
+
+      if (toolType === 'github') {
+        result = await new GitHubTool().fetchActivity(userId!, fetchDateRange, { onPartialData });
+      } else if (toolType === 'onedrive') {
+        result = await new OneDriveTool().fetchActivity(userId!, fetchDateRange);
+      } else if (toolType === 'jira') {
+        result = await new JiraTool().fetchActivity(userId!, fetchDateRange);
+      } else if (toolType === 'confluence') {
+        result = await new ConfluenceTool().fetchActivity(userId!, fetchDateRange);
+      }
+
+      if (!result?.success || !result?.data) {
+        const errorMsg = result?.error || 'Failed to fetch data';
+        console.log(`[MCP Sync] ✗ ${toolType}: ${errorMsg}`);
+        return { activities: [], error: errorMsg };
+      }
+
+      const activities = transformToolActivity(toolType, result.data);
+      console.log(`[MCP Sync] ✓ ${toolType}: Fetched ${activities.length} total activities`);
+
+      // Update lastSyncAt timestamp
+      await prisma.mCPIntegration.update({
+        where: { userId_toolType: { userId: userId!, toolType } },
+        data: { lastSyncAt: new Date() }
+      }).catch(e => console.error(`[MCP Sync] Failed to update lastSyncAt for ${toolType}:`, e));
+
+      // Persist any remaining activities not yet streamed
+      const unstreamed = activities.filter(a => !streamedSourceIds.has(`${a.source}:${a.sourceId}`));
+      if (unstreamed.length > 0) {
+        await persistAndBroadcast(unstreamed, toolType, 'final');
+      }
+
+      // Final SSE to signal this tool is complete
+      sseService.broadcastToUser(userId!, {
+        type: 'data-changed',
+        data: { source: toolType, count: activities.length, partial: false },
+      });
+
+      return { activities };
+    }
+
+    // Parse date range (default: last 30 days, or 7 days for quickMode)
+    const defaultDays = quickMode ? 7 : 30;
+    const now = new Date();
     let parsedDateRange: { start: Date; end: Date };
     if (dateRange?.start && dateRange?.end) {
       parsedDateRange = {
@@ -1869,59 +1959,31 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
         end: new Date(dateRange.end)
       };
     } else {
-      const now = new Date();
       parsedDateRange = {
-        start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+        start: new Date(now.getTime() - defaultDays * 24 * 60 * 60 * 1000),
         end: now
       };
     }
 
     console.log(`[MCP Sync] Date range: ${parsedDateRange.start.toISOString()} to ${parsedDateRange.end.toISOString()}`);
 
-    // Fetch and transform activities from each tool
+    // Fetch all tools in parallel (streaming callbacks emit data per-stage for GitHub)
+    const results = await Promise.allSettled(
+      selectedTools.map((toolType: string) => fetchAndPersistTool(toolType, parsedDateRange))
+    );
+
+    // Collect results
     const allActivities: ActivityInputType[] = [];
     const fetchErrors: Record<string, string> = {};
-
-    for (const toolType of selectedTools) {
-      try {
-        let result: any;
-
-        if (toolType === 'github') {
-          const tool = new GitHubTool();
-          result = await tool.fetchActivity(userId, parsedDateRange);
-        } else if (toolType === 'onedrive') {
-          const tool = new OneDriveTool();
-          result = await tool.fetchActivity(userId, parsedDateRange);
-        } else if (toolType === 'jira') {
-          const tool = new JiraTool();
-          result = await tool.fetchActivity(userId, parsedDateRange);
-        } else if (toolType === 'confluence') {
-          const tool = new ConfluenceTool();
-          result = await tool.fetchActivity(userId, parsedDateRange);
-        }
-
-        if (result?.success && result?.data) {
-          // Transform to ActivityInput format
-          const activities = transformToolActivity(toolType, result.data);
-          allActivities.push(...activities);
-          console.log(`[MCP Sync] ✓ ${toolType}: Fetched ${activities.length} activities`);
-
-          // Update lastSyncAt timestamp
-          await prisma.mCPIntegration.update({
-            where: { userId_toolType: { userId, toolType } },
-            data: { lastSyncAt: new Date() }
-          }).catch(e => console.error(`[MCP Sync] Failed to update lastSyncAt for ${toolType}:`, e));
-
-        } else {
-          const errorMsg = result?.error || 'Failed to fetch data';
-          console.log(`[MCP Sync] ✗ ${toolType}: ${errorMsg}`);
-          fetchErrors[toolType] = errorMsg;
-        }
-      } catch (error: any) {
-        console.error(`[MCP Sync] Error with ${toolType}:`, error);
-        fetchErrors[toolType] = error.message || 'Unexpected error';
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        allActivities.push(...r.value.activities);
+        if (r.value.error) fetchErrors[selectedTools[i]] = r.value.error;
+      } else {
+        console.error(`[MCP Sync] Error with ${selectedTools[i]}:`, r.reason);
+        fetchErrors[selectedTools[i]] = r.reason?.message || 'Unexpected error';
       }
-    }
+    });
 
     if (allActivities.length === 0) {
       const errorDetails = Object.entries(fetchErrors)
@@ -1931,11 +1993,27 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
       return;
     }
 
-    console.log(`[MCP Sync] Total activities fetched: ${allActivities.length}`);
+    // In quickMode, sort by timestamp desc and slice to maxActivities (default 25)
+    let activitiesToSync = allActivities;
+    if (quickMode) {
+      const limit = maxActivities ?? 25;
+      activitiesToSync = [...allActivities]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, limit);
+      console.log(`[MCP Sync] Quick mode: sliced ${allActivities.length} → ${activitiesToSync.length} activities`);
+    }
+
+    console.log(`[MCP Sync] Total activities to sync: ${activitiesToSync.length}`);
 
     // Run production sync (narratives generate in background for fast sync response)
-    // This will: persist → cluster → create journal entries → start background narrative generation
-    const result = await runProductionSync(userId, allActivities as any, { clearExisting: false, backgroundNarratives: true });
+    // quickMode skips clustering + journal entry creation + narrative generation
+    // skipPersist: non-quickMode already persisted per-tool above for streaming
+    const result = await runProductionSync(userId, activitiesToSync as any, {
+      clearExisting: false,
+      backgroundNarratives: !quickMode,
+      quickMode: !!quickMode,
+      skipPersist: !quickMode,
+    });
 
     console.log(`[MCP Sync] Complete: ${result.activitiesSeeded} activities, ${result.entriesCreated} entries`);
 
