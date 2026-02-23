@@ -296,18 +296,11 @@ export class ModelSelectorService {
     };
   }
 
-  private selectOptimalModel(task: TaskType, quality: QualityLevel): ProviderConfig {
-    if (quality === 'high') {
-      return this.premiumModel;
-    }
-
-    if (quality === 'quick') {
-      return this.quickModel;
-    }
-
-    // Balanced mode: Use task mapping
-    const preferredModel = this.taskModelMap[task];
-    return preferredModel === 'premium' ? this.premiumModel : this.quickModel;
+  private selectOptimalModel(_task: TaskType, _quality: QualityLevel): ProviderConfig {
+    // Default to quick model (Haiku) for all tasks to minimize token costs.
+    // Premium model (Sonnet) is available but not used by default.
+    // To re-enable tiered selection, restore the quality/taskModelMap logic.
+    return this.quickModel;
   }
 
   private calculateCost(model: ProviderConfig, inputTokens: number, outputTokens: number): number {
