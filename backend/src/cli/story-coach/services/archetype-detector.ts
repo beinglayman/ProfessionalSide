@@ -73,6 +73,21 @@ export async function detectArchetype(
     }
 
     const detection = JSON.parse(content) as ArchetypeDetection;
+
+    // Validate the LLM-returned archetype against the known set
+    const VALID_ARCHETYPES: Set<string> = new Set([
+      'firefighter', 'architect', 'diplomat', 'multiplier',
+      'detective', 'pioneer', 'turnaround', 'preventer',
+    ]);
+    if (!VALID_ARCHETYPES.has(detection.primary.archetype)) {
+      console.warn(`[ArchetypeDetector] LLM returned unknown archetype "${detection.primary.archetype}", falling back`);
+      return defaultFallback;
+    }
+    // Strip invalid alternatives
+    detection.alternatives = (detection.alternatives || []).filter(
+      a => VALID_ARCHETYPES.has(a.archetype)
+    );
+
     return detection;
   } catch (error) {
     console.error('Failed to detect archetype:', error);

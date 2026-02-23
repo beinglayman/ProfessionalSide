@@ -409,7 +409,7 @@ const AnalyzeStep: React.FC<AnalyzeStepProps> = ({
 
   if (!result) return null;
 
-  const config = ARCHETYPE_CONFIG[result.archetype.detected];
+  const config = ARCHETYPE_CONFIG[result.archetype.detected] ?? ARCHETYPE_CONFIG.firefighter;
   const Icon = config.icon;
 
   return (
