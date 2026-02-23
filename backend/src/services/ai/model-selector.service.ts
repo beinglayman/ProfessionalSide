@@ -86,7 +86,7 @@ export class ModelSelectorService {
 
     this.quickModel = {
       type: 'anthropic',
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
       costPerMillion: { input: 0.25, output: 1.25 }
     };
 

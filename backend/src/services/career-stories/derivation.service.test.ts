@@ -66,7 +66,7 @@ describe('deriveStory', () => {
     mockGetStoryById.mockResolvedValue(MOCK_STORY);
     mockExecuteTask.mockResolvedValue({
       content: 'This is the generated derivation text with some words in it.',
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
       estimatedCost: 0.001,
     });
   });
@@ -80,7 +80,7 @@ describe('deriveStory', () => {
     expect(result).toHaveProperty('metadata');
     expect(result.metadata.derivation).toBe('linkedin');
     expect(result.metadata.framework).toBe('STAR');
-    expect(result.metadata.model).toBe('claude-3-5-haiku-latest');
+    expect(result.metadata.model).toBe('claude-haiku-4-5-20251001');
     expect(result.metadata.processingTimeMs).toBeGreaterThanOrEqual(0);
     expect(result.charCount).toBeGreaterThan(0);
     expect(result.wordCount).toBeGreaterThan(0);

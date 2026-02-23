@@ -98,7 +98,7 @@ describe('derivePacket', () => {
     });
     mockExecuteTask.mockResolvedValue({
       content: 'Generated promotion packet text with metrics and achievements.',
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
       estimatedCost: 0.003,
     });
   });
@@ -111,7 +111,7 @@ describe('derivePacket', () => {
     expect(result).toHaveProperty('wordCount');
     expect(result).toHaveProperty('metadata');
     expect(result.metadata.storyCount).toBe(2);
-    expect(result.metadata.model).toBe('claude-3-5-haiku-latest');
+    expect(result.metadata.model).toBe('claude-haiku-4-5-20251001');
     expect(result.metadata.processingTimeMs).toBeGreaterThanOrEqual(0);
     expect(result.charCount).toBeGreaterThan(0);
     expect(result.wordCount).toBeGreaterThan(0);

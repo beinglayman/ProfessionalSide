@@ -55,7 +55,7 @@ describe('Integration: today\'s bug reproduction (test matrix #24)', () => {
         'c5': 'NEW:Share As Derivations Feature',
         'c6': 'MOVE:cluster_oauth',
       }),
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
     });
 
     const result = await assignClusters(existingClusters, candidates);

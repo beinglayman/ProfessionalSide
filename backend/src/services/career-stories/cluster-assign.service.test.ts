@@ -57,7 +57,7 @@ describe('assignClusters', () => {
         'act-1': 'NEW:Derivation Feature',
         'act-2': 'MOVE:cluster_a',
       }),
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
     });
 
     const result = await assignClusters(CLUSTERS, CANDIDATES);
@@ -169,11 +169,11 @@ describe('assignClusters', () => {
         'act-1': 'NEW:Feature X',
         'act-2': 'NEW:Feature X',
       }),
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
     });
 
     const result = await assignClusters(CLUSTERS, CANDIDATES);
-    expect(result.model).toBe('claude-3-5-haiku-latest');
+    expect(result.model).toBe('claude-haiku-4-5-20251001');
     expect(result.processingTimeMs).toBeDefined();
     expect(typeof result.processingTimeMs).toBe('number');
   });
