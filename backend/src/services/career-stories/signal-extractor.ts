@@ -96,10 +96,19 @@ function extractGithub(rawData: Record<string, unknown>, selfSet: Set<string>): 
     }
   }
 
-  // Container: feature branch (exclude main/master/develop/release/hotfix)
+  // Container: most-specific-first fallback chain
   let container: string | null = null;
+  // 1. Feature branch (PRs) — most specific
   if (typeof rawData.headRef === 'string' && !isExcludedBranch(rawData.headRef)) {
     container = rawData.headRef;
+  }
+  // 2. Branch (workflow runs) — if not excluded
+  else if (typeof rawData.branch === 'string' && !isExcludedBranch(rawData.branch)) {
+    container = rawData.branch;
+  }
+  // 3. Repository — universal fallback for commits, deployments, releases
+  if (!container && typeof rawData.repository === 'string') {
+    container = `repo:${rawData.repository}`;
   }
 
   return {

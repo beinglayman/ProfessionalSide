@@ -71,13 +71,80 @@ describe('extractSignals: GitHub PR containers', () => {
     expect(result.container).toBeNull();
   });
 
-  it('handles missing headRef gracefully', () => {
+  it('handles missing headRef gracefully (no repo fallback)', () => {
     const result = extractSignals('github', {
       author: 'honey.arora',
       sha: 'abc123',
     }, selfIds);
 
     expect(result.container).toBeNull();
+  });
+});
+
+// =============================================================================
+// GITHUB: Repository + branch container fallback
+// =============================================================================
+
+describe('extractSignals: GitHub repo/branch container fallback', () => {
+  const selfIds = ['honey.arora'];
+
+  it('uses repository as container for commits (no headRef)', () => {
+    const result = extractSignals('github', {
+      author: 'honey.arora',
+      sha: 'abc123',
+      repository: 'beinglayman/ProfessionalSide',
+    }, selfIds);
+
+    expect(result.container).toBe('repo:beinglayman/ProfessionalSide');
+  });
+
+  it('uses branch as container for workflow runs', () => {
+    const result = extractSignals('github', {
+      author: 'honey.arora',
+      branch: 'feature/ci-pipeline',
+      repository: 'beinglayman/ProfessionalSide',
+    }, selfIds);
+
+    expect(result.container).toBe('feature/ci-pipeline');
+  });
+
+  it('excludes main/master branches, falls back to repo', () => {
+    const result = extractSignals('github', {
+      author: 'honey.arora',
+      branch: 'main',
+      repository: 'beinglayman/ProfessionalSide',
+    }, selfIds);
+
+    expect(result.container).toBe('repo:beinglayman/ProfessionalSide');
+  });
+
+  it('prefers headRef over branch and repository', () => {
+    const result = extractSignals('github', {
+      headRef: 'feature/oauth',
+      branch: 'feature/ci',
+      repository: 'beinglayman/ProfessionalSide',
+    }, selfIds);
+
+    expect(result.container).toBe('feature/oauth');
+  });
+
+  it('does not add repo prefix when headRef or branch is used', () => {
+    const result = extractSignals('github', {
+      branch: 'feature/streaming',
+      repository: 'beinglayman/ProfessionalSide',
+    }, selfIds);
+
+    // branch wins, no repo: prefix
+    expect(result.container).toBe('feature/streaming');
+    expect(result.container).not.toContain('repo:');
+  });
+
+  it('repo: prefix prevents collision with branch names', () => {
+    const result = extractSignals('github', {
+      repository: 'main',
+    }, selfIds);
+
+    expect(result.container).toBe('repo:main');
   });
 });
 

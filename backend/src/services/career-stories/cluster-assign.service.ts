@@ -68,7 +68,7 @@ export async function assignClusters(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await modelSelector.executeTask('cluster-assign', messages, 'quick', {
-        maxTokens: 1000,
+        maxTokens: Math.min(4000, Math.max(1000, candidates.length * 40)),
         temperature: 0.3,
       });
 
