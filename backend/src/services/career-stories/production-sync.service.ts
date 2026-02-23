@@ -16,6 +16,7 @@
 
 import { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { isUniqueConstraintError } from '../../lib/prisma-errors';
 import { ClusteringService } from './clustering.service';
 import { RefExtractorService, refExtractor } from './ref-extractor.service';
 import { getModelSelector } from '../ai/model-selector.service';
@@ -31,7 +32,7 @@ import { extractSignals } from './signal-extractor';
 // =============================================================================
 
 const MIN_CLUSTER_SIZE = 2;
-const JOURNAL_WINDOW_SIZE_DAYS = 7;
+const JOURNAL_WINDOW_SIZE_DAYS = 14;
 const MIN_ACTIVITIES_PER_ENTRY = 3;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const NARRATIVE_GENERATION_TIMEOUT_MS = 30000;
@@ -43,6 +44,7 @@ const DEFAULT_WORKSPACE_NAME = 'My Workspace';
 
 interface InMemoryCluster {
   name: string | null;
+  dominantContainer: string | null;
   activityIds: string[];
   activities: Array<{
     id: string;
@@ -110,13 +112,39 @@ async function withTimeout<T>(
   ms: number,
   label: string
 ): Promise<T | undefined> {
+  let timerId: ReturnType<typeof setTimeout>;
   const timeout = new Promise<undefined>((resolve) => {
-    setTimeout(() => {
+    timerId = setTimeout(() => {
       log.warn(`${label} timeout reached after ${ms}ms`);
       resolve(undefined);
     }, ms);
   });
-  return Promise.race([promise, timeout]);
+  const result = await Promise.race([promise, timeout]);
+  clearTimeout(timerId!);
+  return result;
+}
+
+/** Run async functions with bounded concurrency. */
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  limit: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let idx = 0;
+
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      try {
+        results[i] = { status: 'fulfilled', value: await tasks[i]() };
+      } catch (e) {
+        results[i] = { status: 'rejected', reason: e };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, () => worker()));
+  return results;
 }
 
 function extractSkillsFromContent(content: string): string[] {
@@ -144,11 +172,251 @@ function extractToolTypes(activities: Array<{ source: string }>): string[] {
   return [...new Set(activities.map((a) => a.source))];
 }
 
-function buildToolSummary(activities: Array<{ source: string }>): string {
+/** Find the most frequent container signal across activities. */
+export function computeDominantContainer(
+  activities: Array<{ container?: string | null }>,
+): string | null {
+  const counts = new Map<string, number>();
+  for (const a of activities) {
+    if (a.container) {
+      counts.set(a.container, (counts.get(a.container) || 0) + 1);
+    }
+  }
+  let dominant: string | null = null;
+  let max = 0;
+  for (const [container, count] of counts) {
+    if (count > max) {
+      max = count;
+      dominant = container;
+    }
+  }
+  return dominant;
+}
+
+export function buildToolSummary(activities: Array<{ source: string }>): string {
   const tools = extractToolTypes(activities);
   if (tools.length === 1) return tools[0];
   if (tools.length === 2) return `${tools[0]} and ${tools[1]}`;
   return `${tools.slice(0, -1).join(', ')}, and ${tools[tools.length - 1]}`;
+}
+
+/**
+ * Extract short repo name from "owner/repo" format → "repo".
+ * Handles repo: prefix from container signal. Non-repo containers pass through as-is.
+ */
+export function shortRepoName(fullName: string): string {
+  if (fullName.startsWith('repo:')) {
+    const repo = fullName.slice(5);
+    const parts = repo.split('/');
+    return parts[parts.length - 1];
+  }
+  return fullName;
+}
+
+/**
+ * Derive display name for a cluster: LLM name > container signal > "Project".
+ */
+export function deriveClusterName(
+  llmName: string | null,
+  dominantContainer?: string | null,
+): string {
+  if (llmName) return llmName;
+  if (dominantContainer) return shortRepoName(dominantContainer);
+  return 'Project';
+}
+
+// =============================================================================
+// CLUSTER NAMING
+// =============================================================================
+
+/**
+ * Returns true if name looks like a raw crossToolRef rather than a human-readable name.
+ * Catches: "arig", "local#1", "DH-905", "tacit-web" but preserves
+ * "OAuth2 Authentication", "Bidirectional Sync Server".
+ */
+export function looksLikeRawRef(name: string): boolean {
+  if (!name) return false;
+  // Human-readable names have spaces
+  if (name.includes(' ')) return false;
+  // All lowercase single word under 15 chars (e.g., "arig", "capture")
+  if (name === name.toLowerCase() && name.length < 15) return true;
+  // Matches "local#N" pattern
+  if (/^local#\d+$/i.test(name)) return true;
+  // Matches "PROJ-NNN" Jira-style pattern
+  if (/^[A-Z]+-\d+$/.test(name)) return true;
+  // Kebab-case single word (e.g., "tacit-web", "interview-prep")
+  if (/^[a-z][a-z0-9]*(-[a-z0-9]+)+$/.test(name)) return true;
+  return false;
+}
+
+/**
+ * Rename clusters that have raw-ref names using a cheap LLM call.
+ * Mutates cluster.name in place.
+ */
+async function nameClusters(clusters: InMemoryCluster[]): Promise<void> {
+  const modelSelector = getModelSelector();
+  if (!modelSelector) return;
+
+  for (const cluster of clusters) {
+    if (cluster.name && !looksLikeRawRef(cluster.name)) continue;
+
+    const titles = cluster.activities.slice(0, 8).map(a => a.title).join('\n');
+    try {
+      const result = await modelSelector.executeTask('cluster-name', [
+        { role: 'system', content: 'Name this group of work activities in 3-6 words. Return ONLY the name, no quotes.' },
+        { role: 'user', content: titles },
+      ], 'quick', { maxTokens: 30, temperature: 0.3 });
+
+      const name = result.content.trim().replace(/^["']|["']$/g, '');
+      if (name.length > 0 && name.length < 60) {
+        cluster.name = name;
+      }
+    } catch (err) {
+      log.warn(`Failed to name cluster: ${(err as Error).message}`);
+    }
+  }
+}
+
+// =============================================================================
+// DYNAMIC ENTRY COUNT
+// =============================================================================
+
+/**
+ * Compute target entry count from data characteristics.
+ * Uses distinct projects (with ≥3 activities) as the natural guide,
+ * adjusted for existing stories. Single-activity tool groups are noise.
+ */
+export function computeEntryTarget(
+  activities: Array<{ source: string; rawData?: any; container?: string | null }>,
+  existingProductionStoryCount: number,
+): { targetEntries: number; minActivitiesPerEntry: number } {
+  const projectCounts = new Map<string, number>();
+  for (const a of activities) {
+    // Prefer container signal (repo, epic, space, channel) for project grouping
+    let key: string;
+    if (a.container) {
+      key = a.container;
+    } else {
+      const raw = a.rawData as Record<string, unknown> | null;
+      key = raw && typeof raw.repository === 'string'
+        ? raw.repository as string
+        : `tool:${a.source}`;
+    }
+    projectCounts.set(key, (projectCounts.get(key) || 0) + 1);
+  }
+
+  // Only count projects with meaningful activity volume (≥3)
+  let significantProjects = 0;
+  for (const count of projectCounts.values()) {
+    if (count >= 3) significantProjects++;
+  }
+
+  const cappedProjects = Math.min(significantProjects, 10);
+  const remaining = cappedProjects - existingProductionStoryCount;
+
+  // When user already has enough stories, don't create more
+  if (remaining <= 0) {
+    return { targetEntries: 0, minActivitiesPerEntry: Infinity };
+  }
+
+  const targetEntries = Math.max(3, remaining);
+  const minActivitiesPerEntry = Math.max(3, Math.floor(activities.length / (targetEntries * 3)));
+
+  return { targetEntries, minActivitiesPerEntry };
+}
+
+/**
+ * Merge smallest clusters until cluster count is at or below target × 1.2.
+ * Prefers merging clusters that share the same dominantContainer.
+ * Returns a new array; individual cluster objects are mutated during merge.
+ */
+export function mergeSmallClusters(
+  clusters: InMemoryCluster[],
+  targetEntries: number,
+): InMemoryCluster[] {
+  if (targetEntries <= 0) return clusters;
+  const maxClusters = Math.ceil(targetEntries * 1.2);
+  if (clusters.length <= maxClusters) return clusters;
+
+  // Sort by size ascending — merge smallest first
+  const sorted = [...clusters].sort((a, b) => a.activityIds.length - b.activityIds.length);
+
+  while (sorted.length > maxClusters) {
+    const smallest = sorted[0];
+    // Prefer same-container partner; fall back to smallest neighbor
+    const sameContainerIdx = sorted.findIndex(
+      (c, i) => i > 0 && c.dominantContainer === smallest.dominantContainer && smallest.dominantContainer != null
+    );
+    const partnerIdx = sameContainerIdx !== -1 ? sameContainerIdx : 1;
+    if (sorted.length < 2) break;
+
+    const partner = sorted[partnerIdx];
+    partner.activityIds.push(...smallest.activityIds);
+    partner.activities.push(...smallest.activities);
+    partner.metrics.dateRange = computeDateRange(partner.activities.map(a => a.timestamp));
+    partner.metrics.toolTypes = extractToolTypes(partner.activities);
+    partner.dominantContainer = computeDominantContainer(partner.activities);
+    if (smallest.name && (!partner.name || smallest.name.length > partner.name.length)) {
+      partner.name = smallest.name;
+    }
+    sorted.splice(0, 1);
+
+    // Re-sort after merge so the smallest is always first
+    sorted.sort((a, b) => a.activityIds.length - b.activityIds.length);
+  }
+
+  return sorted;
+}
+
+/**
+ * Merge clusters that share the same dominantContainer (same repo = same project).
+ * Prevents duplicate entries like "Sync Server Implementation" and "Sync Server Protocol"
+ * when both came from the same repo.
+ *
+ * Size-gated: only merges when at least one of the two clusters is small (below maxMergeSize).
+ * Large clusters from temporal splits are intentional and should NOT be collapsed.
+ *
+ * Returns a new array; individual cluster objects are mutated during merge.
+ */
+export function dedupClustersByContainer(
+  clusters: InMemoryCluster[],
+  maxMergeSize: number = 15,
+): InMemoryCluster[] {
+  const byContainer = new Map<string, InMemoryCluster>();
+  const result: InMemoryCluster[] = [];
+
+  for (const cluster of clusters) {
+    if (!cluster.dominantContainer) {
+      result.push(cluster);
+      continue;
+    }
+
+    const existing = byContainer.get(cluster.dominantContainer);
+    if (existing) {
+      // Only merge if at least one cluster is small — large temporal splits stay separate
+      const eitherIsSmall =
+        existing.activityIds.length < maxMergeSize || cluster.activityIds.length < maxMergeSize;
+
+      if (eitherIsSmall) {
+        // Merge into existing — combine activities, keep longer name
+        existing.activityIds.push(...cluster.activityIds);
+        existing.activities.push(...cluster.activities);
+        existing.metrics.dateRange = computeDateRange(existing.activities.map(a => a.timestamp));
+        existing.metrics.toolTypes = extractToolTypes(existing.activities);
+        if (cluster.name && (!existing.name || cluster.name.length > existing.name.length)) {
+          existing.name = cluster.name;
+        }
+      } else {
+        // Both large — keep separate (intentional temporal split)
+        result.push(cluster);
+      }
+    } else {
+      byContainer.set(cluster.dominantContainer, cluster);
+      result.push(cluster);
+    }
+  }
+
+  return result;
 }
 
 // =============================================================================
@@ -167,9 +435,9 @@ function buildToolSummary(activities: Array<{ source: string }>): string {
 export async function runProductionSync(
   userId: string,
   activities: ActivityInput[],
-  options: { clearExisting?: boolean; backgroundNarratives?: boolean } = {}
+  options: { clearExisting?: boolean; backgroundNarratives?: boolean; quickMode?: boolean; skipPersist?: boolean; selfIdentifiers?: string[] } = {}
 ): Promise<ProductionSyncResult> {
-  log.info('Starting production sync', { userId, activityCount: activities.length, backgroundNarratives: options.backgroundNarratives });
+  log.info('Starting production sync', { userId, activityCount: activities.length, backgroundNarratives: options.backgroundNarratives, quickMode: options.quickMode, skipPersist: options.skipPersist });
 
   const clusteringService = new ClusteringService(prisma);
 
@@ -178,9 +446,18 @@ export async function runProductionSync(
     await clearProductionData(userId);
   }
 
-  // Step 2: Persist activities to ToolActivity table
-  const persistedActivities = await persistProductionActivities(userId, activities);
-  log.debug(`Persisted ${persistedActivities.length} activities`);
+  // Step 2: Persist activities to ToolActivity table (or load from DB if already persisted per-tool)
+  let persistedActivities;
+  if (options.skipPersist) {
+    persistedActivities = await prisma.toolActivity.findMany({
+      where: { userId },
+      orderBy: { timestamp: 'desc' },
+    });
+    log.debug(`Loaded ${persistedActivities.length} already-persisted activities from DB`);
+  } else {
+    persistedActivities = await persistProductionActivities(userId, activities);
+    log.debug(`Persisted ${persistedActivities.length} activities`);
+  }
 
   // Step 2b: Count activities by source
   const activitiesBySource: Record<string, number> = {};
@@ -189,9 +466,26 @@ export async function runProductionSync(
   }
   log.debug('Activities by source:', activitiesBySource);
 
+  // Quick mode: persist only, skip clustering + journal entries + narratives
+  if (options.quickMode) {
+    log.info('Quick mode: skipping steps 3-5, returning after activity persistence');
+    return {
+      activitiesSeeded: persistedActivities.length,
+      activitiesBySource,
+      clustersCreated: 0,
+      entriesCreated: 0,
+      temporalEntriesCreated: 0,
+      clusterEntriesCreated: 0,
+      entryPreviews: [],
+      narrativesGeneratingInBackground: false,
+    };
+  }
+
   // Step 2c: Extract signals from rawData for multi-signal clustering
-  // TODO: selfIdentifiers should come from CareerPersona; using userId placeholder for now
-  const selfIdentifiers = [userId];
+  // selfIdentifiers: tool usernames/emails from currentUser + userId as fallback
+  const selfIdentifiers = options.selfIdentifiers?.length
+    ? [...options.selfIdentifiers, userId]
+    : [userId];
   const activitiesWithSignals = persistedActivities.map((a) => {
     const signals = extractSignals(
       a.source,
@@ -220,8 +514,36 @@ export async function runProductionSync(
   // Step 3b: Layer 2 — LLM cluster refinement
   clusters = await refineWithLLM(clusters, activitiesWithSignals);
 
+  // Step 3c: LLM cluster naming — rename raw-ref names to human-readable
+  await nameClusters(clusters);
+  log.debug(`Named ${clusters.length} clusters`);
+
+  // Step 3d: Dynamic entry count — compute target and merge small clusters
+  const existingStoryCount = await prisma.careerStory.count({
+    where: { userId, sourceMode: 'production' },
+  });
+  const { targetEntries, minActivitiesPerEntry } = computeEntryTarget(activitiesWithSignals, existingStoryCount);
+
+  if (targetEntries === 0) {
+    log.info(`User already has ${existingStoryCount} stories covering ${persistedActivities.length} activities — skipping entry creation`);
+    return {
+      activitiesSeeded: persistedActivities.length,
+      activitiesBySource,
+      clustersCreated: clusters.length,
+      entriesCreated: 0,
+      temporalEntriesCreated: 0,
+      clusterEntriesCreated: 0,
+      entryPreviews: [],
+      narrativesGeneratingInBackground: false,
+    };
+  }
+
+  clusters = mergeSmallClusters(clusters, targetEntries);
+  clusters = dedupClustersByContainer(clusters);
+  log.debug(`Dynamic entry target: ${targetEntries}, minActivitiesPerEntry: ${minActivitiesPerEntry}, clusters after dedup: ${clusters.length}`);
+
   // Step 4: Create journal entries (temporal + cluster-based)
-  const journalResult = await createProductionJournalEntries(userId, persistedActivities, clusters);
+  const journalResult = await createProductionJournalEntries(userId, persistedActivities, clusters, minActivitiesPerEntry);
   log.debug(`Created ${journalResult.entries.length} journal entries (${journalResult.temporalCount} temporal, ${journalResult.clusterCount} cluster)`);
 
   // Step 5: Generate narratives (in background if requested for faster sync response)
@@ -343,24 +665,33 @@ async function persistProductionActivities(
   });
 
   // Use upsert to handle duplicates gracefully
+  // Catch P2002 (unique constraint) from concurrent sync races — safe to ignore
   for (const activity of activitiesToCreate) {
-    await prisma.toolActivity.upsert({
-      where: {
-        userId_source_sourceId: {
-          userId: activity.userId,
-          source: activity.source,
-          sourceId: activity.sourceId,
+    try {
+      await prisma.toolActivity.upsert({
+        where: {
+          userId_source_sourceId: {
+            userId: activity.userId,
+            source: activity.source,
+            sourceId: activity.sourceId,
+          },
         },
-      },
-      create: activity,
-      update: {
-        title: activity.title,
-        description: activity.description,
-        sourceUrl: activity.sourceUrl,
-        crossToolRefs: activity.crossToolRefs,
-        rawData: activity.rawData,
-      },
-    });
+        create: activity,
+        update: {
+          title: activity.title,
+          description: activity.description,
+          sourceUrl: activity.sourceUrl,
+          crossToolRefs: activity.crossToolRefs,
+          rawData: activity.rawData,
+        },
+      });
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        log.debug(`Skipping duplicate activity ${activity.source}/${activity.sourceId} (concurrent sync)`);
+      } else {
+        throw err;
+      }
+    }
   }
 
   return prisma.toolActivity.findMany({
@@ -405,8 +736,10 @@ function clusterProductionActivities(
 
   return clusterResults.map((result) => {
     const clusterActivities = activities.filter((a) => result.activityIds.includes(a.id));
+
     return {
       name: result.name,
+      dominantContainer: computeDominantContainer(clusterActivities),
       activityIds: result.activityIds,
       activities: clusterActivities.map((a) => ({
         id: a.id,
@@ -439,6 +772,7 @@ type ActivityWithSourceUrl = {
   description: string | null;
   timestamp: Date;
   crossToolRefs: string[];
+  container: string | null;
 };
 
 async function refineWithLLM(
@@ -458,22 +792,10 @@ async function refineWithLLM(
     return clusters;
   }
 
-  // Build ClusterSummary[] from existing Layer 1 clusters.
-  // Synthetic IDs (layer1_0, layer1_1, ...) since in-memory clusters have no DB id yet.
-  // These IDs are used only for MOVE targets and are mapped back to array indices below.
-  const existingClusters: ClusterSummary[] = result.map((c, idx) => ({
-    id: `layer1_${idx}`,
-    name: c.name || `Cluster ${idx + 1}`,
-    activityCount: c.activityIds.length,
-    dateRange: `${c.metrics.dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${c.metrics.dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-    toolSummary: c.metrics.toolTypes.join(', '),
-    topActivities: c.activities.slice(0, 3).map(a => a.title).join(', '),
-    isReferenced: false,
-  }));
+  // Build activity lookup (used by batching loop)
+  const activityMap = new Map(allActivities.map(a => [a.id, a]));
 
   // Build CandidateActivity[] from unclustered activities.
-  // TODO(Phase 2): Also include weak-confidence assignments from Layer 1 for reassignment.
-  // Currently only unclustered activities are sent — KEEP is never valid for these candidates.
   const candidates: CandidateActivity[] = unclustered.map(a => ({
     id: a.id,
     source: a.source,
@@ -484,31 +806,50 @@ async function refineWithLLM(
     description: a.description,
   }));
 
-  log.debug(`[Layer 2] Sending ${candidates.length} unclustered activities to LLM (${existingClusters.length} existing clusters)`);
+  log.debug(`[Layer 2] Sending ${candidates.length} unclustered activities to LLM (${result.length} existing clusters)`);
 
-  const llmResult = await assignClusters(existingClusters, candidates);
+  // Batch candidates to avoid overwhelming the LLM with large payloads
+  const BATCH_SIZE = 40;
+  let allAssignments: Record<string, { action: string; target: string }> = {};
+  let totalFallback = false;
 
-  if (llmResult.fallback) {
-    log.warn('[Layer 2] LLM fallback — returning Layer 1 clusters only');
-    return result;
-  }
+  for (let batchStart = 0; batchStart < candidates.length; batchStart += BATCH_SIZE) {
+    const batch = candidates.slice(batchStart, batchStart + BATCH_SIZE);
 
-  log.info(`[Layer 2] LLM assigned ${Object.keys(llmResult.assignments).length} activities (model: ${llmResult.model}, ${llmResult.processingTimeMs}ms)`);
+    // Rebuild existingClusters snapshot including any NEW clusters from prior batches
+    const currentClusters: ClusterSummary[] = result.map((c, idx) => ({
+      id: `layer1_${idx}`,
+      name: c.name || `Cluster ${idx + 1}`,
+      activityCount: c.activityIds.length,
+      dateRange: `${c.metrics.dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${c.metrics.dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      toolSummary: c.metrics.toolTypes.join(', '),
+      topActivities: c.activities.slice(0, 3).map(a => a.title).join(', '),
+      isReferenced: false,
+    }));
 
-  // Build index from layer1_N id back to cluster index
-  const clusterIdToIndex = new Map<string, number>();
-  existingClusters.forEach((c, idx) => clusterIdToIndex.set(c.id, idx));
+    log.debug(`[Layer 2] Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: ${batch.length} candidates, ${currentClusters.length} clusters`);
 
-  // Build activity lookup
-  const activityMap = new Map(allActivities.map(a => [a.id, a]));
+    const llmResult = await assignClusters(currentClusters, batch);
 
-  // Group NEW assignments by target name
-  const newClusterGroups = new Map<string, string[]>();
+    if (llmResult.fallback) {
+      log.warn(`[Layer 2] LLM fallback on batch ${Math.floor(batchStart / BATCH_SIZE) + 1}`);
+      totalFallback = true;
+      continue; // Try next batch — partial results are better than none
+    }
 
-  for (const [actId, assignment] of Object.entries(llmResult.assignments)) {
-    switch (assignment.action) {
-      case 'MOVE': {
-        const clusterIdx = clusterIdToIndex.get(assignment.target);
+    log.info(`[Layer 2] Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: assigned ${Object.keys(llmResult.assignments).length} activities (model: ${llmResult.model}, ${llmResult.processingTimeMs}ms)`);
+
+    // Apply MOVE and NEW assignments from this batch immediately so the next batch sees updated clusters
+    const batchClusterIdToIndex = new Map<string, number>();
+    currentClusters.forEach((c, idx) => batchClusterIdToIndex.set(c.id, idx));
+
+    const batchNewClusterGroups = new Map<string, string[]>();
+
+    for (const [actId, assignment] of Object.entries(llmResult.assignments)) {
+      allAssignments[actId] = assignment;
+
+      if (assignment.action === 'MOVE') {
+        const clusterIdx = batchClusterIdToIndex.get(assignment.target);
         if (clusterIdx !== undefined) {
           const activity = activityMap.get(actId);
           if (activity) {
@@ -523,50 +864,52 @@ async function refineWithLLM(
               timestamp: activity.timestamp,
               crossToolRefs: activity.crossToolRefs,
             });
-            // Recalculate dateRange after adding activity
             result[clusterIdx].metrics.dateRange = computeDateRange(
               result[clusterIdx].activities.map(a => a.timestamp)
             );
           }
         }
-        break;
-      }
-      case 'NEW': {
-        const group = newClusterGroups.get(assignment.target) || [];
+      } else if (assignment.action === 'NEW') {
+        const group = batchNewClusterGroups.get(assignment.target) || [];
         group.push(actId);
-        newClusterGroups.set(assignment.target, group);
-        break;
+        batchNewClusterGroups.set(assignment.target, group);
       }
-      // KEEP: no-op — already in cluster
+    }
+
+    // Create new clusters from this batch so next batch sees them
+    for (const [name, activityIds] of batchNewClusterGroups) {
+      const groupActivities = activityIds
+        .map(id => activityMap.get(id))
+        .filter((a): a is ActivityWithSourceUrl => a !== undefined);
+
+      if (groupActivities.length === 0) continue;
+
+      result.push({
+        name,
+        dominantContainer: computeDominantContainer(groupActivities),
+        activityIds,
+        activities: groupActivities.map(a => ({
+          id: a.id,
+          source: a.source,
+          sourceId: a.sourceId,
+          sourceUrl: a.sourceUrl,
+          title: a.title,
+          description: a.description,
+          timestamp: a.timestamp,
+          crossToolRefs: a.crossToolRefs,
+        })),
+        metrics: {
+          dateRange: computeDateRange(groupActivities.map(a => a.timestamp)),
+          toolTypes: extractToolTypes(groupActivities),
+        },
+      });
     }
   }
 
-  // Create new InMemoryCluster entries for NEW groups
-  for (const [name, activityIds] of newClusterGroups) {
-    const groupActivities = activityIds
-      .map(id => activityMap.get(id))
-      .filter((a): a is ActivityWithSourceUrl => a !== undefined);
-
-    if (groupActivities.length === 0) continue;
-
-    result.push({
-      name,
-      activityIds,
-      activities: groupActivities.map(a => ({
-        id: a.id,
-        source: a.source,
-        sourceId: a.sourceId,
-        sourceUrl: a.sourceUrl,
-        title: a.title,
-        description: a.description,
-        timestamp: a.timestamp,
-        crossToolRefs: a.crossToolRefs,
-      })),
-      metrics: {
-        dateRange: computeDateRange(groupActivities.map(a => a.timestamp)),
-        toolTypes: extractToolTypes(groupActivities),
-      },
-    });
+  if (totalFallback && Object.keys(allAssignments).length === 0) {
+    log.warn('[Layer 2] All batches fell back — returning Layer 1 clusters only');
+  } else {
+    log.info(`[Layer 2] Total assignments: ${Object.keys(allAssignments).length}`);
   }
 
   return result;
@@ -578,8 +921,9 @@ async function refineWithLLM(
 
 async function createProductionJournalEntries(
   userId: string,
-  activities: Array<{ id: string; timestamp: Date; title: string; source: string; crossToolRefs?: string[] }>,
-  inMemoryClusters: InMemoryCluster[]
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string; crossToolRefs?: string[]; rawData?: any }>,
+  inMemoryClusters: InMemoryCluster[],
+  minActivitiesPerEntry: number = MIN_ACTIVITIES_PER_ENTRY
 ): Promise<{ entries: JournalEntryData[]; temporalCount: number; clusterCount: number }> {
   if (activities.length === 0) return { entries: [], temporalCount: 0, clusterCount: 0 };
 
@@ -606,11 +950,11 @@ async function createProductionJournalEntries(
   const orphanActivities = activities.filter(a => !clusteredIds.has(a.id));
   log.debug(`Orphan activities: ${orphanActivities.length} of ${activities.length} (${clusteredIds.size} clustered)`);
 
-  // 2. Create temporal entries only for orphans (7-day windows)
-  const temporalEntries = await createTemporalEntries(userId, orphanActivities, workspaceId);
+  // 2. Create temporal entries only for orphans (14-day windows)
+  const temporalEntries = await createTemporalEntries(userId, orphanActivities, workspaceId, minActivitiesPerEntry);
 
   // 3. Create cluster-based entries
-  const clusterEntries = await createClusterEntries(userId, workspaceId, inMemoryClusters);
+  const clusterEntries = await createClusterEntries(userId, workspaceId, inMemoryClusters, minActivitiesPerEntry);
 
   return {
     entries: [...temporalEntries, ...clusterEntries],
@@ -621,8 +965,9 @@ async function createProductionJournalEntries(
 
 async function createTemporalEntries(
   userId: string,
-  activities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
-  workspaceId: string
+  activities: Array<{ id: string; timestamp: Date; title: string; source: string; rawData?: any }>,
+  workspaceId: string,
+  minActivitiesPerEntry: number = MIN_ACTIVITIES_PER_ENTRY
 ): Promise<JournalEntryData[]> {
   if (activities.length === 0) return [];
 
@@ -645,7 +990,7 @@ async function createTemporalEntries(
         a.timestamp.getTime() < windowEnd.getTime()
     );
 
-    if (windowActivities.length >= MIN_ACTIVITIES_PER_ENTRY) {
+    if (windowActivities.length >= minActivitiesPerEntry) {
       const entry = await createJournalEntryFromWindow(userId, windowActivities, workspaceId);
       if (entry) entries.push(entry); // Skip null (duplicate) entries
     }
@@ -659,12 +1004,13 @@ async function createTemporalEntries(
 async function createClusterEntries(
   userId: string,
   workspaceId: string,
-  inMemoryClusters: InMemoryCluster[]
+  inMemoryClusters: InMemoryCluster[],
+  minActivitiesPerEntry: number = MIN_ACTIVITIES_PER_ENTRY
 ): Promise<JournalEntryData[]> {
   const entries: JournalEntryData[] = [];
 
   for (const cluster of inMemoryClusters) {
-    if (cluster.activities.length >= MIN_ACTIVITIES_PER_ENTRY) {
+    if (cluster.activities.length >= minActivitiesPerEntry) {
       const entry = await createJournalEntryFromCluster(userId, cluster, workspaceId);
       if (entry) entries.push(entry); // Skip null (duplicate) entries
     }
@@ -673,18 +1019,29 @@ async function createClusterEntries(
   return entries;
 }
 
-async function createJournalEntryFromWindow(
-  userId: string,
-  windowActivities: Array<{ id: string; timestamp: Date; title: string; source: string }>,
-  workspaceId: string
-): Promise<JournalEntryData | null> {
-  const startDate = windowActivities[0].timestamp;
-  const endDate = windowActivities[windowActivities.length - 1].timestamp;
+export function buildTemporalTitle(
+  windowActivities: Array<{ source: string; rawData?: any }>,
+  startStr: string,
+  endStr: string,
+): string {
+  // Extract repo names from rawData for meaningful titles
+  const repoNames = new Set<string>();
+  for (const a of windowActivities) {
+    const raw = a.rawData;
+    if (raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).repository === 'string') {
+      const fullRepo = (raw as Record<string, unknown>).repository as string;
+      const parts = fullRepo.split('/');
+      repoNames.add(parts[parts.length - 1]);
+    }
+  }
 
-  const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (repoNames.size === 1) {
+    const repo = [...repoNames][0];
+    return `${repo}: ${startStr} - ${endStr} (${windowActivities.length} activities)`;
+  } else if (repoNames.size > 1) {
+    return `${repoNames.size} projects: ${startStr} - ${endStr} (${windowActivities.length} activities)`;
+  }
 
-  // Include tool type counts in title for context (e.g., "Week of Jan 5 - Jan 12 (3 github, 2 slack)")
   const toolCounts: Record<string, number> = {};
   for (const a of windowActivities) {
     toolCounts[a.source] = (toolCounts[a.source] || 0) + 1;
@@ -693,10 +1050,24 @@ async function createJournalEntryFromWindow(
     .sort((a, b) => b[1] - a[1])
     .map(([tool, count]) => `${count} ${tool}`)
     .join(', ');
-  const title = `Week of ${startStr} - ${endStr} (${toolCountStr})`;
+  return `Week of ${startStr} - ${endStr} (${toolCountStr})`;
+}
+
+async function createJournalEntryFromWindow(
+  userId: string,
+  windowActivities: Array<{ id: string; timestamp: Date; title: string; source: string; rawData?: any }>,
+  workspaceId: string
+): Promise<JournalEntryData | null> {
+  const startDate = windowActivities[0].timestamp;
+  const endDate = windowActivities[windowActivities.length - 1].timestamp;
+
+  const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const title = buildTemporalTitle(windowActivities, startStr, endStr);
 
   const toolSummary = buildToolSummary(windowActivities);
-  const description = `${windowActivities.length} orphan activities across ${toolSummary}`;
+  const description = `${windowActivities.length} activities across ${toolSummary}`;
 
   const combinedContent = `${title} ${description}`;
   const skills = extractSkillsFromContent(combinedContent);
@@ -810,7 +1181,7 @@ async function createJournalEntryFromCluster(
   const startDate = sorted[0].timestamp;
   const endDate = sorted[sorted.length - 1].timestamp;
 
-  const clusterName = cluster.name || 'Project';
+  const clusterName = deriveClusterName(cluster.name, cluster.dominantContainer);
   const summary = getClusterSummary(activities);
   const title = `${clusterName}: ${summary}`;
 
@@ -822,48 +1193,47 @@ async function createJournalEntryFromCluster(
 
   // Check if a cluster entry with the same clusterRef already exists
   // This prevents duplicate entries on repeated syncs
-  if (cluster.name) {
-    const existing = await prisma.journalEntry.findFirst({
-      where: {
-        authorId: userId,
-        sourceMode: 'production',
-        groupingMethod: 'cluster',
-        clusterRef: cluster.name,
+  // Use derived clusterName (not cluster.name) so container-derived names also dedup
+  const existing = await prisma.journalEntry.findFirst({
+    where: {
+      authorId: userId,
+      sourceMode: 'production',
+      groupingMethod: 'cluster',
+      clusterRef: clusterName,
+    },
+  });
+
+  if (existing) {
+    // Update existing entry with merged activities
+    const mergedActivityIds = [...new Set([...existing.activityIds, ...cluster.activityIds])];
+
+    // Only update if there are new activities
+    if (mergedActivityIds.length === existing.activityIds.length) {
+      log.debug(`Skipping duplicate cluster entry: ${clusterName}`);
+      return null; // No new activities, skip
+    }
+
+    const updated = await prisma.journalEntry.update({
+      where: { id: existing.id },
+      data: {
+        activityIds: mergedActivityIds,
+        description: `${mergedActivityIds.length} related activities across ${toolSummary}`,
+        // Reset narrative since activities changed
+        generatedAt: null,
+        fullContent: `# ${title}\n\n${mergedActivityIds.length} related activities across ${toolSummary}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
       },
     });
 
-    if (existing) {
-      // Update existing entry with merged activities
-      const mergedActivityIds = [...new Set([...existing.activityIds, ...cluster.activityIds])];
+    log.debug(`Updated existing cluster entry: ${clusterName} (${existing.activityIds.length} -> ${mergedActivityIds.length} activities)`);
 
-      // Only update if there are new activities
-      if (mergedActivityIds.length === existing.activityIds.length) {
-        log.debug(`Skipping duplicate cluster entry: ${cluster.name}`);
-        return null; // No new activities, skip
-      }
-
-      const updated = await prisma.journalEntry.update({
-        where: { id: existing.id },
-        data: {
-          activityIds: mergedActivityIds,
-          description: `${mergedActivityIds.length} related activities across ${toolSummary}`,
-          // Reset narrative since activities changed
-          generatedAt: null,
-          fullContent: `# ${title}\n\n${mergedActivityIds.length} related activities across ${toolSummary}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
-        },
-      });
-
-      log.debug(`Updated existing cluster entry: ${cluster.name} (${existing.activityIds.length} -> ${mergedActivityIds.length} activities)`);
-
-      return {
-        id: updated.id,
-        title: updated.title,
-        activityIds: updated.activityIds,
-        timeRangeStart: startDate,
-        timeRangeEnd: endDate,
-        groupingMethod: 'cluster',
-      };
-    }
+    return {
+      id: updated.id,
+      title: updated.title,
+      activityIds: updated.activityIds,
+      timeRangeStart: startDate,
+      timeRangeEnd: endDate,
+      groupingMethod: 'cluster',
+    };
   }
 
   // Create new entry
@@ -876,7 +1246,7 @@ async function createJournalEntryFromCluster(
       fullContent: `# ${title}\n\n${description}\n\n*Narrative not yet generated. Click "Generate" to create.*`,
       activityIds: cluster.activityIds,
       groupingMethod: 'cluster',
-      clusterRef: cluster.name || undefined,
+      clusterRef: clusterName,
       timeRangeStart: startDate,
       timeRangeEnd: endDate,
       generatedAt: null,
@@ -899,7 +1269,7 @@ async function createJournalEntryFromCluster(
   };
 }
 
-function getClusterSummary(activities: Array<{ title: string }>): string {
+export function getClusterSummary(activities: Array<{ title: string }>): string {
   const words = activities
     .flatMap((a) => a.title.toLowerCase().split(/\s+/))
     .filter((word) => word.length > 3);
@@ -939,49 +1309,55 @@ async function generateProductionNarratives(
   log.debug('ModelSelector available', selector.getModelInfo());
 
   const journalService = new JournalService();
+  const MAX_CONCURRENT_NARRATIVES = 3;
 
-  const narrativePromises = entries.map(async (entry) => {
-    try {
-      log.debug(`Generating narrative for entry ${entry.id}`);
-      await journalService.regenerateNarrative(userId, entry.id, { style: 'professional', maxRetries: 2 });
-      log.debug(`Narrative generated for entry ${entry.id}`);
+  const narrativeTasks = entries.map((entry) => async () => {
+    log.debug(`Generating narrative for entry ${entry.id}`);
+    await journalService.regenerateNarrative(userId, entry.id, { style: 'professional', maxRetries: 2 });
+    log.debug(`Narrative generated for entry ${entry.id}`);
 
-      // Emit SSE event for this entry if background generation
-      if (emitProgressEvents) {
-        sseService.broadcastToUser(userId, {
-          type: 'data-changed',
-          data: {
-            entryId: entry.id,
-            status: 'complete',
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
-    } catch (error) {
-      log.warn(`Failed to generate narrative for entry ${entry.id}`, {
-        error: (error as Error).message,
+    // Emit SSE event for this entry if background generation
+    if (emitProgressEvents) {
+      sseService.broadcastToUser(userId, {
+        type: 'data-changed',
+        data: {
+          entryId: entry.id,
+          status: 'complete',
+          timestamp: new Date().toISOString(),
+        },
       });
-
-      // Emit error event for this entry if background generation
-      if (emitProgressEvents) {
-        sseService.broadcastToUser(userId, {
-          type: 'data-changed',
-          data: {
-            entryId: entry.id,
-            status: 'error',
-            error: (error as Error).message,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
     }
   });
 
-  log.info('Waiting for narrative generation...');
-  await withTimeout(
-    Promise.allSettled(narrativePromises),
-    NARRATIVE_GENERATION_TIMEOUT_MS,
+  log.info(`Generating narratives for ${entries.length} entries (max ${MAX_CONCURRENT_NARRATIVES} concurrent)`);
+  const perEntryTimeout = 30_000;
+  const totalTimeout = perEntryTimeout * Math.ceil(entries.length / MAX_CONCURRENT_NARRATIVES) + 10_000;
+
+  const results = await withTimeout(
+    runWithConcurrency(narrativeTasks, MAX_CONCURRENT_NARRATIVES),
+    totalTimeout,
     'Narrative generation'
   );
-  log.info('Narrative generation complete');
+
+  // Report failures via SSE
+  if (results && emitProgressEvents) {
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        const error = r.reason instanceof Error ? r.reason.message : String(r.reason);
+        log.warn(`Failed to generate narrative for entry ${entries[i].id}`, { error });
+        sseService.broadcastToUser(userId, {
+          type: 'data-changed',
+          data: {
+            entryId: entries[i].id,
+            status: 'error',
+            error,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+    });
+  }
+
+  const succeeded = results ? results.filter(r => r.status === 'fulfilled').length : 0;
+  log.info(`Narrative generation complete: ${succeeded}/${entries.length} succeeded`);
 }
