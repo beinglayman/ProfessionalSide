@@ -48,6 +48,7 @@ import type { BragDocCategory } from '../../types/career-stories';
 import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { BREAKPOINTS, MOBILE_SHEET_MAX_HEIGHT_VH } from './constants';
+import { MobileSheet } from '../ui/mobile-sheet';
 import { isDemoMode, toggleDemoMode } from '../../services/career-stories-demo-data';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
@@ -71,71 +72,7 @@ import { ChipFilter } from '../ui/chip-filter';
 import { ViewToggle } from '../ui/view-toggle';
 import { FilterBar, FilterSeparator, ExpandCollapseButton } from '../ui/filter-bar';
 
-// Mobile bottom sheet component with keyboard trap
-interface MobileSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}
-
-/**
- * Mobile bottom sheet overlay.
- * - Closes on backdrop click
- * - Closes on Escape key
- * - Traps focus within the dialog
- */
-const MobileSheet: React.FC<MobileSheetProps> = ({ isOpen, onClose, children }) => {
-  // Handle Escape key to close
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const maxHeightStyle = `${MOBILE_SHEET_MAX_HEIGHT_VH}vh`;
-  const contentMaxHeight = `calc(${maxHeightStyle} - 2rem)`;
-
-  return (
-    <div className="fixed inset-0 z-50 lg:hidden">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      {/* Sheet */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="STAR Preview"
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl overflow-hidden animate-slide-up"
-        style={{ maxHeight: maxHeightStyle }}
-      >
-        {/* Handle - provides visual affordance for dragging */}
-        <div className="flex justify-center py-2">
-          <div className="w-10 h-1 bg-gray-300 rounded-full" />
-        </div>
-        {/* Content */}
-        <div
-          className="overflow-y-auto overflow-x-hidden p-4"
-          style={{ maxHeight: contentMaxHeight }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
+// MobileSheet extracted to src/components/ui/mobile-sheet.tsx
 
 /**
  * Main page component for Career Stories feature.

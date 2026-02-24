@@ -1,67 +1,20 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import {
-  Search,
-  Filter,
-  Grid,
-  List,
   Clock,
-  Users,
-  Calendar,
-  Building2,
   CheckCircle2,
-  XCircle,
-  ChevronDown,
   AlertCircle,
-  ExternalLink,
-  Tag,
-  ChevronRight,
-  UserCircle,
-  Lock,
-  Archive,
-  Paperclip,
-  Eye,
-  EyeOff,
-  Globe,
-  Shield,
-  FileText,
-  Code,
-  Image,
-  BarChart,
-  MessageSquare,
-  ThumbsUp,
-  UserCheck,
-  Briefcase,
-  Award,
-  Target,
   Link2,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
-  Zap,
-  Heart,
-  DollarSign,
-  Settings,
-  Star,
-  MoreVertical,
-  Upload,
-  Download,
-  RepeatIcon,
-  Trash2,
   RefreshCw,
   X
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
 import { cn } from '../../lib/utils';
-import { JournalCard } from '../../components/journal/journal-card';
-import { RechronicleCard } from '../../components/journal/rechronicle-card';
 import { RechronicleSidePanel } from '../../components/journal/rechronicle-side-panel';
-import JournalEnhanced from '../../components/format7/journal-enhanced';
 import { JournalEntry } from '../../types/journal';
-import { useJournalEntries, useUserFeed, useToggleAppreciate, useToggleLike, useRechronicleEntry, useDeleteJournalEntry } from '../../hooks/useJournal';
+import { useToggleAppreciate, useToggleLike, useRechronicleEntry, useDeleteJournalEntry } from '../../hooks/useJournal';
 import { useQueryClient } from '@tanstack/react-query';
 import { JournalService } from '../../services/journal.service';
 import { CareerStoriesService } from '../../services/career-stories.service';
@@ -74,9 +27,14 @@ import { SYNC_IN_PROGRESS_KEY, JOURNAL_DATA_CHANGED_EVENT } from '../../constant
 import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 
 import { ActivityStream } from '../../components/journal/activity-stream';
+import { DraftStorySidebar } from '../../components/journal/DraftStorySidebar';
+import { DraftFilterBanner } from '../../components/journal/DraftFilterBanner';
+import { DraftPeekBar } from '../../components/journal/DraftPeekBar';
+import { DraftSheetContent } from '../../components/journal/DraftSheetContent';
+import { MobileSheet } from '../../components/ui/mobile-sheet';
 import { StoryWizardModal } from '../../components/story-wizard';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
-import { GroupedActivitiesResponse } from '../../types/activity';
+import { useDraftTimelineInteraction } from '../../hooks/useDraftTimelineInteraction';
 import { JournalEntryMeta, ToolType } from '../../types/career-stories';
 import { ToolIcon } from '../../components/career-stories/ToolIcon';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -273,6 +231,42 @@ export default function JournalPage() {
     ? storyData.meta.promotedCount ?? 0
     : 0;
 
+  // Temporal activity groups for the stream
+  const activityGroups = useMemo(() => {
+    if (!activitiesData || !isGroupedResponse(activitiesData)) return [];
+    return activitiesData.groups;
+  }, [activitiesData]);
+
+  // Draft sidebar interaction — filtering, selection, pre-computed groups
+  const {
+    selectedDraftId,
+    selectedDraft,
+    filteredGroups,
+    matchCount,
+    totalDraftActivityCount,
+    missingCount,
+    selectDraft,
+    clearSelection,
+  } = useDraftTimelineInteraction(storyGroups, activityGroups);
+
+  // Mobile bottom sheet state
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+
+  // Story groups loading state (activities loaded but stories still loading)
+  const storyGroupsLoading = activitiesLoading ? false : !storyData;
+
+  // Escape key to deselect draft
+  useEffect(() => {
+    if (!selectedDraftId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        clearSelection();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedDraftId, clearSelection]);
+
   // Build journal entry metadata for Story Wizard loading facts
   const wizardEntryMeta = useMemo<JournalEntryMeta | undefined>(() => {
     if (!storyWizardEntryId) return undefined;
@@ -429,16 +423,18 @@ export default function JournalPage() {
     }
   };
 
-  // Handle promote to career story - opens the Story Wizard modal
+  // Handle promote to career story — close mobile sheet first, then open wizard
   const handlePromoteToCareerStory = (journalId: string) => {
+    setMobileSheetOpen(false);
     setStoryWizardEntryId(journalId);
   };
 
-  // Handle Story Wizard completion - navigate to career stories page with the new story
+  // Handle Story Wizard completion — clear selection, invalidate stories, navigate
   const handleStoryWizardComplete = async (storyId: string) => {
     setStoryWizardEntryId(null);
+    clearSelection();
+    setMobileSheetOpen(false);
     // Pre-fetch career stories so the data is in cache when the stories page mounts.
-    // invalidateQueries alone won't refetch since there's no active observer on this page.
     await queryClient.fetchQuery({
       queryKey: ['career-stories', 'stories'],
       queryFn: async () => {
@@ -447,6 +443,9 @@ export default function JournalPage() {
         throw new Error(response.error || 'Failed to fetch career stories');
       },
     });
+    // Invalidate story groups so sidebar updates
+    queryClient.invalidateQueries({ queryKey: ['activities'] });
+    showToast('Career story created!');
     navigate(`/stories?storyId=${storyId}&celebrate=true`);
   };
 
@@ -798,21 +797,75 @@ export default function JournalPage() {
           </div>
         )}
 
-        {/* Activity Stream */}
-        <ActivityStream
-          groups={activitiesData && isGroupedResponse(activitiesData) ? activitiesData.groups : []}
-          storyGroups={storyGroups}
-          isLoading={activitiesLoading}
-          error={activitiesError ? String(activitiesError) : null}
-          emptyMessage="No activities yet. Sync your tools to see your work history."
-          onRegenerateNarrative={handleRegenerateNarrative}
-          regeneratingEntryId={regeneratingEntryId}
-          onDeleteEntry={handleDeleteEntry}
-          onPromoteToCareerStory={handlePromoteToCareerStory}
-          isEnhancingNarratives={narrativesGenerating}
-          pendingEnhancementIds={pendingEnhancementIds}
-          promotedCount={promotedCount}
-        />
+        {/* Two-column layout: Activity Stream + Draft Sidebar */}
+        <div className="lg:grid lg:grid-cols-[1fr,340px] lg:gap-6">
+          {/* Left: Activity Timeline */}
+          <div className={cn('pb-[60px] lg:pb-0', storyGroups.length > 0 && 'lg:pb-0')}>
+            {/* Draft filter banner — shown when a draft is selected */}
+            {selectedDraft && (
+              <DraftFilterBanner
+                draftTitle={selectedDraft.storyMetadata?.title ?? ''}
+                matchCount={matchCount}
+                totalCount={totalDraftActivityCount}
+                missingCount={missingCount}
+                onClear={clearSelection}
+              />
+            )}
+
+            <ActivityStream
+              groups={filteredGroups ?? activityGroups}
+              isLoading={activitiesLoading}
+              error={activitiesError ? String(activitiesError) : null}
+              emptyMessage="No activities yet. Sync your tools to see your work history."
+              hideFilters={!!selectedDraftId}
+            />
+          </div>
+
+          {/* Right: Draft Stories Sidebar (desktop only) */}
+          {!activitiesError && (
+            <aside className="hidden lg:block" aria-label="Draft Stories">
+              <DraftStorySidebar
+                drafts={storyGroups}
+                selectedId={selectedDraftId}
+                isLoading={storyGroupsLoading}
+                onSelect={selectDraft}
+                onPromote={handlePromoteToCareerStory}
+                onRegenerate={handleRegenerateNarrative}
+                regeneratingId={regeneratingEntryId}
+                filterMatchCount={matchCount}
+                filterTotalCount={totalDraftActivityCount}
+              />
+            </aside>
+          )}
+        </div>
+
+        {/* Mobile: Floating peek bar + bottom sheet (< lg) */}
+        <div className="lg:hidden">
+          {storyGroups.length > 0 && (
+            <>
+              <DraftPeekBar
+                count={storyGroups.length}
+                isLoading={storyGroupsLoading}
+                isOpen={mobileSheetOpen}
+                onTap={() => setMobileSheetOpen(true)}
+              />
+              <MobileSheet
+                isOpen={mobileSheetOpen}
+                onClose={() => setMobileSheetOpen(false)}
+                maxHeightVh={85}
+                ariaLabel="Draft Stories"
+              >
+                <DraftSheetContent
+                  drafts={storyGroups}
+                  onPromote={handlePromoteToCareerStory}
+                  onRegenerate={handleRegenerateNarrative}
+                  regeneratingId={regeneratingEntryId}
+                  onClose={() => setMobileSheetOpen(false)}
+                />
+              </MobileSheet>
+            </>
+          )}
+        </div>
         </div>
       </div>
       {/* ReChronicle Side Panel */}

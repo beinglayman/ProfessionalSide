@@ -32,6 +32,8 @@ interface CollapsibleGroupProps<T> {
   renderFooter?: (section: GroupedSection<T>) => React.ReactNode;
   /** Override dot color (CSS color string). Default: primary-500 / gray-300 */
   dotColor?: string;
+  /** Original count before filtering — shows "N of M activities" when set */
+  originalCount?: number;
 }
 
 export function CollapsibleGroup<T>({
@@ -46,6 +48,7 @@ export function CollapsibleGroup<T>({
   renderItem,
   renderFooter,
   dotColor,
+  originalCount,
 }: CollapsibleGroupProps<T>) {
   const colorClasses = section.color
     ? DERIVATION_COLOR_CLASSES[section.color] || DERIVATION_COLOR_CLASSES.gray
@@ -101,7 +104,9 @@ export function CollapsibleGroup<T>({
           )}
           <span className="text-sm font-semibold text-gray-700">{section.label}</span>
           {section.count > 0 && (
-            <span className="text-[11px] tabular-nums text-gray-400">{section.count}</span>
+            <span className="text-[11px] tabular-nums text-gray-400">
+              {originalCount != null ? `${section.count} of ${originalCount}` : section.count}
+            </span>
           )}
           {isCollapsed && section.count === 0 && (
             <span className="text-[11px] text-gray-400">empty</span>
