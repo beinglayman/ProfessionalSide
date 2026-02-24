@@ -529,13 +529,16 @@ export async function runProductionSync(
   log.debug(`Named ${clusters.length} clusters`);
 
   // Step 3d: Dynamic entry count — compute target and merge small clusters
-  const existingStoryCount = await prisma.careerStory.count({
-    where: { userId, sourceMode: 'production' },
+  // Count existing journal entries (not career stories) — these are what the user sees.
+  // Using careerStory.count missed entries that haven't been promoted to stories yet,
+  // causing re-sync to create duplicate entries with different LLM-generated names.
+  const existingEntryCount = await prisma.journalEntry.count({
+    where: { authorId: userId, sourceMode: 'production' },
   });
-  const { targetEntries, minActivitiesPerEntry } = computeEntryTarget(activitiesWithSignals, existingStoryCount);
+  const { targetEntries, minActivitiesPerEntry } = computeEntryTarget(activitiesWithSignals, existingEntryCount);
 
   if (targetEntries === 0) {
-    log.info(`User already has ${existingStoryCount} stories covering ${persistedActivities.length} activities — skipping entry creation`);
+    log.info(`User already has ${existingEntryCount} entries covering ${persistedActivities.length} activities — skipping entry creation`);
     return {
       activitiesSeeded: persistedActivities.length,
       activitiesBySource,
