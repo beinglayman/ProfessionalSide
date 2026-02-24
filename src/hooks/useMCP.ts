@@ -36,7 +36,9 @@ export function useMCPOAuth() {
       return data;
     },
     onError: (error: any) => {
-      toast.error('Connection failed', error.response?.data?.error || 'Failed to initiate connection');
+      const msg = error.response?.data?.error || 'Failed to initiate connection';
+      const isUnavailable = error.response?.status === 503;
+      toast.error(isUnavailable ? 'Not available yet' : 'Connection failed', msg);
     }
   });
 }
@@ -53,7 +55,9 @@ export function useMCPGroupOAuth() {
       return data;
     },
     onError: (error: any) => {
-      toast.error('Connection failed', error.response?.data?.error || 'Failed to initiate group connection');
+      const msg = error.response?.data?.error || 'Failed to initiate group connection';
+      const isUnavailable = error.response?.status === 503;
+      toast.error(isUnavailable ? 'Not available yet' : 'Connection failed', msg);
     }
   });
 }

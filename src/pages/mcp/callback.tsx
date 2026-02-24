@@ -17,6 +17,7 @@ export function MCPCallbackPage() {
   const [status, setStatus] = useState<'processing' | 'error'>('processing');
   const [message, setMessage] = useState('Processing authorization...');
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [fromOnboarding, setFromOnboarding] = useState(false);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -24,6 +25,11 @@ export function MCPCallbackPage() {
       const tool = searchParams.get('tool'); // Legacy single tool parameter
       const tools = searchParams.get('tools'); // New multiple tools parameter
       const error = searchParams.get('error');
+
+      // Check if the user initiated OAuth from onboarding
+      const onboardingReturn = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      const isFromOnboarding = !!onboardingReturn;
+      setFromOnboarding(isFromOnboarding);
 
       // Check for errors from backend redirect
       if (error) {
@@ -60,16 +66,17 @@ export function MCPCallbackPage() {
         // Invalidate the integrations cache to refetch updated status
         queryClient.invalidateQueries({ queryKey: ['mcp', 'integrations'] });
 
-        // Clean up onboarding localStorage if present (no longer needed — we go straight to timeline)
-        localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+        if (isFromOnboarding) {
+          // Return to onboarding so user can connect more tools or click "Get Started"
+          // Pass ?from=oauth so onboarding skips the completion guard
+          localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+          navigate('/onboarding?from=oauth', { replace: true });
+          return;
+        }
 
-        // Mark as synced so journal page auto-sync guard doesn't trigger modal
+        // Non-onboarding flow: go to timeline and start sync
         setLastSyncAt();
-
-        // Signal timeline to show syncing indicator (full sync running in background)
         sessionStorage.setItem(SYNC_IN_PROGRESS_KEY, 'true');
-
-        // Navigate immediately — no blocking sync on callback page
         navigate('/timeline', { replace: true });
 
         // Fire full sync in background — backend does chunked persist + SSE per tool:
@@ -129,10 +136,10 @@ export function MCPCallbackPage() {
               )}
               <div className="space-y-3">
                 <Button
-                  onClick={() => navigate('/settings?tab=integrations')}
+                  onClick={() => navigate(fromOnboarding ? '/onboarding' : '/settings?tab=integrations')}
                   className="w-full"
                 >
-                  Back to Settings
+                  {fromOnboarding ? 'Back to Onboarding' : 'Back to Settings'}
                 </Button>
                 <Button
                   variant="outline"

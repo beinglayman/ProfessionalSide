@@ -255,7 +255,7 @@ export const initiateOAuth = asyncHandler(async (req: Request, res: Response): P
     const result = oauthService.getAuthorizationUrl(userId, toolType);
 
     if (!result) {
-      sendError(res, `${toolType} OAuth not configured. Please ensure OAuth credentials are set in environment variables.`, 500);
+      sendError(res, `${toolType} integration is not yet available. Coming soon!`, 503);
       return;
     }
 
@@ -296,7 +296,7 @@ export const initiateGroupOAuth = asyncHandler(async (req: Request, res: Respons
     const result = oauthService.getAuthorizationUrlForGroup(userId, groupType);
 
     if (!result) {
-      sendError(res, `${groupType} OAuth not configured. Please ensure OAuth credentials are set in environment variables.`, 500);
+      sendError(res, `${groupType} integration is not yet available. Coming soon!`, 503);
       return;
     }
 

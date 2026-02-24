@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Check, User, Plug } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { productionOnboardingService } from '../../services/onboarding-production.service';
 import { useProfile } from '../../hooks/useProfile';
 import { disableDemoMode } from '../../services/demo-mode.service';
+import { runLiveSync, setLastSyncAt } from '../../services/sync.service';
+import { SYNC_IN_PROGRESS_KEY } from '../../constants/sync';
 
 import { ProfessionalBasicsStepClean } from './steps/professional-basics-clean';
 import { ConnectToolsStep } from './steps/connect-tools';
@@ -33,6 +35,7 @@ export function OnboardingPage() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { updateProfile, refetch } = useProfile();
 
   useEffect(() => {
@@ -44,13 +47,16 @@ export function OnboardingPage() {
         }
 
         // Guard: redirect completed users back to timeline
+        // Skip guard when returning from OAuth — user is still connecting tools
+        const fromOAuth = searchParams.get('from') === 'oauth';
         const progress = await productionOnboardingService.getOnboardingProgress();
-        if (progress?.isCompleted && location.pathname === '/onboarding') {
+        if (progress?.isCompleted && location.pathname === '/onboarding' && !fromOAuth) {
           navigate('/timeline', { replace: true });
           return;
         }
 
-        const targetStep = progress?.currentStep ?? 0;
+        // If returning from OAuth, go straight to Connect Tools step
+        const targetStep = fromOAuth ? 1 : (progress?.currentStep ?? 0);
         const safeStep = Math.min(targetStep, ONBOARDING_STEPS.length - 1);
         setCurrentStep(safeStep);
 
@@ -67,7 +73,7 @@ export function OnboardingPage() {
     };
 
     loadOnboardingData();
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, searchParams]);
 
   const updateOnboardingData = async (stepData: any) => {
     const updatedData = { ...onboardingData, ...stepData };
@@ -132,8 +138,17 @@ export function OnboardingPage() {
       // Existing demo accounts that never re-onboard are unaffected.
       disableDemoMode();
 
-      // Navigate to Timeline — the core product experience
+      // Start background sync and navigate to Timeline
+      setLastSyncAt();
+      sessionStorage.setItem(SYNC_IN_PROGRESS_KEY, 'true');
       navigate('/timeline');
+
+      const noopCallbacks = {
+        onStateUpdate: () => {},
+        onComplete: () => {},
+        onError: (err: Error) => console.warn('[Onboarding] Background sync error:', err.message),
+      };
+      runLiveSync(noopCallbacks).catch(() => {});
     } catch (error) {
       console.error('Error completing onboarding:', error);
       navigate('/timeline');
