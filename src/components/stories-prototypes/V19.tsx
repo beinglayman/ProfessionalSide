@@ -10,7 +10,6 @@ import {
   FRAMEWORK_META,
   ARCHETYPE_META,
   STATUS_META,
-  SECTION_COLORS,
   getConfidenceLevel,
   type StoryCategory,
   type MockStory,
@@ -48,6 +47,14 @@ function ToolIcon({ tool, className }: { tool: string; className?: string }) {
 type ViewMode = 'grid' | 'list';
 type SortBy = 'name' | 'date' | 'confidence';
 
+const SECTION_HEX: Record<string, string> = {
+  situation: '#60a5fa', task: '#fbbf24', action: '#a78bfa',
+  result: '#f87171', learning: '#34d399', challenge: '#60a5fa',
+  obstacles: '#fbbf24', actions: '#a78bfa', results: '#f87171',
+  context: '#60a5fa', problem: '#60a5fa', hindrances: '#fbbf24',
+  evaluation: '#34d399',
+};
+
 export function StoriesV19() {
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory | 'all'>('all');
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
@@ -66,7 +73,7 @@ export function StoriesV19() {
     if (sortBy === 'name') {
       comparison = a.title.localeCompare(b.title);
     } else if (sortBy === 'date') {
-      comparison = a.dateRange.localeCompare(b.dateRange);
+      comparison = new Date(a.dateRange.end).getTime() - new Date(b.dateRange.end).getTime();
     } else if (sortBy === 'confidence') {
       comparison = a.overallConfidence - b.overallConfidence;
     }
@@ -168,13 +175,13 @@ export function StoriesV19() {
                         style={
                           isSelected
                             ? {
-                                backgroundColor: meta.color === 'blue' ? '#dbeafe' :
-                                                 meta.color === 'purple' ? '#f3e8ff' :
-                                                 meta.color === 'emerald' ? '#d1fae5' :
+                                backgroundColor: meta.color.includes('blue') ? '#dbeafe' :
+                                                 meta.color.includes('purple') ? '#f3e8ff' :
+                                                 meta.color.includes('emerald') ? '#d1fae5' :
                                                  '#fef3c7',
-                                color: meta.color === 'blue' ? '#1e3a8a' :
-                                       meta.color === 'purple' ? '#581c87' :
-                                       meta.color === 'emerald' ? '#065f46' :
+                                color: meta.color.includes('blue') ? '#1e3a8a' :
+                                       meta.color.includes('purple') ? '#581c87' :
+                                       meta.color.includes('emerald') ? '#065f46' :
                                        '#78350f',
                               }
                             : {}
@@ -295,14 +302,10 @@ export function StoriesV19() {
                             <Badge
                               variant="outline"
                               className="mt-1 text-xs"
-                              style={{
-                                borderColor: FRAMEWORK_META[story.framework].color,
-                                color: FRAMEWORK_META[story.framework].color,
-                              }}
                             >
                               {FRAMEWORK_META[story.framework].label}
                             </Badge>
-                            <div className="text-xs text-gray-500 mt-1">{story.dateRange}</div>
+                            <div className="text-xs text-gray-500 mt-1">{new Date(story.dateRange.end).toLocaleDateString()}</div>
                           </div>
                         </button>
                       ))}
@@ -375,10 +378,6 @@ export function StoriesV19() {
                                 <Badge
                                   variant="outline"
                                   className="text-xs"
-                                  style={{
-                                    borderColor: FRAMEWORK_META[story.framework].color,
-                                    color: FRAMEWORK_META[story.framework].color,
-                                  }}
                                 >
                                   {FRAMEWORK_META[story.framework].label}
                                 </Badge>
@@ -389,24 +388,24 @@ export function StoriesV19() {
                                     <div
                                       className={cn(
                                         'h-full',
-                                        story.overallConfidence >= 80
+                                        story.overallConfidence >= 0.8
                                           ? 'bg-emerald-500'
-                                          : story.overallConfidence >= 60
+                                          : story.overallConfidence >= 0.6
                                           ? 'bg-blue-500'
-                                          : story.overallConfidence >= 40
+                                          : story.overallConfidence >= 0.4
                                           ? 'bg-amber-500'
                                           : 'bg-red-500'
                                       )}
-                                      style={{ width: `${story.overallConfidence}%` }}
+                                      style={{ width: `${story.overallConfidence * 100}%` }}
                                     />
                                   </div>
                                   <span className="text-xs text-gray-600 w-8 text-right">
-                                    {story.overallConfidence}%
+                                    {Math.round(story.overallConfidence * 100)}%
                                   </span>
                                 </div>
                               </td>
                               <td className="px-3 py-2">
-                                <span className="text-xs text-gray-600">{story.dateRange}</span>
+                                <span className="text-xs text-gray-600">{new Date(story.dateRange.end).toLocaleDateString()}</span>
                               </td>
                             </tr>
                           ))}
@@ -472,10 +471,6 @@ export function StoriesV19() {
                         <div className="text-gray-500 mb-1">Framework</div>
                         <Badge
                           variant="outline"
-                          style={{
-                            borderColor: FRAMEWORK_META[selectedStory.framework].color,
-                            color: FRAMEWORK_META[selectedStory.framework].color,
-                          }}
                         >
                           {FRAMEWORK_META[selectedStory.framework].label}
                         </Badge>
@@ -487,14 +482,17 @@ export function StoriesV19() {
                           variant="outline"
                           style={{
                             borderColor:
-                              CATEGORY_META[selectedStory.category as StoryCategory].color ===
-                              'blue'
+                              CATEGORY_META[selectedStory.category as StoryCategory].color.includes(
+                                'blue'
+                              )
                                 ? '#3b82f6'
-                                : CATEGORY_META[selectedStory.category as StoryCategory].color ===
+                                : CATEGORY_META[selectedStory.category as StoryCategory].color.includes(
                                   'purple'
+                                )
                                 ? '#a855f7'
-                                : CATEGORY_META[selectedStory.category as StoryCategory].color ===
+                                : CATEGORY_META[selectedStory.category as StoryCategory].color.includes(
                                   'emerald'
+                                )
                                 ? '#10b981'
                                 : '#f59e0b',
                           }}
@@ -512,7 +510,7 @@ export function StoriesV19() {
 
                       <div>
                         <div className="text-gray-500 mb-1">Date Range</div>
-                        <div className="text-gray-900">{selectedStory.dateRange}</div>
+                        <div className="text-gray-900">{new Date(selectedStory.dateRange.start).toLocaleDateString()} - {new Date(selectedStory.dateRange.end).toLocaleDateString()}</div>
                       </div>
 
                       <div>
@@ -527,19 +525,19 @@ export function StoriesV19() {
                             <div
                               className={cn(
                                 'h-full',
-                                selectedStory.overallConfidence >= 80
+                                selectedStory.overallConfidence >= 0.8
                                   ? 'bg-emerald-500'
-                                  : selectedStory.overallConfidence >= 60
+                                  : selectedStory.overallConfidence >= 0.6
                                   ? 'bg-blue-500'
-                                  : selectedStory.overallConfidence >= 40
+                                  : selectedStory.overallConfidence >= 0.4
                                   ? 'bg-amber-500'
                                   : 'bg-red-500'
                               )}
-                              style={{ width: `${selectedStory.overallConfidence}%` }}
+                              style={{ width: `${selectedStory.overallConfidence * 100}%` }}
                             />
                           </div>
                           <span className="text-gray-900 font-medium">
-                            {selectedStory.overallConfidence}%
+                            {Math.round(selectedStory.overallConfidence * 100)}%
                           </span>
                         </div>
                       </div>
@@ -568,39 +566,31 @@ export function StoriesV19() {
                       </div>
                       <div className="space-y-2">
                         {selectedStory.sections.map((section) => {
-                          const sectionColor =
-                            SECTION_COLORS[section.title as keyof typeof SECTION_COLORS];
                           const confidenceLevel = getConfidenceLevel(section.confidence);
                           return (
                             <div
-                              key={section.title}
+                              key={section.key}
                               className="bg-white border border-gray-200 rounded p-2"
                             >
                               <div className="flex items-center justify-between mb-1">
                                 <div className="text-xs font-medium text-gray-900 truncate flex-1">
-                                  {section.title}
+                                  {section.label}
                                 </div>
                                 <div
                                   className={cn(
                                     'text-xs font-medium',
-                                    confidenceLevel === 'high'
-                                      ? 'text-emerald-600'
-                                      : confidenceLevel === 'medium'
-                                      ? 'text-blue-600'
-                                      : confidenceLevel === 'low'
-                                      ? 'text-amber-600'
-                                      : 'text-red-600'
+                                    confidenceLevel.color
                                   )}
                                 >
-                                  {section.confidence}%
+                                  {Math.round(section.confidence * 100)}%
                                 </div>
                               </div>
                               <div className="h-1 bg-gray-200 rounded-full overflow-hidden mb-1">
                                 <div
                                   className="h-full"
                                   style={{
-                                    width: `${section.confidence}%`,
-                                    backgroundColor: sectionColor,
+                                    width: `${section.confidence * 100}%`,
+                                    backgroundColor: SECTION_HEX[section.key] || '#9ca3af',
                                   }}
                                 />
                               </div>
@@ -608,9 +598,7 @@ export function StoriesV19() {
                                 {section.text}
                               </div>
                               <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                <span>{section.sources.length} sources</span>
-                                <span>•</span>
-                                <span>{section.wordCount} words</span>
+                                <span>{section.sourceCount} sources</span>
                               </div>
                             </div>
                           );
@@ -647,10 +635,6 @@ export function StoriesV19() {
                     <Badge
                       variant="outline"
                       className="text-xs"
-                      style={{
-                        borderColor: FRAMEWORK_META[expandedStoryData.framework].color,
-                        color: FRAMEWORK_META[expandedStoryData.framework].color,
-                      }}
                     >
                       {FRAMEWORK_META[expandedStoryData.framework].label}
                     </Badge>
@@ -700,7 +684,7 @@ export function StoriesV19() {
                 </div>
                 <div>
                   <div className="text-gray-500 mb-1">Date Range</div>
-                  <div className="text-gray-900">{expandedStoryData.dateRange}</div>
+                  <div className="text-gray-900">{new Date(expandedStoryData.dateRange.start).toLocaleDateString()} - {new Date(expandedStoryData.dateRange.end).toLocaleDateString()}</div>
                 </div>
               </div>
 
@@ -708,22 +692,22 @@ export function StoriesV19() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-medium text-gray-900">Overall Confidence</div>
                   <div className="text-sm font-semibold text-gray-900">
-                    {expandedStoryData.overallConfidence}%
+                    {Math.round(expandedStoryData.overallConfidence * 100)}%
                   </div>
                 </div>
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className={cn(
                       'h-full',
-                      expandedStoryData.overallConfidence >= 80
+                      expandedStoryData.overallConfidence >= 0.8
                         ? 'bg-emerald-500'
-                        : expandedStoryData.overallConfidence >= 60
+                        : expandedStoryData.overallConfidence >= 0.6
                         ? 'bg-blue-500'
-                        : expandedStoryData.overallConfidence >= 40
+                        : expandedStoryData.overallConfidence >= 0.4
                         ? 'bg-amber-500'
                         : 'bg-red-500'
                     )}
-                    style={{ width: `${expandedStoryData.overallConfidence}%` }}
+                    style={{ width: `${expandedStoryData.overallConfidence * 100}%` }}
                   />
                 </div>
               </div>
@@ -733,42 +717,32 @@ export function StoriesV19() {
                   Sections ({expandedStoryData.sections.length})
                 </h3>
                 {expandedStoryData.sections.map((section) => {
-                  const sectionColor =
-                    SECTION_COLORS[section.title as keyof typeof SECTION_COLORS];
                   const confidenceLevel = getConfidenceLevel(section.confidence);
                   return (
-                    <div key={section.title} className="border border-gray-200 rounded-lg p-4">
+                    <div key={section.key} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium text-gray-900">{section.title}</h4>
+                        <h4 className="text-sm font-medium text-gray-900">{section.label}</h4>
                         <div
                           className={cn(
                             'text-sm font-medium',
-                            confidenceLevel === 'high'
-                              ? 'text-emerald-600'
-                              : confidenceLevel === 'medium'
-                              ? 'text-blue-600'
-                              : confidenceLevel === 'low'
-                              ? 'text-amber-600'
-                              : 'text-red-600'
+                            confidenceLevel.color
                           )}
                         >
-                          {section.confidence}%
+                          {Math.round(section.confidence * 100)}%
                         </div>
                       </div>
                       <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-3">
                         <div
                           className="h-full"
                           style={{
-                            width: `${section.confidence}%`,
-                            backgroundColor: sectionColor,
+                            width: `${section.confidence * 100}%`,
+                            backgroundColor: SECTION_HEX[section.key] || '#9ca3af',
                           }}
                         />
                       </div>
                       <p className="text-sm text-gray-700 mb-3">{section.text}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{section.sources.length} sources</span>
-                        <span>•</span>
-                        <span>{section.wordCount} words</span>
+                        <span>{section.sourceCount} sources</span>
                       </div>
                     </div>
                   );

@@ -54,8 +54,8 @@ export function StoriesV14() {
 
   // Sort stories by date (most recent first, but we'll reverse for timeline display)
   const sortedStories = [...mockStories].sort((a, b) => {
-    const dateA = new Date(a.dateRange.split(' - ')[1] || a.dateRange);
-    const dateB = new Date(b.dateRange.split(' - ')[1] || b.dateRange);
+    const dateA = new Date(a.dateRange.end);
+    const dateB = new Date(b.dateRange.end);
     return dateB.getTime() - dateA.getTime();
   });
 
@@ -79,12 +79,11 @@ export function StoriesV14() {
   };
 
   const getStoryEndDate = (story: typeof mockStories[0]) => {
-    const dateStr = story.dateRange.split(' - ')[1] || story.dateRange;
-    return new Date(dateStr);
+    return new Date(story.dateRange.end);
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr.split(' - ')[1] || dateStr);
+  const formatDate = (dateRange: { start: string; end: string }) => {
+    const date = new Date(dateRange.end);
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
 
@@ -149,7 +148,6 @@ export function StoriesV14() {
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       )}
                     >
-                      <span className="text-base">{meta.emoji}</span>
                       <span>{meta.label}</span>
                     </button>
                   ))}
@@ -205,7 +203,7 @@ export function StoriesV14() {
                   <span className="text-slate-600">Avg Confidence</span>
                   <span className="font-bold text-slate-800">
                     {Math.round(
-                      (filteredStories.reduce((sum, s) => sum + s.confidence, 0) /
+                      (filteredStories.reduce((sum, s) => sum + s.overallConfidence, 0) /
                         filteredStories.length) *
                         100
                     )}
@@ -352,13 +350,13 @@ export function StoriesV14() {
                                         stroke="currentColor"
                                         strokeWidth="3"
                                         strokeDasharray={`${
-                                          story.confidence * 283
+                                          story.overallConfidence * 283
                                         } 283`}
                                         className={cn(
                                           'transition-all',
-                                          story.confidence >= 0.8
+                                          story.overallConfidence >= 0.8
                                             ? 'text-green-500'
-                                            : story.confidence >= 0.7
+                                            : story.overallConfidence >= 0.7
                                             ? 'text-yellow-500'
                                             : 'text-orange-500'
                                         )}
@@ -382,7 +380,7 @@ export function StoriesV14() {
                                           </div>
                                           <div className="text-xs text-slate-300 flex items-center gap-2">
                                             <TrendingUp className="w-3 h-3" />
-                                            Confidence: {Math.round(story.confidence * 100)}%
+                                            Confidence: {Math.round(story.overallConfidence * 100)}%
                                           </div>
                                           <div className="text-xs text-slate-300 flex items-center gap-2">
                                             <Clock className="w-3 h-3" />
@@ -418,10 +416,7 @@ export function StoriesV14() {
                                       {/* Meta Row */}
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <Badge
-                                          className={cn(
-                                            'text-xs px-2 py-0.5',
-                                            frameworkMeta.color
-                                          )}
+                                          className="text-xs px-2 py-0.5 bg-slate-100 text-slate-700"
                                         >
                                           {frameworkMeta.label}
                                         </Badge>
@@ -441,7 +436,6 @@ export function StoriesV14() {
 
                                       {/* Category */}
                                       <div className="text-xs text-slate-600 flex items-center gap-1">
-                                        <span>{categoryMeta.emoji}</span>
                                         <span>{categoryMeta.label}</span>
                                       </div>
 
@@ -480,10 +474,7 @@ export function StoriesV14() {
                           </h2>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge
-                              className={cn(
-                                'text-xs',
-                                FRAMEWORK_META[selectedStory.framework].color
-                              )}
+                              className="text-xs bg-slate-100 text-slate-700"
                             >
                               {FRAMEWORK_META[selectedStory.framework].label}
                             </Badge>
@@ -526,10 +517,10 @@ export function StoriesV14() {
                         Confidence
                       </div>
                       <div className="text-2xl font-bold text-slate-800">
-                        {Math.round(selectedStory.confidence * 100)}%
+                        {Math.round(selectedStory.overallConfidence * 100)}%
                       </div>
                       <div className="text-xs text-slate-500 mt-1">
-                        {getConfidenceLevel(selectedStory.confidence)}
+                        {getConfidenceLevel(selectedStory.overallConfidence).label}
                       </div>
                     </div>
 
@@ -556,7 +547,7 @@ export function StoriesV14() {
                     <div className="bg-white rounded-lg p-3 border border-slate-200">
                       <div className="text-xs text-slate-600 mb-1">Timeline</div>
                       <div className="text-sm font-semibold text-slate-800">
-                        {selectedStory.dateRange}
+                        {selectedStory.dateRange.start} - {selectedStory.dateRange.end}
                       </div>
                     </div>
                   </div>
@@ -588,7 +579,7 @@ export function StoriesV14() {
                     <div className="grid gap-3">
                       {selectedStory.sections.map((section, idx) => {
                         const sectionColor =
-                          SECTION_COLORS[idx % SECTION_COLORS.length];
+                          SECTION_COLORS[section.key] || 'border-gray-300';
                         const confidenceLevel = getConfidenceLevel(
                           section.confidence
                         );
@@ -596,15 +587,14 @@ export function StoriesV14() {
                         return (
                           <Card
                             key={idx}
-                            className="border-l-4 shadow-sm hover:shadow-md transition-shadow"
-                            style={{ borderLeftColor: sectionColor }}
+                            className={cn('border-l-4 shadow-sm hover:shadow-md transition-shadow', sectionColor)}
                           >
                             <CardContent className="p-4 space-y-3">
                               {/* Section Header */}
                               <div className="flex items-start justify-between gap-4">
                                 <div className="space-y-1 flex-1">
                                   <h4 className="font-semibold text-slate-800">
-                                    {section.heading}
+                                    {section.label}
                                   </h4>
                                   <p className="text-sm text-slate-600 line-clamp-2">
                                     {section.text}
@@ -615,7 +605,7 @@ export function StoriesV14() {
                                     {Math.round(section.confidence * 100)}%
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    {confidenceLevel}
+                                    {confidenceLevel.label}
                                   </div>
                                 </div>
                               </div>
@@ -639,27 +629,6 @@ export function StoriesV14() {
                                 </div>
                               </div>
 
-                              {/* Tools for this section */}
-                              {section.tools && section.tools.length > 0 && (
-                                <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
-                                  <span className="text-xs text-slate-500">
-                                    Tools:
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    {section.tools.map((tool) => (
-                                      <div
-                                        key={tool}
-                                        className="p-1 bg-slate-100 rounded"
-                                      >
-                                        <ToolIcon
-                                          tool={tool}
-                                          className="w-3 h-3 text-slate-600"
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
                             </CardContent>
                           </Card>
                         );
