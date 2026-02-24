@@ -136,7 +136,7 @@ export function ActivityStream({
               <ActivityCard
                 key={activity.id}
                 activity={activity}
-                showStoryBadge={true}
+                showStoryBadge={false}
                 showSourceIcon={true}
               />
             )}

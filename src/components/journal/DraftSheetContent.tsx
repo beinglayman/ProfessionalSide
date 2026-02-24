@@ -46,7 +46,7 @@ export function DraftSheetContent({
             onSelect={() => {}}
             onPromote={() => onPromote(draft.storyMetadata!.id)}
             onRegenerate={onRegenerate ? () => onRegenerate(draft.storyMetadata!.id) : undefined}
-            isRegenerateLoading={regeneratingId === draft.storyMetadata?.id}
+            isRegenerateLoading={regeneratingId != null}
             showCTA={true}
           />
         ))}

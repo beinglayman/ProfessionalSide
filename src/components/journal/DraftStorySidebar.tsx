@@ -95,7 +95,7 @@ export function DraftStorySidebar({
             onSelect={() => onSelect(draft.key)}
             onPromote={() => onPromote(draft.storyMetadata!.id)}
             onRegenerate={() => onRegenerate(draft.storyMetadata!.id)}
-            isRegenerateLoading={regeneratingId === draft.storyMetadata?.id}
+            isRegenerateLoading={regeneratingId != null}
             filterMatchCount={selectedId === draft.key ? filterMatchCount : undefined}
             filterTotalCount={selectedId === draft.key ? filterTotalCount : undefined}
           />
