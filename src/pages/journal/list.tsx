@@ -105,7 +105,7 @@ export default function JournalPage() {
    */
   const [pendingEnhancementIds, setPendingEnhancementIds] = useState<Set<string>>(new Set());
 
-  // Regenerate narrative state
+  // Regenerate narrative state — one at a time to avoid LLM rate limits
   const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
 
   // Story Wizard modal state
@@ -203,7 +203,7 @@ export default function JournalPage() {
   // Fetch activities for the stream view - always temporal grouping
   const activityParams = useMemo(() => ({
     groupBy: 'temporal' as const,
-    limit: 100
+    limit: 500
   }), []);
   const {
     data: activitiesData,
@@ -214,7 +214,7 @@ export default function JournalPage() {
   // Fetch story groups for inline draft cards — deferred until timeline loads
   const storyParams = useMemo(() => ({
     groupBy: 'story' as const,
-    limit: 100
+    limit: 500
   }), []);
   const {
     data: storyData,
@@ -449,8 +449,11 @@ export default function JournalPage() {
     navigate(`/stories?storyId=${storyId}&celebrate=true`);
   };
 
-  // Handle regenerate narrative
+  // Handle regenerate narrative — one at a time, block while in flight
   const handleRegenerateNarrative = async (journalId: string) => {
+    // Block if another regeneration is already in flight
+    if (regeneratingEntryId) return;
+
     setRegeneratingEntryId(journalId);
     // Close menu
     setOpenPublishMenus(prev => {
@@ -466,7 +469,6 @@ export default function JournalPage() {
       } else {
         showToast('Narrative re-enhanced with AI');
       }
-      // Force refetch to update UI
       queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
       queryClient.refetchQueries({ queryKey: ['activities'] });
     } catch (error: any) {

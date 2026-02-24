@@ -467,7 +467,7 @@ export class ActivityService {
 
     // For story grouping, fetch unpromoted journal entries (promoted ones are hidden)
     if (options.groupBy === 'story') {
-      const { groups, promotedCount } = await this.getStoryGroupsFromEntries(userId, activities);
+      const { groups, promotedCount } = await this.getStoryGroupsFromEntries(userId, activities, total);
       return {
         groups,
         pagination,
@@ -504,7 +504,8 @@ export class ActivityService {
    */
   private async getStoryGroupsFromEntries(
     userId: string,
-    fetchedActivities: any[]
+    fetchedActivities: any[],
+    totalActivityCount?: number
   ): Promise<{ groups: ActivityGroup[]; promotedCount: number }> {
     // Find journal entry IDs that already have a career story
     const promotedEntries = await prisma.careerStory.findMany({
@@ -653,7 +654,7 @@ export class ActivityService {
     }
 
     // Add unassigned activities (from original fetch, not in any journal entry)
-    const fetchedActivityIds = new Set(fetchedActivities.map(a => a.id));
+    // Use total - linked count for accurate count even beyond pagination
     const unassignedActivities: ActivityWithStory[] = [];
 
     for (const activity of fetchedActivities) {
@@ -674,11 +675,16 @@ export class ActivityService {
       }
     }
 
-    if (unassignedActivities.length > 0) {
+    // Compute accurate unassigned count: total activities minus those linked to any entry
+    const unassignedCount = totalActivityCount != null
+      ? totalActivityCount - allEntryActivityIds.size
+      : unassignedActivities.length;
+
+    if (unassignedCount > 0 || unassignedActivities.length > 0) {
       groups.push({
         key: 'unassigned',
         label: 'Unassigned',
-        count: unassignedActivities.length,
+        count: Math.max(unassignedCount, 0),
         activities: unassignedActivities
       });
     }

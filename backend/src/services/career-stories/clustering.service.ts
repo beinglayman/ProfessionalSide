@@ -405,11 +405,13 @@ export class ClusteringService {
   }
 
   /**
-   * Build multi-signal adjacency list: ref edges + container edges + collaborator edges.
+   * Build multi-signal adjacency list: ref edges + container edges + collaborator edges + PR↔commit edges.
    */
   private buildMultiSignalAdjacency(
     activities: Array<{
       id: string;
+      source?: string;
+      sourceId?: string;
       crossToolRefs: string[];
       timestamp: Date;
       collaborators?: string[];
@@ -490,6 +492,39 @@ export class ClusteringService {
         if (shared >= COLLAB_THRESHOLD) {
           adjacency.get(a.id)!.add(b.id);
           adjacency.get(b.id)!.add(a.id);
+        }
+      }
+    }
+
+    // --- 4. PR↔commit edges (PR sourceId "repo#N" matches commit ref "local#N") ---
+    // PR sourceIds look like "beinglayman/ProfessionalSide#18" or "repo#N"
+    // Commit crossToolRefs contain "local#18" or "beinglayman/ProfessionalSide#18"
+    const prPattern = /^(.+)#(\d+)$/;
+    const prActivities: Array<{ id: string; prNumber: string; fullRef: string }> = [];
+
+    for (const a of activities) {
+      if (a.source === 'github' && a.sourceId && prPattern.test(a.sourceId) && !a.sourceId.startsWith('commit:')) {
+        const match = a.sourceId.match(prPattern);
+        if (match) {
+          prActivities.push({
+            id: a.id,
+            prNumber: match[2],
+            fullRef: a.sourceId  // e.g. "beinglayman/ProfessionalSide#18"
+          });
+        }
+      }
+    }
+
+    if (prActivities.length > 0) {
+      for (const pr of prActivities) {
+        const localRef = `local#${pr.prNumber}`;
+        for (const a of activities) {
+          if (a.id === pr.id) continue;
+          const refs = a.crossToolRefs || [];
+          if (refs.includes(localRef) || refs.includes(pr.fullRef)) {
+            adjacency.get(pr.id)!.add(a.id);
+            adjacency.get(a.id)!.add(pr.id);
+          }
         }
       }
     }
