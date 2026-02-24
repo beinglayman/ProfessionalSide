@@ -2205,8 +2205,20 @@ export class JournalService {
     style?: string,
     userEmail?: string
   ): Promise<DraftStoryGenerationOutput> {
+    // Cap activities sent to LLM to prevent prompt overflow on smaller models.
+    // With 50-60 activities, the prompt can exceed what gpt-4o-mini handles reliably.
+    // Use the most recent 30 activities for narrative; all activities get edges.
+    const MAX_ACTIVITIES_FOR_LLM = 30;
+    const llmActivities = activities.length > MAX_ACTIVITIES_FOR_LLM
+      ? activities.slice(-MAX_ACTIVITIES_FOR_LLM) // activities are sorted asc by timestamp
+      : activities;
+
+    if (activities.length > MAX_ACTIVITIES_FOR_LLM) {
+      console.log(`📝 Capping LLM input from ${activities.length} to ${llmActivities.length} activities`);
+    }
+
     // Format activities with rawData context
-    const activitiesText = formatEnhancedActivitiesForPrompt(activities, groupingContext);
+    const activitiesText = formatEnhancedActivitiesForPrompt(llmActivities, groupingContext);
 
     // Build enhanced messages
     const messages = buildEnhancedNarrativeMessages({
@@ -2237,6 +2249,14 @@ export class JournalService {
       }
 
       // Provide defaults for optional fields
+      // Validate LLM edges against all activity IDs, then backfill any missing with defaults
+      const allActivityIds = activities.map(a => a.id);
+      const llmEdges = validateActivityEdges(parsed.activityEdges, allActivityIds);
+      const coveredIds = new Set(llmEdges.map(e => e.activityId));
+      const backfilledEdges = allActivityIds
+        .filter(id => !coveredIds.has(id))
+        .map(id => ({ activityId: id, type: 'supporting' as const, message: DEFAULT_EDGE_MESSAGE }));
+
       return {
         description: parsed.description,
         category: this.validateCategory(parsed.category) || 'achievement',
@@ -2246,7 +2266,7 @@ export class JournalService {
         fullContent: parsed.fullContent,
         phases: this.validatePhases(parsed.phases, activities),
         dominantRole: this.validateRole(parsed.dominantRole) || 'Participated',
-        activityEdges: validateActivityEdges(parsed.activityEdges, activities.map(a => a.id)),
+        activityEdges: [...llmEdges, ...backfilledEdges],
       };
     } catch (parseError) {
       console.error('Failed to parse LLM response', {
