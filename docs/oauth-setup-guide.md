@@ -20,7 +20,7 @@ This guide covers how to configure OAuth credentials for each integration provid
 | GitHub | Done | Done | *(in backend/.env)* |
 | Atlassian (Jira + Confluence) | Done | **Needs local callback URLs + env vars** | `9Ry1PnM5u7fN1EdbqGLm6YPulRuXDICO` |
 | Microsoft (Outlook, Teams, OneDrive, OneNote) | Done | **Needs local callback URLs + env vars** | `a8bac720-8c24-4cd9-8886-0902eee1acdc` |
-| Google Workspace | Not set up | Not set up | — |
+| Google Workspace | Done (but blocked — see section 4) | **Needs local callback URL + env vars** | `285614697143-qcel2gh24i929e8romhp1lq3p3i48und.apps.googleusercontent.com` |
 | Figma | Not set up | Not set up | — |
 | Slack | Not set up | Not set up | — |
 | Zoom | Not set up | Not set up | — |
@@ -157,39 +157,64 @@ Default is `common` (multi-tenant, works for personal + org accounts).
 
 ---
 
-## 4. Google Workspace (Not Yet Set Up)
+## 4. Google Workspace (Credentials Exist, Needs Fix)
 
 **Console**: https://console.cloud.google.com/apis/credentials
 
-### To set up from scratch:
+**Client ID**: `285614697143-qcel2gh24i929e8romhp1lq3p3i48und.apps.googleusercontent.com`
 
-**Step 1** — Configure OAuth consent screen (must be done first):
+The OAuth app is already registered and credentials are set in production. However, users get **`Error 403: access_denied`** when trying to authorize. This is a consent screen configuration issue, not a code bug.
+
+### BLOCKER: Fix the 403 access_denied error (production + local)
+
+**Step 1** — Fix the OAuth consent screen publishing status:
 1. Go to https://console.cloud.google.com/apis/credentials/consent
-2. Choose **External** user type
-3. Fill in app name: "InChronicle MCP"
-4. Add authorized domains
-5. Add scopes:
-   - `userinfo.email`, `userinfo.profile`
-   - `drive.readonly`, `calendar.readonly`
-6. Save
+2. Check **Publishing status** in the top section
+3. If it says **"Testing"**, this is the problem — only whitelisted test users can authorize
+4. Two options:
+   - **Option A (quick, for dev/testing)**: Under **Test users**, click **Add users** and add the Google email addresses that need to authorize (e.g. your team's Google accounts)
+   - **Option B (for production)**: Click **Publish App** to move to production status. Google may require a verification review for sensitive scopes (Drive access). This can take days/weeks.
 
-**Step 2** — Create OAuth credentials:
+**Step 2** — Verify required APIs are enabled:
+1. Go to https://console.cloud.google.com/apis/library
+2. Search and enable these APIs (if not already):
+   - **Google Drive API**
+   - **Google Calendar API**
+
+**Step 3** — Verify scopes on the consent screen match what InChronicle requests:
+1. Go to https://console.cloud.google.com/apis/credentials/consent
+2. Under **Scopes**, ensure these are listed:
+   - `userinfo.email`
+   - `userinfo.profile`
+   - `drive.readonly` (sensitive scope — triggers verification if publishing)
+   - `calendar.readonly` (sensitive scope)
+
+### Production callback URL (already configured):
+```
+https://ps-backend-1758551070.azurewebsites.net/api/v1/mcp/callback/google_workspace
+```
+
+### To enable locally:
+
+**Step 4** — Add local callback URL:
 1. Go to https://console.cloud.google.com/apis/credentials
-2. **Create Credentials** > **OAuth client ID**
-3. Application type: **Web application**
-4. Name: "InChronicle MCP"
-5. Authorized redirect URIs — add both:
+2. Open the existing OAuth 2.0 Client ID (the one with ID ending in `...48und`)
+3. Under **Authorized redirect URIs**, add:
    ```
-   https://ps-backend-1758551070.azurewebsites.net/api/v1/mcp/callback/google_workspace
    http://localhost:3002/api/v1/mcp/callback/google_workspace
    ```
-6. Save and copy Client ID + Client Secret
+4. Save
 
-**Step 3** — Add to `backend/.env` (local) and production env:
+**Step 5** — Get the secret:
+1. On the same credentials page, copy the **Client secret**
+
+**Step 6** — Add to `backend/.env`:
 ```
-GOOGLE_CLIENT_ID=<client_id>
-GOOGLE_CLIENT_SECRET=<client_secret>
+GOOGLE_CLIENT_ID=285614697143-qcel2gh24i929e8romhp1lq3p3i48und.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=<paste_secret_here>
 ```
+
+**Step 7** — Restart the backend.
 
 ---
 
@@ -217,3 +242,5 @@ After adding credentials and restarting the backend, verify with:
 | "redirect_uri_mismatch" | Callback URL not registered | Add the localhost callback URL in the provider's console |
 | "invalid_client" | Wrong Client ID or Secret | Double-check the values in backend/.env |
 | "admin_consent_required" (Microsoft) | Org policy blocks the app | Ask org admin to approve, or use a personal account for testing |
+| "Error 403: access_denied" (Google) | App in "Testing" mode, user not whitelisted | Add user's email as a test user in consent screen, OR publish the app |
+| "access_denied" after Google consent | Required APIs not enabled | Enable Google Drive API and Google Calendar API in API Library |
