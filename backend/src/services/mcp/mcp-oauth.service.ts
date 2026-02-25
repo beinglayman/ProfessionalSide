@@ -128,9 +128,8 @@ export class MCPOAuthService {
           `${backendUrl}${msContract.callbackPaths[1]}`,
         authorizationUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
         tokenUrl: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-        // Read user's own channel messages + all chats (no admin consent required)
-        // ChannelMessage.Edit allows reading/editing user's own messages without admin consent
-        scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Edit Chat.Read Chat.ReadBasic offline_access'
+        // Read user's chats and basic team/channel info (no admin consent required)
+        scope: 'User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadBasic offline_access'
       });
 
       // SharePoint OAuth configuration - DISABLED

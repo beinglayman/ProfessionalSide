@@ -74,8 +74,9 @@ export class TeamsTool {
       // Fetch recent messages from chats
       const chatMessages = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
 
-      // Fetch channel messages
-      const channelMessages = await this.fetchChannelMessages(channels.slice(0, 10), startDate, endDate);
+      // Channel messages require ChannelMessage.Read.All (admin consent) — skip
+      const channelMessages: any[] = [];
+      console.log(`[Teams Tool] Skipping channel messages (requires admin consent). Found ${channels.length} channels.`);
 
       if (chatMessages.length === 0 && channelMessages.length === 0) {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
@@ -219,17 +220,20 @@ export class TeamsTool {
    */
   private async fetchChats(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // Avoid $filter on /chats — not reliably supported in Graph v1.0
+      // Avoid $filter and $orderby on /chats — not supported in Graph v1.0
       // Fetch recent chats and filter client-side
+      console.log(`[Teams Tool] Fetching chats...`);
       const response = await this.graphApi.get('/chats', {
         params: {
           $select: 'id,topic,chatType,createdDateTime,lastUpdatedDateTime',
-          $orderby: 'lastUpdatedDateTime desc',
           $top: 50
         }
       });
 
-      return response.data.value
+      const rawChats = response.data.value;
+      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}`);
+
+      const filtered = rawChats
         .filter((chat: any) => {
           const updated = new Date(chat.lastUpdatedDateTime);
           return updated >= startDate && updated <= endDate;
@@ -241,6 +245,9 @@ export class TeamsTool {
           createdAt: chat.createdDateTime,
           lastUpdated: chat.lastUpdatedDateTime
         }));
+
+      console.log(`[Teams Tool] Chats after date filter: ${filtered.length} (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
+      return filtered;
     } catch (error) {
       console.error('[Teams Tool] Error fetching chats:', error);
       return [];
