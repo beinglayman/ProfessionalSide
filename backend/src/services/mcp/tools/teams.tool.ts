@@ -260,6 +260,8 @@ export class TeamsTool {
   private async fetchChatMessages(chats: any[], startDate: Date, endDate: Date): Promise<any[]> {
     const allMessages: any[] = [];
 
+    console.log(`[Teams Tool] Fetching messages from ${chats.length} chats (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
+
     for (const chat of chats) {
       try {
         // Avoid $filter on chat messages — not reliably supported in Graph v1.0
@@ -271,13 +273,18 @@ export class TeamsTool {
           }
         });
 
-        const messages = response.data.value
-          .filter((msg: any) => msg.messageType === 'message')
-          .filter((msg: any) => {
-            const created = new Date(msg.createdDateTime);
-            return created >= startDate && created <= endDate;
-          })
-          .map((msg: any) => ({
+        const rawMessages = response.data.value;
+        const userMessages = rawMessages.filter((msg: any) => msg.messageType === 'message');
+        const dateFiltered = userMessages.filter((msg: any) => {
+          const created = new Date(msg.createdDateTime);
+          return created >= startDate && created <= endDate;
+        });
+
+        if (rawMessages.length > 0) {
+          console.log(`[Teams Tool] Chat "${chat.topic}" (${chat.type}): ${rawMessages.length} raw → ${userMessages.length} user msgs → ${dateFiltered.length} in date range. Types: ${[...new Set(rawMessages.map((m: any) => m.messageType))].join(', ')}`);
+        }
+
+        const messages = dateFiltered.map((msg: any) => ({
             id: msg.id,
             chatId: chat.id,
             chatTopic: chat.topic,
@@ -292,11 +299,14 @@ export class TeamsTool {
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 200));
       } catch (error: any) {
-        console.log(`[Teams Tool] Could not fetch messages from chat ${chat.id}: ${error.message}`);
+        const status = error.response?.status;
+        const errorBody = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+        console.error(`[Teams Tool] FAILED to fetch messages from chat "${chat.topic}" (${chat.id}): HTTP ${status || 'N/A'} — ${errorBody}`);
         continue;
       }
     }
 
+    console.log(`[Teams Tool] Total chat messages found: ${allMessages.length}`);
     return allMessages;
   }
 
