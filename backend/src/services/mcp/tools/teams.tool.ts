@@ -72,7 +72,8 @@ export class TeamsTool {
       const channels = await this.fetchChannelsForTeams(joinedTeams.slice(0, 5));
 
       // Fetch recent messages from chats
-      const chatMessages = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
+      const chatResult = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
+      const chatMessages = chatResult.messages;
 
       // Channel messages require ChannelMessage.Read.All (admin consent) — skip
       const channelMessages: any[] = [];
@@ -82,7 +83,7 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      // Compile activity data
+      // Compile activity data (include diagnostics for debugging)
       const activity: TeamsActivity = {
         teams: joinedTeams,
         channels,
@@ -90,6 +91,7 @@ export class TeamsTool {
         chatMessages,
         channelMessages
       };
+      (activity as any)._chatDiagnostics = chatResult._diagnostics;
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
@@ -257,8 +259,9 @@ export class TeamsTool {
   /**
    * Fetch messages from chats
    */
-  private async fetchChatMessages(chats: any[], startDate: Date, endDate: Date): Promise<any[]> {
+  private async fetchChatMessages(chats: any[], startDate: Date, endDate: Date): Promise<{ messages: any[]; _diagnostics: any[] }> {
     const allMessages: any[] = [];
+    const diagnostics: any[] = [];
 
     console.log(`[Teams Tool] Fetching messages from ${chats.length} chats (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
 
@@ -280,9 +283,14 @@ export class TeamsTool {
           return created >= startDate && created <= endDate;
         });
 
-        if (rawMessages.length > 0) {
-          console.log(`[Teams Tool] Chat "${chat.topic}" (${chat.type}): ${rawMessages.length} raw → ${userMessages.length} user msgs → ${dateFiltered.length} in date range. Types: ${[...new Set(rawMessages.map((m: any) => m.messageType))].join(', ')}`);
-        }
+        diagnostics.push({
+          chat: chat.topic,
+          type: chat.type,
+          raw: rawMessages.length,
+          userMsgs: userMessages.length,
+          inRange: dateFiltered.length,
+          messageTypes: [...new Set(rawMessages.map((m: any) => m.messageType))]
+        });
 
         const messages = dateFiltered.map((msg: any) => ({
             id: msg.id,
@@ -301,13 +309,18 @@ export class TeamsTool {
       } catch (error: any) {
         const status = error.response?.status;
         const errorBody = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+        diagnostics.push({
+          chat: chat.topic,
+          type: chat.type,
+          error: `HTTP ${status || 'N/A'}: ${errorBody}`
+        });
         console.error(`[Teams Tool] FAILED to fetch messages from chat "${chat.topic}" (${chat.id}): HTTP ${status || 'N/A'} — ${errorBody}`);
         continue;
       }
     }
 
     console.log(`[Teams Tool] Total chat messages found: ${allMessages.length}`);
-    return allMessages;
+    return { messages: allMessages, _diagnostics: diagnostics };
   }
 
   /**
