@@ -89,6 +89,12 @@ export class TeamsTool {
         chatMessages,
         channelMessages
       };
+      // Temporary: surface authenticated MS identity for debugging
+      (activity as any)._authenticatedAs = {
+        email: userInfo?.mail || userInfo?.userPrincipalName,
+        displayName: userInfo?.displayName,
+        id: userInfo?.id
+      };
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
