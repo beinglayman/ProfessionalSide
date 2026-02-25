@@ -71,8 +71,8 @@ export class TeamsTool {
       // Fetch channels for each team (limited to avoid rate limiting)
       const channels = await this.fetchChannelsForTeams(joinedTeams.slice(0, 5));
 
-      // Fetch recent messages from chats
-      const chatMessages = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
+      // Fetch recent messages from chats (limit to 20 to avoid rate limiting)
+      const chatMessages = await this.fetchChatMessages(chats.slice(0, 20), startDate, endDate);
 
       // Channel messages require ChannelMessage.Read.All (admin consent) — skip
       const channelMessages: any[] = [];
@@ -82,38 +82,13 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      // Debug: try multiple /chats variations to find 1:1 chats
-      const debugVariations: any = {};
-      const variations = [
-        { name: 'noParams', params: {} },
-        { name: 'oneOnOne', params: { $filter: "chatType eq 'oneOnOne'" } },
-        { name: 'top50', params: { $top: 50 } },
-      ];
-      for (const v of variations) {
-        try {
-          const r = await this.graphApi.get('/chats', { params: v.params });
-          debugVariations[v.name] = {
-            count: r.data.value?.length || 0,
-            types: (r.data.value || []).map((c: any) => c.chatType),
-            hasNext: !!r.data['@odata.nextLink']
-          };
-        } catch (e: any) {
-          debugVariations[v.name] = { error: `${e.response?.status}: ${e.response?.data?.error?.message || e.message}` };
-        }
-      }
-
-      const activity = {
+      const activity: TeamsActivity = {
         teams: joinedTeams,
         channels,
         chats,
         chatMessages,
-        channelMessages,
-        _authenticatedAs: {
-          email: userInfo?.mail || userInfo?.userPrincipalName,
-          displayName: userInfo?.displayName
-        },
-        _chatVariations: debugVariations
-      } as TeamsActivity;
+        channelMessages
+      };
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
@@ -255,21 +230,16 @@ export class TeamsTool {
       const rawChats = response.data.value || [];
       console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}, types: ${rawChats.map((c: any) => c.chatType).join(',')}`);
 
-      const filtered = rawChats
-        .filter((chat: any) => {
-          const updated = new Date(chat.lastUpdatedDateTime);
-          return updated >= startDate && updated <= endDate;
-        })
-        .map((chat: any) => ({
-          id: chat.id,
-          topic: chat.topic || 'Untitled chat',
-          type: chat.chatType,
-          createdAt: chat.createdDateTime,
-          lastUpdated: chat.lastUpdatedDateTime
-        }));
-
-      console.log(`[Teams Tool] Chats after date filter: ${filtered.length} (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
-      return filtered;
+      // Don't filter chats by date — the message-level date filter in
+      // fetchChatMessages handles recency. Filtering chats by lastUpdatedDateTime
+      // was dropping 1:1 chats whose metadata timestamp didn't match the range.
+      return rawChats.map((chat: any) => ({
+        id: chat.id,
+        topic: chat.topic || 'Untitled chat',
+        type: chat.chatType,
+        createdAt: chat.createdDateTime,
+        lastUpdated: chat.lastUpdatedDateTime
+      }));
     } catch (error: any) {
       const errDetail = error.response?.data?.error?.message || error.response?.data?.message || error.message;
       console.error(`[Teams Tool] Error fetching chats: HTTP ${error.response?.status || 'N/A'} — ${errDetail}`);
