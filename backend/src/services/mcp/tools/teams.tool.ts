@@ -23,8 +23,9 @@ export class TeamsTool {
     this.privacyService = new MCPPrivacyService();
 
     // Initialize Microsoft Graph API client
+    // Use beta endpoint — v1.0 /chats may not return all chat types reliably
     this.graphApi = axios.create({
-      baseURL: 'https://graph.microsoft.com/v1.0',
+      baseURL: 'https://graph.microsoft.com/beta',
       headers: {
         Accept: 'application/json'
       }
@@ -57,12 +58,6 @@ export class TeamsTool {
       // Set authorization header
       this.graphApi.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
-      // Log token scopes for diagnostics (decode JWT payload without verification)
-      try {
-        const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
-        console.log(`[Teams Tool] Token scopes: ${payload.scp || 'NONE'}`);
-      } catch { /* ignore decode errors */ }
-
       // Calculate date range (default: last 7 days)
       const endDate = dateRange?.end || new Date();
       const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -88,13 +83,6 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      // Decode token scopes for diagnostics
-      let tokenScopes = '';
-      try {
-        const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
-        tokenScopes = payload.scp || '';
-      } catch { /* ignore */ }
-
       const activity: TeamsActivity = {
         teams: joinedTeams,
         channels,
@@ -102,7 +90,6 @@ export class TeamsTool {
         chatMessages,
         channelMessages
       };
-      (activity as any)._tokenScopes = tokenScopes;
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
