@@ -72,8 +72,7 @@ export class TeamsTool {
       const channels = await this.fetchChannelsForTeams(joinedTeams.slice(0, 5));
 
       // Fetch recent messages from chats
-      const chatResult = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
-      const chatMessages = chatResult.messages;
+      const chatMessages = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
 
       // Channel messages require ChannelMessage.Read.All (admin consent) — skip
       const channelMessages: any[] = [];
@@ -83,7 +82,6 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      // Compile activity data (include diagnostics for debugging)
       const activity: TeamsActivity = {
         teams: joinedTeams,
         channels,
@@ -91,7 +89,6 @@ export class TeamsTool {
         chatMessages,
         channelMessages
       };
-      (activity as any)._chatDiagnostics = chatResult._diagnostics;
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
@@ -259,18 +256,17 @@ export class TeamsTool {
   /**
    * Fetch messages from chats
    */
-  private async fetchChatMessages(chats: any[], startDate: Date, endDate: Date): Promise<{ messages: any[]; _diagnostics: any[] }> {
+  private async fetchChatMessages(chats: any[], startDate: Date, endDate: Date): Promise<any[]> {
     const allMessages: any[] = [];
-    const diagnostics: any[] = [];
 
     console.log(`[Teams Tool] Fetching messages from ${chats.length} chats (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
 
     for (const chat of chats) {
       try {
-        // Avoid $filter on chat messages — not reliably supported in Graph v1.0
+        // $select is NOT supported on /chats/{id}/messages (returns HTTP 400)
+        // $orderby: 'createdDateTime desc' IS supported per Graph docs
         const response = await this.graphApi.get(`/chats/${chat.id}/messages`, {
           params: {
-            $select: 'id,createdDateTime,from,body,importance,messageType',
             $orderby: 'createdDateTime desc',
             $top: 20
           }
@@ -283,14 +279,7 @@ export class TeamsTool {
           return created >= startDate && created <= endDate;
         });
 
-        diagnostics.push({
-          chat: chat.topic,
-          type: chat.type,
-          raw: rawMessages.length,
-          userMsgs: userMessages.length,
-          inRange: dateFiltered.length,
-          messageTypes: [...new Set(rawMessages.map((m: any) => m.messageType))]
-        });
+        console.log(`[Teams Tool] Chat "${chat.topic}" (${chat.type}): ${rawMessages.length} raw → ${userMessages.length} user msgs → ${dateFiltered.length} in range`);
 
         const messages = dateFiltered.map((msg: any) => ({
             id: msg.id,
@@ -309,18 +298,13 @@ export class TeamsTool {
       } catch (error: any) {
         const status = error.response?.status;
         const errorBody = error.response?.data?.error?.message || error.response?.data?.message || error.message;
-        diagnostics.push({
-          chat: chat.topic,
-          type: chat.type,
-          error: `HTTP ${status || 'N/A'}: ${errorBody}`
-        });
         console.error(`[Teams Tool] FAILED to fetch messages from chat "${chat.topic}" (${chat.id}): HTTP ${status || 'N/A'} — ${errorBody}`);
         continue;
       }
     }
 
     console.log(`[Teams Tool] Total chat messages found: ${allMessages.length}`);
-    return { messages: allMessages, _diagnostics: diagnostics };
+    return allMessages;
   }
 
   /**
