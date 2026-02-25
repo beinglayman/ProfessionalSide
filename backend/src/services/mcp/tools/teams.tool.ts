@@ -82,6 +82,18 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
+      // Temporary debug: test /chats with explicit /me prefix
+      let debugChats: any = null;
+      try {
+        const debugResp = await this.graphApi.get('/me/chats', { params: { $top: 50 } });
+        debugChats = {
+          count: debugResp.data.value?.length || 0,
+          types: (debugResp.data.value || []).map((c: any) => c.chatType)
+        };
+      } catch (e: any) {
+        debugChats = { error: e.response?.data?.error?.message || e.message };
+      }
+
       const activity = {
         teams: joinedTeams,
         channels,
@@ -90,9 +102,9 @@ export class TeamsTool {
         channelMessages,
         _authenticatedAs: {
           email: userInfo?.mail || userInfo?.userPrincipalName,
-          displayName: userInfo?.displayName,
-          id: userInfo?.id
-        }
+          displayName: userInfo?.displayName
+        },
+        _debugChats: debugChats
       } as TeamsActivity;
 
       // Calculate total items
@@ -251,7 +263,8 @@ export class TeamsTool {
       console.log(`[Teams Tool] Chats after date filter: ${filtered.length} (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
       return filtered;
     } catch (error: any) {
-      console.error('[Teams Tool] Error fetching chats:', error.response?.data || error.message);
+      const errDetail = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+      console.error(`[Teams Tool] Error fetching chats: HTTP ${error.response?.status || 'N/A'} — ${errDetail}`);
       return [];
     }
   }
