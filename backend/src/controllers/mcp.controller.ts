@@ -109,7 +109,7 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
     // Each integration group got connected at a different time (staggered onboarding)
     const isDemo = isDemoModeRequest(req);
     const demoConnectedTools = new Set([
-      'github', 'jira', 'confluence', 'slack', 'figma', 'outlook', 'google_workspace'
+      'github', 'jira', 'confluence', 'slack', 'figma', 'outlook', 'teams', 'onenote', 'google_workspace'
     ]);
     const demoConnectedAtByTool: Record<string, string> = {
       github:          new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString(), // 4 weeks ago (first)
@@ -118,7 +118,9 @@ export const getIntegrationStatus = asyncHandler(async (req: Request, res: Respo
       slack:           new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(), // 3 weeks ago
       google_workspace:new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), // 2 weeks ago
       figma:           new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // ~1.5 weeks ago
-      outlook:         new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago (latest)
+      outlook:         new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago
+      teams:           new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago (Microsoft group)
+      onenote:         new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago (Microsoft group)
     };
     const demoLastSyncAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours ago
 
@@ -1838,7 +1840,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     }
 
     // Tools that have both a fetch tool and a transformer
-    const supportedTools = ['github', 'jira', 'confluence', 'onedrive'];
+    const supportedTools = ['github', 'jira', 'confluence', 'onedrive', 'outlook', 'teams', 'onenote'];
 
     // Use requested tools, or fall back to all supported tools
     const tools = toolTypes?.length > 0 ? toolTypes : supportedTools;
@@ -1856,6 +1858,9 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     const { OneDriveTool } = await import('../services/mcp/tools/onedrive.tool');
     const { JiraTool } = await import('../services/mcp/tools/jira.tool');
     const { ConfluenceTool } = await import('../services/mcp/tools/confluence.tool');
+    const { OutlookTool } = await import('../services/mcp/tools/outlook.tool');
+    const { TeamsTool } = await import('../services/mcp/tools/teams.tool');
+    const { OneNoteTool } = await import('../services/mcp/tools/onenote.tool');
     const { transformToolActivity } = await import('../services/mcp/transformers');
     const { runProductionSync } = await import('../services/career-stories/production-sync.service');
     const { ActivityPersistenceService } = await import('../services/career-stories/activity-persistence.service');
@@ -1917,6 +1922,12 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
         result = await new JiraTool().fetchActivity(userId!, fetchDateRange);
       } else if (toolType === 'confluence') {
         result = await new ConfluenceTool().fetchActivity(userId!, fetchDateRange);
+      } else if (toolType === 'outlook') {
+        result = await new OutlookTool().fetchActivity(userId!, fetchDateRange);
+      } else if (toolType === 'teams') {
+        result = await new TeamsTool().fetchActivity(userId!, fetchDateRange);
+      } else if (toolType === 'onenote') {
+        result = await new OneNoteTool().fetchActivity(userId!, fetchDateRange);
       }
 
       if (!result?.success || !result?.data) {
