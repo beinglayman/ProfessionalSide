@@ -119,7 +119,7 @@ export function ActivityStream({
                 chips={activitiesFilterConfig.temporalChips}
                 selectedKeys={activities.selectedTemporalKeys}
                 onToggle={activities.toggleTemporalKey}
-                shrunk={hoveredFilterGroup === 'source'}
+                shrunk={hoveredFilterGroup !== 'when'}
               />
             </div>
           )}
@@ -139,7 +139,7 @@ export function ActivityStream({
                   selectedKeys={activities.selectedTypedKeys}
                   onToggle={activities.toggleTypedKey}
                   maxVisible={hoveredFilterGroup === 'source' ? 0 : 4}
-                  shrunk={hoveredFilterGroup === 'when'}
+                  shrunk={hoveredFilterGroup !== 'source'}
                 />
               </div>
             </>
