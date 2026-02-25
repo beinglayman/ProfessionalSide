@@ -219,18 +219,18 @@ export class TeamsTool {
    */
   private async fetchChats(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // Avoid $filter and $orderby on /chats — not supported in Graph v1.0
-      // Fetch recent chats and filter client-side
+      // Avoid $filter, $orderby, and $select on /chats — Graph v1.0 support is unreliable
       console.log(`[Teams Tool] Fetching chats...`);
       const response = await this.graphApi.get('/chats', {
         params: {
-          $select: 'id,topic,chatType,createdDateTime,lastUpdatedDateTime',
-          $top: 50
+          $top: 50,
+          $expand: 'lastMessagePreview'
         }
       });
 
       const rawChats = response.data.value;
       console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}`);
+      console.log(`[Teams Tool] Raw chat types: ${rawChats.map((c: any) => c.chatType).join(', ')}`);
 
       const filtered = rawChats
         .filter((chat: any) => {
