@@ -88,6 +88,13 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
+      // Decode token scopes for diagnostics
+      let tokenScopes = '';
+      try {
+        const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
+        tokenScopes = payload.scp || '';
+      } catch { /* ignore */ }
+
       const activity: TeamsActivity = {
         teams: joinedTeams,
         channels,
@@ -95,6 +102,7 @@ export class TeamsTool {
         chatMessages,
         channelMessages
       };
+      (activity as any)._tokenScopes = tokenScopes;
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
@@ -118,13 +126,6 @@ export class TeamsTool {
 
       console.log(`[Teams Tool] Fetched ${itemCount} items for user ${userId}`);
 
-      // Decode token scopes for diagnostics
-      let tokenScopes = '';
-      try {
-        const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
-        tokenScopes = payload.scp || '';
-      } catch { /* ignore */ }
-
       return {
         success: true,
         data: activity,
@@ -135,8 +136,7 @@ export class TeamsTool {
           displayName: userInfo?.displayName,
           email: userInfo?.mail,
           userPrincipalName: userInfo?.userPrincipalName
-        },
-        _tokenScopes: tokenScopes
+        }
       };
     } catch (error: any) {
       console.error('[Teams Tool] Error fetching activity:', error);
