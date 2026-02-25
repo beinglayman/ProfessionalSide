@@ -226,22 +226,14 @@ export class TeamsTool {
     try {
       console.log(`[Teams Tool] Fetching chats...`);
 
-      // Fetch all chat types including hidden/read chats
-      // ConsistencyLevel: eventual + $count=true unlocks full query capabilities
       const response = await this.graphApi.get('/chats', {
         params: {
-          $top: 50,
-          $count: true,
-          $orderby: 'lastMessagePreview/createdDateTime desc'
-        },
-        headers: {
-          ConsistencyLevel: 'eventual'
+          $top: 50
         }
       });
 
       const rawChats = response.data.value || [];
-      const totalCount = response.data['@odata.count'];
-      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length} (total: ${totalCount ?? 'N/A'}), types: ${rawChats.map((c: any) => c.chatType).join(',')}`);
+      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}, types: ${rawChats.map((c: any) => c.chatType).join(',')}`);
 
       const filtered = rawChats
         .filter((chat: any) => {
