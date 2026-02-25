@@ -219,18 +219,18 @@ export class TeamsTool {
    */
   private async fetchChats(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // Avoid $filter, $orderby, and $select on /chats — Graph v1.0 support is unreliable
+      // Minimal params — $select/$orderby/$expand can cause silent failures on /chats
       console.log(`[Teams Tool] Fetching chats...`);
       const response = await this.graphApi.get('/chats', {
         params: {
-          $top: 50,
-          $expand: 'lastMessagePreview'
+          $top: 50
         }
       });
 
-      const rawChats = response.data.value;
-      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}`);
-      console.log(`[Teams Tool] Raw chat types: ${rawChats.map((c: any) => c.chatType).join(', ')}`);
+      const rawChats = response.data.value || [];
+      const nextLink = response.data['@odata.nextLink'];
+      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}, nextLink: ${nextLink ? 'yes' : 'no'}`);
+      console.log(`[Teams Tool] Raw chat types: ${JSON.stringify(rawChats.map((c: any) => ({ type: c.chatType, topic: c.topic, updated: c.lastUpdatedDateTime })))}`);
 
       const filtered = rawChats
         .filter((chat: any) => {
@@ -244,6 +244,11 @@ export class TeamsTool {
           createdAt: chat.createdDateTime,
           lastUpdated: chat.lastUpdatedDateTime
         }));
+
+      // Temporarily surface raw debug info
+      (filtered as any)._rawCount = rawChats.length;
+      (filtered as any)._rawTypes = rawChats.map((c: any) => c.chatType);
+      (filtered as any)._hasNextPage = !!nextLink;
 
       console.log(`[Teams Tool] Chats after date filter: ${filtered.length} (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
       return filtered;
