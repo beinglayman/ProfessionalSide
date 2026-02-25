@@ -82,13 +82,16 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      const activity: TeamsActivity = {
+      const activity = {
         teams: joinedTeams,
         channels,
         chats,
         chatMessages,
-        channelMessages
-      };
+        channelMessages,
+        _rawChatCount: chats.length,
+        _chatTypes: chats.map((c: any) => c.type),
+        _dateRange: { start: startDate.toISOString(), end: endDate.toISOString() }
+      } as any as TeamsActivity;
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
