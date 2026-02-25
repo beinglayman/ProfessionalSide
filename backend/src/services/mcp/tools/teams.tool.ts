@@ -90,6 +90,15 @@ export class TeamsTool {
         channelMessages
       };
 
+      // Temporary debug: surface raw info that gets lost in array serialization
+      (activity as any)._debug = {
+        rawChatCount: (chats as any)._rawCount,
+        rawChatTypes: (chats as any)._rawTypes,
+        hasNextPage: (chats as any)._hasNextPage,
+        dateRange: { start: startDate.toISOString(), end: endDate.toISOString() },
+        filteredChatCount: chats.length
+      };
+
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
 
