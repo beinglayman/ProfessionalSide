@@ -215,21 +215,28 @@ export class TeamsTool {
    */
   private async fetchChats(startDate: Date, endDate: Date): Promise<any[]> {
     try {
+      // Avoid $filter on /chats — not reliably supported in Graph v1.0
+      // Fetch recent chats and filter client-side
       const response = await this.graphApi.get('/chats', {
         params: {
           $select: 'id,topic,chatType,createdDateTime,lastUpdatedDateTime',
-          $filter: `lastUpdatedDateTime ge ${startDate.toISOString()} and lastUpdatedDateTime le ${endDate.toISOString()}`,
-          $top: 20
+          $orderby: 'lastUpdatedDateTime desc',
+          $top: 50
         }
       });
 
-      return response.data.value.map((chat: any) => ({
-        id: chat.id,
-        topic: chat.topic || 'Untitled chat',
-        type: chat.chatType,
-        createdAt: chat.createdDateTime,
-        lastUpdated: chat.lastUpdatedDateTime
-      }));
+      return response.data.value
+        .filter((chat: any) => {
+          const updated = new Date(chat.lastUpdatedDateTime);
+          return updated >= startDate && updated <= endDate;
+        })
+        .map((chat: any) => ({
+          id: chat.id,
+          topic: chat.topic || 'Untitled chat',
+          type: chat.chatType,
+          createdAt: chat.createdDateTime,
+          lastUpdated: chat.lastUpdatedDateTime
+        }));
     } catch (error) {
       console.error('[Teams Tool] Error fetching chats:', error);
       return [];
@@ -244,17 +251,21 @@ export class TeamsTool {
 
     for (const chat of chats) {
       try {
+        // Avoid $filter on chat messages — not reliably supported in Graph v1.0
         const response = await this.graphApi.get(`/chats/${chat.id}/messages`, {
           params: {
             $select: 'id,createdDateTime,from,body,importance,messageType',
-            $filter: `createdDateTime ge ${startDate.toISOString()} and createdDateTime le ${endDate.toISOString()}`,
-            $top: 10,
-            $orderby: 'createdDateTime desc'
+            $orderby: 'createdDateTime desc',
+            $top: 20
           }
         });
 
         const messages = response.data.value
-          .filter((msg: any) => msg.messageType === 'message') // Filter out system messages
+          .filter((msg: any) => msg.messageType === 'message')
+          .filter((msg: any) => {
+            const created = new Date(msg.createdDateTime);
+            return created >= startDate && created <= endDate;
+          })
           .map((msg: any) => ({
             id: msg.id,
             chatId: chat.id,
@@ -293,17 +304,21 @@ export class TeamsTool {
 
     for (const channel of channels) {
       try {
+        // Avoid $filter on channel messages — not reliably supported in Graph v1.0
         const response = await this.graphApi.get(`/teams/${channel.teamId}/channels/${channel.id}/messages`, {
           params: {
             $select: 'id,createdDateTime,from,body,importance,messageType,replies',
-            $filter: `createdDateTime ge ${startDate.toISOString()} and createdDateTime le ${endDate.toISOString()}`,
-            $top: 20, // Increased since we'll filter to user's own messages
+            $top: 25,
             $orderby: 'createdDateTime desc'
           }
         });
 
         const messages = response.data.value
           .filter((msg: any) => msg.messageType === 'message')
+          .filter((msg: any) => {
+            const created = new Date(msg.createdDateTime);
+            return created >= startDate && created <= endDate;
+          })
           // Filter to only messages sent by the current user (ChannelMessage.Edit allows editing own messages)
           .filter((msg: any) => {
             const msgEmail = msg.from?.user?.mail || msg.from?.user?.userPrincipalName;
