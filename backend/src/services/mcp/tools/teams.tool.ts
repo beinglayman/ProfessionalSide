@@ -57,6 +57,12 @@ export class TeamsTool {
       // Set authorization header
       this.graphApi.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
+      // Log token scopes for diagnostics (decode JWT payload without verification)
+      try {
+        const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
+        console.log(`[Teams Tool] Token scopes: ${payload.scp || 'NONE'}`);
+      } catch { /* ignore decode errors */ }
+
       // Calculate date range (default: last 7 days)
       const endDate = dateRange?.end || new Date();
       const startDate = dateRange?.start || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -90,15 +96,6 @@ export class TeamsTool {
         channelMessages
       };
 
-      // Temporary debug: surface raw info that gets lost in array serialization
-      (activity as any)._debug = {
-        rawChatCount: (chats as any)._rawCount,
-        rawChatTypes: (chats as any)._rawTypes,
-        hasNextPage: (chats as any)._hasNextPage,
-        dateRange: { start: startDate.toISOString(), end: endDate.toISOString() },
-        filteredChatCount: chats.length
-      };
-
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
 
@@ -121,6 +118,13 @@ export class TeamsTool {
 
       console.log(`[Teams Tool] Fetched ${itemCount} items for user ${userId}`);
 
+      // Decode token scopes for diagnostics
+      let tokenScopes = '';
+      try {
+        const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
+        tokenScopes = payload.scp || '';
+      } catch { /* ignore */ }
+
       return {
         success: true,
         data: activity,
@@ -131,7 +135,8 @@ export class TeamsTool {
           displayName: userInfo?.displayName,
           email: userInfo?.mail,
           userPrincipalName: userInfo?.userPrincipalName
-        }
+        },
+        _tokenScopes: tokenScopes
       };
     } catch (error: any) {
       console.error('[Teams Tool] Error fetching activity:', error);
@@ -228,7 +233,6 @@ export class TeamsTool {
    */
   private async fetchChats(startDate: Date, endDate: Date): Promise<any[]> {
     try {
-      // Minimal params — $select/$orderby/$expand can cause silent failures on /chats
       console.log(`[Teams Tool] Fetching chats...`);
       const response = await this.graphApi.get('/chats', {
         params: {
@@ -237,9 +241,7 @@ export class TeamsTool {
       });
 
       const rawChats = response.data.value || [];
-      const nextLink = response.data['@odata.nextLink'];
-      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}, nextLink: ${nextLink ? 'yes' : 'no'}`);
-      console.log(`[Teams Tool] Raw chat types: ${JSON.stringify(rawChats.map((c: any) => ({ type: c.chatType, topic: c.topic, updated: c.lastUpdatedDateTime })))}`);
+      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}, types: ${rawChats.map((c: any) => c.chatType).join(',')}`);
 
       const filtered = rawChats
         .filter((chat: any) => {
@@ -253,11 +255,6 @@ export class TeamsTool {
           createdAt: chat.createdDateTime,
           lastUpdated: chat.lastUpdatedDateTime
         }));
-
-      // Temporarily surface raw debug info
-      (filtered as any)._rawCount = rawChats.length;
-      (filtered as any)._rawTypes = rawChats.map((c: any) => c.chatType);
-      (filtered as any)._hasNextPage = !!nextLink;
 
       console.log(`[Teams Tool] Chats after date filter: ${filtered.length} (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
       return filtered;
