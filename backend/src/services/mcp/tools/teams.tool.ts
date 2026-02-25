@@ -82,16 +82,24 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      // Temporary debug: test /chats with explicit /me prefix
-      let debugChats: any = null;
-      try {
-        const debugResp = await this.graphApi.get('/me/chats', { params: { $top: 50 } });
-        debugChats = {
-          count: debugResp.data.value?.length || 0,
-          types: (debugResp.data.value || []).map((c: any) => c.chatType)
-        };
-      } catch (e: any) {
-        debugChats = { error: e.response?.data?.error?.message || e.message };
+      // Debug: try multiple /chats variations to find 1:1 chats
+      const debugVariations: any = {};
+      const variations = [
+        { name: 'noParams', params: {} },
+        { name: 'oneOnOne', params: { $filter: "chatType eq 'oneOnOne'" } },
+        { name: 'top50', params: { $top: 50 } },
+      ];
+      for (const v of variations) {
+        try {
+          const r = await this.graphApi.get('/chats', { params: v.params });
+          debugVariations[v.name] = {
+            count: r.data.value?.length || 0,
+            types: (r.data.value || []).map((c: any) => c.chatType),
+            hasNext: !!r.data['@odata.nextLink']
+          };
+        } catch (e: any) {
+          debugVariations[v.name] = { error: `${e.response?.status}: ${e.response?.data?.error?.message || e.message}` };
+        }
       }
 
       const activity = {
@@ -104,7 +112,7 @@ export class TeamsTool {
           email: userInfo?.mail || userInfo?.userPrincipalName,
           displayName: userInfo?.displayName
         },
-        _debugChats: debugChats
+        _chatVariations: debugVariations
       } as TeamsActivity;
 
       // Calculate total items
