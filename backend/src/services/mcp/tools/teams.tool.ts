@@ -220,14 +220,23 @@ export class TeamsTool {
   private async fetchChats(startDate: Date, endDate: Date): Promise<any[]> {
     try {
       console.log(`[Teams Tool] Fetching chats...`);
+
+      // Fetch all chat types including hidden/read chats
+      // ConsistencyLevel: eventual + $count=true unlocks full query capabilities
       const response = await this.graphApi.get('/chats', {
         params: {
-          $top: 50
+          $top: 50,
+          $count: true,
+          $orderby: 'lastMessagePreview/createdDateTime desc'
+        },
+        headers: {
+          ConsistencyLevel: 'eventual'
         }
       });
 
       const rawChats = response.data.value || [];
-      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length}, types: ${rawChats.map((c: any) => c.chatType).join(',')}`);
+      const totalCount = response.data['@odata.count'];
+      console.log(`[Teams Tool] Raw chats from API: ${rawChats.length} (total: ${totalCount ?? 'N/A'}), types: ${rawChats.map((c: any) => c.chatType).join(',')}`);
 
       const filtered = rawChats
         .filter((chat: any) => {
@@ -244,8 +253,8 @@ export class TeamsTool {
 
       console.log(`[Teams Tool] Chats after date filter: ${filtered.length} (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
       return filtered;
-    } catch (error) {
-      console.error('[Teams Tool] Error fetching chats:', error);
+    } catch (error: any) {
+      console.error('[Teams Tool] Error fetching chats:', error.response?.data || error.message);
       return [];
     }
   }
