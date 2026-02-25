@@ -74,8 +74,12 @@ export class TeamsTool {
       // Fetch recent messages from chats
       const chatMessages = await this.fetchChatMessages(chats.slice(0, 10), startDate, endDate);
 
-      // Fetch channel messages (filtered to user's own messages with ChannelMessage.Edit permission)
-      const channelMessages = await this.fetchChannelMessages(channels.slice(0, 10), startDate, endDate, userInfo);
+      // Fetch channel messages
+      const channelMessages = await this.fetchChannelMessages(channels.slice(0, 10), startDate, endDate);
+
+      if (chatMessages.length === 0 && channelMessages.length === 0) {
+        console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      }
 
       // Compile activity data
       const activity: TeamsActivity = {
@@ -280,8 +284,8 @@ export class TeamsTool {
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 200));
-      } catch (error) {
-        // Some chats might not be accessible
+      } catch (error: any) {
+        console.log(`[Teams Tool] Could not fetch messages from chat ${chat.id}: ${error.message}`);
         continue;
       }
     }
@@ -291,16 +295,11 @@ export class TeamsTool {
 
   /**
    * Fetch messages from channels
-   * With ChannelMessage.Edit permission, only user's own messages are accessible
    */
-  private async fetchChannelMessages(channels: any[], startDate: Date, endDate: Date, userInfo: any): Promise<any[]> {
+  private async fetchChannelMessages(channels: any[], startDate: Date, endDate: Date): Promise<any[]> {
     const allMessages: any[] = [];
 
-    // Get user identifiers for filtering
-    const userEmail = userInfo?.mail || userInfo?.userPrincipalName;
-    const userId = userInfo?.id;
-
-    console.log(`[Teams Tool] Fetching channel messages for user: ${userEmail || userId}`);
+    console.log(`[Teams Tool] Fetching channel messages from ${channels.length} channels`);
 
     for (const channel of channels) {
       try {
@@ -319,26 +318,20 @@ export class TeamsTool {
             const created = new Date(msg.createdDateTime);
             return created >= startDate && created <= endDate;
           })
-          // Filter to only messages sent by the current user (ChannelMessage.Edit allows editing own messages)
-          .filter((msg: any) => {
-            const msgEmail = msg.from?.user?.mail || msg.from?.user?.userPrincipalName;
-            const msgUserId = msg.from?.user?.id;
-            return (userEmail && msgEmail === userEmail) || (userId && msgUserId === userId);
-          })
           .map((msg: any) => ({
             id: msg.id,
             channelId: channel.id,
             channelName: channel.name,
             teamName: channel.teamName,
             createdAt: msg.createdDateTime,
-            from: msg.from?.user?.displayName || 'You',
+            from: msg.from?.user?.displayName || 'Unknown',
             content: msg.body?.content ? this.extractTextFromHtml(msg.body.content) : '',
             importance: msg.importance || 'normal',
             replyCount: msg.replies?.length || 0
           }));
 
         if (messages.length > 0) {
-          console.log(`[Teams Tool] Found ${messages.length} user messages in channel ${channel.name}`);
+          console.log(`[Teams Tool] Found ${messages.length} messages in channel ${channel.name}`);
         }
 
         allMessages.push(...messages);

@@ -1937,6 +1937,9 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
       }
 
       const activities = transformToolActivity(toolType, result.data);
+      if (activities.length === 0) {
+        console.warn(`[MCP Sync] ⚠ ${toolType}: Fetched successfully but produced 0 activities after transformation`);
+      }
       console.log(`[MCP Sync] ✓ ${toolType}: Fetched ${activities.length} total activities`);
 
       // Update lastSyncAt timestamp
