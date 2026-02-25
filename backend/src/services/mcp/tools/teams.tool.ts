@@ -23,9 +23,8 @@ export class TeamsTool {
     this.privacyService = new MCPPrivacyService();
 
     // Initialize Microsoft Graph API client
-    // Use beta endpoint — v1.0 /chats may not return all chat types reliably
     this.graphApi = axios.create({
-      baseURL: 'https://graph.microsoft.com/beta',
+      baseURL: 'https://graph.microsoft.com/v1.0',
       headers: {
         Accept: 'application/json'
       }
