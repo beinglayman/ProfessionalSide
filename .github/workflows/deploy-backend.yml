@@ -27,6 +27,7 @@ jobs:
       - name: Build and push backend image to ACR
         run: |
           az acr build --registry "${{ secrets.ACR_NAME }}" \
+            --image inchronicle-backend:${{ github.sha }} \
             --image inchronicle-backend:latest ./backend
 
       - name: Update Web App container image
@@ -34,7 +35,7 @@ jobs:
           az webapp config container set \
             --resource-group "${{ secrets.AZ_RG }}" \
             --name "${{ secrets.BACKEND_APPNAME }}" \
-            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-backend:latest"
+            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/inchronicle-backend:${{ github.sha }}"
 
       - name: Set App Settings
         run: |
@@ -45,5 +46,3 @@ jobs:
 
       - name: Restart Web App
         run: az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.BACKEND_APPNAME }}"
-
-
