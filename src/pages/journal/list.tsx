@@ -252,6 +252,15 @@ export default function JournalPage() {
   // Mobile bottom sheet state
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
+  // Draft story hover state — for cross-highlighting related activities
+  const [hoveredDraftId, setHoveredDraftId] = useState<string | null>(null);
+  const hoveredDraftActivityIds = useMemo(() => {
+    if (!hoveredDraftId) return new Set<string>();
+    const draft = storyGroups.find(g => g.key === hoveredDraftId);
+    if (!draft?.storyMetadata?.activityEdges) return new Set<string>();
+    return new Set(draft.storyMetadata.activityEdges.map(e => e.activityId));
+  }, [hoveredDraftId, storyGroups]);
+
   // Story groups loading state (activities loaded but stories still loading)
   const storyGroupsLoading = activitiesLoading ? false : !storyData;
 
@@ -820,12 +829,14 @@ export default function JournalPage() {
               error={activitiesError ? String(activitiesError) : null}
               emptyMessage="No activities yet. Sync your tools to see your work history."
               hideFilters={!!selectedDraftId}
+              hoveredDraftActivityIds={hoveredDraftActivityIds}
+              isAnyDraftHovered={hoveredDraftId !== null}
             />
           </div>
 
           {/* Right: Draft Stories Sidebar (desktop only) */}
           {!activitiesError && (
-            <aside className="hidden lg:block" aria-label="Draft Stories">
+            <aside className="hidden lg:block overflow-hidden" aria-label="Draft Stories">
               <DraftStorySidebar
                 drafts={storyGroups}
                 selectedId={selectedDraftId}
@@ -836,6 +847,8 @@ export default function JournalPage() {
                 regeneratingId={regeneratingEntryId}
                 filterMatchCount={matchCount}
                 filterTotalCount={totalDraftActivityCount}
+                onHoverStart={(id: string) => setHoveredDraftId(id)}
+                onHoverEnd={() => setHoveredDraftId(null)}
               />
             </aside>
           )}

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { Activity } from '../../types/activity';
@@ -17,6 +17,10 @@ interface ActivityStreamProps {
   emptyMessage?: string;
   /** When true, hide the filter bar (draft filter is active, filters are suspended) */
   hideFilters?: boolean;
+  /** Set of activity IDs belonging to the currently hovered draft story */
+  hoveredDraftActivityIds?: Set<string>;
+  /** Whether any draft story card is currently being hovered */
+  isAnyDraftHovered?: boolean;
 }
 
 /**
@@ -30,7 +34,12 @@ export function ActivityStream({
   error,
   emptyMessage = 'No activities found',
   hideFilters = false,
+  hoveredDraftActivityIds,
+  isAnyDraftHovered = false,
 }: ActivityStreamProps) {
+  // Filter group hover state — for expand/shrink interaction between "When" and "Source"
+  const [hoveredFilterGroup, setHoveredFilterGroup] = useState<'when' | 'source' | null>(null);
+
   // Activities: useListFilters with flat Activity[] for filtering + grouping
   const { config: activitiesFilterConfig, allActivities } = useMemo(
     () => makeActivitiesFilterConfig(groups),
@@ -98,21 +107,41 @@ export function ActivityStream({
           activeFilterCount={activities.activeFilterCount}
         >
           {activitiesFilterConfig.temporalChips.length > 0 && (
-            <ChipFilter
-              chips={activitiesFilterConfig.temporalChips}
-              selectedKeys={activities.selectedTemporalKeys}
-              onToggle={activities.toggleTemporalKey}
-            />
+            <div
+              className="flex items-center gap-1"
+              onMouseEnter={() => setHoveredFilterGroup('when')}
+              onMouseLeave={() => setHoveredFilterGroup(null)}
+            >
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap flex-shrink-0 mr-0.5">
+                When
+              </span>
+              <ChipFilter
+                chips={activitiesFilterConfig.temporalChips}
+                selectedKeys={activities.selectedTemporalKeys}
+                onToggle={activities.toggleTemporalKey}
+                shrunk={hoveredFilterGroup === 'source'}
+              />
+            </div>
           )}
           {activitiesFilterConfig.typedChips.length > 0 && (
             <>
               <FilterSeparator />
-              <ChipFilter
-                chips={activitiesFilterConfig.typedChips}
-                selectedKeys={activities.selectedTypedKeys}
-                onToggle={activities.toggleTypedKey}
-                maxVisible={4}
-              />
+              <div
+                className="flex items-center gap-1"
+                onMouseEnter={() => setHoveredFilterGroup('source')}
+                onMouseLeave={() => setHoveredFilterGroup(null)}
+              >
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap flex-shrink-0 mr-0.5">
+                  Source
+                </span>
+                <ChipFilter
+                  chips={activitiesFilterConfig.typedChips}
+                  selectedKeys={activities.selectedTypedKeys}
+                  onToggle={activities.toggleTypedKey}
+                  maxVisible={hoveredFilterGroup === 'source' ? 0 : 4}
+                  shrunk={hoveredFilterGroup === 'when'}
+                />
+              </div>
             </>
           )}
         </FilterBar>
@@ -132,14 +161,20 @@ export function ActivityStream({
             showAll={activities.showAllGroups.has(group.key)}
             onToggleShowAll={() => activities.toggleShowAll(group.key)}
             originalCount={originalCountMap.get(group.key)}
-            renderItem={(activity) => (
-              <ActivityCard
-                key={activity.id}
-                activity={activity}
-                showStoryBadge={false}
-                showSourceIcon={true}
-              />
-            )}
+            renderItem={(activity) => {
+              const isHighlighted = hoveredDraftActivityIds?.has(activity.id) ?? false;
+              const isDimmed = isAnyDraftHovered && !isHighlighted;
+              return (
+                <ActivityCard
+                  key={activity.id}
+                  activity={activity}
+                  showStoryBadge={false}
+                  showSourceIcon={true}
+                  isHighlighted={isHighlighted}
+                  isDimmed={isDimmed}
+                />
+              );
+            }}
           />
         ))}
 

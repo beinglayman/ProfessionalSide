@@ -15,6 +15,10 @@ interface DraftStorySidebarProps {
   /** Match count for the selected draft filter */
   filterMatchCount?: number;
   filterTotalCount?: number;
+  /** Fired when mouse enters a draft card (for cross-highlighting activities) */
+  onHoverStart?: (draftId: string) => void;
+  /** Fired when mouse leaves a draft card */
+  onHoverEnd?: () => void;
 }
 
 const BATCH_SIZE = 10;
@@ -28,6 +32,8 @@ export function DraftStorySidebar({
   regeneratingId,
   filterMatchCount,
   filterTotalCount,
+  onHoverStart,
+  onHoverEnd,
 }: DraftStorySidebarProps) {
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
   const [hintHidden, setHintHidden] = useState(false);
@@ -98,6 +104,8 @@ export function DraftStorySidebar({
             isRegenerateLoading={regeneratingId != null}
             filterMatchCount={selectedId === draft.key ? filterMatchCount : undefined}
             filterTotalCount={selectedId === draft.key ? filterTotalCount : undefined}
+            onHoverStart={() => onHoverStart?.(draft.key)}
+            onHoverEnd={onHoverEnd}
           />
         ))}
       </div>

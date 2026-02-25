@@ -52,6 +52,10 @@ interface ActivityCardProps {
   className?: string;
   /** Edge context when displaying activity within a story */
   edge?: ActivityStoryEdge;
+  /** Highlight this card (e.g., when its draft story is hovered) */
+  isHighlighted?: boolean;
+  /** Dim this card (e.g., when another draft story is hovered) */
+  isDimmed?: boolean;
 }
 
 /**
@@ -241,15 +245,21 @@ export function ActivityCard({
   showSourceIcon = true,
   compact = false,
   className,
-  edge
+  edge,
+  isHighlighted = false,
+  isDimmed = false,
 }: ActivityCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   // Resolve Google source to specific product (calendar, docs, sheets, meet, drive)
   const resolvedSource = resolveGoogleSource(activity.source, activity.sourceId, activity.sourceUrl);
   const sourceInfo = SUPPORTED_SOURCES[resolvedSource as ActivitySource] || SUPPORTED_SOURCES[activity.source as ActivitySource];
   const SourceIcon = SourceIcons[resolvedSource] || SourceIcons[activity.source] || SourceIcons.github;
   const sourceColor = sourceInfo?.color || FALLBACK_SOURCE_COLOR;
+
+  // Subtle source-colored background tint on hover (5% opacity)
+  const hoverBgColor = isHovered && !isExpanded ? `${sourceColor}0D` : undefined;
 
   // Safely parse timestamp with fallback
   const timestamp = safeParseTimestamp(activity.timestamp);
@@ -293,11 +303,16 @@ export function ActivityCard({
       <article
         className={cn(
           'group flex items-center gap-3 py-2.5 px-3 rounded-lg',
-          'hover:bg-gray-50 transition-colors',
+          'transition-all duration-200',
           hasExpandableContent && 'cursor-pointer',
+          isHighlighted && 'ring-2 ring-purple-400 ring-offset-1 shadow-md z-10',
+          isDimmed && 'opacity-40',
           className
         )}
+        style={hoverBgColor ? { backgroundColor: hoverBgColor } : undefined}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <div
           className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-white"
@@ -331,13 +346,18 @@ export function ActivityCard({
     <article
       className={cn(
         'group relative',
-        'transition-all',
+        'transition-all duration-200',
         'border-b border-gray-100 last:border-0',
-        isExpanded ? 'bg-gray-50/40' : 'hover:bg-gray-50/50',
+        isExpanded && 'bg-gray-50/40',
         hasExpandableContent && 'cursor-pointer',
+        isHighlighted && 'ring-2 ring-purple-400 ring-offset-1 shadow-md z-10',
+        isDimmed && 'opacity-40',
         className
       )}
+      style={hoverBgColor ? { backgroundColor: hoverBgColor } : undefined}
       onClick={handleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Outer container with accent bar */}
       <div className="flex">

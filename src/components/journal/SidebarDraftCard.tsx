@@ -19,6 +19,10 @@ interface SidebarDraftCardProps {
   /** Show "Showing N of M activities" instead of "N activities" */
   filterMatchCount?: number;
   filterTotalCount?: number;
+  /** Fired when mouse enters the card (for cross-highlighting activities) */
+  onHoverStart?: () => void;
+  /** Fired when mouse leaves the card */
+  onHoverEnd?: () => void;
 }
 
 export function SidebarDraftCard({
@@ -32,6 +36,8 @@ export function SidebarDraftCard({
   showCTA = false,
   filterMatchCount,
   filterTotalCount,
+  onHoverStart,
+  onHoverEnd,
 }: SidebarDraftCardProps) {
   const meta = draft.storyMetadata;
   if (!meta) return null;
@@ -65,6 +71,8 @@ export function SidebarDraftCard({
       aria-pressed={isSelected}
       aria-expanded={isSelected}
       onClick={onSelect}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -72,7 +80,7 @@ export function SidebarDraftCard({
         }
       }}
       className={cn(
-        'relative rounded-xl transition-all cursor-pointer',
+        'relative rounded-xl transition-all cursor-pointer min-w-0',
         isSelected
           ? 'border-2 border-purple-500 bg-purple-50 shadow-lg'
           : isMuted

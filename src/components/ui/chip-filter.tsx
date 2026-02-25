@@ -21,6 +21,8 @@ interface ChipFilterProps {
   maxVisible?: number;
   /** Active chip className override. Default: bg-primary-500 text-white */
   activeClassName?: string;
+  /** When true, show only the "All" button, hiding individual chips and overflow. */
+  shrunk?: boolean;
 }
 
 export function ChipFilter({
@@ -30,6 +32,7 @@ export function ChipFilter({
   showAllButton = true,
   maxVisible = 0,
   activeClassName = 'bg-primary-500 text-white shadow-sm',
+  shrunk = false,
 }: ChipFilterProps) {
   const { isOpen, toggle, close, containerRef } = useDropdown();
 
@@ -37,6 +40,10 @@ export function ChipFilter({
   const visible = maxVisible > 0 ? chips.slice(0, maxVisible) : chips;
   const overflow = maxVisible > 0 ? chips.slice(maxVisible) : [];
   const overflowSelectedCount = overflow.filter(c => selectedKeys.has(c.key)).length;
+
+  // When shrunk, hide individual chips and overflow — show only "All" button
+  const visibleToRender = shrunk ? [] : visible;
+  const overflowToRender = shrunk ? [] : overflow;
 
   const handleClearAll = () => {
     // Deselect all by toggling each selected key off
@@ -59,7 +66,7 @@ export function ChipFilter({
         </button>
       )}
 
-      {visible.map(chip => {
+      {visibleToRender.map(chip => {
         const isSelected = selectedKeys.has(chip.key);
         const isDisabled = chip.disabled === true;
         return (
@@ -98,7 +105,7 @@ export function ChipFilter({
       })}
 
       {/* Overflow dropdown */}
-      {overflow.length > 0 && (
+      {overflowToRender.length > 0 && (
         <div className="relative" ref={containerRef}>
           <button
             onClick={toggle}
