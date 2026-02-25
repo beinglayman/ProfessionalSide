@@ -1,12 +1,13 @@
 /**
- * ChipFilter — Domain-agnostic filter chip row
+ * ChipFilter — Domain-agnostic filter chip row or dropdown trigger
  *
- * Renders an "All" button + visible chips + overflow dropdown.
- * Replaces: TemporalFilters, SourceFilterChips, inline draft category chips.
+ * Two modes:
+ *  - 'inline' (default): "All" button + visible chips + overflow dropdown
+ *  - 'dropdown': Compact trigger button showing summary + dropdown panel with all options
  */
 
 import React from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { ChevronDown, Check, MoreHorizontal } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useDropdown } from '../../hooks/useDropdown';
 import type { FilterChip } from '../../types/list-filters';
@@ -21,8 +22,10 @@ interface ChipFilterProps {
   maxVisible?: number;
   /** Active chip className override. Default: bg-primary-500 text-white */
   activeClassName?: string;
-  /** When true, show only the "All" button, hiding individual chips and overflow. */
-  shrunk?: boolean;
+  /** Render mode. 'inline' = chip row, 'dropdown' = compact trigger + dropdown panel. */
+  mode?: 'inline' | 'dropdown';
+  /** Label shown on the dropdown trigger (used when mode='dropdown'). */
+  label?: string;
 }
 
 export function ChipFilter({
@@ -32,7 +35,8 @@ export function ChipFilter({
   showAllButton = true,
   maxVisible = 0,
   activeClassName = 'bg-primary-500 text-white shadow-sm',
-  shrunk = false,
+  mode = 'inline',
+  label,
 }: ChipFilterProps) {
   const { isOpen, toggle, close, containerRef } = useDropdown();
 
@@ -41,15 +45,115 @@ export function ChipFilter({
   const overflow = maxVisible > 0 ? chips.slice(maxVisible) : [];
   const overflowSelectedCount = overflow.filter(c => selectedKeys.has(c.key)).length;
 
-  // When shrunk, hide individual chips and overflow — show only "All" button
-  const visibleToRender = shrunk ? [] : visible;
-  const overflowToRender = shrunk ? [] : overflow;
-
   const handleClearAll = () => {
     // Deselect all by toggling each selected key off
     selectedKeys.forEach(key => onToggle(key));
   };
 
+  // ── Dropdown mode ──────────────────────────────────────────────────
+  if (mode === 'dropdown') {
+    const selectedChips = chips.filter(c => selectedKeys.has(c.key));
+    const summaryText = allSelected
+      ? 'All'
+      : selectedChips[0]?.label ?? 'All';
+    const extraCount = selectedChips.length > 1 ? selectedChips.length - 1 : 0;
+    const hasActiveFilter = !allSelected;
+
+    return (
+      <div className="relative" ref={containerRef}>
+        {/* Trigger button */}
+        <button
+          onClick={toggle}
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all border',
+            isOpen
+              ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm'
+              : hasActiveFilter
+                ? 'border-primary-200 bg-primary-50/50 text-primary-700 hover:border-primary-300'
+                : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+          )}
+        >
+          {label && (
+            <span className="text-gray-400 font-semibold uppercase tracking-wider text-[10px]">
+              {label}
+            </span>
+          )}
+          <span>{summaryText}</span>
+          {extraCount > 0 && (
+            <span className="bg-primary-500 text-white text-[9px] font-bold rounded px-1 py-px leading-none">
+              +{extraCount}
+            </span>
+          )}
+          <ChevronDown className={cn('w-3 h-3 transition-transform', isOpen && 'rotate-180')} />
+        </button>
+
+        {/* Dropdown panel */}
+        {isOpen && (
+          <div
+            className="absolute top-full mt-1 left-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[200px] max-h-[320px] overflow-y-auto"
+            role="listbox"
+            aria-label={label ? `${label} filter options` : 'Filter options'}
+          >
+            {/* "All" option */}
+            {showAllButton && (
+              <>
+                <button
+                  onClick={handleClearAll}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] transition-colors',
+                    allSelected ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-700 hover:bg-gray-50',
+                  )}
+                  role="option"
+                  aria-selected={allSelected}
+                >
+                  <Check className={cn('w-3.5 h-3.5 flex-shrink-0', allSelected ? 'opacity-100' : 'opacity-0')} />
+                  <span className="flex-1 text-left font-medium">All</span>
+                </button>
+                <div className="h-px bg-gray-100 my-0.5" />
+              </>
+            )}
+
+            {/* All chip options */}
+            {chips.map(chip => {
+              const isSelected = selectedKeys.has(chip.key);
+              const isDisabled = chip.disabled === true;
+              return (
+                <button
+                  key={chip.key}
+                  onClick={isDisabled ? undefined : () => onToggle(chip.key)}
+                  aria-disabled={isDisabled || undefined}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] transition-colors',
+                    isDisabled
+                      ? 'text-gray-300 cursor-default'
+                      : isSelected ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50',
+                  )}
+                  role="option"
+                  aria-selected={isDisabled ? undefined : isSelected}
+                >
+                  <Check className={cn('w-3.5 h-3.5 flex-shrink-0', isSelected ? 'opacity-100' : 'opacity-0')} />
+                  {chip.Icon && (
+                    <chip.Icon
+                      className={cn('w-3.5 h-3.5 flex-shrink-0', isDisabled && 'opacity-40')}
+                      style={isSelected || isDisabled ? undefined : (chip.iconColor ? { color: chip.iconColor } : undefined)}
+                    />
+                  )}
+                  <span className="flex-1 text-left font-medium">{chip.label}</span>
+                  {chip.count !== undefined && (
+                    <span className="text-[10px] tabular-nums text-gray-400">{chip.count}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Inline mode (original) ─────────────────────────────────────────
   return (
     <div className="flex items-center gap-1">
       {showAllButton && (
@@ -66,7 +170,7 @@ export function ChipFilter({
         </button>
       )}
 
-      {visibleToRender.map(chip => {
+      {visible.map(chip => {
         const isSelected = selectedKeys.has(chip.key);
         const isDisabled = chip.disabled === true;
         return (
@@ -105,7 +209,7 @@ export function ChipFilter({
       })}
 
       {/* Overflow dropdown */}
-      {overflowToRender.length > 0 && (
+      {overflow.length > 0 && (
         <div className="relative" ref={containerRef}>
           <button
             onClick={toggle}

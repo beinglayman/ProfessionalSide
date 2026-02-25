@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { Activity } from '../../types/activity';
@@ -37,9 +37,6 @@ export function ActivityStream({
   hoveredDraftActivityIds,
   isAnyDraftHovered = false,
 }: ActivityStreamProps) {
-  // Filter group hover state — for expand/shrink interaction between "When" and "Source"
-  const [hoveredFilterGroup, setHoveredFilterGroup] = useState<'when' | 'source' | null>(null);
-
   // Activities: useListFilters with flat Activity[] for filtering + grouping
   const { config: activitiesFilterConfig, allActivities } = useMemo(
     () => makeActivitiesFilterConfig(groups),
@@ -107,41 +104,24 @@ export function ActivityStream({
           activeFilterCount={activities.activeFilterCount}
         >
           {activitiesFilterConfig.temporalChips.length > 0 && (
-            <div
-              className="flex items-center gap-1"
-              onMouseEnter={() => setHoveredFilterGroup('when')}
-              onMouseLeave={() => setHoveredFilterGroup(null)}
-            >
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap flex-shrink-0 mr-0.5">
-                When
-              </span>
-              <ChipFilter
-                chips={activitiesFilterConfig.temporalChips}
-                selectedKeys={activities.selectedTemporalKeys}
-                onToggle={activities.toggleTemporalKey}
-                shrunk={hoveredFilterGroup !== 'when'}
-              />
-            </div>
+            <ChipFilter
+              mode="dropdown"
+              label="When"
+              chips={activitiesFilterConfig.temporalChips}
+              selectedKeys={activities.selectedTemporalKeys}
+              onToggle={activities.toggleTemporalKey}
+            />
           )}
           {activitiesFilterConfig.typedChips.length > 0 && (
             <>
               <FilterSeparator />
-              <div
-                className="flex items-center gap-1"
-                onMouseEnter={() => setHoveredFilterGroup('source')}
-                onMouseLeave={() => setHoveredFilterGroup(null)}
-              >
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap flex-shrink-0 mr-0.5">
-                  Source
-                </span>
-                <ChipFilter
-                  chips={activitiesFilterConfig.typedChips}
-                  selectedKeys={activities.selectedTypedKeys}
-                  onToggle={activities.toggleTypedKey}
-                  maxVisible={hoveredFilterGroup === 'source' ? 0 : 4}
-                  shrunk={hoveredFilterGroup !== 'source'}
-                />
-              </div>
+              <ChipFilter
+                mode="dropdown"
+                label="Source"
+                chips={activitiesFilterConfig.typedChips}
+                selectedKeys={activities.selectedTypedKeys}
+                onToggle={activities.toggleTypedKey}
+              />
             </>
           )}
         </FilterBar>
