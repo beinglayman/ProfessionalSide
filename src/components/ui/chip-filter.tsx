@@ -53,11 +53,19 @@ export function ChipFilter({
   // ── Dropdown mode ──────────────────────────────────────────────────
   if (mode === 'dropdown') {
     const selectedChips = chips.filter(c => selectedKeys.has(c.key));
+    const hasActiveFilter = !allSelected;
+    // Show icons for selected chips (up to 4), then "+N" for the rest
+    const hasIcons = selectedChips.length > 0 && selectedChips.some(c => c.Icon);
+    const maxIcons = 4;
+    const visibleSelected = hasIcons ? selectedChips.slice(0, maxIcons) : [];
+    const extraCount = hasIcons
+      ? Math.max(0, selectedChips.length - maxIcons)
+      : selectedChips.length > 1 ? selectedChips.length - 1 : 0;
     const summaryText = allSelected
       ? 'All'
-      : selectedChips[0]?.label ?? 'All';
-    const extraCount = selectedChips.length > 1 ? selectedChips.length - 1 : 0;
-    const hasActiveFilter = !allSelected;
+      : hasIcons
+        ? null // icons replace text
+        : selectedChips[0]?.label ?? 'All';
 
     return (
       <div className="relative" ref={containerRef}>
@@ -80,7 +88,19 @@ export function ChipFilter({
               {label}
             </span>
           )}
-          <span>{summaryText}</span>
+          {/* Selected source icons */}
+          {visibleSelected.length > 0 && (
+            <span className="flex items-center -space-x-0.5">
+              {visibleSelected.map(chip => chip.Icon && (
+                <chip.Icon
+                  key={chip.key}
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  style={chip.iconColor ? { color: chip.iconColor } : undefined}
+                />
+              ))}
+            </span>
+          )}
+          {summaryText && <span>{summaryText}</span>}
           {extraCount > 0 && (
             <span className="bg-primary-500 text-white text-[9px] font-bold rounded px-1 py-px leading-none">
               +{extraCount}

@@ -305,7 +305,7 @@ export function ActivityCard({
           'group flex items-center gap-3 py-2.5 px-3 rounded-lg',
           'transition-all duration-200',
           hasExpandableContent && 'cursor-pointer',
-          isHighlighted && 'ring-2 ring-purple-400 ring-offset-1 shadow-md z-10',
+          isHighlighted && 'bg-purple-50',
           isDimmed && 'opacity-40',
           className
         )}
@@ -350,7 +350,7 @@ export function ActivityCard({
         'border-b border-gray-100 last:border-0',
         isExpanded && 'bg-gray-50/40',
         hasExpandableContent && 'cursor-pointer',
-        isHighlighted && 'ring-2 ring-purple-400 ring-offset-1 shadow-md z-10',
+        isHighlighted && 'bg-purple-50',
         isDimmed && 'opacity-40',
         className
       )}
