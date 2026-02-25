@@ -82,19 +82,18 @@ export class TeamsTool {
         console.warn(`[Teams Tool] WARNING: Zero messages found across ${chats.length} chats and ${channels.length} channels. Possible permission issue or no recent activity in date range ${startDate.toISOString()} to ${endDate.toISOString()}`);
       }
 
-      const activity: TeamsActivity = {
+      const activity = {
         teams: joinedTeams,
         channels,
         chats,
         chatMessages,
-        channelMessages
-      };
-      // Temporary: surface authenticated MS identity for debugging
-      (activity as any)._authenticatedAs = {
-        email: userInfo?.mail || userInfo?.userPrincipalName,
-        displayName: userInfo?.displayName,
-        id: userInfo?.id
-      };
+        channelMessages,
+        _authenticatedAs: {
+          email: userInfo?.mail || userInfo?.userPrincipalName,
+          displayName: userInfo?.displayName,
+          id: userInfo?.id
+        }
+      } as TeamsActivity;
 
       // Calculate total items
       const itemCount = joinedTeams.length + channels.length + chatMessages.length + channelMessages.length;
