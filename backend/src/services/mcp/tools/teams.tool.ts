@@ -88,9 +88,7 @@ export class TeamsTool {
         chats,
         chatMessages,
         channelMessages,
-        _rawChatCount: chats.length,
-        _chatTypes: chats.map((c: any) => c.type),
-        _dateRange: { start: startDate.toISOString(), end: endDate.toISOString() }
+        _v: 3
       } as any as TeamsActivity;
 
       // Calculate total items
