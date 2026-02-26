@@ -28,7 +28,7 @@ import { SyncProgressModal } from '../../components/sync/SyncProgressModal';
 
 import { ActivityStream } from '../../components/journal/activity-stream';
 import { DraftStorySidebar } from '../../components/journal/DraftStorySidebar';
-import { DraftFilterBanner } from '../../components/journal/DraftFilterBanner';
+// DraftFilterBanner replaced by story filter chip in FilterBar
 import { DraftPeekBar } from '../../components/journal/DraftPeekBar';
 import { DraftSheetContent } from '../../components/journal/DraftSheetContent';
 import { MobileSheet } from '../../components/ui/mobile-sheet';
@@ -681,6 +681,7 @@ export default function JournalPage() {
 
   // Auto-sync on first visit: user has connected tools but never synced
   const autoSyncTriggered = useRef(false);
+  const filterBarContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (autoSyncTriggered.current || isSyncing || activitiesLoading) return;
     if (getLastSyncAt() === null && hasIntegrations) {
@@ -808,29 +809,23 @@ export default function JournalPage() {
           </div>
         )}
 
+        {/* FilterBar — full width, rendered here via portal from ActivityStream */}
+        <div ref={filterBarContainerRef} />
+
         {/* Two-column layout: Activity Stream + Draft Sidebar */}
         <div className="lg:grid lg:grid-cols-[1fr,340px] lg:gap-6">
           {/* Left: Activity Timeline */}
           <div className={cn('pb-[60px] lg:pb-0', storyGroups.length > 0 && 'lg:pb-0')}>
-            {/* Draft filter banner — shown when a draft is selected */}
-            {selectedDraft && (
-              <DraftFilterBanner
-                draftTitle={selectedDraft.storyMetadata?.title ?? ''}
-                matchCount={matchCount}
-                totalCount={totalDraftActivityCount}
-                missingCount={missingCount}
-                onClear={clearSelection}
-              />
-            )}
-
             <ActivityStream
               groups={filteredGroups ?? activityGroups}
               isLoading={activitiesLoading}
               error={activitiesError ? String(activitiesError) : null}
               emptyMessage="No activities yet. Sync your tools to see your work history."
-              hideFilters={!!selectedDraftId}
               hoveredDraftActivityIds={hoveredDraftActivityIds}
               isAnyDraftHovered={hoveredDraftId !== null}
+              filterBarContainerRef={filterBarContainerRef}
+              selectedStoryTitle={selectedDraft?.storyMetadata?.title}
+              onClearStory={clearSelection}
             />
           </div>
 

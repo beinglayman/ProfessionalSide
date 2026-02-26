@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Clock, AlertCircle, Loader2, BookOpen, X } from 'lucide-react';
 import { ActivityCard } from './activity-card';
 import { Activity } from '../../types/activity';
 import { useListFilters } from '../../hooks/useListFilters';
@@ -10,17 +11,38 @@ import { ViewToggle } from '../ui/view-toggle';
 import { FilterBar, FilterSeparator, ExpandCollapseButton } from '../ui/filter-bar';
 import type { FilteredActivityGroup } from '../../hooks/useDraftTimelineInteraction';
 
+/** Inline story filter chip shown in the FilterBar when a draft story is selected */
+function StoryFilterChip({ title, onClear }: { title: string; onClear: () => void }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md border border-purple-300 bg-purple-50 text-purple-700 whitespace-nowrap">
+      <BookOpen className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate max-w-[180px]">{title}</span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onClear(); }}
+        className="p-0.5 rounded hover:bg-purple-200/50 transition-colors"
+        aria-label="Clear story filter"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
 interface ActivityStreamProps {
   groups: FilteredActivityGroup[];
   isLoading?: boolean;
   error?: string | null;
   emptyMessage?: string;
-  /** When true, hide the filter bar (draft filter is active, filters are suspended) */
-  hideFilters?: boolean;
   /** Set of activity IDs belonging to the currently hovered draft story */
   hoveredDraftActivityIds?: Set<string>;
   /** Whether any draft story card is currently being hovered */
   isAnyDraftHovered?: boolean;
+  /** Portal target for the FilterBar (renders above both columns when provided) */
+  filterBarContainerRef?: React.RefObject<HTMLDivElement>;
+  /** When set, shows a story filter chip in the FilterBar */
+  selectedStoryTitle?: string;
+  /** Callback to clear the selected story filter */
+  onClearStory?: () => void;
 }
 
 /**
@@ -33,9 +55,11 @@ export function ActivityStream({
   isLoading,
   error,
   emptyMessage = 'No activities found',
-  hideFilters = false,
   hoveredDraftActivityIds,
   isAnyDraftHovered = false,
+  filterBarContainerRef,
+  selectedStoryTitle,
+  onClearStory,
 }: ActivityStreamProps) {
   // Activities: useListFilters with flat Activity[] for filtering + grouping
   const { config: activitiesFilterConfig, allActivities } = useMemo(
@@ -86,46 +110,57 @@ export function ActivityStream({
     );
   }
 
+  // FilterBar — always rendered, portalled to container ref when available
+  const filterBar = (
+    <FilterBar
+      viewToggle={
+        <ViewToggle
+          mode={activities.viewMode}
+          onModeChange={activities.setViewMode}
+          labels={activitiesFilterConfig.viewLabels}
+        />
+      }
+      expandCollapseButton={
+        <ExpandCollapseButton anyExpanded={activities.anyExpanded} onToggle={activities.toggleAll} />
+      }
+      activeFilterCount={activities.activeFilterCount}
+    >
+      {activitiesFilterConfig.temporalChips.length > 0 && (
+        <ChipFilter
+          mode="dropdown"
+          label="When"
+          chips={activitiesFilterConfig.temporalChips}
+          selectedKeys={activities.selectedTemporalKeys}
+          onToggle={activities.toggleTemporalKey}
+        />
+      )}
+      {activitiesFilterConfig.typedChips.length > 0 && (
+        <>
+          <FilterSeparator />
+          <ChipFilter
+            mode="dropdown"
+            label="Source"
+            chips={activitiesFilterConfig.typedChips}
+            selectedKeys={activities.selectedTypedKeys}
+            onToggle={activities.toggleTypedKey}
+          />
+        </>
+      )}
+      {selectedStoryTitle && onClearStory && (
+        <>
+          <FilterSeparator />
+          <StoryFilterChip title={selectedStoryTitle} onClear={onClearStory} />
+        </>
+      )}
+    </FilterBar>
+  );
+
   return (
     <div className="space-y-2">
-      {/* Controls: FilterBar — hidden when draft filter is active */}
-      {!hideFilters && (
-        <FilterBar
-          viewToggle={
-            <ViewToggle
-              mode={activities.viewMode}
-              onModeChange={activities.setViewMode}
-              labels={activitiesFilterConfig.viewLabels}
-            />
-          }
-          expandCollapseButton={
-            <ExpandCollapseButton anyExpanded={activities.anyExpanded} onToggle={activities.toggleAll} />
-          }
-          activeFilterCount={activities.activeFilterCount}
-        >
-          {activitiesFilterConfig.temporalChips.length > 0 && (
-            <ChipFilter
-              mode="dropdown"
-              label="When"
-              chips={activitiesFilterConfig.temporalChips}
-              selectedKeys={activities.selectedTemporalKeys}
-              onToggle={activities.toggleTemporalKey}
-            />
-          )}
-          {activitiesFilterConfig.typedChips.length > 0 && (
-            <>
-              <FilterSeparator />
-              <ChipFilter
-                mode="dropdown"
-                label="Source"
-                chips={activitiesFilterConfig.typedChips}
-                selectedKeys={activities.selectedTypedKeys}
-                onToggle={activities.toggleTypedKey}
-              />
-            </>
-          )}
-        </FilterBar>
-      )}
+      {/* FilterBar: portal to full-width container if available, otherwise inline */}
+      {filterBarContainerRef?.current
+        ? createPortal(filterBar, filterBarContainerRef.current)
+        : filterBar}
 
       {/* Groups - min-height ensures bottom items can scroll to top */}
       <div className="min-h-[calc(100vh-12rem)]">
