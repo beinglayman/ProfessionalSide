@@ -13,6 +13,7 @@
  */
 
 import { ActivityInput } from '../../career-stories/activity-persistence.service';
+import { scanAndStrip } from '../../career-stories/secret-scanner';
 
 /**
  * Transform Teams activity data into ActivityInput array
@@ -31,7 +32,7 @@ export function transformTeamsActivity(data: any): ActivityInput[] {
         sourceId: `channel-msg:${msg.channelId || 'unknown'}:${msg.id}`,
         sourceUrl: null,
         title: `Teams message in #${channelName} (${teamName})`,
-        description: msg.content || '',
+        description: scanAndStrip(msg.content || ''),
         timestamp: new Date(msg.createdAt || msg.createdDateTime || new Date()),
         rawData: {
           type: 'channel_message',
@@ -48,14 +49,30 @@ export function transformTeamsActivity(data: any): ActivityInput[] {
   // Transform chat messages (medium story value)
   if (data.chatMessages?.length) {
     for (const msg of data.chatMessages) {
-      const topicSuffix = msg.chatTopic ? `: ${msg.chatTopic}` : '';
+      const content = (msg.content || '').trim();
+
+      // Skip trivial messages — no story value
+      if (content.length < 5) continue;
+
+      // Skip messages that are just API keys, tokens, or bare URLs
+      if (/^(sk-|eyJ|Bearer\s|https?:\/\/\S+)$/i.test(content)) continue;
+
+      // Build a meaningful title: use topic for group chats, sender for 1:1
+      const topic = msg.chatTopic && msg.chatTopic !== 'Untitled chat'
+        ? msg.chatTopic
+        : null;
+      const title = topic
+        ? `Teams chat: ${topic}`
+        : msg.from
+          ? `Teams chat with ${msg.from}`
+          : 'Teams chat';
 
       activities.push({
         source: 'teams',
         sourceId: `chat-msg:${msg.chatId || 'unknown'}:${msg.id}`,
         sourceUrl: null,
-        title: `Teams chat${topicSuffix}`,
-        description: msg.content || '',
+        title,
+        description: scanAndStrip(content),
         timestamp: new Date(msg.createdAt || msg.createdDateTime || new Date()),
         rawData: {
           type: 'chat_message',

@@ -30,11 +30,10 @@ export function transformOutlookActivity(data: any): ActivityInput[] {
         title: `Meeting: ${subject}`,
         description: [
           `${attendeeCount} attendee${attendeeCount !== 1 ? 's' : ''}`,
-          meeting.isOrganizer ? '(organized)' : null,
-          subject,
+          meeting.isOrganizer ? 'you organized' : null,
         ]
           .filter(Boolean)
-          .join('. '),
+          .join(', '),
         timestamp: new Date(meeting.startTime || meeting.start?.dateTime || new Date()),
         rawData: {
           type: 'meeting',
@@ -60,12 +59,7 @@ export function transformOutlookActivity(data: any): ActivityInput[] {
         sourceId: `email:${email.id}`,
         sourceUrl: null,
         title: `Email: ${subject}`,
-        description: [
-          `From: ${sender}`,
-          email.bodyPreview || null,
-        ]
-          .filter(Boolean)
-          .join('. '),
+        description: email.bodyPreview || '',
         timestamp: new Date(email.receivedAt || email.receivedDateTime || new Date()),
         rawData: {
           type: 'email',

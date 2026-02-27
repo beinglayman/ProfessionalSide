@@ -27,6 +27,9 @@ const SECRET_PATTERNS: RegExp[] = [
   // npm tokens
   /\bnpm_[A-Za-z0-9]{36,}\b/g,
 
+  // Anthropic API keys
+  /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g,
+
   // JWT tokens
   /\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
 
