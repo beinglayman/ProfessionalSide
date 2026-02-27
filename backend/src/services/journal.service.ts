@@ -35,6 +35,9 @@ import {
 } from '../types/journal.types';
 import { skillTrackingService } from './skill-tracking.service';
 import { ActivityService } from './activity.service';
+import { detectArchetype } from '../cli/story-coach/services/archetype-detector';
+import { JournalEntryFile } from '../cli/story-coach/types';
+import { StoryArchetype } from './ai/prompts/career-story.prompt';
 
 // =============================================================================
 // CONSTANTS
@@ -1990,6 +1993,30 @@ export class JournalService {
 
     let usedFallback = false;
 
+    // Detect archetype for narrative shaping (reuse stored if available)
+    let archetype: StoryArchetype | undefined;
+    const existingFormat7 = (entry.format7Data as Record<string, unknown>) || {};
+    if (existingFormat7.archetype && typeof existingFormat7.archetype === 'string') {
+      archetype = existingFormat7.archetype as StoryArchetype;
+      console.log(`📝 Reusing stored archetype: ${archetype}`);
+    } else if (selector) {
+      try {
+        const entryFile: JournalEntryFile = {
+          id: entry.id,
+          title: entry.title || 'Untitled',
+          description: entry.description,
+          fullContent: entry.fullContent,
+          category: entry.category,
+          dominantRole: null,
+        };
+        const detection = await detectArchetype(entryFile);
+        archetype = detection.primary.archetype;
+        console.log(`📝 Detected archetype: ${archetype} (confidence: ${detection.primary.confidence})`);
+      } catch (error) {
+        console.warn('Archetype detection failed, proceeding without', { error: (error as Error).message });
+      }
+    }
+
     if (selector) {
       try {
         generationOutput = await this.generateNarrativeWithLLM(
@@ -1998,7 +2025,8 @@ export class JournalService {
           activities,
           groupingContext,
           options?.style,
-          userEmail
+          userEmail,
+          archetype
         );
       } catch (error) {
         console.warn('LLM narrative generation failed, using fallback', { error: (error as Error).message });
@@ -2051,6 +2079,7 @@ export class JournalService {
           impactHighlights: generationOutput.impactHighlights,
           dominantRole: generationOutput.dominantRole,
           activityEdges: JSON.parse(JSON.stringify(generationOutput.activityEdges || [])),
+          ...(archetype ? { archetype } : {}),
         },
         generatedAt: new Date(),
       },
@@ -2203,7 +2232,8 @@ export class JournalService {
     activities: EnhancedActivity[],
     groupingContext: GroupingContext,
     style?: string,
-    userEmail?: string
+    userEmail?: string,
+    archetype?: StoryArchetype
   ): Promise<DraftStoryGenerationOutput> {
     // Cap activities sent to LLM to prevent prompt overflow on smaller models.
     // With 50-60 activities, the prompt can exceed what gpt-4o-mini handles reliably.
@@ -2227,6 +2257,7 @@ export class JournalService {
       isCluster: groupingContext.type === 'cluster',
       clusterRef: groupingContext.clusterRef,
       userEmail,
+      archetype,
     });
 
     const result = await selector.executeTask('generate', messages, 'high', {

@@ -52,7 +52,7 @@ import { getModelSelector } from './ai/model-selector.service';
 // Reuse archetype detection and questions from CLI
 import { detectArchetype } from '../cli/story-coach/services/archetype-detector';
 import { ARCHETYPE_QUESTIONS } from '../cli/story-coach/questions';
-import { JournalEntryFile, ArchetypeSignals } from '../cli/story-coach/types';
+import { JournalEntryFile, ArchetypeSignals, ArchetypeDetection } from '../cli/story-coach/types';
 
 // Dynamic wizard question generation
 import {
@@ -463,17 +463,33 @@ export class StoryWizardService {
       );
     }
 
-    // Convert to format expected by archetype detector
-    const entryFile: JournalEntryFile = {
-      id: entry.id,
-      title: entry.title || 'Untitled',
-      description: entry.description,
-      fullContent: entry.fullContent,
-      category: entry.category,
-      dominantRole: null,
-    };
+    // Reuse archetype from format7Data if draft story already detected one
+    const format7 = (entry.format7Data as Record<string, unknown>) || {};
+    const VALID_ARCHETYPES: Set<string> = new Set([
+      'firefighter', 'architect', 'diplomat', 'multiplier',
+      'detective', 'pioneer', 'turnaround', 'preventer',
+    ]);
+    let detection: ArchetypeDetection;
+    if (format7.archetype && typeof format7.archetype === 'string' && VALID_ARCHETYPES.has(format7.archetype)) {
+      console.log(`${this.logPrefix} Reusing stored archetype: ${format7.archetype}`);
+      detection = {
+        primary: { archetype: format7.archetype as any, confidence: 0.8, reasoning: 'Reused from draft story generation' },
+        alternatives: [],
+        signals: { hasCrisis: false, hasArchitecture: false, hasStakeholders: false, hasMultiplication: false, hasMystery: false, hasPioneering: false, hasTurnaround: false, hasPrevention: false },
+      };
+    } else {
+      // Convert to format expected by archetype detector
+      const entryFile: JournalEntryFile = {
+        id: entry.id,
+        title: entry.title || 'Untitled',
+        description: entry.description,
+        fullContent: entry.fullContent,
+        category: entry.category,
+        dominantRole: null,
+      };
 
-    const detection = await detectArchetype(entryFile);
+      detection = await detectArchetype(entryFile);
+    }
 
     // Fetch + rank activities for knownContext (what the system already knows)
     const rankedForContext = await this.fetchRankedContexts(

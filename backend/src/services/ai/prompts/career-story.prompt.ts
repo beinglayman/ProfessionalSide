@@ -133,7 +133,7 @@ const SECTION_GUIDELINES: Record<string, string> = {
  * Archetype-specific narrative guidance.
  * Shapes the voice and emphasis of the generated story.
  */
-const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
+export const ARCHETYPE_GUIDANCE: Record<StoryArchetype, string> = {
   firefighter: 'CRISIS RESPONSE. Lead with the time marker ("At 2am...", "With 48h left..."). State what broke, who you called, what you did, what was saved. Keep it tight.',
   architect: 'SYSTEM DESIGN. State the design decision, the trade-off, and who uses it now. Numbers: "5 teams", "still the foundation 2 years later."',
   diplomat: 'STAKEHOLDER ALIGNMENT. Name the sides, name their concerns, state how you bridged them. Skip "I learned that influence matters."',

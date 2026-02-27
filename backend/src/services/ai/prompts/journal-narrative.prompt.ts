@@ -11,6 +11,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ChatCompletionMessageParam } from 'openai/resources/index';
 import { compileSafe, SafeTemplate } from './handlebars-safe';
+import { StoryArchetype, ARCHETYPE_GUIDANCE } from './career-story.prompt';
 
 // =============================================================================
 // TYPES
@@ -28,6 +29,7 @@ export interface EnhancedNarrativePromptParams {
   isCluster: boolean;
   clusterRef?: string;
   userEmail?: string;
+  archetype?: StoryArchetype;
 }
 
 export interface EnhancedActivity {
@@ -100,10 +102,20 @@ export function getEnhancedUserPrompt(params: EnhancedNarrativePromptParams): st
 export function buildEnhancedNarrativeMessages(
   params: EnhancedNarrativePromptParams
 ): ChatCompletionMessageParam[] {
+  let systemContent = getEnhancedSystemPrompt();
+
+  // Inject archetype guidance when available
+  if (params.archetype) {
+    const guidance = ARCHETYPE_GUIDANCE[params.archetype];
+    if (guidance) {
+      systemContent = `## Story Archetype: ${params.archetype.toUpperCase()}\n\n${guidance}\n\nApply this archetype's voice to the title, description, and impactHighlights.\n\n---\n\n${systemContent}`;
+    }
+  }
+
   return [
     {
       role: 'system',
-      content: getEnhancedSystemPrompt(),
+      content: systemContent,
     },
     {
       role: 'user',
