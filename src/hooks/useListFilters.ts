@@ -113,11 +113,7 @@ export function useListFilters<T>(
     if (groupFingerprint === lastFingerprint.current) return;
     lastFingerprint.current = groupFingerprint;
 
-    if (groups.length <= 1) {
-      setCollapsedGroups(new Set());
-    } else {
-      setCollapsedGroups(new Set(groups.slice(1).map(g => g.key)));
-    }
+    setCollapsedGroups(new Set());
     setShowAllGroups(new Set());
   }, [groupFingerprint, groups]);
 

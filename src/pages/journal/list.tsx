@@ -831,7 +831,7 @@ export default function JournalPage() {
 
           {/* Right: Draft Stories Sidebar (desktop only) */}
           {!activitiesError && (
-            <aside className="hidden lg:block overflow-hidden" aria-label="Draft Stories">
+            <aside className="hidden lg:block" aria-label="Draft Stories">
               <DraftStorySidebar
                 drafts={storyGroups}
                 selectedId={selectedDraftId}
