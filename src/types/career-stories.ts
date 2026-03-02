@@ -29,6 +29,7 @@ export type ToolType =
   | 'outlook'
   | 'teams'
   | 'onedrive'
+  | 'onenote'
   | 'sharepoint'
   | 'google'
   | 'google-calendar'
@@ -236,6 +237,7 @@ export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
   outlook: toolEntry('outlook'),
   teams: toolEntry('teams'),
   onedrive: toolEntry('onedrive'),
+  onenote: toolEntry('onenote'),
   sharepoint: toolEntry('sharepoint'),
   google: toolEntry('google'),
   'google-calendar': toolEntry('google-calendar'),
