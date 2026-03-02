@@ -27,6 +27,9 @@ export type ToolType =
   | 'figma'
   | 'slack'
   | 'outlook'
+  | 'teams'
+  | 'onedrive'
+  | 'sharepoint'
   | 'google'
   | 'google-calendar'
   | 'google-docs'
@@ -231,6 +234,9 @@ export const TOOL_ICONS: Record<ToolType, { name: string; color: string }> = {
   figma: toolEntry('figma'),
   slack: toolEntry('slack'),
   outlook: toolEntry('outlook'),
+  teams: toolEntry('teams'),
+  onedrive: toolEntry('onedrive'),
+  sharepoint: toolEntry('sharepoint'),
   google: toolEntry('google'),
   'google-calendar': toolEntry('google-calendar'),
   'google-docs': toolEntry('google-docs'),
