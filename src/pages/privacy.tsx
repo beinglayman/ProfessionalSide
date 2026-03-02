@@ -1,7 +1,22 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../components/ui/button';
-import { Shield, Lock, Globe, FileCheck, Users, ArrowLeft } from 'lucide-react';
+import { Shield, Lock, Globe, FileCheck, Users, ArrowLeft, Cloud } from 'lucide-react';
+
+function IntegrationSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+      <div className="flex items-center mb-6">
+        <div className="p-2 bg-primary-100 rounded-lg mr-3">
+          <Cloud className="h-6 w-6 text-primary-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+      </div>
+      <div className="space-y-6">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function PrivacyPolicyPage() {
   return (
@@ -15,7 +30,7 @@ export function PrivacyPolicyPage() {
               Back to Home
             </Link>
             <h1 className="text-4xl font-bold mb-4">Privacy Policy</h1>
-            <p className="text-lg text-white/90">Effective Date: April 5, 2025</p>
+            <p className="text-lg text-white/90">Effective Date: March 2, 2026</p>
           </div>
         </div>
 
@@ -27,6 +42,7 @@ export function PrivacyPolicyPage() {
             </p>
 
             <div className="space-y-12">
+              {/* Information We Collect */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                 <div className="flex items-center mb-6">
                   <div className="p-2 bg-primary-100 rounded-lg mr-3">
@@ -34,7 +50,7 @@ export function PrivacyPolicyPage() {
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900">Information We Collect</h2>
                 </div>
-                
+
                 <div className="space-y-6">
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">Personal Information</h3>
@@ -53,6 +69,13 @@ export function PrivacyPolicyPage() {
                       <li>Verification timestamps and signatures</li>
                       <li>Comments and endorsements from verifiers</li>
                     </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Third-Party Integrations</h3>
+                    <p className="text-gray-600 mb-2">
+                      When you choose to connect external tools (such as Google Workspace, Microsoft 365, GitHub, or Atlassian), we access specific data from those services to help build your professional chronicle. The exact data accessed, how it is used, stored, and protected is described in detail in the dedicated sections below for each provider.
+                    </p>
                   </div>
 
                   <div>
@@ -89,6 +112,7 @@ export function PrivacyPolicyPage() {
                 </div>
               </div>
 
+              {/* How We Use Your Information */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                 <div className="flex items-center mb-6">
                   <div className="p-2 bg-primary-100 rounded-lg mr-3">
@@ -127,6 +151,7 @@ export function PrivacyPolicyPage() {
                 </div>
               </div>
 
+              {/* Information Sharing */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                 <div className="flex items-center mb-6">
                   <div className="p-2 bg-primary-100 rounded-lg mr-3">
@@ -152,6 +177,9 @@ export function PrivacyPolicyPage() {
                       <li>Analytics and performance monitoring services (Microsoft Clarity)</li>
                       <li>Customer support tools</li>
                     </ul>
+                    <p className="text-gray-600 mt-2">
+                      When you connect third-party integrations (Google Workspace, Microsoft 365, GitHub, Atlassian), we access data from those providers solely to deliver InChronicle's services. We do not share the data obtained from these providers with any other third party. See the dedicated integration sections below for full details.
+                    </p>
                   </div>
 
                   <div>
@@ -165,6 +193,254 @@ export function PrivacyPolicyPage() {
                 </div>
               </div>
 
+              {/* ===== THIRD-PARTY INTEGRATION SECTIONS ===== */}
+
+              {/* Google Workspace */}
+              <IntegrationSection title="Google Workspace Data">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Accessed</h3>
+                  <p className="text-gray-600 mb-2">
+                    When you connect your Google account, InChronicle requests read-only access to the following data:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Google account profile information (name, email address, profile photo)</li>
+                    <li>Google Drive file metadata (file names, types, timestamps, sharing status). We do not access file contents.</li>
+                    <li>Google Calendar event metadata (event titles, start/end times, attendee names)</li>
+                    <li>Google Meet recording metadata (recording names, dates, durations — identified via Drive)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Usage</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Display your recent professional activity within InChronicle to help build your career chronicle</li>
+                    <li>Generate AI-assisted career story suggestions based on your work patterns</li>
+                    <li>All processing happens in real-time during your active session</li>
+                    <li>Your Google data is not used for advertising, profiling, or any purpose unrelated to InChronicle's core service</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Sharing</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Your Google user data is not shared with any third parties</li>
+                    <li>It is not sold, rented, or disclosed to advertisers or data brokers</li>
+                    <li>It is not used for AI/ML model training beyond your own session</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Storage & Protection</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Google user data is not stored in our database — it is fetched on-demand and held in memory-only sessions</li>
+                    <li>Sessions automatically expire after 30 minutes, after which all fetched data is permanently cleared</li>
+                    <li>OAuth authentication tokens are encrypted at rest using AES-256 encryption</li>
+                    <li>All communication with Google APIs is conducted over HTTPS/TLS</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Retention & Deletion</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Activity data: No retention — cleared automatically after the 30-minute session expires</li>
+                    <li>OAuth tokens: Retained only while the Google integration remains connected</li>
+                    <li>You can disconnect Google at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
+                    <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
+                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-gray-500 mt-4">
+                  OAuth scopes requested: <code className="bg-gray-100 px-1 rounded text-xs">userinfo.email</code>, <code className="bg-gray-100 px-1 rounded text-xs">userinfo.profile</code>, <code className="bg-gray-100 px-1 rounded text-xs">drive.readonly</code>, <code className="bg-gray-100 px-1 rounded text-xs">calendar.readonly</code>
+                </p>
+              </IntegrationSection>
+
+              {/* Microsoft */}
+              <IntegrationSection title="Microsoft Data (Outlook, Teams, OneDrive, OneNote)">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Accessed</h3>
+                  <p className="text-gray-600 mb-2">
+                    When you connect your Microsoft account, InChronicle requests read-only access to the following data:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Microsoft account profile information (name, email)</li>
+                    <li>Outlook: calendar meetings (subject, times, attendees) and emails (subject, sender, date, body preview)</li>
+                    <li>Teams: joined teams, channels, and chat messages (content, timestamps, participants)</li>
+                    <li>OneDrive: recent and shared file metadata (file names, types, timestamps). We do not access file contents.</li>
+                    <li>OneNote: notebook and section metadata, page titles and content previews</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Usage</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Display your recent professional activity within InChronicle to help build your career chronicle</li>
+                    <li>Generate AI-assisted career story suggestions based on your work patterns</li>
+                    <li>All processing happens in real-time during your active session</li>
+                    <li>Your Microsoft data is not used for advertising, profiling, or any purpose unrelated to InChronicle's core service</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Sharing</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Your Microsoft user data is not shared with any third parties</li>
+                    <li>It is not sold, rented, or disclosed to advertisers or data brokers</li>
+                    <li>It is not used for AI/ML model training beyond your own session</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Storage & Protection</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Microsoft user data is not stored in our database — it is fetched on-demand and held in memory-only sessions</li>
+                    <li>Sessions automatically expire after 30 minutes, after which all fetched data is permanently cleared</li>
+                    <li>Teams message content is scanned and stripped of any embedded secrets (API keys, tokens) before processing</li>
+                    <li>OAuth authentication tokens are encrypted at rest using AES-256 encryption</li>
+                    <li>All communication with Microsoft Graph APIs is conducted over HTTPS/TLS</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Retention & Deletion</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Activity data: No retention — cleared automatically after the 30-minute session expires</li>
+                    <li>OAuth tokens: Retained only while the Microsoft integration remains connected</li>
+                    <li>You can disconnect Microsoft services at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
+                    <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
+                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-gray-500 mt-4">
+                  OAuth scopes requested — Outlook: <code className="bg-gray-100 px-1 rounded text-xs">User.Read</code>, <code className="bg-gray-100 px-1 rounded text-xs">Mail.Read</code>, <code className="bg-gray-100 px-1 rounded text-xs">Calendars.Read</code>. Teams: <code className="bg-gray-100 px-1 rounded text-xs">Team.ReadBasic.All</code>, <code className="bg-gray-100 px-1 rounded text-xs">Channel.ReadBasic.All</code>, <code className="bg-gray-100 px-1 rounded text-xs">Chat.Read</code>. OneDrive: <code className="bg-gray-100 px-1 rounded text-xs">Files.Read</code>. OneNote: <code className="bg-gray-100 px-1 rounded text-xs">Notes.Read</code>.
+                </p>
+              </IntegrationSection>
+
+              {/* GitHub */}
+              <IntegrationSection title="GitHub Data">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Accessed</h3>
+                  <p className="text-gray-600 mb-2">
+                    When you connect your GitHub account, InChronicle accesses the following data:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>GitHub profile information (username, name, email)</li>
+                    <li>Repository metadata (names, languages, stars, descriptions)</li>
+                    <li>Commit history (messages, timestamps, additions/deletions statistics)</li>
+                    <li>Pull requests (titles, status, descriptions, review information)</li>
+                    <li>Issues (titles, status, labels, comment counts)</li>
+                    <li>Releases, CI/CD workflow runs, deployments, and review comments</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Usage</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Display your development activity within InChronicle to help build your career chronicle</li>
+                    <li>Generate AI-assisted career story suggestions based on coding and collaboration patterns</li>
+                    <li>Detect cross-tool references (e.g., linking pull requests to Jira tickets) for richer activity context</li>
+                    <li>Your GitHub data is not used for advertising, profiling, or any purpose unrelated to InChronicle's core service</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Sharing</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Your GitHub user data is not shared with any third parties</li>
+                    <li>It is not sold, rented, or disclosed to advertisers or data brokers</li>
+                    <li>It is not used for AI/ML model training beyond your own session</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Storage & Protection</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>GitHub user data is not stored in our database — it is fetched on-demand and held in memory-only sessions</li>
+                    <li>Sessions automatically expire after 30 minutes, after which all fetched data is permanently cleared</li>
+                    <li>OAuth authentication tokens are encrypted at rest using AES-256 encryption</li>
+                    <li>All communication with GitHub APIs is conducted over HTTPS/TLS</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Retention & Deletion</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Activity data: No retention — cleared automatically after the 30-minute session expires</li>
+                    <li>OAuth tokens: Retained only while the GitHub integration remains connected</li>
+                    <li>You can disconnect GitHub at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
+                    <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
+                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-gray-500 mt-4">
+                  OAuth scopes requested: <code className="bg-gray-100 px-1 rounded text-xs">repo</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:user</code>
+                </p>
+              </IntegrationSection>
+
+              {/* Atlassian (Jira & Confluence) */}
+              <IntegrationSection title="Atlassian Data (Jira & Confluence)">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Accessed</h3>
+                  <p className="text-gray-600 mb-2">
+                    When you connect your Atlassian account, InChronicle requests read-only access to the following data:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Atlassian account profile information (name, email)</li>
+                    <li>Jira: issues (keys, summaries, status, assignees, reporters), projects, sprints, changelogs, worklogs, and versions/releases</li>
+                    <li>Confluence: pages, blog posts, comments, and spaces — including content previews</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Usage</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Display your project management and documentation activity within InChronicle to help build your career chronicle</li>
+                    <li>Generate AI-assisted career story suggestions based on project contributions</li>
+                    <li>Detect cross-tool references (e.g., linking Jira tickets to GitHub pull requests) for richer activity context</li>
+                    <li>Your Atlassian data is not used for advertising, profiling, or any purpose unrelated to InChronicle's core service</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Sharing</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Your Atlassian user data is not shared with any third parties</li>
+                    <li>It is not sold, rented, or disclosed to advertisers or data brokers</li>
+                    <li>It is not used for AI/ML model training beyond your own session</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Storage & Protection</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Atlassian user data is not stored in our database — it is fetched on-demand and held in memory-only sessions</li>
+                    <li>Sessions automatically expire after 30 minutes, after which all fetched data is permanently cleared</li>
+                    <li>OAuth authentication tokens are encrypted at rest using AES-256 encryption</li>
+                    <li>All communication with Atlassian APIs is conducted over HTTPS/TLS</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Data Retention & Deletion</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Activity data: No retention — cleared automatically after the 30-minute session expires</li>
+                    <li>OAuth tokens: Retained only while the Atlassian integration remains connected</li>
+                    <li>You can disconnect Jira or Confluence at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
+                    <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
+                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-gray-500 mt-4">
+                  OAuth scopes requested — Jira: <code className="bg-gray-100 px-1 rounded text-xs">read:jira-work</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:jira-user</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:board-scope:jira-software</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:sprint:jira-software</code>. Confluence: <code className="bg-gray-100 px-1 rounded text-xs">read:page:confluence</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:blogpost:confluence</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:space:confluence</code>, <code className="bg-gray-100 px-1 rounded text-xs">read:comment:confluence</code>.
+                </p>
+              </IntegrationSection>
+
+              {/* ===== END INTEGRATION SECTIONS ===== */}
+
+              {/* Your Rights and Choices */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                 <div className="flex items-center mb-6">
                   <div className="p-2 bg-primary-100 rounded-lg mr-3">
@@ -172,14 +448,40 @@ export function PrivacyPolicyPage() {
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900">Your Rights and Choices</h2>
                 </div>
-                <ul className="list-disc list-inside space-y-1 text-gray-600">
-                  <li>Access and download your information</li>
-                  <li>Update or correct inaccurate data</li>
-                  <li>Control privacy settings and sharing preferences</li>
-                  <li>Request deletion of your account and data</li>
-                </ul>
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Data Access & Control</h3>
+                    <ul className="list-disc list-inside space-y-1 text-gray-600">
+                      <li>Access and download your information at any time from Settings &rarr; Privacy</li>
+                      <li>Update or correct inaccurate data</li>
+                      <li>Control privacy settings and sharing preferences</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Integration Management</h3>
+                    <ul className="list-disc list-inside space-y-1 text-gray-600">
+                      <li>Connect or disconnect any third-party integration at any time from Settings &rarr; Integrations</li>
+                      <li>Disconnecting an integration immediately revokes access and deletes stored tokens</li>
+                      <li>Data fetched from integrations is never persisted — it exists only in temporary 30-minute sessions</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Data Retention & Deletion</h3>
+                    <ul className="list-disc list-inside space-y-1 text-gray-600">
+                      <li>Third-party integration data: No retention — cleared after 30-minute session expiry</li>
+                      <li>Audit logs: Retained for 90 days, then automatically deleted</li>
+                      <li>Data exports: Available for 24 hours, then automatically deleted</li>
+                      <li>Request complete account deletion from Settings &rarr; Privacy, which permanently removes your profile, all integration data, and associated records</li>
+                      <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion at any time</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
 
+              {/* Additional Information */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                 <div className="flex items-center mb-6">
                   <div className="p-2 bg-primary-100 rounded-lg mr-3">
@@ -219,6 +521,7 @@ export function PrivacyPolicyPage() {
                 </div>
               </div>
 
+              {/* Contact */}
               <div className="bg-primary-50 rounded-xl p-8 border border-primary-200">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Contact Us</h2>
                 <p className="text-gray-600">
@@ -246,7 +549,7 @@ export function PrivacyPolicyPage() {
           </div>
           <div className="mt-8 md:order-1 md:mt-0">
             <p className="text-center text-xs leading-5 text-gray-500">
-              &copy; 2025 InChronicle. All rights reserved.
+              &copy; 2026 InChronicle. All rights reserved.
             </p>
           </div>
         </div>
