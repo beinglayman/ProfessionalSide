@@ -246,7 +246,7 @@ export function PrivacyPolicyPage() {
                     <li>OAuth tokens: Retained only while the Google integration remains connected</li>
                     <li>You can disconnect Google at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
                     <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
-                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+
                   </ul>
                 </div>
 
@@ -308,7 +308,7 @@ export function PrivacyPolicyPage() {
                     <li>OAuth tokens: Retained only while the Microsoft integration remains connected</li>
                     <li>You can disconnect Microsoft services at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
                     <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
-                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+
                   </ul>
                 </div>
 
@@ -370,7 +370,7 @@ export function PrivacyPolicyPage() {
                     <li>OAuth tokens: Retained only while the GitHub integration remains connected</li>
                     <li>You can disconnect GitHub at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
                     <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
-                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+
                   </ul>
                 </div>
 
@@ -429,7 +429,7 @@ export function PrivacyPolicyPage() {
                     <li>OAuth tokens: Retained only while the Atlassian integration remains connected</li>
                     <li>You can disconnect Jira or Confluence at any time from Settings &rarr; Integrations. Disconnecting revokes and deletes your tokens.</li>
                     <li>You can delete your entire InChronicle account from Settings &rarr; Privacy, which removes all integration data</li>
-                    <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion</li>
+
                   </ul>
                 </div>
 
@@ -475,7 +475,6 @@ export function PrivacyPolicyPage() {
                       <li>Audit logs: Retained for 90 days, then automatically deleted</li>
                       <li>Data exports: Available for 24 hours, then automatically deleted</li>
                       <li>Request complete account deletion from Settings &rarr; Privacy, which permanently removes your profile, all integration data, and associated records</li>
-                      <li>Contact <a href="mailto:privacy@inchronicle.com" className="text-primary-600 hover:text-primary-700">privacy@inchronicle.com</a> to request manual data deletion at any time</li>
                     </ul>
                   </div>
                 </div>
