@@ -35,6 +35,7 @@ import { TimelinePrototypesPage } from './pages/prototypes/timeline-prototypes';
 import { StoriesPrototypesPage } from './pages/prototypes/stories-prototypes';
 import { ProfilePrototypesPage } from './pages/prototypes/profile-prototypes';
 import { TimelineHeaderPrototypesPage } from './pages/prototypes/timeline-header-prototypes';
+import { OnboardingPrototypesPage } from './pages/prototypes/onboarding-prototypes';
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 const ChroniclePage = React.lazy(() => import('./pages/chronicle'));
@@ -168,6 +169,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <TimelineHeaderPrototypesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/prototypes/onboarding"
+          element={
+            <ProtectedRoute>
+              <OnboardingPrototypesPage />
             </ProtectedRoute>
           }
         />
