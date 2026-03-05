@@ -17,9 +17,9 @@ import type { PragmaLink } from '../../services/pragma-link.service';
 type Tier = 'public' | 'recruiter' | 'mentor';
 
 const TIER_OPTIONS: { value: Tier; label: string; hint: string }[] = [
-  { value: 'public', label: 'Public', hint: 'Anyone with the link sees a summary of your story' },
-  { value: 'recruiter', label: 'Recruiter', hint: 'Full story with evidence and metrics' },
-  { value: 'mentor', label: 'Mentor', hint: 'Full story with your annotations visible' },
+  { value: 'public', label: 'Anyone (preview)', hint: 'A summary of your story — no sources or annotations' },
+  { value: 'recruiter', label: 'Recruiter (full story)', hint: 'Full story with evidence and metrics' },
+  { value: 'mentor', label: 'Mentor (with notes)', hint: 'Full story with your annotations visible' },
 ];
 
 const EXPIRY_OPTIONS = [
@@ -42,12 +42,29 @@ interface ShareModalProps {
   storyTitle: string;
 }
 
+async function copyToClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Fallback for HTTP / iframe / permission-denied
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+}
+
 export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalProps) {
   const [tier, setTier] = useState<Tier>('recruiter');
   const [label, setLabel] = useState('');
   const [expiryDays, setExpiryDays] = useState(30);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<PragmaLink | null>(null);
+  const [showAllRevoked, setShowAllRevoked] = useState(false);
 
   const { success, error } = useToast();
   const { data: links = [], isLoading } = usePragmaLinks(storyId);
@@ -72,7 +89,7 @@ export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalP
       });
 
       if (response.success && response.data) {
-        await navigator.clipboard.writeText(response.data.url);
+        await copyToClipboard(response.data.url);
         success('Link created', 'URL copied to clipboard');
         setLabel('');
       } else {
@@ -88,7 +105,7 @@ export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalP
   const handleCopyUrl = async (link: PragmaLink) => {
     const baseUrl = window.location.origin;
     const url = `${baseUrl}/p/${link.shortCode}?t=${link.token}`;
-    await navigator.clipboard.writeText(url);
+    await copyToClipboard(url);
     setCopiedLinkId(link.id);
     setTimeout(() => setCopiedLinkId(null), 2000);
   };
@@ -124,7 +141,7 @@ export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalP
 
               {/* Tier selector */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-700">Access tier</label>
+                <label className="text-xs font-medium text-gray-700">Who is this for?</label>
                 <div className="flex gap-2">
                   {TIER_OPTIONS.map((opt) => (
                     <button
@@ -153,7 +170,9 @@ export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalP
                   type="text"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !createMutation.isPending && !isLimitReached) handleCreate(); }}
                   placeholder="e.g. Acme Corp - Jane Smith"
+                  maxLength={100}
                   className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 focus:border-primary-400"
                 />
               </div>
@@ -219,7 +238,7 @@ export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalP
                       Revoked ({revokedLinks.length})
                     </p>
                     <div className="space-y-1">
-                      {revokedLinks.map((link) => (
+                      {(showAllRevoked ? revokedLinks : revokedLinks.slice(0, 3)).map((link) => (
                         <div key={link.id} className="flex items-center gap-2 py-1 text-xs text-gray-400">
                           <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', TIER_COLORS[link.tier])}>
                             {link.tier}
@@ -230,6 +249,14 @@ export function ShareModal({ isOpen, onClose, storyId, storyTitle }: ShareModalP
                           </span>
                         </div>
                       ))}
+                      {revokedLinks.length > 3 && !showAllRevoked && (
+                        <button
+                          onClick={() => setShowAllRevoked(true)}
+                          className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          Show {revokedLinks.length - 3} more
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -286,6 +313,9 @@ function LinkItem({
           <span className="text-[10px] text-amber-600 font-medium">expired</span>
         )}
       </div>
+      <p className="text-[11px] text-gray-400 truncate">
+        {window.location.host}/p/{link.shortCode}...
+      </p>
 
       <div className="flex items-center gap-3 text-[11px] text-gray-400">
         <span>Created {formatRelativeTime(link.createdAt)}</span>
@@ -307,11 +337,14 @@ function LinkItem({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onCopy}
+          disabled={!!isExpired}
           className={cn(
             'inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
-            isCopied
-              ? 'bg-green-50 text-green-600'
-              : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+            isExpired
+              ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+              : isCopied
+                ? 'bg-green-50 text-green-600'
+                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
           )}
         >
           {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}

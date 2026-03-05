@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock } from 'lucide-react';
+import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock, ChevronDown } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { useResolvePragmaLink } from '../../hooks/usePragmaLinks';
 import { NARRATIVE_FRAMEWORKS, ARCHETYPE_METADATA, BRAG_DOC_CATEGORIES } from '../../components/career-stories/constants';
 import { NarrativeSection } from '../../components/career-stories/NarrativeSection';
@@ -45,6 +46,38 @@ function SourceItem({ source }: { source: PragmaResolveResponse['content']['sour
   );
 }
 
+function MobileAnnotations({ annotations, sectionKey }: { annotations: StoryAnnotation[]; sectionKey: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const sectionAnnotations = annotations.filter(
+    (a) => a.sectionKey === sectionKey && (a.note || a.style === 'aside')
+  );
+  if (sectionAnnotations.length === 0) return null;
+
+  return (
+    <div className="lg:hidden mt-3 pt-3 border-t border-gray-100">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500 hover:text-gray-700 transition-colors"
+      >
+        <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        Author Notes ({sectionAnnotations.length})
+      </button>
+      {isOpen && (
+        <div className="mt-2 space-y-2">
+          {sectionAnnotations.map((ann) => (
+            <div key={ann.id} className="text-[11px] text-gray-500 border-l-2 border-gray-200 pl-2 py-1">
+              {ann.annotatedText && (
+                <span className="text-gray-400 italic">&ldquo;{ann.annotatedText}&rdquo; — </span>
+              )}
+              {ann.note}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ErrorPage({ icon, title, message }: { icon: React.ReactNode; title: string; message: string }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
@@ -70,19 +103,57 @@ export default function PragmaLinkPage() {
 
   const { data, isLoading, isError, error } = useResolvePragmaLink(shortCode, token);
 
+  useEffect(() => {
+    if (!data) return;
+    const parts = [data.content.title];
+    if (data.author?.name) parts.push(data.author.name);
+    parts.push('InChronicle');
+    document.title = parts.join(' — ');
+    return () => { document.title = 'InChronicle'; };
+  }, [data]);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
+      <div className="min-h-screen bg-gray-50">
+        <div className="border-b border-gray-100 bg-white">
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+            <div className="h-5 w-16 bg-gray-100 rounded-full animate-pulse" />
+          </div>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+          {/* Author skeleton */}
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gray-200 animate-pulse" />
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-28 bg-gray-200 rounded animate-pulse" />
+              <div className="h-3 w-40 bg-gray-100 rounded animate-pulse" />
+            </div>
+          </div>
+          {/* Title skeleton */}
+          <div className="h-6 w-3/4 bg-gray-200 rounded animate-pulse" />
+          {/* Section skeletons */}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
+              <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-3 w-full bg-gray-100 rounded animate-pulse" />
+                <div className="h-3 w-5/6 bg-gray-100 rounded animate-pulse" />
+                <div className="h-3 w-2/3 bg-gray-100 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (isError || !data) {
-    const axiosErr = error as { response?: { data?: { error?: string } }; message?: string };
-    const errorMsg = axiosErr?.response?.data?.error || axiosErr?.message || '';
+    const axiosErr = error as { response?: { status?: number; data?: { error?: string } }; message?: string };
+    const status = axiosErr?.response?.status;
+    const errorMsg = axiosErr?.response?.data?.error || '';
 
-    if (errorMsg.includes('revoked')) {
+    if (status === 410 && errorMsg.toLowerCase().includes('revoked')) {
       return (
         <ErrorPage
           icon={<Link2Off className="h-6 w-6" />}
@@ -91,12 +162,21 @@ export default function PragmaLinkPage() {
         />
       );
     }
-    if (errorMsg.includes('expired')) {
+    if (status === 410 && errorMsg.toLowerCase().includes('expired')) {
       return (
         <ErrorPage
           icon={<Clock className="h-6 w-6" />}
           title="Link Expired"
           message="This share link has expired. Contact the author for a new link."
+        />
+      );
+    }
+    if (status === 403) {
+      return (
+        <ErrorPage
+          icon={<AlertCircle className="h-6 w-6" />}
+          title="Access Denied"
+          message="You don't have permission to view this story."
         />
       );
     }
@@ -128,18 +208,26 @@ export default function PragmaLinkPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className={hasMentorAnnotations ? 'max-w-4xl mx-auto px-4 py-8' : 'max-w-2xl mx-auto px-4 py-8'}>
-        {/* Tier badge */}
-        <div className="flex items-center gap-2 mb-6">
+      {/* Branded header */}
+      <header className="border-b border-gray-100 bg-white">
+        <div className={cn(
+          'flex items-center justify-between px-4 py-3',
+          hasMentorAnnotations ? 'max-w-4xl mx-auto' : 'max-w-2xl mx-auto'
+        )}>
+          <span className="text-sm font-semibold text-gray-800 tracking-tight">inchronicle</span>
           <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary-50 text-primary-700">
             {TIER_LABELS[tier] || tier}
           </span>
-          {tier === 'public' && (
-            <span className="text-[11px] text-gray-400">
-              This is a preview. The author may share a link with full access.
-            </span>
-          )}
         </div>
+      </header>
+
+      <div className={hasMentorAnnotations ? 'max-w-4xl mx-auto px-4 py-8' : 'max-w-2xl mx-auto px-4 py-8'}>
+        {/* Public preview notice */}
+        {tier === 'public' && (
+          <p className="text-[11px] text-gray-400 mb-6">
+            This is a preview. The author may share a link with full access.
+          </p>
+        )}
 
         {/* Author header */}
         {author && (
@@ -214,6 +302,7 @@ export default function PragmaLinkPage() {
                         showCoaching={false}
                         showEmphasis={true}
                         hideHeader={false}
+                        hideConfidence={true}
                         annotations={hasMentorAnnotations ? annotations : []}
                         hoveredAnnotationId={hoveredAnnotationId}
                         onHoverAnnotation={setHoveredAnnotationId}
@@ -221,7 +310,7 @@ export default function PragmaLinkPage() {
                     ) : (
                       <>
                         <h2 className="text-sm font-semibold text-gray-800 mb-2">{sectionLabel}</h2>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-sm text-gray-500 whitespace-pre-wrap leading-relaxed line-clamp-3">
                           {section.summary}
                         </p>
                       </>
@@ -239,6 +328,11 @@ export default function PragmaLinkPage() {
                           ))}
                         </div>
                       </div>
+                    )}
+
+                    {/* Mobile mentor annotations (hidden on lg+, where MarginColumn shows) */}
+                    {hasMentorAnnotations && (
+                      <MobileAnnotations annotations={annotations} sectionKey={key} />
                     )}
                   </div>
 
@@ -258,17 +352,37 @@ export default function PragmaLinkPage() {
           })}
         </div>
 
+        {/* Public tier CTA */}
+        {tier === 'public' && (
+          <div className="mt-8 rounded-lg border border-gray-200 bg-white p-6 text-center space-y-3">
+            <p className="text-sm font-medium text-gray-800">
+              Want the full story?
+            </p>
+            <p className="text-xs text-gray-500">
+              Ask {author?.name || 'the author'} for access to see the complete career story with evidence and sources.
+            </p>
+            <a
+              href="/register"
+              className="inline-block mt-2 px-4 py-2 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-md transition-colors"
+            >
+              Build your own career story
+            </a>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="mt-8 text-center">
+        <footer className="mt-8 pt-6 border-t border-gray-100 text-center space-y-1">
           {content.publishedAt && (
             <p className="text-xs text-gray-400">
               Published {new Date(content.publishedAt).toLocaleDateString()}
             </p>
           )}
-          <p className="text-xs text-gray-400 mt-2">
-            Shared via <span className="font-medium text-gray-500">inchronicle</span>
+          <p className="text-xs text-gray-400">
+            <span className="font-medium text-gray-500">inchronicle</span>
+            {' '}&middot;{' '}
+            Career stories backed by evidence
           </p>
-        </div>
+        </footer>
       </div>
     </div>
   );

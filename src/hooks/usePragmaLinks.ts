@@ -4,7 +4,7 @@ import { PragmaLinkService, CreatePragmaLinkRequest } from '../services/pragma-l
 const PRAGMA_LINK_KEYS = {
   all: ['pragma-links'] as const,
   byStory: (storyId: string) => ['pragma-links', storyId] as const,
-  resolve: (shortCode: string) => ['pragma-resolve', shortCode] as const,
+  resolve: (shortCode: string, token?: string) => ['pragma-resolve', shortCode, token ?? 'public'] as const,
 };
 
 export function usePragmaLinks(storyId: string | undefined) {
@@ -49,7 +49,7 @@ export function useRevokePragmaLink(storyId: string) {
 
 export function useResolvePragmaLink(shortCode: string | undefined, token: string | undefined) {
   return useQuery({
-    queryKey: PRAGMA_LINK_KEYS.resolve(shortCode!),
+    queryKey: PRAGMA_LINK_KEYS.resolve(shortCode!, token),
     queryFn: async () => {
       const response = await PragmaLinkService.resolveLink(shortCode!, token);
       if (response.success && response.data) {
@@ -59,6 +59,6 @@ export function useResolvePragmaLink(shortCode: string | undefined, token: strin
     },
     enabled: !!shortCode,
     retry: false,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 }

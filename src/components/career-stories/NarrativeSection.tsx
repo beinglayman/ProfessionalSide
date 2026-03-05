@@ -22,6 +22,7 @@ interface NarrativeSectionProps {
   showDeliveryCues?: boolean;
   showEmphasis?: boolean;
   hideHeader?: boolean;
+  hideConfidence?: boolean;
   annotations?: StoryAnnotation[];
   onAnnotationClick?: (annotationId: string, element: HTMLElement) => void;
   onDeleteAnnotation?: (annotationId: string) => void;
@@ -42,6 +43,7 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
   showDeliveryCues = false,
   showEmphasis = true,
   hideHeader = false,
+  hideConfidence = false,
   annotations = [],
   onAnnotationClick,
   onDeleteAnnotation,
@@ -87,12 +89,14 @@ export const NarrativeSection: React.FC<NarrativeSectionProps> = ({
               </button>
             )}
           </div>
-          <span
-            className={cn('text-[11px] font-semibold px-2.5 py-0.5 rounded cursor-help', ratingClass)}
-            title={ratingTooltip}
-          >
-            {ratingLabel}
-          </span>
+          {!hideConfidence && (
+            <span
+              className={cn('text-[11px] font-semibold px-2.5 py-0.5 rounded cursor-help', ratingClass)}
+              title={ratingTooltip}
+            >
+              {ratingLabel}
+            </span>
+          )}
         </div>
       )}
 
