@@ -39,6 +39,7 @@ import { OnboardingPrototypesPage } from './pages/prototypes/onboarding-prototyp
 
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 const ChroniclePage = React.lazy(() => import('./pages/chronicle'));
+const PragmaLinkPage = React.lazy(() => import('./pages/pragma/view'));
 
 export type NetworkType = 'organization' | 'global';
 
@@ -293,6 +294,15 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <WorkspaceDetailPage />
             </ProtectedRoute>
+          }
+        />
+        {/* Public Pragma Link viewer — before /:slug catch-all */}
+        <Route
+          path="/p/:shortCode"
+          element={
+            <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>}>
+              <PragmaLinkPage />
+            </React.Suspense>
           }
         />
         {/* Public Career Chronicle permalink — must be LAST (catch-all for /:slug) */}
