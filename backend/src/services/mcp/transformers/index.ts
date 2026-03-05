@@ -12,8 +12,9 @@ import { transformConfluenceActivity } from './confluence.transformer';
 import { transformOutlookActivity } from './outlook.transformer';
 import { transformTeamsActivity } from './teams.transformer';
 import { transformOneNoteActivity } from './onenote.transformer';
+import { transformGoogleWorkspaceActivity } from './google-workspace.transformer';
 
-export type SupportedToolType = 'github' | 'jira' | 'confluence' | 'onedrive' | 'outlook' | 'teams' | 'onenote';
+export type SupportedToolType = 'github' | 'jira' | 'confluence' | 'onedrive' | 'outlook' | 'teams' | 'onenote' | 'google_workspace';
 
 /**
  * Transform tool-specific data into unified ActivityInput array
@@ -37,6 +38,8 @@ export function transformToolActivity(
       return transformTeamsActivity(data);
     case 'onenote':
       return transformOneNoteActivity(data);
+    case 'google_workspace':
+      return transformGoogleWorkspaceActivity(data);
     default:
       console.warn(`[Transformer] No transformer for tool type: ${toolType}`);
       return [];
@@ -50,3 +53,4 @@ export { transformOneDriveActivity } from './onedrive.transformer';
 export { transformOutlookActivity } from './outlook.transformer';
 export { transformTeamsActivity } from './teams.transformer';
 export { transformOneNoteActivity } from './onenote.transformer';
+export { transformGoogleWorkspaceActivity } from './google-workspace.transformer';
