@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express';
 import { sendSuccess, sendError, sendPaginated, asyncHandler } from '../utils/response.utils';
+import { filterSources } from '../utils/source-filter';
 import { prisma } from '../lib/prisma';
 import {
   ActivityPersistenceService,
@@ -1153,7 +1154,16 @@ export const unpublishStory = asyncHandler(async (req: Request, res: Response): 
     return void sendError(res, result.error || 'Unpublish failed', 404);
   }
 
-  sendSuccess(res, result.story, 'Story unpublished');
+  // Count active pragma links for unpublish warning
+  const activePragmaLinkCount = await prisma.pragmaLink.count({
+    where: {
+      storyId: id,
+      revokedAt: null,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
+  });
+
+  sendSuccess(res, { ...result.story, activePragmaLinkCount }, 'Story unpublished');
 });
 
 /**
@@ -1869,9 +1879,7 @@ export const getPublishedStoryById = asyncHandler(async (req: Request, res: Resp
 
   // Enrich with sources (filtered for public view)
   const enriched = await enrichStoryWithSources(story as any);
-  const publicSources = (enriched.sources || []).filter(
-    (s: any) => !s.excludedAt && s.sourceType !== 'wizard_answer'
-  );
+  const publicSources = filterSources(enriched.sources || []);
 
   // Fetch author info
   const author = await prisma.user.findUnique({

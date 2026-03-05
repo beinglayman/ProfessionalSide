@@ -44,6 +44,20 @@ export const chronicleRateLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for pragma link resolve endpoint
+ */
+export const pragmaResolveLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute per IP
+  message: {
+    success: false,
+    error: 'Too many requests, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Moderate rate limiter for file uploads
  */
 export const uploadRateLimiter = rateLimit({

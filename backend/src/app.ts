@@ -50,6 +50,7 @@ import billingRoutes from './routes/billing.routes';
 import walletRoutes from './routes/wallet.routes';
 import careerStoriesRoutes from './routes/career-stories.routes';
 import demoRoutes from './routes/demo.routes';
+import pragmaLinkRoutes from './routes/pragma-link.routes';
 import activityRoutes from './routes/activity.routes';
 import eventsRoutes from './routes/events.routes';
 
@@ -799,6 +800,11 @@ app.get('/api/v1/debug-profile-test', async (req, res): Promise<void> => {
   }
 });
 
+// Public pragma link resolve (no auth, rate limited) — must be before auth middleware
+import { resolvePragmaLink } from './controllers/pragma-link.controller';
+import { pragmaResolveLimiter } from './middleware/rateLimiter.middleware';
+app.get('/api/v1/pragma/resolve/:shortCode', pragmaResolveLimiter, resolvePragmaLink);
+
 // API Routes with debug logging
 console.log('Mounting API routes...');
 app.use('/api/v1/auth', authRoutes);
@@ -837,6 +843,7 @@ app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/career-stories', careerStoriesRoutes);
 app.use('/api/v1/demo', demoRoutes);
+app.use('/api/v1/pragma-links', pragmaLinkRoutes);
 // Note: eventsRoutes and MCP routes moved earlier (before activityRoutes) to avoid auth middleware interception
 if (!mcpRoutes && process.env.NODE_ENV !== 'production' && process.env.ENABLE_MCP !== 'true') {
   console.log('⚠️  MCP routes disabled in development (tsx hot-reload limitation)');

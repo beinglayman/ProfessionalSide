@@ -123,6 +123,9 @@ model User {
   following  Follow[] @relation("Follower")
   followers  Follow[] @relation("Following")
 
+  // Pragma Links (shareable permalinks)
+  pragmaLinks PragmaLink[]
+
   @@map("users")
 }
 
@@ -1477,6 +1480,9 @@ model CareerStory {
   // Annotations relation
   annotations           StoryAnnotation[]
 
+  // Pragma Links (shareable permalinks)
+  pragmaLinks           PragmaLink[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1613,6 +1619,55 @@ model Follow {
   @@index([followerId])
   @@index([followingId])
   @@map("follows")
+}
+
+// ============================================================================
+// PRAGMA LINKS (Shareable permalinks for career stories)
+// ============================================================================
+
+model PragmaLink {
+  id        String    @id @default(cuid())
+  userId    String
+
+  // What this link points to (proper FK, cascade on delete)
+  storyId   String
+  story     CareerStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  // Access control
+  shortCode String    @unique   // 8-char random, URL-safe
+  token     String    @unique   // 32-char opaque crypto random (no role prefix)
+  tier      String              // "public" | "recruiter" | "mentor"
+
+  // Metadata
+  label     String?             // "Acme Corp - Jane Smith", "Coach Sarah"
+
+  // Lifecycle
+  expiresAt DateTime?           // null = never expires
+  revokedAt DateTime?           // null = active, non-null = revoked
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views     PragmaLinkView[]
+
+  @@index([userId, storyId])
+  @@map("pragma_links")
+}
+
+model PragmaLinkView {
+  id        String    @id @default(cuid())
+  linkId    String
+
+  // Viewer info
+  viewerId  String?             // nullable — populated if viewer is logged in
+  ip        String?             // best-effort, auto-nullified after 30 days (GDPR)
+  userAgent String?
+
+  viewedAt  DateTime  @default(now())
+  link      PragmaLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([linkId, viewedAt])
+  @@map("pragma_link_views")
 }
 
 // ============================================================================
