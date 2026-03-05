@@ -1840,7 +1840,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     }
 
     // Tools that have both a fetch tool and a transformer
-    const supportedTools = ['github', 'jira', 'confluence', 'onedrive', 'outlook', 'teams', 'onenote'];
+    const supportedTools = ['github', 'jira', 'confluence', 'onedrive', 'outlook', 'teams', 'onenote', 'google_workspace'];
 
     // Use requested tools, or fall back to all supported tools
     const tools = toolTypes?.length > 0 ? toolTypes : supportedTools;
@@ -1861,6 +1861,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     const { OutlookTool } = await import('../services/mcp/tools/outlook.tool');
     const { TeamsTool } = await import('../services/mcp/tools/teams.tool');
     const { OneNoteTool } = await import('../services/mcp/tools/onenote.tool');
+    const { GoogleWorkspaceTool } = await import('../services/mcp/tools/google-workspace.tool');
     const { transformToolActivity } = await import('../services/mcp/transformers');
     const { runProductionSync } = await import('../services/career-stories/production-sync.service');
     const { ActivityPersistenceService } = await import('../services/career-stories/activity-persistence.service');
@@ -1928,6 +1929,8 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
         result = await new TeamsTool().fetchActivity(userId!, fetchDateRange);
       } else if (toolType === 'onenote') {
         result = await new OneNoteTool().fetchActivity(userId!, fetchDateRange);
+      } else if (toolType === 'google_workspace') {
+        result = await new GoogleWorkspaceTool().fetchActivity(userId!, fetchDateRange);
       }
 
       if (!result?.success || !result?.data) {
@@ -1981,9 +1984,29 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
 
     console.log(`[MCP Sync] Date range: ${parsedDateRange.start.toISOString()} to ${parsedDateRange.end.toISOString()}`);
 
+    // Pre-filter: only sync tools the user has actually connected
+    const connectedIntegrations = await prisma.mCPIntegration.findMany({
+      where: { userId, isConnected: true, isActive: true },
+      select: { toolType: true }
+    });
+    const connectedToolTypes = new Set(connectedIntegrations.map(i => i.toolType));
+    const toolsToSync = selectedTools.filter((t: string) => connectedToolTypes.has(t));
+
+    if (toolsToSync.length === 0) {
+      sendSuccess(res, {
+        message: 'No connected tools to sync. Please connect at least one tool first.',
+        tools: selectedTools,
+        connectedTools: [],
+        activities: [],
+      });
+      return;
+    }
+
+    console.log(`[MCP Sync] Connected tools to sync: [${toolsToSync.join(', ')}] (requested: [${selectedTools.join(', ')}])`);
+
     // Fetch all tools in parallel (streaming callbacks emit data per-stage for GitHub)
     const results = await Promise.allSettled(
-      selectedTools.map((toolType: string) => fetchAndPersistTool(toolType, parsedDateRange))
+      toolsToSync.map((toolType: string) => fetchAndPersistTool(toolType, parsedDateRange))
     );
 
     // Collect results + currentUser identifiers for self-filtering
@@ -1993,7 +2016,7 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') {
         allActivities.push(...r.value.activities);
-        if (r.value.error) fetchErrors[selectedTools[i]] = r.value.error;
+        if (r.value.error) fetchErrors[toolsToSync[i]] = r.value.error;
         // Collect currentUser identifiers from each tool
         const cu = r.value.currentUser;
         if (cu) {
@@ -2004,8 +2027,8 @@ export const syncAndPersist = asyncHandler(async (req: Request, res: Response): 
           if (cu.userPrincipalName) selfIdentifiers.push(cu.userPrincipalName);
         }
       } else {
-        console.error(`[MCP Sync] Error with ${selectedTools[i]}:`, r.reason);
-        fetchErrors[selectedTools[i]] = r.reason?.message || 'Unexpected error';
+        console.error(`[MCP Sync] Error with ${toolsToSync[i]}:`, r.reason);
+        fetchErrors[toolsToSync[i]] = r.reason?.message || 'Unexpected error';
       }
     });
 
