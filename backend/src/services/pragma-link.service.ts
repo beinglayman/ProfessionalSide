@@ -46,16 +46,13 @@ export async function createLink(
   // Validate story exists + owned by user
   const story = await prisma.careerStory.findUnique({
     where: { id: storyId },
-    select: { id: true, userId: true, sourceMode: true },
+    select: { id: true, userId: true },
   });
   if (!story) {
     throw new Error('Story not found');
   }
   if (story.userId !== userId) {
     throw new Error('Story not owned by user');
-  }
-  if (story.sourceMode === 'demo') {
-    throw new Error('Cannot create share links for demo stories');
   }
 
   // Check per-story limit

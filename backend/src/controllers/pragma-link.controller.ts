@@ -53,7 +53,7 @@ export const createPragmaLink = asyncHandler(async (req: Request, res: Response)
   } catch (error: any) {
     const msg = error.message || 'Failed to create link';
     const status = msg.includes('not found') || msg.includes('not owned') ? 404
-      : msg.includes('demo') || msg.includes('Invalid tier') ? 400
+      : msg.includes('Invalid tier') ? 400
       : msg.includes('Maximum') ? 429
       : 500;
     return void sendError(res, msg, status);

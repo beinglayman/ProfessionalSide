@@ -208,16 +208,6 @@ describe('POST /pragma-links — Create', () => {
     expect(body.error).toContain('not found');
   });
 
-  it('rejects demo story', async () => {
-    const { status, body } = await api('/pragma-links', {
-      method: 'POST',
-      body: JSON.stringify({ storyId: STORY_DEMO, tier: 'recruiter' }),
-    });
-
-    expect(status).toBe(400);
-    expect(body.error).toContain('demo');
-  });
-
   it('requires authentication', async () => {
     const res = await fetch(`${API}/pragma-links`, {
       method: 'POST',
