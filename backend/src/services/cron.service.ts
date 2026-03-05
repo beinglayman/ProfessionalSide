@@ -1,8 +1,11 @@
 import * as cron from 'node-cron';
+import { PrismaClient } from '@prisma/client';
 import { NotificationQueueService } from './notification-queue.service';
 import { ExportService } from './export.service';
 import { journalAutoGeneratorService } from './journal-auto-generator.service';
 import { skillTrackingService } from './skill-tracking.service';
+
+const prisma = new PrismaClient();
 
 export class CronService {
   private notificationQueue: NotificationQueueService;
@@ -86,6 +89,19 @@ export class CronService {
       }
     });
 
+    // GDPR: Nullify pragma link view IPs older than 30 days — daily at 3:00 AM
+    this.scheduleJob('pragma-gdpr-ip-cleanup', '0 3 * * *', async () => {
+      console.log('Nullifying old pragma link view IPs (GDPR)...');
+      try {
+        const result = await prisma.$executeRawUnsafe(
+          `UPDATE pragma_link_views SET ip = NULL WHERE viewed_at < NOW() - INTERVAL '30 days' AND ip IS NOT NULL`
+        );
+        console.log(`GDPR IP cleanup completed: ${result} rows nullified`);
+      } catch (error) {
+        console.error('Error in GDPR IP cleanup:', error);
+      }
+    });
+
     console.log(`Scheduled ${this.jobs.size} jobs`);
   }
 
@@ -143,7 +159,8 @@ export class CronService {
         'cleanup-exports': '0 2 * * *',
         'health-check': '*/5 * * * *',
         'journal-auto-generation': '*/30 * * * *',
-        'skill-snapshots': '0 1 1 * *'
+        'skill-snapshots': '0 1 1 * *',
+        'pragma-gdpr-ip-cleanup': '0 3 * * *'
       };
 
       status.push({
@@ -176,6 +193,11 @@ export class CronService {
           return true;
         case 'skill-snapshots':
           await skillTrackingService.createMonthlySnapshots();
+          return true;
+        case 'pragma-gdpr-ip-cleanup':
+          await prisma.$executeRawUnsafe(
+            `UPDATE pragma_link_views SET ip = NULL WHERE viewed_at < NOW() - INTERVAL '30 days' AND ip IS NOT NULL`
+          );
           return true;
         default:
           console.error(`Unknown job: ${jobName}`);

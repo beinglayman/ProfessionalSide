@@ -40,6 +40,8 @@ import { FormatSwitchModal } from './FormatSwitchModal';
 import { PublishModal } from './PublishModal';
 import { DerivationModal } from './DerivationModal';
 import { PromotionPacketModal } from './PromotionPacketModal';
+import { ShareModal } from './ShareModal';
+import { PragmaLinkService } from '../../services/pragma-link.service';
 import { UseAsDropdown, type UseAsTypeKey } from './UseAsDropdown';
 import { LibraryCard } from './LibraryCard';
 import { LibraryDetail } from './LibraryDetail';
@@ -139,6 +141,10 @@ export function CareerStoriesPage() {
   // Promotion packet modal state
   const [showPromotionPacket, setShowPromotionPacket] = useState(false);
   const [packetInitialType, setPacketInitialType] = useState<string | undefined>(undefined);
+  // Share link modal state
+  const [shareModalStoryId, setShareModalStoryId] = useState<string | null>(null);
+  // Unpublish warning for active pragma links
+  const [unpublishWarning, setUnpublishWarning] = useState<{ storyId: string; count: number } | null>(null);
 
   // Trigger confetti when celebration starts
   useEffect(() => {
@@ -781,6 +787,11 @@ export function CareerStoriesPage() {
       const response = await unpublishStoryMutation.mutateAsync(story.id);
       if (response.success && response.data) {
         updateSelectedStory(response.data);
+        // Check for active pragma links
+        const linkCount = (response.data as any).activePragmaLinkCount;
+        if (typeof linkCount === 'number' && linkCount > 0) {
+          setUnpublishWarning({ storyId: story.id, count: linkCount });
+        }
       }
     } catch (error) {
       console.error('Failed to unpublish story:', error);
@@ -984,6 +995,7 @@ export function CareerStoriesPage() {
                 }}
                 onGeneratePacket={() => setShowPromotionPacket(true)}
                 onNavigateToLibraryItem={(itemId) => setSearchParams({ tab: 'library', itemId }, { replace: true })}
+                onCreatePragmaLink={() => selectedStoryDirect && setShareModalStoryId(selectedStoryDirect.id)}
               />
             </div>
           )}
@@ -1417,6 +1429,10 @@ export function CareerStoriesPage() {
           }}
           isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
           isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
+          onCreatePragmaLink={() => {
+            const story = selectedStoryDirect || (selectedCluster ? savedStories[selectedCluster.id] : null);
+            if (story) setShareModalStoryId(story.id);
+          }}
         />
       </MobileSheet>
 
@@ -1469,6 +1485,36 @@ export function CareerStoriesPage() {
           onNavigateToDerivation={(id) => setSearchParams({ tab: 'library', itemId: id }, { replace: true })}
         />
       )}
+
+      {/* Share Link Modal */}
+      {shareModalStoryId && (
+        <ShareModal
+          isOpen={!!shareModalStoryId}
+          onClose={() => setShareModalStoryId(null)}
+          storyId={shareModalStoryId}
+          storyTitle={allStories.find((s) => s.id === shareModalStoryId)?.title || ''}
+        />
+      )}
+
+      {/* Unpublish Warning — active pragma links */}
+      <ConfirmationDialog
+        open={!!unpublishWarning}
+        onOpenChange={(open) => !open && setUnpublishWarning(null)}
+        title="Active Share Links"
+        description={`This story has ${unpublishWarning?.count ?? 0} active share link${(unpublishWarning?.count ?? 0) !== 1 ? 's' : ''}. They will continue working even after unpublishing. Would you like to revoke them?`}
+        confirmLabel="Revoke All"
+        cancelLabel="Keep Links"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!unpublishWarning) return;
+          const res = await PragmaLinkService.listLinks(unpublishWarning.storyId);
+          if (res.success && res.data) {
+            const active = res.data.filter((l) => !l.revokedAt);
+            await Promise.all(active.map((l) => PragmaLinkService.revokeLink(l.id)));
+          }
+          setUnpublishWarning(null);
+        }}
+      />
 
       {/* Delete Confirmation */}
       <ConfirmationDialog
