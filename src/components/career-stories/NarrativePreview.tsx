@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
+  Link2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -112,6 +113,7 @@ interface NarrativePreviewProps {
   onShareAs?: (initialType?: string) => void;
   onGeneratePacket?: () => void;
   onNavigateToLibraryItem?: (itemId: string) => void;
+  onCreatePragmaLink?: () => void;
   onBack?: () => void;
 }
 
@@ -143,6 +145,7 @@ export function NarrativePreview({
   onShareAs,
   onGeneratePacket,
   onNavigateToLibraryItem,
+  onCreatePragmaLink,
   onBack,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -516,6 +519,16 @@ export function NarrativePreview({
                     onGeneratePacket={onGeneratePacket}
                     onNavigateToLibraryItem={onNavigateToLibraryItem}
                   />
+                )}
+                {story?.id && onCreatePragmaLink && (
+                  <button
+                    onClick={onCreatePragmaLink}
+                    className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors inline-flex items-center"
+                    title="Share link"
+                    aria-label="Share link"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
                 <button
                   onClick={handleCopy}
