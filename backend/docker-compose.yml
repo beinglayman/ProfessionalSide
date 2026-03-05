@@ -3,7 +3,7 @@ services:
     image: postgres:15-alpine
     container_name: inchronicle-postgres
     ports:
-      - "5433:5432"  # Custom port to avoid collision
+      - "5434:5432"  # Custom port to avoid collision
     environment:
       POSTGRES_USER: inchronicle
       POSTGRES_PASSWORD: inchronicle_dev
