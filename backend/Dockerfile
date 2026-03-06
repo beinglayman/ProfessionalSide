@@ -18,10 +18,10 @@ COPY . .
 # Generate Prisma client only
 RUN npm run db:generate
 
-# Expose port (Railway uses PORT env var)
+# Ensure startup script is executable
+RUN chmod +x startup.sh
+
 EXPOSE $PORT
 
-# Start with tsx (runs TypeScript directly, no build needed)
-# Run migrations on startup (continue if fails), then start the app
-# The app will report migration failures via health endpoint
-CMD ["sh", "-c", "(npm run db:migrate:deploy || echo 'Migration failed, starting app anyway...') && NODE_ENV=production npx tsx src/app.ts"]
+# Startup: run migrations, verify tables, start app
+CMD ["./startup.sh"]
