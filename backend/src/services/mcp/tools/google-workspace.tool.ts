@@ -235,7 +235,7 @@ export class GoogleWorkspaceTool {
   ): Promise<GoogleWorkspaceActivity['meetRecordings']> {
     try {
       // Query for Meet recordings (usually stored in specific folders with video MIME types)
-      const query = `modifiedTime >= '${startDate.toISOString()}' and modifiedTime <= '${endDate.toISOString()}' and (mimeType contains 'video' or name contains 'Meet recording') and trashed = false`;
+      const query = `modifiedTime >= '${startDate.toISOString()}' and modifiedTime <= '${endDate.toISOString()}' and mimeType contains 'video' and trashed = false`;
 
       const response = await drive.files.list({
         q: query,

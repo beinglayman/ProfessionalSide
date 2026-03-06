@@ -119,6 +119,10 @@ export function transformGoogleWorkspaceActivity(data: any): ActivityInput[] {
   // Transform Meet recordings
   if (data.meetRecordings?.length) {
     for (const recording of data.meetRecordings) {
+      // Skip non-video files (e.g. docs/spreadsheets returned by Drive API)
+      if (recording.mimeType && !recording.mimeType.startsWith('video/')) {
+        continue;
+      }
       activities.push({
         source: 'google-meet',
         sourceId: `recording:${recording.id}`,
