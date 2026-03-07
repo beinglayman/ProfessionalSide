@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,21 +19,186 @@ const TIER_LABELS: Record<string, string> = {
   mentor: 'Full Story + Annotations',
 };
 
-// Section icons for visual richness
-const SECTION_ICONS: Record<string, string> = {
-  situation: '🎯',
-  hindrances: '⚡',
-  actions: '🔧',
-  results: '📈',
-  evaluation: '💡',
-  task: '📋',
-  challenge: '🏔️',
-  context: '🌍',
-  impact: '🚀',
-  reflection: '🪞',
-  approach: '🧭',
-  outcome: '✅',
-  learnings: '📚',
+// Brand-colored inline SVG icons for each section type
+// Each icon is 20x20, stroke-based, designed to feel cohesive with the InChronicle brand
+function SectionIcon({ sectionKey, className }: { sectionKey: string; className?: string }) {
+  const key = sectionKey.toLowerCase();
+  const base = cn('w-5 h-5 shrink-0', className);
+
+  // Shared SVG wrapper
+  const wrap = (children: React.ReactNode) => (
+    <svg className={base} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {children}
+    </svg>
+  );
+
+  switch (key) {
+    case 'situation':
+      // Crosshair/target — setting the scene
+      return wrap(
+        <>
+          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="10" y1="1" x2="10" y2="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="1" y1="10" x2="4" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="16" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </>
+      );
+
+    case 'task':
+    case 'problem':
+      // Clipboard with checkmark
+      return wrap(
+        <>
+          <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M7 3V2a1 1 0 011-1h4a1 1 0 011 1v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M7.5 10.5L9 12l3.5-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+
+    case 'action':
+    case 'actions':
+      // Wrench/tool — doing the work
+      return wrap(
+        <>
+          <path d="M14.5 2.5l3 3-9.5 9.5-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </>
+      );
+
+    case 'result':
+    case 'results':
+      // Trending up chart — outcomes
+      return wrap(
+        <>
+          <polyline points="3,15 7,9 11,12 17,5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="13,5 17,5 17,9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="3" y1="18" x2="17" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </>
+      );
+
+    case 'learning':
+    case 'learnings':
+      // Open book
+      return wrap(
+        <>
+          <path d="M10 4C8 2.5 5 2 2 3v13c3-1 6-.5 8 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M10 4c2-1.5 5-2 8-1v13c-3-1-6-.5-8 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+
+    case 'challenge':
+    case 'obstacles':
+    case 'hindrances':
+      // Shield with lightning — obstacles faced
+      return wrap(
+        <>
+          <path d="M10 2L3 5v5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V5l-7-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M10.5 7L9 11h2.5L10 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+
+    case 'evaluation':
+    case 'reflection':
+      // Lightbulb — insight
+      return wrap(
+        <>
+          <path d="M10 2a5 5 0 00-3 9v2h6v-2a5 5 0 00-3-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <line x1="8" y1="15" x2="12" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="8.5" y1="17" x2="11.5" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </>
+      );
+
+    case 'context':
+      // Globe — setting context
+      return wrap(
+        <>
+          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+          <ellipse cx="10" cy="10" rx="3.5" ry="8" stroke="currentColor" strokeWidth="1.2" />
+          <line x1="2" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="1.2" />
+          <path d="M3 6h14" stroke="currentColor" strokeWidth="1" />
+          <path d="M3 14h14" stroke="currentColor" strokeWidth="1" />
+        </>
+      );
+
+    case 'impact':
+      // Rocket
+      return wrap(
+        <>
+          <path d="M10 18s-2-2-2-6c0-4 2-9 2-9s2 5 2 9c0 4-2 6-2 6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M7 14l-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M13 14l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="10" cy="9" r="1.5" stroke="currentColor" strokeWidth="1.2" />
+        </>
+      );
+
+    case 'approach':
+      // Compass
+      return wrap(
+        <>
+          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+          <polygon points="10,4 12,9 10,10 8,9" fill="currentColor" opacity="0.6" />
+          <polygon points="10,16 8,11 10,10 12,11" stroke="currentColor" strokeWidth="1" />
+        </>
+      );
+
+    case 'outcome':
+      // Checkmark circle
+      return wrap(
+        <>
+          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M6.5 10.5L9 13l5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+
+    default:
+      // Generic document
+      return wrap(
+        <>
+          <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="7" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <line x1="7" y1="13" x2="10" y2="13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </>
+      );
+  }
+}
+
+// Framer-motion variants
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.08, delayChildren: 0.15 },
+  },
+};
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] },
+  },
+};
+
+const heroVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+  },
+};
+
+const ctaVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 },
+  },
 };
 
 // Extract key metrics from text for rough-notation highlights
@@ -149,7 +315,12 @@ function MobileAnnotations({ annotations, sectionKey }: { annotations: StoryAnno
         Author Notes ({sectionAnnotations.length})
       </button>
       {isOpen && (
-        <div className="mt-2 space-y-2">
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="mt-2 space-y-2 overflow-hidden"
+        >
           {sectionAnnotations.map((ann) => (
             <div key={ann.id} className="text-[11px] text-gray-500 border-l-2 border-violet-200 pl-2.5 py-1">
               {ann.annotatedText && (
@@ -158,7 +329,7 @@ function MobileAnnotations({ annotations, sectionKey }: { annotations: StoryAnno
               {ann.note}
             </div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -167,7 +338,12 @@ function MobileAnnotations({ annotations, sectionKey }: { annotations: StoryAnno
 function ErrorPage({ icon, title, message }: { icon: React.ReactNode; title: string; message: string }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center px-4">
-      <div className="max-w-sm text-center space-y-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="max-w-sm text-center space-y-4"
+      >
         <div className="mx-auto w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400">
           {icon}
         </div>
@@ -176,7 +352,7 @@ function ErrorPage({ icon, title, message }: { icon: React.ReactNode; title: str
         <p className="text-xs text-gray-400 pt-6">
           Powered by <span className="font-semibold text-gray-500">InChronicle</span>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -282,7 +458,12 @@ export default function PragmaLinkPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       {/* Branded header — sticky, glassy */}
-      <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+      <motion.header
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10"
+      >
         <div className={cn(
           'flex items-center justify-between px-6 py-3',
           hasMentorAnnotations ? 'max-w-4xl mx-auto' : 'max-w-3xl mx-auto'
@@ -315,14 +496,19 @@ export default function PragmaLinkPage() {
             )}
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <div className={cn(
         'px-6 py-10',
         hasMentorAnnotations ? 'max-w-4xl mx-auto' : 'max-w-3xl mx-auto'
       )}>
         {/* Hero section — author + title */}
-        <div className="mb-10">
+        <motion.div
+          variants={heroVariants}
+          initial="hidden"
+          animate="visible"
+          className="mb-10"
+        >
           {/* Author */}
           {author && (
             <div className="flex items-center gap-3.5 mb-6">
@@ -349,36 +535,57 @@ export default function PragmaLinkPage() {
             {content.title}
           </h1>
 
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Badges — stagger in */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } } }}
+            className="flex items-center gap-2 flex-wrap"
+          >
             {archetypeMeta && content.archetype && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-violet-50 text-violet-700 capitalize">
-                {archetypeMeta.icon && <span>{archetypeMeta.icon}</span>}
+              <motion.span
+                variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-violet-50 text-violet-700 capitalize"
+              >
                 {content.archetype}
-              </span>
+              </motion.span>
             )}
             {categoryMeta && (
-              <span className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-blue-50 text-blue-700">
+              <motion.span
+                variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-blue-50 text-blue-700"
+              >
                 {categoryMeta.label}
-              </span>
+              </motion.span>
             )}
             {frameworkMeta && (
-              <span className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-gray-100 text-gray-600 uppercase tracking-wider">
+              <motion.span
+                variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-gray-100 text-gray-600 uppercase tracking-wider"
+              >
                 {content.framework}
-              </span>
+              </motion.span>
             )}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Source coverage indicator */}
         {content.sourceCoverage && content.sourceCoverage.total > 0 && !isPublic && (
-          <div className="flex items-center gap-2 mb-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center gap-2 mb-8"
+          >
             <div className="flex gap-0.5">
               {Array.from({ length: content.sourceCoverage.total }).map((_, i) => (
-                <div
+                <motion.div
                   key={i}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: 0.4 + i * 0.05, duration: 0.3 }}
                   className={cn(
-                    'h-1.5 w-6 rounded-full',
+                    'h-1.5 w-6 rounded-full origin-left',
                     i < content.sourceCoverage!.sourced ? 'bg-emerald-400' : 'bg-gray-200'
                   )}
                 />
@@ -387,33 +594,40 @@ export default function PragmaLinkPage() {
             <span className="text-xs text-gray-400">
               {content.sourceCoverage.sourced}/{content.sourceCoverage.total} sections sourced
             </span>
-          </div>
+          </motion.div>
         )}
 
-        {/* Sections */}
-        <div className="space-y-5">
+        {/* Sections — staggered reveal */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-5"
+        >
           {sectionKeys.map((key: string) => {
             const section = content.sections[key];
             if (!section) return null;
             const sectionLabel = key.charAt(0).toUpperCase() + key.slice(1);
             const sectionSources = sourcesBySection.get(key) ?? [];
-            const icon = SECTION_ICONS[key.toLowerCase()] || '📝';
 
             return (
-              <div
+              <motion.div
                 key={key}
+                variants={sectionVariants}
                 className={cn(
-                  'rounded-xl border bg-white transition-all duration-200',
+                  'rounded-xl border bg-white overflow-hidden',
                   isPublic
-                    ? 'border-gray-100 shadow-sm hover:shadow-md'
+                    ? 'border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200'
                     : 'border-gray-100 shadow-sm'
                 )}
               >
                 <div className={hasMentorAnnotations ? 'flex gap-0' : ''}>
                   <div className="flex-1 min-w-0 p-6">
-                    {/* Section header */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-base">{icon}</span>
+                    {/* Section header with SVG icon */}
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-50 text-violet-500">
+                        <SectionIcon sectionKey={key} className="w-4 h-4" />
+                      </div>
                       <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
                         {sectionLabel}
                       </h2>
@@ -474,14 +688,19 @@ export default function PragmaLinkPage() {
                     />
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
 
         {/* Public tier CTA — compelling, integrated */}
         {isPublic && (
-          <div className="mt-10 relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 p-8 sm:p-10 text-white">
+          <motion.div
+            variants={ctaVariants}
+            initial="hidden"
+            animate="visible"
+            className="mt-10 relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 p-8 sm:p-10 text-white"
+          >
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
             <div className="relative z-10">
@@ -502,39 +721,48 @@ export default function PragmaLinkPage() {
                 )}
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => navigate('/register')}
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-violet-700 text-sm font-semibold rounded-lg hover:bg-violet-50 transition-colors shadow-lg shadow-violet-900/20"
                 >
                   Build your own career story
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </motion.button>
                 {!isAuthenticated && (
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => navigate('/login')}
                     className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white/10 text-white text-sm font-medium rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
                   >
                     Already have an account? Sign in
-                  </button>
+                  </motion.button>
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Footer */}
-        <footer className="mt-12 pt-8 border-t border-gray-100 text-center space-y-2">
+        <motion.footer
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6, duration: 0.4 }}
+          className="mt-12 pt-8 border-t border-gray-100 text-center space-y-2"
+        >
           {content.publishedAt && (
             <p className="text-xs text-gray-400">
               Published {new Date(content.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </p>
           )}
           <p className="text-xs text-gray-400">
-            <a href="/" className="font-semibold text-gray-500 hover:text-violet-600 transition-colors">InChronicle</a>
+            <Link to="/" className="font-semibold text-gray-500 hover:text-violet-600 transition-colors">InChronicle</Link>
             {' '}&middot;{' '}
             Career stories backed by evidence
           </p>
-        </footer>
+        </motion.footer>
       </div>
     </div>
   );
