@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, MotionConfig } from 'framer-motion';
 import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { NARRATIVE_FRAMEWORKS, ARCHETYPE_METADATA, BRAG_DOC_CATEGORIES } from '.
 import { NarrativeSection } from '../../components/career-stories/NarrativeSection';
 import { MarginColumn } from '../../components/career-stories/MarginColumn';
 import { ToolIcon } from '../../components/career-stories/ToolIcon';
+import { SectionIcon } from '../../components/career-stories/SectionIcon';
 import type { ToolType, StoryAnnotation } from '../../types/career-stories';
 import type { PragmaResolveResponse } from '../../services/pragma-link.service';
 
@@ -18,152 +19,6 @@ const TIER_LABELS: Record<string, string> = {
   recruiter: 'Full Story',
   mentor: 'Full Story + Annotations',
 };
-
-// Brand-colored inline SVG icons for each section type
-// Each icon is 20x20, stroke-based, designed to feel cohesive with the InChronicle brand
-function SectionIcon({ sectionKey, className }: { sectionKey: string; className?: string }) {
-  const key = sectionKey.toLowerCase();
-  const base = cn('w-5 h-5 shrink-0', className);
-
-  // Shared SVG wrapper
-  const wrap = (children: React.ReactNode) => (
-    <svg className={base} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {children}
-    </svg>
-  );
-
-  switch (key) {
-    case 'situation':
-      // Crosshair/target — setting the scene
-      return wrap(
-        <>
-          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="10" y1="1" x2="10" y2="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="1" y1="10" x2="4" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="16" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </>
-      );
-
-    case 'task':
-    case 'problem':
-      // Clipboard with checkmark
-      return wrap(
-        <>
-          <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M7 3V2a1 1 0 011-1h4a1 1 0 011 1v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M7.5 10.5L9 12l3.5-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      );
-
-    case 'action':
-    case 'actions':
-      // Wrench/tool — doing the work
-      return wrap(
-        <>
-          <path d="M14.5 2.5l3 3-9.5 9.5-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </>
-      );
-
-    case 'result':
-    case 'results':
-      // Trending up chart — outcomes
-      return wrap(
-        <>
-          <polyline points="3,15 7,9 11,12 17,5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <polyline points="13,5 17,5 17,9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <line x1="3" y1="18" x2="17" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </>
-      );
-
-    case 'learning':
-    case 'learnings':
-      // Open book
-      return wrap(
-        <>
-          <path d="M10 4C8 2.5 5 2 2 3v13c3-1 6-.5 8 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M10 4c2-1.5 5-2 8-1v13c-3-1-6-.5-8 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      );
-
-    case 'challenge':
-    case 'obstacles':
-    case 'hindrances':
-      // Shield with lightning — obstacles faced
-      return wrap(
-        <>
-          <path d="M10 2L3 5v5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V5l-7-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          <path d="M10.5 7L9 11h2.5L10 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      );
-
-    case 'evaluation':
-    case 'reflection':
-      // Lightbulb — insight
-      return wrap(
-        <>
-          <path d="M10 2a5 5 0 00-3 9v2h6v-2a5 5 0 00-3-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          <line x1="8" y1="15" x2="12" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="8.5" y1="17" x2="11.5" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </>
-      );
-
-    case 'context':
-      // Globe — setting context
-      return wrap(
-        <>
-          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
-          <ellipse cx="10" cy="10" rx="3.5" ry="8" stroke="currentColor" strokeWidth="1.2" />
-          <line x1="2" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="1.2" />
-          <path d="M3 6h14" stroke="currentColor" strokeWidth="1" />
-          <path d="M3 14h14" stroke="currentColor" strokeWidth="1" />
-        </>
-      );
-
-    case 'impact':
-      // Rocket
-      return wrap(
-        <>
-          <path d="M10 18s-2-2-2-6c0-4 2-9 2-9s2 5 2 9c0 4-2 6-2 6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          <path d="M7 14l-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M13 14l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="10" cy="9" r="1.5" stroke="currentColor" strokeWidth="1.2" />
-        </>
-      );
-
-    case 'approach':
-      // Compass
-      return wrap(
-        <>
-          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
-          <polygon points="10,4 12,9 10,10 8,9" fill="currentColor" opacity="0.6" />
-          <polygon points="10,16 8,11 10,10 12,11" stroke="currentColor" strokeWidth="1" />
-        </>
-      );
-
-    case 'outcome':
-      // Checkmark circle
-      return wrap(
-        <>
-          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M6.5 10.5L9 13l5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      );
-
-    default:
-      // Generic document
-      return wrap(
-        <>
-          <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="7" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-          <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-          <line x1="7" y1="13" x2="10" y2="13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-        </>
-      );
-  }
-}
 
 // Framer-motion variants
 const containerVariants = {
@@ -203,7 +58,7 @@ const ctaVariants = {
 
 // Extract key metrics from text for rough-notation highlights
 export function extractMetricSpans(text: string): Array<{ text: string; start: number; end: number }> {
-  const pattern = /\b(\d+[%xX]|\$[\d,.]+[KMB]?|\d+\s*(?:hours?|days?|weeks?|months?|users?|customers?|teams?))\b/gi;
+  const pattern = /(?<=[\s(]|^)(\d+[%xX]|\$[\d,.]+[KMB]?|\d+\s*(?:hours?|days?|weeks?|months?|users?|customers?|teams?))(?=[\s,.\-;:!?)']|$)/gi;
   const spans: Array<{ text: string; start: number; end: number }> = [];
   let match;
   while ((match = pattern.exec(text)) !== null) {
@@ -225,6 +80,7 @@ function HighlightedText({ text, show }: { text: string; show: boolean }) {
     instancesRef.current = [];
 
     const spans = containerRef.current.querySelectorAll<HTMLElement>('[data-metric]');
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
     spans.forEach((el, i) => {
       const a = annotate(el, {
         type: 'highlight',
@@ -233,10 +89,11 @@ function HighlightedText({ text, show }: { text: string; show: boolean }) {
         multiline: true,
       });
       instancesRef.current.push(a);
-      setTimeout(() => a.show(), 300 + i * 200);
+      timeouts.push(setTimeout(() => a.show(), 300 + i * 200));
     });
 
     return () => {
+      timeouts.forEach(clearTimeout);
       for (const inst of instancesRef.current) inst.remove();
       instancesRef.current = [];
     };
@@ -456,6 +313,7 @@ export default function PragmaLinkPage() {
   }, [sources]);
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       {/* Branded header — sticky, glassy */}
       <motion.header
@@ -765,5 +623,6 @@ export default function PragmaLinkPage() {
         </motion.footer>
       </div>
     </div>
+    </MotionConfig>
   );
 }

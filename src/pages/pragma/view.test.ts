@@ -15,6 +15,24 @@ describe('extractMetricSpans', () => {
     expect(upper[0].text).toBe('3X');
   });
 
+  it('extracts percentage values', () => {
+    const spans = extractMetricSpans('Improved by 40% over Q3');
+    expect(spans).toEqual([
+      { text: '40%', start: 12, end: 15 },
+    ]);
+  });
+
+  it('extracts dollar amounts', () => {
+    const spans = extractMetricSpans('Saved $1,200 in costs');
+    expect(spans[0].text).toBe('$1,200');
+  });
+
+  it('extracts dollar amounts with magnitude suffixes', () => {
+    expect(extractMetricSpans('Revenue hit $5M this year')[0].text).toBe('$5M');
+    expect(extractMetricSpans('Worth $2.5B total')[0].text).toBe('$2.5B');
+    expect(extractMetricSpans('Budget $100K allocated')[0].text).toBe('$100K');
+  });
+
   it('extracts duration values', () => {
     expect(extractMetricSpans('Finished in 3 days')[0].text).toBe('3 days');
     expect(extractMetricSpans('Took 2 weeks')[0].text).toBe('2 weeks');
@@ -32,6 +50,12 @@ describe('extractMetricSpans', () => {
     const spans = extractMetricSpans('Built 3x faster pipeline for 200 users in 2 weeks');
     expect(spans).toHaveLength(3);
     expect(spans.map(s => s.text)).toEqual(['3x', '200 users', '2 weeks']);
+  });
+
+  it('extracts mixed metric types', () => {
+    const spans = extractMetricSpans('Reduced latency by 50% and saved $10K for 200 users');
+    expect(spans).toHaveLength(3);
+    expect(spans.map(s => s.text)).toEqual(['50%', '$10K', '200 users']);
   });
 
   it('returns correct start and end positions', () => {
@@ -56,14 +80,14 @@ describe('extractMetricSpans', () => {
     expect(first).toEqual(second);
   });
 
-  // Known limitation: \b word boundary doesn't match % or $ since they aren't word chars.
-  // These tests document the current behavior. Percentages and dollar amounts are NOT matched.
-  it('does not match percentages due to word boundary limitation', () => {
-    expect(extractMetricSpans('Improved by 40%')).toEqual([]);
+  it('handles metrics at end of string', () => {
+    expect(extractMetricSpans('Revenue grew 25%')[0].text).toBe('25%');
+    expect(extractMetricSpans('Cost was $500')[0].text).toBe('$500');
   });
 
-  it('does not match dollar amounts due to word boundary limitation', () => {
-    expect(extractMetricSpans('Saved $1,200')).toEqual([]);
-    expect(extractMetricSpans('Revenue hit $5M')).toEqual([]);
+  it('handles metrics followed by punctuation', () => {
+    expect(extractMetricSpans('Saved 40%, which')[0].text).toBe('40%');
+    expect(extractMetricSpans('Grew 3x.')[0].text).toBe('3x');
+    expect(extractMetricSpans('($5M)')[0].text).toBe('$5M');
   });
 });
