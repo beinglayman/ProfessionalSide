@@ -19,6 +19,7 @@ import {
   XCircle,
   Zap,
   FlaskConical,
+  Server,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import {
@@ -30,6 +31,7 @@ import {
 } from '../../contexts/ErrorConsoleContext';
 import { DemoTab } from './DemoTab';
 import { E2ETab } from './E2ETab';
+import { InfraTab } from './InfraTab';
 import { isDemoMode } from '../../services/demo-mode.service';
 
 // ===== ERROR SEVERITY CONFIG =====
@@ -542,6 +544,17 @@ export const ErrorConsole: React.FC = () => {
               >
                 E2E
               </button>
+              <button
+                onClick={() => setActiveTab('infra')}
+                className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                  activeTab === 'infra'
+                    ? 'bg-gray-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <Server size={12} />
+                Infra
+              </button>
             </div>
 
             {/* Status badges */}
@@ -588,8 +601,8 @@ export const ErrorConsole: React.FC = () => {
           </div>
         </div>
 
-        {/* Toolbar (hidden in demo/e2e tabs) */}
-        {activeTab !== 'demo' && activeTab !== 'e2e' && (
+        {/* Toolbar (hidden in demo/e2e/infra tabs) */}
+        {activeTab !== 'demo' && activeTab !== 'e2e' && activeTab !== 'infra' && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-700 bg-gray-800/50">
           <div className="flex items-center gap-1">
             <Filter size={14} className="text-gray-500" />
@@ -698,7 +711,9 @@ export const ErrorConsole: React.FC = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'e2e' ? (
+          {activeTab === 'infra' ? (
+            <InfraTab />
+          ) : activeTab === 'e2e' ? (
             <E2ETab />
           ) : activeTab === 'demo' ? (
             <DemoTab />
@@ -730,7 +745,9 @@ export const ErrorConsole: React.FC = () => {
         {/* Footer */}
         <div className="px-4 py-2 border-t border-gray-700 bg-gray-800/50 rounded-b-lg">
           <p className="text-xs text-gray-500">
-            {activeTab === 'e2e'
+            {activeTab === 'infra'
+              ? 'Database tables, migrations, connection SSL, and runtime diagnostics. Copy/download JSON to share.'
+              : activeTab === 'e2e'
               ? 'E2E tools for test account lifecycle: reset sessions and delete test users.'
               : activeTab === 'demo'
               ? 'Toggle demo mode for YC pitch demos. Demo data is isolated from real user data.'

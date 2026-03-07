@@ -91,6 +91,8 @@ export interface CapturedError {
   traceId?: string;
 }
 
+export type ConsoleTab = 'errors' | 'traces' | 'demo' | 'e2e' | 'infra';
+
 interface ErrorConsoleContextType {
   // Errors
   errors: CapturedError[];
@@ -107,8 +109,8 @@ interface ErrorConsoleContextType {
 
   // UI controls
   isOpen: boolean;
-  activeTab: 'errors' | 'traces' | 'demo' | 'e2e';
-  setActiveTab: (tab: 'errors' | 'traces' | 'demo' | 'e2e') => void;
+  activeTab: ConsoleTab;
+  setActiveTab: (tab: ConsoleTab) => void;
   toggleConsole: () => void;
   openConsole: () => void;
   closeConsole: () => void;
@@ -155,7 +157,7 @@ export const ErrorConsoleProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [errors, setErrors] = useState<CapturedError[]>([]);
   const [traces, setTraces] = useState<RequestTrace[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'errors' | 'traces' | 'demo' | 'e2e'>('errors');
+  const [activeTab, setActiveTab] = useState<ConsoleTab>('errors');
   const originalConsoleError = useRef<typeof console.error | null>(null);
   const originalConsoleWarn = useRef<typeof console.warn | null>(null);
   const pendingTraces = useRef<Map<string, { trace: RequestTrace; startTime: number }>>(new Map());
