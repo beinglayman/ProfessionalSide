@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock, ChevronDown, ArrowRight, Sparkles, Lock } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
 import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -36,13 +36,11 @@ const SECTION_ICONS: Record<string, string> = {
 };
 
 // Extract key metrics from text for rough-notation highlights
-const METRIC_PATTERN = /\b(\d+[%xX]|\$[\d,.]+[KMB]?|\d+\s*(?:hours?|days?|weeks?|months?|users?|customers?|teams?))\b/gi;
-
-function extractMetricSpans(text: string): Array<{ text: string; start: number; end: number }> {
+export function extractMetricSpans(text: string): Array<{ text: string; start: number; end: number }> {
+  const pattern = /\b(\d+[%xX]|\$[\d,.]+[KMB]?|\d+\s*(?:hours?|days?|weeks?|months?|users?|customers?|teams?))\b/gi;
   const spans: Array<{ text: string; start: number; end: number }> = [];
   let match;
-  METRIC_PATTERN.lastIndex = 0;
-  while ((match = METRIC_PATTERN.exec(text)) !== null) {
+  while ((match = pattern.exec(text)) !== null) {
     spans.push({ text: match[0], start: match.index, end: match.index + match[0].length });
   }
   return spans;
@@ -190,7 +188,6 @@ export default function PragmaLinkPage() {
   const token = searchParams.get('t') || undefined;
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [showAnnotations, setShowAnnotations] = useState(false);
-  const heroRef = useRef<HTMLDivElement>(null);
 
   const { isAuthenticated } = useAuth();
   const { data, isLoading, isError, error } = useResolvePragmaLink(shortCode, token);
@@ -272,12 +269,15 @@ export default function PragmaLinkPage() {
   const hasMentorAnnotations = tier === 'mentor' && annotations.length > 0;
   const isPublic = tier === 'public';
 
-  const sourcesBySection = new Map<string, typeof sources>();
-  for (const s of sources) {
-    const arr = sourcesBySection.get(s.sectionKey) ?? [];
-    arr.push(s);
-    sourcesBySection.set(s.sectionKey, arr);
-  }
+  const sourcesBySection = useMemo(() => {
+    const map = new Map<string, typeof sources>();
+    for (const s of sources) {
+      const arr = map.get(s.sectionKey) ?? [];
+      arr.push(s);
+      map.set(s.sectionKey, arr);
+    }
+    return map;
+  }, [sources]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
@@ -287,13 +287,13 @@ export default function PragmaLinkPage() {
           'flex items-center justify-between px-6 py-3',
           hasMentorAnnotations ? 'max-w-4xl mx-auto' : 'max-w-3xl mx-auto'
         )}>
-          <a
-            href={isAuthenticated ? '/dashboard' : '/'}
+          <Link
+            to={isAuthenticated ? '/dashboard' : '/'}
             className="flex items-center gap-2 text-sm font-bold text-gray-800 tracking-tight hover:text-violet-600 transition-colors"
           >
             <span className="text-violet-600 text-xs font-black">IN</span>
             CHRONICLE
-          </a>
+          </Link>
           <div className="flex items-center gap-3">
             <span className={cn(
               'px-2.5 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider',
@@ -306,12 +306,12 @@ export default function PragmaLinkPage() {
               {TIER_LABELS[tier] || tier}
             </span>
             {!isAuthenticated && (
-              <a
-                href="/login"
+              <Link
+                to="/login"
                 className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors"
               >
                 Sign in
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -322,7 +322,7 @@ export default function PragmaLinkPage() {
         hasMentorAnnotations ? 'max-w-4xl mx-auto' : 'max-w-3xl mx-auto'
       )}>
         {/* Hero section — author + title */}
-        <div ref={heroRef} className="mb-10">
+        <div className="mb-10">
           {/* Author */}
           {author && (
             <div className="flex items-center gap-3.5 mb-6">
@@ -392,7 +392,7 @@ export default function PragmaLinkPage() {
 
         {/* Sections */}
         <div className="space-y-5">
-          {sectionKeys.map((key: string, idx: number) => {
+          {sectionKeys.map((key: string) => {
             const section = content.sections[key];
             if (!section) return null;
             const sectionLabel = key.charAt(0).toUpperCase() + key.slice(1);
@@ -417,9 +417,6 @@ export default function PragmaLinkPage() {
                       <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
                         {sectionLabel}
                       </h2>
-                      {isPublic && idx >= 3 && (
-                        <Lock className="h-3 w-3 text-gray-300 ml-auto" />
-                      )}
                     </div>
 
                     {/* Content */}
