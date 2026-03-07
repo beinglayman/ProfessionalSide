@@ -12,11 +12,22 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Plus, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { StoryAnnotation } from '../../types/career-stories';
 import { getColorById } from './annotation-colors';
 import { sanitizeNoteHtml, isHtmlContent } from '../../lib/sanitize-html';
+
+// Shared easing — matches design-system curve in pragma viewer
+const EASE_OUT: [number, number, number, number] = [0.25, 0.1, 0.25, 1];
+
+// Animates when a parent motion component propagates hidden→visible variants;
+// renders immediately (no animation) when used without a motion parent.
+const marginNoteVariants = {
+  hidden: { opacity: 0, x: 8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: EASE_OUT } },
+};
 
 interface MarginColumnProps {
   annotations: StoryAnnotation[];
@@ -91,8 +102,9 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
           const isAside = ann.style === 'aside';
 
           return (
-            <div
+            <motion.div
               key={ann.id}
+              variants={marginNoteVariants}
               className={cn(
                 'relative rounded transition-all duration-150',
                 // Hovered: lifted card with shadow + full text
@@ -104,8 +116,8 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
               onMouseEnter={() => onHoverAnnotation?.(ann.id)}
               onMouseLeave={() => onHoverAnnotation?.(null)}
             >
-              {/* Delete button — visible on hover */}
-              {isHovered && (
+              {/* Delete button — visible on hover (only when edit handlers exist) */}
+              {isHovered && (onClearNote || onDeleteAside) && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -153,13 +165,13 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
                   )}
                 </div>
               )}
-            </div>
+            </motion.div>
           );
         })}
       </div>
 
-      {/* Add aside button — visible on hover of margin area */}
-      {!showAsideInput && (
+      {/* Add aside button — visible on hover of margin area (only when handler exists) */}
+      {onCreateAside && !showAsideInput && (
         <button
           onClick={() => setShowAsideInput(true)}
           className={cn(
@@ -175,8 +187,8 @@ export const MarginColumn: React.FC<MarginColumnProps> = ({
         </button>
       )}
 
-      {/* Aside input */}
-      {showAsideInput && (
+      {/* Aside input (only when handler exists) */}
+      {onCreateAside && showAsideInput && (
         <div className="mt-2">
           <textarea
             value={asideInput}

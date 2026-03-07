@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ExternalLink, StickyNote, FileText, AlertCircle, Link2Off, Clock, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
-import { motion, MotionConfig } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { annotate, type Annotation as RNAnnotation } from 'rough-notation';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,6 +20,9 @@ const TIER_LABELS: Record<string, string> = {
   mentor: 'Full Story + Annotations',
 };
 
+// Shared easing — design-system-level ease-out curve
+const EASE_OUT: [number, number, number, number] = [0.25, 0.1, 0.25, 1];
+
 // Framer-motion variants
 const containerVariants = {
   hidden: {},
@@ -33,7 +36,7 @@ const sectionVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] },
+    transition: { duration: 0.4, ease: EASE_OUT },
   },
 };
 
@@ -42,7 +45,7 @@ const heroVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+    transition: { duration: 0.5, ease: EASE_OUT },
   },
 };
 
@@ -52,13 +55,28 @@ const ctaVariants = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 },
+    transition: { duration: 0.5, ease: EASE_OUT, delay: 0.3 },
   },
 };
 
 const badgeVariants = {
   hidden: { opacity: 0, scale: 0.9 },
   visible: { opacity: 1, scale: 1 },
+};
+
+const sourceContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
+};
+
+const sourceItemVariants = {
+  hidden: { opacity: 0, x: -6 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+};
+
+const marginContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07, delayChildren: 0.25 } },
 };
 
 // Extract key metrics from text for rough-notation highlights
@@ -130,7 +148,7 @@ function HighlightedText({ text, show }: { text: string; show: boolean }) {
 
 function SourceItem({ source }: { source: PragmaResolveResponse['content']['sources'][0] }) {
   return (
-    <div className="flex items-start gap-2.5 py-2 text-xs group">
+    <motion.div variants={sourceItemVariants} className="flex items-start gap-2.5 py-2 text-xs group">
       <div className="mt-0.5 shrink-0">
         {source.toolType ? (
           <ToolIcon tool={source.toolType as ToolType} className="h-4 w-4" />
@@ -156,7 +174,7 @@ function SourceItem({ source }: { source: PragmaResolveResponse['content']['sour
           <ExternalLink className="h-3 w-3" />
         </a>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -176,22 +194,32 @@ function MobileAnnotations({ annotations, sectionKey }: { annotations: StoryAnno
         <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         Author Notes ({sectionAnnotations.length})
       </button>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="mt-2 space-y-2 overflow-hidden"
-        >
-          {sectionAnnotations.map((ann) => (
-            <div key={ann.id} className="text-[11px] text-gray-500 border-l-2 border-violet-200 pl-2.5 py-1">
-              {ann.annotatedText && (
-                <span className="text-gray-400 italic">&ldquo;{ann.annotatedText}&rdquo; &mdash; </span>
-              )}
-              {ann.note}
-            </div>
-          ))}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="mt-2 space-y-2 overflow-hidden"
+          >
+            {sectionAnnotations.map((ann, i) => (
+              <motion.div
+                key={ann.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05, duration: 0.2 }}
+                className="text-[11px] text-gray-500 border-l-2 border-violet-200 pl-2.5 py-1"
+              >
+                {ann.annotatedText && (
+                  <span className="text-gray-400 italic">&ldquo;{ann.annotatedText}&rdquo; &mdash; </span>
+                )}
+                {ann.note}
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -244,6 +272,30 @@ export default function PragmaLinkPage() {
     return () => { document.title = 'InChronicle'; };
   }, [data]);
 
+  // Derive values from data (safe even when data is undefined)
+  const content = data?.content;
+  const tier = data?.tier;
+  const author = data?.author;
+  const frameworkMeta = content ? NARRATIVE_FRAMEWORKS[content.framework as keyof typeof NARRATIVE_FRAMEWORKS] : undefined;
+  const archetypeMeta = content?.archetype ? ARCHETYPE_METADATA[content.archetype] : null;
+  const categoryMeta = content?.category ? BRAG_DOC_CATEGORIES.find(c => c.value === content.category) : null;
+  const sectionKeys = frameworkMeta?.sections ?? (content ? Object.keys(content.sections) : []);
+  const sources = content?.sources ?? [];
+  const annotations: StoryAnnotation[] = (content?.annotations ?? []) as StoryAnnotation[];
+  const hasMentorAnnotations = tier === 'mentor' && annotations.length > 0;
+  const isPublic = tier === 'public';
+
+  // useMemo must be called unconditionally (rules of hooks)
+  const sourcesBySection = useMemo(() => {
+    const map = new Map<string, typeof sources>();
+    for (const s of sources) {
+      const arr = map.get(s.sectionKey) ?? [];
+      arr.push(s);
+      map.set(s.sectionKey, arr);
+    }
+    return map;
+  }, [sources]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -279,7 +331,7 @@ export default function PragmaLinkPage() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !data || !content || !tier || !author) {
     const axiosErr = error as { response?: { status?: number; data?: { error?: string } }; message?: string };
     const status = axiosErr?.response?.status;
     const errorMsg = axiosErr?.response?.data?.error || '';
@@ -295,26 +347,6 @@ export default function PragmaLinkPage() {
     }
     return <ErrorPage icon={<AlertCircle className="h-6 w-6" />} title="Not Available" message="This story is no longer available." />;
   }
-
-  const { content, tier, author } = data;
-  const frameworkMeta = NARRATIVE_FRAMEWORKS[content.framework as keyof typeof NARRATIVE_FRAMEWORKS];
-  const archetypeMeta = content.archetype ? ARCHETYPE_METADATA[content.archetype] : null;
-  const categoryMeta = content.category ? BRAG_DOC_CATEGORIES.find(c => c.value === content.category) : null;
-  const sectionKeys = frameworkMeta?.sections ?? Object.keys(content.sections);
-  const sources = content.sources ?? [];
-  const annotations: StoryAnnotation[] = (content.annotations ?? []) as StoryAnnotation[];
-  const hasMentorAnnotations = tier === 'mentor' && annotations.length > 0;
-  const isPublic = tier === 'public';
-
-  const sourcesBySection = useMemo(() => {
-    const map = new Map<string, typeof sources>();
-    for (const s of sources) {
-      const arr = map.get(s.sectionKey) ?? [];
-      arr.push(s);
-      map.set(s.sectionKey, arr);
-    }
-    return map;
-  }, [sources]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -407,7 +439,9 @@ export default function PragmaLinkPage() {
             {archetypeMeta && content.archetype && (
               <motion.span
                 variants={badgeVariants}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-violet-50 text-violet-700 capitalize"
+                whileHover={{ scale: 1.06 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-violet-50 text-violet-700 capitalize cursor-default"
               >
                 {content.archetype}
               </motion.span>
@@ -415,7 +449,9 @@ export default function PragmaLinkPage() {
             {categoryMeta && (
               <motion.span
                 variants={badgeVariants}
-                className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-blue-50 text-blue-700"
+                whileHover={{ scale: 1.06 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-blue-50 text-blue-700 cursor-default"
               >
                 {categoryMeta.label}
               </motion.span>
@@ -423,7 +459,9 @@ export default function PragmaLinkPage() {
             {frameworkMeta && (
               <motion.span
                 variants={badgeVariants}
-                className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-gray-100 text-gray-600 uppercase tracking-wider"
+                whileHover={{ scale: 1.06 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-gray-100 text-gray-600 uppercase tracking-wider cursor-default"
               >
                 {content.framework}
               </motion.span>
@@ -476,20 +514,22 @@ export default function PragmaLinkPage() {
               <motion.div
                 key={key}
                 variants={sectionVariants}
-                className={cn(
-                  'rounded-xl border bg-white overflow-hidden',
-                  isPublic
-                    ? 'border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200'
-                    : 'border-gray-100 shadow-sm'
-                )}
+                whileHover={{ y: -2, boxShadow: '0 4px 12px rgba(0,0,0,0.06)', transition: { type: 'tween', duration: 0.2 } }}
+                className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden"
               >
                 <div className={hasMentorAnnotations ? 'flex gap-0' : ''}>
                   <div className="flex-1 min-w-0 p-6">
                     {/* Section header with SVG icon */}
                     <div className="flex items-center gap-2.5 mb-3">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-50 text-violet-500">
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        whileInView={{ scale: 1, opacity: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+                        className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-50 text-violet-500"
+                      >
                         <SectionIcon sectionKey={key} className="w-4 h-4" />
-                      </div>
+                      </motion.div>
                       <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
                         {sectionLabel}
                       </h2>
@@ -506,7 +546,7 @@ export default function PragmaLinkPage() {
                         editValue=""
                         onEditChange={() => {}}
                         showCoaching={false}
-                        showEmphasis={true}
+                        showEmphasis={false}
                         hideHeader={true}
                         hideConfidence={true}
                         annotations={hasMentorAnnotations ? annotations : []}
@@ -525,11 +565,17 @@ export default function PragmaLinkPage() {
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-300 mb-2">
                           Evidence
                         </p>
-                        <div className="space-y-0.5">
+                        <motion.div
+                          variants={sourceContainerVariants}
+                          initial="hidden"
+                          whileInView="visible"
+                          viewport={{ once: true, amount: 0.3 }}
+                          className="space-y-0.5"
+                        >
                           {sectionSources.map((s) => (
                             <SourceItem key={s.id} source={s} />
                           ))}
-                        </div>
+                        </motion.div>
                       </div>
                     )}
 
@@ -541,13 +587,20 @@ export default function PragmaLinkPage() {
 
                   {/* Margin column for mentor */}
                   {hasMentorAnnotations && (
-                    <MarginColumn
-                      annotations={annotations}
-                      sectionKey={key}
-                      annotateMode={false}
-                      hoveredAnnotationId={hoveredAnnotationId}
-                      onHoverAnnotation={setHoveredAnnotationId}
-                    />
+                    <motion.div
+                      variants={marginContainerVariants}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={{ once: true, amount: 0.2 }}
+                    >
+                      <MarginColumn
+                        annotations={annotations}
+                        sectionKey={key}
+                        annotateMode={false}
+                        hoveredAnnotationId={hoveredAnnotationId}
+                        onHoverAnnotation={setHoveredAnnotationId}
+                      />
+                    </motion.div>
                   )}
                 </div>
               </motion.div>
