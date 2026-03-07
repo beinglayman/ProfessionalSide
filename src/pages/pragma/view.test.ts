@@ -90,4 +90,18 @@ describe('extractMetricSpans', () => {
     expect(extractMetricSpans('Grew 3x.')[0].text).toBe('3x');
     expect(extractMetricSpans('($5M)')[0].text).toBe('$5M');
   });
+
+  it('returns empty array for empty string', () => {
+    expect(extractMetricSpans('')).toEqual([]);
+  });
+
+  it('does not match metrics embedded in words', () => {
+    // "v3x" should not match "3x" because lookbehind requires \s or ^
+    expect(extractMetricSpans('v3x')).toEqual([]);
+  });
+
+  it('handles metric at very start of string', () => {
+    expect(extractMetricSpans('3x faster than before')[0].text).toBe('3x');
+    expect(extractMetricSpans('$500 saved')[0].text).toBe('$500');
+  });
 });

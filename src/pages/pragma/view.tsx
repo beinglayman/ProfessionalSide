@@ -56,6 +56,11 @@ const ctaVariants = {
   },
 };
 
+const badgeVariants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1 },
+};
+
 // Extract key metrics from text for rough-notation highlights
 export function extractMetricSpans(text: string): Array<{ text: string; start: number; end: number }> {
   const pattern = /(?<=[\s(]|^)(\d+[%xX]|\$[\d,.]+[KMB]?|\d+\s*(?:hours?|days?|weeks?|months?|users?|customers?|teams?))(?=[\s,.\-;:!?)']|$)/gi;
@@ -175,7 +180,6 @@ function MobileAnnotations({ annotations, sectionKey }: { annotations: StoryAnno
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
           className="mt-2 space-y-2 overflow-hidden"
         >
           {sectionAnnotations.map((ann) => (
@@ -314,7 +318,7 @@ export default function PragmaLinkPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       {/* Branded header — sticky, glassy */}
       <motion.header
         initial={{ opacity: 0, y: -8 }}
@@ -402,7 +406,7 @@ export default function PragmaLinkPage() {
           >
             {archetypeMeta && content.archetype && (
               <motion.span
-                variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}
+                variants={badgeVariants}
                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-violet-50 text-violet-700 capitalize"
               >
                 {content.archetype}
@@ -410,7 +414,7 @@ export default function PragmaLinkPage() {
             )}
             {categoryMeta && (
               <motion.span
-                variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}
+                variants={badgeVariants}
                 className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-blue-50 text-blue-700"
               >
                 {categoryMeta.label}
@@ -418,7 +422,7 @@ export default function PragmaLinkPage() {
             )}
             {frameworkMeta && (
               <motion.span
-                variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}
+                variants={badgeVariants}
                 className="px-2.5 py-1 text-[11px] font-medium rounded-full bg-gray-100 text-gray-600 uppercase tracking-wider"
               >
                 {content.framework}
@@ -622,7 +626,7 @@ export default function PragmaLinkPage() {
           </p>
         </motion.footer>
       </div>
-    </div>
+      </div>
     </MotionConfig>
   );
 }
