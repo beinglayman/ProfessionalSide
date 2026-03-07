@@ -510,7 +510,7 @@ export class CareerStoryService {
         temperature: 0.7,
       });
 
-      logTokenUsage(result.usage, title);
+      logTokenUsage(undefined, title);
 
       const parsed = parseCareerStoryResponse(result.content);
       if (!parsed) {

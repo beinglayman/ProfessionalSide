@@ -578,7 +578,7 @@ export class StoryWizardService {
 
     // Build content for prompt — unified builder extracts format7Data (phases, skills, etc.)
     const journalEntryContent = buildLLMInput({
-      journalEntry: entry,
+      journalEntry: { ...entry, format7Data: entry.format7Data as Record<string, any> | null },
       extractedContext,
     });
 
@@ -922,7 +922,7 @@ export class StoryWizardService {
         temperature: 0.7,
       });
 
-      logTokenUsage(result.usage, journalEntry.title);
+      logTokenUsage(undefined, journalEntry.title);
 
       const parsed = parseCareerStoryResponse(result.content);
       if (!parsed) return { sections: this.buildFallbackSections(framework, journalEntry, dateByActivityId) };

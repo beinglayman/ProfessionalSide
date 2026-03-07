@@ -55,6 +55,7 @@ interface InMemoryCluster {
     description: string | null;
     timestamp: Date;
     crossToolRefs: string[];
+    container?: string | null;
   }>;
   metrics: {
     dateRange: { start: Date; end: Date };
@@ -765,6 +766,7 @@ function clusterProductionActivities(
         description: a.description,
         timestamp: a.timestamp,
         crossToolRefs: a.crossToolRefs,
+        container: a.container,
       })),
       metrics: {
         dateRange: computeDateRange(clusterActivities.map((a) => a.timestamp)),
@@ -912,6 +914,7 @@ async function refineWithLLM(
           description: a.description,
           timestamp: a.timestamp,
           crossToolRefs: a.crossToolRefs,
+          container: a.container,
         })),
         metrics: {
           dateRange: computeDateRange(groupActivities.map(a => a.timestamp)),
