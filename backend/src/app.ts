@@ -851,6 +851,7 @@ if (!mcpRoutes && process.env.NODE_ENV !== 'production' && process.env.ENABLE_MC
 }
 
 app.use('/api/debug', debugRoutes);
+app.use('/api/v1/debug', debugRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
