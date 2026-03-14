@@ -17,6 +17,7 @@ export function DraftPeekBar({ count, isLoading, onTap, isOpen }: DraftPeekBarPr
       role="button"
       aria-label={`Open draft stories. ${count} drafts available.`}
       aria-expanded={isOpen}
+      data-walkthrough="draft-peek-bar"
       className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white border-t border-purple-200 shadow-lg px-4 py-3 flex items-center justify-between"
     >
       <div className="flex items-center gap-2">

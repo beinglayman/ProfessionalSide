@@ -20,7 +20,8 @@ import {
   getPrivacySettings,
   updatePrivacySettings,
   getChronicle,
-  updateProfileUrl
+  updateProfileUrl,
+  markWalkthroughComplete
 } from '../controllers/user.controller';
 import { authenticate, optionalAuth } from '../middleware/auth.middleware';
 import { chronicleRateLimiter } from '../middleware/rateLimiter.middleware';
@@ -57,6 +58,9 @@ router.post('/:userId/skills/:skillId/endorse', endorseUserSkill);
 
 // Profile URL management
 router.put('/profile-url', updateProfileUrl);
+
+// Walkthrough completion
+router.patch('/walkthrough-complete', markWalkthroughComplete);
 
 // Privacy and data management
 router.get('/privacy-settings', getPrivacySettings);

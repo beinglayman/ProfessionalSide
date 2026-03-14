@@ -1014,6 +1014,16 @@ export class UserService {
   }
 
   /**
+   * Mark walkthrough as complete
+   */
+  async markWalkthroughComplete(userId: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { hasSeenOnboardingOverlay: true },
+    });
+  }
+
+  /**
    * Update user's profile URL slug
    */
   async updateProfileUrl(userId: string, newUrl: string) {

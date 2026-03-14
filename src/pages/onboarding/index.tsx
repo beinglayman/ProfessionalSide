@@ -7,6 +7,7 @@ import { useProfile } from '../../hooks/useProfile';
 import { disableDemoMode } from '../../services/demo-mode.service';
 import { runLiveSync, setLastSyncAt } from '../../services/sync.service';
 import { SYNC_IN_PROGRESS_KEY } from '../../constants/sync';
+import { WALKTHROUGH_STORAGE_KEYS } from '../../components/walkthrough';
 
 import { ProfessionalBasicsStepClean } from './steps/professional-basics-clean';
 import { ConnectToolsStep } from './steps/connect-tools';
@@ -124,7 +125,7 @@ export function OnboardingPage() {
     }
   };
 
-  const completeOnboarding = async () => {
+  const completeOnboarding = async (destination: '/timeline' | '/dashboard' = '/timeline') => {
     try {
       const latestData = await productionOnboardingService.getOnboardingData();
       const finalData = latestData || onboardingData;
@@ -138,10 +139,17 @@ export function OnboardingPage() {
       // Existing demo accounts that never re-onboard are unaffected.
       disableDemoMode();
 
-      // Start background sync and navigate to Timeline
+      // Start background sync
       setLastSyncAt();
       sessionStorage.setItem(SYNC_IN_PROGRESS_KEY, 'true');
-      navigate('/timeline');
+
+      // Set walkthrough flags ONLY if destination is /timeline (walkthrough path)
+      if (destination === '/timeline') {
+        sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.active, 'true');
+        sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.step, '0');
+      }
+
+      navigate(destination);
 
       const noopCallbacks = {
         onStateUpdate: () => {},
@@ -150,6 +158,7 @@ export function OnboardingPage() {
       };
       runLiveSync(noopCallbacks).catch(() => {});
     } catch (error) {
+      // No sessionStorage set on error — no zombie flags
       console.error('Error completing onboarding:', error);
       navigate('/timeline');
     }
@@ -259,6 +268,7 @@ export function OnboardingPage() {
               onPrevious={goToPreviousStep}
               isFirstStep={safeCurrentStep === 0}
               isLastStep={safeCurrentStep === ONBOARDING_STEPS.length - 1}
+              onSkip={() => completeOnboarding('/dashboard')}
             />
           ) : (
             <div className="flex items-center justify-center py-12">

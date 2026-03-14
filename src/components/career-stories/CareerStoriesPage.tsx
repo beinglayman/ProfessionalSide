@@ -57,6 +57,7 @@ import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProfile } from '../../hooks/useProfile';
+import { useWalkthrough } from '../walkthrough';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import {
   groupStoriesByTimePeriod,
@@ -394,6 +395,17 @@ export function CareerStoriesPage() {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, clusters, existingStories, selectedCluster, selectedStoryDirect, handleSelectCluster, handleSelectStory, setSearchParams]);
+
+  // Walkthrough: auto-select first story so NarrativePreview renders for spotlight
+  const walkthrough = useWalkthrough();
+  useEffect(() => {
+    if (!walkthrough?.isActive) return;
+    // Steps 2 and 3 are on /stories (0-indexed)
+    if (walkthrough.currentStep < 2) return;
+    if (selectedStoryDirect) return; // already selected
+    if (!existingStories?.stories?.length) return;
+    handleSelectStory(existingStories.stories[0]);
+  }, [walkthrough?.isActive, walkthrough?.currentStep, existingStories?.stories, selectedStoryDirect, handleSelectStory]);
 
   // Sync selectedStoryDirect with query cache when story list refetches
   // (e.g. after adding a note or excluding a source)
@@ -959,7 +971,7 @@ export function CareerStoriesPage() {
 
           {/* Detail View: Full story */}
           {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200" data-walkthrough="narrative-preview">
               {/* Full story preview */}
               <NarrativePreview
                 onBack={handleCloseDetail}
@@ -1053,7 +1065,7 @@ export function CareerStoriesPage() {
                       </>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3 flex-shrink-0" data-walkthrough="use-as-dropdown">
                     {allStories.length >= 1 && (
                       <UseAsDropdown
                         scope="page"

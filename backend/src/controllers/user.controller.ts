@@ -500,6 +500,20 @@ export const getChronicle = asyncHandler(async (req: Request, res: Response): Pr
 });
 
 /**
+ * Mark walkthrough as complete (sets hasSeenOnboardingOverlay = true)
+ */
+export const markWalkthroughComplete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  await userService.markWalkthroughComplete(userId);
+  sendSuccess(res, null, 'Walkthrough marked as complete');
+});
+
+/**
  * Update own profile URL slug (authenticated)
  */
 export const updateProfileUrl = asyncHandler(async (req: Request, res: Response): Promise<void> => {

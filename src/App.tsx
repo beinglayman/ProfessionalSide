@@ -29,6 +29,7 @@ import ServiceStatusPageStandalone from './pages/services/status-standalone';
 import { MCPCallbackPage } from './pages/mcp/callback';
 import Format7DesignShowcase from './pages/format7-design-showcase';
 import { CareerStoriesPage } from './components/career-stories';
+import { WalkthroughProvider } from './components/walkthrough';
 import { DashboardPrototypePage } from './pages/dashboard/prototype';
 import { WidgetVariationsPage } from './pages/dashboard/widget-variations';
 import { TimelinePrototypesPage } from './pages/prototypes/timeline-prototypes';
@@ -81,7 +82,8 @@ const AppRoutes: React.FC = () => {
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
-  return (
+  // Wrap authenticated routes with WalkthroughProvider (no-op when inactive)
+  const content = (
     <div className="min-h-screen bg-gray-50">
       {!isAuthPage && <Header networkType={networkType} onNetworkTypeChange={setNetworkType} />}
       <Routes>
@@ -317,6 +319,12 @@ const AppRoutes: React.FC = () => {
       </Routes>
     </div>
   );
+
+  if (isAuthenticated && !isAuthPage) {
+    return <WalkthroughProvider>{content}</WalkthroughProvider>;
+  }
+
+  return content;
 };
 
 function App() {

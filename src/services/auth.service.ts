@@ -9,6 +9,7 @@ export interface User {
   location?: string;
   avatar?: string;
   bio?: string;
+  hasSeenOnboardingOverlay?: boolean;
   createdAt: string;
   profile?: {
     profileCompleteness: number;

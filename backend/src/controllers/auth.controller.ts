@@ -246,6 +246,7 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response): 
       avatar: true,
       bio: true,
       welcomeEmailSent: true,
+      hasSeenOnboardingOverlay: true,
       createdAt: true,
       profile: {
         select: {

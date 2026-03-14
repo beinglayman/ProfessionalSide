@@ -17,6 +17,7 @@ interface ConnectToolsProps {
   onPrevious: () => Promise<void>;
   isFirstStep: boolean;
   isLastStep?: boolean;
+  onSkip?: () => Promise<void>;
 }
 
 /** localStorage key for preserving onboarding state across OAuth redirects */
@@ -33,6 +34,7 @@ export function ConnectToolsStep({
   onUpdate,
   onNext,
   onPrevious,
+  onSkip,
 }: ConnectToolsProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -68,6 +70,23 @@ export function ConnectToolsStep({
       await onUpdate({ connectedTools: Array.from(connectedBucketIds) });
       await onNext();
     } catch (err) {
+      setError('Failed to save. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!hasRealConnection) {
+      setError('Connect at least one tool to continue. InChronicle needs your work activity to create stories.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await onUpdate({ connectedTools: Array.from(connectedBucketIds) });
+      await onSkip?.();
+    } catch {
       setError('Failed to save. Please try again.');
     } finally {
       setIsLoading(false);
@@ -181,6 +200,10 @@ export function ConnectToolsStep({
         })}
       </div>
 
+      <p className="text-center text-xs text-gray-500">
+        More tools = stronger stories. You can add more anytime from Settings.
+      </p>
+
       {/* Action Buttons */}
       <div className="flex items-center justify-between pt-6 border-t border-gray-200">
         <Button variant="outline" onClick={onPrevious}>
@@ -191,22 +214,33 @@ export function ConnectToolsStep({
           Step 2 of 2
         </div>
 
-        <Button
-          onClick={handleFinish}
-          disabled={isLoading || !hasRealConnection}
-          className="flex items-center space-x-2"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Finishing...</span>
-            </>
-          ) : hasRealConnection ? (
-            <span>Get Started</span>
-          ) : (
-            <span>Connect at least 1 tool to continue</span>
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            onClick={handleFinish}
+            disabled={isLoading || !hasRealConnection}
+            className="flex items-center space-x-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Finishing...</span>
+              </>
+            ) : hasRealConnection ? (
+              <span>See your first career story &rarr;</span>
+            ) : (
+              <span>Connect at least 1 tool to continue</span>
+            )}
+          </Button>
+          {hasRealConnection && (
+            <button
+              onClick={handleSkip}
+              disabled={isLoading}
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+            >
+              Go to dashboard
+            </button>
           )}
-        </Button>
+        </div>
       </div>
     </div>
   );
