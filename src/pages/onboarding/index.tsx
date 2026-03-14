@@ -142,6 +142,7 @@ export function OnboardingPage() {
       if (destination === '/timeline') {
         sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.active, 'true');
         sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.step, '0');
+        window.dispatchEvent(new Event('walkthrough-activate'));
       }
 
       // Profile update is non-critical — don't let it block navigation

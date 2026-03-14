@@ -67,7 +67,30 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
         setIsActive(true);
       }
     }
-  }, [hasSeenOverlay, location.pathname]);
+  }, [hasSeenOverlay]);
+
+  // Listen for activation event from completeOnboarding()
+  useEffect(() => {
+    if (hasSeenOverlay) return;
+
+    const handleActivate = () => {
+      const active = sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.active) === 'true';
+      if (!active) return;
+
+      const storedStep = sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.step);
+      const step = storedStep ? parseInt(storedStep, 10) : 0;
+      setCurrentStep(step);
+
+      const syncInProgress = sessionStorage.getItem(SYNC_IN_PROGRESS_KEY) === 'true';
+      if (syncInProgress) {
+        setWaitingForSync(true);
+      }
+      setIsActive(true);
+    };
+
+    window.addEventListener('walkthrough-activate', handleActivate);
+    return () => window.removeEventListener('walkthrough-activate', handleActivate);
+  }, [hasSeenOverlay]);
 
   // Watch for sync completion
   useEffect(() => {
