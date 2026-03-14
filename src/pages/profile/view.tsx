@@ -46,7 +46,7 @@ const ALL_TOOLS: MCPToolType[] = [
   MCPToolType.TEAMS,
   MCPToolType.ONEDRIVE,
   MCPToolType.ONENOTE,
-  MCPToolType.SHAREPOINT,
+  MCPToolType.GOOGLE_WORKSPACE,
 ];
 
 /* ── Map MCPToolType to ToolIcon's ToolType ── */
@@ -60,7 +60,7 @@ const MCP_TO_ICON: Record<string, IconToolType> = {
   teams: 'teams',
   onedrive: 'onedrive',
   onenote: 'onenote',
-  sharepoint: 'sharepoint',
+  google_workspace: 'google_workspace',
 };
 
 /* ── Tool display names ── */
@@ -74,7 +74,7 @@ const TOOL_LABELS: Record<string, string> = {
   teams: 'Teams',
   onedrive: 'OneDrive',
   onenote: 'OneNote',
-  sharepoint: 'SharePoint',
+  google_workspace: 'Google Workspace',
 };
 
 /* ── Status ring colors ── */
@@ -591,7 +591,7 @@ export function ProfileViewPage() {
 
   // Filter activities for the selected tool
   const toolActivities = useMemo(() => {
-    const all = activitiesData && 'data' in activitiesData ? activitiesData.data : [];
+    const all = activitiesData?.activities ?? [];
     return all.filter((a) => a.source === selectedTool);
   }, [activitiesData, selectedTool]);
 
@@ -601,7 +601,7 @@ export function ProfileViewPage() {
   const draftStories = useMemo(() => allStories.filter((s) => !s.isPublished), [allStories]);
 
   // All activities for the activity tab
-  const allActivities = activitiesData && 'data' in activitiesData ? activitiesData.data : [];
+  const allActivities = activitiesData?.activities ?? [];
 
   // Playbook items (derivations + packets)
   const playbook: StoryDerivation[] = useMemo(() => {
