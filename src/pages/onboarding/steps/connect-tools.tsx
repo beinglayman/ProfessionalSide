@@ -226,7 +226,7 @@ export function ConnectToolsStep({
                 <span>Finishing...</span>
               </>
             ) : hasRealConnection ? (
-              <span>See your first career story &rarr;</span>
+              <span>Let's build your first career story &rarr;</span>
             ) : (
               <span>Connect at least 1 tool to continue</span>
             )}
@@ -237,7 +237,7 @@ export function ConnectToolsStep({
               disabled={isLoading}
               className="text-xs text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
-              Go to dashboard
+              Skip and go to dashboard
             </button>
           )}
         </div>

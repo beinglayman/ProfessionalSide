@@ -131,7 +131,7 @@ describe('ConnectToolsStep: connection gate', () => {
     mockConnectedBucketIds = new Set(['github']);
     renderConnectTools();
 
-    const button = screen.getByRole('button', { name: /See your first career story/i });
+    const button = screen.getByRole('button', { name: /Let's build your first career story/i });
     expect(button).toBeEnabled();
   });
 
@@ -239,7 +239,7 @@ describe('ConnectToolsStep: finish flow', () => {
     const user = userEvent.setup();
     renderConnectTools();
 
-    await user.click(screen.getByRole('button', { name: /See your first career story/i }));
+    await user.click(screen.getByRole('button', { name: /Let's build your first career story/i }));
 
     expect(mockOnUpdate).toHaveBeenCalledWith({ connectedTools: ['github'] });
     expect(mockOnNext).toHaveBeenCalled();
