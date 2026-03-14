@@ -67,7 +67,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
         setIsActive(true);
       }
     }
-  }, [hasSeenOverlay]);
+  }, [hasSeenOverlay, location.pathname]);
 
   // Watch for sync completion
   useEffect(() => {

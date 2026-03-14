@@ -132,21 +132,24 @@ export function OnboardingPage() {
 
       await productionOnboardingService.saveOnboardingData(finalData as any);
       await productionOnboardingService.markOnboardingComplete();
-      await updateProfile(finalData);
-      await refetch();
 
-      // User completed onboarding with real tool connections — switch to live mode.
-      // Existing demo accounts that never re-onboard are unaffected.
+      // Set up local state BEFORE profile update (which might throw).
+      // These are synchronous localStorage/sessionStorage writes — safe to do early.
       disableDemoMode();
-
-      // Start background sync
       setLastSyncAt();
       sessionStorage.setItem(SYNC_IN_PROGRESS_KEY, 'true');
 
-      // Set walkthrough flags ONLY if destination is /timeline (walkthrough path)
       if (destination === '/timeline') {
         sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.active, 'true');
         sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.step, '0');
+      }
+
+      // Profile update is non-critical — don't let it block navigation
+      try {
+        await updateProfile(finalData);
+        await refetch();
+      } catch (profileErr) {
+        console.warn('[Onboarding] Profile update failed, continuing:', profileErr);
       }
 
       navigate(destination);
@@ -158,8 +161,9 @@ export function OnboardingPage() {
       };
       runLiveSync(noopCallbacks).catch(() => {});
     } catch (error) {
-      // No sessionStorage set on error — no zombie flags
       console.error('Error completing onboarding:', error);
+      // Ensure fresh timestamp even on error path
+      setLastSyncAt();
       navigate('/timeline');
     }
   };
