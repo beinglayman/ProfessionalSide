@@ -18,8 +18,11 @@ import { OnboardingV17 } from './V17';
 import { OnboardingV18 } from './V18';
 import { OnboardingV19 } from './V19';
 import { OnboardingV20 } from './V20';
+import { OnboardingV21 } from './V21';
+import { OnboardingV22 } from './V22';
+import { OnboardingV23 } from './V23';
 
-export type OnboardingCategory = 'Stepper' | 'Conversational' | 'Single-page' | 'Minimal' | 'Novel';
+export type OnboardingCategory = 'Stepper' | 'Conversational' | 'Single-page' | 'Minimal' | 'Novel' | 'Product Tour';
 
 export const onboardingPrototypes = [
   { id: 'v1', name: 'Horizontal Stepper', category: 'Stepper' as OnboardingCategory, Component: OnboardingV1 },
@@ -42,4 +45,7 @@ export const onboardingPrototypes = [
   { id: 'v18', name: 'Gamified Quest', category: 'Novel' as OnboardingCategory, Component: OnboardingV18 },
   { id: 'v19', name: 'Calendar Hook', category: 'Novel' as OnboardingCategory, Component: OnboardingV19 },
   { id: 'v20', name: 'Diff View', category: 'Novel' as OnboardingCategory, Component: OnboardingV20 },
+  { id: 'v21', name: 'Guided Product Tour', category: 'Product Tour' as OnboardingCategory, Component: OnboardingV21 },
+  { id: 'v22', name: 'Contextual Page Previews', category: 'Product Tour' as OnboardingCategory, Component: OnboardingV22 },
+  { id: 'v23', name: 'End-of-Flow Product Handoff', category: 'Product Tour' as OnboardingCategory, Component: OnboardingV23 },
 ];

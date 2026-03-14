@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 
 type DesignId = string;
 
-const CATEGORIES: OnboardingCategory[] = ['Stepper', 'Conversational', 'Single-page', 'Minimal', 'Novel'];
+const CATEGORIES: OnboardingCategory[] = ['Stepper', 'Conversational', 'Single-page', 'Minimal', 'Novel', 'Product Tour'];
 
 export function OnboardingPrototypesPage() {
   const [activeDesign, setActiveDesign] = useState<DesignId>(onboardingPrototypes[0].id);
@@ -27,7 +27,7 @@ export function OnboardingPrototypesPage() {
             Onboarding Flow Prototypes
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            20 different onboarding approaches — click to switch between variants
+            23 different onboarding approaches — click to switch between variants
           </p>
         </div>
 
