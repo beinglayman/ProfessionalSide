@@ -92,6 +92,19 @@ export function WalkthroughOverlay({
     };
   }, [targetSelector, updateRect]);
 
+  // Diagnostic: log pause-related state to verify values at runtime
+  useEffect(() => {
+    if (isPaused) {
+      console.log('[Walkthrough Debug]', {
+        isPaused,
+        interactiveSpotlight,
+        pauseGuidance,
+        targetRect,
+        rootPointerEvents: interactiveSpotlight ? 'none' : 'auto',
+      });
+    }
+  }, [isPaused, interactiveSpotlight, pauseGuidance, targetRect]);
+
   // Check reduced motion preference
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -102,99 +115,105 @@ export function WalkthroughOverlay({
   const spotlightW = targetRect.width + SPOTLIGHT_PADDING * 2;
   const spotlightH = targetRect.height + SPOTLIGHT_PADDING * 2;
 
+  // Viewport-clamped positioning for guidance tooltip
+  const guidanceTop = Math.max(16, Math.min(
+    targetRect.top + targetRect.height / 2,
+    window.innerHeight - 150
+  ));
+  const guidanceRight = window.innerWidth - targetRect.left + 16;
+
   return (
-    <div
-      className={`fixed inset-0 z-[60] ${
-        prefersReducedMotion
-          ? 'opacity-100'
-          : visible
-          ? 'opacity-100 transition-opacity duration-300'
-          : 'opacity-0'
-      }`}
-      style={interactiveSpotlight ? { pointerEvents: 'none' } : undefined}
-      role="dialog"
-      aria-label={`Product walkthrough step ${stepIndex + 1} of ${totalSteps}`}
-    >
-      {/* SVG backdrop with spotlight cutout */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        style={{ pointerEvents: 'none' }}
-      >
-        <defs>
-          <mask id={`walkthrough-mask-${stepIndex}`}>
-            <rect width="100%" height="100%" fill="white" />
-            <rect
-              x={spotlightX}
-              y={spotlightY}
-              width={spotlightW}
-              height={spotlightH}
-              rx={8}
-              fill="black"
-            />
-          </mask>
-        </defs>
-        <rect
-          width="100%"
-          height="100%"
-          fill="rgba(0,0,0,0.5)"
-          mask={`url(#walkthrough-mask-${stepIndex})`}
-          style={{ pointerEvents: interactiveSpotlight ? 'none' : 'auto' }}
-          onClick={interactiveSpotlight ? undefined : onSkip}
-        />
-      </svg>
-
-      {/* When interactive spotlight: 4 divs block clicks in dark area but leave spotlight open */}
-      {interactiveSpotlight && (
-        <>
-          {/* Top bar */}
-          <div className="fixed left-0 top-0 right-0" style={{ height: spotlightY, pointerEvents: 'auto' }} />
-          {/* Bottom bar */}
-          <div className="fixed left-0 right-0 bottom-0" style={{ top: spotlightY + spotlightH, pointerEvents: 'auto' }} />
-          {/* Left bar */}
-          <div className="fixed left-0" style={{ top: spotlightY, width: Math.max(spotlightX, 0), height: spotlightH, pointerEvents: 'auto' }} />
-          {/* Right bar */}
-          <div className="fixed right-0" style={{ top: spotlightY, left: spotlightX + spotlightW, height: spotlightH, pointerEvents: 'auto' }} />
-        </>
-      )}
-
-      {/* Spotlight border highlight */}
+    <>
       <div
-        className="absolute rounded-lg ring-2 ring-primary-400 ring-offset-2"
-        style={{
-          top: spotlightY,
-          left: spotlightX,
-          width: spotlightW,
-          height: spotlightH,
-          pointerEvents: 'none',
-        }}
-      />
+        className={`fixed inset-0 z-[60] ${
+          prefersReducedMotion
+            ? 'opacity-100'
+            : visible
+            ? 'opacity-100 transition-opacity duration-300'
+            : 'opacity-0'
+        }`}
+        style={interactiveSpotlight ? { pointerEvents: 'none' } : undefined}
+        role="dialog"
+        aria-label={`Product walkthrough step ${stepIndex + 1} of ${totalSteps}`}
+      >
+        {/* SVG backdrop with spotlight cutout */}
+        <svg
+          className="absolute inset-0 w-full h-full"
+          style={{ pointerEvents: 'none' }}
+        >
+          <defs>
+            <mask id={`walkthrough-mask-${stepIndex}`}>
+              <rect width="100%" height="100%" fill="white" />
+              <rect
+                x={spotlightX}
+                y={spotlightY}
+                width={spotlightW}
+                height={spotlightH}
+                rx={8}
+                fill="black"
+              />
+            </mask>
+          </defs>
+          <rect
+            width="100%"
+            height="100%"
+            fill="rgba(0,0,0,0.5)"
+            mask={`url(#walkthrough-mask-${stepIndex})`}
+            style={{ pointerEvents: interactiveSpotlight ? 'none' : 'auto' }}
+            onClick={interactiveSpotlight ? undefined : onSkip}
+          />
+        </svg>
 
-      {/* Tooltip — hidden when tour is paused (overlay stays for focus) */}
-      {!isPaused && (
-        <WalkthroughTooltip
-          title={step.title}
-          description={step.description}
-          placement={step.placement}
-          stepIndex={stepIndex}
-          totalSteps={totalSteps}
-          targetRect={targetRect}
-          onNext={onNext}
-          onSkip={onSkip}
-          isPauseStep={step.pauseAfter}
+        {/* When interactive spotlight: 4 divs block clicks in dark area but leave spotlight open */}
+        {interactiveSpotlight && (
+          <>
+            {/* Top bar */}
+            <div className="fixed left-0 top-0 right-0" style={{ height: spotlightY, pointerEvents: 'auto' }} />
+            {/* Bottom bar */}
+            <div className="fixed left-0 right-0 bottom-0" style={{ top: spotlightY + spotlightH, pointerEvents: 'auto' }} />
+            {/* Left bar */}
+            <div className="fixed left-0" style={{ top: spotlightY, width: Math.max(spotlightX, 0), height: spotlightH, pointerEvents: 'auto' }} />
+            {/* Right bar */}
+            <div className="fixed right-0" style={{ top: spotlightY, left: spotlightX + spotlightW, height: spotlightH, pointerEvents: 'auto' }} />
+          </>
+        )}
+
+        {/* Spotlight border highlight */}
+        <div
+          className="absolute rounded-lg ring-2 ring-primary-400 ring-offset-2"
+          style={{
+            top: spotlightY,
+            left: spotlightX,
+            width: spotlightW,
+            height: spotlightH,
+            pointerEvents: 'none',
+          }}
         />
-      )}
 
-      {/* Guidance tooltip during pause */}
+        {/* Tooltip — hidden when tour is paused (overlay stays for focus) */}
+        {!isPaused && (
+          <WalkthroughTooltip
+            title={step.title}
+            description={step.description}
+            placement={step.placement}
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            targetRect={targetRect}
+            onNext={onNext}
+            onSkip={onSkip}
+            isPauseStep={step.pauseAfter}
+          />
+        )}
+      </div>
+
+      {/* Guidance tooltip — OUTSIDE the pointer-events: none container */}
       {isPaused && pauseGuidance && (
         <div
-          className="bg-white rounded-xl shadow-xl border border-gray-200 p-4 max-w-[280px] animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="fixed z-[61] bg-white rounded-xl shadow-xl border border-gray-200 p-4 max-w-[280px] animate-in fade-in slide-in-from-bottom-2 duration-200"
           style={{
-            position: 'fixed',
-            zIndex: 61,
-            top: targetRect.top + targetRect.height / 2,
-            right: window.innerWidth - targetRect.left + 16,
+            top: guidanceTop,
+            right: guidanceRight,
             transform: 'translateY(-50%)',
-            pointerEvents: 'auto',
           }}
         >
           <p className="text-sm text-gray-700">{pauseGuidance}</p>
@@ -206,6 +225,6 @@ export function WalkthroughOverlay({
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
