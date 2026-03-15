@@ -37,11 +37,20 @@ export function WalkthroughOverlay({
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
+
+    // Clamp to the visible viewport portion of the element
+    const visibleTop = Math.max(rect.top, 0);
+    const visibleBottom = Math.min(rect.bottom, window.innerHeight);
+    const clampedHeight = Math.max(visibleBottom - visibleTop, 0);
+
+    // Cap height so the spotlight highlights a representative area, not the full column
+    const maxHeight = Math.min(clampedHeight, 400);
+
     setTargetRect({
-      top: rect.top,
+      top: visibleTop,
       left: rect.left,
       width: rect.width,
-      height: rect.height,
+      height: maxHeight,
     });
   }, [targetSelector]);
 

@@ -264,16 +264,17 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     skip,
   };
 
-  // Inline sync-waiting banner
+  // Sync-waiting overlay
   const syncWaitingBanner = isActive && waitingForSync ? (
-    <div className="fixed top-16 left-0 right-0 z-40 flex justify-center pointer-events-none">
-      <div className="bg-white border border-primary-200 shadow-lg rounded-lg px-4 py-3 mx-4 mt-2 max-w-md pointer-events-auto">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+      <div className="bg-white border border-primary-200 shadow-xl rounded-xl px-6 py-5 mx-4 max-w-md text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-3" />
         <p className="text-sm text-gray-700">
           Still importing your activities... The tour will start when your data arrives.
         </p>
         <button
           onClick={skip}
-          className="mt-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
+          className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium"
         >
           Skip to dashboard
         </button>

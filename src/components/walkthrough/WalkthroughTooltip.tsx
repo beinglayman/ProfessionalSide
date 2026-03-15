@@ -66,6 +66,14 @@ export function WalkthroughTooltip({
         break;
     }
 
+    // Clamp to viewport so tooltip never goes off-screen
+    if (pos.top !== undefined) {
+      pos.top = Math.max(16, Math.min(pos.top as number, window.innerHeight - 150));
+    }
+    if (pos.left !== undefined && !pos.right) {
+      pos.left = Math.max(16, Math.min(pos.left as number, window.innerWidth - 340));
+    }
+
     return pos;
   }, [placement, targetRect]);
 
