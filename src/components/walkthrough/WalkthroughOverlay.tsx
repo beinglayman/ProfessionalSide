@@ -44,7 +44,7 @@ export function WalkthroughOverlay({
     const clampedHeight = Math.max(visibleBottom - visibleTop, 0);
 
     // Cap height so the spotlight highlights a representative area, not the full column
-    const maxHeight = Math.min(clampedHeight, 400);
+    const maxHeight = Math.min(clampedHeight, 250);
 
     setTargetRect({
       top: visibleTop,
