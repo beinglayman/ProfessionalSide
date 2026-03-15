@@ -36,7 +36,7 @@ export const WALKTHROUGH_STEPS: WalkthroughStep[] = [
     title: 'Evidence-Based Stories',
     description:
       'Your story is built from real evidence — each section is backed by your work.',
-    placement: 'left',
+    placement: 'top',
     route: '/stories',
   },
   {

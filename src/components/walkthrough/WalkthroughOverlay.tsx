@@ -52,14 +52,11 @@ export function WalkthroughOverlay({
     const visibleBottom = Math.min(rect.bottom, window.innerHeight);
     const clampedHeight = Math.max(visibleBottom - visibleTop, 0);
 
-    // Cap height so the spotlight highlights a representative area, not the full column
-    const maxHeight = Math.min(clampedHeight, 250);
-
     setTargetRect({
       top: visibleTop,
       left: rect.left,
       width: rect.width,
-      height: maxHeight,
+      height: clampedHeight,
     });
   }, [targetSelector]);
 
