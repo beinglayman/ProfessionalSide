@@ -36,6 +36,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
   const [showCompletion, setShowCompletion] = useState(false);
   const [targetReady, setTargetReady] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [pausePhase, setPausePhase] = useState<'expand' | 'create'>('expand');
   const [wizardOpen, setWizardOpen] = useState(false);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,6 +184,18 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     return () => window.removeEventListener('walkthrough-wizard-visibility', handler);
   }, [isPaused]);
 
+  // Poll for Create Story button when paused in 'expand' phase
+  useEffect(() => {
+    if (!isPaused || pausePhase !== 'expand') return;
+    const check = () => {
+      if (document.querySelector('[data-walkthrough="create-story-button"]')) {
+        setPausePhase('create');
+      }
+    };
+    const interval = setInterval(check, 300);
+    return () => clearInterval(interval);
+  }, [isPaused, pausePhase]);
+
   // Listen for walkthrough-resume event (wizard completed, navigated to /stories)
   useEffect(() => {
     if (!isPaused) return;
@@ -190,6 +203,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     const handler = () => {
       setIsPaused(false);
       isPausedRef.current = false;
+      setPausePhase('expand');
       setWizardOpen(false);
       sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.paused);
       sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.resumePending);
@@ -288,6 +302,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     setIsActive(false);
     setIsPaused(false);
     isPausedRef.current = false;
+    setPausePhase('expand');
     setWizardOpen(false);
     setShowCompletion(false);
     sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.active);
@@ -337,6 +352,12 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     markComplete();
   }, [markComplete]);
 
+  const pauseGuidance = isPaused
+    ? pausePhase === 'expand'
+      ? 'Go ahead, click on a draft to expand it'
+      : 'Now click Create Story to build your first career story'
+    : undefined;
+
   const contextValue: WalkthroughContextValue = {
     isActive,
     currentStep,
@@ -378,6 +399,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
           onSkip={skip}
           isPaused={isPaused}
           interactiveSpotlight={isPaused && WALKTHROUGH_STEPS[currentStep]?.interactiveSpotlight}
+          pauseGuidance={pauseGuidance}
         />
       )}
       {showCompletion && (

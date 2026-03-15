@@ -205,6 +205,7 @@ export function SidebarDraftCard({
             {/* CTAs */}
             <div className="flex items-center gap-2">
               <button
+                data-walkthrough="create-story-button"
                 onClick={(e) => { e.stopPropagation(); onPromote(); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm transition-colors"
               >

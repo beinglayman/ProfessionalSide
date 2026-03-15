@@ -13,6 +13,8 @@ interface WalkthroughOverlayProps {
   interactiveSpotlight?: boolean;
   /** Tour is paused — show overlay but hide tooltip */
   isPaused?: boolean;
+  /** Contextual guidance text shown during pause */
+  pauseGuidance?: string;
 }
 
 interface TargetRect {
@@ -33,6 +35,7 @@ export function WalkthroughOverlay({
   onSkip,
   interactiveSpotlight,
   isPaused,
+  pauseGuidance,
 }: WalkthroughOverlayProps) {
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const [visible, setVisible] = useState(false);
@@ -108,6 +111,7 @@ export function WalkthroughOverlay({
           ? 'opacity-100 transition-opacity duration-300'
           : 'opacity-0'
       }`}
+      style={interactiveSpotlight ? { pointerEvents: 'none' } : undefined}
       role="dialog"
       aria-label={`Product walkthrough step ${stepIndex + 1} of ${totalSteps}`}
     >
@@ -178,6 +182,29 @@ export function WalkthroughOverlay({
           onSkip={onSkip}
           isPauseStep={step.pauseAfter}
         />
+      )}
+
+      {/* Guidance tooltip during pause */}
+      {isPaused && pauseGuidance && (
+        <div
+          className="bg-white rounded-xl shadow-xl border border-gray-200 p-4 max-w-[280px] animate-in fade-in slide-in-from-bottom-2 duration-200"
+          style={{
+            position: 'fixed',
+            zIndex: 61,
+            top: targetRect.top + targetRect.height / 2,
+            right: window.innerWidth - targetRect.left + 16,
+            transform: 'translateY(-50%)',
+            pointerEvents: 'auto',
+          }}
+        >
+          <p className="text-sm text-gray-700">{pauseGuidance}</p>
+          <button
+            onClick={onSkip}
+            className="mt-2 text-xs text-gray-400 hover:text-gray-600"
+          >
+            Skip tour
+          </button>
+        </div>
       )}
     </div>
   );
