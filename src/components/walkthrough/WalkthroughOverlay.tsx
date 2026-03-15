@@ -50,14 +50,17 @@ export function WalkthroughOverlay({
     const el = document.querySelector(targetSelector);
     if (!el) return;
 
+    // Scroll target into view
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
     updateRect();
 
     // ResizeObserver to handle layout shifts
     observerRef.current = new ResizeObserver(updateRect);
     observerRef.current.observe(el);
 
-    // Also track scroll
-    window.addEventListener('scroll', updateRect, { passive: true });
+    // capture: true catches scroll events from nested scrollable containers
+    document.addEventListener('scroll', updateRect, { capture: true, passive: true });
     window.addEventListener('resize', updateRect, { passive: true });
 
     // Fade in
@@ -65,7 +68,7 @@ export function WalkthroughOverlay({
 
     return () => {
       observerRef.current?.disconnect();
-      window.removeEventListener('scroll', updateRect);
+      document.removeEventListener('scroll', updateRect, { capture: true } as EventListenerOptions);
       window.removeEventListener('resize', updateRect);
     };
   }, [targetSelector, updateRect]);

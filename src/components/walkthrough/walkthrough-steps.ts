@@ -12,7 +12,7 @@ export const WALKTHROUGH_STEPS: WalkthroughStep[] = [
     targetSelector: '[data-walkthrough="activity-stream"]',
     title: 'Your Activity Stream',
     description: 'Your work activity flows in automatically.',
-    placement: 'right',
+    placement: 'bottom',
     route: '/timeline',
   },
   {
