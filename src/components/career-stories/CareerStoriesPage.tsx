@@ -866,6 +866,11 @@ export function CareerStoriesPage() {
       setDerivationInitialType(typeKey);
       setDerivationStoryId(selectedStoryDirect.id);
     }
+
+    // Resume walkthrough if paused at step 4
+    if (sessionStorage.getItem('walkthrough-paused') === 'true') {
+      setTimeout(() => window.dispatchEvent(new Event('walkthrough-resume')), 100);
+    }
   }, [selectedStoryDirect, setSearchParams]);
 
   // =========================================================================

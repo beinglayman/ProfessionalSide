@@ -46,6 +46,8 @@ export const WALKTHROUGH_STEPS: WalkthroughStep[] = [
       'Use your story anywhere — Interview Answer, LinkedIn Post, or Sprint Review.',
     placement: 'bottom',
     route: '/stories',
+    pauseAfter: true,
+    interactiveSpotlight: true,
   },
 ];
 

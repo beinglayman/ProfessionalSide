@@ -161,7 +161,7 @@ export function UseAsDropdown({
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="w-[280px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+          className="w-[280px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl z-[65] animate-in fade-in slide-in-from-top-1 duration-150"
           align="end"
           sideOffset={6}
         >

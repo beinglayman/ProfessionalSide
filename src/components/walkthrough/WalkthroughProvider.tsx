@@ -353,9 +353,13 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
   }, [markComplete]);
 
   const pauseGuidance = isPaused
-    ? pausePhase === 'expand'
-      ? 'Go ahead, click on a draft to expand it'
-      : 'Now click Create Story to build your first career story'
+    ? currentStep === 1
+      ? pausePhase === 'expand'
+        ? 'Go ahead, click on a draft to expand it'
+        : 'Now click Create Story to build your first career story'
+      : currentStep === 3
+        ? 'Go ahead — click Use As and pick any option'
+        : undefined
     : undefined;
 
   const contextValue: WalkthroughContextValue = {
