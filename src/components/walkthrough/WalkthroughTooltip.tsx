@@ -4,12 +4,14 @@ import * as FocusScope from '@radix-ui/react-focus-scope';
 interface WalkthroughTooltipProps {
   title: string;
   description: string;
-  placement: 'top' | 'bottom' | 'left' | 'right';
+  placement: 'top' | 'bottom' | 'left' | 'right' | 'bottom-right';
   stepIndex: number;
   totalSteps: number;
   targetRect: { top: number; left: number; width: number; height: number };
   onNext: () => void;
   onSkip: () => void;
+  /** Show "Got it" CTA instead of "Next" for pause steps */
+  isPauseStep?: boolean;
 }
 
 const TOOLTIP_GAP = 16;
@@ -23,6 +25,7 @@ export function WalkthroughTooltip({
   targetRect,
   onNext,
   onSkip,
+  isPauseStep,
 }: WalkthroughTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const isLastStep = stepIndex === totalSteps - 1;
@@ -63,6 +66,13 @@ export function WalkthroughTooltip({
         pos.bottom = window.innerHeight - targetRect.top + TOOLTIP_GAP;
         pos.left = targetRect.left + targetRect.width / 2;
         pos.transform = 'translateX(-50%)';
+        break;
+      case 'bottom-right':
+        pos.bottom = 24;
+        pos.right = 24;
+        pos.top = undefined;
+        pos.left = undefined;
+        pos.transform = undefined;
         break;
     }
 
@@ -111,7 +121,7 @@ export function WalkthroughTooltip({
               onClick={onNext}
               className="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
             >
-              {isLastStep ? 'Finish' : 'Next'}
+              {isLastStep ? 'Finish' : isPauseStep ? 'Got it' : 'Next'}
             </button>
           </div>
         </div>

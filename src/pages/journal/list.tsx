@@ -33,6 +33,7 @@ import { DraftPeekBar } from '../../components/journal/DraftPeekBar';
 import { DraftSheetContent } from '../../components/journal/DraftSheetContent';
 import { MobileSheet } from '../../components/ui/mobile-sheet';
 import { StoryWizardModal } from '../../components/story-wizard';
+import { WALKTHROUGH_STORAGE_KEYS } from '../../components/walkthrough/walkthrough-steps';
 import { useActivities, isGroupedResponse } from '../../hooks/useActivities';
 import { useDraftTimelineInteraction } from '../../hooks/useDraftTimelineInteraction';
 import { JournalEntryMeta, ToolType } from '../../types/career-stories';
@@ -110,6 +111,14 @@ export default function JournalPage() {
 
   // Story Wizard modal state
   const [storyWizardEntryId, setStoryWizardEntryId] = useState<string | null>(null);
+
+  // Notify walkthrough of wizard visibility changes during pause
+  useEffect(() => {
+    if (sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.paused) !== 'true') return;
+    window.dispatchEvent(new CustomEvent('walkthrough-wizard-visibility', {
+      detail: { isOpen: !!storyWizardEntryId },
+    }));
+  }, [storyWizardEntryId]);
 
   // Integration detection for first-time user experience
   const { data: integrationsData } = useMCPIntegrations();
@@ -440,6 +449,12 @@ export default function JournalPage() {
 
   // Handle Story Wizard completion — clear selection, invalidate stories, navigate
   const handleStoryWizardComplete = async (storyId: string) => {
+    // Signal that walkthrough resume is pending — prevents overlay flash during async work
+    const walkthroughPaused = sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.paused) === 'true';
+    if (walkthroughPaused) {
+      sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.resumePending, 'true');
+    }
+
     setStoryWizardEntryId(null);
     clearSelection();
     setMobileSheetOpen(false);
@@ -456,6 +471,11 @@ export default function JournalPage() {
     queryClient.invalidateQueries({ queryKey: ['activities'] });
     showToast('Career story created!');
     navigate(`/stories?storyId=${storyId}&celebrate=true`);
+
+    // Resume walkthrough after navigation (step 3: narrative preview on /stories)
+    if (walkthroughPaused) {
+      setTimeout(() => window.dispatchEvent(new Event('walkthrough-resume')), 100);
+    }
   };
 
   // Handle regenerate narrative — one at a time, block while in flight

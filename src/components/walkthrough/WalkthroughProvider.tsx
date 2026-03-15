@@ -35,8 +35,11 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
   const [waitingForSync, setWaitingForSync] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [targetReady, setTargetReady] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPausedRef = useRef(false);
 
   // Check if user has already seen the overlay
   const hasSeenOverlay = user?.hasSeenOnboardingOverlay === true;
@@ -51,12 +54,21 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
       sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.active);
       sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.step);
       sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.storyId);
+      sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.paused);
+      sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.resumePending);
       return;
     }
 
     if (active) {
       const step = storedStep ? parseInt(storedStep, 10) : 0;
       setCurrentStep(step);
+
+      // Restore paused state if applicable
+      const paused = sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.paused) === 'true';
+      if (paused) {
+        setIsPaused(true);
+        isPausedRef.current = true;
+      }
 
       // Check if sync is still in progress
       const syncInProgress = sessionStorage.getItem(SYNC_IN_PROGRESS_KEY) === 'true';
@@ -138,9 +150,9 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     return step.targetSelector;
   }, []);
 
-  // Navigate to the correct route for the current step
+  // Navigate to the correct route for the current step (skip during pause)
   useEffect(() => {
-    if (!isActive || waitingForSync || showCompletion) return;
+    if (!isActive || waitingForSync || showCompletion || isPaused) return;
 
     const step = WALKTHROUGH_STEPS[currentStep];
     if (!step) return;
@@ -148,7 +160,56 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     if (location.pathname !== step.route) {
       navigate(step.route);
     }
-  }, [isActive, currentStep, waitingForSync, showCompletion, location.pathname, navigate]);
+  }, [isActive, currentStep, waitingForSync, showCompletion, isPaused, location.pathname, navigate]);
+
+  // Listen for wizard visibility changes during pause
+  useEffect(() => {
+    if (!isPaused) return;
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail.isOpen) {
+        setWizardOpen(true);
+      } else {
+        // Wizard closed — check if resume is pending to avoid overlay flash
+        const resumePending = sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.resumePending) === 'true';
+        if (!resumePending) {
+          setWizardOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('walkthrough-wizard-visibility', handler);
+    return () => window.removeEventListener('walkthrough-wizard-visibility', handler);
+  }, [isPaused]);
+
+  // Listen for walkthrough-resume event (wizard completed, navigated to /stories)
+  useEffect(() => {
+    if (!isPaused) return;
+
+    const handler = () => {
+      setIsPaused(false);
+      isPausedRef.current = false;
+      setWizardOpen(false);
+      sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.paused);
+      sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.resumePending);
+
+      // Advance to next step
+      const nextStep = currentStep + 1;
+      if (nextStep >= WALKTHROUGH_TOTAL_STEPS) {
+        setIsActive(false);
+        setShowCompletion(true);
+        sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.active);
+        sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.step);
+        return;
+      }
+      setCurrentStep(nextStep);
+      sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.step, String(nextStep));
+    };
+
+    window.addEventListener('walkthrough-resume', handler);
+    return () => window.removeEventListener('walkthrough-resume', handler);
+  }, [isPaused, currentStep]);
 
   // Poll for target element in DOM
   useEffect(() => {
@@ -174,12 +235,17 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     // Small delay to let route render
     targetPollRef.current = setTimeout(checkTarget, 300);
 
-    // 15s timeout — if target never appears (e.g. no draft stories), skip this step
+    // 15s timeout — if target never appears (e.g. no draft stories)
+    const stepDef = WALKTHROUGH_STEPS[currentStep];
     const targetTimeout = setTimeout(() => {
       if (!found) {
         found = true;
-        // Skip this step — advance to next or end tour
-        next();
+        // If this is a pause step with no target, end tour gracefully
+        if (stepDef?.pauseAfter) {
+          skip();
+        } else {
+          next();
+        }
       }
     }, 15000);
 
@@ -190,9 +256,9 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, currentStep, waitingForSync, showCompletion, getTargetSelector]);
 
-  // Detect unexpected navigation — end tour
+  // Detect unexpected navigation — end tour (skip during pause — user navigates freely)
   useEffect(() => {
-    if (!isActive || showCompletion || waitingForSync) return;
+    if (!isActive || showCompletion || waitingForSync || isPaused) return;
 
     const step = WALKTHROUGH_STEPS[currentStep];
     if (!step) return;
@@ -202,9 +268,9 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
       markComplete();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, isActive, showCompletion, currentStep, waitingForSync]);
+  }, [location.pathname, isActive, showCompletion, currentStep, waitingForSync, isPaused]);
 
-  // ESC key handler
+  // ESC key handler — works during active and paused states
   useEffect(() => {
     if (!isActive) return;
 
@@ -220,10 +286,15 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
 
   const markComplete = useCallback(async () => {
     setIsActive(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    setWizardOpen(false);
     setShowCompletion(false);
     sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.active);
     sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.step);
     sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.storyId);
+    sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.paused);
+    sessionStorage.removeItem(WALKTHROUGH_STORAGE_KEYS.resumePending);
 
     try {
       await api.patch('/users/walkthrough-complete');
@@ -234,6 +305,16 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
   }, [refetchUser]);
 
   const next = useCallback(() => {
+    const step = WALKTHROUGH_STEPS[currentStep];
+
+    // If this step pauses the tour, enter paused state instead of advancing
+    if (step?.pauseAfter) {
+      setIsPaused(true);
+      isPausedRef.current = true;
+      sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.paused, 'true');
+      return;
+    }
+
     const nextStep = currentStep + 1;
     if (nextStep >= WALKTHROUGH_TOTAL_STEPS) {
       // Tour complete — show completion screen
@@ -286,7 +367,8 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     <WalkthroughContext.Provider value={contextValue}>
       {children}
       {syncWaitingBanner}
-      {isActive && !waitingForSync && targetReady && (
+      {/* Normal overlay (active, not paused) */}
+      {isActive && !isPaused && !waitingForSync && targetReady && (
         <WalkthroughOverlay
           step={WALKTHROUGH_STEPS[currentStep]}
           stepIndex={currentStep}
@@ -294,6 +376,19 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
           targetSelector={getTargetSelector(currentStep)!}
           onNext={next}
           onSkip={skip}
+        />
+      )}
+      {/* Paused overlay — spotlight stays for focus, tooltip hidden, wizard not open */}
+      {isActive && isPaused && !wizardOpen && targetReady && (
+        <WalkthroughOverlay
+          step={WALKTHROUGH_STEPS[currentStep]}
+          stepIndex={currentStep}
+          totalSteps={WALKTHROUGH_TOTAL_STEPS}
+          targetSelector={getTargetSelector(currentStep)!}
+          onNext={next}
+          onSkip={skip}
+          isPaused={true}
+          interactiveSpotlight={WALKTHROUGH_STEPS[currentStep]?.interactiveSpotlight}
         />
       )}
       {showCompletion && (

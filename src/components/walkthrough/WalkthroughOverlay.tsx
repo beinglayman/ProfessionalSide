@@ -9,6 +9,10 @@ interface WalkthroughOverlayProps {
   targetSelector: string;
   onNext: () => void;
   onSkip: () => void;
+  /** Spotlight area allows click-through to underlying elements */
+  interactiveSpotlight?: boolean;
+  /** Tour is paused — show overlay but hide tooltip */
+  isPaused?: boolean;
 }
 
 interface TargetRect {
@@ -27,6 +31,8 @@ export function WalkthroughOverlay({
   targetSelector,
   onNext,
   onSkip,
+  interactiveSpotlight,
+  isPaused,
 }: WalkthroughOverlayProps) {
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const [visible, setVisible] = useState(false);
@@ -127,10 +133,24 @@ export function WalkthroughOverlay({
           height="100%"
           fill="rgba(0,0,0,0.5)"
           mask={`url(#walkthrough-mask-${stepIndex})`}
-          style={{ pointerEvents: 'auto' }}
-          onClick={onSkip}
+          style={{ pointerEvents: interactiveSpotlight ? 'none' : 'auto' }}
+          onClick={interactiveSpotlight ? undefined : onSkip}
         />
       </svg>
+
+      {/* When interactive spotlight: 4 divs block clicks in dark area but leave spotlight open */}
+      {interactiveSpotlight && (
+        <>
+          {/* Top bar */}
+          <div className="fixed left-0 top-0 right-0" style={{ height: spotlightY, pointerEvents: 'auto' }} />
+          {/* Bottom bar */}
+          <div className="fixed left-0 right-0 bottom-0" style={{ top: spotlightY + spotlightH, pointerEvents: 'auto' }} />
+          {/* Left bar */}
+          <div className="fixed left-0" style={{ top: spotlightY, width: Math.max(spotlightX, 0), height: spotlightH, pointerEvents: 'auto' }} />
+          {/* Right bar */}
+          <div className="fixed right-0" style={{ top: spotlightY, left: spotlightX + spotlightW, height: spotlightH, pointerEvents: 'auto' }} />
+        </>
+      )}
 
       {/* Spotlight border highlight */}
       <div
@@ -144,17 +164,20 @@ export function WalkthroughOverlay({
         }}
       />
 
-      {/* Tooltip */}
-      <WalkthroughTooltip
-        title={step.title}
-        description={step.description}
-        placement={step.placement}
-        stepIndex={stepIndex}
-        totalSteps={totalSteps}
-        targetRect={targetRect}
-        onNext={onNext}
-        onSkip={onSkip}
-      />
+      {/* Tooltip — hidden when tour is paused (overlay stays for focus) */}
+      {!isPaused && (
+        <WalkthroughTooltip
+          title={step.title}
+          description={step.description}
+          placement={step.placement}
+          stepIndex={stepIndex}
+          totalSteps={totalSteps}
+          targetRect={targetRect}
+          onNext={onNext}
+          onSkip={onSkip}
+          isPauseStep={step.pauseAfter}
+        />
+      )}
     </div>
   );
 }

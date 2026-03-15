@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStoriesService } from '../../services/career-stories.service';
+import { WALKTHROUGH_STORAGE_KEYS } from '../walkthrough/walkthrough-steps';
 import {
   StoryArchetype,
   NarrativeFramework,
@@ -76,6 +77,11 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
   // Generate state
   const [generateResult, setGenerateResult] = useState<WizardGenerateResponse | null>(null);
+
+  // Walkthrough coaching — check once on mount to avoid re-renders
+  const walkthroughPausedRef = useRef(
+    sessionStorage.getItem(WALKTHROUGH_STORAGE_KEYS.paused) === 'true'
+  );
 
   // Guard against state updates after close/unmount
   const mountedRef = useRef(true);
@@ -165,7 +171,16 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     ? currentQuestionIndex === analyzeResult.questions.length - 1
     : false;
 
+  const wizardCommentary = walkthroughPausedRef.current
+    ? step === 'analyze'
+      ? { title: 'Shape Your Story', description: 'Pick an archetype that matches your role in this story \u2014 it shapes how the narration reads. Choose a format to structure it.' }
+      : step === 'questions'
+      ? { title: 'Add What Only You Know', description: 'These are things only you would know. Your answers fill in context AI can\u2019t find in your data \u2014 they make this story yours.' }
+      : null
+    : null;
+
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={cn(
         'max-w-2xl max-h-[85vh] flex flex-col border-2 border-transparent ai-moving-border',
@@ -377,6 +392,15 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Walkthrough coaching tooltip — shown during tour pause while wizard is open */}
+    {wizardCommentary && (
+      <div className="fixed bottom-4 right-4 z-[55] max-w-xs bg-gray-900 text-white rounded-xl p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <p className="text-xs text-gray-400 mb-1 font-medium">{wizardCommentary.title}</p>
+        <p className="text-sm leading-relaxed">{wizardCommentary.description}</p>
+      </div>
+    )}
+    </>
   );
 };
 
