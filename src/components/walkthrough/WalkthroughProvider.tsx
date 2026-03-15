@@ -367,8 +367,8 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     <WalkthroughContext.Provider value={contextValue}>
       {children}
       {syncWaitingBanner}
-      {/* Normal overlay (active, not paused) */}
-      {isActive && !isPaused && !waitingForSync && targetReady && (
+      {/* Single overlay — stays mounted across pause transitions to avoid remount flicker */}
+      {isActive && !waitingForSync && targetReady && !(isPaused && wizardOpen) && (
         <WalkthroughOverlay
           step={WALKTHROUGH_STEPS[currentStep]}
           stepIndex={currentStep}
@@ -376,19 +376,8 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
           targetSelector={getTargetSelector(currentStep)!}
           onNext={next}
           onSkip={skip}
-        />
-      )}
-      {/* Paused overlay — spotlight stays for focus, tooltip hidden, wizard not open */}
-      {isActive && isPaused && !wizardOpen && targetReady && (
-        <WalkthroughOverlay
-          step={WALKTHROUGH_STEPS[currentStep]}
-          stepIndex={currentStep}
-          totalSteps={WALKTHROUGH_TOTAL_STEPS}
-          targetSelector={getTargetSelector(currentStep)!}
-          onNext={next}
-          onSkip={skip}
-          isPaused={true}
-          interactiveSpotlight={WALKTHROUGH_STEPS[currentStep]?.interactiveSpotlight}
+          isPaused={isPaused}
+          interactiveSpotlight={isPaused && WALKTHROUGH_STEPS[currentStep]?.interactiveSpotlight}
         />
       )}
       {showCompletion && (

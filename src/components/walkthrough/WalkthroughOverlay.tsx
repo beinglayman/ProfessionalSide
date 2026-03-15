@@ -65,7 +65,8 @@ export function WalkthroughOverlay({
     const el = document.querySelector(targetSelector);
     if (!el) return;
 
-    // Scroll target into view
+    // Scroll page to top first, then bring target into view
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     updateRect();
