@@ -83,6 +83,11 @@ export function WalkthroughTooltip({
     if (pos.left !== undefined && !pos.right) {
       pos.left = Math.max(16, Math.min(pos.left as number, window.innerWidth - 340));
     }
+    // Clamp right-positioned tooltips so they don't overflow past the left viewport edge
+    if (pos.right !== undefined && !pos.left) {
+      const maxRight = window.innerWidth - 320 - 16;
+      pos.right = Math.min(pos.right as number, maxRight);
+    }
 
     return pos;
   }, [placement, targetRect]);

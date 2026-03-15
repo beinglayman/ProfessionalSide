@@ -511,7 +511,7 @@ export function NarrativePreview({
                 </span>
               )}
 
-              <div className="flex items-center gap-1 ml-auto">
+              <div className="flex items-center gap-1 ml-auto" data-walkthrough="use-as-dropdown">
                 {story?.id && (
                   <StoryUseAs
                     storyId={story.id}
