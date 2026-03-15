@@ -192,7 +192,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
 
   // Detect unexpected navigation — end tour
   useEffect(() => {
-    if (!isActive || showCompletion) return;
+    if (!isActive || showCompletion || waitingForSync) return;
 
     const step = WALKTHROUGH_STEPS[currentStep];
     if (!step) return;
@@ -202,7 +202,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
       markComplete();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, isActive, showCompletion, currentStep]);
+  }, [location.pathname, isActive, showCompletion, currentStep, waitingForSync]);
 
   // ESC key handler
   useEffect(() => {
