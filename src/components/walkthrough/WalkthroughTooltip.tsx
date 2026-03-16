@@ -9,7 +9,7 @@ interface WalkthroughTooltipProps {
   totalSteps: number;
   targetRect: { top: number; left: number; width: number; height: number };
   onNext: () => void;
-  onSkip: () => void;
+  onPrevious: () => void;
   /** Show "Got it" CTA instead of "Next" for pause steps */
   isPauseStep?: boolean;
 }
@@ -24,7 +24,7 @@ export function WalkthroughTooltip({
   totalSteps,
   targetRect,
   onNext,
-  onSkip,
+  onPrevious,
   isPauseStep,
 }: WalkthroughTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -115,12 +115,14 @@ export function WalkthroughTooltip({
             {stepIndex + 1} of {totalSteps}
           </span>
           <div className="flex items-center gap-2">
-            <button
-              onClick={onSkip}
-              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
-            >
-              Skip
-            </button>
+            {stepIndex > 0 && (
+              <button
+                onClick={onPrevious}
+                className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+              >
+                Previous
+              </button>
+            )}
             <button
               data-walkthrough-next
               onClick={onNext}

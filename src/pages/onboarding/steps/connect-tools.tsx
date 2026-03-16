@@ -71,7 +71,6 @@ export function ConnectToolsStep({
       await onNext();
     } catch (err) {
       setError('Failed to save. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };

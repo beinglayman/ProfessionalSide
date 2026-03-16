@@ -395,9 +395,9 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
     {/* Walkthrough coaching tooltip — shown during tour pause while wizard is open */}
     {wizardCommentary && (
-      <div className="fixed bottom-4 right-4 z-[55] max-w-xs bg-gray-900 text-white rounded-xl p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <p className="text-xs text-gray-400 mb-1 font-medium">{wizardCommentary.title}</p>
-        <p className="text-sm leading-relaxed">{wizardCommentary.description}</p>
+      <div className="fixed bottom-4 right-4 z-[55] max-w-xs bg-white border border-gray-200 text-gray-900 rounded-xl p-4 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <p className="text-xs text-primary-600 mb-1 font-medium">{wizardCommentary.title}</p>
+        <p className="text-sm text-gray-600 leading-relaxed">{wizardCommentary.description}</p>
       </div>
     )}
     </>

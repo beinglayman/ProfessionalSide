@@ -8,6 +8,7 @@ interface WalkthroughOverlayProps {
   totalSteps: number;
   targetSelector: string;
   onNext: () => void;
+  onPrevious: () => void;
   onSkip: () => void;
   /** Spotlight area allows click-through to underlying elements */
   interactiveSpotlight?: boolean;
@@ -32,6 +33,7 @@ export function WalkthroughOverlay({
   totalSteps,
   targetSelector,
   onNext,
+  onPrevious,
   onSkip,
   interactiveSpotlight,
   isPaused,
@@ -197,7 +199,7 @@ export function WalkthroughOverlay({
             totalSteps={totalSteps}
             targetRect={targetRect}
             onNext={onNext}
-            onSkip={onSkip}
+            onPrevious={onPrevious}
             isPauseStep={step.pauseAfter}
           />
         )}

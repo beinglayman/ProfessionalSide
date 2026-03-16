@@ -16,6 +16,7 @@ interface WalkthroughContextValue {
   currentStep: number;
   totalSteps: number;
   next: () => void;
+  previous: () => void;
   skip: () => void;
 }
 
@@ -344,6 +345,13 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.step, String(nextStep));
   }, [currentStep]);
 
+  const previous = useCallback(() => {
+    if (currentStep <= 0) return;
+    const prevStep = currentStep - 1;
+    setCurrentStep(prevStep);
+    sessionStorage.setItem(WALKTHROUGH_STORAGE_KEYS.step, String(prevStep));
+  }, [currentStep]);
+
   const skip = useCallback(() => {
     markComplete();
   }, [markComplete]);
@@ -367,6 +375,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     currentStep,
     totalSteps: WALKTHROUGH_TOTAL_STEPS,
     next,
+    previous,
     skip,
   };
 
@@ -378,12 +387,11 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
         <p className="text-sm text-gray-700">
           Still importing your activities... The tour will start when your data arrives.
         </p>
-        <button
-          onClick={skip}
-          className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium"
-        >
-          Skip to dashboard
-        </button>
+        <div className="mt-3 flex items-center justify-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
       </div>
     </div>
   ) : null;
@@ -400,6 +408,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
           totalSteps={WALKTHROUGH_TOTAL_STEPS}
           targetSelector={getTargetSelector(currentStep)!}
           onNext={next}
+          onPrevious={previous}
           onSkip={skip}
           isPaused={isPaused}
           interactiveSpotlight={isPaused && WALKTHROUGH_STEPS[currentStep]?.interactiveSpotlight}
