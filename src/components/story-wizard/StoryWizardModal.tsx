@@ -176,6 +176,8 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
       ? { title: 'Shape Your Story', description: 'Pick an archetype that matches your role in this story \u2014 it shapes how the narration reads. Choose a format to structure it.' }
       : step === 'questions'
       ? { title: 'Add What Only You Know', description: 'These are things only you would know. Your answers fill in context AI can\u2019t find in your data \u2014 they make this story yours.' }
+      : step === 'generate'
+      ? { title: 'Generating Your Story', description: 'Sit tight \u2014 we\u2019re weaving your work data and answers into a narrative. This usually takes about 10 seconds.' }
       : null
     : null;
 
