@@ -10,6 +10,7 @@
  *   slides     → google-drive (presentation)
  *   driveFiles → google-drive (excluding docs/sheets/slides)
  *   meetRec.   → google-meet
+ *   calendarEvents → google-calendar
  */
 
 import { ActivityInput } from '../../career-stories/activity-persistence.service';
@@ -137,6 +138,32 @@ export function transformGoogleWorkspaceActivity(data: any): ActivityInput[] {
           mimeType: recording.mimeType,
           duration: recording.duration,
           size: recording.size,
+        },
+      });
+    }
+  }
+
+  // Transform Calendar events
+  if (data.calendarEvents?.length) {
+    for (const event of data.calendarEvents) {
+      activities.push({
+        source: 'google-calendar',
+        sourceId: `event:${event.id}`,
+        sourceUrl: event.htmlLink || null,
+        title: event.summary || 'Untitled Event',
+        description: event.attendees
+          ? `${event.attendees} attendee${event.attendees !== 1 ? 's' : ''}`
+          : null,
+        timestamp: new Date(event.start || new Date()),
+        rawData: {
+          type: 'calendar_event',
+          id: event.id,
+          summary: event.summary,
+          start: event.start,
+          end: event.end,
+          organizer: event.organizer,
+          status: event.status,
+          attendees: event.attendees,
         },
       });
     }

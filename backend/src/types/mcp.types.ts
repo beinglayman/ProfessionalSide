@@ -637,6 +637,16 @@ export interface GoogleWorkspaceActivity {
     duration?: string;
     size?: string;
   }>;
+  calendarEvents: Array<{
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    htmlLink?: string;
+    attendees?: number;
+    organizer?: string;
+    status?: string;
+  }>;
 }
 
 // ============================================================================

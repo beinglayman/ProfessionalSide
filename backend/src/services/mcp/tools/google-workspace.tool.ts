@@ -111,13 +111,24 @@ export class GoogleWorkspaceTool {
           modifiedTime: slide.modifiedTime,
           lastModifiedBy: slide.lastModifyingUser?.displayName || slide.lastModifyingUser?.emailAddress
         })),
-        meetRecordings
+        meetRecordings,
+        calendarEvents: calendarEvents.map(event => ({
+          id: event.id,
+          summary: event.summary || 'Untitled Event',
+          start: event.start?.dateTime || event.start?.date || '',
+          end: event.end?.dateTime || event.end?.date || '',
+          htmlLink: event.htmlLink,
+          attendees: event.attendees?.length || 0,
+          organizer: event.organizer?.displayName || event.organizer?.email,
+          status: event.status,
+        })),
       };
 
       // Calculate total items
       const itemCount =
         driveFiles.length +
-        meetRecordings.length;
+        meetRecordings.length +
+        calendarEvents.length;
 
       // Store in memory-only session
       const sessionId = this.sessionService.createSession(
