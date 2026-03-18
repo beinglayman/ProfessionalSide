@@ -159,7 +159,6 @@ export function WalkthroughOverlay({
             fill="rgba(0,0,0,0.5)"
             mask={`url(#walkthrough-mask-${stepIndex})`}
             style={{ pointerEvents: interactiveSpotlight ? 'none' : 'auto' }}
-            onClick={interactiveSpotlight ? undefined : onSkip}
           />
         </svg>
 

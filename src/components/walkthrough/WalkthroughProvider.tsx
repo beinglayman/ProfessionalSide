@@ -285,9 +285,9 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isActive, showCompletion, currentStep, waitingForSync, isPaused]);
 
-  // ESC key handler — works during active and paused states
+  // ESC key handler — exits tour when active but not during pause (user is interacting)
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || isPaused) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -297,7 +297,7 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
+  }, [isActive, isPaused]);
 
   const markComplete = useCallback(async () => {
     setIsActive(false);
