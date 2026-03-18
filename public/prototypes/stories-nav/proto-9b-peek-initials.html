@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 9B — Slideover with Initial Peek Strip | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              DEFAULT: '#5D259F',
+              light: '#F3EBFC',
+              100: '#E8D7F9',
+            },
+            offblack: '#1a1a2e',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: #fff; color: #1a1a2e; }
+
+    /* Scrollbar styling */
+    .scroll-area::-webkit-scrollbar { width: 6px; }
+    .scroll-area::-webkit-scrollbar-track { background: transparent; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .scroll-area::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+    /* Story card in list view */
+    .story-card {
+      transition: all 200ms ease;
+      cursor: pointer;
+    }
+    .story-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transform: translateY(-1px);
+    }
+
+    /* Source pill */
+    .source-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+      background: #f3f4f6; color: #6b7280;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+    }
+    .status-published { background: #d1fae5; color: #065f46; }
+    .status-saved { background: #dbeafe; color: #1e40af; }
+    .status-polish { background: #fef3c7; color: #92400e; }
+
+    /* Framework badge */
+    .framework-badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+      background: #E8D7F9; color: #5D259F; letter-spacing: 0.025em;
+    }
+
+    /* Action buttons */
+    .action-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+      border: 1px solid #e5e7eb; background: #fff; color: #374151;
+      cursor: pointer; transition: all 150ms ease;
+    }
+    .action-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+    .action-btn.primary { background: #5D259F; color: #fff; border-color: #5D259F; }
+    .action-btn.primary:hover { background: #4c1d84; }
+
+    /* Peek strip */
+    .peek-strip {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: 48px;
+      background: #f9fafb;
+      border-left: 1px solid #e5e7eb;
+      z-index: 50;
+      transition: width 300ms ease, background-color 300ms ease;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .peek-strip.expanded {
+      width: 280px;
+      background: #fff;
+      box-shadow: -8px 0 24px rgba(0,0,0,0.12);
+    }
+
+    /* Toggle button */
+    .strip-toggle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #f3f4f6;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 150ms ease;
+      color: #6b7280;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .strip-toggle:hover {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    /* Collapsed initials column */
+    .peek-initials {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding-top: 12px;
+      width: 48px;
+      flex-shrink: 0;
+      transition: opacity 200ms ease;
+    }
+    .peek-strip.expanded .peek-initials {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .initial-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .initial-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 200ms ease;
+    }
+    .initial-circle:hover {
+      background: #d1d5db;
+      transform: scale(1.1);
+    }
+    .initial-circle.active {
+      background: #5D259F;
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(93, 37, 159, 0.2);
+    }
+    .initial-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* Expanded content */
+    .peek-expanded-content {
+      opacity: 0;
+      transition: opacity 200ms ease 150ms;
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .peek-strip.expanded .peek-expanded-content {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Rich mini card in expanded strip */
+    .rich-mini-card {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 150ms ease;
+      border-left: 3px solid transparent;
+    }
+    .rich-mini-card:hover {
+      background: #f9fafb;
+    }
+    .rich-mini-card.active {
+      border-left-color: #5D259F;
+      background: #F3EBFC;
+    }
+
+    /* Detail area transition */
+    .detail-area {
+      transition: margin-right 300ms ease;
+    }
+
+    /* STAR section */
+    .star-section {
+      border-left: 3px solid #E8D7F9;
+      padding-left: 16px;
+      margin-bottom: 20px;
+    }
+    .star-section:hover {
+      border-left-color: #5D259F;
+    }
+    .star-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5D259F;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    /* Fade in animation */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in-up {
+      animation: fadeInUp 300ms ease forwards;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app" class="min-h-screen bg-white">
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      </div>
+      <h1 class="text-lg font-semibold text-offblack">Career Stories</h1>
+      <span id="headerSubtitle" class="text-sm text-gray-400 ml-1">6 stories</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="action-btn" onclick="showListView()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        All Stories
+      </button>
+      <button class="action-btn primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        New Story
+      </button>
+    </div>
+  </header>
+
+  <!-- List View -->
+  <div id="listView" class="max-w-5xl mx-auto px-6 py-8">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-offblack mb-1">Your Stories</h2>
+      <p class="text-gray-500 text-sm">Click a story to view its full detail with the initial-peek navigation strip.</p>
+    </div>
+    <div id="storyGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  </div>
+
+  <!-- Detail View (hidden initially) -->
+  <div id="detailView" class="hidden">
+    <!-- Detail content area -->
+    <div id="detailArea" class="detail-area overflow-y-auto scroll-area" style="height: calc(100vh - 65px); margin-right: 48px;">
+      <div class="max-w-[720px] mx-auto px-6 py-8">
+        <div id="detailContent"></div>
+      </div>
+    </div>
+
+    <!-- Peek strip -->
+    <div id="peekStrip" class="peek-strip">
+      <!-- Collapsed: toggle + initials -->
+      <div class="peek-initials" id="peekInitials">
+        <button class="strip-toggle mb-2" onclick="toggleStrip(event)" title="Expand story list">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div id="initialsList"></div>
+      </div>
+
+      <!-- Expanded: toggle + rich list -->
+      <div class="peek-expanded-content">
+        <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <button onclick="showListView()" class="flex items-center gap-2 text-sm font-medium text-brand hover:text-purple-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            All Stories
+          </button>
+          <button class="strip-toggle" onclick="toggleStrip(event)" title="Collapse panel">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="peekRichList" class="flex-1 overflow-y-auto scroll-area py-2"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Mock data
+const stories = [
+  {
+    id: 1,
+    title: "Led Cloud Migration to AWS",
+    framework: "STAR",
+    status: "Published",
+    sources: ["Jira", "GitHub"],
+    date: "Mar 12, 2026",
+    sections: {
+      situation: "Our legacy on-premise infrastructure was struggling to keep up with growing traffic demands, resulting in frequent outages during peak hours. The CTO mandated a full migration to cloud-native architecture within six months to support our expanding user base of 2M+ monthly active users.",
+      task: "As the lead cloud architect, I was tasked with designing and executing the migration strategy for 47 microservices to AWS. I needed to ensure zero downtime during the transition while simultaneously reducing our infrastructure costs by at least 25%.",
+      action: "I designed a phased migration plan using a strangler fig pattern, starting with stateless services before tackling stateful workloads. I implemented infrastructure-as-code using Terraform, set up CI/CD pipelines with GitHub Actions for automated deployments, and established comprehensive monitoring with CloudWatch and Datadog. I also led weekly migration syncs with all 4 engineering squads and created detailed runbooks for each service cutover.",
+      result: "Successfully migrated all 47 services to AWS with zero customer-facing downtime. Reduced monthly infrastructure costs by 34% ($28K/month savings). Improved average API response times by 45%, and deployment frequency increased from weekly to multiple times per day."
+    }
+  },
+  {
+    id: 2,
+    title: "Redesigned Onboarding Flow",
+    framework: "STAR",
+    status: "Saved",
+    sources: ["Figma", "Slack"],
+    date: "Mar 8, 2026",
+    sections: {
+      situation: "User activation rates had plateaued at 23%, well below the industry benchmark of 40%. Analytics showed that 62% of new users dropped off during the onboarding flow, with most abandoning at the profile completion step.",
+      task: "I was responsible for leading a cross-functional redesign of the entire onboarding experience, working with product, design, and engineering to deliver an improved flow within one quarter. The target was to increase activation to at least 35%.",
+      action: "Conducted 15 user interviews and analyzed session recordings to identify key friction points. Collaborated with the design team in Figma to prototype a progressive disclosure onboarding that reduced required fields from 12 to 4. Implemented A/B testing infrastructure and ran three sequential experiments over 8 weeks. Coordinated async updates via dedicated Slack channels to keep all stakeholders aligned.",
+      result: "Increased user activation rate from 23% to 41%, exceeding the 35% target. Reduced onboarding completion time from 4.2 minutes to 1.8 minutes. The new flow was adopted as the company-wide standard for all product onboarding experiences."
+    }
+  },
+  {
+    id: 3,
+    title: "Reduced API Latency by 40%",
+    framework: "SOAR",
+    status: "Published",
+    sources: ["GitHub", "Datadog"],
+    date: "Mar 5, 2026",
+    sections: {
+      situation: "Our core API endpoints were averaging 340ms response times, causing poor user experience and triggering SLA warnings from enterprise clients. Datadog dashboards showed P99 latency spikes exceeding 2 seconds during business hours.",
+      task: "I was assigned to lead a performance optimization initiative to bring average API latency below 200ms and P99 below 800ms, while maintaining feature development velocity across the team.",
+      action: "Profiled all critical endpoints using Datadog APM traces and identified N+1 query patterns as the primary bottleneck. Implemented database query optimization with proper indexing and eager loading, added Redis caching for frequently accessed data, and introduced connection pooling. Refactored three hot-path endpoints to use async processing. Set up automated performance regression tests in the CI pipeline via GitHub Actions.",
+      result: "Reduced average API latency from 340ms to 195ms (43% improvement) and P99 from 2.1s to 620ms. Zero SLA violations in the following quarter. The performance testing framework I built was adopted by two other teams, preventing 12 potential regressions before they reached production."
+    }
+  },
+  {
+    id: 4,
+    title: "Built Real-Time Analytics Dashboard",
+    framework: "STAR",
+    status: "Needs Polish",
+    sources: ["Jira", "GitHub", "Confluence"],
+    date: "Feb 28, 2026",
+    sections: {
+      situation: "The product team relied on manually-generated weekly reports to track key business metrics, causing decisions to be based on stale data. Stakeholders frequently requested ad-hoc queries that consumed 10+ engineering hours per week.",
+      task: "I was charged with designing and building a real-time analytics dashboard that would surface key product metrics with less than 5-minute data freshness. The solution needed to handle 50M+ events per day and serve 200+ concurrent internal users.",
+      action: "Architected a streaming data pipeline using Kafka and Apache Flink for real-time event processing. Built the dashboard frontend with React and D3.js, implementing efficient WebSocket connections for live data updates. Documented the entire architecture and API contracts in Confluence. Managed the project through Jira with two-week sprints, coordinating across data engineering and frontend teams.",
+      result: "Delivered the dashboard on schedule, processing 50M+ events daily with sub-minute data freshness. Eliminated 10+ hours of weekly ad-hoc reporting work. Dashboard adoption reached 95% among product and leadership teams within the first month."
+    }
+  },
+  {
+    id: 5,
+    title: "Mentored 3 Junior Engineers",
+    framework: "CAR",
+    status: "Saved",
+    sources: ["Slack"],
+    date: "Feb 20, 2026",
+    sections: {
+      situation: "Three junior engineers joined the team simultaneously during a period of rapid growth. The team lacked a formal mentorship program, and previous new hires had taken 4-6 months to become productive contributors.",
+      task: "I volunteered to design and lead a structured mentorship program to accelerate the ramp-up of all three junior engineers while maintaining my own project deliverables.",
+      action: "Created a 12-week mentorship curriculum covering code review practices, system design fundamentals, and team-specific domain knowledge. Established weekly 1:1 sessions with each mentee, pair programming slots, and a dedicated Slack channel for async Q&A. Designed progressively challenging project assignments that aligned with real team priorities so their learning contributed directly to sprint goals.",
+      result: "All three engineers reached full productivity within 10 weeks, cutting the average ramp time by 50%. Two mentees received 'exceeds expectations' ratings in their first performance cycle. The mentorship program was formalized and adopted across the engineering organization, now serving 15+ mentee-mentor pairs."
+    }
+  },
+  {
+    id: 6,
+    title: "Launched Mobile App v2.0",
+    framework: "STAR",
+    status: "Published",
+    sources: ["Jira", "Figma", "GitHub"],
+    date: "Feb 14, 2026",
+    sections: {
+      situation: "The mobile app had a 2.8-star rating on the App Store with consistent complaints about performance, crashes, and outdated UI. Monthly active users had declined 18% over two quarters, threatening the company's mobile-first strategy.",
+      task: "As the mobile tech lead, I was responsible for delivering a complete v2.0 rebuild that would address performance issues, modernize the UI, and reverse the user decline trend within one quarter of launch.",
+      action: "Led a team of 5 engineers in rebuilding the app using React Native with a focus on performance-first architecture. Worked closely with designers in Figma to implement a refreshed design system with smooth animations and gesture-based navigation. Established a rigorous QA process with automated testing covering 85% of user flows. Managed the project in Jira with weekly demos to stakeholders, and coordinated a phased rollout starting with 10% of users.",
+      result: "Launched v2.0 on schedule. App Store rating improved from 2.8 to 4.6 stars within 6 weeks. Crash rate dropped from 3.2% to 0.4%. Monthly active users increased by 32% in the first quarter post-launch, and the app was featured in Apple's 'Apps We Love' collection."
+    }
+  }
+];
+
+const sourceIcons = {
+  Jira: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#2684FF"><path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23 0H11.443a5.217 5.217 0 0 0 5.214 5.217h2.129v2.054A5.22 5.22 0 0 0 24 12.49V1.005A1.005 1.005 0 0 0 23 0z"/></svg>`,
+  GitHub: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#333"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>`,
+  Figma: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#F24E1E"><path d="M15.852 8.981h-4.588V0h4.588c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.491-4.49 4.491zM12.735 7.51h3.117c1.665 0 3.019-1.355 3.019-3.019s-1.354-3.019-3.019-3.019h-3.117V7.51zm0 8.943h-4.588c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h4.588v8.98zM4.147 11.963c0 1.665 1.354 3.019 3.019 3.019h3.117V8.943H7.166c-1.665 0-3.019 1.355-3.019 3.02zm4.59 7.51c-2.477 0-4.49-2.015-4.49-4.491s2.014-4.49 4.49-4.49h3.117v4.49c0 2.476-2.013 4.491-4.49 4.491h-.628zm-.001-7.51h.628c-1.665 0-3.019 1.354-3.019 3.019s1.354 3.02 3.019 3.02 3.019-1.355 3.019-3.02v-3.019H8.736zm7.116-8.962c-2.476 0-4.49 2.014-4.49 4.49v4.49h4.49c2.476 0 4.49-2.013 4.49-4.49s-2.014-4.49-4.49-4.49z"/></svg>`,
+  Slack: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#E01E5A"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>`,
+  Datadog: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#632CA6"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm4.94 17.4c-.6.84-1.8.96-2.64.36-.84-.6-.96-1.8-.36-2.64.6-.84 1.8-.96 2.64-.36.84.6.96 1.8.36 2.64zM16.5 12c0 1.38-.72 2.58-1.8 3.3l-.12-.12c-.78-.6-.78-1.08-.6-1.68.18-.66.18-1.26-.12-1.98-.24-.6-.72-1.08-.72-1.08s.48-.06.96.24c.54.36 1.14 1.02 1.38 1.98.36-.42.54-.96.54-1.56 0-1.38-1.14-2.52-2.52-2.52-1.02 0-1.92.6-2.28 1.5l-.06.12c-.42 1.02-.12 2.16.6 2.94.84.9 1.02 2.1.42 3.18-.12.18-.24.36-.42.54-1.44-.42-2.58-1.56-3.06-3.06-.66-2.04.12-4.26 1.86-5.46-.06-.48-.06-1.02.06-1.5.18-.6.48-1.02.48-1.02s.6.54.96 1.38c.18.48.3.96.3 1.38 1.2-.54 2.58-.66 3.84-.24 1.56.48 2.76 1.74 3.24 3.3.06.24.12.48.12.72z"/></svg>`,
+  Confluence: `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#2684FF"><path d="M.87 18.257c-.248.382-.53.875-.763 1.245a.764.764 0 0 0 .255 1.04l4.965 3.054a.764.764 0 0 0 1.058-.26c.199-.332.49-.842.816-1.424 1.542-2.737 3.236-2.39 6.282-.865l4.9 2.454a.764.764 0 0 0 1.021-.382l2.381-5.293a.764.764 0 0 0-.382-1.006c-1.296-.617-3.986-1.923-5.392-2.638-5.659-2.884-9.592-2.357-15.141 4.075zm22.26-12.514c.248-.382.53-.875.763-1.245a.764.764 0 0 0-.255-1.04L18.673.404a.764.764 0 0 0-1.058.26c-.199.332-.49.842-.816 1.424-1.542 2.737-3.236 2.39-6.282.865L5.618.499A.764.764 0 0 0 4.597.88L2.216 6.174a.764.764 0 0 0 .382 1.006c1.296.617 3.986 1.923 5.392 2.638 5.659 2.884 9.592 2.357 15.141-4.075z"/></svg>`
+};
+
+let activeStoryId = null;
+let stripExpanded = false;
+
+// Get initial letter for a story title
+function getInitial(title) {
+  return title.charAt(0).toUpperCase();
+}
+
+// Get status dot color class
+function statusDotColor(status) {
+  if (status === 'Published') return 'bg-green-500';
+  if (status === 'Saved') return 'bg-blue-500';
+  return 'bg-amber-500';
+}
+
+function statusClass(status) {
+  if (status === 'Published') return 'status-published';
+  if (status === 'Saved') return 'status-saved';
+  return 'status-polish';
+}
+
+// Render the story list grid
+function renderStoryGrid() {
+  const grid = document.getElementById('storyGrid');
+  grid.innerHTML = stories.map(s => `
+    <div class="story-card bg-white border border-gray-200 rounded-xl p-5 hover:border-brand/30" onclick="openStory(${s.id})">
+      <div class="flex items-start justify-between mb-3">
+        <h3 class="text-base font-semibold text-offblack leading-tight pr-2">${s.title}</h3>
+        <span class="status-badge ${statusClass(s.status)} flex-shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full ${statusDotColor(s.status)}"></span>
+          ${s.status}
+        </span>
+      </div>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="framework-badge">${s.framework}</span>
+        <span class="text-xs text-gray-400">${s.date}</span>
+      </div>
+      <p class="text-sm text-gray-500 mb-3 line-clamp-2">${s.sections.situation}</p>
+      <div class="flex items-center gap-2">
+        ${s.sources.map(src => `<span class="source-pill">${sourceIcons[src] || ''} ${src}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Render the detail view
+function renderDetail(story) {
+  const frameworkLabels = {
+    STAR: ['Situation', 'Task', 'Action', 'Result'],
+    SOAR: ['Situation', 'Obstacle', 'Action', 'Result'],
+    CAR: ['Challenge', 'Action', 'Result']
+  };
+  const labels = frameworkLabels[story.framework] || frameworkLabels.STAR;
+  const sectionKeys = ['situation', 'task', 'action', 'result'];
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="fade-in-up">
+      <!-- Back link -->
+      <button onclick="showListView()" class="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to all stories
+      </button>
+
+      <!-- Title row -->
+      <div class="flex items-start justify-between mb-4">
+        <h2 class="text-2xl font-bold text-offblack leading-tight">${story.title}</h2>
+      </div>
+
+      <!-- Meta row -->
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+        <span class="framework-badge">${story.framework}</span>
+        <span class="status-badge ${statusClass(story.status)}">
+          <span class="w-1.5 h-1.5 rounded-full ${statusDotColor(story.status)}"></span>
+          ${story.status}
+        </span>
+        ${story.sources.map(src => `<span class="source-pill">${sourceIcons[src] || ''} ${src}</span>`).join('')}
+        <span class="text-xs text-gray-400 ml-1">${story.date}</span>
+      </div>
+
+      <hr class="border-gray-200 mb-6" />
+
+      <!-- Sections -->
+      ${labels.map((label, i) => {
+        const key = sectionKeys[i] || sectionKeys[sectionKeys.length - 1];
+        const content = story.sections[key];
+        if (!content) return '';
+        return `
+          <div class="star-section">
+            <div class="star-label">${label}</div>
+            <p class="text-sm text-gray-700 leading-relaxed">${content}</p>
+          </div>
+        `;
+      }).join('')}
+
+      <!-- Action buttons -->
+      <div class="flex flex-wrap gap-3 mt-8 pt-6 border-t border-gray-200">
+        <button class="action-btn" onclick="copyStory()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          Copy
+        </button>
+        <button class="action-btn">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Regenerate
+        </button>
+        <button class="action-btn primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Publish
+        </button>
+        <button class="action-btn">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+          Share
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Render collapsed initials
+function renderInitials() {
+  document.getElementById('initialsList').innerHTML = stories.map(s => `
+    <div class="initial-item" onclick="openStory(${s.id})" title="${s.title}">
+      <div class="initial-circle ${s.id === activeStoryId ? 'active' : ''}">${getInitial(s.title)}</div>
+      <div class="initial-status-dot ${statusDotColor(s.status)}"></div>
+    </div>
+  `).join('');
+}
+
+// Render rich mini list (expanded state)
+function renderRichList() {
+  document.getElementById('peekRichList').innerHTML = stories.map(s => `
+    <div class="rich-mini-card ${s.id === activeStoryId ? 'active' : ''}" onclick="switchStory(${s.id})">
+      <div class="text-sm font-medium text-offblack truncate mb-1.5">${s.title}</div>
+      <div class="flex items-center gap-2 mb-1">
+        <span class="framework-badge" style="font-size:10px; padding: 1px 6px;">${s.framework}</span>
+        <span class="status-badge ${statusClass(s.status)}" style="font-size:10px; padding: 1px 8px;">
+          <span class="w-1 h-1 rounded-full ${statusDotColor(s.status)}"></span>
+          ${s.status}
+        </span>
+      </div>
+      <div class="text-xs text-gray-400">${s.date}</div>
+    </div>
+  `).join('');
+}
+
+// Open a story from the list view
+function openStory(id) {
+  activeStoryId = id;
+  const story = stories.find(s => s.id === id);
+  if (!story) return;
+
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('detailView').classList.remove('hidden');
+  document.getElementById('headerSubtitle').textContent = story.title;
+
+  renderDetail(story);
+  renderInitials();
+  renderRichList();
+
+  // Reset strip to collapsed state
+  stripExpanded = false;
+  document.getElementById('peekStrip').classList.remove('expanded');
+  document.getElementById('detailArea').style.marginRight = '48px';
+}
+
+// Switch story from rich list (expanded state) -- stays expanded
+function switchStory(id) {
+  activeStoryId = id;
+  const story = stories.find(s => s.id === id);
+  if (!story) return;
+
+  document.getElementById('headerSubtitle').textContent = story.title;
+  renderDetail(story);
+  renderInitials();
+  renderRichList();
+  // Strip stays in its current expanded/collapsed state
+}
+
+// Show the full list view
+function showListView() {
+  activeStoryId = null;
+  document.getElementById('detailView').classList.add('hidden');
+  document.getElementById('listView').classList.remove('hidden');
+  document.getElementById('headerSubtitle').textContent = '6 stories';
+  // Reset strip
+  stripExpanded = false;
+  document.getElementById('peekStrip').classList.remove('expanded');
+  document.getElementById('detailArea').style.marginRight = '48px';
+}
+
+// Toggle strip expanded/collapsed
+function toggleStrip(e) {
+  e.stopPropagation();
+  if (stripExpanded) {
+    collapseStrip();
+  } else {
+    expandStrip();
+  }
+}
+
+function expandStrip() {
+  stripExpanded = true;
+  document.getElementById('peekStrip').classList.add('expanded');
+  document.getElementById('detailArea').style.marginRight = '280px';
+}
+
+function collapseStrip() {
+  stripExpanded = false;
+  document.getElementById('peekStrip').classList.remove('expanded');
+  document.getElementById('detailArea').style.marginRight = '48px';
+}
+
+// Copy story content
+function copyStory() {
+  const story = stories.find(s => s.id === activeStoryId);
+  if (!story) return;
+  const text = `${story.title}\n\nSituation: ${story.sections.situation}\n\nTask: ${story.sections.task}\n\nAction: ${story.sections.action}\n\nResult: ${story.sections.result}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target.closest('.action-btn');
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!`;
+    btn.classList.add('primary');
+    setTimeout(() => { btn.innerHTML = origHTML; btn.classList.remove('primary'); }, 1500);
+  });
+}
+
+// Escape key handling
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (stripExpanded) {
+      collapseStrip();
+    } else if (activeStoryId) {
+      showListView();
+    }
+  }
+});
+
+// Init
+renderStoryGrid();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 1A — Right Side Panel (Clean Split) | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              DEFAULT: '#5D259F',
+              light: '#F3EBFC',
+              100: '#E8D7F9',
+            },
+            offblack: '#1a1a2e',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: #fff; color: #1a1a2e; }
+
+    /* Scrollbar styling */
+    .scroll-area::-webkit-scrollbar { width: 6px; }
+    .scroll-area::-webkit-scrollbar-track { background: transparent; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .scroll-area::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+    /* Animations */
+    @keyframes slideInFromRight {
+      from { transform: translateX(40px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .panel-enter {
+      animation: slideInFromRight 200ms ease forwards, fadeIn 200ms ease forwards;
+    }
+
+    /* Transitions */
+    .list-area { transition: width 300ms ease, flex 300ms ease; }
+    .story-card { transition: all 200ms ease; }
+    .story-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .story-card.selected { border-left: 3px solid #5D259F; background: #F3EBFC; }
+    .story-card.compact .card-preview { display: none; }
+    .story-card.compact .card-sources { display: none; }
+    .story-card.compact .card-body { padding: 12px 16px; }
+
+    /* Action buttons */
+    .action-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+      border: 1px solid #e5e7eb; background: #fff; color: #374151;
+      cursor: pointer; transition: all 150ms ease;
+    }
+    .action-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+    .action-btn.primary { background: #5D259F; color: #fff; border-color: #5D259F; }
+    .action-btn.primary:hover { background: #4c1d84; }
+
+    /* Source pill */
+    .source-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+      background: #f3f4f6; color: #6b7280;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    }
+    .status-published { background: #d1fae5; color: #065f46; }
+    .status-saved { background: #e0e7ff; color: #3730a3; }
+    .status-needs-polish { background: #fef3c7; color: #92400e; }
+
+    /* Framework chip */
+    .framework-chip {
+      display: inline-flex; align-items: center;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: #E8D7F9; color: #5D259F;
+    }
+
+    /* Section styling */
+    .star-section { margin-bottom: 24px; }
+    .star-section h3 {
+      font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      color: #5D259F; margin: 0 0 8px 0;
+    }
+    .star-section p { font-size: 15px; line-height: 1.7; color: #374151; margin: 0; }
+
+    /* Nav link */
+    .nav-link {
+      font-size: 14px; font-weight: 500; color: #6b7280; text-decoration: none;
+      padding: 6px 12px; border-radius: 6px; transition: all 150ms ease;
+    }
+    .nav-link:hover { color: #5D259F; background: #F3EBFC; }
+    .nav-link.active { color: #5D259F; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header style="position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;">
+    <div style="max-width:1400px;margin:0 auto;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:20px;font-weight:700;color:#5D259F;letter-spacing:-0.02em;">inchronicle</div>
+      <nav style="display:flex;gap:4px;">
+        <a href="#" class="nav-link">Timeline</a>
+        <a href="#" class="nav-link active">Stories</a>
+        <a href="#" class="nav-link">Profile</a>
+      </nav>
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5D259F,#9b59b6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">HA</div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div id="app" style="display:flex;max-width:1400px;margin:0 auto;height:calc(100vh - 56px);">
+    <!-- Story List -->
+    <div id="story-list" class="list-area scroll-area" style="flex:1;overflow-y:auto;padding:24px;">
+      <div style="margin-bottom:24px;">
+        <h1 style="font-size:28px;font-weight:700;color:#1a1a2e;margin:0 0 4px 0;">Career Stories</h1>
+        <p style="font-size:15px;color:#6b7280;margin:0;">6 stories crafted from your work history</p>
+      </div>
+      <div id="cards-container" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div id="detail-panel" style="display:none;width:0;overflow:hidden;transition:width 300ms ease;border-left:1px solid #e5e7eb;background:#fff;">
+      <div id="panel-inner" class="scroll-area" style="overflow-y:auto;height:100%;padding:32px;">
+        <!-- Content injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Mock Data ──────────────────────────────────────────────
+    const stories = [
+      {
+        id: 1,
+        title: 'Led Cloud Migration to AWS',
+        framework: 'STAR',
+        status: 'Published',
+        sources: ['Jira', 'GitHub'],
+        situation: 'Our legacy on-premise infrastructure was reaching end-of-life, causing increasing downtime and escalating maintenance costs. The engineering team was spending roughly 30% of their time firefighting infrastructure issues rather than building features.',
+        task: 'I was tasked with leading the full migration of our production workloads to AWS, coordinating across three engineering squads and ensuring zero customer-facing downtime during the transition. The project had a hard deadline of Q3 to align with our infrastructure contract expiration.',
+        action: 'I designed a phased migration strategy starting with stateless services, then databases, and finally the real-time event pipeline. I set up a parallel-run environment where both old and new infrastructure served traffic simultaneously with automated consistency checks. I established weekly migration syncs with all squads and created a shared runbook for each service cutover. When we hit an unexpected data replication lag, I worked with the database team to implement change-data-capture using AWS DMS.',
+        result: 'We completed the migration two weeks ahead of schedule with zero downtime incidents. Infrastructure costs decreased by 35% within the first quarter. Mean time to deploy dropped from 45 minutes to under 8 minutes, and the team reclaimed roughly 12 engineering hours per week previously spent on infrastructure maintenance.',
+      },
+      {
+        id: 2,
+        title: 'Redesigned Onboarding Flow',
+        framework: 'STAR',
+        status: 'Saved',
+        sources: ['Figma', 'Slack'],
+        situation: 'User activation data revealed that 62% of new signups were dropping off during the onboarding flow, never reaching the "aha moment" of creating their first project. Support tickets related to onboarding confusion had tripled in the previous quarter.',
+        task: 'I needed to redesign the onboarding experience to dramatically improve activation rates while working within our existing design system. The goal was to increase 7-day activation from 38% to at least 55% without adding engineering headcount.',
+        action: 'I led a discovery sprint with 12 user interviews, mapping every friction point in the existing flow. Using these insights, I designed a progressive disclosure pattern that broke onboarding into three contextual micro-steps instead of one long wizard. I partnered with a frontend engineer to implement interactive tooltips and a sample project template that users could explore immediately. We ran an A/B test with 20% of new signups for two weeks before full rollout.',
+        result: 'The redesigned flow increased 7-day activation to 67%, surpassing our target by 12 percentage points. Support tickets related to onboarding dropped by 48%. The average time-to-first-project decreased from 23 minutes to under 7 minutes, and the design pattern was later adopted by two other product teams.',
+      },
+      {
+        id: 3,
+        title: 'Reduced API Latency by 40%',
+        framework: 'SOAR',
+        status: 'Published',
+        sources: ['GitHub', 'Datadog'],
+        situation: 'Our core API endpoints were experiencing p95 latencies of 1.2 seconds, well above our 500ms SLA. Performance had been degrading steadily over six months as we added features without addressing the underlying data access patterns.',
+        task: 'I set out to bring our p95 API latency below 500ms across all critical endpoints while maintaining feature velocity. This required a systematic approach rather than one-off fixes, as the root causes spanned multiple service layers.',
+        action: 'I instrumented our entire request pipeline with distributed tracing to identify the highest-impact bottlenecks. The analysis revealed three primary issues: N+1 query patterns in our GraphQL resolvers, missing database indexes on frequently-joined columns, and redundant serialization in our middleware chain. I introduced a DataLoader pattern for batch query resolution, added composite indexes based on actual query patterns from slow-query logs, and implemented response caching with a 30-second TTL for read-heavy endpoints. Each optimization was deployed independently with feature flags so we could measure isolated impact.',
+        result: 'The combined optimizations reduced p95 latency from 1.2 seconds to 320ms, a 73% improvement that exceeded the 40% target. Database query volume dropped by 60% due to batching and caching. We maintained this performance level through two subsequent feature releases, proving the fixes were sustainable.',
+      },
+      {
+        id: 4,
+        title: 'Built Real-Time Analytics Dashboard',
+        framework: 'STAR',
+        status: 'Needs Polish',
+        sources: ['Jira', 'GitHub', 'Confluence'],
+        situation: 'Product and business stakeholders were relying on manually-generated weekly reports to make decisions, leading to delays and sometimes acting on stale data. The existing reporting pipeline had a 24-hour lag and frequently broke due to upstream schema changes.',
+        task: 'I was responsible for building a real-time analytics dashboard that would give stakeholders self-serve access to key product metrics with no more than 5-minute data freshness. The solution needed to handle our current data volume of 2M events per day with room to scale to 10M.',
+        action: 'I evaluated several streaming architectures and chose a Kafka-to-ClickHouse pipeline for its balance of throughput and query performance. I designed the event schema with forward compatibility in mind, using a registry pattern to handle upstream changes gracefully. The frontend was built with React and Recharts, featuring configurable widget layouts that stakeholders could customize. I implemented WebSocket-based live updates so metrics refreshed without page reloads. I also built an alerting layer that could notify Slack channels when key metrics crossed configurable thresholds.',
+        result: 'The dashboard launched to 45 active daily users within the first week, with data freshness averaging 90 seconds. Stakeholder decision-making cycles shortened from weekly to near-real-time. The number of ad-hoc data requests to the engineering team dropped by 80%, freeing up approximately 15 hours per week of engineering time.',
+      },
+      {
+        id: 5,
+        title: 'Mentored 3 Junior Engineers',
+        framework: 'CAR',
+        status: 'Saved',
+        sources: ['Slack'],
+        situation: 'Our team onboarded three junior engineers simultaneously following a growth round. Without structured mentorship, previous junior hires had taken 4-6 months to make independent contributions, and two had left within their first year citing lack of support.',
+        task: 'I volunteered to establish and run a mentorship program that would accelerate ramp-up time and improve junior engineer retention. The goal was to have all three engineers shipping production code independently within 8 weeks.',
+        action: 'I created a structured 8-week onboarding curriculum with weekly milestones, pairing each mentee with a specific codebase area that matched their interests. I held weekly 1-on-1s focused on both technical growth and career development, and set up a dedicated Slack channel for async questions with a 2-hour response-time commitment. I introduced a "first PR within 48 hours" policy with carefully scoped starter issues, and organized bi-weekly code review sessions where mentees reviewed each other\'s work to build collaborative skills.',
+        result: 'All three engineers shipped their first independent features within 6 weeks, beating the 8-week target. One mentee went on to lead a significant feature project within their first quarter. Our team\'s junior engineer retention improved to 100% over the following 12 months, compared to the previous 60% rate.',
+      },
+      {
+        id: 6,
+        title: 'Launched Mobile App v2.0',
+        framework: 'STAR',
+        status: 'Published',
+        sources: ['Jira', 'Figma', 'GitHub'],
+        situation: 'Our mobile app had a 2.8-star rating on the App Store, with the most common complaints being slow performance, outdated UI, and frequent crashes on Android devices. Mobile accounted for 40% of our traffic but only 15% of conversions.',
+        task: 'I led the v2.0 mobile app rewrite with the goals of achieving a 4.5+ star rating, bringing mobile conversion rates to parity with web, and reducing crash rates below 0.5%. The project had a 4-month timeline with a team of two mobile engineers and one designer.',
+        action: 'I made the strategic decision to migrate from our legacy React Native codebase to a shared Kotlin Multiplatform architecture for business logic with native UI layers. I established a weekly user testing cadence with 5 participants per session to validate design decisions early. I implemented a comprehensive crash reporting and analytics pipeline from day one so we could monitor quality throughout development. For the launch, I designed a phased rollout strategy starting at 5% of users with automatic rollback triggers based on crash rate and ANR thresholds.',
+        result: 'The v2.0 app launched on time and achieved a 4.6-star rating within 60 days. Mobile conversion rates increased from 15% to 31%, nearly reaching web parity. Crash rate dropped to 0.3%, and session duration increased by 45%. The app was featured in Google Play\'s "Best Apps" collection for our category.',
+      },
+    ];
+
+    // ── Source Icons ──────────────────────────────────────────
+    const sourceIcons = {
+      Jira: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+      GitHub: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>',
+      Figma: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.852 8.981h-4.588V0h4.588c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.491-4.49 4.491zM12.735 7.51h3.117c1.665 0 3.019-1.355 3.019-3.019s-1.354-3.019-3.019-3.019h-3.117V7.51zm0 8.943h-4.588c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h4.588v8.98zM4.147 11.963c0 1.665 1.354 3.019 3.019 3.019h3.117V8.943H7.166c-1.665 0-3.019 1.355-3.019 3.02zm4.49 7.51c-2.476 0-4.49-2.015-4.49-4.491s2.014-4.49 4.49-4.49h4.588v4.49c0 2.476-2.014 4.491-4.588 4.491zm0-7.51c-1.665 0-3.019 1.355-3.019 3.019s1.354 3.02 3.019 3.02 3.019-1.356 3.019-3.02-1.354-3.019-3.019-3.019zm11.205-4.49c0 2.476-2.014 4.49-4.49 4.49s-4.49-2.014-4.49-4.49 2.014-4.49 4.49-4.49 4.49 2.014 4.49 4.49zm-4.49 3.019c1.665 0 3.019-1.354 3.019-3.019s-1.354-3.019-3.019-3.019-3.019 1.354-3.019 3.019 1.354 3.019 3.019 3.019z"/></svg>',
+      Slack: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 01-2.521 2.521 2.528 2.528 0 01-2.521-2.521V2.522A2.528 2.528 0 0115.164 0a2.528 2.528 0 012.521 2.522v6.312zM15.164 18.956a2.528 2.528 0 012.521 2.522A2.528 2.528 0 0115.164 24a2.528 2.528 0 01-2.521-2.522v-2.522h2.521zm0-1.271a2.528 2.528 0 01-2.521-2.521 2.528 2.528 0 012.521-2.521h6.314A2.528 2.528 0 0124 15.164a2.528 2.528 0 01-2.522 2.521h-6.314z"/></svg>',
+      Datadog: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2V7h2v10z"/></svg>',
+      Confluence: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M.87 18.257c-.248.382-.53.875-.763 1.245a.764.764 0 00.255 1.04l4.965 3.054a.764.764 0 001.058-.26c.199-.332.496-.86.782-1.397 1.086-2.067 2.608-1.907 5.11-.405l4.546 2.73a.764.764 0 001.055-.283l2.751-4.851a.764.764 0 00-.277-1.04c-1.197-.717-3.236-1.94-4.547-2.73-4.684-2.82-7.674-2.597-10.935 2.897zm22.26-12.514c.248-.382.53-.875.763-1.245a.764.764 0 00-.255-1.04L18.673.404a.764.764 0 00-1.058.26c-.199.332-.496.86-.782 1.397-1.086 2.067-2.608 1.907-5.11.405L7.177-.264a.764.764 0 00-1.055.283L3.371 4.87a.764.764 0 00.277 1.04c1.197.717 3.236 1.94 4.547 2.73 4.684 2.82 7.674 2.597 10.935-2.897z"/></svg>',
+    };
+
+    // ── Framework Section Labels ──────────────────────────────
+    const frameworkSections = {
+      STAR: ['Situation', 'Task', 'Action', 'Result'],
+      SOAR: ['Situation', 'Obstacle', 'Action', 'Result'],
+      CAR: ['Challenge', 'Action', 'Result'],
+    };
+
+    // ── State ─────────────────────────────────────────────────
+    let selectedId = null;
+
+    // ── Render Cards ──────────────────────────────────────────
+    function renderCards() {
+      const container = document.getElementById('cards-container');
+      container.innerHTML = stories.map(story => {
+        const isSelected = selectedId === story.id;
+        const isCompact = selectedId !== null;
+        const statusClass = story.status === 'Published' ? 'status-published' :
+                            story.status === 'Saved' ? 'status-saved' : 'status-needs-polish';
+        return `
+          <div class="story-card ${isSelected ? 'selected' : ''} ${isCompact ? 'compact' : ''}"
+               onclick="selectStory(${story.id})"
+               style="background:#fff;border-radius:12px;border:1px solid #e5e7eb;cursor:pointer;overflow:hidden;${isSelected ? 'border-left:3px solid #5D259F;background:#F3EBFC;' : ''}">
+            <div class="card-body" style="padding:20px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isCompact ? '0' : '12px'};flex-wrap:wrap;">
+                <h3 style="font-size:${isCompact ? '15px' : '17px'};font-weight:600;color:#1a1a2e;margin:0;flex:1;min-width:0;white-space:${isCompact ? 'nowrap' : 'normal'};overflow:${isCompact ? 'hidden' : 'visible'};text-overflow:${isCompact ? 'ellipsis' : 'unset'};">${story.title}</h3>
+                <span class="framework-chip">${story.framework}</span>
+                <span class="status-badge ${statusClass}">${story.status}</span>
+              </div>
+              <p class="card-preview" style="font-size:14px;color:#6b7280;margin:0 0 12px 0;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                ${story.situation}
+              </p>
+              <div class="card-sources" style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${story.sources.map(s => `<span class="source-pill">${sourceIcons[s] || ''} ${s}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Select Story ──────────────────────────────────────────
+    function selectStory(id) {
+      const wasOpen = selectedId !== null;
+      selectedId = id;
+      renderCards();
+      showPanel(id, !wasOpen);
+    }
+
+    // ── Show Panel ────────────────────────────────────────────
+    function showPanel(id, animate) {
+      const story = stories.find(s => s.id === id);
+      if (!story) return;
+
+      const panel = document.getElementById('detail-panel');
+      const inner = document.getElementById('panel-inner');
+      const list = document.getElementById('story-list');
+
+      const statusClass = story.status === 'Published' ? 'status-published' :
+                          story.status === 'Saved' ? 'status-saved' : 'status-needs-polish';
+
+      // Determine section keys based on framework
+      const sectionKeys = story.framework === 'SOAR'
+        ? ['situation', 'task', 'action', 'result']   // SOAR maps to same data keys
+        : story.framework === 'CAR'
+        ? ['situation', 'action', 'result']            // CAR: Challenge=situation
+        : ['situation', 'task', 'action', 'result'];
+
+      const sectionLabels = frameworkSections[story.framework];
+
+      const sectionsHTML = sectionKeys.map((key, i) => `
+        <div class="star-section">
+          <h3>${sectionLabels[i]}</h3>
+          <p>${story[key] || story.situation}</p>
+        </div>
+      `).join('');
+
+      inner.innerHTML = `
+        <div ${animate ? 'class="panel-enter"' : ''}>
+          <!-- Close button -->
+          <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+            <button onclick="closePanel()" style="background:none;border:none;cursor:pointer;padding:8px;color:#6b7280;border-radius:6px;transition:all 150ms;" onmouseover="this.style.background='#f3f4f6';this.style.color='#1a1a2e'" onmouseout="this.style.background='none';this.style.color='#6b7280'">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <!-- Title + badges -->
+          <h2 style="font-size:24px;font-weight:700;color:#1a1a2e;margin:0 0 16px 0;line-height:1.3;">${story.title}</h2>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <span class="framework-chip">${story.framework}</span>
+            <span class="status-badge ${statusClass}">${story.status}</span>
+          </div>
+
+          <!-- Sources -->
+          <div style="display:flex;gap:6px;margin-bottom:28px;flex-wrap:wrap;">
+            ${story.sources.map(s => `<span class="source-pill">${sourceIcons[s] || ''} ${s}</span>`).join('')}
+          </div>
+
+          <!-- Divider -->
+          <div style="height:1px;background:#e5e7eb;margin-bottom:28px;"></div>
+
+          <!-- Sections -->
+          ${sectionsHTML}
+
+          <!-- Divider -->
+          <div style="height:1px;background:#e5e7eb;margin:28px 0;"></div>
+
+          <!-- Actions -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="action-btn" onclick="event.stopPropagation()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+            <button class="action-btn" onclick="event.stopPropagation()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+              Regenerate
+            </button>
+            <button class="action-btn primary" onclick="event.stopPropagation()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Publish
+            </button>
+            <button class="action-btn" onclick="event.stopPropagation()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Share
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Show panel
+      list.style.flex = '0 0 40%';
+      list.style.maxWidth = '40%';
+      panel.style.display = 'block';
+      // Force reflow before setting width for transition
+      panel.offsetHeight;
+      panel.style.width = '60%';
+      panel.style.flex = '0 0 60%';
+      panel.style.overflow = 'visible';
+
+      // Scroll panel to top
+      inner.scrollTop = 0;
+    }
+
+    // ── Close Panel ───────────────────────────────────────────
+    function closePanel() {
+      selectedId = null;
+      const panel = document.getElementById('detail-panel');
+      const list = document.getElementById('story-list');
+
+      panel.style.width = '0';
+      panel.style.flex = '0 0 0%';
+      panel.style.overflow = 'hidden';
+      list.style.flex = '1';
+      list.style.maxWidth = '100%';
+
+      setTimeout(() => {
+        panel.style.display = 'none';
+        renderCards();
+      }, 300);
+    }
+
+    // ── Keyboard shortcut ─────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && selectedId !== null) {
+        closePanel();
+      }
+    });
+
+    // ── Init ──────────────────────────────────────────────────
+    renderCards();
+  </script>
+</body>
+</html>

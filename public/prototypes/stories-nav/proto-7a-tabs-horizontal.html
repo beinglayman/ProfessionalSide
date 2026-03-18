@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototype 7A: Tabbed Reader — Horizontal Tabs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+      colors: {
+        brand: {
+          DEFAULT: '#5D259F',
+          light: '#F3EBFC',
+          100: '#E8D7F9',
+        },
+        offblack: '#1a1a2e',
+      },
+    },
+  },
+};
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; color: #1a1a2e; margin: 0; background: #f9fafb; }
+
+  /* Tab bar scrolling */
+  .tab-bar-scroll { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .tab-bar-scroll::-webkit-scrollbar { display: none; }
+
+  /* Transitions */
+  .tab-item { transition: all 0.15s ease; }
+  .tab-close { opacity: 0; transition: opacity 0.15s ease; }
+  .tab-item:hover .tab-close, .tab-item.active .tab-close { opacity: 1; }
+
+  /* Fade in for content */
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Card hover */
+  .story-card { transition: box-shadow 0.2s ease, transform 0.15s ease; }
+  .story-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-1px); }
+
+  /* Section expand */
+  .section-content { overflow: hidden; transition: max-height 0.3s ease; }
+
+  /* Button hover */
+  .action-btn { transition: all 0.15s ease; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between" style="box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      </div>
+      <span class="text-lg font-bold text-offblack">inchronicle</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <button class="text-sm text-gray-500 hover:text-brand transition-colors">Help</button>
+      <div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-brand font-semibold text-sm">HA</div>
+    </div>
+  </header>
+
+  <!-- Tab Bar -->
+  <div class="sticky z-40 bg-white border-b border-gray-200 flex items-center" style="top: 52px;">
+    <div class="relative flex-1 flex items-center">
+      <!-- Left scroll arrow -->
+      <button id="scrollLeft" onclick="scrollTabs(-1)" class="hidden shrink-0 w-7 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 bg-gradient-to-r from-white via-white to-transparent pr-1 z-10" style="position:absolute;left:0;">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <div id="tabBar" class="tab-bar-scroll flex items-stretch px-2" style="min-height:40px;">
+        <!-- Tabs rendered by JS -->
+      </div>
+      <!-- Right scroll arrow -->
+      <button id="scrollRight" onclick="scrollTabs(1)" class="hidden shrink-0 w-7 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 bg-gradient-to-l from-white via-white to-transparent pl-1 z-10" style="position:absolute;right:0;">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Area -->
+  <main id="content" class="max-w-5xl mx-auto px-6 py-6">
+    <!-- Rendered by JS -->
+  </main>
+</div>
+
+<script>
+// ─── Data ────────────────────────────────────────────────────────────────────
+
+const SOURCE_ICONS = {
+  Jira: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#0052CC"><path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.593 24V12.518a1.005 1.005 0 0 0-1.022-1.005zM5.024 5.241H16.59a5.217 5.217 0 0 1-5.231 5.215H9.228v2.058a5.216 5.216 0 0 1-5.231 5.214V6.246a1.005 1.005 0 0 1 1.027-1.005zm6.547-5.24h11.565a5.217 5.217 0 0 1-5.231 5.215h-2.13v2.057A5.216 5.216 0 0 1 10.544 12.5V1.005A1.005 1.005 0 0 1 11.571 0z"/></svg>`,
+  GitHub: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#333"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>`,
+  Figma: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#F24E1E"><path d="M15.852 8.981h-4.588V0h4.588c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.491-4.49 4.491zM12.735 7.51h3.117c1.665 0 3.019-1.355 3.019-3.019s-1.354-3.019-3.019-3.019h-3.117V7.51zm0 8.943h-4.588c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h4.588v8.98zM4.127 11.963c0 1.665 1.354 3.019 3.019 3.019h3.117V8.943H7.146c-1.665 0-3.019 1.355-3.019 3.02zm4.49 7.548c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h4.588v4.49c0 2.476-2.013 4.49-4.588 4.49zm-.001-7.509c-1.665 0-3.019 1.355-3.019 3.019s1.354 3.019 3.019 3.019 3.019-1.354 3.019-3.019v-3.019H8.616zm7.236-4.49h-4.588v8.98h4.588c2.476 0 4.49-2.013 4.49-4.49s-2.014-4.49-4.49-4.49zm0 7.51h-3.117v-6.038h3.117c1.665 0 3.019 1.354 3.019 3.019s-1.354 3.019-3.019 3.019z"/></svg>`,
+  Slack: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#E01E5A"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.52A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.522v-2.52h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.166a2.528 2.528 0 0 1-2.522 2.521h-6.312z"/></svg>`,
+  Datadog: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#632CA6"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm4.94 17.737c-.676.394-1.312.17-1.678-.348l-1.884-2.65-1.46 1.1.554 2.19c.17.71-.25 1.07-.864 1.07h-.01c-.614 0-1.033-.36-.863-1.07l.554-2.19-1.46-1.1-1.884 2.65c-.366.518-1.002.742-1.678.348-.676-.394-.734-1.06-.368-1.578l1.884-2.65h-1.82c-.634 0-1.02-.454-1.02-1.02 0-.566.386-1.02 1.02-1.02h1.82l-1.884-2.65c-.366-.518-.308-1.184.368-1.578.676-.394 1.312-.17 1.678.348l1.884 2.65 1.46-1.1-.554-2.19c-.17-.71.25-1.07.863-1.07h.01c.614 0 1.034.36.864 1.07l-.554 2.19 1.46 1.1 1.884-2.65c.366-.518 1.002-.742 1.678-.348.676.394.734 1.06.368 1.578l-1.884 2.65h1.82c.634 0 1.02.454 1.02 1.02 0 .566-.386 1.02-1.02 1.02h-1.82l1.884 2.65c.366.518.308 1.184-.368 1.578z"/></svg>`,
+  Confluence: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#1868DB"><path d="M.87 18.257c-.248.382-.53.875-.763 1.245a.764.764 0 0 0 .255 1.04l4.965 3.054a.764.764 0 0 0 1.058-.26c.199-.332.487-.843.764-1.357 1.82-3.391 3.642-2.984 7.085-1.399l4.07 1.862a.765.765 0 0 0 1.013-.387l2.166-5.209a.764.764 0 0 0-.39-1.004c-1.263-.573-3.48-1.58-4.87-2.201-5.574-2.489-10.015-2.588-15.353 4.616zm22.26-12.514c.249-.382.531-.875.764-1.245a.764.764 0 0 0-.256-1.04L18.673.404a.764.764 0 0 0-1.058.26c-.199.332-.487.843-.764 1.357-1.82 3.391-3.642 2.984-7.085 1.399L5.696 1.558a.765.765 0 0 0-1.013.387L2.517 7.154a.764.764 0 0 0 .39 1.004c1.263.573 3.48 1.58 4.87 2.2 5.574 2.49 10.015 2.59 15.353-4.615z"/></svg>`,
+};
+
+const STORIES = [
+  {
+    id: 1,
+    title: 'Led Cloud Migration to AWS',
+    framework: 'STAR',
+    status: 'Published',
+    sources: ['Jira', 'GitHub'],
+    sections: {
+      Situation: 'Our legacy on-premise infrastructure was struggling to handle a 3x increase in traffic over the past year. Deployments took over 4 hours with significant downtime windows. The engineering team was spending 30% of their time on infrastructure maintenance rather than building features.',
+      Task: 'I was tasked with leading the full migration of our production workloads to AWS, targeting zero-downtime deployment capability. The project had a strict 3-month deadline aligned with our Series B fundraising milestones.',
+      Action: 'I designed a phased migration strategy using AWS CDK for infrastructure-as-code, starting with stateless microservices before tackling databases. Set up blue-green deployments with ALB target groups and automated health checks. Established a weekly migration sync with stakeholders and created a detailed runbook for each service cutover. Personally migrated the 4 most critical services and mentored 2 team members to handle the remaining 12.',
+      Result: 'Completed migration 2 weeks ahead of schedule. Deployment time dropped from 4 hours to 8 minutes. Infrastructure costs decreased by 35% through right-sizing and reserved instances. Zero production incidents during the migration, and the team reclaimed 30% of their bandwidth for feature work.'
+    }
+  },
+  {
+    id: 2,
+    title: 'Redesigned Onboarding Flow',
+    framework: 'STAR',
+    status: 'Saved',
+    sources: ['Figma', 'Slack'],
+    sections: {
+      Situation: 'User activation rates had plateaued at 23% for six months. Analytics showed that 60% of new sign-ups abandoned the product within the first 5 minutes. Customer support was fielding 40+ onboarding-related tickets per week.',
+      Task: 'I needed to redesign the entire onboarding experience to boost activation rates to at least 40% within one quarter. This required close collaboration with design, engineering, and the customer success team.',
+      Action: 'Conducted 15 user interviews and analyzed session recordings to map friction points. Designed a progressive disclosure onboarding with a guided wizard pattern, replacing the previous 12-step form with a contextual 3-step flow. Built interactive product tours using a custom tooltip framework. A/B tested 3 variants over 4 weeks with 10,000 new users.',
+      Result: 'Activation rate jumped from 23% to 51%, exceeding the target by 11 percentage points. Support tickets related to onboarding dropped by 65%. Time-to-first-value decreased from 12 minutes to 3.5 minutes. The pattern was adopted across two other product lines.'
+    }
+  },
+  {
+    id: 3,
+    title: 'Reduced API Latency by 40%',
+    framework: 'SOAR',
+    status: 'Published',
+    sources: ['GitHub', 'Datadog'],
+    sections: {
+      Situation: 'Our primary API endpoints were averaging 820ms response times under normal load, spiking to 2.4 seconds during peak hours. Three enterprise clients had escalated performance complaints, and one was evaluating competitor solutions.',
+      Obstacle: 'The codebase had accumulated significant technical debt: N+1 query patterns across 14 endpoints, no caching layer, and a synchronous architecture that blocked on external service calls. The team was also shipping features weekly, leaving limited bandwidth for optimization.',
+      Action: 'Implemented a systematic profiling approach using Datadog APM to identify the top 10 bottlenecks by cumulative latency impact. Introduced Redis caching for frequently accessed data with intelligent cache invalidation. Refactored the 6 worst N+1 queries using DataLoader pattern and batch processing. Added connection pooling and converted 3 synchronous external calls to async with circuit breakers.',
+      Result: 'P95 latency dropped from 2.4s to 340ms (an 86% improvement). Average response time fell to 180ms. All three enterprise clients renewed their contracts. The optimizations also reduced our database load by 60%, deferring a planned database scaling project that would have cost $50K annually.'
+    }
+  },
+  {
+    id: 4,
+    title: 'Built Real-Time Analytics Dashboard',
+    framework: 'STAR',
+    status: 'Needs Polish',
+    sources: ['Jira', 'GitHub', 'Confluence'],
+    sections: {
+      Situation: 'The product team was relying on weekly CSV exports and manual spreadsheet analysis to understand user behavior. Decisions were being made on data that was 5-7 days stale, leading to slow iteration cycles and missed opportunities.',
+      Task: 'Build a real-time analytics dashboard that would give product managers, designers, and engineers instant visibility into user behavior, feature adoption, and system health metrics. The solution needed to handle 50,000+ events per minute.',
+      Action: 'Architected an event streaming pipeline using Kafka for ingestion and ClickHouse for analytics storage. Built the dashboard frontend in React with WebSocket connections for live data updates. Designed a flexible query builder that allowed non-technical users to create custom views. Implemented role-based access controls and scheduled report exports. Collaborated with the data team to define a standardized event taxonomy across all product surfaces.',
+      Result: 'Dashboard went live to 45 internal users within 8 weeks. Product iteration cycles shortened from 2 weeks to 3 days. The team identified and fixed a critical conversion funnel drop-off within 24 hours of launch, recovering an estimated $120K in annual revenue. Dashboard now processes 2M+ events daily with sub-second query performance.'
+    }
+  },
+  {
+    id: 5,
+    title: 'Mentored 3 Junior Engineers',
+    framework: 'CAR',
+    status: 'Saved',
+    sources: ['Slack'],
+    sections: {
+      Challenge: 'Our team hired 3 junior engineers simultaneously, doubling the team size. They had strong fundamentals but lacked production experience. PR review turnaround was slowing as seniors spent increasing time on feedback. Two juniors expressed frustration about feeling unproductive in their first month.',
+      Action: 'Created a structured 90-day mentorship program with weekly 1:1s, pair programming sessions, and progressive code ownership. Developed an internal "Engineering Playbook" documenting our patterns, conventions, and decision-making frameworks. Assigned each junior a "starter project" scoped to introduce them to one critical system while delivering real value. Established a buddy system pairing each junior with a different senior for code reviews, design discussions, and architecture walkthroughs.',
+      Result: 'All 3 engineers were shipping independently by week 8, ahead of the typical 12-week ramp. PR review turnaround improved by 40% as juniors internalized team standards. One mentee led their first feature project in month 3 and was promoted within 9 months. The Engineering Playbook became a team-wide resource, reducing onboarding time for subsequent hires by 50%.'
+    }
+  },
+  {
+    id: 6,
+    title: 'Launched Mobile App v2.0',
+    framework: 'STAR',
+    status: 'Published',
+    sources: ['Jira', 'Figma', 'GitHub'],
+    sections: {
+      Situation: 'Our mobile app had a 2.8-star rating on both app stores with recurring complaints about performance, outdated UI, and missing features. Mobile accounted for 40% of our traffic but only 15% of conversions, indicating a massive gap in mobile experience quality.',
+      Task: 'Lead the complete rebuild of the mobile application from the ground up, targeting a 4.5+ star rating and bringing mobile conversion rates to parity with desktop. The relaunch needed to coincide with our annual user conference for maximum impact.',
+      Action: 'Assembled a cross-functional squad of 2 mobile engineers, 1 designer, and 1 QA specialist. Chose React Native to maximize code sharing while maintaining native performance. Implemented an offline-first architecture with optimistic UI updates. Ran a 3-week beta program with 200 power users, iterating on feedback in real time. Coordinated with marketing for a launch campaign including App Store feature placement. Built comprehensive E2E test coverage reaching 85% across critical user flows.',
+      Result: 'App Store rating climbed from 2.8 to 4.6 stars within 6 weeks of launch. Mobile conversion rate increased from 15% to 38%, nearly matching desktop at 42%. App was featured in "Apps We Love" on the App Store. Downloads increased 280% in the first month post-launch. Crash rate dropped from 3.2% to 0.4%.'
+    }
+  },
+];
+
+const STATUS_COLORS = {
+  Published: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500', border: 'border-green-200' },
+  Saved: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', border: 'border-blue-200' },
+  'Needs Polish': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', border: 'border-amber-200' },
+};
+
+const FRAMEWORK_COLORS = {
+  STAR: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+  SOAR: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+  CAR: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+
+let openTabs = []; // array of story ids
+let activeTab = 'all'; // 'all' or story id
+let copiedId = null;
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+
+function render() {
+  renderTabBar();
+  renderContent();
+  updateScrollArrows();
+}
+
+function renderTabBar() {
+  const bar = document.getElementById('tabBar');
+  let html = '';
+
+  // All Stories tab
+  const allActive = activeTab === 'all';
+  html += `
+    <div class="tab-item flex items-center gap-1.5 px-4 cursor-pointer whitespace-nowrap select-none shrink-0 ${allActive ? 'active' : ''}"
+         style="font-size:13px; border-bottom: ${allActive ? '3px solid #5D259F' : '3px solid transparent'}; background: ${allActive ? '#fff' : '#f9fafb'}; color: ${allActive ? '#5D259F' : '#6b7280'}; font-weight: ${allActive ? '600' : '400'}; padding-top:10px; padding-bottom:8px;"
+         onclick="switchTab('all')">
+      <span style="font-size:14px;">&#9776;</span>
+      <span>All Stories</span>
+    </div>`;
+
+  // Open story tabs
+  openTabs.forEach(id => {
+    const story = STORIES.find(s => s.id === id);
+    if (!story) return;
+    const isActive = activeTab === id;
+    const truncTitle = story.title.length > 20 ? story.title.slice(0, 20) + '...' : story.title;
+    html += `
+      <div class="tab-item group flex items-center gap-1.5 px-3 cursor-pointer whitespace-nowrap select-none shrink-0 ${isActive ? 'active' : ''}"
+           style="font-size:13px; border-bottom: ${isActive ? '3px solid #5D259F' : '3px solid transparent'}; background: ${isActive ? '#fff' : '#f9fafb'}; color: ${isActive ? '#5D259F' : '#6b7280'}; font-weight: ${isActive ? '600' : '400'}; padding-top:10px; padding-bottom:8px;"
+           onclick="switchTab(${id})">
+        <span>${truncTitle}</span>
+        <button class="tab-close ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                style="font-size:14px; line-height:1;"
+                onclick="event.stopPropagation(); closeTab(${id});"
+                title="Close tab">&times;</button>
+      </div>`;
+  });
+
+  bar.innerHTML = html;
+}
+
+function renderContent() {
+  const el = document.getElementById('content');
+  if (activeTab === 'all') {
+    el.innerHTML = renderList();
+  } else {
+    const story = STORIES.find(s => s.id === activeTab);
+    if (story) {
+      el.innerHTML = renderDetail(story);
+    }
+  }
+}
+
+function renderList() {
+  let html = `
+    <div class="fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-offblack">My Stories</h1>
+          <p class="text-sm text-gray-500 mt-1">${STORIES.length} career stories from your connected sources</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <input type="text" placeholder="Search stories..." class="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all" style="width:220px;" />
+            <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <select class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand/20">
+            <option>All Statuses</option>
+            <option>Published</option>
+            <option>Saved</option>
+            <option>Needs Polish</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+
+  STORIES.forEach(story => {
+    const sc = STATUS_COLORS[story.status];
+    const fc = FRAMEWORK_COLORS[story.framework];
+    html += `
+        <div class="story-card bg-white rounded-xl border border-gray-200 p-5 cursor-pointer" style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);" onclick="openStory(${story.id})">
+          <div class="flex items-start justify-between mb-3">
+            <h3 class="text-sm font-semibold text-offblack leading-snug pr-2">${story.title}</h3>
+            <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc.bg} ${sc.text} ${sc.border} border">
+              <span class="w-1.5 h-1.5 rounded-full ${sc.dot}"></span>
+              ${story.status}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${fc.bg} ${fc.text} border ${fc.border}">${story.framework}</span>
+          </div>
+          <div class="flex items-center gap-2 mb-4">
+            ${story.sources.map(s => `<span class="flex items-center gap-1 text-xs text-gray-500">${SOURCE_ICONS[s] || ''}<span>${s}</span></span>`).join('')}
+          </div>
+          <div class="text-xs text-gray-400 leading-relaxed line-clamp-2">${Object.values(story.sections)[0]}</div>
+        </div>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+function renderDetail(story) {
+  const sc = STATUS_COLORS[story.status];
+  const fc = FRAMEWORK_COLORS[story.framework];
+  const sectionKeys = Object.keys(story.sections);
+
+  let html = `
+    <div class="fade-in max-w-3xl mx-auto">
+      <!-- Header -->
+      <div class="mb-6">
+        <div class="flex items-start justify-between mb-3">
+          <h1 class="text-2xl font-bold text-offblack">${story.title}</h1>
+          <div class="flex items-center gap-2 shrink-0 ml-4">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${sc.bg} ${sc.text} border ${sc.border}">
+              <span class="w-1.5 h-1.5 rounded-full ${sc.dot}"></span>
+              ${story.status}
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 mb-4">
+          <span class="inline-flex px-2.5 py-1 rounded text-xs font-medium ${fc.bg} ${fc.text} border ${fc.border}">${story.framework} Framework</span>
+          <span class="text-gray-300">|</span>
+          <div class="flex items-center gap-2">
+            ${story.sources.map(s => `<span class="flex items-center gap-1 text-xs text-gray-500">${SOURCE_ICONS[s] || ''}<span>${s}</span></span>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Sections -->
+      <div class="space-y-4 mb-8">`;
+
+  const sectionIcons = {
+    Situation: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>`,
+    Task: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>`,
+    Action: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
+    Result: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+    Obstacle: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>`,
+    Challenge: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>`,
+  };
+
+  const sectionColors = {
+    Situation: '#5D259F',
+    Task: '#2563eb',
+    Action: '#d97706',
+    Result: '#059669',
+    Obstacle: '#dc2626',
+    Challenge: '#dc2626',
+  };
+
+  sectionKeys.forEach((key, i) => {
+    const color = sectionColors[key] || '#5D259F';
+    html += `
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100" style="background: linear-gradient(135deg, ${color}08, ${color}04);">
+            <span style="color:${color}">${sectionIcons[key] || sectionIcons.Situation}</span>
+            <h3 class="text-sm font-semibold" style="color:${color}">${key}</h3>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-700 leading-relaxed">${story.sections[key]}</p>
+          </div>
+        </div>`;
+  });
+
+  html += `
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-3 pb-8">
+        <button onclick="copyStory(${story.id})" class="action-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300" style="box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          <span id="copyBtn-${story.id}">${copiedId === story.id ? 'Copied!' : 'Copy'}</span>
+        </button>
+        <button class="action-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300" style="box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+          Regenerate
+        </button>
+        <button class="action-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg text-white hover:opacity-90" style="background:#5D259F; box-shadow: 0 1px 2px rgba(93,37,159,0.3);">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+          Publish
+        </button>
+        <button class="action-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300" style="box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          Share
+        </button>
+      </div>
+    </div>`;
+
+  return html;
+}
+
+// ─── Actions ─────────────────────────────────────────────────────────────────
+
+function openStory(id) {
+  if (!openTabs.includes(id)) {
+    openTabs.push(id);
+  }
+  activeTab = id;
+  render();
+  // Scroll the tab into view
+  setTimeout(() => {
+    const bar = document.getElementById('tabBar');
+    const tabs = bar.querySelectorAll('.tab-item');
+    const idx = openTabs.indexOf(id) + 1; // +1 for All Stories tab
+    if (tabs[idx]) {
+      tabs[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  }, 50);
+}
+
+function switchTab(tabId) {
+  activeTab = tabId;
+  render();
+}
+
+function closeTab(id) {
+  const idx = openTabs.indexOf(id);
+  if (idx === -1) return;
+  openTabs.splice(idx, 1);
+  if (activeTab === id) {
+    // Switch to the tab before this one, or All Stories
+    if (idx > 0) {
+      activeTab = openTabs[idx - 1];
+    } else if (openTabs.length > 0) {
+      activeTab = openTabs[0];
+    } else {
+      activeTab = 'all';
+    }
+  }
+  render();
+}
+
+function copyStory(id) {
+  const story = STORIES.find(s => s.id === id);
+  if (!story) return;
+  let text = story.title + '\n\n';
+  Object.entries(story.sections).forEach(([key, val]) => {
+    text += key + ':\n' + val + '\n\n';
+  });
+  navigator.clipboard.writeText(text.trim()).then(() => {
+    copiedId = id;
+    render();
+    setTimeout(() => { copiedId = null; render(); }, 2000);
+  }).catch(() => {
+    copiedId = id;
+    render();
+    setTimeout(() => { copiedId = null; render(); }, 2000);
+  });
+}
+
+function scrollTabs(direction) {
+  const bar = document.getElementById('tabBar');
+  bar.scrollBy({ left: direction * 200, behavior: 'smooth' });
+}
+
+function updateScrollArrows() {
+  const bar = document.getElementById('tabBar');
+  const leftBtn = document.getElementById('scrollLeft');
+  const rightBtn = document.getElementById('scrollRight');
+  if (!bar || !leftBtn || !rightBtn) return;
+
+  const hasOverflow = bar.scrollWidth > bar.clientWidth;
+  leftBtn.classList.toggle('hidden', !hasOverflow || bar.scrollLeft <= 0);
+  rightBtn.classList.toggle('hidden', !hasOverflow || bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 2);
+}
+
+// Listen for scroll on tab bar to update arrows
+document.addEventListener('DOMContentLoaded', () => {
+  const bar = document.getElementById('tabBar');
+  bar.addEventListener('scroll', updateScrollArrows);
+  window.addEventListener('resize', updateScrollArrows);
+  render();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 8B: Sticky Nav Bar — Rich Nav with Progress</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              DEFAULT: '#5D259F',
+              light: '#F3EBFC',
+              100: '#E8D7F9',
+            },
+            offblack: '#1a1a2e',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; color: #1a1a2e; background: #f9fafb; margin: 0; }
+
+    /* Slide transitions */
+    .story-detail-content {
+      transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .slide-out-left {
+      transform: translateX(-60px);
+      opacity: 0;
+    }
+    .slide-out-right {
+      transform: translateX(60px);
+      opacity: 0;
+    }
+    .slide-in-left {
+      transform: translateX(60px);
+      opacity: 0;
+    }
+    .slide-in-right {
+      transform: translateX(-60px);
+      opacity: 0;
+    }
+    .slide-settled {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    /* Progress dot pulse */
+    @keyframes dotPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(93, 37, 159, 0.3); }
+      50% { box-shadow: 0 0 0 4px rgba(93, 37, 159, 0.1); }
+    }
+    .dot-active {
+      animation: dotPulse 2s ease-in-out infinite;
+    }
+
+    /* Source icon pill */
+    .source-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Status badge */
+    .status-published { background: #dcfce7; color: #166534; }
+    .status-saved { background: #e0e7ff; color: #3730a3; }
+    .status-needs-polish { background: #fef3c7; color: #92400e; }
+
+    /* Framework badge */
+    .framework-badge {
+      background: #E8D7F9;
+      color: #5D259F;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Action buttons in detail view */
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 150ms ease;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #374151;
+    }
+    .action-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+    .action-btn.primary {
+      background: #5D259F;
+      color: #fff;
+      border-color: #5D259F;
+    }
+    .action-btn.primary:hover { background: #4a1d80; }
+
+    /* STAR section card */
+    .star-section {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .star-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #5D259F;
+      margin-bottom: 8px;
+    }
+    .star-section p {
+      color: #374151;
+      font-size: 15px;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    /* Story card in list */
+    .story-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px 24px;
+      cursor: pointer;
+      transition: all 200ms ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .story-card:hover {
+      border-color: #E8D7F9;
+      box-shadow: 0 4px 12px rgba(93,37,159,0.1);
+      transform: translateY(-1px);
+    }
+
+    /* Nav previous/next title buttons */
+    .nav-title-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 150ms ease;
+      max-width: 200px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-title-btn:hover:not(:disabled) {
+      color: #374151;
+      background: #f3f4f6;
+    }
+    .nav-title-btn:disabled {
+      color: #d1d5db;
+      cursor: default;
+    }
+    .nav-title-btn span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Progress dots */
+    .progress-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      background: transparent;
+      cursor: pointer;
+      transition: all 200ms ease;
+      padding: 0;
+    }
+    .progress-dot:hover:not(.dot-active) {
+      border-color: #5D259F;
+      transform: scale(1.1);
+    }
+    .progress-dot.dot-active {
+      background: #5D259F;
+      border-color: #5D259F;
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    // --- Mock Data ---
+    const stories = [
+      {
+        id: 1,
+        title: 'Led Cloud Migration to AWS',
+        framework: 'STAR',
+        status: 'Published',
+        sources: ['Jira', 'GitHub'],
+        sections: {
+          Situation: 'Our legacy on-premises infrastructure was reaching end-of-life, causing frequent outages that impacted over 2,000 daily active users. The engineering team was spending 30% of their time on maintenance rather than feature development. Leadership set a mandate to migrate to the cloud within six months.',
+          Task: 'I was tasked with leading the full cloud migration to AWS, including architecture design, cost estimation, and execution planning. I needed to coordinate across three engineering squads and ensure zero customer-facing downtime during the transition.',
+          Action: 'I designed a phased migration strategy using AWS Well-Architected Framework principles, starting with stateless services before tackling the database layer. I set up Terraform modules for repeatable infrastructure-as-code deployments and established a blue-green deployment pipeline using CodePipeline. I ran weekly migration war rooms with all stakeholders and created automated rollback procedures. I also negotiated reserved instance pricing that reduced our projected costs by 35%.',
+          Result: 'We completed the migration two weeks ahead of schedule with zero downtime. Infrastructure costs dropped by 42% annually ($180K savings). Mean time to deploy went from 4 hours to 12 minutes. The engineering team reclaimed 30% of their bandwidth, enabling the launch of two new product features in the following quarter.',
+        },
+      },
+      {
+        id: 2,
+        title: 'Redesigned Onboarding Flow',
+        framework: 'STAR',
+        status: 'Saved',
+        sources: ['Figma', 'Slack'],
+        sections: {
+          Situation: 'Our SaaS platform had a 68% drop-off rate during user onboarding, significantly below the industry benchmark of 40%. Customer support was overwhelmed with basic setup questions, handling over 200 tickets per week related to onboarding confusion.',
+          Task: 'I was responsible for redesigning the entire onboarding experience to reduce drop-off, decrease support burden, and improve time-to-first-value for new users. The project had a tight four-week deadline to align with a major product launch.',
+          Action: 'I conducted 15 user interviews and analyzed session recordings to identify the three primary friction points. I collaborated with the design team in Figma to create a progressive disclosure onboarding wizard that replaced the previous wall-of-forms approach. I introduced contextual tooltips, a personalized checklist, and an interactive product tour. I A/B tested the new flow against the control with 5,000 users over two weeks.',
+          Result: 'The new onboarding flow reduced drop-off to 31%, a 54% improvement. Time-to-first-value decreased from 14 minutes to 4.5 minutes. Onboarding-related support tickets dropped by 72%. The design was adopted as the company-wide standard for all new product areas.',
+        },
+      },
+      {
+        id: 3,
+        title: 'Reduced API Latency by 40%',
+        framework: 'SOAR',
+        status: 'Published',
+        sources: ['GitHub', 'Datadog'],
+        sections: {
+          Situation: 'Our customer-facing API endpoints were averaging 620ms response times, causing frustration for enterprise clients and triggering SLA violation warnings. Datadog alerts were firing multiple times daily, and two key accounts threatened to churn.',
+          Obstacle: 'The API layer had accumulated significant technical debt over three years, with N+1 query patterns, missing database indexes, and no caching strategy. The monolithic architecture made it difficult to isolate and optimize individual endpoints without risking regressions.',
+          Action: 'I profiled the top 20 most-called endpoints using Datadog APM traces and identified that 80% of latency came from five database query patterns. I introduced Redis caching for frequently accessed reference data, rewrote critical queries with proper joins and indexes, and implemented connection pooling. I set up performance regression tests in CI using k6 load testing. I also introduced GraphQL for the most complex data-fetching endpoints to eliminate over-fetching.',
+          Result: 'Average API response time dropped from 620ms to 370ms (40% reduction), with P99 latency improving from 2.1s to 890ms. Zero SLA violations in the following quarter. Both at-risk enterprise accounts renewed their contracts. The performance testing framework I built was adopted across all backend teams.',
+        },
+      },
+      {
+        id: 4,
+        title: 'Built Real-Time Analytics Dashboard',
+        framework: 'STAR',
+        status: 'Needs Polish',
+        sources: ['Jira', 'GitHub', 'Confluence'],
+        sections: {
+          Situation: 'Product managers and executives relied on weekly batch reports that were often stale by the time they were reviewed. Critical business metrics like conversion rates, revenue, and user engagement were only visible with a 24-48 hour delay, leading to slow decision-making.',
+          Task: 'I was asked to build a real-time analytics dashboard that would surface key business metrics with sub-minute freshness. The solution needed to handle 50,000 events per second and serve 200 concurrent dashboard users without performance degradation.',
+          Action: 'I architected a streaming pipeline using Apache Kafka for event ingestion, Apache Flink for real-time aggregations, and ClickHouse as the analytics data store. I built the frontend dashboard using React with WebSocket connections for live data updates. I designed a materialized view strategy in ClickHouse that pre-computed the 15 most-requested metrics. I wrote comprehensive documentation in Confluence and ran training sessions for 40 stakeholders.',
+          Result: 'The dashboard reduced metric freshness from 24-48 hours to under 30 seconds. Product managers reported making data-driven decisions 3x faster. The platform handled peak loads of 80,000 events per second without degradation. Executive NPS for internal tooling increased from 32 to 71 in the quarter following launch.',
+        },
+      },
+      {
+        id: 5,
+        title: 'Mentored 3 Junior Engineers',
+        framework: 'CAR',
+        status: 'Saved',
+        sources: ['Slack'],
+        sections: {
+          Challenge: 'Three junior engineers joined the team within a two-month window, each with different backgrounds and skill levels. The team was in the middle of a critical product sprint, and there was no formal onboarding or mentorship program in place. Senior engineers were stretched thin and retention of junior hires had historically been poor.',
+          Action: 'I designed a structured 90-day mentorship program with weekly 1:1s, pair programming sessions, and progressive ownership milestones. I created a curated learning path covering our tech stack, coding standards, and architecture patterns. I assigned each mentee a "starter project" that was meaningful to the product but scoped appropriately for skill-building. I introduced code review rituals where mentees reviewed each other\'s PRs to build collaborative habits. I also advocated for dedicated mentorship time in sprint planning.',
+          Result: 'All three engineers were contributing independently to production features within 60 days, 30 days ahead of the typical ramp-up period. One mentee received a spot bonus for their starter project contribution. Team retention improved to 100% for junior hires over the next year. The mentorship program was formalized and rolled out across the engineering organization, benefiting 12 additional new hires.',
+        },
+      },
+      {
+        id: 6,
+        title: 'Launched Mobile App v2.0',
+        framework: 'STAR',
+        status: 'Published',
+        sources: ['Jira', 'Figma', 'GitHub'],
+        sections: {
+          Situation: 'Our mobile app had a 2.8-star rating on the App Store with recurring complaints about slow performance, outdated UI, and missing features compared to the web platform. Mobile revenue accounted for only 12% of total despite 45% of traffic coming from mobile devices.',
+          Task: 'I led the v2.0 mobile rewrite, responsible for architecture decisions, feature parity prioritization, and coordinating a cross-functional team of 8 (3 mobile engineers, 2 designers, 2 backend engineers, and 1 QA). The goal was to ship within 16 weeks.',
+          Action: 'I chose React Native to maximize code sharing between iOS and Android, reducing the required engineering effort by an estimated 40%. I implemented a feature-flagged rollout strategy that let us gradually migrate users from v1 to v2 while monitoring crash rates and engagement metrics. I established a design system in Figma with the design team to ensure consistency across 45 screens. I set up automated E2E testing with Detox covering critical user paths, and organized a beta program with 500 power users for early feedback.',
+          Result: 'We shipped v2.0 on schedule at week 15. App Store rating improved from 2.8 to 4.6 stars within two months. Mobile conversion rate increased by 58%, driving mobile revenue share from 12% to 28%. Crash-free sessions improved from 94% to 99.7%. The React Native architecture reduced ongoing maintenance burden by allowing a single team to ship to both platforms simultaneously.',
+        },
+      },
+    ];
+
+    const sourceColors = {
+      Jira: { bg: '#dbeafe', text: '#1e40af', icon: '&#9635;' },
+      GitHub: { bg: '#f3e8ff', text: '#6b21a8', icon: '&#9783;' },
+      Figma: { bg: '#fce7f3', text: '#9d174d', icon: '&#9672;' },
+      Slack: { bg: '#ecfccb', text: '#3f6212', icon: '&#9830;' },
+      Datadog: { bg: '#fef3c7', text: '#92400e', icon: '&#9673;' },
+      Confluence: { bg: '#cffafe', text: '#155e75', icon: '&#9670;' },
+    };
+
+    // --- State ---
+    let currentView = 'list';
+    let currentStoryIndex = 0;
+    let slideDirection = 'left'; // 'left' or 'right'
+
+    // --- Render ---
+    function render() {
+      const app = document.getElementById('app');
+      if (currentView === 'list') {
+        app.innerHTML = renderHeader() + renderListView();
+      } else {
+        app.innerHTML = renderHeader() + renderNavBar() + renderDetailView();
+      }
+      bindEvents();
+    }
+
+    function renderHeader() {
+      return `
+        <header id="main-header" style="background: #5D259F; color: #fff; padding: 16px 32px; position: sticky; top: 0; z-index: 40;">
+          <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">ic</div>
+              <span style="font-weight: 600; font-size: 18px;">inchronicle</span>
+            </div>
+            <nav style="display: flex; gap: 24px; font-size: 14px; font-weight: 500;">
+              <a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none;">Dashboard</a>
+              <a href="#" style="color: #fff; text-decoration: none; border-bottom: 2px solid #fff; padding-bottom: 2px;">Stories</a>
+              <a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none;">Sources</a>
+              <a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none;">Settings</a>
+            </nav>
+            <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600;">HA</div>
+          </div>
+        </header>
+      `;
+    }
+
+    function renderNavBar() {
+      const story = stories[currentStoryIndex];
+      const prevStory = currentStoryIndex > 0 ? stories[currentStoryIndex - 1] : null;
+      const nextStory = currentStoryIndex < stories.length - 1 ? stories[currentStoryIndex + 1] : null;
+
+      const dots = stories.map((s, i) => {
+        const isActive = i === currentStoryIndex;
+        return `<button class="progress-dot ${isActive ? 'dot-active' : ''}" data-dot-index="${i}" title="${s.title}"></button>`;
+      }).join('');
+
+      return `
+        <div id="story-navbar" style="position: sticky; top: 56px; z-index: 30; background: #fff; border-bottom: 1px solid #e5e7eb;">
+          <!-- Line 1: Back + Story Title -->
+          <div style="padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; max-width: 1200px; margin: 0 auto;">
+            <button id="back-btn" style="display: flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 500; color: #4b5563; padding: 6px 12px; border-radius: 6px; transition: all 150ms ease;"
+              onmouseover="this.style.color='#111827'; this.style.background='#f3f4f6';"
+              onmouseout="this.style.color='#4b5563'; this.style.background='none';">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12L6 8l4-4"/></svg>
+              Back to Stories
+            </button>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="framework-badge">${story.framework}</span>
+              <h2 style="font-size: 16px; font-weight: 600; color: #1a1a2e; margin: 0; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${story.title}</h2>
+            </div>
+          </div>
+          <!-- Line 2: Prev | Dots | Next -->
+          <div style="padding: 8px 24px; background: #f9fafb; border-top: 1px solid #f3f4f6;">
+            <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+              <button class="nav-title-btn" id="prev-btn" ${!prevStory ? 'disabled' : ''}>
+                ${prevStory ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12L6 8l4-4"/></svg><span>${prevStory.title}</span>` : '<span style="visibility:hidden;">placeholder</span>'}
+              </button>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                ${dots}
+              </div>
+              <button class="nav-title-btn" id="next-btn" ${!nextStory ? 'disabled' : ''} style="flex-direction: row-reverse;">
+                ${nextStory ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg><span>${nextStory.title}</span>` : '<span style="visibility:hidden;">placeholder</span>'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function statusClass(status) {
+      if (status === 'Published') return 'status-published';
+      if (status === 'Saved') return 'status-saved';
+      return 'status-needs-polish';
+    }
+
+    function renderSourcePills(sources) {
+      return sources.map(s => {
+        const c = sourceColors[s] || { bg: '#f3f4f6', text: '#374151', icon: '&#9679;' };
+        return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: ${c.bg}; color: ${c.text};">${c.icon}&nbsp;${s}</span>`;
+      }).join(' ');
+    }
+
+    function renderListView() {
+      return `
+        <div style="max-width: 1200px; margin: 0 auto; padding: 32px 24px;">
+          <div style="margin-bottom: 28px;">
+            <h1 style="font-size: 24px; font-weight: 700; color: #1a1a2e; margin: 0 0 6px;">My Career Stories</h1>
+            <p style="font-size: 14px; color: #6b7280; margin: 0;">${stories.length} stories across your connected sources</p>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px;">
+            ${stories.map((s, i) => `
+              <div class="story-card" data-index="${i}">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                  <span class="framework-badge">${s.framework}</span>
+                  <span class="${statusClass(s.status)}" style="font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 9999px;">${s.status}</span>
+                </div>
+                <h3 style="font-size: 16px; font-weight: 600; color: #1a1a2e; margin: 0 0 10px; line-height: 1.4;">${s.title}</h3>
+                <p style="font-size: 13px; color: #6b7280; line-height: 1.6; margin: 0 0 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${Object.values(s.sections)[0]}</p>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  ${renderSourcePills(s.sources)}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDetailView() {
+      const story = stories[currentStoryIndex];
+      const sectionLabels = Object.keys(story.sections);
+      return `
+        <div class="story-detail-content slide-settled" id="detail-content" style="max-width: 720px; margin: 0 auto; padding: 40px 24px 80px;">
+          <!-- Title area -->
+          <div style="margin-bottom: 32px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+              <span class="framework-badge">${story.framework}</span>
+              <span class="${statusClass(story.status)}" style="font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 9999px;">${story.status}</span>
+              <span style="font-size: 12px; color: #9ca3af;">|</span>
+              ${renderSourcePills(story.sources)}
+            </div>
+            <h1 style="font-size: 28px; font-weight: 700; color: #1a1a2e; margin: 0; line-height: 1.3;">${story.title}</h1>
+          </div>
+
+          <!-- Sections -->
+          ${sectionLabels.map(label => `
+            <div class="star-section">
+              <div class="star-section-label">${label}</div>
+              <p>${story.sections[label]}</p>
+            </div>
+          `).join('')}
+
+          <!-- Action buttons -->
+          <div style="margin-top: 32px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="action-btn" onclick="showToast('Copied to clipboard')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+            <button class="action-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+              Regenerate
+            </button>
+            <button class="action-btn primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-7 7l7-7 7 7"/></svg>
+              Publish
+            </button>
+            <button class="action-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+              Share
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- Toast ---
+    function showToast(message) {
+      let toast = document.getElementById('toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = 'position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 100; opacity: 0; transition: opacity 200ms ease;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = message;
+      toast.style.opacity = '1';
+      setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    }
+
+    // --- Navigation with slide ---
+    let isTransitioning = false;
+
+    function navigateToStory(index) {
+      if (index < 0 || index >= stories.length || index === currentStoryIndex || isTransitioning) return;
+      isTransitioning = true;
+
+      const direction = index > currentStoryIndex ? 'left' : 'right';
+      const content = document.getElementById('detail-content');
+
+      if (content) {
+        // Slide out current content
+        content.classList.remove('slide-settled');
+        content.classList.add(direction === 'left' ? 'slide-out-left' : 'slide-out-right');
+
+        setTimeout(() => {
+          currentStoryIndex = index;
+          currentView = 'detail';
+          render();
+
+          const newContent = document.getElementById('detail-content');
+          if (newContent) {
+            // Start from the incoming side
+            newContent.classList.remove('slide-settled');
+            newContent.classList.add(direction === 'left' ? 'slide-in-left' : 'slide-in-right');
+
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                newContent.classList.remove('slide-in-left', 'slide-in-right');
+                newContent.classList.add('slide-settled');
+                isTransitioning = false;
+              });
+            });
+          } else {
+            isTransitioning = false;
+          }
+        }, 280);
+      } else {
+        currentStoryIndex = index;
+        currentView = 'detail';
+        render();
+        isTransitioning = false;
+      }
+    }
+
+    function goBack() {
+      currentView = 'list';
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // --- Event binding ---
+    function bindEvents() {
+      // Story cards click
+      document.querySelectorAll('.story-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const index = parseInt(card.dataset.index);
+          currentStoryIndex = index;
+          currentView = 'detail';
+          render();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+
+      // Back button
+      const backBtn = document.getElementById('back-btn');
+      if (backBtn) backBtn.addEventListener('click', goBack);
+
+      // Prev/Next
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      if (prevBtn) prevBtn.addEventListener('click', () => {
+        if (currentStoryIndex > 0) navigateToStory(currentStoryIndex - 1);
+      });
+      if (nextBtn) nextBtn.addEventListener('click', () => {
+        if (currentStoryIndex < stories.length - 1) navigateToStory(currentStoryIndex + 1);
+      });
+
+      // Progress dots
+      document.querySelectorAll('.progress-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+          const index = parseInt(dot.dataset.dotIndex);
+          navigateToStory(index);
+        });
+      });
+    }
+
+    // --- Keyboard ---
+    document.addEventListener('keydown', (e) => {
+      if (currentView === 'detail') {
+        if (e.key === 'Escape') {
+          goBack();
+        } else if (e.key === 'ArrowLeft' && currentStoryIndex > 0) {
+          navigateToStory(currentStoryIndex - 1);
+        } else if (e.key === 'ArrowRight' && currentStoryIndex < stories.length - 1) {
+          navigateToStory(currentStoryIndex + 1);
+        }
+      }
+    });
+
+    // --- Init ---
+    render();
+  </script>
+</body>
+</html>
