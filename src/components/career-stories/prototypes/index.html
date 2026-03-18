@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stories Page UX Prototypes — inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #5D259F;
+      --primary-light: #F3EBFC;
+      --primary-100: #E8D7F9;
+      --primary-200: #D1AFF3;
+      --off-black: #1a1a2e;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-900: #111827;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gray-50);
+      color: var(--off-black);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray-200);
+      padding: 16px 32px;
+    }
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+    .header-subtitle {
+      font-size: 13px;
+      color: var(--gray-500);
+      font-weight: 400;
+    }
+
+    /* Hero */
+    .hero {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 48px 32px 32px;
+    }
+    .hero h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--gray-900);
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+    .hero p {
+      font-size: 16px;
+      color: var(--gray-500);
+      margin-top: 8px;
+      max-width: 600px;
+    }
+    .hero .badge-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 999px;
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    /* Grid */
+    .grid-section {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 32px 64px;
+    }
+    .concept-group {
+      margin-bottom: 48px;
+    }
+    .concept-group-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .concept-number {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+      background: var(--primary-light);
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .concept-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+    .concept-desc {
+      font-size: 13px;
+      color: var(--gray-500);
+      margin-left: auto;
+    }
+
+    .variant-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 768px) {
+      .variant-grid { grid-template-columns: 1fr; }
+      .hero { padding: 32px 16px 24px; }
+      .grid-section { padding: 0 16px 48px; }
+      .header { padding: 12px 16px; }
+    }
+
+    /* Prototype Card */
+    .proto-card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 200ms ease;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .proto-card:hover {
+      border-color: var(--primary-200);
+      box-shadow: 0 4px 12px rgba(93, 37, 159, 0.08), 0 1px 3px rgba(0,0,0,0.06);
+      transform: translateY(-2px);
+    }
+    .proto-card:active {
+      transform: translateY(0);
+    }
+
+    .proto-preview {
+      height: 180px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .proto-info {
+      padding: 16px 20px;
+    }
+    .proto-variant-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .proto-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--gray-900);
+      margin-bottom: 4px;
+    }
+    .proto-desc {
+      font-size: 13px;
+      color: var(--gray-500);
+      line-height: 1.5;
+    }
+    .proto-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .proto-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--gray-100);
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+    .proto-tag.green { background: #d1fae5; color: #065f46; }
+    .proto-tag.amber { background: #fef3c7; color: #92400e; }
+    .proto-tag.blue { background: #dbeafe; color: #1e40af; }
+
+    /* Mini wireframe illustrations */
+    .wireframe {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      gap: 4px;
+      opacity: 0.7;
+    }
+    .wire-col {
+      background: var(--gray-200);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 6px;
+    }
+    .wire-row {
+      background: var(--gray-300);
+      border-radius: 2px;
+      height: 12px;
+      flex-shrink: 0;
+    }
+    .wire-row.active {
+      background: var(--primary-200);
+    }
+    .wire-block {
+      background: white;
+      border-radius: 3px;
+      flex: 1;
+      border: 1px solid var(--gray-200);
+    }
+    .wire-block.accent {
+      border-left: 3px solid var(--primary);
+    }
+
+    /* Arrow link indicator */
+    .proto-card .arrow {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: white;
+      border: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 150ms ease;
+    }
+    .proto-card:hover .arrow {
+      opacity: 1;
+    }
+    .arrow svg {
+      width: 14px;
+      height: 14px;
+      color: var(--gray-500);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-inner">
+      <div>
+        <div class="logo">inchronicle</div>
+        <div class="header-subtitle">Stories Page — UX Prototype Gallery</div>
+      </div>
+      <div style="font-size: 13px; color: var(--gray-400);">20 prototypes &middot; 10 concepts</div>
+    </div>
+  </div>
+
+  <div class="hero">
+    <h1>Stories Page Navigation Prototypes</h1>
+    <p>Click any prototype to open it in a new tab. Each is interactive — click story cards, navigate between stories, close detail views.</p>
+    <div class="badge-row">
+      <span class="badge">20 prototypes</span>
+      <span class="badge">10 concepts</span>
+      <span class="badge">2 variants each</span>
+    </div>
+  </div>
+
+  <div class="grid-section">
+
+    <!-- Concept 1: Right Side Panel -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">1</span>
+        <span class="concept-title">Right Side Panel</span>
+        <span class="concept-desc">List narrows, detail slides in from right</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-1a-side-panel-clean.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 0.4;">
+                <div class="wire-row active"></div>
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+              </div>
+              <div class="wire-col" style="flex: 0.6;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Clean Split</div>
+            <div class="proto-desc">White panel, thin border separator. Compact list cards. Selected card has purple left-border accent.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Context preserved</span>
+              <span class="proto-tag blue">Quick-scan</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-1b-side-panel-elevated.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 0.4; opacity: 0.5;">
+                <div class="wire-row active"></div>
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+              </div>
+              <div class="wire-col" style="flex: 0.6; box-shadow: -4px 0 12px rgba(0,0,0,0.1);">
+                <div style="height: 3px; background: var(--primary); border-radius: 2px; flex-shrink: 0;"></div>
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Elevated Panel</div>
+            <div class="proto-desc">Shadow-xl panel with purple accent stripe. List dims to 60% opacity. Panel slightly overlaps list.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Context preserved</span>
+              <span class="proto-tag blue">Focused feel</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 2: Overlay Drawer -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">2</span>
+        <span class="concept-title">Overlay Drawer</span>
+        <span class="concept-desc">Detail floats over dimmed list</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-2a-overlay-half.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 0.5; opacity: 0.35;">
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+              </div>
+              <div class="wire-col" style="flex: 0.5; box-shadow: -4px 0 20px rgba(0,0,0,0.15); border-radius: 8px 0 0 8px;">
+                <div class="wire-block"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Half-Width Drawer</div>
+            <div class="proto-desc">50% width drawer from right. Light backdrop. List visible but dimmed. Rounded left corners.</div>
+            <div class="proto-tags">
+              <span class="proto-tag">No layout shift</span>
+              <span class="proto-tag amber">List blocked</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-2b-overlay-wide.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 0.25; opacity: 0.2; filter: blur(1px);">
+                <div class="wire-row"></div>
+                <div class="wire-row"></div>
+              </div>
+              <div class="wire-col" style="flex: 0.75; box-shadow: -4px 0 20px rgba(0,0,0,0.2); border-radius: 8px 0 0 8px;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Wide Immersive Drawer</div>
+            <div class="proto-desc">75% width drawer. Dark backdrop + blur. Drag handle. "Back to Stories" pill button. Section accents.</div>
+            <div class="proto-tags">
+              <span class="proto-tag">Immersive</span>
+              <span class="proto-tag amber">List blocked</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 3: Persistent Split -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">3</span>
+        <span class="concept-title">Persistent Split View</span>
+        <span class="concept-desc">Always two columns — list + detail</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-3a-split-equal.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 0.5;">
+                <div class="wire-row"></div>
+                <div class="wire-row active"></div>
+                <div class="wire-row"></div>
+              </div>
+              <div style="width: 1px; background: var(--gray-300); flex-shrink: 0;"></div>
+              <div class="wire-col" style="flex: 0.5;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Equal Split with Divider</div>
+            <div class="proto-desc">50/50 columns. Both independently scrollable. Empty state on right when nothing selected.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Zero layout shift</span>
+              <span class="proto-tag green">Always-visible list</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-3b-split-sidebar.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 0.35; background: var(--gray-100);">
+                <div class="wire-row" style="height: 8px;"></div>
+                <div class="wire-row active" style="height: 8px;"></div>
+                <div class="wire-row" style="height: 8px;"></div>
+                <div class="wire-row" style="height: 8px;"></div>
+                <div class="wire-row" style="height: 8px;"></div>
+              </div>
+              <div class="wire-col" style="flex: 0.65;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Sidebar List (35/65)</div>
+            <div class="proto-desc">Compact sidebar navigation. Rows with title + status dot. Search input at top. Mail-client feel.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Zero layout shift</span>
+              <span class="proto-tag blue">Nav-like sidebar</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 4: Accordion -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">4</span>
+        <span class="concept-title">Inline Expansion (Accordion)</span>
+        <span class="concept-desc">Story expands in-place within the list</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-4a-accordion-smooth.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 4px;">
+              <div class="wire-row active" style="height: 16px; border-radius: 4px;"></div>
+              <div style="background: var(--primary-light); border-radius: 4px; flex: 1; border-left: 3px solid var(--primary); padding: 4px;"></div>
+              <div class="wire-row" style="height: 16px; border-radius: 4px;"></div>
+              <div class="wire-row" style="height: 16px; border-radius: 4px;"></div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Smooth Accordion</div>
+            <div class="proto-desc">Card expands downward with staggered section reveals. Other cards push down. Collapse chevron in header.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Zero navigation</span>
+              <span class="proto-tag amber">Long content issue</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-4b-accordion-floating.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 4px;">
+              <div class="wire-row active" style="height: 16px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+              <div style="background: white; border-radius: 8px; flex: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 0 8px; position: relative;">
+                <div style="position: absolute; top: -4px; left: 20px; width: 8px; height: 8px; background: white; transform: rotate(45deg); box-shadow: -1px -1px 2px rgba(0,0,0,0.05);"></div>
+              </div>
+              <div class="wire-row" style="height: 16px; border-radius: 4px;"></div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Floating Detail Card</div>
+            <div class="proto-desc">Detail appears as a floating card below the header with shadow and connecting arrow. Elevated feel.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Zero navigation</span>
+              <span class="proto-tag blue">Card-in-card</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 5: Nav Rail -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">5</span>
+        <span class="concept-title">Navigation Rail</span>
+        <span class="concept-desc">List collapses to thin icon strip</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-5a-rail-icon.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div style="width: 32px; background: var(--gray-100); border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; flex-shrink: 0;">
+                <div style="width: 20px; height: 20px; border-radius: 50%; background: var(--primary);"></div>
+                <div style="width: 20px; height: 20px; border-radius: 50%; background: var(--gray-300);"></div>
+                <div style="width: 20px; height: 20px; border-radius: 50%; background: var(--gray-300);"></div>
+                <div style="width: 20px; height: 20px; border-radius: 50%; background: var(--gray-300);"></div>
+              </div>
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Icon Rail</div>
+            <div class="proto-desc">Minimal 48px rail with story initial circles. Active = purple. Tooltip on hover. Max detail space.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Max detail space</span>
+              <span class="proto-tag amber">Minimal list info</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-5b-rail-expandable.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div style="width: 56px; background: var(--gray-100); border-radius: 4px; display: flex; flex-direction: column; gap: 4px; padding: 6px; flex-shrink: 0; transition: width 0.3s;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--primary); flex-shrink: 0;"></div>
+                  <div style="height: 4px; background: var(--gray-300); border-radius: 2px; flex: 1;"></div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--gray-300); flex-shrink: 0;"></div>
+                  <div style="height: 4px; background: var(--gray-200); border-radius: 2px; flex: 1;"></div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--gray-300); flex-shrink: 0;"></div>
+                  <div style="height: 4px; background: var(--gray-200); border-radius: 2px; flex: 1;"></div>
+                </div>
+              </div>
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Expandable Rail</div>
+            <div class="proto-desc">48px collapsed → 200px expanded on hover. Shows story titles + status dots. Auto-collapse on click outside.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Progressive disclosure</span>
+              <span class="proto-tag blue">Expandable</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 6: Hover Peek -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">6</span>
+        <span class="concept-title">Hover Peek</span>
+        <span class="concept-desc">Preview on hover + click to open detail</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-6a-hover-floating.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 4px; position: relative;">
+              <div class="wire-row" style="height: 20px; border-radius: 4px;"></div>
+              <div class="wire-row active" style="height: 20px; border-radius: 4px;"></div>
+              <div class="wire-row" style="height: 20px; border-radius: 4px;"></div>
+              <div style="position: absolute; right: -4px; top: 20px; width: 45%; background: white; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 8px; z-index: 1;">
+                <div style="height: 4px; background: var(--gray-300); border-radius: 2px; margin-bottom: 4px;"></div>
+                <div style="height: 4px; background: var(--gray-200); border-radius: 2px; width: 70%;"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Floating Preview Card</div>
+            <div class="proto-desc">Hover shows floating card with situation summary + metrics. Click opens full side panel. 200ms delay.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Quick scanning</span>
+              <span class="proto-tag blue">Companion pattern</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-6b-hover-inline.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 4px;">
+              <div class="wire-row" style="height: 16px; border-radius: 4px;"></div>
+              <div style="border-left: 2px solid var(--primary);">
+                <div class="wire-row active" style="height: 16px; border-radius: 0 4px 4px 0;"></div>
+                <div style="height: 20px; background: var(--primary-light); border-radius: 0 4px 4px 0; margin-top: 2px;"></div>
+              </div>
+              <div class="wire-row" style="height: 16px; border-radius: 4px;"></div>
+              <div class="wire-row" style="height: 16px; border-radius: 4px;"></div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Inline Expand on Hover</div>
+            <div class="proto-desc">Card grows ~80px on hover to show preview text. No floating elements. Click opens full side panel.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Gentle preview</span>
+              <span class="proto-tag">No popups</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 7: Tabbed Reader -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">7</span>
+        <span class="concept-title">Tabbed Reader</span>
+        <span class="concept-desc">Open stories as tabs, switch between them</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-7a-tabs-horizontal.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 0;">
+              <div style="display: flex; gap: 2px; padding: 4px 4px 0; background: var(--gray-100); border-radius: 4px 4px 0 0;">
+                <div style="padding: 4px 8px; background: white; border-radius: 4px 4px 0 0; font-size: 8px; color: var(--gray-500); border-bottom: 2px solid var(--primary);">All</div>
+                <div style="padding: 4px 8px; background: white; border-radius: 4px 4px 0 0; font-size: 8px; color: var(--primary); font-weight: 600;">Story A</div>
+                <div style="padding: 4px 8px; background: var(--gray-50); border-radius: 4px 4px 0 0; font-size: 8px; color: var(--gray-400);">Story B</div>
+              </div>
+              <div class="wire-col" style="flex: 1; border-radius: 0 0 4px 4px;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Horizontal Tabs</div>
+            <div class="proto-desc">Tab bar below header. Open multiple stories as tabs. Active tab has purple accent. "All Stories" tab returns to list.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Multi-story open</span>
+              <span class="proto-tag amber">Tab clutter</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-7b-tabs-vertical.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div style="width: 50px; background: var(--gray-100); border-radius: 4px; display: flex; flex-direction: column; gap: 1px; padding: 4px; flex-shrink: 0;">
+                <div style="font-size: 7px; color: var(--gray-500); padding: 3px; white-space: nowrap;">← All</div>
+                <div style="background: var(--primary-light); border-radius: 3px; padding: 3px; border-left: 2px solid var(--primary);">
+                  <div style="height: 3px; background: var(--primary-200); border-radius: 1px; width: 80%;"></div>
+                </div>
+                <div style="padding: 3px;">
+                  <div style="height: 3px; background: var(--gray-300); border-radius: 1px; width: 70%;"></div>
+                </div>
+              </div>
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Vertical Tab List</div>
+            <div class="proto-desc">Left sidebar with open stories as vertical list. Active highlighted purple. "All Stories" link at top. VS Code-inspired.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Multi-story open</span>
+              <span class="proto-tag blue">IDE-like</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 8: Sticky Nav Bar -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">8</span>
+        <span class="concept-title">Sticky Nav Bar</span>
+        <span class="concept-desc">Full-page with prominent back + prev/next</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-8a-navbar-breadcrumb.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 4px; border: 1px solid var(--gray-200);">
+                <div style="font-size: 8px; color: var(--primary);">← Back</div>
+                <div style="font-size: 7px; color: var(--gray-500);">‹ Prev | <b>Story A</b> | Next ›</div>
+              </div>
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Breadcrumb + Arrows</div>
+            <div class="proto-desc">Simple nav bar: "Back to Stories" on left, prev/next with story titles on right. Minimal, one line.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Simplest change</span>
+              <span class="proto-tag green">Full detail width</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-8b-navbar-rich.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="flex-direction: column; gap: 4px;">
+              <div style="padding: 4px 8px; background: white; border-radius: 4px; border: 1px solid var(--gray-200);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <div style="font-size: 8px; color: var(--primary);">← Back</div>
+                  <div style="font-size: 8px; font-weight: 600; color: var(--gray-700);">Story Title</div>
+                </div>
+                <div style="display: flex; justify-content: center; align-items: center; gap: 4px;">
+                  <div style="font-size: 6px; color: var(--gray-400);">← Prev title</div>
+                  <div style="display: flex; gap: 3px;">
+                    <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--gray-300);"></div>
+                    <div style="width: 7px; height: 7px; border-radius: 50%; background: var(--primary);"></div>
+                    <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--gray-300);"></div>
+                    <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--gray-300);"></div>
+                  </div>
+                  <div style="font-size: 6px; color: var(--gray-400);">Next title →</div>
+                </div>
+              </div>
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Rich Nav with Progress</div>
+            <div class="proto-desc">Two-line bar: back + title on top, progress dots + prev/next titles on bottom. Click dots to jump directly.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Position awareness</span>
+              <span class="proto-tag blue">Direct jump</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 9: Peek Strip -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">9</span>
+        <span class="concept-title">Slideover with Peek Strip</span>
+        <span class="concept-desc">Detail fills page, thin story strip on edge</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-9a-peek-dots.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+              <div style="width: 20px; background: var(--gray-100); border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; flex-shrink: 0;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--primary);"></div>
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--gray-300);"></div>
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--gray-300);"></div>
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--gray-300);"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Dot Peek</div>
+            <div class="proto-desc">32px strip with story dots. Hover expands to 280px full list. Click to switch stories. Auto-collapse.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Max detail space</span>
+              <span class="proto-tag blue">Progressive disclosure</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-9b-peek-initials.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe">
+              <div class="wire-col" style="flex: 1;">
+                <div class="wire-block accent"></div>
+              </div>
+              <div style="width: 28px; background: var(--gray-50); border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; flex-shrink: 0; border-left: 1px solid var(--gray-200);">
+                <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: 600;">L</div>
+                <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--gray-500); font-weight: 500;">R</div>
+                <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--gray-500); font-weight: 500;">R</div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Initial Peek</div>
+            <div class="proto-desc">48px strip with story initials + status dots. Click to toggle full list panel. Active story has purple indicator.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">More info when collapsed</span>
+              <span class="proto-tag blue">Toggle behavior</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Concept 10: Grid Lightbox -->
+    <div class="concept-group">
+      <div class="concept-group-header">
+        <span class="concept-number">10</span>
+        <span class="concept-title">Card Grid with Lightbox</span>
+        <span class="concept-desc">Grid layout + modal/expanding detail view</span>
+      </div>
+      <div class="variant-grid">
+        <a href="proto-10a-lightbox-centered.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="position: relative;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%; opacity: 0.3;">
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+              </div>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 65%; background: white; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); padding: 12px; z-index: 1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <div style="font-size: 7px; color: var(--gray-400);">◀</div>
+                  <div style="font-size: 7px; color: var(--gray-500);">2 of 6</div>
+                  <div style="font-size: 7px; color: var(--gray-400);">▶</div>
+                </div>
+                <div style="height: 4px; background: var(--gray-300); border-radius: 2px; margin-bottom: 4px;"></div>
+                <div style="height: 4px; background: var(--gray-200); border-radius: 2px; width: 60%;"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant A</div>
+            <div class="proto-title">Centered Lightbox</div>
+            <div class="proto-desc">2-column grid. Click opens centered modal with prev/next arrows. "2 of 6" counter. Arrow key navigation.</div>
+            <div class="proto-tags">
+              <span class="proto-tag green">Gallery feel</span>
+              <span class="proto-tag blue">Arrow key nav</span>
+            </div>
+          </div>
+        </a>
+        <a href="proto-10b-lightbox-expanding.html" target="_blank" class="proto-card">
+          <div class="proto-preview">
+            <div class="wireframe" style="position: relative;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%; opacity: 0.3;">
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+                <div style="background: var(--gray-200); border-radius: 4px; height: 50px;"></div>
+              </div>
+              <div style="position: absolute; top: 8px; left: 8px; width: 45%; background: white; border-radius: 8px; box-shadow: 0 12px 32px rgba(93,37,159,0.15); padding: 10px; z-index: 1; border: 2px solid var(--primary-light);">
+                <div style="height: 4px; background: var(--primary-200); border-radius: 2px; margin-bottom: 4px;"></div>
+                <div style="height: 4px; background: var(--gray-200); border-radius: 2px; width: 70%;"></div>
+              </div>
+            </div>
+            <div class="arrow"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10"/></svg></div>
+          </div>
+          <div class="proto-info">
+            <div class="proto-variant-label">Variant B</div>
+            <div class="proto-title">Expanding Card</div>
+            <div class="proto-desc">Card animates/grows from its grid position into detail view. FLIP-style animation. Close shrinks it back.</div>
+            <div class="proto-tags">
+              <span class="proto-tag blue">Cinematic</span>
+              <span class="proto-tag amber">Complex animation</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 32px 48px; text-align: center; color: var(--gray-400); font-size: 13px;">
+    Built with Picaso Design Director &middot; inchronicle UX Prototypes
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype 10B — Card Grid with Expanding Card | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              DEFAULT: '#5D259F',
+              light: '#F3EBFC',
+              100: '#E8D7F9',
+            },
+            offblack: '#1a1a2e',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: #fff; color: #1a1a2e; }
+
+    /* Scrollbar styling */
+    .scroll-area::-webkit-scrollbar { width: 6px; }
+    .scroll-area::-webkit-scrollbar-track { background: transparent; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .scroll-area::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+    /* Story card */
+    .story-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 200ms ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .story-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      transform: translateY(-2px) scale(1.01);
+      border-color: #d1d5db;
+    }
+    .story-card.expanding-source {
+      opacity: 0 !important;
+      pointer-events: none;
+    }
+    .story-card.faded {
+      opacity: 0.4;
+      pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    }
+    .status-published { background: #d1fae5; color: #065f46; }
+    .status-saved { background: #e0e7ff; color: #3730a3; }
+    .status-needs-polish { background: #fef3c7; color: #92400e; }
+
+    /* Framework chip */
+    .framework-chip {
+      display: inline-flex; align-items: center;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: #E8D7F9; color: #5D259F;
+    }
+
+    /* Source pill */
+    .source-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+      background: #f3f4f6; color: #6b7280;
+    }
+
+    /* Backdrop */
+    .expand-backdrop {
+      position: fixed; inset: 0; z-index: 40;
+      background: rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    .expand-backdrop.active {
+      opacity: 1; pointer-events: auto;
+    }
+
+    /* Expanded card (the "flying" clone) */
+    .expanded-card {
+      position: fixed;
+      z-index: 50;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      overflow-y: auto;
+      transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: top, left, width, height, transform;
+    }
+    .expanded-card .expanded-inner {
+      padding: 32px;
+      opacity: 0;
+      transition: opacity 250ms ease 150ms;
+    }
+    .expanded-card.open .expanded-inner {
+      opacity: 1;
+    }
+    .expanded-card .card-preview-content {
+      padding: 20px;
+      opacity: 1;
+      transition: opacity 150ms ease;
+    }
+    .expanded-card.open .card-preview-content {
+      opacity: 0;
+      position: absolute;
+      pointer-events: none;
+    }
+
+    /* Close button */
+    .expand-close {
+      position: absolute; top: 16px; right: 16px; z-index: 10;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: #f3f4f6; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 150ms ease;
+      opacity: 0;
+    }
+    .expanded-card.open .expand-close { opacity: 1; transition-delay: 200ms; }
+    .expand-close:hover { background: #e5e7eb; }
+
+    /* STAR sections */
+    .star-section { margin-bottom: 24px; }
+    .star-section h3 {
+      font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      color: #5D259F; margin: 0 0 8px 0;
+    }
+    .star-section p { font-size: 15px; line-height: 1.7; color: #374151; margin: 0; }
+
+    /* Action buttons */
+    .action-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+      border: 1px solid #e5e7eb; background: #fff; color: #374151;
+      cursor: pointer; transition: all 150ms ease;
+    }
+    .action-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+    .action-btn.primary { background: #5D259F; color: #fff; border-color: #5D259F; }
+    .action-btn.primary:hover { background: #4c1d84; }
+
+    /* Nav link */
+    .nav-link {
+      font-size: 14px; font-weight: 500; color: #6b7280; text-decoration: none;
+      padding: 6px 12px; border-radius: 6px; transition: all 150ms ease;
+    }
+    .nav-link:hover { color: #5D259F; background: #F3EBFC; }
+    .nav-link.active { color: #5D259F; font-weight: 600; }
+
+    /* Responsive grid */
+    .stories-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 768px) {
+      .stories-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header style="position:sticky;top:0;z-index:30;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;">
+    <div style="max-width:1400px;margin:0 auto;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:20px;font-weight:700;color:#5D259F;letter-spacing:-0.02em;">inchronicle</div>
+      <nav style="display:flex;gap:4px;">
+        <a href="#" class="nav-link">Timeline</a>
+        <a href="#" class="nav-link active">Stories</a>
+        <a href="#" class="nav-link">Profile</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main style="max-width:1000px;margin:0 auto;padding:32px 24px;">
+    <!-- Page Header -->
+    <div style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h1 style="font-size:24px;font-weight:700;margin:0 0 4px 0;color:#1a1a2e;">Career Stories</h1>
+        <p style="font-size:14px;color:#6b7280;margin:0;">6 stories across 3 frameworks</p>
+      </div>
+      <button class="action-btn primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        New Story
+      </button>
+    </div>
+
+    <!-- Stories Grid -->
+    <div class="stories-grid" id="storiesGrid"></div>
+  </main>
+
+  <!-- Backdrop -->
+  <div class="expand-backdrop" id="expandBackdrop"></div>
+
+  <script>
+    // ── Mock Data ──
+    const stories = [
+      {
+        id: 1,
+        title: 'Led Cloud Migration to AWS',
+        framework: 'STAR',
+        status: 'Published',
+        sources: ['Jira', 'GitHub'],
+        preview: 'Orchestrated a full-scale migration of legacy on-premise infrastructure to AWS, reducing hosting costs by 35% and improving deployment velocity.',
+        sections: {
+          Situation: 'Our engineering team was maintaining a fragile on-premise infrastructure that required constant manual intervention. Deployments took upwards of 4 hours, and downtime incidents were increasing quarter over quarter, impacting customer satisfaction scores.',
+          Task: 'I was tasked with leading the migration of our entire production stack to AWS, including 12 microservices, 3 databases, and a legacy monolith. The migration needed to be completed within Q3 without any customer-facing downtime.',
+          Action: 'I designed a phased migration plan using AWS Migration Hub to track dependencies and progress. I introduced Infrastructure as Code with Terraform, containerized all services using Docker and ECS Fargate, and set up a blue-green deployment pipeline with CodeDeploy. I also ran weekly migration readiness reviews with stakeholders and conducted 3 full dress rehearsals before the final cutover.',
+          Result: 'The migration was completed 2 weeks ahead of schedule with zero downtime. Hosting costs dropped by 35% ($180K annual savings), deployment time was reduced from 4 hours to 12 minutes, and our infrastructure uptime improved from 99.2% to 99.97%. The project was highlighted in the company all-hands as a model initiative.'
+        }
+      },
+      {
+        id: 2,
+        title: 'Redesigned Onboarding Flow',
+        framework: 'STAR',
+        status: 'Saved',
+        sources: ['Figma', 'Slack'],
+        preview: 'Led a cross-functional redesign of the user onboarding experience, increasing activation rates by 28% through data-driven iteration.',
+        sections: {
+          Situation: 'New user activation rates had plateaued at 34%, well below our target of 50%. Analytics showed that 60% of signups were dropping off during the initial setup wizard, and user feedback consistently cited confusion about core features.',
+          Task: 'I was responsible for redesigning the onboarding flow end-to-end, from first login through the "aha moment" of creating their first project. The goal was to increase 7-day activation from 34% to at least 45%.',
+          Action: 'I partnered with UX research to conduct 15 user interviews and mapped out drop-off points using Mixpanel funnels. I then facilitated a design sprint with product, engineering, and customer success, generating 23 concepts that we narrowed to 3 testable prototypes. We ran A/B tests over 4 weeks, iterating on the winning variant with progressive disclosure and contextual tooltips. I also introduced an onboarding checklist pattern inspired by Notion.',
+          Result: 'The new onboarding flow increased 7-day activation from 34% to 62%, surpassing our target by 12 percentage points. Time-to-first-project dropped from 23 minutes to 8 minutes. Support tickets related to setup decreased by 41%, freeing up 15 hours/week of CS team capacity.'
+        }
+      },
+      {
+        id: 3,
+        title: 'Reduced API Latency by 40%',
+        framework: 'SOAR',
+        status: 'Published',
+        sources: ['GitHub', 'Datadog'],
+        preview: 'Identified and resolved critical performance bottlenecks across core API endpoints, achieving 40% latency reduction under peak load.',
+        sections: {
+          Situation: 'Our core API endpoints were experiencing P95 latency of 1,200ms during peak hours, causing timeout errors for 8% of requests. Customer complaints about slow load times had become the top support category, and our largest enterprise client issued a formal performance SLA warning.',
+          Objective: 'Reduce P95 API latency to under 500ms across all critical endpoints while maintaining feature parity, and establish ongoing performance monitoring and alerting to prevent regression.',
+          Action: 'I profiled every critical endpoint using Datadog APM and identified three major bottlenecks: N+1 database queries, uncompressed payload serialization, and synchronous third-party API calls. I rewrote the ORM layer to use eager loading and batch queries, introduced response compression with Brotli, and converted blocking external calls to async with circuit breakers. I also implemented Redis caching for frequently accessed reference data and added performance budgets to our CI pipeline.',
+          Result: 'P95 latency dropped from 1,200ms to 320ms (73% improvement), well below our 500ms target. Error rates fell from 8% to 0.3%. Our enterprise client renewed their contract with an expanded scope, citing the performance improvements specifically. The performance monitoring framework I built has since caught 12 potential regressions before they reached production.'
+        }
+      },
+      {
+        id: 4,
+        title: 'Built Real-Time Analytics Dashboard',
+        framework: 'STAR',
+        status: 'Needs Polish',
+        sources: ['Jira', 'GitHub', 'Confluence'],
+        preview: 'Designed and built a real-time analytics dashboard processing 2M events/day, giving product teams instant visibility into user behavior.',
+        sections: {
+          Situation: 'Product managers relied on weekly batch reports that were often outdated by the time decisions were made. The existing analytics setup used manual SQL queries against the production database, causing performance degradation during business hours and a 3-day average turnaround for data requests.',
+          Task: 'I was charged with building a self-serve real-time analytics dashboard that could process and visualize up to 2 million events per day, with sub-5-second query response times and zero impact on production database performance.',
+          Action: 'I architected an event streaming pipeline using Kafka for ingestion and ClickHouse as the OLAP datastore, with materialized views for common query patterns. On the frontend, I built an interactive dashboard using React with Recharts, featuring drag-and-drop chart builder, saved views, and scheduled email reports. I worked closely with PMs to define the initial 8 dashboard templates based on their most common data requests. I also wrote comprehensive documentation and ran 4 training sessions for the product team.',
+          Result: 'The dashboard processes an average of 2.3M events daily with a median query response time of 1.8 seconds. Self-serve data requests eliminated the 3-day turnaround entirely. Product team adoption reached 92% within the first month. Data-informed decisions increased by 3x as measured by A/B test volume, and the engineering team reclaimed 20 hours/week previously spent on ad-hoc data pulls.'
+        }
+      },
+      {
+        id: 5,
+        title: 'Mentored 3 Junior Engineers',
+        framework: 'CAR',
+        status: 'Saved',
+        sources: ['Slack'],
+        preview: 'Established a structured mentoring program that helped 3 junior engineers grow to mid-level within 8 months, improving team velocity.',
+        sections: {
+          Challenge: 'Our team had hired 3 junior engineers simultaneously, and their ramp-up was slower than expected. Code review cycles averaged 5 rounds, PR merge times stretched to 4 days, and senior engineers were spending 40% of their time on support rather than feature work. Team velocity had dropped by 25%.',
+          Action: 'I designed a structured mentoring program with weekly 1:1 sessions, progressive complexity assignments, and a pair programming rotation. I created a "learning ladder" document mapping specific skills to milestone projects, and introduced a code review rubric that turned reviews into teaching moments rather than gatekeeping. I also established a "buddy system" pairing each junior with a senior engineer for real-time support, and ran bi-weekly architecture walkthroughs to build system-level understanding.',
+          Result: 'All 3 junior engineers were promoted to mid-level within 8 months, 4 months ahead of typical timeline. Average code review rounds dropped from 5 to 1.8, and PR merge time decreased from 4 days to 18 hours. Team velocity recovered and then exceeded pre-hire levels by 15%. The mentoring framework was adopted by 2 other teams and became part of our engineering onboarding playbook.'
+        }
+      },
+      {
+        id: 6,
+        title: 'Launched Mobile App v2.0',
+        framework: 'STAR',
+        status: 'Published',
+        sources: ['Jira', 'Figma', 'GitHub'],
+        preview: 'Led the complete rebuild and launch of our mobile application, achieving a 4.7-star rating and 150% increase in daily active users.',
+        sections: {
+          Situation: 'Our mobile app had a 2.8-star rating on both app stores, with consistent complaints about crashes, slow performance, and an outdated UI. Mobile accounted for only 15% of total usage despite 60% of our target demographic preferring mobile-first experiences. The existing React Native codebase had accumulated significant technical debt.',
+          Task: 'I was tasked with leading the complete rebuild of the mobile app from the ground up, with the goal of reaching a 4.5+ star rating, doubling daily active users, and establishing a sustainable mobile development practice for future iterations.',
+          Action: 'I assembled a dedicated 4-person mobile squad and chose to rebuild using React Native with a new architecture (Fabric and TurboModules) for near-native performance. I worked with design to create a fresh, modern UI system based on our brand guidelines, implemented offline-first data sync using WatermelonDB, and set up automated E2E testing with Detox covering 85% of user flows. We ran a 3-week beta with 500 power users, incorporating their feedback into 47 refinements before the public launch. I also coordinated the App Store Optimization strategy with marketing.',
+          Result: 'The v2.0 launch achieved a 4.7-star rating (up from 2.8), and daily active users grew 150% within 60 days. Crash rate dropped from 3.2% to 0.1%, and average session duration increased from 2.1 minutes to 8.4 minutes. Mobile now accounts for 38% of total platform usage, up from 15%. The app was featured in "Apps We Love" on the iOS App Store during launch week.'
+        }
+      }
+    ];
+
+    // ── Source Icons ──
+    const sourceIcons = {
+      Jira: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12.005 2L2 12.005l10.005 10.005L22.01 12.005 12.005 2zm0 3.535l6.47 6.47-6.47 6.47-6.47-6.47 6.47-6.47z" fill="#2684FF"/></svg>',
+      GitHub: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#24292e"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>',
+      Figma: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M8 24c2.2 0 4-1.8 4-4v-4H8c-2.2 0-4 1.8-4 4s1.8 4 4 4z" fill="#0ACF83"/><path d="M4 12c0-2.2 1.8-4 4-4h4v8H8c-2.2 0-4-1.8-4-4z" fill="#A259FF"/><path d="M4 4c0-2.2 1.8-4 4-4h4v8H8C5.8 8 4 6.2 4 4z" fill="#F24E1E"/><path d="M12 0h4c2.2 0 4 1.8 4 4s-1.8 4-4 4h-4V0z" fill="#FF7262"/><path d="M20 12c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4 4 1.8 4 4z" fill="#1ABCFE"/></svg>',
+      Slack: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6.194 14.644c0 1.16-.943 2.103-2.103 2.103S2 15.804 2 14.644s.943-2.103 2.091-2.103h2.103v2.103zm1.058 0c0-1.16.943-2.103 2.103-2.103s2.103.943 2.103 2.103v5.262c0 1.16-.943 2.103-2.103 2.103s-2.103-.943-2.103-2.103v-5.262z" fill="#E01E5A"/><path d="M9.355 6.194c-1.16 0-2.103-.943-2.103-2.103S8.195 2 9.355 2s2.103.943 2.103 2.091v2.103H9.355zm0 1.058c1.16 0 2.103.943 2.103 2.103s-.943 2.103-2.103 2.103H4.091C2.931 11.458 2 10.515 2 9.355s.943-2.103 2.091-2.103h5.264z" fill="#36C5F0"/><path d="M17.806 9.355c0-1.16.943-2.103 2.103-2.103S22 8.195 22 9.355s-.943 2.103-2.091 2.103h-2.103V9.355zm-1.058 0c0 1.16-.943 2.103-2.103 2.103s-2.103-.943-2.103-2.103V4.091C12.542 2.931 13.485 2 14.645 2s2.103.943 2.103 2.091v5.264z" fill="#2EB67D"/><path d="M14.645 17.806c1.16 0 2.103.943 2.103 2.103S15.805 22 14.645 22s-2.103-.943-2.103-2.091v-2.103h2.103zm0-1.058c-1.16 0-2.103-.943-2.103-2.103s.943-2.103 2.103-2.103h5.264c1.16 0 2.091.943 2.091 2.103s-.943 2.103-2.091 2.103h-5.264z" fill="#ECB22E"/></svg>',
+      Datadog: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="4" fill="#632CA6"/><text x="12" y="16" text-anchor="middle" fill="white" font-size="10" font-weight="700" font-family="Inter">D</text></svg>',
+      Confluence: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3.24 16.607c-.18.307-.38.672-.554.98-.175.305-.06.695.256.858l4.63 2.467c.316.168.708.05.876-.268.157-.29.348-.635.565-.996 1.5-2.5 3.026-2.2 5.762-.904l4.578 2.166c.324.153.706.007.848-.326l2.1-4.928c.143-.335-.01-.723-.352-.866 0 0-3.072-1.453-4.63-2.19-5.262-2.486-9.68-2.166-14.08 3.007z" fill="#1868DB"/><path d="M20.76 7.393c.18-.307.38-.672.554-.98.175-.305.06-.695-.256-.858l-4.63-2.467c-.316-.168-.708-.05-.876.268-.157.29-.348.635-.565.996-1.5 2.5-3.026 2.2-5.762.904L4.647 3.09c-.324-.153-.706-.007-.848.326l-2.1 4.928c-.143.335.01.723.352.866 0 0 3.072 1.453 4.63 2.19 5.262 2.486 9.68 2.166 14.08-3.007z" fill="#1868DB"/></svg>'
+    };
+
+    // ── Status config ──
+    const statusConfig = {
+      'Published': { class: 'status-published', dot: '#065f46' },
+      'Saved': { class: 'status-saved', dot: '#3730a3' },
+      'Needs Polish': { class: 'status-needs-polish', dot: '#92400e' }
+    };
+
+    // ── State ──
+    let expandedIndex = -1;
+    let expandedEl = null;
+    let sourceRect = null;
+    const backdrop = document.getElementById('expandBackdrop');
+
+    // ── Render Card Grid ──
+    function renderGrid() {
+      const grid = document.getElementById('storiesGrid');
+      grid.innerHTML = stories.map((story, idx) => `
+        <div class="story-card" id="card-${idx}" data-index="${idx}" onclick="expandCard(${idx})">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <span class="framework-chip">${story.framework}</span>
+            <span class="status-badge ${statusConfig[story.status].class}">
+              <span style="width:6px;height:6px;border-radius:50%;background:${statusConfig[story.status].dot};display:inline-block;"></span>
+              ${story.status}
+            </span>
+          </div>
+          <h3 style="font-size:16px;font-weight:700;margin:0 0 8px 0;color:#1a1a2e;line-height:1.3;">${story.title}</h3>
+          <p style="font-size:14px;color:#6b7280;margin:0 0 16px 0;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${story.preview}</p>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${story.sources.map(s => `<span class="source-pill">${sourceIcons[s] || ''} ${s}</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ── Build expanded detail HTML ──
+    function buildDetailHTML(story) {
+      const sectionEntries = Object.entries(story.sections);
+      return `
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <span class="framework-chip">${story.framework}</span>
+            <span class="status-badge ${statusConfig[story.status].class}">
+              <span style="width:6px;height:6px;border-radius:50%;background:${statusConfig[story.status].dot};display:inline-block;"></span>
+              ${story.status}
+            </span>
+          </div>
+          <h2 style="font-size:22px;font-weight:700;margin:0 0 12px 0;color:#1a1a2e;line-height:1.3;padding-right:40px;">${story.title}</h2>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            ${story.sources.map(s => `<span class="source-pill">${sourceIcons[s] || ''} ${s}</span>`).join('')}
+          </div>
+        </div>
+        <div style="border-top:1px solid #e5e7eb;padding-top:24px;">
+          ${sectionEntries.map(([label, text]) => `
+            <div class="star-section">
+              <h3>${label}</h3>
+              <p>${text}</p>
+            </div>
+          `).join('')}
+        </div>
+        <div style="border-top:1px solid #e5e7eb;padding-top:20px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="action-btn" onclick="event.stopPropagation(); showToast('Copied to clipboard')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2"/></svg>
+            Copy
+          </button>
+          <button class="action-btn" onclick="event.stopPropagation(); showToast('Regenerating story...')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Regenerate
+          </button>
+          <button class="action-btn primary" onclick="event.stopPropagation(); showToast('Story published!')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Publish
+          </button>
+          <button class="action-btn" onclick="event.stopPropagation(); showToast('Share link copied!')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="18" cy="5" r="3" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="12" r="3" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="19" r="3" stroke="currentColor" stroke-width="2"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" stroke-width="2"/></svg>
+            Share
+          </button>
+        </div>
+      `;
+    }
+
+    // ── Build card preview HTML (matches the grid card content) ──
+    function buildPreviewHTML(story) {
+      return `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <span class="framework-chip">${story.framework}</span>
+          <span class="status-badge ${statusConfig[story.status].class}">
+            <span style="width:6px;height:6px;border-radius:50%;background:${statusConfig[story.status].dot};display:inline-block;"></span>
+            ${story.status}
+          </span>
+        </div>
+        <h3 style="font-size:16px;font-weight:700;margin:0 0 8px 0;color:#1a1a2e;line-height:1.3;">${story.title}</h3>
+        <p style="font-size:14px;color:#6b7280;margin:0 0 16px 0;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${story.preview}</p>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${story.sources.map(s => `<span class="source-pill">${sourceIcons[s] || ''} ${s}</span>`).join('')}
+        </div>
+      `;
+    }
+
+    // ── Expand Card ──
+    function expandCard(index) {
+      if (expandedIndex !== -1) return; // already expanded
+      expandedIndex = index;
+      const story = stories[index];
+      const card = document.getElementById(`card-${index}`);
+      const rect = card.getBoundingClientRect();
+      sourceRect = rect;
+
+      // Fade other cards
+      document.querySelectorAll('.story-card').forEach((c, i) => {
+        if (i === index) {
+          c.classList.add('expanding-source');
+        } else {
+          c.classList.add('faded');
+        }
+      });
+
+      // Create expanded element
+      expandedEl = document.createElement('div');
+      expandedEl.className = 'expanded-card scroll-area';
+      expandedEl.innerHTML = `
+        <button class="expand-close" onclick="collapseCard()" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9" stroke="#374151" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="card-preview-content">${buildPreviewHTML(story)}</div>
+        <div class="expanded-inner">${buildDetailHTML(story)}</div>
+      `;
+
+      // Position at the card's location
+      expandedEl.style.top = rect.top + 'px';
+      expandedEl.style.left = rect.left + 'px';
+      expandedEl.style.width = rect.width + 'px';
+      expandedEl.style.height = rect.height + 'px';
+      expandedEl.style.borderRadius = '12px';
+
+      document.body.appendChild(expandedEl);
+
+      // Show backdrop
+      backdrop.classList.add('active');
+
+      // Animate to center on next frame
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const targetWidth = Math.min(720, window.innerWidth * 0.9);
+          const targetLeft = (window.innerWidth - targetWidth) / 2;
+          const targetTop = window.innerHeight * 0.1;
+          const targetMaxHeight = window.innerHeight * 0.8;
+
+          expandedEl.style.top = targetTop + 'px';
+          expandedEl.style.left = targetLeft + 'px';
+          expandedEl.style.width = targetWidth + 'px';
+          expandedEl.style.height = 'auto';
+          expandedEl.style.maxHeight = targetMaxHeight + 'px';
+
+          // Mark as open to trigger content transition
+          setTimeout(() => {
+            expandedEl.classList.add('open');
+          }, 100);
+        });
+      });
+
+      document.body.style.overflow = 'hidden';
+    }
+
+    // ── Collapse Card ──
+    function collapseCard() {
+      if (expandedIndex === -1 || !expandedEl) return;
+
+      const card = document.getElementById(`card-${expandedIndex}`);
+      const rect = card.getBoundingClientRect();
+
+      // Remove open state (hides detail, shows preview)
+      expandedEl.classList.remove('open');
+
+      // Animate back to card position
+      expandedEl.style.top = rect.top + 'px';
+      expandedEl.style.left = rect.left + 'px';
+      expandedEl.style.width = rect.width + 'px';
+      expandedEl.style.height = rect.height + 'px';
+      expandedEl.style.maxHeight = rect.height + 'px';
+      expandedEl.style.overflow = 'hidden';
+
+      // Fade backdrop
+      backdrop.classList.remove('active');
+
+      // After animation completes, clean up
+      setTimeout(() => {
+        if (expandedEl && expandedEl.parentNode) {
+          expandedEl.parentNode.removeChild(expandedEl);
+        }
+        expandedEl = null;
+
+        // Restore cards
+        document.querySelectorAll('.story-card').forEach(c => {
+          c.classList.remove('expanding-source', 'faded');
+        });
+
+        expandedIndex = -1;
+        document.body.style.overflow = '';
+      }, 420);
+    }
+
+    // ── Click backdrop to close ──
+    backdrop.addEventListener('click', collapseCard);
+
+    // ── Escape key to close ──
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && expandedIndex !== -1) {
+        collapseCard();
+      }
+    });
+
+    // ── Toast ──
+    function showToast(message) {
+      const existing = document.querySelector('.toast-msg');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = 'toast-msg';
+      toast.textContent = message;
+      Object.assign(toast.style, {
+        position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%) translateY(10px)',
+        background: '#1a1a2e', color: '#fff', padding: '10px 20px', borderRadius: '8px',
+        fontSize: '14px', fontWeight: '500', zIndex: '100', opacity: '0',
+        transition: 'all 250ms ease', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+      });
+      document.body.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+      });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(10px)';
+        setTimeout(() => toast.remove(), 250);
+      }, 2000);
+    }
+
+    // ── Init ──
+    renderGrid();
+  </script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proto 4B — Inline Expansion: Floating Detail Card | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            primary: {
+              DEFAULT: '#5D259F',
+              light: '#F3EBFC',
+              100: '#E8D7F9',
+              600: '#5D259F',
+              700: '#4A1D7F',
+              800: '#3A1666',
+              900: '#2B1050',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #f9fafb; color: #1a1a2e; margin: 0; }
+
+    /* ── Floating card entry animation ── */
+    .floating-card {
+      transform: scale(0.95);
+      opacity: 0;
+      transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 250ms ease-out;
+      transform-origin: top center;
+    }
+    .floating-card.visible {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .floating-card.exiting {
+      transform: scale(0.95);
+      opacity: 0;
+      transition-duration: 180ms;
+      transition-timing-function: ease-in;
+    }
+
+    /* ── CSS Triangle connector ── */
+    .floating-card::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 32px;
+      width: 0;
+      height: 0;
+      border-left: 9px solid transparent;
+      border-right: 9px solid transparent;
+      border-bottom: 9px solid white;
+      z-index: 2;
+    }
+    .floating-card::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: 31px;
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 10px solid #e5e7eb;
+      z-index: 1;
+    }
+
+    /* ── Header card states ── */
+    .header-card {
+      transition: all 250ms ease;
+      border-top: 3px solid transparent;
+    }
+    .header-card.expanded {
+      border-top-color: #5D259F;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+    }
+    .header-card:not(.expanded):hover {
+      border-color: #E8D7F9;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);
+    }
+
+    /* ── Source icon pill ── */
+    .source-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    /* ── Hover states for action buttons ── */
+    .action-btn {
+      transition: all 150ms ease;
+    }
+    .action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .action-btn:active {
+      transform: translateY(0);
+    }
+
+    /* ── Section reveal ── */
+    .detail-section {
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 200ms ease, transform 200ms ease;
+    }
+    .detail-section.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Smooth push-down for other cards ── */
+    .card-container {
+      transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Close button ── */
+    .close-btn {
+      transition: all 150ms ease;
+    }
+    .close-btn:hover {
+      background: #f3f4f6;
+      transform: scale(1.1);
+    }
+
+    /* ── Copy toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      opacity: 0;
+      transition: all 300ms ease;
+      z-index: 100;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ── Chevron animation ── */
+    .chevron-icon {
+      transition: transform 250ms ease, color 250ms ease;
+    }
+    .chevron-icon.down {
+      transform: rotate(90deg);
+    }
+  </style>
+</head>
+<body>
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- STICKY HEADER                                              -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <header class="sticky top-0 z-50 bg-white border-b border-gray-200" style="box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: #5D259F;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        </div>
+        <span class="text-lg font-bold" style="color: #1a1a2e;">inchronicle</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-medium px-2.5 py-1 rounded-full" style="background: #F3EBFC; color: #5D259F;">Proto 4B</span>
+        <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PAGE CONTENT                                               -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
+    <!-- Page heading -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold" style="color: #1a1a2e;">Stories</h1>
+      <p class="text-sm mt-1" style="color: #6b7280;">Your achievements, told as compelling narratives</p>
+    </div>
+
+    <!-- Summary bar -->
+    <div class="flex items-center gap-2 text-sm mb-6" style="color: #6b7280;">
+      <span><strong class="font-semibold" style="color: #1a1a2e;">6</strong> stories</span>
+      <span style="color: #e5e7eb;">|</span>
+      <span>3 published</span>
+      <span style="color: #e5e7eb;">|</span>
+      <span>covering <strong class="font-semibold" style="color: #1a1a2e;">47</strong> activities</span>
+    </div>
+
+    <!-- ─── Story List ─── -->
+    <div id="story-list" class="space-y-3"></div>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast bg-gray-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toast-text">Copied to clipboard</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- DATA + LOGIC                                               -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // ── Mock Data ──
+    const stories = [
+      {
+        id: '1',
+        title: 'Led Cloud Migration to AWS',
+        framework: 'STAR',
+        status: 'Published',
+        statusColor: 'bg-green-100 text-green-700',
+        sources: ['Jira', 'GitHub'],
+        preview: 'Orchestrated the migration of 12 microservices from on-premise infrastructure to AWS, reducing operational costs by 35% while improving system reliability.',
+        sections: {
+          Situation: 'Our engineering team was managing 12 critical microservices on aging on-premise servers. Deployment cycles took 4-6 hours with frequent rollback failures, and infrastructure costs were climbing 20% year-over-year with no corresponding performance gains.',
+          Task: 'I was tasked with leading the full cloud migration to AWS within a 6-month timeline, ensuring zero downtime for our 50,000+ daily active users while staying within the allocated $200K migration budget.',
+          Action: 'I designed a phased migration strategy using AWS CDK for infrastructure-as-code, starting with stateless services before tackling databases. I implemented blue-green deployments with automated canary analysis, set up comprehensive CloudWatch dashboards for real-time monitoring, and conducted weekly migration readiness reviews with all stakeholders. I also established a rollback playbook that reduced our recovery time from hours to under 5 minutes.',
+          Result: 'Completed the migration 3 weeks ahead of schedule with zero customer-facing incidents. Reduced monthly infrastructure costs by 35% ($8,500/month savings), improved deployment frequency from weekly to 15+ times per day, and achieved 99.97% uptime in the first quarter post-migration.'
+        }
+      },
+      {
+        id: '2',
+        title: 'Redesigned Onboarding Flow',
+        framework: 'STAR',
+        status: 'Saved',
+        statusColor: 'bg-blue-50 text-blue-600',
+        sources: ['Figma', 'Slack'],
+        preview: 'Rethought the entire user onboarding experience, resulting in a 60% improvement in activation rates and a significant reduction in support tickets.',
+        sections: {
+          Situation: 'User activation rates had plateaued at 23%, with analytics showing 68% of new signups abandoning the product within the first 3 minutes. Our support team was spending 40% of their time handling basic onboarding questions.',
+          Task: 'I needed to redesign the onboarding flow to increase activation rates above 35% while reducing onboarding-related support tickets by at least 50%, all without disrupting the experience for existing users.',
+          Action: 'I conducted 25 user interviews and analyzed session recordings to identify the top 5 friction points. I designed a progressive disclosure onboarding with contextual tooltips, replaced the 8-step wizard with a 3-step quick start guide, and introduced an interactive product tour. I A/B tested three variants over 4 weeks with 10,000 new users, iterating on copy and timing based on real behavioral data.',
+          Result: 'The new onboarding flow increased activation rates from 23% to 37% (a 60% improvement). Support tickets related to onboarding dropped by 65%, saving approximately 120 hours per month in support time. Time-to-first-value decreased from 12 minutes to under 4 minutes.'
+        }
+      },
+      {
+        id: '3',
+        title: 'Reduced API Latency by 40%',
+        framework: 'SOAR',
+        status: 'Published',
+        statusColor: 'bg-green-100 text-green-700',
+        sources: ['GitHub', 'Datadog'],
+        preview: 'Identified and resolved critical performance bottlenecks across our API layer, cutting p95 latency from 850ms to 510ms.',
+        sections: {
+          Situation: 'Our API p95 latency had crept up to 850ms over 6 months, causing client-side timeouts and a 12% increase in error rates. Three enterprise customers flagged performance concerns during their quarterly business reviews, putting $2.4M in annual recurring revenue at risk.',
+          Task: 'I took ownership of a cross-functional performance initiative to reduce p95 API latency below 550ms within 8 weeks, while also establishing monitoring guardrails to prevent future regression.',
+          Action: 'I profiled every critical API path using Datadog APM traces and identified three major bottlenecks: N+1 database queries in the dashboard endpoint, unnecessary serialization in the auth middleware, and unoptimized Redis cache eviction policies. I implemented query batching with DataLoader, rewrote the serialization layer using protocol buffers for internal communication, and redesigned the caching strategy with tiered TTLs. I also introduced automated performance regression testing in our CI pipeline.',
+          Result: 'Reduced p95 latency from 850ms to 510ms (40% improvement), eliminated all client-side timeouts, and brought the error rate back to baseline (0.3%). All three enterprise accounts renewed their contracts. The performance regression tests have since caught 14 potential issues before they reached production.'
+        }
+      },
+      {
+        id: '4',
+        title: 'Built Real-Time Analytics Dashboard',
+        framework: 'STAR',
+        status: 'Needs Polish',
+        statusColor: 'bg-amber-100 text-amber-700',
+        sources: ['Jira', 'GitHub', 'Confluence'],
+        preview: 'Designed and implemented a real-time analytics dashboard processing 2M+ events daily, replacing a batch-processing system with 24-hour data delays.',
+        sections: {
+          Situation: 'Our product team relied on a batch-processing analytics system that updated data once every 24 hours. This delay meant product managers were making decisions based on stale data, and critical issues like conversion drops often went undetected for a full day.',
+          Task: 'I was responsible for architecting and building a real-time analytics dashboard that could process over 2 million events per day with sub-second query latency, while maintaining data accuracy within 99.5% of the batch system.',
+          Action: 'I designed an event-driven architecture using Apache Kafka for ingestion, Apache Flink for stream processing, and ClickHouse as the OLAP store. I built the frontend using React with WebSocket connections for live data updates, implemented roll-up aggregations for historical queries, and created a custom query builder that translated user selections into optimized SQL. I also built a data reconciliation pipeline that continuously validated streaming results against the batch source of truth.',
+          Result: 'The dashboard now processes 2.3M events daily with an average query latency of 340ms. Data freshness improved from 24 hours to under 30 seconds. Product managers reported making 3x faster decisions on A/B tests, and the team detected a critical conversion regression within 15 minutes that would have previously gone unnoticed for a full day.'
+        }
+      },
+      {
+        id: '5',
+        title: 'Mentored 3 Junior Engineers',
+        framework: 'CAR',
+        status: 'Saved',
+        statusColor: 'bg-blue-50 text-blue-600',
+        sources: ['Slack'],
+        preview: 'Established a structured mentorship program that helped three junior engineers grow into independent mid-level contributors within 8 months.',
+        sections: {
+          Situation: 'Three junior engineers joined our team within the same quarter, each with less than 1 year of professional experience. They were struggling with code review processes, system design decisions, and lacked confidence in proposing technical solutions during architecture discussions.',
+          Task: 'I volunteered to create and lead a structured mentorship program to accelerate their growth, with the goal of each mentee independently owning and delivering a medium-complexity feature within 6 months.',
+          Action: 'I designed a 6-month mentorship curriculum with weekly 1:1 sessions, bi-weekly pair programming on production code, and monthly system design exercises. I created a shared knowledge base with curated learning paths tailored to each mentee\'s gaps. I established a "graduated responsibility" model where mentees progressed from bug fixes to feature work to technical design ownership, with explicit checkpoints and feedback loops at each stage.',
+          Result: 'All three mentees were promoted to mid-level within 8 months. Their average code review turnaround time decreased from 3 days to same-day. Two of them went on to lead features independently, and one presented a system design proposal that was adopted by the team. The mentorship framework I created was later adopted org-wide, now serving 12 mentor-mentee pairs.'
+        }
+      },
+      {
+        id: '6',
+        title: 'Launched Mobile App v2.0',
+        framework: 'STAR',
+        status: 'Published',
+        statusColor: 'bg-green-100 text-green-700',
+        sources: ['Jira', 'Figma', 'GitHub'],
+        preview: 'Led the complete rebuild of our mobile application with React Native, achieving a 4.8-star rating and 2x increase in daily active users.',
+        sections: {
+          Situation: 'Our native iOS and Android apps were built on separate codebases with divergent feature sets, causing a 3-month feature lag between platforms. The App Store rating had dropped to 3.2 stars due to inconsistent experiences and frequent crashes on Android, and our mobile DAU was stagnating at 15,000 users.',
+          Task: 'I led the initiative to rebuild both mobile apps as a unified React Native application, targeting a 4.5+ star rating, feature parity across platforms, and a 50% improvement in mobile DAU within 6 months of launch.',
+          Action: 'I assembled a cross-functional squad of 5 engineers, 1 designer, and 1 QA specialist. We adopted a modular architecture with shared business logic and platform-specific UI adapters where needed. I implemented an incremental rollout strategy: migrating one feature module per sprint while maintaining the legacy apps. We introduced automated visual regression testing, crash reporting with Sentry, and weekly beta testing with 200 power users. I also negotiated with stakeholders to maintain a feature freeze on legacy apps to focus team bandwidth.',
+          Result: 'Launched v2.0 on both platforms simultaneously with zero critical bugs. App Store rating improved from 3.2 to 4.8 stars within 3 months. Mobile DAU grew from 15,000 to 31,000 (107% increase). Development velocity doubled since engineers now ship features to both platforms from a single codebase, reducing our sprint-to-release cycle from 4 weeks to 1 week.'
+        }
+      },
+    ];
+
+    // ── Source icon SVGs ──
+    const sourceIcons = {
+      Jira: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#0052CC"><path d="M11.53 2c0 4.97 4.03 9 9 9h.47v1.53c0 .8-.64 1.47-1.47 1.47H13l-4.5 4.5v-4.5H4.97C4.17 14.5 3.5 13.83 3.5 13V3.47C3.5 2.67 4.17 2 4.97 2H11.53z"/></svg>',
+      GitHub: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#24292e"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>',
+      Figma: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#F24E1E"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H12v7H8.5A3.5 3.5 0 0 1 5 5.5zM12 2h3.5a3.5 3.5 0 1 1 0 7H12V2zm0 9.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0zm-7 7A3.5 3.5 0 0 1 8.5 15H12v3.5a3.5 3.5 0 1 1-7 0zm0-7A3.5 3.5 0 0 1 8.5 8H12v7H8.5A3.5 3.5 0 0 1 5 11.5z"/></svg>',
+      Slack: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#E01E5A"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.163 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.163 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.163 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.315A2.528 2.528 0 0 1 24 15.163a2.528 2.528 0 0 1-2.522 2.523h-6.315z"/></svg>',
+      Datadog: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#632CA6"><rect width="24" height="24" rx="4" fill="#632CA6"/><text x="12" y="16" font-size="10" fill="white" text-anchor="middle" font-weight="bold" font-family="Inter,sans-serif">D</text></svg>',
+      Confluence: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#1868DB"><path d="M2.724 18.406c-.243.398-.51.845-.747 1.194-.152.224-.097.528.127.68l4.07 2.849c.112.079.243.1.37.079a.51.51 0 0 0 .322-.206c.2-.316.461-.732.747-1.194 2.022-3.253 4.044-2.849 7.747-1.243l4.196 1.82a.516.516 0 0 0 .681-.273l2.065-4.906a.514.514 0 0 0-.261-.668l-4.133-1.82c-5.896-2.588-10.8-2.37-15.184 3.488zM21.276 5.594c.243-.398.51-.845.747-1.194a.498.498 0 0 0-.127-.68L17.826.87a.503.503 0 0 0-.692.127c-.2.316-.461.732-.747 1.194-2.022 3.253-4.044 2.849-7.747 1.243L4.444 1.614a.516.516 0 0 0-.681.273L1.698 6.793a.514.514 0 0 0 .261.668l4.133 1.82c5.896 2.588 10.8 2.37 15.184-3.487z"/></svg>',
+    };
+
+    // ── Status icon SVGs ──
+    const statusIcons = {
+      Published: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      Saved: '',
+      'Needs Polish': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    };
+
+    // ── Section visual config ──
+    const sectionConfig = {
+      Situation: { letter: 'S', bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE' },
+      Task:      { letter: 'T', bg: '#F0FDF4', text: '#166534', border: '#BBF7D0' },
+      Action:    { letter: 'A', bg: '#FFF7ED', text: '#9A3412', border: '#FED7AA' },
+      Result:    { letter: 'R', bg: '#F3EBFC', text: '#5D259F', border: '#E8D7F9' },
+    };
+
+    // ── State ──
+    let expandedId = null;
+    let isAnimating = false;
+
+    // ── Render all story cards ──
+    function renderStories() {
+      const list = document.getElementById('story-list');
+      list.innerHTML = '';
+
+      stories.forEach((story) => {
+        const container = document.createElement('div');
+        container.className = 'card-container';
+        container.setAttribute('data-story-id', story.id);
+
+        // ── Header card ──
+        const headerCard = document.createElement('div');
+        const isExpanded = expandedId === story.id;
+        headerCard.className = `header-card rounded-2xl border bg-white cursor-pointer p-4 sm:p-5 ${isExpanded ? 'expanded' : ''}`;
+        headerCard.style.borderColor = isExpanded ? '#E8D7F9' : '#e5e7eb';
+        headerCard.style.boxShadow = isExpanded
+          ? '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)'
+          : '0 1px 3px rgba(0,0,0,0.1)';
+
+        headerCard.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <!-- Sources + Status row -->
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="flex items-center gap-1">
+                  ${story.sources.map(s => `<span class="source-pill">${sourceIcons[s] || ''} ${s}</span>`).join('')}
+                </div>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${story.statusColor}">
+                  ${statusIcons[story.status] || ''} ${story.status}
+                </span>
+              </div>
+
+              <!-- Title -->
+              <h3 class="text-base sm:text-lg font-bold leading-snug mb-1" style="color: ${isExpanded ? '#2B1050' : '#1a1a2e'};">
+                ${story.title}
+              </h3>
+
+              <!-- Preview (visible only when collapsed) -->
+              <p class="text-sm leading-relaxed line-clamp-2 preview-text" style="color: #6b7280; ${isExpanded ? 'display:none;' : ''}">
+                ${story.preview}
+              </p>
+
+              <!-- Framework chip -->
+              <div class="flex items-center gap-2 mt-2">
+                <span class="framework-chip px-2 py-0.5 rounded-md font-semibold text-[11px]" style="background: ${isExpanded ? '#E8D7F9' : '#f3f4f6'}; color: ${isExpanded ? '#5D259F' : '#6b7280'};">
+                  ${story.framework}
+                </span>
+              </div>
+            </div>
+
+            <!-- Chevron -->
+            <div class="flex-shrink-0 mt-1">
+              <svg class="chevron-icon w-5 h-5 ${isExpanded ? 'down' : ''}" style="color: ${isExpanded ? '#5D259F' : '#9ca3af'};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+          </div>
+        `;
+
+        headerCard.addEventListener('click', () => {
+          if (!isAnimating) toggleCard(story.id);
+        });
+
+        container.appendChild(headerCard);
+
+        // ── Floating detail card (only rendered for expanded story) ──
+        if (isExpanded) {
+          const floatingWrapper = document.createElement('div');
+          floatingWrapper.className = 'relative';
+          floatingWrapper.style.margin = '0 12px 12px 12px';
+          floatingWrapper.id = `floating-${story.id}`;
+
+          const floatingCard = document.createElement('div');
+          floatingCard.className = 'floating-card relative bg-white border rounded-xl p-5 mt-2';
+          floatingCard.style.borderColor = '#e5e7eb';
+          floatingCard.style.borderRadius = '12px';
+          floatingCard.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)';
+
+          // Build sections HTML
+          const sectionKeys = Object.keys(story.sections);
+          let detailHTML = '';
+
+          // Close button (top right)
+          detailHTML += `
+            <button class="close-btn absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center" style="color: #6b7280;" onclick="event.stopPropagation(); toggleCard('${story.id}');" title="Close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          `;
+
+          // Story detail title
+          detailHTML += `
+            <div class="mb-5 pr-8">
+              <h4 class="text-xs font-semibold uppercase tracking-wider mb-1" style="color: #5D259F;">Story Detail</h4>
+              <p class="text-sm" style="color: #6b7280;">${story.framework} Framework &middot; ${story.sources.length} source${story.sources.length !== 1 ? 's' : ''}</p>
+            </div>
+          `;
+
+          // STAR sections
+          detailHTML += '<div class="space-y-5">';
+          sectionKeys.forEach((key, idx) => {
+            const cfg = sectionConfig[key] || sectionConfig.Result;
+            detailHTML += `
+              <div class="detail-section" data-idx="${idx}" style="transition-delay: ${idx * 80}ms;">
+                <div class="flex items-start gap-3">
+                  <div class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold" style="background: ${cfg.bg}; color: ${cfg.text}; border: 1px solid ${cfg.border};">
+                    ${cfg.letter}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-semibold mb-1.5" style="color: #1a1a2e;">${key}</h4>
+                    <p class="text-sm leading-relaxed" style="color: #4b5563;">${story.sections[key]}</p>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+          detailHTML += '</div>';
+
+          // Source details
+          detailHTML += `
+            <div class="detail-section mt-6 pt-5 border-t" style="border-color: #f3f4f6; transition-delay: ${sectionKeys.length * 80}ms;" data-idx="${sectionKeys.length}">
+              <div class="flex items-center gap-2 mb-3">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span class="text-xs font-semibold" style="color: #6b7280;">Sources</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                ${story.sources.map(s => `
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #374151;">
+                    ${sourceIcons[s] || ''} ${s}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          `;
+
+          // Action buttons
+          detailHTML += `
+            <div class="detail-section mt-6 flex flex-wrap gap-2" data-idx="${sectionKeys.length + 1}" style="transition-delay: ${(sectionKeys.length + 1) * 80}ms;">
+              <button onclick="event.stopPropagation(); handleCopy('${story.id}')" class="action-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border" style="border-color: #e5e7eb; color: #374151; background: white;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+              </button>
+              <button onclick="event.stopPropagation(); handleAction('regenerate', '${story.id}')" class="action-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border" style="border-color: #e5e7eb; color: #374151; background: white;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Regenerate
+              </button>
+              <button onclick="event.stopPropagation(); handleAction('publish', '${story.id}')" class="action-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white" style="background: #5D259F;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                ${story.status === 'Published' ? 'Unpublish' : 'Publish'}
+              </button>
+              <button onclick="event.stopPropagation(); handleAction('share', '${story.id}')" class="action-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border" style="border-color: #E8D7F9; color: #5D259F; background: #F3EBFC;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Share
+              </button>
+            </div>
+          `;
+
+          floatingCard.innerHTML = detailHTML;
+          floatingWrapper.appendChild(floatingCard);
+          container.appendChild(floatingWrapper);
+
+          // Trigger entry animation
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              floatingCard.classList.add('visible');
+              // Stagger section reveals
+              const sections = floatingCard.querySelectorAll('.detail-section');
+              sections.forEach((el, i) => {
+                setTimeout(() => el.classList.add('visible'), 120 + i * 80);
+              });
+            });
+          });
+        }
+
+        list.appendChild(container);
+      });
+    }
+
+    // ── Toggle logic — sequential collapse then expand ──
+    function toggleCard(id) {
+      if (isAnimating) return;
+
+      if (expandedId === id) {
+        // Collapse current
+        collapseCard(id, () => {
+          expandedId = null;
+        });
+      } else {
+        const previousId = expandedId;
+
+        if (previousId) {
+          // Sequential: collapse old, then expand new
+          isAnimating = true;
+          collapseCard(previousId, () => {
+            expandedId = id;
+            expandCard(id, () => {
+              isAnimating = false;
+            });
+          });
+        } else {
+          isAnimating = true;
+          expandedId = id;
+          expandCard(id, () => {
+            isAnimating = false;
+          });
+        }
+      }
+    }
+
+    // ── Collapse a card with animation ──
+    function collapseCard(id, onComplete) {
+      const container = document.querySelector(`[data-story-id="${id}"]`);
+      if (!container) { if (onComplete) onComplete(); return; }
+
+      const floating = container.querySelector('.floating-card');
+      const headerCard = container.querySelector('.header-card');
+
+      if (floating) {
+        // Exit animation
+        floating.classList.remove('visible');
+        floating.classList.add('exiting');
+
+        // Reset header card styling
+        if (headerCard) {
+          headerCard.classList.remove('expanded');
+          headerCard.style.borderColor = '#e5e7eb';
+          headerCard.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+          headerCard.style.borderTopColor = 'transparent';
+
+          const title = headerCard.querySelector('h3');
+          if (title) title.style.color = '#1a1a2e';
+          const preview = headerCard.querySelector('.preview-text');
+          if (preview) preview.style.display = '';
+          const chip = headerCard.querySelector('.framework-chip');
+          if (chip) { chip.style.background = '#f3f4f6'; chip.style.color = '#6b7280'; }
+          const chevron = headerCard.querySelector('.chevron-icon');
+          if (chevron) { chevron.classList.remove('down'); chevron.style.color = '#9ca3af'; }
+        }
+
+        setTimeout(() => {
+          const wrapper = container.querySelector(`#floating-${id}`)?.parentElement || container.querySelector('.relative');
+          if (wrapper && wrapper !== headerCard) {
+            // Remove the floating wrapper
+            const floatingContainer = container.querySelector(`#floating-${id}`);
+            if (floatingContainer) floatingContainer.remove();
+          }
+          if (onComplete) onComplete();
+        }, 200);
+      } else {
+        if (onComplete) onComplete();
+      }
+    }
+
+    // ── Expand a card ──
+    function expandCard(id, onComplete) {
+      // Re-render to insert the floating card in the DOM
+      renderStories();
+
+      // Scroll into view after a brief delay
+      setTimeout(() => {
+        const container = document.querySelector(`[data-story-id="${id}"]`);
+        if (container) {
+          container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (onComplete) onComplete();
+      }, 350);
+    }
+
+    // ── Copy handler ──
+    function handleCopy(id) {
+      const story = stories.find(s => s.id === id);
+      if (!story) return;
+
+      const text = Object.entries(story.sections)
+        .map(([key, value]) => `**${key}:**\n${value}`)
+        .join('\n\n');
+
+      const fullText = `# ${story.title}\n\n${text}`;
+
+      navigator.clipboard.writeText(fullText).then(() => {
+        showToast('Copied to clipboard');
+      }).catch(() => {
+        showToast('Copy failed');
+      });
+    }
+
+    // ── Action handler ──
+    function handleAction(action, id) {
+      const actionLabels = {
+        regenerate: 'Regeneration started',
+        publish: 'Published successfully',
+        share: 'Share link created',
+      };
+      showToast(actionLabels[action] || 'Action completed');
+    }
+
+    // ── Toast ──
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toast-text');
+      text.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // ── Init ──
+    renderStories();
+  </script>
+</body>
+</html>
