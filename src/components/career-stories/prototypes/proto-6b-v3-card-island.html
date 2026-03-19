@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proto 6B-v3 — Card Island | Hover Peek B | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: { DEFAULT: '#5D259F', light: '#F3EBFC', 100: '#E8D7F9' },
+            offblack: '#1a1a2e',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* v3 Card Island — Elevated floating cards with warm layered shadows */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; color: #1a1a2e; background: #fafaf9; margin: 0; }
+
+    .story-card {
+      transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+      cursor: pointer;
+      border: 1px solid rgba(243,244,246,0.6);
+      border-left: 3px solid transparent;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 8px rgba(0,0,0,0.02), 0 8px 16px rgba(0,0,0,0.01);
+    }
+    .story-card:hover {
+      box-shadow: 0 2px 4px rgba(93,37,159,0.06), 0 8px 16px rgba(93,37,159,0.06), 0 12px 24px rgba(93,37,159,0.04);
+      transform: scale(1.005);
+      border-color: #E8D7F9;
+    }
+    .story-card.expanded {
+      border-left-color: #5D259F;
+      box-shadow: 0 4px 8px rgba(93,37,159,0.08), 0 12px 24px rgba(93,37,159,0.06);
+    }
+
+    .inline-preview { max-height: 0; overflow: hidden; transition: max-height 200ms ease, opacity 200ms ease; opacity: 0; }
+    .inline-preview.open { max-height: 120px; opacity: 1; }
+
+    .side-panel { position: fixed; top: 64px; right: 0; bottom: 0; width: 60%; background: #fff; border-radius: 16px 0 0 0; box-shadow: -6px 0 30px rgba(0,0,0,0.1); transform: translateX(100%); transition: transform 300ms cubic-bezier(0.4,0,0.2,1); z-index: 40; overflow-y: auto; }
+    .side-panel.open { transform: translateX(0); }
+    .side-panel::-webkit-scrollbar { width: 5px; }
+    .side-panel::-webkit-scrollbar-track { background: transparent; }
+    .side-panel::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+
+    .panel-overlay { position: fixed; inset: 0; top: 64px; background: rgba(0,0,0,0.12); z-index: 35; opacity: 0; pointer-events: none; transition: opacity 250ms ease; }
+    .panel-overlay.visible { opacity: 1; pointer-events: auto; }
+
+    .preview-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    .story-list-container { transition: width 300ms cubic-bezier(0.4,0,0.2,1), padding 300ms ease; }
+
+    .action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; transition: all 150ms ease; cursor: pointer; border: 1px solid #e5e7eb; background: #fff; color: #1a1a2e; }
+    .action-btn:hover { background: #f3ebfc; border-color: #E8D7F9; color: #5D259F; }
+    .action-btn.primary { background: #5D259F; color: #fff; border-color: #5D259F; }
+    .action-btn.primary:hover { background: #4a1d80; }
+    .action-btn.danger:hover { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+
+    .filter-pill { padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 150ms ease; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; }
+    .filter-pill:hover { border-color: #E8D7F9; color: #5D259F; }
+    .filter-pill.active { background: #5D259F; color: #fff; border-color: #5D259F; }
+
+    .tab-pill { padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 150ms ease; border: none; background: transparent; color: #9ca3af; }
+    .tab-pill.active { background: #fff; color: #1a1a2e; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #9ca3af; }
+
+    .toggle-btn { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 150ms ease; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; }
+    .toggle-btn:hover { border-color: #E8D7F9; color: #5D259F; }
+    .toggle-btn.on { background: #f3ebfc; border-color: #E8D7F9; color: #5D259F; }
+
+    .source-stack { display: flex; align-items: center; }
+    .source-stack span { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.08); margin-left: -6px; }
+    .source-stack span:first-child { margin-left: 0; }
+
+    .dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 4px; min-width: 160px; z-index: 50; display: none; }
+    .dropdown-menu.show { display: block; }
+    .dropdown-menu button { display: block; width: 100%; text-align: left; padding: 6px 10px; font-size: 12px; border: none; background: none; cursor: pointer; border-radius: 4px; color: #374151; }
+    .dropdown-menu button:hover { background: #f3ebfc; color: #5D259F; }
+    .dropdown-menu button.selected { background: #f3ebfc; color: #5D259F; font-weight: 600; }
+
+    .panel-section-card { background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 flex items-center px-6">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-offblack tracking-tight">inchronicle</span>
+    </div>
+    <div class="ml-auto flex items-center gap-4">
+      <span class="text-sm text-gray-400 font-medium">Stories</span>
+      <div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-brand font-semibold text-sm">HA</div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="pt-16 min-h-screen">
+    <div class="flex">
+      <div id="storyList" class="story-list-container w-full py-8 px-6">
+        <div class="max-w-3xl mx-auto">
+
+          <!-- Page title -->
+          <div class="mb-5">
+            <h1 class="text-[28px] font-bold text-offblack tracking-tight" style="letter-spacing:-0.02em">Your Stories</h1>
+            <p class="text-[13px] text-gray-400 mt-1">Your achievements, told as compelling narratives</p>
+          </div>
+
+          <!-- Tab toggle -->
+          <div class="flex items-center gap-2 mb-4">
+            <div class="inline-flex bg-gray-100 rounded-lg p-0.5">
+              <button class="tab-pill active" id="tabStories" onclick="switchTab('stories')">Stories</button>
+              <button class="tab-pill" id="tabPlaybook" onclick="switchTab('playbook')">
+                Playbook <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500 font-bold">3</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Stories Tab Content -->
+          <div id="storiesContent">
+            <!-- Summary stats bar -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+                <span class="font-semibold text-gray-600">6 stories</span>
+                <span id="summarySourceIcons" class="flex items-center gap-1"></span>
+                <span class="text-gray-200">&middot;</span>
+                <span class="flex items-center gap-1">
+                  <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-brand-light text-brand">STAR</span>
+                  <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-700">SOAR</span>
+                  <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-50 text-indigo-700">CAR</span>
+                </span>
+                <span class="text-gray-200">&middot;</span>
+                <span>3 published</span>
+                <span class="text-gray-200">&middot;</span>
+                <span>covering <span class="font-semibold text-gray-600">63</span> activities</span>
+              </div>
+              <!-- Use As dropdown -->
+              <div class="relative">
+                <button class="action-btn text-[12px] py-1.5 px-3" onclick="toggleUseAs(event)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  Use As
+                </button>
+                <div class="dropdown-menu" id="useAsMenu">
+                  <button onclick="closeMenus()">Interview Answer</button>
+                  <button onclick="closeMenus()">LinkedIn Post</button>
+                  <button onclick="closeMenus()">Resume Bullet</button>
+                  <button onclick="closeMenus()">Promotion Packet</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Educational banner -->
+            <div id="educBanner" class="px-3 py-2 rounded-md flex items-center gap-2 bg-purple-50 border border-purple-200 mb-4">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <p class="text-[11px] text-purple-700 flex-1">Turn your work into polished stories — ready for interviews, professional network sharing, or your next promotion narrative.</p>
+              <button onclick="dismissBanner()" class="p-0.5 rounded text-purple-400 hover:text-purple-600 flex-shrink-0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <!-- Filter bar -->
+            <div class="flex items-center gap-2 mb-6 flex-wrap">
+              <button class="filter-pill active" data-filter="all" onclick="setFilter('all')">All (6)</button>
+              <button class="filter-pill" data-filter="Published" onclick="setFilter('Published')">Published (3)</button>
+              <button class="filter-pill" data-filter="Saved" onclick="setFilter('Saved')">Saved (2)</button>
+              <button class="filter-pill" data-filter="Needs Polish" onclick="setFilter('Needs Polish')">Needs Polish (1)</button>
+              <span class="w-px h-5 bg-gray-200 mx-1"></span>
+              <button class="filter-pill" data-filter="STAR" onclick="setFilter('STAR')">STAR</button>
+              <button class="filter-pill" data-filter="SOAR" onclick="setFilter('SOAR')">SOAR</button>
+              <button class="filter-pill" data-filter="CAR" onclick="setFilter('CAR')">CAR</button>
+            </div>
+
+            <!-- Card container — gap-4 for 16px spacing, NO border-bottom dividers -->
+            <div id="cardContainer" class="flex flex-col gap-4"></div>
+          </div>
+
+          <!-- Playbook Tab Content (placeholder) -->
+          <div id="playbookContent" style="display:none">
+            <div class="text-center py-16">
+              <div class="mx-auto w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-3">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </div>
+              <h3 class="text-sm font-semibold text-gray-900 mb-1">Your playbook</h3>
+              <p class="text-xs text-gray-500 max-w-xs mx-auto">Reusable outputs — interview answers, LinkedIn posts, and promotion packets — ready when you need them.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Panel overlay + side panel -->
+      <div class="panel-overlay" id="panelOverlay"></div>
+      <div class="side-panel" id="sidePanel">
+        <div id="panelContent"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ── Mock Data ──
+    const stories = [
+      { id: 1, title: 'Led Cloud Migration to AWS', framework: 'STAR', status: 'Published', sources: ['Jira', 'GitHub'], activities: 14, archetype: 'Technical Leader', sourceCoverage: '82%', derivations: 2, date: 'Mar 12, 2026', visibility: 'network',
+        situation: 'Our legacy on-premise infrastructure was reaching end-of-life, causing increasing downtime incidents averaging 4 hours per month. The CTO mandated a full cloud migration within Q3 to support our growing customer base of 50K+ users.',
+        task: 'I was tasked with leading a cross-functional team of 8 engineers to architect and execute the migration strategy. The goal was zero-downtime migration with less than 2% performance regression on critical API endpoints.',
+        action: 'I designed a phased migration plan starting with stateless microservices, then databases using AWS DMS, and finally the monolith decomposition. I set up a parallel environment with automated canary deployments using AWS CodePipeline. Implemented comprehensive monitoring with CloudWatch dashboards and established rollback procedures for each phase.',
+        result: 'Successfully migrated 23 microservices and 4 databases with zero customer-facing downtime. Reduced monthly infrastructure costs by 35% ($48K annual savings). Improved average API response time by 22% and achieved 99.97% uptime in the first quarter post-migration.',
+        metric: '35% cost reduction \u00b7 99.97% uptime' },
+      { id: 2, title: 'Redesigned Onboarding Flow', framework: 'STAR', status: 'Saved', sources: ['Figma', 'Slack'], activities: 9, archetype: 'Product Thinker', sourceCoverage: '65%', derivations: 1, date: 'Mar 8, 2026', visibility: 'private',
+        situation: 'User analytics revealed that 62% of new signups abandoned the onboarding flow before completing their profile setup. Customer support tickets related to confusion during onboarding had increased by 40% quarter-over-quarter.',
+        task: 'I needed to redesign the entire onboarding experience to reduce abandonment rates below 30% and decrease support tickets by at least 50%. The redesign had to be completed within a 6-week sprint cycle.',
+        action: 'Conducted user interviews with 15 churned users to identify friction points. Collaborated with the design team to create a progressive disclosure pattern that broke the 12-step flow into 4 contextual stages. Built interactive prototypes in Figma and ran A/B tests with 2,000 users.',
+        result: 'Reduced onboarding abandonment from 62% to 18%, exceeding the target by 12 percentage points. Support tickets related to onboarding dropped by 73%. Average time-to-first-value decreased from 14 minutes to 4.5 minutes.',
+        metric: '62% \u2192 18% abandonment' },
+      { id: 3, title: 'Reduced API Latency by 40%', framework: 'SOAR', status: 'Published', sources: ['GitHub', 'Datadog'], activities: 11, archetype: 'Performance Engineer', sourceCoverage: '91%', derivations: 3, date: 'Mar 5, 2026', visibility: 'network',
+        situation: 'Performance monitoring in Datadog showed our core API endpoints averaging 340ms response time, with P99 latencies spiking to 1.2 seconds during peak hours.',
+        obstacle: 'The objective was to bring average response times below 200ms and P99 under 500ms without requiring additional infrastructure spend.',
+        action: 'Profiled all critical endpoints using Datadog APM traces to identify the heaviest database queries. Implemented Redis caching for frequently accessed data with intelligent TTL strategies. Refactored N+1 query patterns in the ORM layer.',
+        result: 'Average API response time dropped from 340ms to 195ms (43% reduction). P99 latency improved from 1.2s to 380ms. Mobile app crash rates related to timeouts decreased by 67%.',
+        metric: '43% latency reduction' },
+      { id: 4, title: 'Built Real-Time Analytics Dashboard', framework: 'STAR', status: 'Needs Polish', sources: ['Jira', 'GitHub', 'Confluence'], activities: 18, archetype: 'Full-Stack Builder', sourceCoverage: '74%', derivations: 0, date: 'Feb 28, 2026', visibility: 'private',
+        situation: 'Product managers and executives were relying on manually generated weekly reports to track key business metrics. Data was often 3-5 days stale, and the report generation process consumed approximately 15 hours per week of analyst time.',
+        task: 'I was responsible for designing and building a real-time analytics dashboard that would surface critical KPIs with no more than 5-minute data freshness.',
+        action: 'Architected a streaming data pipeline using Apache Kafka and ClickHouse for real-time aggregation. Built the frontend dashboard using React with WebSocket connections for live updates. Implemented role-based access control and customizable widget layouts.',
+        result: 'Delivered a dashboard serving 85 daily active users across product, engineering, and executive teams. Eliminated the manual reporting process, saving 15+ analyst hours per week. Dashboard adoption reached 94% within the first month.',
+        metric: '15+ hrs/week saved \u00b7 94% adoption' },
+      { id: 5, title: 'Mentored 3 Junior Engineers', framework: 'CAR', status: 'Saved', sources: ['Slack'], activities: 5, archetype: 'People Grower', sourceCoverage: '48%', derivations: 1, date: 'Feb 20, 2026', visibility: 'workspace',
+        challenge: 'Three new junior engineers joined the team within a two-month window. The team lacked a structured mentorship program, and previous new hires had taken an average of 4 months to ship their first independent feature.',
+        action: 'Designed a structured 8-week mentorship curriculum with weekly 1:1 sessions, pair programming rotations, and progressive code review responsibilities. Created a curated onboarding guide covering architecture decisions, coding standards, and debugging workflows.',
+        result: 'All three mentees shipped independent features within 6 weeks, beating the 8-week target by 25%. Code review quality scores averaged 4.2/5 by week 8. One mentee was promoted to mid-level within 5 months.',
+        metric: '6-week ramp-up (vs 4-month avg)' },
+      { id: 6, title: 'Launched Mobile App v2.0', framework: 'STAR', status: 'Published', sources: ['Jira', 'Figma', 'GitHub'], activities: 6, archetype: 'Delivery Lead', sourceCoverage: '88%', derivations: 2, date: 'Feb 14, 2026', visibility: 'network',
+        situation: 'The existing mobile app had a 2.8-star rating on the App Store with frequent complaints about performance, outdated UI, and missing offline functionality. User retention at 30 days was only 23%.',
+        task: 'I led the complete rewrite of the mobile application targeting a 4+ star rating and 35%+ 30-day retention. The project had a firm 4-month deadline.',
+        action: 'Assembled a squad of 5 engineers and coordinated with design and QA teams. Implemented offline-first data sync using SQLite and background sync queues. Redesigned the UI with the company\'s new design system.',
+        result: 'App Store rating improved from 2.8 to 4.6 stars within 60 days. 30-day retention increased from 23% to 41%. App load time decreased by 58%, and crash rate dropped to 0.3%.',
+        metric: '2.8 \u2192 4.6 stars \u00b7 41% retention' },
+    ];
+
+    const sourceIcons = {
+      Jira: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#0052CC"><path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.7c0 2.4 1.94 4.34 4.34 4.35V2.84a.84.84 0 0 0-.84-.84H11.53zM6.77 6.8a4.36 4.36 0 0 0 4.34 4.34h1.8v1.72a4.36 4.36 0 0 0 4.34 4.34V7.63a.84.84 0 0 0-.83-.83H6.77zM2 11.6a4.35 4.35 0 0 0 4.35 4.35h1.78v1.71c0 2.4 1.94 4.34 4.35 4.34v-9.56a.84.84 0 0 0-.84-.84H2z"/></svg>',
+      GitHub: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#333"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>',
+      Figma: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M8 24c2.2 0 4-1.8 4-4v-4H8c-2.2 0-4 1.8-4 4s1.8 4 4 4z" fill="#0ACF83"/><path d="M4 12c0-2.2 1.8-4 4-4h4v8H8c-2.2 0-4-1.8-4-4z" fill="#A259FF"/><path d="M4 4c0-2.2 1.8-4 4-4h4v8H8C5.8 8 4 6.2 4 4z" fill="#F24E1E"/><path d="M12 0h4c2.2 0 4 1.8 4 4s-1.8 4-4 4h-4V0z" fill="#FF7262"/><path d="M20 12c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4 4 1.8 4 4z" fill="#1ABCFE"/></svg>',
+      Slack: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z" fill="#E01E5A"/><path d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z" fill="#36C5F0"/><path d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.163 0a2.528 2.528 0 0 1 2.523 2.522v6.312z" fill="#2EB67D"/><path d="M15.163 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.163 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.315A2.528 2.528 0 0 1 24 15.163a2.528 2.528 0 0 1-2.522 2.523h-6.315z" fill="#ECB22E"/></svg>',
+      Datadog: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#632CA6"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">D</text></svg>',
+      Confluence: '<svg width="14" height="14" viewBox="0 0 24 24" fill="#1868DB"><path d="M2.73 18.48c-.26.42-.55.9-.55.9a.62.62 0 0 0 .22.85l3.6 2.2a.63.63 0 0 0 .86-.21s.24-.39.54-.87c1.47-2.42 2.94-2.13 5.64-.82l3.28 1.6a.63.63 0 0 0 .84-.3l1.65-3.82a.63.63 0 0 0-.3-.82c-.8-.38-2.34-1.13-3.38-1.64-4.46-2.17-8.2-2.46-12.4 2.93zM21.27 5.52c.26-.42.55-.9.55-.9a.62.62 0 0 0-.22-.85l-3.6-2.2a.63.63 0 0 0-.86.21s-.24.39-.54.87c-1.47 2.42-2.94 2.13-5.64.82L7.68 1.87a.63.63 0 0 0-.84.3L5.19 6a.63.63 0 0 0 .3.82c.8.38 2.34 1.13 3.38 1.64 4.46 2.17 8.2 2.46 12.4-2.93z"/></svg>',
+    };
+
+    const statusColors = {
+      Published: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+      Saved: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+      'Needs Polish': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+    };
+    const frameworkColors = {
+      STAR: { bg: 'bg-brand-light', text: 'text-brand' },
+      SOAR: { bg: 'bg-purple-50', text: 'text-purple-700' },
+      CAR: { bg: 'bg-indigo-50', text: 'text-indigo-700' },
+    };
+    const visibilityLabels = { private: 'Private', workspace: 'Workspace', network: 'Network' };
+
+    // ── State ──
+    let activePanel = null;
+    let expandedCard = null;
+    let hoverTimers = {};
+    let activeFilter = 'all';
+    let editMode = false;
+    let coachingMode = false;
+    let panelVisibility = 'private';
+    let panelFramework = 'STAR';
+
+    // ── Tab switching ──
+    function switchTab(tab) {
+      document.getElementById('storiesContent').style.display = tab === 'stories' ? '' : 'none';
+      document.getElementById('playbookContent').style.display = tab === 'playbook' ? '' : 'none';
+      document.getElementById('tabStories').classList.toggle('active', tab === 'stories');
+      document.getElementById('tabPlaybook').classList.toggle('active', tab === 'playbook');
+    }
+
+    // ── Banner dismiss ──
+    function dismissBanner() { document.getElementById('educBanner').style.display = 'none'; }
+
+    // ── Summary source icons ──
+    function renderSummaryIcons() {
+      const unique = [...new Set(stories.flatMap(s => s.sources))];
+      document.getElementById('summarySourceIcons').innerHTML = unique.map(s => sourceIcons[s] || '').join('');
+    }
+
+    // ── Menus ──
+    function closeMenus() { document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show')); }
+    function toggleUseAs(e) { e.stopPropagation(); closeMenus(); document.getElementById('useAsMenu').classList.toggle('show'); }
+    document.addEventListener('click', closeMenus);
+
+    // ── Filter ──
+    function setFilter(f) {
+      activeFilter = f;
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', p.dataset.filter === f));
+      renderCards();
+    }
+
+    // ── Helpers ──
+    function getSituation(s) { return s.situation || s.challenge || ''; }
+    function getTask(s) { return s.task || s.obstacle || ''; }
+
+    function buildSourceStack(sources) {
+      return '<div class="source-stack">' + sources.slice(0, 4).map((src, i) =>
+        '<span style="z-index:' + (sources.length - i) + '">' + (sourceIcons[src] || '') + '</span>'
+      ).join('') + (sources.length > 4 ? '<span style="z-index:0;background:#f3f4f6;font-size:9px;font-weight:700;color:#6b7280">+' + (sources.length - 4) + '</span>' : '') + '</div>';
+    }
+
+    // ── Render Cards ──
+    function renderCards() {
+      const container = document.getElementById('cardContainer');
+      const filtered = activeFilter === 'all'
+        ? stories
+        : stories.filter(s => s.status === activeFilter || s.framework === activeFilter);
+
+      container.innerHTML = filtered.map((s) => {
+        const ri = stories.indexOf(s);
+        const sc = statusColors[s.status];
+        const fc = frameworkColors[s.framework];
+        const sitText = getSituation(s);
+        return `
+          <div class="story-card" data-index="${ri}"
+               onmouseenter="handleCardEnter(event,${ri})" onmouseleave="handleCardLeave(${ri})" onclick="openPanel(${ri})">
+            <div class="p-5">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2.5">
+                  ${buildSourceStack(s.sources)}
+                  <span class="text-[11px] text-gray-400">${s.activities}</span>
+                  <span class="text-[11px] text-gray-300">\u00b7</span>
+                  <span class="text-[11px] text-gray-400">${s.date}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${sc.bg} ${sc.text}">
+                    <span class="w-1.5 h-1.5 rounded-full ${sc.dot}"></span>${s.status}
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+              <h3 class="text-[18px] font-bold text-offblack mb-1.5" style="letter-spacing:-0.01em">${s.title}</h3>
+              <p class="text-[14px] text-gray-500 leading-[1.65] line-clamp-2 mb-3">${sitText.slice(0, 160)}...</p>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 flex-wrap text-[11px] text-gray-400">
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${fc.bg} ${fc.text}">${s.framework}</span>
+                  <span>${s.archetype}</span>
+                  <span class="text-gray-200">\u00b7</span>
+                  <span>${s.sourceCoverage} coverage</span>
+                  ${s.derivations > 0 ? `<span class="text-gray-200">\u00b7</span><span class="inline-flex items-center gap-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> ${s.derivations}</span>` : ''}
+                </div>
+                <span class="text-[11px] font-medium text-brand whitespace-nowrap">${s.metric}</span>
+              </div>
+            </div>
+            <div class="inline-preview" id="preview-${ri}">
+              <div class="px-5 pb-5">
+                <div class="border-t border-gray-100 pt-3">
+                  <div class="flex items-start gap-4">
+                    <p class="flex-1 text-[13px] text-gray-600 leading-relaxed preview-clamp">${sitText}</p>
+                    <span class="flex-shrink-0 text-[11px] font-medium text-brand bg-brand-light px-2.5 py-1 rounded-md whitespace-nowrap">${s.metric}</span>
+                  </div>
+                  <a href="#" onclick="event.preventDefault();event.stopPropagation();openPanel(${ri})" class="inline-flex items-center gap-1 text-[11px] font-medium text-brand hover:underline mt-2 transition-colors">
+                    View full story <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Hover expand ──
+    function handleCardEnter(event, i) {
+      const el = event.currentTarget;
+      clearTimeout(hoverTimers['leave-' + i]);
+      hoverTimers['enter-' + i] = setTimeout(() => expandCard(i), 300);
+    }
+    function handleCardLeave(i) {
+      clearTimeout(hoverTimers['enter-' + i]);
+      hoverTimers['leave-' + i] = setTimeout(() => collapseCard(i), 100);
+    }
+    function expandCard(i) {
+      if (expandedCard !== null && expandedCard !== i) collapseCard(expandedCard);
+      const p = document.getElementById('preview-' + i);
+      const c = p ? p.closest('.story-card') : null;
+      if (p && !p.classList.contains('open')) { p.classList.add('open'); if (c) c.classList.add('expanded'); expandedCard = i; }
+    }
+    function collapseCard(i) {
+      const p = document.getElementById('preview-' + i);
+      const c = p ? p.closest('.story-card') : null;
+      if (p && p.classList.contains('open')) { p.classList.remove('open'); if (c) c.classList.remove('expanded'); if (expandedCard === i) expandedCard = null; }
+    }
+
+    // ── Build sections ──
+    function buildSections(s) {
+      if (s.framework === 'SOAR') return [{ label: 'Situation', content: s.situation || '' }, { label: 'Obstacle', content: s.obstacle || s.task || '' }, { label: 'Action', content: s.action }, { label: 'Result', content: s.result }];
+      if (s.framework === 'CAR') return [{ label: 'Challenge', content: s.challenge || s.situation || '' }, { label: 'Action', content: s.action }, { label: 'Result', content: s.result }];
+      return [{ label: 'Situation', content: s.situation || '' }, { label: 'Task', content: s.task || '' }, { label: 'Action', content: s.action }, { label: 'Result', content: s.result }];
+    }
+
+    // ── Side Panel ──
+    function openPanel(index) {
+      if (expandedCard !== null) collapseCard(expandedCard);
+      const s = stories[index];
+      const panel = document.getElementById('sidePanel');
+      const overlay = document.getElementById('panelOverlay');
+      const list = document.getElementById('storyList');
+      const sc = statusColors[s.status]; const fc = frameworkColors[s.framework];
+      const sections = buildSections(s);
+      panelVisibility = s.visibility || 'private';
+      panelFramework = s.framework;
+      editMode = false; coachingMode = false;
+
+      document.getElementById('panelContent').innerHTML = `
+        <div class="sticky top-0 bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between z-10" style="border-radius: 16px 0 0 0;">
+          <h2 class="text-[17px] font-bold text-offblack truncate pr-4" style="letter-spacing:-0.01em">${s.title}</h2>
+          <button onclick="closePanel()" class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="py-6 px-8">
+          <div class="max-w-[680px] mx-auto">
+            <!-- Badges + meta panel section card -->
+            <div class="panel-section-card">
+              <div class="flex items-center gap-2 mb-3 flex-wrap">
+                <span class="inline-flex items-center px-2.5 py-1 rounded text-[11px] font-medium ${fc.bg} ${fc.text}">${s.framework} Framework</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium ${sc.bg} ${sc.text}">
+                  <span class="w-1.5 h-1.5 rounded-full ${sc.dot}"></span>${s.status}
+                </span>
+                <!-- Visibility selector -->
+                <div class="relative ml-auto">
+                  <button class="toggle-btn" onclick="event.stopPropagation();document.getElementById('visMenu').classList.toggle('show')">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    ${visibilityLabels[panelVisibility]}
+                  </button>
+                  <div class="dropdown-menu" id="visMenu">
+                    ${['private','workspace','network'].map(v => `<button class="${v === panelVisibility ? 'selected' : ''}" onclick="panelVisibility='${v}';document.getElementById('visMenu').classList.remove('show');openPanel(${index})">${visibilityLabels[v]}</button>`).join('')}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sources + meta -->
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                ${s.sources.map(src => `<span class="inline-flex items-center gap-1.5 text-[11px] text-gray-500 bg-white border border-gray-100 px-2.5 py-1 rounded-md">${sourceIcons[src] || ''} ${src}</span>`).join('')}
+                <span class="text-[11px] text-gray-400 ml-1">${s.activities} activities \u00b7 ${s.sourceCoverage} coverage${s.derivations > 0 ? ' \u00b7 ' + s.derivations + ' derivations' : ''}</span>
+              </div>
+
+              <!-- Toggles row -->
+              <div class="flex items-center gap-2">
+                <button class="toggle-btn ${editMode ? 'on' : ''}" onclick="editMode=!editMode;openPanel(${index})">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Edit
+                </button>
+                <button class="toggle-btn ${coachingMode ? 'on' : ''}" onclick="coachingMode=!coachingMode;openPanel(${index})">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Coaching
+                </button>
+                ${coachingMode ? '<span class="text-[10px] text-gray-400 ml-1">~2 min per section</span>' : ''}
+                <!-- Framework selector -->
+                <div class="relative ml-auto">
+                  <button class="toggle-btn" onclick="event.stopPropagation();document.getElementById('fwMenu').classList.toggle('show')">
+                    ${s.framework} <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="dropdown-menu" id="fwMenu">
+                    ${['STAR','SOAR','CAR','STARL','PAR','SAR','SHARE','CARL'].map(fw => `<button class="${fw === s.framework ? 'selected' : ''}" onclick="closeMenus()">${fw}</button>`).join('')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Key metric — brand-light rounded card -->
+            <div class="panel-section-card" style="background: #F3EBFC;">
+              <div class="section-label mb-1">Key Metric</div>
+              <div class="text-[14px] font-semibold text-brand">${s.metric}</div>
+            </div>
+
+            <!-- Sections — each in a panel-section-card -->
+            ${sections.map(sec => `
+              <div class="panel-section-card">
+                <h4 class="section-label mb-2">${sec.label}</h4>
+                <p class="text-[14px] text-gray-700" style="line-height:1.75">${sec.content}</p>
+                ${coachingMode ? '<p class="text-[10px] text-gray-400 mt-2 italic">Delivery cue: Pause after key numbers. Maintain eye contact.</p>' : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Action bar -->
+        <div class="sticky bottom-0 bg-white border-t border-gray-100 px-8 py-3">
+          <div class="max-w-[680px] mx-auto flex items-center gap-2 flex-wrap">
+            <button class="action-btn" onclick="handleCopy(this,'${s.title.replace(/'/g,"\\'")}')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+            <button class="action-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              Regenerate
+            </button>
+            <button class="action-btn primary">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Publish
+            </button>
+            <button class="action-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              Share
+            </button>
+            <button class="action-btn danger ml-auto">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Delete
+            </button>
+          </div>
+        </div>`;
+
+      list.style.width = '40%';
+      panel.classList.add('open');
+      overlay.classList.add('visible');
+      activePanel = index;
+      document.querySelectorAll('.story-card').forEach(c => {
+        c.style.borderLeftColor = parseInt(c.dataset.index) === index ? '#5D259F' : '';
+      });
+    }
+
+    function closePanel() {
+      document.getElementById('sidePanel').classList.remove('open');
+      document.getElementById('panelOverlay').classList.remove('visible');
+      document.getElementById('storyList').style.width = '100%';
+      activePanel = null;
+      document.querySelectorAll('.story-card').forEach(c => { c.style.borderLeftColor = ''; });
+    }
+
+    function handleCopy(btn, title) {
+      navigator.clipboard.writeText(title).catch(() => {});
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+      setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    }
+
+    document.getElementById('panelOverlay').addEventListener('click', closePanel);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && activePanel !== null) closePanel(); });
+
+    renderSummaryIcons();
+    renderCards();
+  </script>
+</body>
+</html>

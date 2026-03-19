@@ -19,4 +19,15 @@ export const storiesNavPrototypes = [
   { id: '9b', name: 'Peek Strip — Initials', file: 'proto-9b-peek-initials.html' },
   { id: '10a', name: 'Lightbox — Centered Modal', file: 'proto-10a-lightbox-centered.html' },
   { id: '10b', name: 'Lightbox — Expanding Card', file: 'proto-10b-lightbox-expanding.html' },
+  // Hover Peek B — Visual Variations
+  { id: 'hb1', name: 'Editorial Clean', file: 'proto-6b-v1-editorial-clean.html' },
+  { id: 'hb2', name: 'Compact Dense', file: 'proto-6b-v2-compact-dense.html' },
+  { id: 'hb3', name: 'Card Island', file: 'proto-6b-v3-card-island.html' },
+  { id: 'hb4', name: 'Gradient Accent', file: 'proto-6b-v4-gradient-accent.html' },
+  { id: 'hb5', name: 'Mono Typography', file: 'proto-6b-v5-mono-typography.html' },
+  { id: 'hb6', name: 'Dark Sidebar', file: 'proto-6b-v6-dark-sidebar.html' },
+  { id: 'hb7', name: 'Pill Everything', file: 'proto-6b-v7-pill-everything.html' },
+  { id: 'hb8', name: 'Left Panel', file: 'proto-6b-v8-left-panel.html' },
+  { id: 'hb9', name: 'Floating Detail', file: 'proto-6b-v9-floating-detail.html' },
+  { id: 'hb10', name: 'Section Colors', file: 'proto-6b-v10-section-colors.html' },
 ];

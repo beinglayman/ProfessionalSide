@@ -15,6 +15,19 @@ const CONCEPT_GROUPS = [
   { label: 'Lightbox', ids: ['10a', '10b'] },
 ];
 
+const HOVER_PEEK_GROUPS = [
+  { label: 'Editorial', ids: ['hb1'] },
+  { label: 'Compact', ids: ['hb2'] },
+  { label: 'Island', ids: ['hb3'] },
+  { label: 'Gradient', ids: ['hb4'] },
+  { label: 'Mono', ids: ['hb5'] },
+  { label: 'Dark', ids: ['hb6'] },
+  { label: 'Pill', ids: ['hb7'] },
+  { label: 'Left', ids: ['hb8'] },
+  { label: 'Float', ids: ['hb9'] },
+  { label: 'Colors', ids: ['hb10'] },
+];
+
 export function StoriesNavPrototypesPage() {
   const [activeId, setActiveId] = useState(storiesNavPrototypes[0].id);
   const current = storiesNavPrototypes.find((p) => p.id === activeId)!;
@@ -28,12 +41,12 @@ export function StoriesNavPrototypesPage() {
             Stories Navigation Prototypes
           </h1>
           <p className="text-xs text-gray-500">
-            10 navigation concepts &times; 2 variants each — click to compare
+            10 navigation concepts &times; 2 variants + 10 Hover Peek B visual variations
           </p>
         </div>
       </div>
 
-      {/* Switcher */}
+      {/* Switcher — Navigation Concepts */}
       <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-2.5 sm:px-6 overflow-x-auto">
         <div className="mx-auto flex max-w-[1600px] gap-4">
           {CONCEPT_GROUPS.map((group) => (
@@ -63,6 +76,36 @@ export function StoriesNavPrototypesPage() {
               })}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Switcher — Hover Peek B Variations */}
+      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-2 sm:px-6 overflow-x-auto">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary-500 whitespace-nowrap">
+            Hover Peek B
+          </span>
+          <div className="h-4 w-px bg-gray-200" />
+          {HOVER_PEEK_GROUPS.map((group) => {
+            const id = group.ids[0];
+            const proto = storiesNavPrototypes.find((p) => p.id === id);
+            const isActive = activeId === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveId(id)}
+                title={proto?.name}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap',
+                  isActive
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-primary-50 hover:text-primary-600'
+                )}
+              >
+                {group.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
