@@ -343,8 +343,9 @@
     function handleCardEnter(event, index) {
       clearTimeout(hoverTimer);
       currentHoveredCard = index;
+      const cardEl = event.currentTarget; // capture before timeout — currentTarget is null after handler returns
       hoverTimer = setTimeout(() => {
-        showPreview(index, event.currentTarget);
+        showPreview(index, cardEl);
       }, 200);
     }
 
