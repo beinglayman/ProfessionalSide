@@ -46,3 +46,15 @@ jobs:
 
       - name: Restart Web App
         run: az webapp restart -g "${{ secrets.AZ_RG }}" -n "${{ secrets.BACKEND_APPNAME }}"
+
+      - name: Verify deployment health
+        run: |
+          echo "Waiting 45s for container restart and migration..."
+          sleep 45
+          HTTP_STATUS=$(curl -sI -o /dev/null -w "%{http_code}" "https://${{ secrets.BACKEND_APPNAME }}.azurewebsites.net/health")
+          echo "Health check status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 500 ]; then
+            echo "::error::Backend returned HTTP $HTTP_STATUS after deploy"
+            exit 1
+          fi
+          echo "Backend healthy after deploy"
