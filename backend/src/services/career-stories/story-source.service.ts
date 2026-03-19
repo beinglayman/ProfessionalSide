@@ -45,6 +45,16 @@ export interface SourceCoverage {
   }>;
 }
 
+export interface PublishReadiness {
+  ready: boolean;
+  ungroundedClaims: Array<{
+    sectionKey: string;
+    claim: string;
+    suggestion: string;
+    isUserEdited: boolean;
+  }>;
+}
+
 export interface StorySourceRow {
   id: string;
   storyId: string | null;
@@ -198,6 +208,76 @@ export class StorySourceService {
       select: { id: true },
     });
     return !!source;
+  }
+
+  // ===========================================================================
+  // PUBLISH READINESS (diff-aware claim detection)
+  // ===========================================================================
+
+  /**
+   * Diff-aware publish readiness check.
+   *
+   * Compares current sections to originalSections (AI-generated baseline).
+   * Only flags quantified claims in user-edited sections that lack activity sources.
+   *
+   * - Unchanged sections (matching originalSections) are trusted — AI generated from data.
+   * - User-edited sections are scanned for UNGROUNDED_PATTERNS.
+   * - A section is "grounded" only if it has at least one non-excluded activity-type source.
+   * - Legacy stories (originalSections = null) treat all sections as user-written.
+   */
+  computePublishReadiness(
+    sources: StorySourceRow[],
+    sections: Record<string, { summary?: string }>,
+    originalSections: Record<string, { summary?: string }> | null,
+    sectionKeys: string[]
+  ): PublishReadiness {
+    const ungroundedClaims: PublishReadiness['ungroundedClaims'] = [];
+
+    // Build a set of sections that have at least one active activity-type source
+    const activitySourcedSections = new Set<string>();
+    for (const source of sources) {
+      if (
+        source.sourceType === 'activity' &&
+        !source.excludedAt &&
+        source.sectionKey !== 'unassigned'
+      ) {
+        activitySourcedSections.add(source.sectionKey);
+      }
+    }
+
+    for (const key of sectionKeys) {
+      const currentText = sections[key]?.summary || '';
+      const originalText = originalSections?.[key]?.summary || null;
+
+      // If originalSections exists and this section is unchanged, skip — AI text is trusted
+      if (originalSections !== null && originalText !== null && currentText === originalText) {
+        continue;
+      }
+
+      // Section was user-edited (or legacy story with no original). Check for claims.
+      // Only flag if the section lacks activity sources.
+      if (activitySourcedSections.has(key)) {
+        continue;
+      }
+
+      // Scan for ALL ungrounded patterns (no break — find every claim)
+      for (const { pattern, suggestion } of UNGROUNDED_PATTERNS) {
+        const match = currentText.match(pattern);
+        if (match) {
+          ungroundedClaims.push({
+            sectionKey: key,
+            claim: match[0],
+            suggestion,
+            isUserEdited: true,
+          });
+        }
+      }
+    }
+
+    return {
+      ready: ungroundedClaims.length === 0,
+      ungroundedClaims,
+    };
   }
 
   // ===========================================================================

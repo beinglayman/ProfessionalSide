@@ -14,6 +14,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { FRAMEWORK_SECTIONS, FrameworkName } from '../ai/prompts/career-story.prompt';
+import { storySourceService, type PublishReadiness } from './story-source.service';
 
 export type Visibility = 'private' | 'workspace' | 'network';
 
@@ -27,6 +28,7 @@ const ERRORS = {
   INVALID_VISIBILITY: 'Invalid visibility setting',
   NEEDS_REGENERATION: 'Story needs regeneration before publishing',
   MISSING_FIELDS: 'Story is missing required fields',
+  CONTENT_VERIFICATION_FAILED: 'Story has unverified claims that need evidence',
 } as const;
 
 /** Type guard to validate visibility value */
@@ -39,6 +41,7 @@ export interface PublishResult {
   error?: string;
   story?: PublishedStory;
   missingFields?: string[];
+  ungroundedClaims?: PublishReadiness['ungroundedClaims'];
 }
 
 export interface PublishedStory {
@@ -196,6 +199,25 @@ export class StoryPublishingService {
         success: false,
         error: ERRORS.MISSING_FIELDS,
         missingFields,
+      };
+    }
+
+    // Content verification: check for ungrounded claims in user-edited sections
+    const frameworkKey = story.framework as FrameworkName;
+    const sectionKeys = FRAMEWORK_SECTIONS[frameworkKey] || [];
+    const sources = await storySourceService.getSourcesForStory(storyId);
+    const readiness = storySourceService.computePublishReadiness(
+      sources,
+      story.sections as Record<string, { summary?: string }>,
+      story.originalSections as Record<string, { summary?: string }> | null,
+      sectionKeys,
+    );
+
+    if (!readiness.ready) {
+      return {
+        success: false,
+        error: ERRORS.CONTENT_VERIFICATION_FAILED,
+        ungroundedClaims: readiness.ungroundedClaims,
       };
     }
 

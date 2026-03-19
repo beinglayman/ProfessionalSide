@@ -1448,6 +1448,7 @@ model CareerStory {
   // SOAR: { situation, obstacle, action, result }
   // Each section: { summary: string, evidence: [{ activityId, date, description }] }
   sections Json // Dynamic sections based on framework
+  originalSections Json? // AI-generated sections snapshot for diff-based publish gating
 
   // Verification (optional, framework-independent)
   verification Json? // [{ claim, status, suggestion }]

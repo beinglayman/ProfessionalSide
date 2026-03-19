@@ -618,6 +618,7 @@ export class StoryWizardService {
         activityIds: entry.activityIds,
         framework,
         sections: sections as unknown as Prisma.InputJsonValue,
+        originalSections: sections as unknown as Prisma.InputJsonValue,
         generatedAt: new Date(),
         needsRegeneration: false,
         visibility: 'private',

@@ -778,6 +778,7 @@ export class CareerStoryService {
         activityIds: input.activityIds,
         framework,
         sections: sections as unknown as Prisma.InputJsonValue,
+        originalSections: sections as unknown as Prisma.InputJsonValue,
         generatedAt: new Date(),
         needsRegeneration: false,
         visibility: 'private',
@@ -927,6 +928,7 @@ export class CareerStoryService {
         activityIds: entry.activityIds,
         framework: useFramework,
         sections: sections as unknown as Prisma.InputJsonValue,
+        originalSections: sections as unknown as Prisma.InputJsonValue,
         generatedAt: new Date(),
         needsRegeneration: false,
         visibility: 'private',
@@ -1282,6 +1284,7 @@ export class CareerStoryService {
       data: {
         framework: nextFramework,
         sections: sections as unknown as Prisma.InputJsonValue,
+        originalSections: sections as unknown as Prisma.InputJsonValue,
         needsRegeneration: false,
         generatedAt: new Date(),
         ...(archetype ? { archetype } : {}),

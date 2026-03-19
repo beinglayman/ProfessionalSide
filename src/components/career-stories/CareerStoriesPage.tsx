@@ -134,6 +134,9 @@ export function CareerStoriesPage() {
   } | null>(null);
   // Publish modal state
   const [publishModalStoryId, setPublishModalStoryId] = useState<string | null>(null);
+  const [publishUngroundedClaims, setPublishUngroundedClaims] = useState<
+    Array<{ sectionKey: string; claim: string; suggestion: string; isUserEdited: boolean }> | undefined
+  >(undefined);
   // Derivation modal state
   const [derivationStoryId, setDerivationStoryId] = useState<string | null>(null);
   const [derivationInitialType, setDerivationInitialType] = useState<string | undefined>(undefined);
@@ -820,10 +823,18 @@ export function CareerStoriesPage() {
       });
       if (response.success && response.data) {
         updateSelectedStory(response.data);
+        setPublishModalStoryId(null);
+        setPublishUngroundedClaims(undefined);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Check for content verification failure with ungrounded claims
+      const responseData = error?.response?.data;
+      if (responseData?.message === 'Story has unverified claims that need evidence' && responseData?.ungroundedClaims) {
+        setPublishUngroundedClaims(responseData.ungroundedClaims);
+        // Keep modal open — don't clear publishModalStoryId
+        return;
+      }
       console.error('Failed to publish story:', error);
-    } finally {
       setPublishModalStoryId(null);
     }
   }, [publishModalStoryId, publishStoryMutation, updateSelectedStory]);
@@ -1473,10 +1484,17 @@ export function CareerStoriesPage() {
         return (
           <PublishModal
             isOpen={!!publishModalStoryId}
-            onClose={() => setPublishModalStoryId(null)}
+            onClose={() => { setPublishModalStoryId(null); setPublishUngroundedClaims(undefined); }}
             story={publishStory}
             onPublish={handlePublishWithCategory}
             isPublishing={publishStoryMutation.isPending}
+            ungroundedClaims={publishUngroundedClaims}
+            onEditSection={(sectionKey) => {
+              setPublishModalStoryId(null);
+              setPublishUngroundedClaims(undefined);
+              // Activate edit mode on the section — NarrativePreview handles this via its own state
+              // The user will edit the section, then retry publish
+            }}
           />
         );
       })()}

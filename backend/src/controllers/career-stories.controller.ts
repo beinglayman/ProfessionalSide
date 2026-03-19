@@ -1125,9 +1125,10 @@ export const publishStory = asyncHandler(async (req: Request, res: Response): Pr
   if (!result.success) {
     const status = result.error === 'Story not found' ? 404 :
                    result.error?.includes('own') ? 403 :
-                   result.missingFields ? 400 : 500;
+                   result.missingFields || result.ungroundedClaims ? 400 : 500;
     return void sendError(res, result.error || 'Publish failed', status, {
       missingFields: result.missingFields,
+      ungroundedClaims: result.ungroundedClaims,
     });
   }
 
