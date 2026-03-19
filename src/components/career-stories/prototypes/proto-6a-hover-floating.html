@@ -83,6 +83,18 @@
       border-left: 8px solid #fff;
     }
 
+    /* Invisible bridge area extending toward the story card */
+    .preview-card .hover-bridge {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 16px;
+      left: -16px;
+    }
+    .preview-card.arrow-right .hover-bridge {
+      left: auto;
+      right: -16px;
+    }
+
     /* Side panel */
     .side-panel {
       position: fixed;
@@ -186,6 +198,7 @@
 
   <!-- Floating Preview Card -->
   <div class="preview-card" id="previewCard">
+    <div class="hover-bridge"></div>
     <div id="previewContent" class="p-4"></div>
   </div>
 
@@ -338,12 +351,17 @@
     function handleCardLeave(event, index) {
       clearTimeout(hoverTimer);
       const preview = document.getElementById('previewCard');
-      // Check if mouse moved to preview card
-      setTimeout(() => {
+      const relatedTarget = event.relatedTarget;
+      // If mouse moved directly into the preview card or its bridge, stay visible
+      if (relatedTarget && (preview.contains(relatedTarget) || preview === relatedTarget)) {
+        return;
+      }
+      // Generous timeout for mouse to reach the preview card
+      hoverTimer = setTimeout(() => {
         if (!preview.matches(':hover') && currentHoveredCard === index) {
           hidePreview();
         }
-      }, 50);
+      }, 150);
     }
 
     // Preview card mouse handlers
@@ -384,7 +402,7 @@
       const rect = cardEl.getBoundingClientRect();
       const windowWidth = window.innerWidth;
       const previewWidth = 320;
-      const gap = 12;
+      const gap = 4;
 
       preview.classList.remove('arrow-right');
 
