@@ -26,6 +26,7 @@ const HOVER_PEEK_GROUPS = [
   { label: 'Left', ids: ['hb8'] },
   { label: 'Float', ids: ['hb9'] },
   { label: 'Colors', ids: ['hb10'] },
+  { label: 'Pill+Compact', ids: ['hb11'] },
 ];
 
 export function StoriesNavPrototypesPage() {
