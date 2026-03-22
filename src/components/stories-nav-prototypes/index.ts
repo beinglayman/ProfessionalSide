@@ -30,4 +30,5 @@ export const storiesNavPrototypes = [
   { id: 'hb8', name: 'Left Panel', file: 'proto-6b-v8-left-panel.html' },
   { id: 'hb9', name: 'Floating Detail', file: 'proto-6b-v9-floating-detail.html' },
   { id: 'hb10', name: 'Section Colors', file: 'proto-6b-v10-section-colors.html' },
+  { id: 'hb11', name: 'Pill + Compact', file: 'proto-6b-v11-pill-compact.html' },
 ];
