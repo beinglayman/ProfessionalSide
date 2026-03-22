@@ -70,11 +70,11 @@ async function main() {
       console.log('pragma_links table exists — OK');
     }
 
-    // Ensure originalSections column exists on CareerStory
+    // Ensure originalSections column exists on career_stories
     await prisma.$executeRawUnsafe(
-      'ALTER TABLE "CareerStory" ADD COLUMN IF NOT EXISTS "originalSections" JSONB'
+      'ALTER TABLE "career_stories" ADD COLUMN IF NOT EXISTS "originalSections" JSONB'
     );
-    console.log('CareerStory.originalSections column ensured — OK');
+    console.log('career_stories.originalSections column ensured — OK');
   } catch (err) {
     console.error('Table verification failed:', err?.message || err);
     process.exit(1);
