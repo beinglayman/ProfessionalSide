@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evidence V4 — Chronological Timeline | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#5D259F', light: '#F3EBFC', 100: '#E7D7F9', 200: '#CFAFF3', 600: '#4B1E80', 700: '#391660' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Timeline spine — thick gradient line */
+    .timeline-spine {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: linear-gradient(180deg, #5D259F 0%, #CFAFF3 60%, #E7D7F9 100%);
+      border-radius: 3px;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+
+    /* Timeline node — circle on the spine */
+    .timeline-node {
+      position: absolute;
+      left: 50%;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #5D259F;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #5D259F, 0 2px 8px rgba(93,37,159,0.25);
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      transition: transform 200ms ease, box-shadow 200ms ease;
+    }
+    .timeline-node:hover {
+      transform: translate(-50%, -50%) scale(1.25);
+      box-shadow: 0 0 0 3px #CFAFF3, 0 4px 16px rgba(93,37,159,0.35);
+    }
+
+    /* Pulse animation on nodes */
+    .timeline-node::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid #CFAFF3;
+      opacity: 0;
+      animation: node-pulse 3s ease-in-out infinite;
+    }
+    .timeline-node:nth-child(odd)::after { animation-delay: 0s; }
+    .timeline-node:nth-child(even)::after { animation-delay: 1.5s; }
+
+    @keyframes node-pulse {
+      0%, 100% { opacity: 0; transform: scale(0.8); }
+      50% { opacity: 0.6; transform: scale(1.4); }
+    }
+
+    /* Node validated state */
+    .timeline-node.validated {
+      background: #16a34a;
+      box-shadow: 0 0 0 2px #16a34a, 0 2px 8px rgba(22,163,74,0.25);
+    }
+    .timeline-node.validated::after {
+      border-color: #86efac;
+    }
+    .timeline-node.invalid {
+      background: #dc2626;
+      box-shadow: 0 0 0 2px #dc2626, 0 2px 8px rgba(220,38,38,0.25);
+    }
+    .timeline-node.invalid::after {
+      border-color: #fca5a5;
+    }
+    .timeline-node.pending {
+      background: #f59e0b;
+      box-shadow: 0 0 0 2px #f59e0b, 0 2px 8px rgba(245,158,11,0.25);
+    }
+    .timeline-node.pending::after {
+      border-color: #fde68a;
+    }
+
+    /* Evidence card */
+    .evidence-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px 24px;
+      transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+      cursor: default;
+      position: relative;
+    }
+    .evidence-card:hover {
+      border-color: #E7D7F9;
+      box-shadow: 0 6px 20px rgba(93,37,159,0.10);
+      transform: translateY(-2px);
+    }
+
+    /* Connector arm from card to spine */
+    .connector-arm {
+      position: absolute;
+      top: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, #CFAFF3, #E7D7F9);
+      z-index: 2;
+    }
+    .connector-arm.left {
+      right: -32px;
+      width: 32px;
+    }
+    .connector-arm.right {
+      left: -32px;
+      width: 32px;
+    }
+
+    /* Oversized date typography */
+    .date-label {
+      font-size: 31px;
+      font-weight: 700;
+      color: #CFAFF3;
+      line-height: 1;
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+    }
+    .date-month {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #5D259F;
+      opacity: 0.5;
+    }
+
+    /* Validation chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .chip-valid {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+    .chip-invalid {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    .chip-pending {
+      background: #fffbeb;
+      color: #d97706;
+      border: 1px solid #fde68a;
+    }
+    .chip-unvalidated {
+      background: #f8fafc;
+      color: #94a3b8;
+      border: 1px solid #e2e8f0;
+    }
+    .chip-unknown {
+      background: #f5f3ff;
+      color: #7c3aed;
+      border: 1px solid #ddd6fe;
+    }
+
+    /* Participant avatar */
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    /* Tool icon badge */
+    .tool-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* STAR section labels */
+    .star-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Fade-in animation */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(16px);
+      animation: fadeUp 0.5s ease forwards;
+    }
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Staggered delays for timeline entries */
+    .timeline-entry:nth-child(1) { animation-delay: 0.1s; }
+    .timeline-entry:nth-child(2) { animation-delay: 0.2s; }
+    .timeline-entry:nth-child(3) { animation-delay: 0.3s; }
+    .timeline-entry:nth-child(4) { animation-delay: 0.4s; }
+    .timeline-entry:nth-child(5) { animation-delay: 0.5s; }
+    .timeline-entry:nth-child(6) { animation-delay: 0.6s; }
+    .timeline-entry:nth-child(7) { animation-delay: 0.7s; }
+
+    /* Avatar stacking */
+    .avatar-stack {
+      display: flex;
+    }
+    .avatar-stack .avatar + .avatar {
+      margin-left: -8px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+
+    /* Progress bar */
+    .validation-progress {
+      height: 6px;
+      border-radius: 3px;
+      background: #f1f5f9;
+      overflow: hidden;
+    }
+    .validation-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #5D259F, #CFAFF3);
+      transition: width 600ms ease;
+    }
+
+    /* Tooltip */
+    .tooltip-trigger { position: relative; }
+    .tooltip-trigger .tooltip-text {
+      visibility: hidden;
+      opacity: 0;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 50;
+      transition: opacity 150ms ease, visibility 150ms ease;
+    }
+    .tooltip-trigger .tooltip-text::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: #1e293b;
+    }
+    .tooltip-trigger:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* Evidence detail expand */
+    .evidence-detail {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 300ms ease, opacity 200ms ease;
+      opacity: 0;
+    }
+    .evidence-detail.open {
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    /* Responsive: stack cards vertically on small screens */
+    @media (max-width: 900px) {
+      .timeline-spine { left: 24px !important; }
+      .timeline-node { left: 24px !important; }
+      .timeline-row { flex-direction: column !important; padding-left: 56px !important; }
+      .timeline-row .date-col { text-align: left !important; padding-right: 0 !important; }
+      .timeline-row .card-col { padding-left: 0 !important; }
+      .connector-arm { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-[#fafaf9] font-sans text-[#0f172a] min-h-screen">
+
+  <!-- Top navigation bar -->
+  <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+        <span class="text-[15px] font-bold tracking-tight text-brand-700">inchronicle</span>
+      </div>
+      <div class="flex items-center gap-2 text-[13px] text-[#64748b]">
+        <span class="px-3 py-1 bg-brand-light rounded-full text-brand font-semibold text-[11px] tracking-wide uppercase">Prototype V4</span>
+        <span>Evidence Panel</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="max-w-5xl mx-auto px-6 py-10">
+
+    <!-- Story Header -->
+    <section class="mb-10 fade-in">
+      <div class="flex items-start gap-4 mb-5">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="star-label bg-brand-light text-brand">STAR Framework</span>
+            <span class="chip chip-valid">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              2 of 4 Validated
+            </span>
+          </div>
+          <h1 class="text-[25px] font-bold text-[#0f172a] leading-tight mb-1">Led OAuth2 Migration Across 3 Microservices</h1>
+          <p class="text-[13px] text-[#64748b]">Career story with 7 evidence artifacts spanning Jan 15 - Feb 28, 2026</p>
+        </div>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="chip chip-valid">4 Valid</span>
+          <span class="chip chip-invalid">1 Invalid</span>
+          <span class="chip chip-pending">2 Pending</span>
+        </div>
+      </div>
+
+      <!-- Validation progress bar -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">Claim Validation Progress</span>
+          <span class="text-[12px] font-semibold text-brand">4 of 7 claims validated</span>
+        </div>
+        <div class="validation-progress">
+          <div class="validation-progress-fill" style="width: 57%"></div>
+        </div>
+      </div>
+
+      <!-- Compact STAR sections -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- Situation -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-colors">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-[11px] font-bold">S</span>
+            <span class="text-[12px] font-semibold text-[#64748b] uppercase tracking-wide">Situation</span>
+          </div>
+          <p class="text-[13px] text-[#0f172a] leading-relaxed line-clamp-3">Our authentication system relied on a legacy session-based approach that couldn't scale across our growing microservice architecture. Three critical services — user-auth, payment-gateway, and notification-hub — each maintained separate session stores, causing inconsistent login states and a 12% session-drop rate.</p>
+        </div>
+        <!-- Task -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-colors">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center text-[11px] font-bold">T</span>
+            <span class="text-[12px] font-semibold text-[#64748b] uppercase tracking-wide">Task</span>
+          </div>
+          <p class="text-[13px] text-[#0f172a] leading-relaxed line-clamp-3">I was tasked with migrating all three services to OAuth2 with JWT tokens, establishing a centralized identity provider, and ensuring zero-downtime during the transition. The migration needed to complete within Q1 2026 while maintaining backward compatibility.</p>
+        </div>
+        <!-- Action -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-colors">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-green-50 text-green-600 flex items-center justify-center text-[11px] font-bold">A</span>
+            <span class="text-[12px] font-semibold text-[#64748b] uppercase tracking-wide">Action</span>
+          </div>
+          <p class="text-[13px] text-[#0f172a] leading-relaxed line-clamp-3">I designed a phased rollout strategy starting with the user-auth service as the identity provider. I implemented OAuth2 authorization code flow with PKCE, set up JWT token rotation, and created a compatibility shim that allowed legacy sessions to coexist during migration. I coordinated code reviews across all three service teams and ran load testing at 3x production traffic.</p>
+        </div>
+        <!-- Result -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-colors">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center text-[11px] font-bold">R</span>
+            <span class="text-[12px] font-semibold text-[#64748b] uppercase tracking-wide">Result</span>
+          </div>
+          <p class="text-[13px] text-[#0f172a] leading-relaxed line-clamp-3">The migration reduced session-related incidents by 94%, eliminated the session-drop issue entirely, and improved auth response times from 340ms to 45ms. The centralized identity provider now serves 12 services beyond the original three.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Divider -->
+    <div class="border-t border-gray-200 my-8"></div>
+
+    <!-- Evidence Timeline Header -->
+    <section class="mb-8 fade-in" style="animation-delay: 0.15s">
+      <div class="flex items-end justify-between mb-1">
+        <div>
+          <h2 class="text-[20px] font-bold text-[#0f172a]">Evidence Timeline</h2>
+          <p class="text-[13px] text-[#64748b] mt-0.5">Chronological trail of 7 artifacts across 3 tools</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-[25px] font-bold text-brand-200 tracking-tight">Jan 15</span>
+          <svg class="w-5 h-5 text-brand-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          <span class="text-[25px] font-bold text-brand tracking-tight">Feb 28</span>
+          <span class="text-[13px] text-[#64748b] ml-1">2026</span>
+        </div>
+      </div>
+
+      <!-- Tool filter pills -->
+      <div class="flex items-center gap-2 mt-4">
+        <span class="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wider mr-1">Filter:</span>
+        <button class="filter-pill active" onclick="filterTimeline('all', this)">All (7)</button>
+        <button class="filter-pill" onclick="filterTimeline('github', this)">
+          <span class="inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub (3)
+          </span>
+        </button>
+        <button class="filter-pill" onclick="filterTimeline('jira', this)">
+          <span class="inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 11.513H0a5.218 5.218 0 005.232 5.215h2.13v2.057A5.215 5.215 0 0012.575 24V12.518a1.005 1.005 0 00-1.005-1.005z"/><path d="M5.024 5.726H16.59a5.215 5.215 0 00-5.213-5.215H9.25V-1.546A5.218 5.218 0 003.02 3.67v11.487a1.005 1.005 0 001.005 1.005h.001z" opacity=".7"/></svg>
+            Jira (2)
+          </span>
+        </button>
+        <button class="filter-pill" onclick="filterTimeline('confluence', this)">
+          <span class="inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M.87 18.257c-.248.382-.53.875-.763 1.245a.764.764 0 00.255 1.04l4.965 3.054a.764.764 0 001.058-.26c.199-.332.527-.883.86-1.478 1.551-2.78 3.09-2.457 5.97-1.094l5.218 2.468a.764.764 0 00.998-.378l2.394-5.282a.764.764 0 00-.378-.998C18.173 15.165 5.4 9.252.869 18.257z"/><path d="M23.131 5.743c.248-.382.53-.875.763-1.245a.764.764 0 00-.255-1.04L18.674.404a.764.764 0 00-1.058.26c-.199.332-.527.883-.86 1.478-1.551 2.78-3.09 2.457-5.97 1.094L5.568.768a.764.764 0 00-.998.378L2.176 6.428a.764.764 0 00.378.998c3.28 1.409 16.053 7.322 20.577-1.683z"/></svg>
+            Confluence (1)
+          </span>
+        </button>
+        <button class="filter-pill" onclick="filterTimeline('outlook', this)">
+          <span class="inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M24 7.387v10.478c0 .23-.08.424-.238.576a.806.806 0 01-.588.234h-8.736V6.576l.576-.576h8.16c.23 0 .425.083.587.245.163.163.24.357.24.583v.559zM14.438 6.576v12.1H7.764c-.229 0-.424-.084-.586-.24a.786.786 0 01-.24-.57V7.387c0-.226.08-.42.24-.583a.8.8 0 01.586-.245l6.674.017zM7.29 0L0 1.738v20.524L7.29 24V0z"/><ellipse cx="3.645" cy="12" rx="2.16" ry="3.6" fill="white"/></svg>
+            Outlook (1)
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Timeline Container -->
+    <section class="relative pb-16" id="timelineContainer">
+      <!-- The gradient spine -->
+      <div class="timeline-spine" id="timelineSpine"></div>
+
+      <!-- Entry 1: Jan 15 — GitHub PR #247 -->
+      <div class="timeline-entry fade-in" data-tool="github" style="animation-delay: 0.2s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Date column (left) -->
+          <div class="date-col w-[calc(50%-40px)] text-right pr-8 flex flex-col items-end">
+            <span class="date-month">Jan</span>
+            <span class="date-label">15</span>
+          </div>
+          <!-- Node on spine -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node validated tooltip-trigger">
+              <span class="tooltip-text">Validated</span>
+            </div>
+          </div>
+          <!-- Card column (right) -->
+          <div class="card-col w-[calc(50%-40px)] pl-8">
+            <div class="evidence-card" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-gray-900 text-white">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">GitHub</span>
+                    <span class="text-[11px] text-[#94a3b8]">PR #247</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">OAuth2 migration plan</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Initial pull request laying out the migration architecture and phased rollout strategy for OAuth2 across all three services.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="avatar-stack">
+                        <div class="avatar tooltip-trigger" style="background: #3b82f6;">
+                          BC
+                          <span class="tooltip-text">Bob Chen — Reviewer</span>
+                        </div>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">Reviewer</span>
+                    </div>
+                    <span class="chip chip-valid">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      Validated
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!-- Expandable detail -->
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-1">
+                  <p><span class="font-semibold text-[#0f172a]">Linked claim:</span> "I designed a phased rollout strategy starting with the user-auth service"</p>
+                  <p><span class="font-semibold text-[#0f172a]">Validation:</span> Bob Chen confirmed as PR reviewer via GitHub API. Timestamps match claimed activity period.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry 2: Jan 22 — Jira OAUTH-142 -->
+      <div class="timeline-entry fade-in" data-tool="jira" style="animation-delay: 0.3s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Card column (left) -->
+          <div class="card-col w-[calc(50%-40px)] pr-8 flex justify-end">
+            <div class="evidence-card" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-blue-600 text-white">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 11.513H0a5.218 5.218 0 005.232 5.215h2.13v2.057A5.215 5.215 0 0012.575 24V12.518a1.005 1.005 0 00-1.005-1.005z"/><path d="M5.024 5.726H16.59a5.215 5.215 0 00-5.213-5.215H9.25V-1.546A5.218 5.218 0 003.02 3.67v11.487a1.005 1.005 0 001.005 1.005z" opacity=".7"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">Jira</span>
+                    <span class="text-[11px] text-[#94a3b8]">OAUTH-142</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">JWT token rotation setup</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Ticket tracking the implementation of JWT token rotation with configurable expiry and refresh token flow.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="avatar-stack">
+                        <div class="avatar tooltip-trigger" style="background: #10b981;">
+                          AD
+                          <span class="tooltip-text">Alex Dev — Assignee</span>
+                        </div>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">Assignee</span>
+                    </div>
+                    <span class="chip chip-valid">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      Validated
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-1">
+                  <p><span class="font-semibold text-[#0f172a]">Linked claim:</span> "set up JWT token rotation"</p>
+                  <p><span class="font-semibold text-[#0f172a]">Validation:</span> Alex Dev confirmed as assignee on Jira ticket. Issue resolved within sprint timeline.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Node on spine -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node validated tooltip-trigger">
+              <span class="tooltip-text">Validated</span>
+            </div>
+          </div>
+          <!-- Date column (right) -->
+          <div class="date-col w-[calc(50%-40px)] pl-8 flex flex-col items-start">
+            <span class="date-month">Jan</span>
+            <span class="date-label">22</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry 3: Jan 28 — Confluence -->
+      <div class="timeline-entry fade-in" data-tool="confluence" style="animation-delay: 0.4s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Date column (left) -->
+          <div class="date-col w-[calc(50%-40px)] text-right pr-8 flex flex-col items-end">
+            <span class="date-month">Jan</span>
+            <span class="date-label">28</span>
+          </div>
+          <!-- Node -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node pending tooltip-trigger">
+              <span class="tooltip-text">Pending validation</span>
+            </div>
+          </div>
+          <!-- Card (right) -->
+          <div class="card-col w-[calc(50%-40px)] pl-8">
+            <div class="evidence-card" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-blue-500 text-white">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M.87 18.257c-.248.382-.53.875-.763 1.245a.764.764 0 00.255 1.04l4.965 3.054a.764.764 0 001.058-.26c.199-.332.527-.883.86-1.478 1.551-2.78 3.09-2.457 5.97-1.094l5.218 2.468a.764.764 0 00.998-.378l2.394-5.282a.764.764 0 00-.378-.998C18.173 15.165 5.4 9.252.869 18.257z"/><path d="M23.131 5.743c.248-.382.53-.875.763-1.245a.764.764 0 00-.255-1.04L18.674.404a.764.764 0 00-1.058.26c-.199.332-.527.883-.86 1.478-1.551 2.78-3.09 2.457-5.97 1.094L5.568.768a.764.764 0 00-.998.378L2.176 6.428a.764.764 0 00.378.998c3.28 1.409 16.053 7.322 20.577-1.683z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">Confluence</span>
+                    <span class="text-[11px] text-[#94a3b8]">Page</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">OAuth2 Migration Plan</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Comprehensive planning document authored to outline migration phases, risk assessment, and rollback procedures.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="w-5 h-5 rounded-full bg-brand-light flex items-center justify-center">
+                        <svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">You (author)</span>
+                    </div>
+                    <span class="chip chip-pending">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>
+                      Pending
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-1">
+                  <p><span class="font-semibold text-[#0f172a]">Linked claim:</span> "I designed a phased rollout strategy"</p>
+                  <p><span class="font-semibold text-[#0f172a]">Validation:</span> Authorship confirmed via Confluence API. Content relevance pending review.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry 4: Feb 3 — GitHub PR #251 (Mixed validation: valid + invalid) -->
+      <div class="timeline-entry fade-in" data-tool="github" style="animation-delay: 0.5s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Card column (left) -->
+          <div class="card-col w-[calc(50%-40px)] pr-8 flex justify-end">
+            <div class="evidence-card border-l-4 border-l-red-200" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-gray-900 text-white">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">GitHub</span>
+                    <span class="text-[11px] text-[#94a3b8]">PR #251</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">PKCE implementation</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Implementation of Proof Key for Code Exchange (PKCE) for the authorization code flow across public clients.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="avatar-stack">
+                        <div class="avatar tooltip-trigger" style="background: #3b82f6;">
+                          BC
+                          <span class="tooltip-text">Bob Chen — Reviewer</span>
+                        </div>
+                        <div class="avatar tooltip-trigger" style="background: #ec4899;">
+                          SK
+                          <span class="tooltip-text">Sarah Kim — Reviewer</span>
+                        </div>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">Reviewers</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="chip chip-valid">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        Valid
+                      </span>
+                      <span class="chip chip-invalid">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Invalid
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-2">
+                  <div class="flex items-start gap-2">
+                    <span class="chip chip-valid mt-0.5 flex-shrink-0">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      Valid
+                    </span>
+                    <p><span class="font-semibold text-[#0f172a]">Claim:</span> "implemented OAuth2 authorization code flow with PKCE" — Confirmed by PR diff analysis.</p>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="chip chip-invalid mt-0.5 flex-shrink-0">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      Invalid
+                    </span>
+                    <p><span class="font-semibold text-[#0f172a]">Claim:</span> "Timeline was Q2 not Q1" — PR merged Feb 3 but story claims Q1 completion; however this PR was during Q1.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Node -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node invalid tooltip-trigger">
+              <span class="tooltip-text">Has invalid claim</span>
+            </div>
+          </div>
+          <!-- Date (right) -->
+          <div class="date-col w-[calc(50%-40px)] pl-8 flex flex-col items-start">
+            <span class="date-month">Feb</span>
+            <span class="date-label">03</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry 5: Feb 10 — GitHub PR #253 -->
+      <div class="timeline-entry fade-in" data-tool="github" style="animation-delay: 0.6s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Date (left) -->
+          <div class="date-col w-[calc(50%-40px)] text-right pr-8 flex flex-col items-end">
+            <span class="date-month">Feb</span>
+            <span class="date-label">10</span>
+          </div>
+          <!-- Node -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node pending tooltip-trigger">
+              <span class="tooltip-text">Pending validation</span>
+            </div>
+          </div>
+          <!-- Card (right) -->
+          <div class="card-col w-[calc(50%-40px)] pl-8">
+            <div class="evidence-card" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-gray-900 text-white">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">GitHub</span>
+                    <span class="text-[11px] text-[#94a3b8]">PR #253</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">Compatibility shim</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Bridge layer enabling legacy session-based auth to coexist with new OAuth2 tokens during the migration window.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="avatar-stack">
+                        <div class="avatar tooltip-trigger" style="background: #ec4899;">
+                          SK
+                          <span class="tooltip-text">Sarah Kim — Reviewer</span>
+                        </div>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">Reviewer</span>
+                    </div>
+                    <span class="chip chip-pending">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>
+                      Pending
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-1">
+                  <p><span class="font-semibold text-[#0f172a]">Linked claim:</span> "created a compatibility shim that allowed legacy sessions to coexist during migration"</p>
+                  <p><span class="font-semibold text-[#0f172a]">Validation:</span> Sarah Kim listed as reviewer. Awaiting her confirmation on InChronicle.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry 6: Feb 18 — Jira OAUTH-158 -->
+      <div class="timeline-entry fade-in" data-tool="jira" style="animation-delay: 0.7s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Card (left) -->
+          <div class="card-col w-[calc(50%-40px)] pr-8 flex justify-end">
+            <div class="evidence-card" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-blue-600 text-white">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 11.513H0a5.218 5.218 0 005.232 5.215h2.13v2.057A5.215 5.215 0 0012.575 24V12.518a1.005 1.005 0 00-1.005-1.005z"/><path d="M5.024 5.726H16.59a5.215 5.215 0 00-5.213-5.215H9.25V-1.546A5.218 5.218 0 003.02 3.67v11.487a1.005 1.005 0 001.005 1.005z" opacity=".7"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">Jira</span>
+                    <span class="text-[11px] text-[#94a3b8]">OAUTH-158</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">Load testing results</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Ticket documenting load test execution at 3x production traffic volume with performance benchmarks and regression analysis.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="w-5 h-5 rounded-full bg-brand-light flex items-center justify-center">
+                        <svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">You (reporter)</span>
+                    </div>
+                    <span class="chip chip-unvalidated">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01"/><circle cx="12" cy="12" r="10"/></svg>
+                      Not validated
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-1">
+                  <p><span class="font-semibold text-[#0f172a]">Linked claim:</span> "ran load testing at 3x production traffic"</p>
+                  <p><span class="font-semibold text-[#0f172a]">Validation:</span> No external participants on this ticket. Self-reported evidence only.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Node -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node tooltip-trigger" style="background: #94a3b8; box-shadow: 0 0 0 2px #94a3b8, 0 2px 8px rgba(148,163,184,0.25);">
+              <span class="tooltip-text">Not validated</span>
+            </div>
+          </div>
+          <!-- Date (right) -->
+          <div class="date-col w-[calc(50%-40px)] pl-8 flex flex-col items-start">
+            <span class="date-month">Feb</span>
+            <span class="date-label">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry 7: Feb 28 — Outlook meeting -->
+      <div class="timeline-entry fade-in" data-tool="outlook" style="animation-delay: 0.8s">
+        <div class="timeline-row flex items-center gap-0 relative py-6">
+          <!-- Date (left) -->
+          <div class="date-col w-[calc(50%-40px)] text-right pr-8 flex flex-col items-end">
+            <span class="date-month">Feb</span>
+            <span class="date-label">28</span>
+          </div>
+          <!-- Node -->
+          <div class="w-[80px] flex items-center justify-center relative">
+            <div class="timeline-node tooltip-trigger" style="background: #7c3aed; box-shadow: 0 0 0 2px #7c3aed, 0 2px 8px rgba(124,58,237,0.25);">
+              <span class="tooltip-text">Unknown user</span>
+            </div>
+          </div>
+          <!-- Card (right) -->
+          <div class="card-col w-[calc(50%-40px)] pl-8">
+            <div class="evidence-card" onclick="toggleDetail(this)">
+              <div class="flex items-start gap-3">
+                <div class="tool-icon bg-[#0078d4] text-white">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 7.387v10.478c0 .23-.08.424-.238.576a.806.806 0 01-.588.234h-8.736V6.576l.576-.576h8.16c.23 0 .425.083.587.245.163.163.24.357.24.583v.559zM14.438 6.576v12.1H7.764c-.229 0-.424-.084-.586-.24a.786.786 0 01-.24-.57V7.387c0-.226.08-.42.24-.583a.8.8 0 01.586-.245l6.674.017z"/><path d="M7.29 0L0 1.738v20.524L7.29 24V0z"/><ellipse cx="3.645" cy="12" rx="2.16" ry="3.6" fill="white"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">Outlook</span>
+                    <span class="text-[11px] text-[#94a3b8]">Calendar Event</span>
+                  </div>
+                  <h3 class="text-[14px] font-semibold text-[#0f172a] leading-snug mb-2">Security review meeting</h3>
+                  <p class="text-[12px] text-[#64748b] leading-relaxed mb-3">Final security review session covering OAuth2 implementation, token handling, and vulnerability assessment before production deploy.</p>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="avatar tooltip-trigger" style="background: #a78bfa; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
+                        SL
+                        <span class="tooltip-text">security-lead — Unknown user</span>
+                      </div>
+                      <span class="text-[11px] text-[#94a3b8]">Attendee</span>
+                    </div>
+                    <span class="chip chip-unknown">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01"/></svg>
+                      Unknown user
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="evidence-detail mt-3 pt-3 border-t border-gray-100">
+                <div class="text-[12px] text-[#64748b] space-y-2">
+                  <p><span class="font-semibold text-[#0f172a]">Linked claim:</span> Corroborates security review as part of migration process</p>
+                  <p><span class="font-semibold text-[#0f172a]">Participant:</span> "security-lead" is not an InChronicle user</p>
+                  <div class="mt-2">
+                    <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-light text-brand text-[11px] font-semibold hover:bg-brand-100 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                      Invite to InChronicle
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Divider -->
+    <div class="border-t border-gray-200 my-8"></div>
+
+    <!-- Participants Summary -->
+    <section class="fade-in" style="animation-delay: 0.9s">
+      <h3 class="text-[16px] font-bold text-[#0f172a] mb-4">Participants</h3>
+      <div class="grid grid-cols-4 gap-3">
+
+        <!-- Bob Chen -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-all hover:shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="avatar tooltip-trigger" style="background: #3b82f6; width: 36px; height: 36px; font-size: 13px;">
+              BC
+              <span class="tooltip-text">Bob Chen</span>
+            </div>
+            <div>
+              <p class="text-[13px] font-semibold text-[#0f172a]">Bob Chen</p>
+              <p class="text-[11px] text-[#64748b]">Reviewer (GitHub)</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-[#94a3b8]">3 activities</span>
+            <span class="chip chip-valid">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Validated
+            </span>
+          </div>
+          <div class="mt-3 flex gap-1">
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-[#94a3b8]">Jan 15</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-[#94a3b8]">Feb 3</span>
+          </div>
+        </div>
+
+        <!-- Sarah Kim -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-all hover:shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="avatar tooltip-trigger" style="background: #ec4899; width: 36px; height: 36px; font-size: 13px;">
+              SK
+              <span class="tooltip-text">Sarah Kim</span>
+            </div>
+            <div>
+              <p class="text-[13px] font-semibold text-[#0f172a]">Sarah Kim</p>
+              <p class="text-[11px] text-[#64748b]">Reviewer (GitHub)</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-[#94a3b8]">2 activities</span>
+            <span class="chip chip-pending">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>
+              Pending
+            </span>
+          </div>
+          <div class="mt-3 flex gap-1">
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-[#94a3b8]">Feb 3</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-[#94a3b8]">Feb 10</span>
+          </div>
+        </div>
+
+        <!-- Alex Dev -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-100 transition-all hover:shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="avatar tooltip-trigger" style="background: #10b981; width: 36px; height: 36px; font-size: 13px;">
+              AD
+              <span class="tooltip-text">Alex Dev</span>
+            </div>
+            <div>
+              <p class="text-[13px] font-semibold text-[#0f172a]">Alex Dev</p>
+              <p class="text-[11px] text-[#64748b]">Assignee (Jira)</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-[#94a3b8]">1 activity</span>
+            <span class="chip chip-valid">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Validated
+            </span>
+          </div>
+          <div class="mt-3 flex gap-1">
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-[#94a3b8]">Jan 22</span>
+          </div>
+        </div>
+
+        <!-- security-lead -->
+        <div class="bg-white rounded-xl border border-gray-100 border-dashed p-4 hover:border-brand-100 transition-all hover:shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="avatar tooltip-trigger" style="background: #a78bfa; width: 36px; height: 36px; font-size: 13px;">
+              SL
+              <span class="tooltip-text">security-lead</span>
+            </div>
+            <div>
+              <p class="text-[13px] font-semibold text-[#0f172a]">security-lead</p>
+              <p class="text-[11px] text-[#64748b]">Attendee (Outlook)</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-[#94a3b8]">1 activity</span>
+            <span class="chip chip-unknown">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01"/></svg>
+              Unknown
+            </span>
+          </div>
+          <div class="mt-3">
+            <button class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-light text-brand text-[10px] font-semibold hover:bg-brand-100 transition-colors w-full justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+              Invite to InChronicle
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Validation Summary Footer -->
+    <section class="mt-8 mb-12 fade-in" style="animation-delay: 1.0s">
+      <div class="bg-white rounded-xl border border-gray-100 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h4 class="text-[14px] font-semibold text-[#0f172a] mb-1">Validation Summary</h4>
+            <p class="text-[12px] text-[#64748b]">2 of 4 participants validated. 4 valid claims, 1 invalid claim, 2 not yet validated.</p>
+          </div>
+          <div class="flex items-center gap-6">
+            <div class="text-center">
+              <div class="text-[25px] font-bold text-green-600 leading-none">4</div>
+              <div class="text-[10px] text-[#64748b] font-semibold uppercase tracking-wider mt-0.5">Valid</div>
+            </div>
+            <div class="text-center">
+              <div class="text-[25px] font-bold text-red-500 leading-none">1</div>
+              <div class="text-[10px] text-[#64748b] font-semibold uppercase tracking-wider mt-0.5">Invalid</div>
+            </div>
+            <div class="text-center">
+              <div class="text-[25px] font-bold text-amber-500 leading-none">2</div>
+              <div class="text-[10px] text-[#64748b] font-semibold uppercase tracking-wider mt-0.5">Pending</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-100 py-4 text-center">
+    <p class="text-[11px] text-[#94a3b8]">inchronicle Evidence Panel — Prototype V4: Chronological Timeline</p>
+  </footer>
+
+  <script>
+    // Filter timeline entries by tool
+    function filterTimeline(tool, btn) {
+      // Update active pill
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+
+      const entries = document.querySelectorAll('.timeline-entry');
+      entries.forEach(entry => {
+        if (tool === 'all' || entry.dataset.tool === tool) {
+          entry.style.display = '';
+          entry.style.opacity = '1';
+          entry.style.transform = 'translateY(0)';
+        } else {
+          entry.style.opacity = '0';
+          entry.style.transform = 'translateY(-8px)';
+          setTimeout(() => {
+            entry.style.display = 'none';
+          }, 200);
+        }
+      });
+    }
+
+    // Toggle evidence detail expansion
+    function toggleDetail(card) {
+      const detail = card.querySelector('.evidence-detail');
+      if (detail) {
+        detail.classList.toggle('open');
+      }
+    }
+
+    // Intersection Observer for fade-in animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationPlayState = 'running';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-in').forEach(el => {
+      el.style.animationPlayState = 'paused';
+      observer.observe(el);
+    });
+
+    // Auto-expand first evidence card detail on load
+    window.addEventListener('DOMContentLoaded', () => {
+      // Slight delay to let animations start
+      setTimeout(() => {
+        document.querySelectorAll('.fade-in').forEach(el => {
+          el.style.animationPlayState = 'running';
+        });
+      }, 100);
+    });
+  </script>
+
+</body>
+</html>

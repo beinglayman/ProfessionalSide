@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evidence V10 — Dashboard Cards | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#5D259F',
+              light: '#F3EBFC',
+              50: '#F3EBFC',
+              100: '#E7D7F9',
+              200: '#CFAFF3',
+              500: '#5D259F',
+              600: '#4B1E80',
+              700: '#391660'
+            }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes countUp {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes barGrow {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+
+    .animate-count-up {
+      animation: countUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    .animate-bar-grow {
+      animation: barGrow 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+      transform-origin: left center;
+    }
+
+    .stagger-1 { animation-delay: 0.1s; }
+    .stagger-2 { animation-delay: 0.2s; }
+    .stagger-3 { animation-delay: 0.3s; }
+    .stagger-4 { animation-delay: 0.4s; }
+    .stagger-5 { animation-delay: 0.5s; }
+    .stagger-6 { animation-delay: 0.6s; }
+    .stagger-7 { animation-delay: 0.7s; }
+
+    /* Dashboard card grid — asymmetric layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+    }
+
+    .dashboard-grid .card-grounded {
+      grid-column: 3 / 4;
+      grid-row: 1 / 3;
+    }
+
+    /* Card hover effect */
+    .metric-card {
+      transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+      cursor: pointer;
+    }
+
+    .metric-card:hover {
+      box-shadow: 0 8px 24px rgba(93, 37, 159, 0.12), 0 2px 8px rgba(0,0,0,0.06);
+      transform: translateY(-2px);
+      border-color: #CFAFF3;
+    }
+
+    .metric-card.active {
+      border-color: #5D259F;
+      box-shadow: 0 4px 16px rgba(93, 37, 159, 0.18);
+    }
+
+    /* Expandable detail panel */
+    .detail-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease;
+      opacity: 0;
+      margin-top: 0;
+    }
+
+    .detail-panel.open {
+      max-height: 1200px;
+      opacity: 1;
+      margin-top: 16px;
+    }
+
+    /* Section label badges */
+    .section-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Tool icon pills */
+    .tool-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+      background: #F3EBFC;
+      color: #5D259F;
+    }
+
+    /* Sparkline bar chart in Grounded card */
+    .spark-bar-track {
+      height: 8px;
+      background: #F3EBFC;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .spark-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: #5D259F;
+    }
+
+    /* Validation progress bar */
+    .validation-bar-track {
+      height: 6px;
+      background: #F3EBFC;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .validation-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #5D259F, #CFAFF3);
+    }
+
+    /* Avatar stack */
+    .avatar-stack {
+      display: flex;
+    }
+
+    .avatar-stack > * + * {
+      margin-left: -8px;
+    }
+
+    .avatar-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+    }
+
+    /* Status dot */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    /* Claim row styling */
+    .claim-row {
+      transition: background-color 0.15s ease;
+    }
+    .claim-row:hover {
+      background-color: #F3EBFC;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+      .dashboard-grid .card-grounded {
+        grid-column: auto;
+        grid-row: auto;
+      }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .dashboard-grid .card-grounded {
+        grid-column: 2 / 3;
+        grid-row: 1 / 3;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-[#fafaf9] font-sans text-[#0f172a] antialiased">
+
+  <!-- Top Bar -->
+  <header class="bg-white border-b border-gray-200">
+    <div class="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
+          <span class="text-white text-xs font-bold">IC</span>
+        </div>
+        <span class="text-sm font-semibold text-[#64748b]">inchronicle</span>
+        <span class="text-[#64748b] text-sm mx-1">/</span>
+        <span class="text-sm font-medium text-[#0f172a]">Evidence Panel</span>
+      </div>
+      <span class="text-xs font-medium text-brand bg-brand-light px-3 py-1 rounded-full">Prototype V10 — Dashboard Cards</span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- Story Header -->
+    <section class="animate-fade-in-up stagger-1">
+      <div class="flex items-start gap-3 mb-1">
+        <div class="mt-1 flex-shrink-0 w-9 h-9 rounded-lg bg-brand-light flex items-center justify-center">
+          <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-[25px] font-bold text-[#0f172a] leading-tight">Led OAuth2 Migration Across 3 Microservices</h1>
+          <div class="flex items-center gap-3 mt-1.5">
+            <span class="section-badge bg-brand-light text-brand">STAR Framework</span>
+            <span class="text-xs text-[#64748b]">4 sections &middot; 7 evidence sources</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Compact STAR Sections -->
+    <section class="mt-6 animate-fade-in-up stagger-2">
+      <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+
+        <!-- Situation -->
+        <div class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="section-badge bg-blue-50 text-blue-700 mt-0.5 flex-shrink-0">S</span>
+            <p class="text-sm text-[#0f172a] leading-relaxed">Our authentication system relied on a legacy session-based approach that couldn&rsquo;t scale across our growing microservice architecture. Three critical services &mdash; user-auth, payment-gateway, and notification-hub &mdash; each maintained separate session stores, causing inconsistent login states and a 12% session-drop rate.</p>
+          </div>
+        </div>
+
+        <!-- Task -->
+        <div class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="section-badge bg-amber-50 text-amber-700 mt-0.5 flex-shrink-0">T</span>
+            <p class="text-sm text-[#0f172a] leading-relaxed">I was tasked with migrating all three services to OAuth2 with JWT tokens, establishing a centralized identity provider, and ensuring zero-downtime during the transition. The migration needed to complete within Q1 2026 while maintaining backward compatibility.</p>
+          </div>
+        </div>
+
+        <!-- Action -->
+        <div class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="section-badge bg-green-50 text-green-700 mt-0.5 flex-shrink-0">A</span>
+            <p class="text-sm text-[#0f172a] leading-relaxed">I designed a phased rollout strategy starting with the user-auth service as the identity provider. I implemented OAuth2 authorization code flow with PKCE, set up JWT token rotation, and created a compatibility shim that allowed legacy sessions to coexist during migration. I coordinated code reviews across all three service teams and ran load testing at 3x production traffic.</p>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="section-badge bg-purple-50 text-purple-700 mt-0.5 flex-shrink-0">R</span>
+            <p class="text-sm text-[#0f172a] leading-relaxed">The migration reduced session-related incidents by 94%, eliminated the session-drop issue entirely, and improved auth response times from 340ms to 45ms. The centralized identity provider now serves 12 services beyond the original three.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Evidence Dashboard Header -->
+    <section class="mt-10 mb-5 animate-fade-in-up stagger-3">
+      <div class="flex items-center gap-3">
+        <h2 class="text-[20px] font-bold text-[#0f172a]">Evidence Dashboard</h2>
+        <div class="flex-1 h-px bg-gray-200"></div>
+        <span class="text-xs text-[#64748b] font-medium">Click a card for details</span>
+      </div>
+    </section>
+
+    <!-- Dashboard Cards Grid -->
+    <section class="dashboard-grid animate-fade-in-up stagger-4" id="dashboardGrid">
+
+      <!-- Card 1: Participants -->
+      <div class="metric-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between" data-panel="participants" onclick="togglePanel('participants', this)">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Participants</span>
+            <svg class="w-4 h-4 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <div class="animate-count-up stagger-4">
+            <span class="text-[40px] font-bold text-[#0f172a] leading-none">4</span>
+          </div>
+          <p class="text-sm text-[#64748b] mt-1.5">3 matched &middot; 1 unresolved</p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-gray-100">
+          <div class="avatar-stack">
+            <div class="avatar-circle bg-brand">BC</div>
+            <div class="avatar-circle bg-green-600">SK</div>
+            <div class="avatar-circle bg-blue-600">AD</div>
+            <div class="avatar-circle bg-gray-400">
+              <span class="text-[10px]">?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Evidence Sources -->
+      <div class="metric-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between" data-panel="evidence" onclick="togglePanel('evidence', this)">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Evidence Sources</span>
+            <svg class="w-4 h-4 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <div class="animate-count-up stagger-5">
+            <span class="text-[40px] font-bold text-[#0f172a] leading-none">7</span>
+          </div>
+          <p class="text-sm text-[#64748b] mt-1.5">across 4 tools</p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-gray-100">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="tool-pill">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              3
+            </span>
+            <span class="tool-pill">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.53 2C6.017 2 2 6.55 2 11.7c0 3.23 1.63 6.08 4.12 7.82-.1.94-.54 3.47-.62 4.01 0 0-.01.1.05.14.06.04.14.02.14.02.19-.03 2.19-1.43 3.1-2.1.87.22 1.78.34 2.73.34C17.04 21.91 22 17.37 22 11.7 22 6.55 17.04 2 11.53 2z"/></svg>
+              2
+            </span>
+            <span class="tool-pill">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 2C6.49 2 2 6.49 2 12.01c0 3.07 1.44 5.86 3.64 7.71l.03.02c.23.18.37.45.37.75v.56c0 .5.4.95.9.95h10.12c.5 0 .9-.45.9-.95v-.56c0-.3.14-.57.37-.75l.03-.02A9.977 9.977 0 0022 12.01C22 6.49 17.53 2 12.01 2zm-1.81 14.5H8.58l3.63-6.32v3.82h1.62L10.2 20.32v-3.82z"/></svg>
+              1
+            </span>
+            <span class="tool-pill">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              1
+            </span>
+          </div>
+          <p class="text-[11px] text-[#64748b] mt-2">Jan 15 &ndash; Feb 28, 2026</p>
+        </div>
+      </div>
+
+      <!-- Card 3: Validations -->
+      <div class="metric-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between" data-panel="validations" onclick="togglePanel('validations', this)">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Validations</span>
+            <svg class="w-4 h-4 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div class="animate-count-up stagger-5">
+            <span class="text-[40px] font-bold text-[#0f172a] leading-none">2</span><span class="text-[24px] font-bold text-[#64748b] leading-none">/4</span>
+          </div>
+          <p class="text-sm text-[#64748b] mt-1.5">peers validated</p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-gray-100">
+          <div class="validation-bar-track w-full">
+            <div class="validation-bar-fill animate-bar-grow stagger-6" style="width: 50%;"></div>
+          </div>
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-[11px] text-green-600 font-medium">2 approved</span>
+            <span class="text-[11px] text-amber-500 font-medium">1 pending</span>
+            <span class="text-[11px] text-gray-400 font-medium">1 unknown</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Grounded (TALLER — spans 2 rows) -->
+      <div class="metric-card card-grounded bg-white rounded-xl border border-gray-200 p-5 flex flex-col" data-panel="grounded" onclick="togglePanel('grounded', this)">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Grounded</span>
+            <svg class="w-4 h-4 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          </div>
+          <div class="animate-count-up stagger-4">
+            <span class="text-[48px] font-bold text-brand leading-none">71</span><span class="text-[28px] font-bold text-brand-200 leading-none">%</span>
+          </div>
+          <p class="text-sm text-[#64748b] mt-1.5">claims evidence-backed</p>
+          <p class="text-xs text-[#64748b] mt-0.5">5 of 7 claims grounded</p>
+        </div>
+
+        <!-- Per-section sparkline bar chart -->
+        <div class="mt-5 pt-4 border-t border-gray-100 flex-1 flex flex-col justify-end">
+          <p class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider mb-3">Per-Section Grounding</p>
+
+          <!-- Situation: 100% -->
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="text-[11px] font-medium text-[#64748b] w-16 text-right">Situation</span>
+            <div class="spark-bar-track flex-1">
+              <div class="spark-bar-fill animate-bar-grow stagger-5" style="width: 100%;"></div>
+            </div>
+            <span class="text-[11px] font-semibold text-green-600 w-10">100%</span>
+          </div>
+
+          <!-- Task: 100% -->
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="text-[11px] font-medium text-[#64748b] w-16 text-right">Task</span>
+            <div class="spark-bar-track flex-1">
+              <div class="spark-bar-fill animate-bar-grow stagger-6" style="width: 100%;"></div>
+            </div>
+            <span class="text-[11px] font-semibold text-green-600 w-10">100%</span>
+          </div>
+
+          <!-- Action: 60% -->
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="text-[11px] font-medium text-[#64748b] w-16 text-right">Action</span>
+            <div class="spark-bar-track flex-1">
+              <div class="spark-bar-fill animate-bar-grow stagger-7 bg-amber-400" style="width: 60%;"></div>
+            </div>
+            <span class="text-[11px] font-semibold text-amber-500 w-10">60%</span>
+          </div>
+
+          <!-- Result: 100% -->
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-medium text-[#64748b] w-16 text-right">Result</span>
+            <div class="spark-bar-track flex-1">
+              <div class="spark-bar-fill animate-bar-grow stagger-7" style="width: 100%;"></div>
+            </div>
+            <span class="text-[11px] font-semibold text-green-600 w-10">100%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty cell for layout balance (row 2, col 1) — invisible spacer to keep grid structure -->
+
+    </section>
+
+    <!-- Expandable Detail Panels -->
+    <div id="detailPanelsContainer" class="mt-0">
+
+      <!-- Participants Detail Panel -->
+      <div id="panel-participants" class="detail-panel">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 bg-brand-light border-b border-brand-100 flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span class="text-sm font-semibold text-brand">Participants</span>
+            <span class="text-xs text-brand-600 ml-auto">4 people &middot; 3 matched &middot; 1 unresolved</span>
+          </div>
+          <div class="divide-y divide-gray-100">
+
+            <!-- Bob Chen -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="avatar-circle bg-brand w-9 h-9 text-xs">BC</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">Bob Chen</span>
+                  <span class="text-[11px] text-[#64748b] bg-gray-100 px-2 py-0.5 rounded-full">Reviewer</span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs text-[#64748b] flex items-center gap-1">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" opacity="0.6"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    GitHub
+                  </span>
+                  <span class="text-xs text-[#64748b]">3 activities</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="status-dot bg-green-500"></span>
+                <span class="text-xs font-medium text-green-600">Validated</span>
+              </div>
+            </div>
+
+            <!-- Sarah Kim -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="avatar-circle bg-green-600 w-9 h-9 text-xs">SK</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">Sarah Kim</span>
+                  <span class="text-[11px] text-[#64748b] bg-gray-100 px-2 py-0.5 rounded-full">Reviewer</span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs text-[#64748b] flex items-center gap-1">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" opacity="0.6"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    GitHub
+                  </span>
+                  <span class="text-xs text-[#64748b]">2 activities</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="status-dot bg-amber-400"></span>
+                <span class="text-xs font-medium text-amber-500">Pending</span>
+              </div>
+            </div>
+
+            <!-- Alex Dev -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="avatar-circle bg-blue-600 w-9 h-9 text-xs">AD</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">Alex Dev</span>
+                  <span class="text-[11px] text-[#64748b] bg-gray-100 px-2 py-0.5 rounded-full">Assignee</span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs text-[#64748b] flex items-center gap-1">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" opacity="0.6"><path d="M11.53 2C6.017 2 2 6.55 2 11.7c0 3.23 1.63 6.08 4.12 7.82-.1.94-.54 3.47-.62 4.01 0 0-.01.1.05.14.06.04.14.02.14.02.19-.03 2.19-1.43 3.1-2.1.87.22 1.78.34 2.73.34C17.04 21.91 22 17.37 22 11.7 22 6.55 17.04 2 11.53 2z"/></svg>
+                    Jira
+                  </span>
+                  <span class="text-xs text-[#64748b]">1 activity</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="status-dot bg-green-500"></span>
+                <span class="text-xs font-medium text-green-600">Validated</span>
+              </div>
+            </div>
+
+            <!-- security-lead (unresolved) -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row bg-amber-50/50">
+              <div class="avatar-circle bg-gray-400 w-9 h-9 text-xs">
+                <span class="text-[10px]">?</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">security-lead</span>
+                  <span class="text-[11px] text-[#64748b] bg-gray-100 px-2 py-0.5 rounded-full">Attendee</span>
+                  <span class="text-[10px] text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full font-medium">Unknown User</span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs text-[#64748b] flex items-center gap-1">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" opacity="0.6"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                    Outlook
+                  </span>
+                  <span class="text-xs text-[#64748b]">1 activity</span>
+                </div>
+              </div>
+              <button class="text-xs font-medium text-brand bg-brand-light hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors">
+                Invite to InChronicle
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Evidence Sources Detail Panel -->
+      <div id="panel-evidence" class="detail-panel">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 bg-brand-light border-b border-brand-100 flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+            <span class="text-sm font-semibold text-brand">Evidence Sources</span>
+            <span class="text-xs text-brand-600 ml-auto">7 items &middot; 4 tools &middot; Jan 15 &ndash; Feb 28, 2026</span>
+          </div>
+          <div class="divide-y divide-gray-100">
+
+            <!-- GitHub PR #247 -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">PR #247: Implement OAuth2 PKCE flow for user-auth</p>
+                <p class="text-xs text-[#64748b] mt-0.5">github.com/acme/user-auth &middot; Merged Jan 22, 2026</p>
+              </div>
+              <span class="section-badge bg-green-50 text-green-700 flex-shrink-0">Action</span>
+            </div>
+
+            <!-- GitHub PR #251 -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">PR #251: JWT token rotation + compatibility shim</p>
+                <p class="text-xs text-[#64748b] mt-0.5">github.com/acme/user-auth &middot; Merged Feb 3, 2026</p>
+              </div>
+              <span class="section-badge bg-green-50 text-green-700 flex-shrink-0">Action</span>
+            </div>
+
+            <!-- GitHub PR #260 -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">PR #260: Load testing results — 3x traffic with zero failures</p>
+                <p class="text-xs text-[#64748b] mt-0.5">github.com/acme/infra-tests &middot; Merged Feb 14, 2026</p>
+              </div>
+              <span class="section-badge bg-purple-50 text-purple-700 flex-shrink-0">Result</span>
+            </div>
+
+            <!-- Jira AUTH-1042 -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M11.53 2C6.017 2 2 6.55 2 11.7c0 3.23 1.63 6.08 4.12 7.82-.1.94-.54 3.47-.62 4.01 0 0-.01.1.05.14.06.04.14.02.14.02.19-.03 2.19-1.43 3.1-2.1.87.22 1.78.34 2.73.34C17.04 21.91 22 17.37 22 11.7 22 6.55 17.04 2 11.53 2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">AUTH-1042: OAuth2 migration — user-auth service</p>
+                <p class="text-xs text-[#64748b] mt-0.5">Jira &middot; Completed Jan 15, 2026</p>
+              </div>
+              <span class="section-badge bg-amber-50 text-amber-700 flex-shrink-0">Task</span>
+            </div>
+
+            <!-- Jira AUTH-1058 -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M11.53 2C6.017 2 2 6.55 2 11.7c0 3.23 1.63 6.08 4.12 7.82-.1.94-.54 3.47-.62 4.01 0 0-.01.1.05.14.06.04.14.02.14.02.19-.03 2.19-1.43 3.1-2.1.87.22 1.78.34 2.73.34C17.04 21.91 22 17.37 22 11.7 22 6.55 17.04 2 11.53 2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">AUTH-1058: Migrate payment-gateway + notification-hub</p>
+                <p class="text-xs text-[#64748b] mt-0.5">Jira &middot; Completed Feb 20, 2026</p>
+              </div>
+              <span class="section-badge bg-green-50 text-green-700 flex-shrink-0">Action</span>
+            </div>
+
+            <!-- Confluence -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 2C6.49 2 2 6.49 2 12.01c0 3.07 1.44 5.86 3.64 7.71l.03.02c.23.18.37.45.37.75v.56c0 .5.4.95.9.95h10.12c.5 0 .9-.45.9-.95v-.56c0-.3.14-.57.37-.75l.03-.02A9.977 9.977 0 0022 12.01C22 6.49 17.53 2 12.01 2zm-1.81 14.5H8.58l3.63-6.32v3.82h1.62L10.2 20.32v-3.82z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">RFC: Centralized Identity Provider Architecture</p>
+                <p class="text-xs text-[#64748b] mt-0.5">Confluence &middot; Published Jan 18, 2026</p>
+              </div>
+              <span class="section-badge bg-blue-50 text-blue-700 flex-shrink-0">Situation</span>
+            </div>
+
+            <!-- Outlook -->
+            <div class="px-5 py-3.5 flex items-center gap-4 claim-row">
+              <div class="w-9 h-9 rounded-lg bg-blue-700 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-[#0f172a] truncate">Meeting: OAuth2 Migration Kickoff with Security Review</p>
+                <p class="text-xs text-[#64748b] mt-0.5">Outlook Calendar &middot; Jan 16, 2026</p>
+              </div>
+              <span class="section-badge bg-blue-50 text-blue-700 flex-shrink-0">Situation</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Validations Detail Panel -->
+      <div id="panel-validations" class="detail-panel">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 bg-brand-light border-b border-brand-100 flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <span class="text-sm font-semibold text-brand">Claim Validations</span>
+            <span class="text-xs text-brand-600 ml-auto">4 valid &middot; 1 invalid &middot; 2 pending</span>
+          </div>
+
+          <!-- Column headers -->
+          <div class="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-4 text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">
+            <span class="flex-1">Claim</span>
+            <span class="w-20 text-center">Section</span>
+            <span class="w-24 text-center">Verdict</span>
+            <span class="w-32 text-right">Reviewer</span>
+          </div>
+
+          <div class="divide-y divide-gray-100">
+
+            <!-- Claim 1: Valid -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a]">&ldquo;12% session-drop rate&rdquo;</p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-blue-50 text-blue-700">S</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  Valid
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">Bob Chen</span>
+            </div>
+
+            <!-- Claim 2: Valid -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a]">&ldquo;Three critical services: user-auth, payment-gateway, notification-hub&rdquo;</p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-blue-50 text-blue-700">S</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  Valid
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">Alex Dev</span>
+            </div>
+
+            <!-- Claim 3: Invalid -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row bg-red-50/40">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a]">&ldquo;Complete within Q1 2026&rdquo;</p>
+                <p class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  &ldquo;Timeline was Q2 not Q1&rdquo; &mdash; Bob Chen
+                </p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-amber-50 text-amber-700">T</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  Invalid
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">Bob Chen</span>
+            </div>
+
+            <!-- Claim 4: Valid -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a]">&ldquo;OAuth2 authorization code flow with PKCE&rdquo;</p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-green-50 text-green-700">A</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  Valid
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">Alex Dev</span>
+            </div>
+
+            <!-- Claim 5: Valid -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a]">&ldquo;Reduced session-related incidents by 94%&rdquo;</p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-purple-50 text-purple-700">R</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  Valid
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">Bob Chen</span>
+            </div>
+
+            <!-- Claim 6: Not yet validated -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a] opacity-70">&ldquo;Load testing at 3x production traffic&rdquo;</p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-green-50 text-green-700">A</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  Pending
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">Sarah Kim</span>
+            </div>
+
+            <!-- Claim 7: Not yet validated -->
+            <div class="px-5 py-3 flex items-center gap-4 claim-row">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-[#0f172a] opacity-70">&ldquo;Auth response times from 340ms to 45ms&rdquo;</p>
+              </div>
+              <span class="w-20 text-center">
+                <span class="section-badge bg-purple-50 text-purple-700">R</span>
+              </span>
+              <span class="w-24 flex justify-center">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  Pending
+                </span>
+              </span>
+              <span class="w-32 text-right text-xs text-[#64748b]">&mdash;</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Grounded Detail Panel -->
+      <div id="panel-grounded" class="detail-panel">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 bg-brand-light border-b border-brand-100 flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span class="text-sm font-semibold text-brand">Grounding Breakdown</span>
+            <span class="text-xs text-brand-600 ml-auto">5 of 7 claims evidence-backed &middot; 71% grounded</span>
+          </div>
+
+          <div class="p-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+              <!-- Situation -->
+              <div class="rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="section-badge bg-blue-50 text-blue-700">S</span>
+                    <span class="text-sm font-semibold text-[#0f172a]">Situation</span>
+                  </div>
+                  <span class="text-sm font-bold text-green-600">100%</span>
+                </div>
+                <div class="spark-bar-track w-full mb-3">
+                  <div class="spark-bar-fill" style="width: 100%;"></div>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">Legacy session-based approach confirmed by Confluence RFC</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">12% session-drop rate validated by Bob Chen</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Task -->
+              <div class="rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="section-badge bg-amber-50 text-amber-700">T</span>
+                    <span class="text-sm font-semibold text-[#0f172a]">Task</span>
+                  </div>
+                  <span class="text-sm font-bold text-green-600">100%</span>
+                </div>
+                <div class="spark-bar-track w-full mb-3">
+                  <div class="spark-bar-fill" style="width: 100%;"></div>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">Migration task confirmed by Jira AUTH-1042</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-red-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span class="text-xs text-red-500">Timeline disputed: &ldquo;Q2 not Q1&rdquo; per Bob Chen</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action -->
+              <div class="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="section-badge bg-green-50 text-green-700">A</span>
+                    <span class="text-sm font-semibold text-[#0f172a]">Action</span>
+                  </div>
+                  <span class="text-sm font-bold text-amber-500">60%</span>
+                </div>
+                <div class="spark-bar-track w-full mb-3">
+                  <div class="spark-bar-fill bg-amber-400" style="width: 60%;"></div>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">OAuth2 PKCE flow confirmed by PR #247</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">JWT token rotation + compatibility shim confirmed by PR #251</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">Multi-service migration confirmed by Jira AUTH-1058</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-gray-300 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-xs text-[#64748b] opacity-60">&ldquo;Coordinated code reviews across all three service teams&rdquo; — pending validation</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-gray-300 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-xs text-[#64748b] opacity-60">&ldquo;Load testing at 3x production traffic&rdquo; — pending validation</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Result -->
+              <div class="rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="section-badge bg-purple-50 text-purple-700">R</span>
+                    <span class="text-sm font-semibold text-[#0f172a]">Result</span>
+                  </div>
+                  <span class="text-sm font-bold text-green-600">100%</span>
+                </div>
+                <div class="spark-bar-track w-full mb-3">
+                  <div class="spark-bar-fill" style="width: 100%;"></div>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">94% incident reduction confirmed by PR #260 load test results</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-xs text-[#64748b]">Auth response time improvement validated by Bob Chen</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer note -->
+    <footer class="mt-10 mb-8 text-center animate-fade-in-up stagger-7">
+      <p class="text-xs text-[#64748b]">
+        Evidence Panel Prototype V10 &mdash; Dashboard Cards &middot; Data-forward credibility view
+      </p>
+      <p class="text-[11px] text-[#64748b] mt-1 opacity-60">
+        Numbers tell the credibility story. Click any metric card to explore details.
+      </p>
+    </footer>
+
+  </main>
+
+  <script>
+    // Track which panel is currently open
+    let activePanel = null;
+    let activeCard = null;
+
+    function togglePanel(panelId, cardElement) {
+      const panel = document.getElementById('panel-' + panelId);
+      const allPanels = document.querySelectorAll('.detail-panel');
+      const allCards = document.querySelectorAll('.metric-card');
+
+      // If clicking the same card, close it
+      if (activePanel === panelId) {
+        panel.classList.remove('open');
+        cardElement.classList.remove('active');
+        activePanel = null;
+        activeCard = null;
+        return;
+      }
+
+      // Close any open panel
+      allPanels.forEach(function(p) { p.classList.remove('open'); });
+      allCards.forEach(function(c) { c.classList.remove('active'); });
+
+      // Open the clicked one
+      panel.classList.add('open');
+      cardElement.classList.add('active');
+      activePanel = panelId;
+      activeCard = cardElement;
+
+      // Scroll the panel into view smoothly after a brief delay for animation
+      setTimeout(function() {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+
+    // Keyboard accessibility: allow Enter/Space to toggle cards
+    document.querySelectorAll('.metric-card').forEach(function(card) {
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'button');
+      var panelName = card.getAttribute('data-panel');
+      card.setAttribute('aria-expanded', 'false');
+      card.setAttribute('aria-controls', 'panel-' + panelName);
+
+      card.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          togglePanel(panelName, card);
+        }
+      });
+    });
+
+    // Update aria-expanded when panels toggle
+    var originalToggle = togglePanel;
+    togglePanel = function(panelId, cardElement) {
+      originalToggle(panelId, cardElement);
+      document.querySelectorAll('.metric-card').forEach(function(card) {
+        var isActive = card.classList.contains('active');
+        card.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+      });
+    };
+  </script>
+
+</body>
+</html>

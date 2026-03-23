@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evidence V1 — Inline Evidence Cards | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#5D259F', light: '#F3EBFC', 100: '#E7D7F9', 200: '#CFAFF3', 600: '#4B1E80', 700: '#391660' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Inline evidence card animation */
+    .evidence-card {
+      opacity: 0;
+      transform: translateY(-4px);
+      animation: evidenceIn 350ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes evidenceIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .evidence-card:nth-child(2) { animation-delay: 60ms; }
+    .evidence-card:nth-child(3) { animation-delay: 120ms; }
+    .evidence-card:nth-child(4) { animation-delay: 180ms; }
+    .evidence-card:nth-child(5) { animation-delay: 240ms; }
+
+    /* Claim highlight on hover */
+    .claim-grounded {
+      background: linear-gradient(to bottom, transparent 60%, #E7D7F9 60%);
+      cursor: pointer;
+      transition: background 200ms ease;
+      border-radius: 2px;
+      padding: 0 2px;
+      margin: 0 -2px;
+    }
+    .claim-grounded:hover {
+      background: linear-gradient(to bottom, transparent 40%, #CFAFF3 40%);
+    }
+
+    .claim-ungrounded {
+      background: linear-gradient(to bottom, transparent 60%, #fef3c7 60%);
+      border-radius: 2px;
+      padding: 0 2px;
+      margin: 0 -2px;
+    }
+
+    /* Validation chip styles */
+    .chip-valid {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
+    .chip-invalid {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    .chip-pending {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Tool icon badges */
+    .tool-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .tool-badge.github { background: #f6f8fa; border: 1px solid #d0d7de; }
+    .tool-badge.jira { background: #deebff; border: 1px solid #b3d4ff; }
+    .tool-badge.confluence { background: #deebff; border: 1px solid #b3d4ff; }
+    .tool-badge.outlook { background: #fff4e6; border: 1px solid #ffd8a8; }
+
+    /* Section label styling */
+    .star-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    /* Participant avatar */
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Source bar segment animation */
+    .source-bar-segment {
+      transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+    /* Subtle pulse for ungrounded warning */
+    @keyframes subtlePulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+    .ungrounded-icon {
+      animation: subtlePulse 2.5s ease-in-out infinite;
+    }
+
+    /* Timeline dot */
+    .timeline-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid #5D259F;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .timeline-dot.filled {
+      background: #5D259F;
+    }
+  </style>
+</head>
+<body class="bg-[#fafaf9] font-sans text-[#0f172a] antialiased">
+
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
+          <span class="text-white font-bold text-xs">iC</span>
+        </div>
+        <span class="text-sm font-semibold text-[#0f172a]">inchronicle</span>
+        <span class="text-gray-300 mx-1">/</span>
+        <span class="text-sm text-[#64748b]">Career Stories</span>
+        <span class="text-gray-300 mx-1">/</span>
+        <span class="text-sm text-[#64748b]">Evidence View</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-light text-brand">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
+          Proto V1
+        </span>
+        <div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center">
+          <span class="text-brand font-semibold text-xs">HA</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto px-6 py-10">
+
+    <!-- Story Header -->
+    <div class="mb-10">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-light text-brand">STAR</span>
+        <span class="text-xs text-[#64748b]">Framework</span>
+        <span class="text-gray-300 mx-1">|</span>
+        <span class="text-xs text-[#64748b]">Jan 15 - Feb 28, 2026</span>
+      </div>
+      <h1 class="text-[31px] font-bold leading-tight tracking-tight mb-3">Led OAuth2 Migration Across 3 Microservices</h1>
+      <p class="text-[#64748b] text-base leading-relaxed max-w-2xl">A career story with inline evidence — each claim links directly to its source artifact.</p>
+
+      <!-- Evidence Summary Bar -->
+      <div class="mt-6 flex items-center gap-6 flex-wrap">
+        <div class="flex items-center gap-2">
+          <div class="flex -space-x-1.5">
+            <span class="tool-badge github text-xs">🔗</span>
+            <span class="tool-badge jira text-xs">📋</span>
+            <span class="tool-badge confluence text-xs">📄</span>
+            <span class="tool-badge outlook text-xs">📧</span>
+          </div>
+          <span class="text-sm text-[#64748b]">7 sources linked</span>
+        </div>
+        <div class="h-4 w-px bg-gray-200"></div>
+        <div class="flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold">5</span>
+          <span class="text-sm text-[#64748b]">grounded</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold">2</span>
+          <span class="text-sm text-[#64748b]">ungrounded</span>
+        </div>
+        <div class="h-4 w-px bg-gray-200"></div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm text-[#64748b]">2 of 4 participants validated</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Story Body -->
+    <article class="space-y-10">
+
+      <!-- SITUATION -->
+      <section>
+        <div class="flex items-center gap-3 mb-4">
+          <span class="star-label text-brand">S</span>
+          <span class="star-label text-[#64748b]">Situation</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <p class="text-base leading-[1.75] text-[#0f172a]">
+          Our authentication system relied on a legacy session-based approach that couldn't scale across our growing microservice architecture. Three critical services — <strong>user-auth</strong>, <strong>payment-gateway</strong>, and <strong>notification-hub</strong> — each maintained separate session stores, causing inconsistent login states and a <strong>12% session-drop rate</strong>.
+        </p>
+      </section>
+
+      <!-- TASK -->
+      <section>
+        <div class="flex items-center gap-3 mb-4">
+          <span class="star-label text-brand">T</span>
+          <span class="star-label text-[#64748b]">Task</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <p class="text-base leading-[1.75] text-[#0f172a]">
+          I was tasked with migrating all three services to OAuth2 with JWT tokens, establishing a centralized identity provider, and ensuring zero-downtime during the transition. The migration needed to complete within Q1 2026 while maintaining backward compatibility.
+        </p>
+      </section>
+
+      <!-- ACTION (with inline evidence) -->
+      <section>
+        <div class="flex items-center gap-3 mb-4">
+          <span class="star-label text-brand">A</span>
+          <span class="star-label text-[#64748b]">Action</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <span class="text-[10px] font-medium text-[#64748b] bg-gray-100 rounded-full px-2.5 py-0.5">5 grounded &middot; 2 ungrounded</span>
+        </div>
+
+        <div class="text-base leading-[1.75] text-[#0f172a]">
+          <p class="mb-2">
+            I <span class="claim-grounded" data-claim="rollout">designed a phased rollout strategy</span> starting with the user-auth service as the identity provider.
+          </p>
+
+          <!-- Evidence Card: Phased rollout strategy -->
+          <div class="evidence-card ml-6 mb-5 pl-4 border-l-[3px] border-brand bg-white rounded-r-lg shadow-sm">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="tool-badge github">🔗</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-[#0f172a]">GitHub PR #247</span>
+                  <span class="text-xs text-[#64748b]">&mdash; "Phased rollout config for OAuth2 migration"</span>
+                </div>
+                <span class="text-xs text-[#64748b]">user-auth/pull/247 &middot; merged Jan 22, 2026</span>
+              </div>
+              <span class="chip-valid text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+            </div>
+          </div>
+
+          <p class="mb-2">
+            I <span class="claim-grounded" data-claim="oauth2">implemented OAuth2 authorization code flow with PKCE</span>, <span class="claim-grounded" data-claim="jwt">set up JWT token rotation</span>, and <span class="claim-grounded" data-claim="shim">created a compatibility shim</span> that allowed legacy sessions to coexist during migration.
+          </p>
+
+          <!-- Evidence Card: OAuth2 with PKCE -->
+          <div class="evidence-card ml-6 mb-3 pl-4 border-l-[3px] border-brand bg-white rounded-r-lg shadow-sm">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="tool-badge github">🔗</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-[#0f172a]">GitHub PR #251, #253</span>
+                  <span class="text-xs text-[#64748b]">&mdash; "Implement PKCE auth code flow"</span>
+                </div>
+                <span class="text-xs text-[#64748b]">user-auth/pull/251, /253 &middot; merged Jan 29 - Feb 3, 2026</span>
+              </div>
+              <span class="chip-valid text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+            </div>
+          </div>
+
+          <!-- Evidence Card: JWT token rotation -->
+          <div class="evidence-card ml-6 mb-3 pl-4 border-l-[3px] border-brand bg-white rounded-r-lg shadow-sm">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="tool-badge jira">📋</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-[#0f172a]">Jira OAUTH-142</span>
+                  <span class="text-xs text-[#64748b]">&mdash; "Implement JWT rotation with refresh tokens"</span>
+                </div>
+                <span class="text-xs text-[#64748b]">Done &middot; resolved Feb 7, 2026</span>
+              </div>
+              <span class="chip-valid text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+            </div>
+          </div>
+
+          <!-- Evidence Card: Compatibility shim -->
+          <div class="evidence-card ml-6 mb-5 pl-4 border-l-[3px] border-brand bg-white rounded-r-lg shadow-sm">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="tool-badge confluence">📄</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-[#0f172a]">Confluence</span>
+                  <span class="text-xs text-[#64748b]">&mdash; "OAuth2 Migration Plan"</span>
+                </div>
+                <span class="text-xs text-[#64748b]">Architecture Space &middot; last edited Feb 2, 2026</span>
+              </div>
+              <span class="chip-invalid text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap">&#10007; Invalid</span>
+            </div>
+            <!-- Invalid reason -->
+            <div class="pb-3 pr-4 ml-[40px]">
+              <div class="flex items-start gap-2 bg-red-50 rounded-md px-3 py-2">
+                <span class="text-red-400 text-xs mt-0.5">&#9679;</span>
+                <p class="text-xs text-red-700 leading-relaxed">"Timeline was Q2 not Q1" &mdash; <span class="font-medium">Bob Chen</span></p>
+              </div>
+            </div>
+          </div>
+
+          <p class="mb-2">
+            I <span class="claim-grounded" data-claim="reviews">coordinated code reviews across all three service teams</span> and <span class="claim-ungrounded">ran load testing at 3x production traffic</span><span class="ungrounded-icon inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-[9px] font-bold ml-1 align-middle" title="No evidence linked">!</span>.
+          </p>
+
+          <!-- Evidence Card: Code reviews -->
+          <div class="evidence-card ml-6 mb-3 pl-4 border-l-[3px] border-brand bg-white rounded-r-lg shadow-sm">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="tool-badge github">🔗</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-[#0f172a]">GitHub Reviews</span>
+                  <span class="text-xs text-[#64748b]">&mdash; 14 reviews across 3 repos</span>
+                </div>
+                <span class="text-xs text-[#64748b]">user-auth, payment-gateway, notification-hub &middot; Jan - Feb 2026</span>
+              </div>
+              <span class="chip-valid text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+            </div>
+          </div>
+
+          <!-- Ungrounded warning card: Load testing -->
+          <div class="evidence-card ml-6 mb-5 pl-4 border-l-[3px] border-amber-300 bg-amber-50/50 rounded-r-lg">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 text-amber-600 text-sm flex-shrink-0">?</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-amber-800">"ran load testing at 3x production traffic"</div>
+                <span class="text-xs text-amber-600">No evidence linked &mdash; consider connecting a source</span>
+              </div>
+              <button class="text-[11px] font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-full transition-colors whitespace-nowrap">+ Link evidence</button>
+            </div>
+          </div>
+
+          <p class="mb-2">
+            We succeeded in <span class="claim-ungrounded">completing within the tight Q1 deadline</span><span class="ungrounded-icon inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-[9px] font-bold ml-1 align-middle" title="No evidence linked">!</span>.
+          </p>
+
+          <!-- Ungrounded warning card: Q1 deadline -->
+          <div class="evidence-card ml-6 mb-2 pl-4 border-l-[3px] border-amber-300 bg-amber-50/50 rounded-r-lg">
+            <div class="py-3 pr-4 flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 text-amber-600 text-sm flex-shrink-0">?</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-amber-800">"completing within the tight Q1 deadline"</div>
+                <span class="text-xs text-amber-600">No evidence linked &mdash; consider connecting a source</span>
+              </div>
+              <button class="text-[11px] font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-full transition-colors whitespace-nowrap">+ Link evidence</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESULT -->
+      <section>
+        <div class="flex items-center gap-3 mb-4">
+          <span class="star-label text-brand">R</span>
+          <span class="star-label text-[#64748b]">Result</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <p class="text-base leading-[1.75] text-[#0f172a]">
+          The migration reduced session-related incidents by <strong>94%</strong>, eliminated the session-drop issue entirely, and improved auth response times from <strong>340ms to 45ms</strong>. The centralized identity provider now serves <strong>12 services</strong> beyond the original three.
+        </p>
+        <!-- Result metrics row -->
+        <div class="mt-5 grid grid-cols-3 gap-4">
+          <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-brand">94%</div>
+            <div class="text-xs text-[#64748b] mt-1">Incidents reduced</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-brand">45ms</div>
+            <div class="text-xs text-[#64748b] mt-1">Auth response time</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-brand">12</div>
+            <div class="text-xs text-[#64748b] mt-1">Services now using IdP</div>
+          </div>
+        </div>
+      </section>
+    </article>
+
+    <!-- Divider -->
+    <div class="my-12 border-t border-gray-200"></div>
+
+    <!-- Evidence & Participants Summary -->
+    <section class="mb-16">
+      <h2 class="text-xl font-bold mb-1">Evidence &amp; Participants</h2>
+      <p class="text-sm text-[#64748b] mb-8">Linked artifacts and people involved in this story.</p>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+        <!-- Evidence Trail -->
+        <div>
+          <h3 class="text-sm font-semibold text-[#0f172a] mb-4 flex items-center gap-2">
+            Evidence Trail
+            <span class="text-xs font-normal text-[#64748b]">&mdash; 7 sources</span>
+          </h3>
+
+          <!-- Source breakdown bar -->
+          <div class="flex rounded-full h-2.5 overflow-hidden mb-4 bg-gray-100">
+            <div class="source-bar-segment bg-[#24292f] rounded-l-full" style="width: 42.8%" title="GitHub: 3 sources"></div>
+            <div class="source-bar-segment bg-[#0052cc]" style="width: 28.6%" title="Jira: 2 sources"></div>
+            <div class="source-bar-segment bg-[#1868db]" style="width: 14.3%" title="Confluence: 1 source"></div>
+            <div class="source-bar-segment bg-[#d97706] rounded-r-full" style="width: 14.3%" title="Outlook: 1 source"></div>
+          </div>
+          <div class="flex items-center gap-4 mb-6 text-xs text-[#64748b]">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#24292f] inline-block"></span>GitHub (3)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#0052cc] inline-block"></span>Jira (2)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#1868db] inline-block"></span>Confluence (1)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#d97706] inline-block"></span>Outlook (1)</span>
+          </div>
+
+          <!-- Timeline -->
+          <div class="space-y-0">
+            <!-- Jan 15 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+                <div class="w-px h-8 bg-brand-200"></div>
+              </div>
+              <div class="pb-4">
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Jan 15, 2026</div>
+                <div class="text-sm text-[#0f172a]">📋 Jira OAUTH-142 created</div>
+              </div>
+            </div>
+            <!-- Jan 22 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+                <div class="w-px h-8 bg-brand-200"></div>
+              </div>
+              <div class="pb-4">
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Jan 22, 2026</div>
+                <div class="text-sm text-[#0f172a]">🔗 GitHub PR #247 merged</div>
+              </div>
+            </div>
+            <!-- Jan 29 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+                <div class="w-px h-8 bg-brand-200"></div>
+              </div>
+              <div class="pb-4">
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Jan 29, 2026</div>
+                <div class="text-sm text-[#0f172a]">🔗 GitHub PR #251 merged</div>
+              </div>
+            </div>
+            <!-- Feb 2 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+                <div class="w-px h-8 bg-brand-200"></div>
+              </div>
+              <div class="pb-4">
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Feb 2, 2026</div>
+                <div class="text-sm text-[#0f172a]">📄 Confluence page "OAuth2 Migration Plan" updated</div>
+              </div>
+            </div>
+            <!-- Feb 3 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+                <div class="w-px h-8 bg-brand-200"></div>
+              </div>
+              <div class="pb-4">
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Feb 3, 2026</div>
+                <div class="text-sm text-[#0f172a]">🔗 GitHub PR #253 merged</div>
+              </div>
+            </div>
+            <!-- Feb 7 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+                <div class="w-px h-8 bg-brand-200"></div>
+              </div>
+              <div class="pb-4">
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Feb 7, 2026</div>
+                <div class="text-sm text-[#0f172a]">📋 Jira OAUTH-142 resolved</div>
+              </div>
+            </div>
+            <!-- Feb 28 -->
+            <div class="flex items-start gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot filled"></div>
+              </div>
+              <div>
+                <div class="text-xs font-medium text-[#64748b] mb-0.5">Feb 28, 2026</div>
+                <div class="text-sm text-[#0f172a]">📧 Outlook — Migration sign-off meeting</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Participants -->
+        <div>
+          <h3 class="text-sm font-semibold text-[#0f172a] mb-4 flex items-center gap-2">
+            Participants
+            <span class="text-xs font-normal text-[#64748b]">&mdash; 2 of 4 validated</span>
+          </h3>
+
+          <div class="space-y-3">
+            <!-- Bob Chen -->
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+              <div class="avatar bg-emerald-100 text-emerald-700">BC</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">Bob Chen</span>
+                  <span class="chip-valid text-[10px] font-semibold px-2 py-0.5 rounded-full">&#10003; Validated</span>
+                </div>
+                <div class="text-xs text-[#64748b] mt-0.5">Reviewer (GitHub) &middot; 3 activities</div>
+              </div>
+              <span class="tool-badge github text-xs">🔗</span>
+            </div>
+
+            <!-- Sarah Kim -->
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+              <div class="avatar bg-blue-100 text-blue-700">SK</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">Sarah Kim</span>
+                  <span class="chip-pending text-[10px] font-semibold px-2 py-0.5 rounded-full">&#9675; Pending</span>
+                </div>
+                <div class="text-xs text-[#64748b] mt-0.5">Reviewer (GitHub) &middot; 2 activities</div>
+              </div>
+              <span class="tool-badge github text-xs">🔗</span>
+            </div>
+
+            <!-- Alex Dev -->
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+              <div class="avatar bg-purple-100 text-purple-700">AD</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">Alex Dev</span>
+                  <span class="chip-valid text-[10px] font-semibold px-2 py-0.5 rounded-full">&#10003; Validated</span>
+                </div>
+                <div class="text-xs text-[#64748b] mt-0.5">Assignee (Jira) &middot; 1 activity</div>
+              </div>
+              <span class="tool-badge jira text-xs">📋</span>
+            </div>
+
+            <!-- security-lead (Unknown User) -->
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+              <div class="avatar bg-gray-100 text-gray-500">?</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-[#0f172a]">security-lead</span>
+                  <span class="inline-flex items-center gap-1 text-[10px] font-medium text-[#64748b] bg-gray-100 px-2 py-0.5 rounded-full">Unknown User</span>
+                </div>
+                <div class="text-xs text-[#64748b] mt-0.5">Attendee (Outlook) &middot; 1 activity</div>
+              </div>
+              <button class="text-[11px] font-medium text-brand bg-brand-light hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Invite to InChronicle</button>
+            </div>
+          </div>
+
+          <!-- Validation Summary -->
+          <div class="mt-6 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <h4 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider mb-3">Per-Claim Validation</h4>
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#0f172a] truncate pr-4">"designed a phased rollout strategy"</span>
+                <span class="chip-valid text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#0f172a] truncate pr-4">"implemented OAuth2 with PKCE"</span>
+                <span class="chip-valid text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#0f172a] truncate pr-4">"set up JWT token rotation"</span>
+                <span class="chip-valid text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#0f172a] truncate pr-4">"created a compatibility shim"</span>
+                <span class="chip-invalid text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#10007; Invalid</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#0f172a] truncate pr-4">"coordinated code reviews"</span>
+                <span class="chip-valid text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#10003; Valid</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#64748b] italic truncate pr-4">"ran load testing at 3x production traffic"</span>
+                <span class="chip-pending text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#9675; Not validated</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#64748b] italic truncate pr-4">"completing within the tight Q1 deadline"</span>
+                <span class="chip-pending text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">&#9675; Not validated</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grounding Confidence Meter -->
+    <section class="mb-16">
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-semibold text-[#0f172a]">Story Grounding Score</h3>
+            <p class="text-xs text-[#64748b] mt-0.5">Based on linked evidence and participant validations</p>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-bold text-brand">71%</div>
+            <div class="text-xs text-[#64748b]">5 of 7 claims grounded</div>
+          </div>
+        </div>
+        <div class="flex rounded-full h-3 overflow-hidden bg-gray-100">
+          <div class="bg-emerald-500 rounded-l-full transition-all duration-700" style="width: 57%;" title="4 validated"></div>
+          <div class="bg-red-400" style="width: 14%;" title="1 invalid"></div>
+          <div class="bg-gray-300 rounded-r-full" style="width: 29%;" title="2 ungrounded"></div>
+        </div>
+        <div class="flex items-center gap-5 mt-3 text-xs text-[#64748b]">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span>4 Validated</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block"></span>1 Invalid</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-gray-300 inline-block"></span>2 Ungrounded</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-100 bg-white">
+    <div class="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-5 h-5 rounded bg-brand flex items-center justify-center">
+          <span class="text-white font-bold text-[8px]">iC</span>
+        </div>
+        <span class="text-xs text-[#64748b]">inchronicle &middot; Evidence V1 — Inline Evidence Cards</span>
+      </div>
+      <span class="text-xs text-[#64748b]">Prototype &middot; Not a shipping product</span>
+    </div>
+  </footer>
+
+</body>
+</html>

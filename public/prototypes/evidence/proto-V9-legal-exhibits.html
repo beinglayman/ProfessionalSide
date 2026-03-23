@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evidence V9 — Legal Exhibits | inchronicle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#5D259F', light: '#F3EBFC', 100: '#E7D7F9', 200: '#CFAFF3', 600: '#4B1E80', 700: '#391660' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Serif section headers — the bold design move */
+    .section-header {
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      font-size: 25px;
+      font-weight: normal;
+      letter-spacing: 0.01em;
+      line-height: 1.3;
+      color: #0f172a;
+    }
+
+    /* Document title styling */
+    .document-title {
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      font-size: 31px;
+      font-weight: normal;
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+    }
+
+    /* Exhibit rows */
+    .exhibit-row {
+      transition: background-color 180ms ease;
+    }
+    .exhibit-row:hover {
+      background-color: #F3EBFC;
+    }
+
+    /* Witness rows */
+    .witness-row {
+      transition: background-color 180ms ease;
+    }
+    .witness-row:hover {
+      background-color: #F3EBFC;
+    }
+
+    /* Attestation block */
+    .attestation-block {
+      border-left: 3px solid #5D259F;
+    }
+
+    /* Contested highlight */
+    .contested-row {
+      background-color: #fffbeb;
+      border-left: 3px solid #f59e0b;
+    }
+
+    /* Affirmed row */
+    .affirmed-row {
+      border-left: 3px solid transparent;
+    }
+
+    /* Tool icon base */
+    .tool-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Avatar circle */
+    .avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Stagger entrance animation */
+    .stagger-in {
+      opacity: 0;
+      transform: translateY(6px);
+      animation: staggerIn 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes staggerIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .stagger-in:nth-child(1) { animation-delay: 0ms; }
+    .stagger-in:nth-child(2) { animation-delay: 50ms; }
+    .stagger-in:nth-child(3) { animation-delay: 100ms; }
+    .stagger-in:nth-child(4) { animation-delay: 150ms; }
+    .stagger-in:nth-child(5) { animation-delay: 200ms; }
+    .stagger-in:nth-child(6) { animation-delay: 250ms; }
+    .stagger-in:nth-child(7) { animation-delay: 300ms; }
+
+    /* Status chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      line-height: 1.5;
+    }
+    .chip-affirmed {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
+    .chip-contested {
+      background: #fffbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+    .chip-pending {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    .chip-provided {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
+    .chip-unidentified {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    /* Claim reference styling */
+    .claim-ref {
+      font-style: italic;
+      color: #64748b;
+    }
+
+    /* Thin rule dividers */
+    .rule {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+    }
+    .rule-dark {
+      border: none;
+      border-top: 2px solid #0f172a;
+    }
+
+    /* Print-friendly */
+    @media print {
+      body { background: white; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body class="bg-[#fafaf9] font-sans text-[#0f172a] antialiased">
+
+  <!-- Outer container — legal document width -->
+  <div class="max-w-[780px] mx-auto px-6 py-12">
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         DOCUMENT HEADER
+         ═══════════════════════════════════════════════════════════════ -->
+    <header class="mb-10">
+      <!-- Top rule -->
+      <div class="border-t-[3px] border-[#0f172a] pt-5 mb-1"></div>
+
+      <!-- Label -->
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#64748b]">Evidence Brief</span>
+        <span class="text-[11px] font-medium tracking-wide text-[#64748b]">inchronicle</span>
+      </div>
+
+      <!-- Title -->
+      <h1 class="document-title text-[#0f172a] mb-3">Led OAuth2 Migration Across 3 Microservices</h1>
+
+      <!-- Meta line -->
+      <div class="flex items-center gap-4 text-[13px] text-[#64748b]">
+        <span>Framework: <strong class="font-semibold text-[#0f172a]">STAR</strong></span>
+        <span class="text-[#cbd5e1]">|</span>
+        <span>7 exhibits</span>
+        <span class="text-[#cbd5e1]">|</span>
+        <span>4 witnesses</span>
+        <span class="text-[#cbd5e1]">|</span>
+        <span>2 attestations</span>
+      </div>
+
+      <!-- Bottom rule -->
+      <hr class="rule-dark mt-5" />
+    </header>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         NARRATIVE SUMMARY (STAR)
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="mb-12">
+      <div class="grid grid-cols-[72px_1fr] gap-y-4 text-[14px] leading-[1.65]">
+
+        <!-- Situation -->
+        <div class="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand pt-[3px]">Situation</div>
+        <div class="text-[#0f172a]">Our authentication system relied on a legacy session-based approach that couldn't scale across our growing microservice architecture. Three critical services — user-auth, payment-gateway, and notification-hub — each maintained separate session stores, causing inconsistent login states and a 12% session-drop rate.</div>
+
+        <!-- Task -->
+        <div class="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand pt-[3px]">Task</div>
+        <div class="text-[#0f172a]">I was tasked with migrating all three services to OAuth2 with JWT tokens, establishing a centralized identity provider, and ensuring zero-downtime during the transition. The migration needed to complete within Q1 2026 while maintaining backward compatibility.</div>
+
+        <!-- Action -->
+        <div class="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand pt-[3px]">Action</div>
+        <div class="text-[#0f172a]">I designed a phased rollout strategy starting with the user-auth service as the identity provider. I implemented OAuth2 authorization code flow with PKCE, set up JWT token rotation, and created a compatibility shim that allowed legacy sessions to coexist during migration. I coordinated code reviews across all three service teams and ran load testing at 3x production traffic.</div>
+
+        <!-- Result -->
+        <div class="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand pt-[3px]">Result</div>
+        <div class="text-[#0f172a]">The migration reduced session-related incidents by 94%, eliminated the session-drop issue entirely, and improved auth response times from 340ms to 45ms. The centralized identity provider now serves 12 services beyond the original three.</div>
+
+      </div>
+    </section>
+
+    <hr class="rule mb-12" />
+
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         I. EXHIBITS
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="mb-14">
+      <h2 class="section-header mb-6">I. Exhibits</h2>
+      <p class="text-[13px] text-[#64748b] mb-5 leading-relaxed">Documentary evidence supporting claims made in the narrative. Each exhibit is linked to its originating tool and the specific claim it substantiates.</p>
+
+      <!-- Exhibit table -->
+      <div class="border border-[#e2e8f0] rounded-lg overflow-hidden bg-white">
+
+        <!-- Table header -->
+        <div class="grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-2.5 bg-[#f8fafc] border-b border-[#e2e8f0]">
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b]">Ref</span>
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b]">Exhibit</span>
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b] text-right">Date</span>
+        </div>
+
+        <!-- Exhibit A -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 border-b border-[#f1f5f9] items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">A</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#0f172a] text-white text-[11px]">GH</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">PR #247 &mdash; OAuth2 migration plan</span>
+            </div>
+            <div class="claim-ref text-[12px]">Supports: &ldquo;designed a phased rollout strategy&rdquo;</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Jan 15, 2026</div>
+        </div>
+
+        <!-- Exhibit B -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 border-b border-[#f1f5f9] items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">B</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#0f172a] text-white text-[11px]">GH</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">PR #251 &mdash; PKCE implementation</span>
+            </div>
+            <div class="claim-ref text-[12px]">Supports: &ldquo;implemented OAuth2 authorization code flow with PKCE&rdquo;</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Feb 3, 2026</div>
+        </div>
+
+        <!-- Exhibit C -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 border-b border-[#f1f5f9] items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">C</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#0f172a] text-white text-[11px]">GH</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">PR #253 &mdash; Compatibility shim</span>
+            </div>
+            <div class="claim-ref text-[12px]">Supports: &ldquo;created a compatibility shim&rdquo;</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Feb 10, 2026</div>
+        </div>
+
+        <!-- Exhibit D -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 border-b border-[#f1f5f9] items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">D</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#2563eb] text-white text-[11px]">JR</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">OAUTH-142 &mdash; JWT token rotation</span>
+            </div>
+            <div class="claim-ref text-[12px]">Supports: &ldquo;set up JWT token rotation&rdquo;</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Jan 22, 2026</div>
+        </div>
+
+        <!-- Exhibit E -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 border-b border-[#f1f5f9] items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">E</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#2563eb] text-white text-[11px]">JR</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">OAUTH-158 &mdash; Load testing</span>
+            </div>
+            <div class="claim-ref text-[12px]">Supports: &ldquo;coordinated code reviews&rdquo;</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Feb 18, 2026</div>
+        </div>
+
+        <!-- Exhibit F -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 border-b border-[#f1f5f9] items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">F</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#0284c7] text-white text-[11px]">CF</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">OAuth2 Migration Plan</span>
+            </div>
+            <div class="claim-ref text-[12px]">Supports: &ldquo;created a compatibility shim&rdquo;</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Jan 28, 2026</div>
+        </div>
+
+        <!-- Exhibit G -->
+        <div class="exhibit-row stagger-in grid grid-cols-[56px_1fr_100px] gap-2 px-4 py-3.5 items-start">
+          <div class="text-[13px] font-semibold text-[#0f172a]">G</div>
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="tool-icon bg-[#0078d4] text-white text-[11px]">OL</span>
+              <span class="text-[14px] font-medium text-[#0f172a]">Security review meeting</span>
+            </div>
+            <div class="claim-ref text-[12px]">Meeting attendance record</div>
+          </div>
+          <div class="text-[13px] text-[#64748b] text-right tabular-nums">Feb 28, 2026</div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         II. WITNESSES
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="mb-14">
+      <h2 class="section-header mb-6">II. Witnesses</h2>
+      <p class="text-[13px] text-[#64748b] mb-5 leading-relaxed">Individuals identified in the evidentiary record who can corroborate or contest claims made in the narrative. Attestation status indicates whether the witness has provided a formal validation.</p>
+
+      <!-- Witness table -->
+      <div class="border border-[#e2e8f0] rounded-lg overflow-hidden bg-white">
+
+        <!-- Table header -->
+        <div class="grid grid-cols-[40px_1fr_140px_110px_120px] gap-3 px-4 py-2.5 bg-[#f8fafc] border-b border-[#e2e8f0]">
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b]">#</span>
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b]">Name</span>
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b]">Role</span>
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b] text-center">Exhibits</span>
+          <span class="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#64748b] text-right">Attestation</span>
+        </div>
+
+        <!-- Witness 1: Bob Chen -->
+        <div class="witness-row stagger-in grid grid-cols-[40px_1fr_140px_110px_120px] gap-3 px-4 py-3.5 border-b border-[#f1f5f9] items-center">
+          <div class="text-[13px] font-semibold text-[#64748b]">1</div>
+          <div class="flex items-center gap-3">
+            <span class="avatar bg-brand-light text-brand font-semibold">BC</span>
+            <span class="text-[14px] font-medium text-[#0f172a]">Bob Chen</span>
+          </div>
+          <div class="text-[13px] text-[#64748b]">Code Reviewer<br /><span class="text-[11px] text-[#94a3b8]">GitHub</span></div>
+          <div class="text-[13px] text-[#0f172a] text-center font-medium">3 referenced</div>
+          <div class="text-right"><span class="chip chip-provided">Provided</span></div>
+        </div>
+
+        <!-- Witness 2: Sarah Kim -->
+        <div class="witness-row stagger-in grid grid-cols-[40px_1fr_140px_110px_120px] gap-3 px-4 py-3.5 border-b border-[#f1f5f9] items-center">
+          <div class="text-[13px] font-semibold text-[#64748b]">2</div>
+          <div class="flex items-center gap-3">
+            <span class="avatar bg-brand-light text-brand font-semibold">SK</span>
+            <span class="text-[14px] font-medium text-[#0f172a]">Sarah Kim</span>
+          </div>
+          <div class="text-[13px] text-[#64748b]">Code Reviewer<br /><span class="text-[11px] text-[#94a3b8]">GitHub</span></div>
+          <div class="text-[13px] text-[#0f172a] text-center font-medium">2 referenced</div>
+          <div class="text-right"><span class="chip chip-pending">Pending</span></div>
+        </div>
+
+        <!-- Witness 3: Alex Dev -->
+        <div class="witness-row stagger-in grid grid-cols-[40px_1fr_140px_110px_120px] gap-3 px-4 py-3.5 border-b border-[#f1f5f9] items-center">
+          <div class="text-[13px] font-semibold text-[#64748b]">3</div>
+          <div class="flex items-center gap-3">
+            <span class="avatar bg-brand-light text-brand font-semibold">AD</span>
+            <span class="text-[14px] font-medium text-[#0f172a]">Alex Dev</span>
+          </div>
+          <div class="text-[13px] text-[#64748b]">Task Assignee<br /><span class="text-[11px] text-[#94a3b8]">Jira</span></div>
+          <div class="text-[13px] text-[#0f172a] text-center font-medium">1 referenced</div>
+          <div class="text-right"><span class="chip chip-provided">Provided</span></div>
+        </div>
+
+        <!-- Witness 4: security-lead (Unidentified) -->
+        <div class="witness-row stagger-in grid grid-cols-[40px_1fr_140px_110px_120px] gap-3 px-4 py-3.5 items-center">
+          <div class="text-[13px] font-semibold text-[#64748b]">4</div>
+          <div class="flex items-center gap-3">
+            <span class="avatar bg-[#fef2f2] text-[#dc2626] font-semibold text-[11px]">?</span>
+            <div>
+              <span class="text-[14px] font-medium text-[#0f172a]">security-lead</span>
+              <div class="text-[11px] text-[#dc2626] mt-0.5 font-medium">Unidentified</div>
+            </div>
+          </div>
+          <div class="text-[13px] text-[#64748b]">Meeting Attendee<br /><span class="text-[11px] text-[#94a3b8]">Outlook</span></div>
+          <div class="text-[13px] text-[#0f172a] text-center font-medium">1 referenced</div>
+          <div class="text-right">
+            <button class="text-[12px] font-medium text-brand hover:text-brand-600 underline underline-offset-2 decoration-brand/40 hover:decoration-brand transition-colors cursor-pointer bg-transparent border-none">Invite to InChronicle</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         III. ATTESTATIONS
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="mb-14">
+      <h2 class="section-header mb-6">III. Attestations</h2>
+      <p class="text-[13px] text-[#64748b] mb-5 leading-relaxed">Formal validations provided by witnesses regarding specific claims in the narrative. Each attestation records the witness's judgment &mdash; affirmed or contested &mdash; along with any qualifying notes.</p>
+
+      <!-- Attestation 1: Bob Chen -->
+      <div class="attestation-block bg-white border border-[#e2e8f0] rounded-lg mb-5 overflow-hidden">
+
+        <!-- Attestation header -->
+        <div class="px-5 py-4 border-b border-[#e2e8f0] bg-[#f8fafc]">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="avatar bg-brand-light text-brand font-semibold text-[12px]">BC</span>
+              <div>
+                <div class="text-[14px] font-semibold text-[#0f172a]">Attestation of Bob Chen</div>
+                <div class="text-[12px] text-[#64748b]">Witness 1 &middot; Code Reviewer</div>
+              </div>
+            </div>
+            <div class="text-[13px] text-[#64748b] tabular-nums">Jan 18, 2026</div>
+          </div>
+        </div>
+
+        <!-- Claim verdicts -->
+        <div class="divide-y divide-[#f1f5f9]">
+
+          <!-- Claim 1 — Affirmed -->
+          <div class="affirmed-row px-5 py-3 flex items-start gap-3">
+            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] text-[#0f172a] leading-relaxed">&ldquo;designed a phased rollout strategy&rdquo;</div>
+            </div>
+            <span class="chip chip-affirmed flex-shrink-0">Affirmed</span>
+          </div>
+
+          <!-- Claim 2 — Affirmed -->
+          <div class="affirmed-row px-5 py-3 flex items-start gap-3">
+            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] text-[#0f172a] leading-relaxed">&ldquo;implemented OAuth2 authorization code flow&rdquo;</div>
+            </div>
+            <span class="chip chip-affirmed flex-shrink-0">Affirmed</span>
+          </div>
+
+          <!-- Claim 3 — Affirmed -->
+          <div class="affirmed-row px-5 py-3 flex items-start gap-3">
+            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] text-[#0f172a] leading-relaxed">&ldquo;set up JWT token rotation&rdquo;</div>
+            </div>
+            <span class="chip chip-affirmed flex-shrink-0">Affirmed</span>
+          </div>
+
+          <!-- Claim 4 — Affirmed -->
+          <div class="affirmed-row px-5 py-3 flex items-start gap-3">
+            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] text-[#0f172a] leading-relaxed">&ldquo;coordinated code reviews&rdquo;</div>
+            </div>
+            <span class="chip chip-affirmed flex-shrink-0">Affirmed</span>
+          </div>
+
+          <!-- Claim 5 — CONTESTED -->
+          <div class="contested-row px-5 py-3 flex items-start gap-3 rounded-bl-lg">
+            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-[#fffbeb] text-[#b45309] flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] text-[#0f172a] leading-relaxed">&ldquo;completing within the tight Q1 deadline&rdquo;</div>
+              <div class="mt-1.5 text-[12px] text-[#b45309] bg-[#fffbeb] border border-[#fde68a] rounded px-2.5 py-1.5 inline-block">
+                <span class="font-semibold">Note:</span> &ldquo;Timeline was Q2 not Q1&rdquo;
+              </div>
+            </div>
+            <span class="chip chip-contested flex-shrink-0">Contested</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Attestation 2: Alex Dev -->
+      <div class="attestation-block bg-white border border-[#e2e8f0] rounded-lg overflow-hidden">
+
+        <!-- Attestation header -->
+        <div class="px-5 py-4 border-b border-[#e2e8f0] bg-[#f8fafc]">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="avatar bg-brand-light text-brand font-semibold text-[12px]">AD</span>
+              <div>
+                <div class="text-[14px] font-semibold text-[#0f172a]">Attestation of Alex Dev</div>
+                <div class="text-[12px] text-[#64748b]">Witness 3 &middot; Task Assignee</div>
+              </div>
+            </div>
+            <div class="text-[13px] text-[#64748b] tabular-nums">Jan 22, 2026</div>
+          </div>
+        </div>
+
+        <!-- Claim verdicts -->
+        <div>
+          <!-- Claim 1 — Affirmed -->
+          <div class="affirmed-row px-5 py-3 flex items-start gap-3">
+            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] text-[#0f172a] leading-relaxed">&ldquo;set up JWT token rotation&rdquo;</div>
+            </div>
+            <span class="chip chip-affirmed flex-shrink-0">Affirmed</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         FOOTER
+         ═══════════════════════════════════════════════════════════════ -->
+    <footer class="pt-8 border-t-2 border-[#0f172a]">
+      <div class="flex items-center justify-between">
+        <p class="text-[13px] text-[#64748b] leading-relaxed">
+          This evidence brief contains <strong class="font-semibold text-[#0f172a]">7 exhibits</strong>, <strong class="font-semibold text-[#0f172a]">4 witnesses</strong>, and <strong class="font-semibold text-[#0f172a]">2 attestations</strong>.
+        </p>
+        <span class="text-[11px] text-[#94a3b8] tracking-wide">V9 &mdash; Legal Exhibits</span>
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+</html>
