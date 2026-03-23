@@ -5,6 +5,8 @@ export const evidencePrototypes = [
   { id: 'v4', name: 'Chronological Timeline', file: 'proto-V4-timeline.html' },
   { id: 'v5', name: 'Trust Shield', file: 'proto-V5-trust-shield.html' },
   { id: 'v6', name: 'Tufte Margin Notes', file: 'proto-V6-tufte-margins.html' },
+  { id: 'v6b', name: 'Tufte Stacked (Evidence + Witness)', file: 'proto-V6b-tufte-stacked.html' },
+  { id: 'v6c', name: 'Tufte Inline Badges', file: 'proto-V6c-tufte-inline-badges.html' },
   { id: 'v7', name: 'Tabbed Panel', file: 'proto-V7-tabbed-panel.html' },
   { id: 'v8', name: 'GitHub PR Review', file: 'proto-V8-github-pr.html' },
   { id: 'v9', name: 'Legal Exhibits', file: 'proto-V9-legal-exhibits.html' },
