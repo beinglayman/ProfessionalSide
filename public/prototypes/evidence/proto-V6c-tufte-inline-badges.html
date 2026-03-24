@@ -299,6 +299,79 @@
       animation: pulseHighlight 1.5s ease forwards;
     }
 
+    /* ---------- Evidence toggle button ---------- */
+    .evidence-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 200ms ease;
+      font-family: inherit;
+    }
+    .evidence-toggle:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #0f172a;
+    }
+    .evidence-toggle.active {
+      background: #F3EBFC;
+      border-color: #CFAFF3;
+      color: #5D259F;
+    }
+    .evidence-toggle .toggle-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      transition: background 200ms ease;
+    }
+    .evidence-toggle.active .toggle-dot {
+      background: #5D259F;
+    }
+
+    /* ---------- Hidden evidence state ---------- */
+    .evidence-hidden .gutter-column,
+    .evidence-hidden .margin-column {
+      display: none;
+    }
+    .evidence-hidden .tufte-layout {
+      grid-template-columns: 1fr;
+    }
+    .evidence-hidden .story-column {
+      padding-right: 0;
+      max-width: 720px;
+    }
+    .evidence-hidden .witness-badge,
+    .evidence-hidden .badge-empty {
+      display: none;
+    }
+    .evidence-hidden .claim-grounded {
+      border-bottom-color: transparent;
+      cursor: default;
+    }
+    .evidence-hidden .claim-grounded:hover,
+    .evidence-hidden .claim-grounded.active {
+      border-bottom-color: transparent;
+      background: transparent;
+    }
+    .evidence-hidden .claim-ungrounded,
+    .evidence-hidden .claim-disputed {
+      border-bottom-color: transparent;
+    }
+    .evidence-hidden .ungrounded-label {
+      display: none;
+    }
+    .evidence-hidden .dispute-callout {
+      display: none;
+    }
+
     /* ---------- Print-friendly ---------- */
     @media print {
       .tufte-layout { grid-template-columns: 1fr; }
@@ -357,18 +430,23 @@
         <span class="text-xs text-[#64748b]">2 ungrounded</span>
       </div>
       <div class="ml-auto flex items-center gap-4">
-        <div class="flex items-center gap-1.5 text-xs text-[#64748b]">
+        <div class="flex items-center gap-1.5 text-xs text-[#64748b] evidence-legend">
           <span class="witness-badge badge-validated" style="width:16px;height:16px;font-size:7px;cursor:default;margin:0;">BC</span>
           <span>= validated witness</span>
         </div>
-        <div class="flex items-center gap-1.5 text-xs text-[#64748b]">
+        <div class="flex items-center gap-1.5 text-xs text-[#64748b] evidence-legend">
           <span class="witness-badge badge-pending" style="width:16px;height:16px;font-size:7px;cursor:default;margin:0;">SK</span>
           <span>= pending</span>
         </div>
-        <div class="flex items-center gap-1.5 text-xs text-[#64748b]">
+        <div class="flex items-center gap-1.5 text-xs text-[#64748b] evidence-legend">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           Jan 15 – Feb 28, 2026
         </div>
+        <div class="h-4 w-px bg-gray-200"></div>
+        <button id="evidence-toggle" class="evidence-toggle active" type="button">
+          <span class="toggle-dot"></span>
+          <span class="toggle-label">Evidence On</span>
+        </button>
       </div>
     </div>
 
@@ -938,6 +1016,30 @@
       setTimeout(alignMarginNotes, 350);
       window.addEventListener('resize', () => {
         setTimeout(alignMarginNotes, 100);
+      });
+
+      // ---- Evidence show/hide toggle ----
+      const toggleBtn = document.getElementById('evidence-toggle');
+      const mainEl = document.querySelector('main');
+      let evidenceVisible = true;
+
+      toggleBtn.addEventListener('click', () => {
+        evidenceVisible = !evidenceVisible;
+
+        if (evidenceVisible) {
+          mainEl.classList.remove('evidence-hidden');
+          toggleBtn.classList.add('active');
+          toggleBtn.querySelector('.toggle-label').textContent = 'Evidence On';
+          // Re-align and redraw after showing
+          setTimeout(() => {
+            alignMarginNotes();
+            drawConnectors();
+          }, 50);
+        } else {
+          mainEl.classList.add('evidence-hidden');
+          toggleBtn.classList.remove('active');
+          toggleBtn.querySelector('.toggle-label').textContent = 'Evidence Off';
+        }
       });
     });
   </script>
