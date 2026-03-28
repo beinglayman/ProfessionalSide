@@ -8,11 +8,11 @@ const envApiUrl = import.meta.env.VITE_API_URL;
 const isValidUrl = envApiUrl &&
   !envApiUrl.includes('professionalside-production');
 
-export const API_BASE_URL = isValidUrl ? envApiUrl : 'http://localhost:3002/api/v1';
+// Production fallback: Azure backend until DNS cutover to api.inchronicle.com
+const AZURE_BACKEND_URL = 'https://ps-backend-1758551070.azurewebsites.net/api/v1';
 
-if (!isValidUrl && !import.meta.env.DEV) {
-  console.warn('[api] VITE_API_URL not set — using localhost fallback. This should not happen in production.');
-}
+export const API_BASE_URL = isValidUrl ? envApiUrl :
+  (import.meta.env.DEV ? 'http://localhost:3002/api/v1' : AZURE_BACKEND_URL);
 
 // Extend axios config to include trace ID
 declare module 'axios' {
