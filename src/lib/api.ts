@@ -4,9 +4,13 @@ import { isDemoMode } from '../services/demo-mode.service';
 
 // API Configuration - Production and development support
 const envApiUrl = import.meta.env.VITE_API_URL;
-// Only use envApiUrl if it points to actual backend, not the frontend domain
+// Only use envApiUrl if it points to actual backend, not the frontend domain.
+// Exclude api.inchronicle.com until DNS cutover is complete — the /api/v1 path
+// is missing from the GitHub secret, and the domain may not resolve to the backend yet.
+// TODO: Remove this exclusion after Phase 3 DNS cutover when api.inchronicle.com is live.
 const isValidUrl = envApiUrl &&
-  !envApiUrl.includes('professionalside-production');
+  !envApiUrl.includes('professionalside-production') &&
+  !envApiUrl.includes('api.inchronicle.com');
 
 // Production fallback: Azure backend until DNS cutover to api.inchronicle.com
 const AZURE_BACKEND_URL = 'https://ps-backend-1758551070.azurewebsites.net/api/v1';
