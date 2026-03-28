@@ -39,7 +39,7 @@ export function TimelineHeaderV2() {
           <p className="mt-2 text-sm text-gray-400">
             {mockHeaderData.activityCount} activities &middot;{' '}
             {mockHeaderData.draftCount} drafts &middot;{' '}
-            {mockHeaderData.promotedCount} promoted &middot; Synced{' '}
+            {mockHeaderData.promotedCount} created &middot; Synced{' '}
             {timeAgo(mockHeaderData.lastSyncAt)}
             <Info
               className="ml-1.5 inline h-3.5 w-3.5 text-gray-300 cursor-help"

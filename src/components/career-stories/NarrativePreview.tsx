@@ -572,10 +572,6 @@ export function NarrativePreview({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={onRegenerate} disabled={isLoading} className="flex items-center gap-2">
-                      <Sparkles className={cn('h-3.5 w-3.5 text-amber-500')} />
-                      Re-enhance
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={onRegenerate} disabled={isLoading} className="flex items-center gap-2">
                       <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
                       Regenerate from scratch
                     </DropdownMenuItem>
@@ -624,26 +620,6 @@ export function NarrativePreview({
               </div>
             </div>
           </header>
-
-          {/* Re-enhance nudge for draft stories — show for any unpublished story */}
-          {story && !story.isPublished && (
-            <div className="mx-6 lg:mx-8 mt-1 mb-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
-              <Sparkles className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
-              <span className="text-xs text-amber-800 flex-1">
-                {story.needsRegeneration
-                  ? 'Activities changed — re-enhance to update this story'
-                  : 'Polish this story with AI before sharing'}
-              </span>
-              <button
-                onClick={onRegenerate}
-                disabled={isLoading}
-                className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={cn('h-3 w-3', isLoading && 'animate-spin')} />
-                Re-enhance
-              </button>
-            </div>
-          )}
 
           {/* Practice Timer */}
           {shell.practiceMode && (

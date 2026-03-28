@@ -70,7 +70,7 @@ export function TimelineHeaderV10() {
                   {mockHeaderData.promotedCount}
                 </div>
                 <div className="text-xs text-gray-400 uppercase tracking-wide">
-                  Promoted
+                  Created
                 </div>
               </div>
             </div>

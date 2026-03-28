@@ -70,7 +70,7 @@ export function TimelineHeaderV6() {
                   <span className="text-sm font-semibold text-gray-900">5</span>
                 </div>
                 <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-500">Promoted</span>
+                  <span className="text-sm text-gray-500">Created</span>
                   <span className="text-sm font-semibold text-gray-900">3</span>
                 </div>
                 <div className="flex items-center justify-between py-3">

@@ -6,16 +6,12 @@ import { ActivityGroup } from '../../types/activity';
 interface DraftSheetContentProps {
   drafts: ActivityGroup[];
   onPromote: (id: string) => void;
-  onRegenerate?: (id: string) => void;
-  regeneratingId?: string | null;
   onClose: () => void;
 }
 
 export function DraftSheetContent({
   drafts,
   onPromote,
-  onRegenerate,
-  regeneratingId,
   onClose,
 }: DraftSheetContentProps) {
   return (
@@ -45,8 +41,6 @@ export function DraftSheetContent({
             isMuted={false}
             onSelect={() => {}}
             onPromote={() => onPromote(draft.storyMetadata!.id)}
-            onRegenerate={onRegenerate ? () => onRegenerate(draft.storyMetadata!.id) : undefined}
-            isRegenerateLoading={regeneratingId != null}
             showCTA={true}
           />
         ))}

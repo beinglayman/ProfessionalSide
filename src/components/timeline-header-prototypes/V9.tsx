@@ -38,7 +38,7 @@ export function TimelineHeaderV9() {
           {/* Chip — Promoted */}
           <span className="rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium flex items-center gap-1.5">
             <Award className="h-3.5 w-3.5" />
-            {mockHeaderData.promotedCount} Promoted
+            {mockHeaderData.promotedCount} Created
           </span>
 
           {/* Source icons */}

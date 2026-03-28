@@ -66,7 +66,7 @@ export function TimelineHeaderV7() {
             className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700"
           >
             <Award className="h-3.5 w-3.5" />
-            {mockHeaderData.promotedCount} Promoted
+            {mockHeaderData.promotedCount} Created
           </Badge>
 
           {/* Source icons cluster */}

@@ -106,9 +106,6 @@ export default function JournalPage() {
    */
   const [pendingEnhancementIds, setPendingEnhancementIds] = useState<Set<string>>(new Set());
 
-  // Regenerate narrative state — one at a time to avoid LLM rate limits
-  const [regeneratingEntryId, setRegeneratingEntryId] = useState<string | null>(null);
-
   // Story Wizard modal state
   const [storyWizardEntryId, setStoryWizardEntryId] = useState<string | null>(null);
 
@@ -478,37 +475,6 @@ export default function JournalPage() {
     }
   };
 
-  // Handle regenerate narrative — one at a time, block while in flight
-  const handleRegenerateNarrative = async (journalId: string) => {
-    // Block if another regeneration is already in flight
-    if (regeneratingEntryId) return;
-
-    setRegeneratingEntryId(journalId);
-    // Close menu
-    setOpenPublishMenus(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(journalId);
-      return newSet;
-    });
-
-    try {
-      const result = await JournalService.regenerateNarrative(journalId, 'professional');
-      if (result.usedFallback) {
-        showToast('AI unavailable (rate limited) — used basic summary. Try again in a minute.', 'error');
-      } else {
-        showToast('Narrative re-enhanced with AI');
-      }
-      queryClient.refetchQueries({ queryKey: ['journal', 'feed'] });
-      queryClient.refetchQueries({ queryKey: ['activities'] });
-    } catch (error: any) {
-      const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
-      console.error('❌ Failed to regenerate narrative:', { journalId, error: errorMessage });
-      showToast(`Failed to regenerate: ${errorMessage}`, 'error');
-    } finally {
-      setRegeneratingEntryId(null);
-    }
-  };
-
   // Handle visibility toggle (share to network / unshare)
   const handlePublishToggle = async (journal: JournalEntry) => {
     try {
@@ -753,7 +719,7 @@ export default function JournalPage() {
             {promotedCount > 0 && (
               <>
                 <span className="text-gray-300">·</span>
-                <span>{promotedCount} promoted</span>
+                <span>{promotedCount} created</span>
               </>
             )}
             {narrativesGenerating && (
@@ -858,8 +824,6 @@ export default function JournalPage() {
                 isLoading={storyGroupsLoading}
                 onSelect={selectDraft}
                 onPromote={handlePromoteToCareerStory}
-                onRegenerate={handleRegenerateNarrative}
-                regeneratingId={regeneratingEntryId}
                 filterMatchCount={matchCount}
                 filterTotalCount={totalDraftActivityCount}
                 onHoverStart={(id: string) => setHoveredDraftId(id)}
@@ -888,8 +852,6 @@ export default function JournalPage() {
                 <DraftSheetContent
                   drafts={storyGroups}
                   onPromote={handlePromoteToCareerStory}
-                  onRegenerate={handleRegenerateNarrative}
-                  regeneratingId={regeneratingEntryId}
                   onClose={() => setMobileSheetOpen(false)}
                 />
               </MobileSheet>

@@ -10,8 +10,6 @@ interface DraftStorySidebarProps {
   isLoading: boolean;
   onSelect: (id: string | null) => void;
   onPromote: (id: string) => void;
-  onRegenerate: (id: string) => void;
-  regeneratingId?: string | null;
   /** Match count for the selected draft filter */
   filterMatchCount?: number;
   filterTotalCount?: number;
@@ -28,8 +26,6 @@ export function DraftStorySidebar({
   isLoading,
   onSelect,
   onPromote,
-  onRegenerate,
-  regeneratingId,
   filterMatchCount,
   filterTotalCount,
   onHoverStart,
@@ -100,8 +96,6 @@ export function DraftStorySidebar({
             isMuted={selectedId !== null && selectedId !== draft.key}
             onSelect={() => onSelect(draft.key)}
             onPromote={() => onPromote(draft.storyMetadata!.id)}
-            onRegenerate={() => onRegenerate(draft.storyMetadata!.id)}
-            isRegenerateLoading={regeneratingId != null}
             filterMatchCount={selectedId === draft.key ? filterMatchCount : undefined}
             filterTotalCount={selectedId === draft.key ? filterTotalCount : undefined}
             onHoverStart={() => onHoverStart?.(draft.key)}

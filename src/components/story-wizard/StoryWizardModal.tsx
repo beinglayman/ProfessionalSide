@@ -192,10 +192,10 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary-500" />
-            Promote to Career Story
+            Create Story
           </DialogTitle>
           <DialogDescription className="text-sm text-gray-500">
-            Transform "{journalEntryTitle || analyzeResult?.journalEntry.title || 'your draft'}" into a compelling career story
+            Turn "{journalEntryTitle || analyzeResult?.journalEntry.title || 'your draft'}" into a polished story
           </DialogDescription>
         </DialogHeader>
 

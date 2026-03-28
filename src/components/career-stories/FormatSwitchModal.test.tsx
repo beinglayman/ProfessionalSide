@@ -257,19 +257,6 @@ describe('FormatSwitchModal', () => {
       expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     });
 
-    it('shows story-specific generating facts', () => {
-      render(<FormatSwitchModal {...defaultProps} isRegenerating />);
-      // Should show fact about 3 activities
-      expect(screen.getByText('Analyzing 3 activities from your journal...')).toBeInTheDocument();
-    });
-
-    it('shows career quote during regeneration', () => {
-      render(<FormatSwitchModal {...defaultProps} isRegenerating />);
-      // Quote navigation should be present
-      expect(screen.getByLabelText('Previous quote')).toBeInTheDocument();
-      expect(screen.getByLabelText('Next quote')).toBeInTheDocument();
-    });
-
     it('hides compare panels and controls during regeneration', () => {
       render(<FormatSwitchModal {...defaultProps} isRegenerating />);
       expect(screen.queryByText('Current Narrative')).not.toBeInTheDocument();

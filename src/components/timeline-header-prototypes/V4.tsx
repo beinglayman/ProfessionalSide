@@ -66,7 +66,7 @@ export function TimelineHeaderV4() {
                 <span className="text-lg font-bold text-gray-900">
                   {mockHeaderData.promotedCount}
                 </span>
-                <span className="text-xs text-gray-500 ml-1">Promoted</span>
+                <span className="text-xs text-gray-500 ml-1">Created</span>
               </div>
             </div>
           </div>

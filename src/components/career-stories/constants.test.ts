@@ -7,7 +7,6 @@ import {
   MOBILE_SHEET_MAX_HEIGHT_VH,
   ARCHETYPE_METADATA,
   ARCHETYPE_GROUPS,
-  CAREER_QUOTES,
   WIZARD_LOADING_FACTS,
 } from './constants';
 
@@ -96,20 +95,6 @@ describe('Career Stories Constants', () => {
     it('covers all archetypes', () => {
       const allArchetypes = Object.values(ARCHETYPE_GROUPS).flatMap(g => g.archetypes);
       expect(allArchetypes.sort()).toEqual(Object.keys(ARCHETYPE_METADATA).sort());
-    });
-  });
-
-  describe('CAREER_QUOTES', () => {
-    it('has at least 25 quotes', () => {
-      expect(CAREER_QUOTES.length).toBeGreaterThanOrEqual(25);
-    });
-
-    it('each quote has text, attribution, and theme', () => {
-      CAREER_QUOTES.forEach(q => {
-        expect(q.text).toBeTruthy();
-        expect(q.attribution).toBeTruthy();
-        expect(q.theme).toBeTruthy();
-      });
     });
   });
 

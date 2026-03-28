@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Globe, Heart } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStory, BragDocCategory } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES, CAREER_QUOTES } from './constants';
+import { NARRATIVE_FRAMEWORKS, BRAG_DOC_CATEGORIES } from './constants';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -60,11 +60,6 @@ export function PublishModal({
   const sections = useMemo(() => getPreviewSections(story), [story]);
   const metrics = useMemo(() => extractKeyMetrics(story), [story]);
   const frameworkInfo = NARRATIVE_FRAMEWORKS[story.framework];
-
-  const quote = useMemo(() => {
-    const publishingQuotes = CAREER_QUOTES.filter(q => q.theme === 'Publishing Your Work');
-    return publishingQuotes[Math.floor(Math.random() * publishingQuotes.length)];
-  }, []);
 
   const hasClaims = ungroundedClaims && ungroundedClaims.length > 0;
 
@@ -180,17 +175,6 @@ export function PublishModal({
                   </div>
                 </div>
 
-                {quote && (
-                  <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
-                    <div className="flex items-start gap-2">
-                      <Heart className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-gray-600 italic">&ldquo;{quote.text}&rdquo;</p>
-                        <p className="text-[10px] text-gray-400 mt-1">&mdash; {quote.attribution}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}

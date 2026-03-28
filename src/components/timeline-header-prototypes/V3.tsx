@@ -81,7 +81,7 @@ export function TimelineHeaderV3() {
                   <p className="text-2xl font-bold text-gray-900">
                     {mockHeaderData.promotedCount}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">Promoted</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Created</p>
                 </div>
               </div>
             </CardContent>
