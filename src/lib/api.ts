@@ -10,6 +10,10 @@ const isValidUrl = envApiUrl &&
 
 export const API_BASE_URL = isValidUrl ? envApiUrl : 'http://localhost:3002/api/v1';
 
+if (!isValidUrl && !import.meta.env.DEV) {
+  console.warn('[api] VITE_API_URL not set — using localhost fallback. This should not happen in production.');
+}
+
 // Extend axios config to include trace ID
 declare module 'axios' {
   export interface InternalAxiosRequestConfig {

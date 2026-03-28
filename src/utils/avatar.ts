@@ -3,9 +3,9 @@
  */
 
 /**
- * Ensures avatar URL uses HTTPS for Azure deployment
+ * Normalizes avatar URL — ensures HTTPS and provides fallback
  * @param avatarUrl - The avatar URL to normalize
- * @returns HTTPS version of the URL or fallback
+ * @returns Normalized URL or default fallback
  */
 export function normalizeAvatarUrl(avatarUrl: string | null | undefined): string {
   if (!avatarUrl) {
