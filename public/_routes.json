@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "include": ["/p/*", "/*"],
+  "exclude": [
+    "/assets/*",
+    "/prototypes/*",
+    "/favicon.ico",
+    "/robots.txt",
+    "/manifest.json",
+    "/*.js",
+    "/*.css",
+    "/*.svg",
+    "/*.png",
+    "/*.jpg",
+    "/*.ico"
+  ]
+}
