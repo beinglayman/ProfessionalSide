@@ -29,6 +29,10 @@ export function createStorageService(): StorageService {
     return instance;
   }
 
+  if (provider !== 'local') {
+    throw new Error(`Unknown STORAGE_PROVIDER: "${provider}". Valid values: "local", "r2"`);
+  }
+
   instance = new LocalStorageService();
   return instance;
 }

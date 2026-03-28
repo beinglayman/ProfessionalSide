@@ -44,4 +44,10 @@ describe('createStorageService', () => {
     const { createStorageService } = await import('../index');
     expect(() => createStorageService()).toThrow('R2 storage requires');
   });
+
+  it('throws on unknown STORAGE_PROVIDER', async () => {
+    process.env.STORAGE_PROVIDER = 's3';
+    const { createStorageService } = await import('../index');
+    expect(() => createStorageService()).toThrow('Unknown STORAGE_PROVIDER: "s3"');
+  });
 });

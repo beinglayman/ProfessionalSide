@@ -64,4 +64,22 @@ describe('LocalStorageService', () => {
     const url = await storage.upload('workspace/abc/file.txt', buffer);
     expect(url).toBe('/uploads/workspace/abc/file.txt');
   });
+
+  it('upload failure leaves no orphan file (memory storage contract)', async () => {
+    // With memoryStorage, if upload() throws (e.g., disk full), no file was written.
+    // Simulate by making the dir read-only so writeFileSync fails.
+    const readOnlyDir = path.join(testDir, 'readonly');
+    fs.mkdirSync(readOnlyDir, { recursive: true });
+    fs.chmodSync(readOnlyDir, 0o444);
+
+    const roStorage = new LocalStorageService(readOnlyDir);
+    const buffer = Buffer.from('should fail');
+
+    await expect(roStorage.upload('file.txt', buffer)).rejects.toThrow();
+    // Verify no orphan file exists
+    expect(fs.readdirSync(readOnlyDir)).toHaveLength(0);
+
+    // Restore permissions for cleanup
+    fs.chmodSync(readOnlyDir, 0o755);
+  });
 });
