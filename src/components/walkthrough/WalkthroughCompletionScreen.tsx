@@ -1,22 +1,17 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Settings, ArrowRight } from 'lucide-react';
 
 interface WalkthroughCompletionScreenProps {
-  onDone: () => void;
+  onDone: (navigateTo?: string) => void;
 }
 
 export function WalkthroughCompletionScreen({ onDone }: WalkthroughCompletionScreenProps) {
-  const navigate = useNavigate();
-
   const handleConnectMore = () => {
-    onDone();
-    navigate('/settings?tab=integrations');
+    onDone('/settings?tab=integrations');
   };
 
   const handleGoToDashboard = () => {
-    onDone();
-    navigate('/dashboard');
+    onDone('/dashboard');
   };
 
   return (

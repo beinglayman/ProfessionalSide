@@ -356,9 +356,12 @@ export function WalkthroughProvider({ children }: { children: React.ReactNode })
     markComplete();
   }, [markComplete]);
 
-  const handleCompletionDone = useCallback(() => {
+  const handleCompletionDone = useCallback((navigateTo?: string) => {
     markComplete();
-  }, [markComplete]);
+    if (navigateTo) {
+      navigate(navigateTo);
+    }
+  }, [markComplete, navigate]);
 
   const pauseGuidance = isPaused
     ? currentStep === 1
