@@ -10,7 +10,10 @@ export class LocalStorageService implements StorageService {
   }
 
   async upload(key: string, buffer: Buffer): Promise<string> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = path.resolve(this.baseDir, key);
+    if (!filePath.startsWith(path.resolve(this.baseDir))) {
+      throw new Error('Invalid storage key: path traversal detected');
+    }
     const dir = path.dirname(filePath);
 
     if (!fs.existsSync(dir)) {
@@ -26,7 +29,10 @@ export class LocalStorageService implements StorageService {
   }
 
   async delete(key: string): Promise<void> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = path.resolve(this.baseDir, key);
+    if (!filePath.startsWith(path.resolve(this.baseDir))) {
+      throw new Error('Invalid storage key: path traversal detected');
+    }
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }

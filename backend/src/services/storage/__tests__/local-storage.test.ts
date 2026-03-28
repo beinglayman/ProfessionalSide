@@ -49,4 +49,19 @@ describe('LocalStorageService', () => {
   it('delete is a no-op for missing files', async () => {
     await expect(storage.delete('nonexistent.txt')).resolves.toBeUndefined();
   });
+
+  it('rejects path traversal in upload', async () => {
+    const buffer = Buffer.from('malicious');
+    await expect(storage.upload('../../etc/passwd', buffer)).rejects.toThrow('path traversal');
+  });
+
+  it('rejects path traversal in delete', async () => {
+    await expect(storage.delete('../../../etc/passwd')).rejects.toThrow('path traversal');
+  });
+
+  it('allows keys with subdirectories that stay within baseDir', async () => {
+    const buffer = Buffer.from('ok');
+    const url = await storage.upload('workspace/abc/file.txt', buffer);
+    expect(url).toBe('/uploads/workspace/abc/file.txt');
+  });
 });
