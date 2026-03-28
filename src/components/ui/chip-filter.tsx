@@ -75,7 +75,7 @@ export function ChipFilter({
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all border',
+            'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full whitespace-nowrap transition-all border',
             isOpen
               ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm'
               : hasActiveFilter
@@ -180,7 +180,7 @@ export function ChipFilter({
         <button
           onClick={handleClearAll}
           className={cn(
-            'px-2 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap transition-all',
+            'px-2 py-1 text-[11px] font-semibold rounded-full whitespace-nowrap transition-all',
             allSelected
               ? activeClassName
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100',
@@ -201,7 +201,7 @@ export function ChipFilter({
             aria-disabled={isDisabled || undefined}
             title={chip.count !== undefined ? `${chip.label} (${chip.count})` : chip.label}
             className={cn(
-              'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
+              'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-full whitespace-nowrap transition-all',
               isDisabled
                 ? 'text-gray-300 cursor-default'
                 : isSelected
@@ -234,7 +234,7 @@ export function ChipFilter({
           <button
             onClick={toggle}
             className={cn(
-              'flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all',
+              'flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium rounded-full whitespace-nowrap transition-all',
               overflowSelectedCount > 0
                 ? activeClassName
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100',

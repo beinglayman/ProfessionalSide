@@ -86,6 +86,7 @@ import { mergeWarningAnnotations } from '../../lib/warning-annotations';
 // =============================================================================
 
 interface NarrativePreviewProps {
+  compact?: boolean;
   clusterName: string;
   activityCount: number;
   dateRange?: { earliest: string; latest: string };
@@ -118,6 +119,7 @@ interface NarrativePreviewProps {
 }
 
 export function NarrativePreview({
+  compact = false,
   clusterName,
   activityCount,
   dateRange,
@@ -415,7 +417,7 @@ export function NarrativePreview({
       {(shell) => (
         <>
           {/* Document header */}
-          <header className="px-6 pt-3 pb-3 lg:px-8 lg:pt-4">
+          <header className={cn("px-6 pt-3 pb-3 lg:px-8 lg:pt-4", compact && "px-4 pt-2 pb-2")}>
             {/* Row 1: Back + title */}
             <div className="flex items-start gap-2 min-w-0">
               {onBack && (
@@ -428,7 +430,7 @@ export function NarrativePreview({
                   <ArrowLeft className="w-4 h-4" />
                 </button>
               )}
-              <h2 className="text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0 truncate">{clusterName}</h2>
+              <h2 className={cn("text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0 truncate", compact && "text-lg")}>{clusterName}</h2>
             </div>
 
             {/* Row 2: Framework selector + status + meta + actions — wraps on mobile */}
@@ -623,7 +625,7 @@ export function NarrativePreview({
 
           {/* Practice Timer */}
           {shell.practiceMode && (
-            <div className="px-6 lg:px-8 py-1.5 bg-gray-50/30">
+            <div className={cn("px-6 lg:px-8 py-1.5 bg-gray-50/30", compact && "px-4")}>
               <PracticeTimer
                 totalSeconds={estimatedTime}
                 sectionTimings={sectionTimings}
@@ -637,7 +639,7 @@ export function NarrativePreview({
           <DeliveryHelpModal isOpen={showDeliveryHelp} onClose={() => setShowDeliveryHelp(false)} />
 
           {/* Narrative Content — continuous flow, timeline spine */}
-          <div className="px-6 lg:px-8">
+          <div className={cn("px-6 lg:px-8", compact && "px-4 [&_p]:text-[13px] [&_p]:leading-[1.6]")}>
             {sectionKeys.map((sectionKey, idx) => {
               let component: STARComponent;
               if (useStorySections && story?.sections?.[sectionKey]) {
@@ -738,7 +740,7 @@ export function NarrativePreview({
 
           {/* Footer — conditional, no border */}
           {(result.polishStatus === 'success' || story?.generatedAt || (star?.suggestedEdits?.length ?? 0) > 0 || story?.isPublished) && (
-            <footer className="px-6 lg:px-8 py-4 mt-2">
+            <footer className={cn("px-6 lg:px-8 py-4 mt-2", compact && "px-4")}>
               <div className="flex items-center gap-2 text-[11px] text-gray-400">
                 {result.polishStatus === 'success' && (
                   <span className="flex items-center gap-1">

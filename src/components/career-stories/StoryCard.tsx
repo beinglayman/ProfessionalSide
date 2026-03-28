@@ -6,7 +6,7 @@
  * Follows Activity card pattern for consistency.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { format, startOfWeek, endOfWeek, isSameMonth } from 'date-fns';
 import {
   CheckCircle2,
@@ -121,6 +121,33 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
     return Object.values(sections).some(s => s?.summary && s.summary.trim().length > 0);
   }, [story]);
 
+  // Hover inline preview state
+  const [isHoverExpanded, setIsHoverExpanded] = useState(false);
+  const hoverEnterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current);
+    if (!hasContent || isSelected) return;
+    hoverEnterTimer.current = setTimeout(() => setIsHoverExpanded(true), 300);
+  }, [hasContent, isSelected]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverEnterTimer.current) clearTimeout(hoverEnterTimer.current);
+    hoverLeaveTimer.current = setTimeout(() => setIsHoverExpanded(false), 100);
+  }, []);
+
+  // Collapse hover preview when card becomes selected
+  useEffect(() => {
+    if (isSelected) setIsHoverExpanded(false);
+  }, [isSelected]);
+
+  // Clean up timers
+  useEffect(() => () => {
+    if (hoverEnterTimer.current) clearTimeout(hoverEnterTimer.current);
+    if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current);
+  }, []);
+
   // Collect unique source tool types from story sources
   const uniqueSources = useMemo(() => {
     if (!story.sources || story.sources.length === 0) return [];
@@ -141,6 +168,8 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={cn(
         'w-full text-left p-4 sm:p-5 transition-all duration-150 group cursor-pointer rounded-2xl border overflow-hidden',
         'focus:outline-none focus:ring-2 focus:ring-purple-500',
@@ -221,7 +250,7 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
             />
           ) : (
             <span className={cn(
-              'px-1.5 py-0.5 rounded-md font-medium text-[11px]',
+              'px-1.5 py-0.5 rounded-full font-medium text-[11px]',
               isSelected ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
             )}>
               {frameworkInfo?.label || story.framework}
@@ -260,8 +289,27 @@ export function StoryCard({ story, isSelected, onClick, onFormatChange }: StoryC
             {metrics.map((metric, idx) => (
               <span
                 key={idx}
-                className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 rounded-md"
+                className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 rounded-full"
               >
+                {metric}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Hover inline preview — expands on hover for saved stories */}
+      <div className={cn(
+        "overflow-hidden transition-all duration-200 ease-in-out",
+        isHoverExpanded ? "max-h-[120px] opacity-100 mt-3 pt-3 border-t border-gray-100" : "max-h-0 opacity-0"
+      )}>
+        <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-3">
+          {preview}
+        </p>
+        {metrics.length > 0 && (
+          <div className="flex gap-1.5 mt-2">
+            {metrics.slice(0, 1).map((metric, idx) => (
+              <span key={idx} className="px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 rounded-full">
                 {metric}
               </span>
             ))}

@@ -88,7 +88,7 @@ export function FormatChip({
         onClick={handleChipClick}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded transition-colors',
+          'inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded-full transition-colors',
           'hover:bg-primary-100 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500',
           disabled && 'opacity-50 cursor-not-allowed',
           isOpen ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'

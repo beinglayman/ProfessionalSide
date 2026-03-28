@@ -40,7 +40,7 @@ export function FilterBar({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200/80 shadow-sm">
+    <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm">
       {/* Top row */}
       <div className="flex items-center gap-2 py-2 px-3">
         {pillToggle}
@@ -54,7 +54,7 @@ export function FilterBar({
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className={cn(
-            'sm:hidden flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-shrink-0',
+            'sm:hidden flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-full transition-colors flex-shrink-0',
             mobileOpen || activeFilterCount > 0
               ? 'bg-primary-50 text-primary-600'
               : 'text-gray-500 hover:bg-gray-100',
@@ -94,7 +94,7 @@ export function ExpandCollapseButton({
     <button
       onClick={onToggle}
       className={cn(
-        'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-md transition-colors flex-shrink-0',
+        'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-full transition-colors flex-shrink-0',
         anyExpanded
           ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
           : 'text-primary-600 bg-primary-50 hover:bg-primary-100',

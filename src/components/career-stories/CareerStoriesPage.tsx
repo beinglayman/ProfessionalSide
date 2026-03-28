@@ -102,6 +102,16 @@ export function CareerStoriesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Desktop breakpoint detection for side panel layout
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== 'undefined' && window.innerWidth >= BREAKPOINTS.DESKTOP
+  );
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= BREAKPOINTS.DESKTOP);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
   // State for cluster/story selection and STAR generation
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [selectedStoryDirect, setSelectedStoryDirect] = useState<CareerStory | null>(null);
@@ -339,13 +349,18 @@ export function CareerStoriesPage() {
 
   // Handle selecting a story directly (without cluster)
   const handleSelectStory = useCallback((story: CareerStory) => {
+    // Toggle off if clicking the same story (desktop panel close)
+    if (selectedStoryDirect?.id === story.id) {
+      setSelectedStoryDirect(null);
+      return;
+    }
     setSelectedStoryDirect(story);
     setSelectedCluster(null); // Clear cluster selection
     // Open mobile sheet on mobile
     if (window.innerWidth < BREAKPOINTS.DESKTOP) {
       setMobileSheetOpen(true);
     }
-  }, []);
+  }, [selectedStoryDirect]);
 
   // Handle query parameters - auto-select story or cluster by ID
   useEffect(() => {
@@ -856,6 +871,9 @@ export function CareerStoriesPage() {
   // View mode: 'list' shows cards, 'detail' shows full story
   const viewMode = selectedStoryDirect ? 'detail' : 'list';
 
+  // Desktop side panel: open when a story is selected on desktop in stories tab
+  const desktopPanelOpen = isDesktop && !!selectedStoryDirect && pageTab === 'stories';
+
   // (Stories filter/collapse/grouping state moved to storiesFilter via useListFilters above)
 
   // Close detail view
@@ -972,9 +990,17 @@ export function CareerStoriesPage() {
         </div>
       )}
 
-      {/* Main content area - same width as Activity tab (max-w-7xl) */}
-      <div className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6 space-y-4">
+      {/* Main content area */}
+      <div className={cn("h-full", isDesktop && "lg:flex")}>
+        {/* List column */}
+        <div className={cn(
+          "h-full overflow-y-auto transition-[width] duration-300 ease-in-out",
+          desktopPanelOpen ? "lg:w-[45%] lg:flex-shrink-0" : "w-full"
+        )}>
+        <div className={cn(
+          "mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 space-y-4",
+          desktopPanelOpen ? "max-w-none" : "max-w-7xl"
+        )}>
           {/* Page title */}
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -985,8 +1011,8 @@ export function CareerStoriesPage() {
             </p>
           </div>
 
-          {/* Detail View: Full story */}
-          {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && (
+          {/* Detail View: Full story (mobile only — desktop uses side panel) */}
+          {pageTab === 'stories' && viewMode === 'detail' && selectedStoryDirect && !isDesktop && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200" data-walkthrough="narrative-preview">
               {/* Full story preview */}
               <NarrativePreview
@@ -1029,7 +1055,7 @@ export function CareerStoriesPage() {
           )}
 
           {/* Summary bar + banner — above FilterBar for consistent layering */}
-          {!(pageTab === 'stories' && viewMode === 'detail') && !(pageTab === 'library' && selectedLibraryItem) && (
+          {!(pageTab === 'stories' && viewMode === 'detail' && !isDesktop) && !(pageTab === 'library' && selectedLibraryItem) && (
             <div className="space-y-4">
               {/* Stories summary */}
               {pageTab === 'stories' && allStories.length > 0 && (
@@ -1229,8 +1255,8 @@ export function CareerStoriesPage() {
             </div>
           )}
 
-          {/* List View: Story cards */}
-          {pageTab === 'stories' && viewMode === 'list' && (
+          {/* List View: Story cards (always visible on desktop, even when panel open) */}
+          {pageTab === 'stories' && (viewMode === 'list' || isDesktop) && (
             <div className="space-y-2">
               {/* Loading state */}
               {(isLoadingClusters || isLoadingStories) && (
@@ -1277,7 +1303,7 @@ export function CareerStoriesPage() {
                         <StoryCard
                           key={story.id}
                           story={story}
-                          isSelected={false}
+                          isSelected={selectedStoryDirect?.id === story.id}
                           onClick={() => handleSelectStory(story)}
                           onFormatChange={handleFormatSwitch}
                         />
@@ -1407,6 +1433,56 @@ export function CareerStoriesPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Desktop side panel — NarrativePreview in compact mode */}
+      <div className={cn(
+        "hidden lg:flex lg:flex-col bg-white border-l border-gray-200 shadow-xl",
+        "transition-[width,opacity] duration-300 ease-in-out overflow-hidden",
+        desktopPanelOpen ? "lg:w-[55%] opacity-100" : "lg:w-0 opacity-0 lg:border-l-0"
+      )}>
+        {selectedStoryDirect && pageTab === 'stories' && (
+          <div className="h-full overflow-y-auto min-w-0" data-walkthrough="narrative-preview">
+            <NarrativePreview
+              compact
+              onBack={handleCloseDetail}
+              clusterName={selectedStoryDirect.title}
+              activityCount={selectedStoryDirect.activityIds.length}
+              dateRange={selectedCluster?.metrics?.dateRange}
+              toolTypes={selectedToolTypes}
+              activities={clusterWithActivities?.activities}
+              result={storyAsResult || selectedClusterState?.result || null}
+              isLoading={selectedClusterState?.status === 'generating' || regenerateStoryMutation.isPending}
+              polishEnabled={polishEnabled}
+              onPolishToggle={setPolishEnabled}
+              framework={selectedStoryDirect.framework || framework}
+              onFrameworkChange={handleFrameworkChange}
+              onRegenerate={handleRegenerate}
+              story={selectedStory}
+              sources={selectedStoryDirect.sources}
+              sourceCoverage={selectedStoryDirect.sourceCoverage}
+              onSave={handleSaveStory}
+              onPublish={handlePublishStory}
+              onUnpublish={handleUnpublishStory}
+              onVisibilityChange={handleVisibilityChange}
+              onOpenPublishModal={() => selectedStoryDirect && setPublishModalStoryId(selectedStoryDirect.id)}
+              isSaving={createStoryMutation.isPending || updateStoryMutation.isPending}
+              isPublishing={publishStoryMutation.isPending || unpublishStoryMutation.isPending || setVisibilityMutation.isPending}
+              onDelete={handleDeleteStory}
+              isDeleting={deleteStoryMutation.isPending}
+              onShareAs={(initialType) => {
+                if (selectedStoryDirect) {
+                  setDerivationInitialType(initialType);
+                  setDerivationStoryId(selectedStoryDirect.id);
+                }
+              }}
+              onGeneratePacket={() => setShowPromotionPacket(true)}
+              onNavigateToLibraryItem={(itemId) => setSearchParams({ tab: 'library', itemId }, { replace: true })}
+              onCreatePragmaLink={() => selectedStoryDirect && setShareModalStoryId(selectedStoryDirect.id)}
+            />
+          </div>
+        )}
+      </div>
       </div>
 
       {/* Mobile: Library detail bottom sheet */}
