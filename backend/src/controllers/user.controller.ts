@@ -15,49 +15,27 @@ import {
 } from '../types/user.types';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-// Note: Using Azure Files for persistent storage
+import { createStorageService } from '../services/storage';
 
 const userService = new UserService();
 
-// Configure multer for avatar uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Use Azure Files mount path if available, fallback to local
-    const baseUploadPath = process.env.UPLOAD_VOLUME_PATH || 'uploads';
-    const uploadDir = path.join(baseUploadPath, 'avatars');
-    
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const userId = req.user?.id;
-    const ext = path.extname(file.originalname);
-    cb(null, `avatar-${userId}-${Date.now()}${ext}`);
-  }
-});
-
+// Configure multer for avatar uploads (memory storage — buffer passed to StorageService)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
     if (extname && mimetype) {
       return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
     }
-  }
+    cb(new Error('Only image files are allowed'));
+  },
 });
 
-// Export upload middleware for Azure Files
 export const uploadAvatarMiddleware = upload.single('avatar');
 
 /**
@@ -275,7 +253,7 @@ export const endorseUserSkill = asyncHandler(async (req: Request, res: Response)
  */
 export const handleAvatarUpload = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  
+
   if (!userId) {
     return void sendError(res, 'User not authenticated', 401);
   }
@@ -284,41 +262,15 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
     return void sendError(res, 'No file uploaded', 400);
   }
 
-  try {
-    // Generate full avatar URL including protocol and host
-    // Force HTTPS for Azure production environment
-    const isProduction = process.env.NODE_ENV === 'production';
-    const host = req.get('host');
+  const storage = createStorageService();
+  const ext = path.extname(req.file.originalname);
+  const key = `avatars/avatar-${userId}-${Date.now()}${ext}`;
 
-    // Always use HTTPS for Azure production domains
-    let baseUrl;
-    if (process.env.API_BASE_URL && process.env.API_BASE_URL.startsWith('http')) {
-      baseUrl = process.env.API_BASE_URL;
-    } else if (host && host.includes('azurewebsites.net')) {
-      // Force HTTPS for Azure domains
-      baseUrl = `https://${host}`;
-    } else {
-      // Use detected protocol for local development, but force HTTP for localhost
-      let protocol = isProduction ? 'https' : req.protocol;
-      if (host && host.includes('localhost')) {
-        protocol = 'http';
-      }
-      baseUrl = `${protocol}://${host}`;
-    }
-    
-    const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
-    
-    // Update user's avatar in database
-    await userService.updateProfile(userId, { avatar: avatarUrl });
-    
-    sendSuccess(res, { avatarUrl }, 'Avatar uploaded successfully');
-  } catch (error: any) {
-    // Clean up uploaded file if database update fails
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    throw error;
-  }
+  const avatarUrl = await storage.upload(key, req.file.buffer, req.file.mimetype);
+
+  await userService.updateProfile(userId, { avatar: avatarUrl });
+
+  sendSuccess(res, { avatarUrl }, 'Avatar uploaded successfully');
 });
 
 /**

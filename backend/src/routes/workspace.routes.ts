@@ -6,7 +6,7 @@ import { sendSuccess, sendError } from '../utils/response.utils';
 import { EmailService } from '../services/email.service';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
+import { createStorageService } from '../services/storage';
 
 // Extend global namespace for goals storage
 declare global {
@@ -51,28 +51,13 @@ const getGoalStatus = (goal: any, milestones: any[]): 'not-started' | 'in-progre
 // All workspace routes require authentication
 router.use(authenticate);
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760') }, // 10MB default
+// Configure multer for file uploads (memory storage — buffer passed to StorageService)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760') },
   fileFilter: (req, file, cb) => {
-    // Allow all file types for now
     cb(null, true);
-  }
+  },
 });
 
 // Validation schemas
@@ -1599,13 +1584,18 @@ router.post('/:workspaceId/files', upload.single('file'), async (req: Request, r
       return void sendError(res, 'Access denied', 403);
     }
 
+    const storage = createStorageService();
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const key = `workspace/${workspaceId}/${req.file.fieldname}-${uniqueSuffix}${path.extname(req.file.originalname)}`;
+    const fileUrl = await storage.upload(key, req.file.buffer, req.file.mimetype);
+
     const file = await prisma.workspaceFile.create({
       data: {
-        name: req.file.filename,
+        name: path.basename(key),
         originalName: req.file.originalname,
         size: req.file.size,
         mimeType: req.file.mimetype,
-        url: `/uploads/${req.file.filename}`,
+        url: fileUrl,
         uploadedById: userId,
         workspaceId,
         description,
@@ -1671,14 +1661,10 @@ router.delete('/:workspaceId/files/:fileId', async (req: Request, res: Response)
       where: { id: fileId }
     });
 
-    // Delete file from filesystem
-    const fs = require('fs');
-    const filePath = file.url.replace('/uploads/', '');
-    const fullPath = `${process.env.UPLOAD_DIR || 'uploads'}/${filePath}`;
-    
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
+    // Delete file from storage
+    const storage = createStorageService();
+    const key = file.url.replace(/^\/uploads\//, '').replace(/^https?:\/\/[^/]+\//, '');
+    await storage.delete(key);
 
     sendSuccess(res, null, 'File deleted successfully');
   } catch (error) {

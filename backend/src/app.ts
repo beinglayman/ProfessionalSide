@@ -197,7 +197,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve uploaded files with CORS headers
+// Serve uploaded files with CORS headers (only needed for local/filesystem storage)
+if (!process.env.STORAGE_PROVIDER || process.env.STORAGE_PROVIDER === 'local') {
 app.use('/uploads', (req, res, next) => {
   // Add CORS headers for image requests - more permissive for Azure
   const allowedOrigins = [
@@ -232,6 +233,7 @@ app.use('/uploads', (req, res, next) => {
   
   next();
 }, express.static(process.env.UPLOAD_VOLUME_PATH || path.join(__dirname, '../uploads')));
+}
 
 // Serve screenshot files with CORS headers
 app.use('/screenshots', (req, res, next) => {
