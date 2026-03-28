@@ -30,12 +30,8 @@ class ProfileApiService {
       return '/default-avatar.svg';
     }
     
-    // If URL is already absolute, ensure it's HTTPS for Azure domains
+    // If URL is already absolute, return as-is
     if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
-      // Convert HTTP to HTTPS for Azure domains
-      if (avatarUrl.includes('azurewebsites.net') && avatarUrl.startsWith('http://')) {
-        return avatarUrl.replace('http://', 'https://');
-      }
       return avatarUrl;
     }
     

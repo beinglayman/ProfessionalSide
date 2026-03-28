@@ -6,11 +6,9 @@ import { isDemoMode } from '../services/demo-mode.service';
 const envApiUrl = import.meta.env.VITE_API_URL;
 // Only use envApiUrl if it points to actual backend, not the frontend domain
 const isValidUrl = envApiUrl &&
-  !envApiUrl.includes('professionalside-production') &&
-  !envApiUrl.includes('inchronicle.com');
+  !envApiUrl.includes('professionalside-production');
 
-export const API_BASE_URL = isValidUrl ? envApiUrl :
-  (import.meta.env.DEV ? 'http://localhost:3002/api/v1' : 'https://ps-backend-1758551070.azurewebsites.net/api/v1');
+export const API_BASE_URL = isValidUrl ? envApiUrl : 'http://localhost:3002/api/v1';
 
 // Extend axios config to include trace ID
 declare module 'axios' {

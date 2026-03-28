@@ -39,11 +39,6 @@ export function getAvatarUrl(avatarUrl: string | null | undefined): string {
     return normalized;
   }
 
-  // For Azure URLs, ensure they're HTTPS
-  if (normalized.includes('azurewebsites.net') && normalized.startsWith('http:')) {
-    return normalized.replace('http:', 'https:');
-  }
-
   return normalized;
 }
 
