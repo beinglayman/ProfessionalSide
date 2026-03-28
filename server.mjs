@@ -11,6 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4173;
 const API_URL = process.env.VITE_API_URL;
+const BASE_URL = process.env.BASE_URL || 'https://inchronicle.com';
 const DIST = join(__dirname, 'dist');
 const INDEX_HTML = readFileSync(join(DIST, 'index.html'), 'utf-8');
 
@@ -38,7 +39,7 @@ app.get('/p/:shortCode([a-hjkmnp-z2-9]{8})', async (req, res, next) => {
 
     const ogTitle = esc(`${content.title} — ${author.name}`);
     const ogDescription = esc(descriptionText);
-    const ogUrl = esc(`https://inchronicle.com/p/${req.params.shortCode}`);
+    const ogUrl = esc(`${BASE_URL}/p/${req.params.shortCode}`);
 
     const ogTags = [
       `<title>${esc(content.title)} | inchronicle</title>`,
@@ -79,7 +80,7 @@ app.get('/:slug([a-z0-9][a-z0-9-]{1,48}[a-z0-9])', async (req, res, next) => {
     const ogTitle = esc(`${user.name} — ${user.title || ''} ${user.company ? 'at ' + user.company : ''}`.trim());
     const ogDescription = esc(`${stories.length} published career ${stories.length === 1 ? 'story' : 'stories'}`);
     const ogImage = esc(user.avatar || '');
-    const ogUrl = esc(`https://inchronicle.com/${user.profileUrl}`);
+    const ogUrl = esc(`${BASE_URL}/${user.profileUrl}`);
 
     const ogTags = [
       `<title>${esc(user.name)} — Career Chronicle | inchronicle</title>`,

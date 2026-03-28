@@ -21,7 +21,11 @@
     "e2e:oauth:readiness": "node e2e/scripts/check-real-oauth-readiness.mjs",
     "screenshots": "playwright test --project=chromium",
     "screenshots:mobile": "playwright test --project=mobile",
-    "screenshots:all": "playwright test"
+    "screenshots:all": "playwright test",
+    "dev:all": "docker compose up -d && concurrently -k -n fe,be -c blue,green \"npm run dev\" \"cd backend && npm run dev\"",
+    "dev:infra": "docker compose up -d",
+    "dev:stop": "docker compose down; pkill -f 'vite|tsx.watch' 2>/dev/null || true",
+    "dev:reset": "docker compose down -v && docker compose up -d && sleep 3 && cd backend && npx prisma migrate reset --force && npm run db:seed-complete"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.0.4",
@@ -78,6 +82,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^9.2.1",
     "dotenv": "^17.2.3",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",

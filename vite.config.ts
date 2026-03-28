@@ -12,7 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 5555, // Unique port to avoid conflicts with other projects
-    strictPort: true, // Don't try other ports if 5555 is busy
+    strictPort: false,
     host: true,
     proxy: {
       '/api': {

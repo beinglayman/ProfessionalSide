@@ -15,7 +15,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio",
+    "db:studio": "prisma studio --port 5556",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-reference": "tsx prisma/seed-reference-data.ts",
     "db:seed-complete": "npm run db:seed-reference && node import-skill-benchmarks.js",

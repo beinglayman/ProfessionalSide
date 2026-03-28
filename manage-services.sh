@@ -35,9 +35,9 @@ get_service_command() {
 # Function to get service port
 get_service_port() {
     case $1 in
-        "frontend") echo "5173" ;;
+        "frontend") echo "5555" ;;
         "backend") echo "3002" ;;
-        "prisma-studio") echo "5555" ;;
+        "prisma-studio") echo "5556" ;;
         *) echo "" ;;
     esac
 }
@@ -252,9 +252,9 @@ show_help() {
     echo "  help                Show this help message"
     echo
     echo "Services:"
-    echo "  frontend            React/Vite frontend (port 5173)"
+    echo "  frontend            React/Vite frontend (port 5555)"
     echo "  backend             Node.js/Express backend (port 3002)"
-    echo "  prisma-studio       Prisma database browser (port 5555)"
+    echo "  prisma-studio       Prisma database browser (port 5556)"
     echo
     echo "Examples:"
     echo "  $0 start frontend        # Start only the frontend"
