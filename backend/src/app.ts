@@ -87,17 +87,20 @@ const cronService = new CronService();
 app.use(helmet()); // Security headers
 app.use(morgan('combined')); // Logging
 
-// Configure CORS with proper settings for Azure and custom domains
-const allowedOrigins = [
+// Configure CORS — allowed origins from env vars + localhost for dev
+const allowedOrigins: (string | RegExp)[] = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
   'http://localhost:5174',
-  'http://localhost:5555', // E2E testing port
-  'https://ps-frontend-1758551070.azurewebsites.net',
+  'http://localhost:5555',
   'https://inchronicle.com',
   'https://www.inchronicle.com',
-  /https:\/\/.*\.azurewebsites\.net$/
-].filter(Boolean);
+].filter(Boolean) as string[];
+
+// Parse CORS_ORIGINS for additional allowed origins (comma-separated)
+if (process.env.CORS_ORIGINS) {
+  allowedOrigins.push(...process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean));
+}
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -200,20 +203,16 @@ app.use((req, res, next) => {
 // Serve uploaded files with CORS headers (only needed for local/filesystem storage)
 if (!process.env.STORAGE_PROVIDER || process.env.STORAGE_PROVIDER === 'local') {
 app.use('/uploads', (req, res, next) => {
-  // Add CORS headers for image requests - more permissive for Azure
-  const allowedOrigins = [
+  const uploadOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
-    'http://localhost:5555', // E2E testing port
-    'https://ps-frontend-1758551070.azurewebsites.net',
-    'https://*.azurewebsites.net'
+    'http://localhost:5555',
+    'https://inchronicle.com',
+    'https://www.inchronicle.com',
   ].filter(Boolean);
 
   const origin = req.get('Origin');
-  const isAllowed = allowedOrigins.some(allowed =>
-    allowed === origin ||
-    (allowed?.includes('*') && origin?.includes('.azurewebsites.net'))
-  );
+  const isAllowed = uploadOrigins.some(allowed => allowed === origin);
   
   if (isAllowed || !origin) {
     res.header('Access-Control-Allow-Origin', origin || '*');
@@ -237,20 +236,16 @@ app.use('/uploads', (req, res, next) => {
 
 // Serve screenshot files with CORS headers
 app.use('/screenshots', (req, res, next) => {
-  // Add CORS headers for screenshot requests
-  const allowedOrigins = [
+  const screenshotOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
-    'http://localhost:5555', // E2E testing port
-    'https://ps-frontend-1758551070.azurewebsites.net',
-    'https://*.azurewebsites.net'
+    'http://localhost:5555',
+    'https://inchronicle.com',
+    'https://www.inchronicle.com',
   ].filter(Boolean);
 
   const origin = req.get('Origin');
-  const isAllowed = allowedOrigins.some(allowed =>
-    allowed === origin ||
-    (allowed?.includes('*') && origin?.includes('.azurewebsites.net'))
-  );
+  const isAllowed = screenshotOrigins.some(allowed => allowed === origin);
   
   if (isAllowed || !origin) {
     res.header('Access-Control-Allow-Origin', origin || '*');
