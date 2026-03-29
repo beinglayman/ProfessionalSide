@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InChronicle Migration — Progress Tracker</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-hover: #1c2129;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --text-bright: #f0f6fc;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  h1 { font-size: 1.5rem; color: var(--text-bright); margin-bottom: 0.25rem; }
+  .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+
+  /* Progress bar */
+  .progress-bar-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .progress-label { font-weight: 600; color: var(--text-bright); }
+  .progress-pct { font-size: 1.25rem; font-weight: 700; color: var(--green); }
+  .progress-track {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+  }
+  .progress-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .progress-stats span { display: flex; align-items: center; gap: 0.35rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-done { background: var(--green); }
+  .dot-progress { background: var(--orange); }
+  .dot-pending { background: var(--border); }
+  .dot-you { background: var(--purple); }
+
+  /* Phase sections */
+  .phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .phase-header:hover { background: var(--surface-hover); }
+  .phase-chevron {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    width: 1rem;
+    text-align: center;
+  }
+  .phase.open .phase-chevron { transform: rotate(90deg); }
+  .phase-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .pb-0 { background: var(--blue); color: var(--bg); }
+  .pb-1 { background: var(--orange); color: var(--bg); }
+  .pb-2 { background: var(--purple); color: var(--bg); }
+  .pb-3 { background: var(--green); color: var(--bg); }
+  .phase-title { font-weight: 600; color: var(--text-bright); flex: 1; }
+  .phase-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+  }
+
+  /* Tasks */
+  .task-list {
+    display: none;
+    padding: 0 1rem 0.75rem;
+  }
+  .phase.open .task-list { display: block; }
+
+  .task {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .task:first-child { border-top: none; }
+
+  .task-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    transition: all 0.15s;
+    font-size: 0.65rem;
+    color: transparent;
+  }
+  .task-check:hover { border-color: var(--green); }
+  .task.done .task-check {
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--bg);
+  }
+  .task.in-progress .task-check {
+    border-color: var(--orange);
+    color: var(--orange);
+  }
+
+  .task-content { flex: 1; }
+  .task-name { font-size: 0.85rem; }
+  .task.done .task-name { text-decoration: line-through; color: var(--text-muted); }
+  .task-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+  .task-owner {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .owner-code { background: rgba(88, 166, 255, 0.15); color: var(--blue); }
+  .owner-you { background: rgba(188, 140, 255, 0.15); color: var(--purple); }
+  .owner-both { background: rgba(210, 153, 34, 0.15); color: var(--orange); }
+
+  .commit-hash {
+    font-family: 'SF Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--cyan);
+    background: rgba(57, 210, 192, 0.1);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    margin-left: 0.35rem;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+
+  /* Timeline estimate */
+  .timeline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0;
+  }
+  .tl-block {
+    flex: 1;
+    text-align: center;
+    padding: 0.4rem 0.5rem;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .tl-block:last-child { border-right: none; }
+  .tl-label { font-size: 0.7rem; font-weight: 600; color: var(--text-bright); }
+  .tl-est { font-size: 0.65rem; color: var(--text-muted); }
+  .tl-block.active { background: rgba(210, 153, 34, 0.1); }
+  .tl-block.done { background: rgba(63, 185, 80, 0.08); }
+
+  footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .last-updated {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>InChronicle Cloud Migration</h1>
+<p class="subtitle">Azure → Cloudflare Pages + Fly.io + Neon + R2</p>
+<p class="last-updated">Last updated: <strong id="lastUpdated">2026-03-29</strong> &nbsp;·&nbsp; <a href="2026-03-26-azure-to-cloudflare-flyio-migration.md" style="color: var(--blue); text-decoration: none;">Full Plan</a> &nbsp;·&nbsp; <a href="2026-03-27-migration-research.md" style="color: var(--blue); text-decoration: none;">Research</a> &nbsp;·&nbsp; <a href="2026-03-26-migration-diagram.html" style="color: var(--blue); text-decoration: none;">Diagrams</a></p>
+
+<!-- Incident banner -->
+<div style="background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem;">
+  <strong style="color: var(--red);">Incident 2026-03-28:</strong> <span style="color: var(--text);">Removing <code>api.inchronicle.com</code> guard from <code>api.ts</code> broke production (GitHub secret missing <code>/api/v1</code> suffix). Guard restored in <code>3cbbfdd</code>. Final cleanup deferred to Phase 3 Step 5 — fix the secret first, then remove the guard.</span>
+</div>
+
+<!-- Progress bar -->
+<div class="progress-bar-container">
+  <div class="progress-header">
+    <span class="progress-label">Overall Progress</span>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+  </div>
+  <div class="progress-stats">
+    <span><span class="dot dot-done"></span> <span id="statDone">0</span> done</span>
+    <span><span class="dot dot-progress"></span> <span id="statProgress">0</span> in progress</span>
+    <span><span class="dot dot-pending"></span> <span id="statPending">0</span> pending</span>
+    <span><span class="dot dot-you"></span> <span id="statYou">0</span> need your action</span>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><span class="task-owner owner-code">CODE</span> Claude can execute</div>
+  <div class="legend-item"><span class="task-owner owner-you">YOU</span> Needs your dashboard/CLI</div>
+  <div class="legend-item"><span class="task-owner owner-both">BOTH</span> Collaborative</div>
+</div>
+
+<!-- Timeline -->
+<div class="timeline">
+  <div class="tl-block done" id="tl-p0"><div class="tl-label">Phase 0</div><div class="tl-est">DX Fixes</div></div>
+  <div class="tl-block done" id="tl-p1"><div class="tl-label">Phase 1</div><div class="tl-est">Storage</div></div>
+  <div class="tl-block active" id="tl-p2"><div class="tl-label">Phase 2</div><div class="tl-est">Parallel Env</div></div>
+  <div class="tl-block" id="tl-ns"><div class="tl-label">NS → CF</div><div class="tl-est">1wk soak</div></div>
+  <div class="tl-block" id="tl-p3"><div class="tl-label">Phase 3</div><div class="tl-est">Cutover</div></div>
+  <div class="tl-block" id="tl-decomm"><div class="tl-label">Decomm</div><div class="tl-est">+2 weeks</div></div>
+</div>
+
+<!-- Phases rendered by JS -->
+<div id="phases"></div>
+
+<footer>
+  Click tasks to toggle status. Progress auto-saves to localStorage.
+  <br>Click phase headers to expand/collapse.
+</footer>
+
+<script>
+const TASKS = [
+  // Phase 0: DX Fixes
+  { phase: 0, id: 't0.1', name: 'Root docker-compose.yml', owner: 'code', status: 'done', meta: 'PG at root, replaces backend/', commit: '71287e8' },
+  { phase: 0, id: 't0.2', name: 'Fix port conflicts (Vite 5555, Studio 5556)', owner: 'code', status: 'done', meta: 'strictPort: false, manage-services.sh updated', commit: '71287e8' },
+  { phase: 0, id: 't0.3', name: 'Add dev:all with concurrently', owner: 'code', status: 'done', meta: 'dev:all, dev:infra, dev:stop, dev:reset', commit: '71287e8' },
+  { phase: 0, id: 't0.4', name: 'Extract BASE_URL in server.mjs', owner: 'code', status: 'done', meta: 'Replaces hardcoded inchronicle.com', commit: '71287e8' },
+  { phase: 0, id: 't0.5', name: 'Create .env.local.example', owner: 'code', status: 'done', meta: '8 essential vars for quick local setup', commit: '71287e8' },
+
+  // Phase 1: Storage Abstraction
+  { phase: 1, id: 't1.1', name: 'StorageService interface + LocalStorage', owner: 'code', status: 'done', meta: 'Interface + filesystem impl + 5 tests', commit: '7c9cdaa' },
+  { phase: 1, id: 't1.2', name: 'R2StorageService implementation', owner: 'code', status: 'done', meta: '@aws-sdk/client-s3 + 3 tests (mocked)', commit: '7c9cdaa' },
+  { phase: 1, id: 't1.3', name: 'Storage factory (createStorageService)', owner: 'code', status: 'done', meta: 'Singleton, lazy init, env-driven + 5 tests', commit: '7c9cdaa' },
+  { phase: 1, id: 't1.4', name: 'Wire into avatar uploads', owner: 'code', status: 'done', meta: 'memoryStorage + StorageService, Azure host detection removed', commit: '7c9cdaa' },
+  { phase: 1, id: 't1.5', name: 'Wire into workspace file uploads/deletes', owner: 'code', status: 'done', meta: 'Same pattern, fs import removed', commit: '7c9cdaa' },
+  { phase: 1, id: 't1.6', name: 'Conditional /uploads static serving', owner: 'code', status: 'done', meta: 'Only when STORAGE_PROVIDER=local', commit: '7c9cdaa' },
+  { phase: 1, id: 't1.7', name: 'Path traversal protection', owner: 'code', status: 'done', meta: 'Hardening: validates key stays within baseDir', commit: '1ecf8e9' },
+  { phase: 1, id: 't1.8', name: 'Code Masters review fixes', owner: 'code', status: 'done', meta: 'Unknown provider guard + orphan file regression test', commit: '7dd5ab3' },
+
+  // Phase 2: Migration Prep
+  { phase: 2, id: 't2.0', name: 'Add Prisma directUrl for Neon', owner: 'code', status: 'done', meta: 'schema.prisma: directUrl = env("DIRECT_DATABASE_URL")', commit: '66611c9' },
+  { phase: 2, id: 't2.1', name: 'Provision Neon database + migrate data', owner: 'you', status: 'pending', meta: 'console.neon.tech → Launch plan, pg_dump → pg_restore' },
+  { phase: 2, id: 't2.2', name: 'Deploy backend to Fly.io', owner: 'you', status: 'pending', meta: 'fly launch, secrets, fly deploy --remote-only' },
+  { phase: 2, id: 't2.3', name: 'Create Cloudflare R2 bucket', owner: 'you', status: 'pending', meta: 'Dashboard: bucket + API token + custom domain' },
+  { phase: 2, id: 't2.4', name: 'Pages Functions (OG tag SSR)', owner: 'code', status: 'done', meta: 'functions/p/[shortCode].ts + functions/[slug].ts + _routes.json + HTMLRewriter', commit: 'b8e5bde' },
+  { phase: 2, id: 't2.5', name: 'Connect Cloudflare Pages to repo', owner: 'you', status: 'pending', meta: 'Dashboard: Git connect, build config, env vars' },
+  { phase: 2, id: 't2.6a', name: 'Clean Azure refs — backend CORS', owner: 'code', status: 'done', meta: 'Removed hardcoded Azure URLs, env-driven CORS_ORIGINS', commit: 'b5c43d6' },
+  { phase: 2, id: 't2.6b', name: 'Clean Azure refs — frontend utils', owner: 'code', status: 'done', meta: 'Avatar utils, vite.config cleaned. api.ts partially done (see incident).', commit: '2769bb9' },
+  { phase: 2, id: 't2.6c', name: '⚠ INCIDENT FIX: restore api.inchronicle.com guard', owner: 'code', status: 'done', meta: 'GitHub secret VITE_API_URL missing /api/v1 suffix → 404 on all API calls. Guard restored + regression tests.', commit: '3cbbfdd' },
+  { phase: 2, id: 't2.7', name: 'Update OAuth redirect URIs', owner: 'you', status: 'pending', meta: 'Microsoft (24hrs early), Google, Atlassian, GitHub dual-app, Razorpay webhook' },
+  { phase: 2, id: 't2.8', name: 'Fly.io deploy workflow (GitHub Actions)', owner: 'code', status: 'done', meta: '.github/workflows/deploy-fly.yml (fails gracefully until FLY_API_TOKEN set)', commit: '8e958bf' },
+
+  // Phase 3: Cutover
+  { phase: 3, id: 't3.0', name: 'Migrate nameservers to Cloudflare', owner: 'you', status: 'pending', meta: 'Spaceship → Cloudflare NS. Preserve MX + SPF + DMARC. Soak 1 week.' },
+  { phase: 3, id: 't3.1a', name: 'Final data sync + upload migration', owner: 'both', status: 'pending', meta: 'pg_dump → Neon, Azure Files → R2, update avatar URLs in DB' },
+  { phase: 3, id: 't3.1b', name: 'Fix VITE_API_URL secret + remove api.ts guard', owner: 'both', status: 'pending', meta: '⚠ CRITICAL: Fix GitHub secret to include /api/v1, remove exclusion, switch to positive validation' },
+  { phase: 3, id: 't3.1c', name: 'DNS cutover (traffic switch)', owner: 'you', status: 'pending', meta: 'CNAME @→Pages, api→Fly.io, uploads→R2. Update Razorpay webhook.' },
+  { phase: 3, id: 't3.1d', name: 'Smoke test everything', owner: 'both', status: 'pending', meta: 'Homepage, login, API, uploads, OG tags, OAuth flow' },
+  { phase: 3, id: 't3.2', name: 'Disable Azure deploy workflows', owner: 'code', status: 'pending', meta: 'Remove push triggers, keep manual dispatch' },
+  { phase: 3, id: 't3.3', name: 'Decommission Azure (+2 weeks)', owner: 'you', status: 'pending', meta: 'Verify zero traffic → az group delete → cleanup OAuth URIs' },
+];
+
+const PHASES = [
+  { id: 0, name: 'Phase 0: DX Fixes', badge: 'pb-0', defaultOpen: false },
+  { id: 1, name: 'Phase 1: Storage Abstraction', badge: 'pb-1', defaultOpen: false },
+  { id: 2, name: 'Phase 2: Migration Prep', badge: 'pb-2', defaultOpen: true },
+  { id: 3, name: 'Phase 3: Cutover', badge: 'pb-3', defaultOpen: false },
+];
+
+// Load saved state
+const STORAGE_KEY = 'inchronicle-migration-progress';
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    TASKS.forEach(t => {
+      if (saved[t.id]) t.status = saved[t.id];
+    });
+  } catch {}
+}
+function saveState() {
+  const state = {};
+  TASKS.forEach(t => { state[t.id] = t.status; });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function cycleStatus(task) {
+  const order = ['pending', 'in-progress', 'done'];
+  const idx = order.indexOf(task.status);
+  task.status = order[(idx + 1) % order.length];
+  saveState();
+  render();
+}
+
+function togglePhase(phaseId) {
+  const el = document.querySelector(`[data-phase="${phaseId}"]`);
+  el.classList.toggle('open');
+}
+
+function render() {
+  const container = document.getElementById('phases');
+  const total = TASKS.length;
+  const done = TASKS.filter(t => t.status === 'done').length;
+  const inProgress = TASKS.filter(t => t.status === 'in-progress').length;
+  const pending = TASKS.filter(t => t.status === 'pending').length;
+  const needsYou = TASKS.filter(t => t.status !== 'done' && t.owner === 'you').length;
+  const pct = Math.round((done / total) * 100);
+
+  document.getElementById('progressPct').textContent = `${pct}%`;
+  document.getElementById('progressFill').style.width = `${pct}%`;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statProgress').textContent = inProgress;
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statYou').textContent = needsYou;
+
+  // Update timeline
+  PHASES.forEach(p => {
+    const phaseTasks = TASKS.filter(t => t.phase === p.id);
+    const allDone = phaseTasks.every(t => t.status === 'done');
+    const anyInProgress = phaseTasks.some(t => t.status === 'in-progress');
+    const tlEl = document.getElementById(`tl-p${p.id}`);
+    if (tlEl) {
+      tlEl.className = 'tl-block' + (allDone ? ' done' : (anyInProgress ? ' active' : ''));
+    }
+  });
+
+  container.innerHTML = PHASES.map(p => {
+    const phaseTasks = TASKS.filter(t => t.phase === p.id);
+    const doneCount = phaseTasks.filter(t => t.status === 'done').length;
+    const isOpen = p.defaultOpen || phaseTasks.some(t => t.status === 'in-progress');
+    const allDone = doneCount === phaseTasks.length;
+
+    return `
+      <div class="phase ${isOpen ? 'open' : ''}" data-phase="${p.id}">
+        <div class="phase-header" onclick="togglePhase(${p.id})">
+          <span class="phase-chevron">▶</span>
+          <span class="phase-badge ${p.badge}">${p.id}</span>
+          <span class="phase-title">${allDone ? '✓ ' : ''}${p.name}</span>
+          <span class="phase-count">${doneCount}/${phaseTasks.length}</span>
+        </div>
+        <div class="task-list">
+          ${phaseTasks.map(t => `
+            <div class="task ${t.status === 'done' ? 'done' : ''} ${t.status === 'in-progress' ? 'in-progress' : ''}" onclick="cycleStatus(TASKS.find(x=>x.id==='${t.id}'))">
+              <div class="task-check">${t.status === 'done' ? '✓' : t.status === 'in-progress' ? '◉' : ''}</div>
+              <div class="task-content">
+                <div class="task-name">${t.name} ${t.commit ? `<span class="commit-hash">${t.commit}</span>` : ''}</div>
+                <div class="task-meta">${t.meta}</div>
+              </div>
+              <span class="task-owner owner-${t.owner}">${t.owner.toUpperCase()}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+loadState();
+render();
+</script>
+</body>
+</html>

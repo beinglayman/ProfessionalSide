@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InChronicle — Azure → Cloudflare + Fly.io Migration Plan</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent-blue: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-orange: #d29922;
+    --accent-red: #f85149;
+    --accent-purple: #bc8cff;
+    --azure: #0078d4;
+    --cloudflare: #f6821f;
+    --flyio: #8b5cf6;
+    --neon: #00e599;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    color: #f0f6fc;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  .phase {
+    margin-bottom: 3rem;
+    position: relative;
+  }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .phase-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .phase-0 .phase-number { background: var(--accent-blue); color: var(--bg); }
+  .phase-1 .phase-number { background: var(--accent-orange); color: var(--bg); }
+  .phase-2 .phase-number { background: var(--accent-purple); color: var(--bg); }
+  .phase-3 .phase-number { background: var(--accent-green); color: var(--bg); }
+
+  .phase-title {
+    font-size: 1.05rem;
+    color: #f0f6fc;
+    font-weight: 600;
+  }
+
+  .phase-desc {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-left: 2.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    margin-left: 2.75rem;
+  }
+
+  .diagram pre {
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre;
+    color: var(--text);
+  }
+
+  .c-azure { color: var(--azure); }
+  .c-cf { color: var(--cloudflare); }
+  .c-fly { color: var(--flyio); }
+  .c-neon { color: var(--neon); }
+  .c-green { color: var(--accent-green); }
+  .c-red { color: var(--accent-red); }
+  .c-muted { color: var(--text-muted); }
+  .c-orange { color: var(--accent-orange); }
+  .c-blue { color: var(--accent-blue); }
+  .c-bold { color: #f0f6fc; font-weight: 600; }
+
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0 2.5rem 2.75rem;
+    font-size: 0.8rem;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .arrow-down {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    margin: 1rem 0;
+    margin-left: 2.75rem;
+  }
+
+  .callout {
+    background: rgba(88, 166, 255, 0.08);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0 0 2.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .callout strong { color: var(--accent-blue); }
+
+  .callout.warn {
+    background: rgba(210, 153, 34, 0.08);
+    border-left-color: var(--accent-orange);
+  }
+  .callout.warn strong { color: var(--accent-orange); }
+
+  .callout.success {
+    background: rgba(63, 185, 80, 0.08);
+    border-left-color: var(--accent-green);
+  }
+  .callout.success strong { color: var(--accent-green); }
+
+  .timeline {
+    display: flex;
+    gap: 0;
+    margin: 0 0 2.5rem 2.75rem;
+    font-size: 0.75rem;
+  }
+
+  .timeline-block {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    text-align: center;
+    flex: 1;
+  }
+
+  .timeline-block:first-child { border-radius: 6px 0 0 6px; }
+  .timeline-block:last-child { border-radius: 0 6px 6px 0; }
+
+  .timeline-block .label { font-weight: 600; color: #f0f6fc; }
+  .timeline-block .est { color: var(--text-muted); }
+
+  .tb-0 { background: rgba(88, 166, 255, 0.1); border-color: rgba(88, 166, 255, 0.3); }
+  .tb-1 { background: rgba(210, 153, 34, 0.1); border-color: rgba(210, 153, 34, 0.3); }
+  .tb-2 { background: rgba(188, 140, 255, 0.1); border-color: rgba(188, 140, 255, 0.3); }
+  .tb-3 { background: rgba(63, 185, 80, 0.1); border-color: rgba(63, 185, 80, 0.3); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-top: 2rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>InChronicle — Cloud Migration Plan</h1>
+<p class="subtitle">Azure App Service → Cloudflare Pages + Fly.io + Neon (Launch $19/mo) + R2<br>
+DNS: Spaceship → Cloudflare &nbsp;|&nbsp; Email: Microsoft 365 (preserve MX + SPF + DMARC) &nbsp;|&nbsp; OAuth: GitHub (dual-app), Atlassian, Google, Microsoft</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background: var(--azure)"></div> Azure (current)</div>
+  <div class="legend-item"><div class="legend-dot" style="background: var(--cloudflare)"></div> Cloudflare</div>
+  <div class="legend-item"><div class="legend-dot" style="background: var(--flyio)"></div> Fly.io</div>
+  <div class="legend-item"><div class="legend-dot" style="background: var(--neon)"></div> Neon</div>
+  <div class="legend-item"><div class="legend-dot" style="background: var(--text-muted)"></div> Local dev</div>
+</div>
+
+<!-- Timeline -->
+<div class="timeline">
+  <div class="timeline-block tb-0">
+    <div class="label">Phase 0</div>
+    <div class="est">~2 hrs</div>
+  </div>
+  <div class="timeline-block tb-1">
+    <div class="label">Phase 1</div>
+    <div class="est">~1 day</div>
+  </div>
+  <div class="timeline-block tb-2">
+    <div class="label">Phase 2</div>
+    <div class="est">~3-4 days</div>
+  </div>
+  <div class="timeline-block" style="background: rgba(63, 185, 80, 0.05); border: 1px solid var(--border);">
+    <div class="label" style="color: var(--text-muted);">NS → CF</div>
+    <div class="est">~1 week soak</div>
+  </div>
+  <div class="timeline-block tb-3">
+    <div class="label">Phase 3</div>
+    <div class="est">~1 day + 2wk soak</div>
+  </div>
+</div>
+
+<!-- PHASE 0 -->
+<div class="phase phase-0">
+  <div class="phase-header">
+    <div class="phase-number">0</div>
+    <div class="phase-title">DX Fixes — No Infra Change</div>
+  </div>
+  <p class="phase-desc">Fix local dev pain points. Ships to Azure as-is. Zero migration dependency.</p>
+
+  <div class="diagram"><pre>
+<span class="c-muted">  LOCAL DEV                              PRODUCTION</span>
+
+  ┌─────────────────────┐                ┌─────────────────────────┐
+  │ <span class="c-bold">npm run dev:all</span>      │                │ <span class="c-azure">Azure App Service</span>        │
+  │                     │                │                         │
+  │  <span class="c-blue">Vite</span>    :5555 (FE) │───deploy──────▶│  Frontend  :4173        │
+  │  <span class="c-green">Express</span> :3002 (BE) │                │  Backend   :3002        │
+  │  <span class="c-muted">PG</span>      :5434      │                │  PG Flex Server         │
+  │  <span class="c-muted">Studio</span>  :5556 <span class="c-green">✓fix</span> │                │  Azure Files            │
+  └─────────────────────┘                └─────────────────────────┘
+  <span class="c-green">                                         ◀── still the only prod</span>
+  <span class="c-blue">  Changes:</span>
+  <span class="c-green">  ✓</span> Port conflict fixed (Studio → 5556)
+  <span class="c-green">  ✓</span> concurrently dev:all (one command)
+  <span class="c-green">  ✓</span> BASE_URL env var in server.mjs
+  <span class="c-green">  ✓</span> .env.local.example (8 vars vs 43)
+  </pre></div>
+</div>
+
+<div class="arrow-down">▼</div>
+
+<!-- PHASE 1 -->
+<div class="phase phase-1">
+  <div class="phase-header">
+    <div class="phase-number">1</div>
+    <div class="phase-title">Storage Abstraction — Code Change, Same Infra</div>
+  </div>
+  <p class="phase-desc">Abstract file uploads behind an interface. Deploys to Azure. R2 impl exists but is dormant.</p>
+
+  <div class="diagram"><pre>
+  ┌──────────────────────────────────────────────────────────┐
+  │                   <span class="c-bold">StorageService</span> interface                │
+  │                                                          │
+  │   ┌─────────────────────┐     ┌────────────────────────┐ │
+  │   │ <span class="c-green">LocalStorageService</span>  │     │ <span class="c-cf">R2StorageService</span>       │ │
+  │   │  (filesystem)       │     │  (@aws-sdk/client-s3)  │ │
+  │   │                     │     │                        │ │
+  │   │  <span class="c-green">◀── ACTIVE</span>         │     │  <span class="c-muted">◀── EXISTS BUT</span>       │ │
+  │   │  <span class="c-green">    locally + Azure</span> │     │  <span class="c-muted">    NOT WIRED YET</span>    │ │
+  │   └─────────────────────┘     └────────────────────────┘ │
+  └──────────────────────────────────────────────────────────┘
+                         │
+                    deployed to
+                         │
+                         ▼
+               ┌──────────────────┐
+               │ <span class="c-azure">Azure App Service</span> │  works exactly as before
+               │  STORAGE_PROVIDER │  (defaults to "local")
+               │  = <span class="c-green">local</span>          │
+               └──────────────────┘
+  </pre></div>
+
+  <div class="callout warn">
+    <strong>Key:</strong> No MinIO in local dev. Filesystem locally, R2 in prod.
+    The abstraction is what matters, not matching infra.
+  </div>
+</div>
+
+<div class="arrow-down">▼</div>
+
+<!-- PHASE 2 -->
+<div class="phase phase-2">
+  <div class="phase-header">
+    <div class="phase-number">2</div>
+    <div class="phase-title">Parallel Environments — Two Stacks Running</div>
+  </div>
+  <p class="phase-desc">Stand up the new stack alongside Azure. Validate before touching DNS.</p>
+
+  <div class="diagram"><pre>
+<span class="c-muted">     PRODUCTION (Azure)                       NEW STACK (CF + Fly.io)</span>
+<span class="c-muted">     ══════════════════                       ══════════════════════</span>
+
+     ┌───────────────────┐                   ┌────────────────────────┐
+     │ <span class="c-azure">Azure App Service</span>  │                   │ <span class="c-cf">Cloudflare Pages</span>        │
+     │  Frontend  :4173  │                   │  Vite static build     │
+     │  server.mjs (SSR) │                   │  Pages Function (SSR)  │
+     └────────┬──────────┘                   └───────────┬────────────┘
+              │                                          │
+     ┌────────┴──────────┐                   ┌───────────┴────────────┐
+     │ <span class="c-azure">Azure App Service</span>  │                   │ <span class="c-fly">Fly.io</span>                  │
+     │  Backend   :3002  │                   │  Backend (Docker)      │
+     └────────┬──────────┘                   └───────────┬────────────┘
+              │                                          │
+     ┌────────┴──────────┐    <span class="c-orange">pg_dump</span>        ┌───────────┴────────────┐
+     │ <span class="c-azure">Azure PG</span>           │ ─────────────▶  │ <span class="c-neon">Neon</span> Serverless PG      │
+     │  Flex Server      │    <span class="c-orange">restore</span>        │  (scales to zero)      │
+     └────────┬──────────┘                   └───────────┬────────────┘
+              │                                          │
+     ┌────────┴──────────┐    <span class="c-orange">sync</span>           ┌───────────┴────────────┐
+     │ <span class="c-azure">Azure Files</span>        │ ─────────────▶  │ <span class="c-cf">Cloudflare R2</span>           │
+     │  /app/uploads     │                   │  S3-compatible bucket  │
+     └──────────────────┘                   └────────────────────────┘
+
+     <span class="c-azure">▲ inchronicle.com</span>                        <span class="c-fly">▲ xxx.pages.dev</span>
+     <span class="c-azure">  points here</span>                             <span class="c-fly">  preview URL</span>
+  </pre></div>
+
+  <div class="callout">
+    <strong>Validation:</strong> Point local frontend at Fly.io backend to test the new stack end-to-end before any DNS change.
+  </div>
+
+  <div class="diagram" style="margin-top: 1rem;"><pre>
+<span class="c-muted">  VALIDATION STEP: Local FE → Fly.io BE</span>
+
+     ┌─────────────────────┐              ┌────────────────────────┐
+     │ <span class="c-muted">localhost:5555</span>       │              │ <span class="c-fly">Fly.io Backend</span>          │
+     │  (Vite dev server)  │─── VITE_ ───▶│                        │
+     │                     │    API_URL    │ ──▶ <span class="c-neon">Neon PG</span>            │
+     └─────────────────────┘              │ ──▶ <span class="c-cf">R2 uploads</span>         │
+                                          └────────────────────────┘
+     <span class="c-green">  Test: login, CRUD, OAuth, file uploads</span>
+     <span class="c-green">  All hitting new infrastructure</span>
+  </pre></div>
+
+  <div class="callout warn">
+    <strong>OAuth:</strong> Add Fly.io callback URLs to all 12 providers <em>alongside</em> Azure ones.
+    Microsoft can take 24hrs to propagate — do this early.
+  </div>
+</div>
+
+<div class="arrow-down">▼</div>
+
+<!-- PHASE 3 -->
+<div class="phase phase-3">
+  <div class="phase-header">
+    <div class="phase-number">3</div>
+    <div class="phase-title">DNS Cutover — Weekend Deploy</div>
+  </div>
+  <p class="phase-desc">Two-step: (1) NS → Cloudflare, soak 1 week. (2) Switch records to new stack. Azure alive 2 weeks as rollback.</p>
+
+  <div class="diagram"><pre>
+<span class="c-muted">  STEP 1: NS MIGRATION (1 week before cutover)</span>
+
+     Spaceship registrar NS  ──▶  <span class="c-cf">Cloudflare NS</span>          <span class="c-green">✓</span>
+     <span class="c-muted">All records still → Azure. No user-visible change.</span>
+     <span class="c-muted">Verify: site works, email works (M365 MX preserved).</span>
+
+<span class="c-muted">  STEP 2: TRAFFIC SWITCH (weekend, low traffic)</span>
+
+     <span class="c-bold">inchronicle.com</span>         ──▶  <span class="c-cf">Cloudflare Pages</span>       <span class="c-green">✓</span>
+     <span class="c-bold">www.inchronicle.com</span>     ──▶  <span class="c-cf">301 → inchronicle.com</span>  <span class="c-green">✓</span>
+     <span class="c-bold">api.inchronicle.com</span>     ──▶  <span class="c-fly">Fly.io</span> (DNS only)      <span class="c-green">✓</span>
+     <span class="c-bold">uploads.inchronicle.com</span> ──▶  <span class="c-cf">Cloudflare R2</span>          <span class="c-green">✓</span>
+
+<span class="c-muted">  ALSO UPDATE:</span>
+     <span class="c-orange">Razorpay webhook URL → api.inchronicle.com</span>
+     <span class="c-orange">GitHub OAuth App → new app with new callback URL</span>
+     <span class="c-muted">Proxied records switch in SECONDS. DNS-only (api) within 60s.</span>
+  </pre></div>
+
+  <div class="diagram" style="margin-top: 1rem;"><pre>
+<span class="c-muted">  FINAL ARCHITECTURE</span>
+
+     ┌──────────────────────────┐       ┌──────────────────────────┐
+     │ <span class="c-cf">Cloudflare Pages</span>          │       │ <span class="c-fly">Fly.io</span>                    │
+     │  inchronicle.com         │──────▶│  api.inchronicle.com     │
+     │                          │       │                          │
+     │  <span class="c-muted">Global CDN</span>              │       │  Docker container        │
+     │  <span class="c-muted">Edge SSR (OG tags)</span>      │       │  Auto-restart on crash   │
+     │  <span class="c-green">PR preview URLs (free)</span>  │       │  Rolling deploys         │
+     └──────────────────────────┘       └─────────────┬────────────┘
+                                                      │
+                                        ┌─────────────┴────────────┐
+                                        │ <span class="c-neon">Neon</span> PostgreSQL            │
+                                        │  Serverless, scales to 0 │
+                                        │  Branch per PR (future)  │
+                                        └─────────────┬────────────┘
+                                                      │
+                                        ┌─────────────┴────────────┐
+                                        │ <span class="c-cf">Cloudflare R2</span>             │
+                                        │  uploads.inchronicle.com │
+                                        │  S3-compatible, $0 egress│
+                                        └──────────────────────────┘
+
+
+<span class="c-muted">  ROLLBACK (keep 2 weeks, then delete)</span>
+
+     ┌──────────────────────────┐
+     │ <span class="c-azure">Azure</span>                     │
+     │  FE + BE + PG + Files   │  <span class="c-orange">◀── dormant, no traffic</span>
+     │                          │  <span class="c-orange">    $50/mo insurance</span>
+     │  <span class="c-red">DELETE after 2 weeks</span>     │  <span class="c-orange">    then decommission</span>
+     └──────────────────────────┘
+  </pre></div>
+
+  <div class="callout success">
+    <strong>Key principle:</strong> At no point is there only one environment running.
+    The old stack stays alive until the new one is proven.
+  </div>
+</div>
+
+<!-- Cost comparison -->
+<div class="phase">
+  <div class="phase-header">
+    <div class="phase-number" style="background: var(--text-muted); color: var(--bg);">$</div>
+    <div class="phase-title">Cost Comparison</div>
+  </div>
+
+  <div class="diagram"><pre>
+<span class="c-muted">     BEFORE (Azure)                          AFTER (CF + Fly.io + Neon)</span>
+
+     App Service Plan (B1)    ~$13          Cloudflare Pages         <span class="c-green">$0</span>
+     App Service FE           ~$13          Fly.io (512MB shared)    ~$4
+     App Service BE           ~$13          Neon Launch (10GiB)      $19
+     PG Flexible Server       ~$15          R2 ($0 egress)           ~$1
+     Storage Account          ~$3           Cloudflare DNS           <span class="c-green">$0</span>
+     ACR                      ~$5
+     ─────────────────────────────          ──────────────────────────────
+     <span class="c-red">Total: ~$50-65/mo</span>                        <span class="c-orange">Total: ~$24/mo</span>
+  </pre></div>
+</div>
+
+<!-- DX improvements -->
+<div class="phase">
+  <div class="phase-header">
+    <div class="phase-number" style="background: var(--accent-blue); color: var(--bg);">⌘</div>
+    <div class="phase-title">DX Improvements</div>
+  </div>
+
+  <div class="diagram"><pre>
+<span class="c-muted">     BEFORE                                  AFTER</span>
+
+     3-4 terminals to start               <span class="c-green">npm run dev:all</span> (one command)
+     Port 5555 conflict                   <span class="c-green">Vite :5555, Studio :5556</span>
+     No preview deploys                   <span class="c-green">Every PR → xxx.pages.dev</span>
+     30s sleep health check               <span class="c-green">Fly.io rolling + auto-rollback</span>
+     43 env vars, 3 files                 <span class="c-green">.env.local.example (8 vars)</span>
+     inchronicle.com hardcoded            <span class="c-green">BASE_URL env var</span>
+     Push to main or nothing              <span class="c-green">Branch previews + staging</span>
+     ACR remote build (3-5 min)           <span class="c-green">CF Pages ~30s, Fly ~2 min</span>
+     No rollback                          <span class="c-green">fly releases (instant)</span>
+  </pre></div>
+</div>
+
+<!-- DNS Baseline -->
+<div class="phase">
+  <div class="phase-header">
+    <div class="phase-number" style="background: var(--accent-red); color: var(--bg);">!</div>
+    <div class="phase-title">DNS Baseline (Captured 2026-03-27)</div>
+  </div>
+
+  <div class="diagram"><pre>
+<span class="c-muted">  Current Nameservers:</span>  <span class="c-orange">launch1.spaceship.net / launch2.spaceship.net</span> (Spaceship registrar)
+<span class="c-muted">  Must migrate to Cloudflare NS 1 week before traffic cutover.</span>
+
+<span class="c-muted">  Records to preserve during NS migration:</span>
+
+     <span class="c-bold">A</span>     @              20.119.0.51 <span class="c-muted">(Azure App Service)</span>
+     <span class="c-bold">CNAME</span> www            ps-frontend-1758551070.azurewebsites.net
+     <span class="c-bold">MX</span>    @              0 inchronicle-com.mail.protection.outlook.com  <span class="c-red">← CRITICAL</span>
+     <span class="c-bold">TXT</span>   @              v=spf1 include:spf.protection.outlook.com -all  <span class="c-red">← CRITICAL</span>
+     <span class="c-bold">TXT</span>   @              MS=ms35993909 <span class="c-muted">(Microsoft verification)</span>
+     <span class="c-bold">TXT</span>   @              google-site-verification=3za1l... <span class="c-muted">(Google verification)</span>
+     <span class="c-bold">TXT</span>   _dmarc         v=DMARC1; p=reject; rua=mailto:dmarc@inchronicle.com  <span class="c-red">← CRITICAL</span>
+  </pre></div>
+
+  <div class="callout warn">
+    <strong>Email will break</strong> if MX, SPF, or DMARC records are lost during NS migration.
+    Verify all records imported correctly in Cloudflare before changing nameservers.
+  </div>
+</div>
+
+<!-- Research Findings -->
+<div class="phase">
+  <div class="phase-header">
+    <div class="phase-number" style="background: var(--accent-purple); color: var(--bg);">R</div>
+    <div class="phase-title">Key Research Findings</div>
+  </div>
+
+  <div class="diagram"><pre>
+<span class="c-muted">  PLAN UPDATES FROM RESEARCH</span>
+
+  <span class="c-green">✓</span> Pages Functions: <span class="c-bold">file-based routing</span>, not catch-all [[path]].ts
+     functions/p/[shortCode].ts + functions/[slug].ts
+
+  <span class="c-green">✓</span> Use <span class="c-bold">HTMLRewriter</span> (streaming), not string .replace()
+     Built into Workers runtime, handles edge cases
+
+  <span class="c-green">✓</span> Add <span class="c-bold">public/_routes.json</span> — excludes static assets from Functions
+     Without it, every JS/CSS/image request burns free quota
+
+  <span class="c-green">✓</span> Fly.io: <span class="c-bold">512MB memory</span> (Node+Prisma+tsx OOMs on 256MB)
+     fly.toml lives in <span class="c-bold">backend/fly.toml</span>, not project root
+
+  <span class="c-green">✓</span> Neon: Prisma <span class="c-bold">directUrl</span> required in schema.prisma
+     PgBouncer doesn't support advisory locks for migrations
+
+  <span class="c-green">✓</span> GitHub OAuth: <span class="c-bold">dual-app strategy</span> (only 1 callback URL per app)
+     Create 2nd app for new domain, delete old after 2 weeks
+
+  <span class="c-green">✓</span> <span class="c-orange">Razorpay webhook URL</span> must update at cutover
+     POST /api/v1/billing/webhook — missed in original plan
+
+  <span class="c-green">✓</span> Microsoft OAuth: add URIs <span class="c-bold">24hrs before</span> cutover
+     Propagation can take up to 24 hours
+
+  <span class="c-green">✓</span> Separate <span class="c-bold">NS migration</span> from traffic cutover (1 week apart)
+     Reduces risk: verify email + site work through CF proxy first
+
+  <span class="c-green">✓</span> No PostgreSQL extensions used — <span class="c-green">clean Neon migration</span>
+     No cron jobs reference external URLs — <span class="c-green">no hidden dependencies</span>
+  </pre></div>
+</div>
+
+<footer>
+  InChronicle Migration Plan — March 2026 (updated 2026-03-27 with research findings)
+  &nbsp;·&nbsp; Plan: <code>docs/superpowers/plans/2026-03-26-azure-to-cloudflare-flyio-migration.md</code>
+  &nbsp;·&nbsp; Research: <code>docs/superpowers/plans/2026-03-27-migration-research.md</code>
+</footer>
+
+</body>
+</html>
