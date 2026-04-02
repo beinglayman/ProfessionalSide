@@ -6,10 +6,14 @@
 |-------|-------|
 | Console | `console.neon.tech` |
 | Project name | `inchronicle` |
+| Endpoint | `ep-sparkling-resonance-ajf3aqs3` |
 | Region | **US East (Ohio)** — `us-east-2` (~10-15ms from Fly.io `iad`) |
 | PostgreSQL version | 15 |
-| Plan | Launch ($19/mo) — 10 GiB storage, always-on compute |
+| Database | `neondb` |
+| Role | `neondb_owner` |
+| Plan | Free (upgrade to Launch $19/mo when needed) |
 | Default branch | `main` |
+| Provisioned | 2026-04-02 |
 
 ## Connection Strings
 
@@ -17,36 +21,38 @@ Neon provides **two hostnames** per branch. The `-pooler` suffix is the key diff
 
 ```bash
 # Pooled (PgBouncer) — for runtime queries
-DATABASE_URL="postgresql://user:pass@ep-xxx-pooler.us-east-2.aws.neon.tech/inchronicle?sslmode=require&connection_limit=10"
+DATABASE_URL="postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3-pooler.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require&connection_limit=10"
 
 # Direct — for migrations and introspection (DDL)
-DIRECT_DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/inchronicle?sslmode=require"
+DIRECT_DATABASE_URL="postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require"
 ```
+
+> Password is in Fly.io secrets and Neon dashboard. Never commit it.
 
 Both are set as Fly.io secrets. Prisma uses `DATABASE_URL` for runtime and `DIRECT_DATABASE_URL` for migrations (configured in `backend/prisma/schema.prisma`).
 
 ## Provisioning
 
 ```bash
-# 1. Create project at console.neon.tech
-#    Name: inchronicle, Region: US East (Ohio), PG 15
+# 1. Project created via: npx neonctl@latest init
+#    Endpoint: ep-sparkling-resonance-ajf3aqs3, Region: US East (Ohio), PG 15
 
-# 2. Run Prisma migrations on Neon (creates schema)
+# 2. Prisma migrations applied (36 migrations, 2026-04-02)
 cd backend
-DIRECT_DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/inchronicle?sslmode=require" \
+DIRECT_DATABASE_URL="postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require" \
   npx prisma migrate deploy
 
-# 3. Export from Azure
+# 3. Export from Azure (when ready to migrate production data)
 pg_dump "postgresql://psadmin:PASS@ps-postgres-server.postgres.database.azure.com:5432/inchronicle?sslmode=require" \
   --no-owner --no-acl -Fc -f backup.dump
 
 # 4. Import data only (direct connection, not pooled)
 pg_restore --data-only --no-owner --no-acl \
-  -d "postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/inchronicle?sslmode=require" \
+  -d "postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require" \
   backup.dump
 
 # 5. Verify row counts
-psql "postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/inchronicle?sslmode=require" \
+psql "postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require" \
   -c "SELECT 'users', count(*) FROM users UNION ALL
       SELECT 'career_stories', count(*) FROM career_stories UNION ALL
       SELECT 'journal_entries', count(*) FROM journal_entries UNION ALL
@@ -70,9 +76,10 @@ This is backward-compatible — if `DIRECT_DATABASE_URL` is unset, Prisma falls 
 ## Update Fly.io Secrets
 
 ```bash
+# Already set on 2026-04-02. To update:
 fly secrets set \
-  DATABASE_URL="postgresql://user:pass@ep-xxx-pooler.us-east-2.aws.neon.tech/inchronicle?sslmode=require&connection_limit=10" \
-  DIRECT_DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/inchronicle?sslmode=require" \
+  DATABASE_URL="postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3-pooler.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require&connection_limit=10" \
+  DIRECT_DATABASE_URL="postgresql://neondb_owner:<PASSWORD>@ep-sparkling-resonance-ajf3aqs3.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require" \
   -a inchronicle-api
 ```
 

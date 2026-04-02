@@ -7,10 +7,16 @@
 | App name | `inchronicle-api` |
 | Region | `iad` (Ashburn, Virginia) |
 | Hostname | `inchronicle-api.fly.dev` |
+| IPv6 | `2a09:8280:1::ef:bd76:0` |
+| Shared IPv4 | `66.241.124.57` |
 | Image base | `node:18` |
 | VM | `shared-cpu-1x`, 512MB RAM |
 | Internal port | 3002 |
 | Min machines | 1 (auto-stop extras) |
+| Machine IDs | `08045e2c0d41e8`, `0805095cd40278` |
+| Database | Neon (`ep-sparkling-resonance-ajf3aqs3`) |
+| Deployed | 2026-04-02 |
+| Status | Running, health OK |
 
 ## CLI Setup
 
@@ -78,8 +84,8 @@ fly secrets deploy -a inchronicle-api
 | `OPENAI_API_KEY` | OpenAI API key (Azure OpenAI vars also needed) |
 | `FRONTEND_URL` | `https://inchronicle.com` |
 | `CORS_ORIGINS` | `https://inchronicle.com,https://www.inchronicle.com` |
-| `BACKEND_URL` | `https://inchronicle-api.fly.dev` (later: `https://api.inchronicle.com`) |
-| `STORAGE_PROVIDER` | `local` (temporary) → `r2` (after R2 bucket setup) |
+| `BACKEND_URL` | `https://inchronicle-api.fly.dev` (Phase 3: `https://api.inchronicle.com`) |
+| `STORAGE_PROVIDER` | `local` (current) → `r2` (after R2 bucket setup) |
 | `R2_ACCOUNT_ID` | Cloudflare account ID (when R2 is ready) |
 | `R2_ACCESS_KEY_ID` | R2 API token (when R2 is ready) |
 | `R2_SECRET_ACCESS_KEY` | R2 API secret (when R2 is ready) |
@@ -123,7 +129,7 @@ fly tokens create deploy -a inchronicle-api -x 999999h
 
 - **Ephemeral filesystem** — uploads are lost on deploy. Use R2 (`STORAGE_PROVIDER=r2`).
 - **SSE/WebSocket** — works out of the box, no special config needed.
-- **Database** — connects to Neon PostgreSQL (us-east-2, ~10-15ms latency from iad).
+- **Database** — connected to Neon PostgreSQL (`ep-sparkling-resonance-ajf3aqs3`, us-east-2, ~10-15ms latency from iad).
 - **Startup** — `startup.sh` runs migrations → verifies tables → starts app via `npx tsx src/app.ts`.
 
 ## Cost

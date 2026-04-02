@@ -56,7 +56,7 @@ See [progress tracker](../docs/superpowers/plans/2026-03-28-migration-progress.h
 |-------|--------|-------------|
 | Phase 0 | Done | DX fixes (dev:all, ports, BASE_URL) |
 | Phase 1 | Done | Storage abstraction (StorageService interface) |
-| Phase 2 | **Active** | Parallel environments (Fly.io deployed, Neon + R2 + Pages pending) |
+| Phase 2 | **Active** | Parallel environments (Fly.io + Neon deployed, R2 + Pages pending) |
 | Phase 3 | Pending | DNS cutover + Azure decommission |
 
 ## Legacy (Azure)
