@@ -80,6 +80,8 @@
 
 ## Phase 0: Local DX Fixes
 
+> **Status: COMPLETE** — All tasks shipped to Azure. Commits: 71287e8
+
 > **Dependency:** None. Ship this immediately on Azure. No migration required.
 
 ---
@@ -89,7 +91,7 @@
 **Files:**
 - Create: `docker-compose.yml` (root)
 
-- [ ] **Step 1: Create root docker-compose.yml**
+- [x] **Step 1: Create root docker-compose.yml**
 
 ```yaml
 # docker-compose.yml
@@ -117,17 +119,17 @@ volumes:
 
 This is identical to `backend/docker-compose.yml` but lives at root so `npm run dev:infra` works from project root. The old `backend/docker-compose.yml` should be deleted in Step 4 to avoid confusion about which one to use.
 
-- [ ] **Step 2: Verify it starts**
+- [x] **Step 2: Verify it starts**
 
 Run: `docker compose up -d && docker compose ps`
 Expected: postgres container running, healthy
 
-- [ ] **Step 3: Verify backend can connect**
+- [x] **Step 3: Verify backend can connect**
 
 Run: `cd backend && npx prisma db pull --print 2>&1 | head -5`
 Expected: Prints schema (confirms connection to localhost:5434)
 
-- [ ] **Step 4: Remove old backend docker-compose and commit**
+- [x] **Step 4: Remove old backend docker-compose and commit**
 
 ```bash
 git rm backend/docker-compose.yml
@@ -144,7 +146,7 @@ git commit -m "chore: move docker-compose to root for single-command dev infra"
 - Modify: `backend/package.json:18` — change Prisma Studio to port 5556
 - Modify: `manage-services.sh:38,43` — fix frontend port reference
 
-- [ ] **Step 1: Fix Vite strictPort**
+- [x] **Step 1: Fix Vite strictPort**
 
 In `vite.config.ts`, change line 15:
 ```
@@ -152,7 +154,7 @@ Old: strictPort: true, // Don't try other ports if 5555 is busy
 New: strictPort: false,
 ```
 
-- [ ] **Step 2: Fix Prisma Studio port**
+- [x] **Step 2: Fix Prisma Studio port**
 
 In `backend/package.json`, change `db:studio` script:
 ```
@@ -160,7 +162,7 @@ Old: "db:studio": "prisma studio"
 New: "db:studio": "prisma studio --port 5556"
 ```
 
-- [ ] **Step 3: Fix manage-services.sh port references**
+- [x] **Step 3: Fix manage-services.sh port references**
 
 In `manage-services.sh`, update `get_service_port()`:
 ```bash
@@ -185,13 +187,13 @@ Old: echo "  frontend            React/Vite frontend (port 5173)"
 New: echo "  frontend            React/Vite frontend (port 5555)"
 ```
 
-- [ ] **Step 4: Verify no port conflict**
+- [x] **Step 4: Verify no port conflict**
 
 Run: `cd backend && npx prisma studio --port 5556 &` then in another check: `lsof -i :5556 | head -3`
 Expected: Prisma Studio running on 5556, not conflicting with Vite's 5555.
 Kill it after: `kill %1`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vite.config.ts backend/package.json manage-services.sh
@@ -205,11 +207,11 @@ git commit -m "fix: resolve port 5555 conflict between Vite and Prisma Studio"
 **Files:**
 - Modify: `package.json` (root) — add dev scripts + concurrently dep
 
-- [ ] **Step 1: Install concurrently**
+- [x] **Step 1: Install concurrently**
 
 Run: `npm install -D concurrently`
 
-- [ ] **Step 2: Add dev scripts to root package.json**
+- [x] **Step 2: Add dev scripts to root package.json**
 
 Add these scripts to the `"scripts"` section in `package.json`:
 
@@ -220,17 +222,17 @@ Add these scripts to the `"scripts"` section in `package.json`:
 "dev:reset": "docker compose down -v && docker compose up -d && sleep 3 && cd backend && npx prisma migrate reset --force && npm run db:seed-complete"
 ```
 
-- [ ] **Step 3: Verify dev:infra**
+- [x] **Step 3: Verify dev:infra**
 
 Run: `npm run dev:infra`
 Expected: Docker postgres starts (or confirms already running)
 
-- [ ] **Step 4: Verify dev:all**
+- [x] **Step 4: Verify dev:all**
 
 Run: `npm run dev:all`
 Expected: See colored output — `[fe]` blue (Vite on 5555), `[be]` green (Express on 3002). Both start successfully. Ctrl+C kills both.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json package-lock.json
@@ -244,7 +246,7 @@ git commit -m "feat: add dev:all single-command startup with concurrently"
 **Files:**
 - Modify: `server.mjs:41,82` — replace hardcoded `https://inchronicle.com`
 
-- [ ] **Step 1: Add BASE_URL env var**
+- [x] **Step 1: Add BASE_URL env var**
 
 In `server.mjs`, add after line 13 (`const DIST = ...`):
 
@@ -252,7 +254,7 @@ In `server.mjs`, add after line 13 (`const DIST = ...`):
 const BASE_URL = process.env.BASE_URL || 'https://inchronicle.com';
 ```
 
-- [ ] **Step 2: Replace hardcoded URLs**
+- [x] **Step 2: Replace hardcoded URLs**
 
 Line 41 — change:
 ```javascript
@@ -266,7 +268,7 @@ Old: const ogUrl = esc(`https://inchronicle.com/${user.profileUrl}`);
 New: const ogUrl = esc(`${BASE_URL}/${user.profileUrl}`);
 ```
 
-- [ ] **Step 3: Verify locally (partial — confirms server starts and uses BASE_URL)**
+- [x] **Step 3: Verify locally (partial — confirms server starts and uses BASE_URL)**
 
 Note: Full OG tag verification requires a running backend with `VITE_API_URL` set (the server fetches story data to build OG tags). This step only confirms the server starts and the BASE_URL env var is read correctly. Full OG testing happens in Phase 2 with the parallel environment.
 
@@ -275,7 +277,7 @@ Then: `curl -s -o /dev/null -w "%{http_code}" http://localhost:4173/`
 Expected: `200` (SPA loads)
 Kill: `kill %1`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add server.mjs
@@ -289,7 +291,7 @@ git commit -m "fix: extract BASE_URL env var from hardcoded inchronicle.com in s
 **Files:**
 - Create: `backend/.env.local.example`
 
-- [ ] **Step 1: Create minimal local env template**
+- [x] **Step 1: Create minimal local env template**
 
 ```env
 # InChronicle Backend — Local Development
@@ -324,7 +326,7 @@ ANTHROPIC_API_KEY=
 ENABLE_MCP=false
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add backend/.env.local.example
@@ -334,6 +336,8 @@ git commit -m "docs: add minimal .env.local.example for quick local setup"
 ---
 
 ## Phase 1: Storage Abstraction
+
+> **Status: COMPLETE** — Storage abstraction + Code Masters review. Commits: 7c9cdaa, 1ecf8e9, 7dd5ab3
 
 > **Dependency:** Phase 0 complete (DX fixes shipped).
 > **Goal:** Abstract file storage behind an interface so switching from filesystem to R2 is a config change, not a code change.
@@ -348,7 +352,7 @@ git commit -m "docs: add minimal .env.local.example for quick local setup"
 - Create: `backend/src/services/storage/local-storage.service.ts`
 - Create: `backend/src/services/storage/__tests__/local-storage.test.ts`
 
-- [ ] **Step 1: Write failing test for local storage**
+- [x] **Step 1: Write failing test for local storage**
 
 Create `backend/src/services/storage/__tests__/local-storage.test.ts`:
 
@@ -407,12 +411,12 @@ describe('LocalStorageService', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd backend && npx vitest run src/services/storage/__tests__/local-storage.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Create storage interface**
+- [x] **Step 3: Create storage interface**
 
 Create `backend/src/services/storage/storage.interface.ts`:
 
@@ -440,7 +444,7 @@ export interface StorageService {
 }
 ```
 
-- [ ] **Step 4: Create local storage implementation**
+- [x] **Step 4: Create local storage implementation**
 
 Create `backend/src/services/storage/local-storage.service.ts`:
 
@@ -481,12 +485,12 @@ export class LocalStorageService implements StorageService {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd backend && npx vitest run src/services/storage/__tests__/local-storage.test.ts`
 Expected: 5 tests pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src/services/storage/
@@ -501,11 +505,11 @@ git commit -m "feat: add StorageService interface + LocalStorageService implemen
 - Create: `backend/src/services/storage/r2-storage.service.ts`
 - Create: `backend/src/services/storage/__tests__/r2-storage.test.ts`
 
-- [ ] **Step 1: Install S3 SDK**
+- [x] **Step 1: Install S3 SDK**
 
 Run: `cd backend && npm install @aws-sdk/client-s3`
 
-- [ ] **Step 2: Write failing test for R2 storage (mocked S3 client)**
+- [x] **Step 2: Write failing test for R2 storage (mocked S3 client)**
 
 Create `backend/src/services/storage/__tests__/r2-storage.test.ts`:
 
@@ -551,12 +555,12 @@ describe('R2StorageService', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `cd backend && npx vitest run src/services/storage/__tests__/r2-storage.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 4: Create R2 storage implementation**
+- [x] **Step 4: Create R2 storage implementation**
 
 Create `backend/src/services/storage/r2-storage.service.ts`:
 
@@ -617,12 +621,12 @@ export class R2StorageService implements StorageService {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd backend && npx vitest run src/services/storage/__tests__/r2-storage.test.ts`
 Expected: 3 tests pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src/services/storage/r2-storage.service.ts backend/src/services/storage/__tests__/r2-storage.test.ts backend/package.json backend/package-lock.json
@@ -637,7 +641,7 @@ git commit -m "feat: add R2StorageService implementation with S3 SDK"
 - Create: `backend/src/services/storage/index.ts`
 - Create: `backend/src/services/storage/__tests__/factory.test.ts`
 
-- [ ] **Step 1: Write failing test for factory**
+- [x] **Step 1: Write failing test for factory**
 
 Create `backend/src/services/storage/__tests__/factory.test.ts`:
 
@@ -691,12 +695,12 @@ describe('createStorageService', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd backend && npx vitest run src/services/storage/__tests__/factory.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Create factory**
+- [x] **Step 3: Create factory**
 
 Create `backend/src/services/storage/index.ts`:
 
@@ -737,17 +741,17 @@ export function createStorageService(): StorageService {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && npx vitest run src/services/storage/__tests__/factory.test.ts`
 Expected: 4 tests pass
 
-- [ ] **Step 5: Run all storage tests together**
+- [x] **Step 5: Run all storage tests together**
 
 Run: `cd backend && npx vitest run src/services/storage/`
 Expected: 12 tests pass (5 local + 3 r2 + 4 factory)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src/services/storage/index.ts backend/src/services/storage/__tests__/factory.test.ts
@@ -766,7 +770,7 @@ git commit -m "feat: add storage factory — selects local or R2 based on STORAG
 2. Use `StorageService.upload()` to store the file
 3. Use the URL returned by `StorageService` instead of constructing it manually
 
-- [ ] **Step 1: Switch multer to memory storage**
+- [x] **Step 1: Switch multer to memory storage**
 
 In `backend/src/controllers/user.controller.ts`, replace the multer `diskStorage` config (lines 23-45) with memory storage:
 
@@ -790,7 +794,7 @@ const upload = multer({
 });
 ```
 
-- [ ] **Step 2: Update handleAvatarUpload to use StorageService**
+- [x] **Step 2: Update handleAvatarUpload to use StorageService**
 
 Replace the avatar URL construction block (lines ~280-310) with:
 
@@ -824,12 +828,12 @@ export const handleAvatarUpload = asyncHandler(async (req: Request, res: Respons
 
 Note: The old cleanup logic (`fs.unlinkSync(req.file.path)`) is no longer needed since memory storage doesn't write to disk. If `storage.upload()` fails, nothing was persisted.
 
-- [ ] **Step 3: Verify avatar upload still works locally**
+- [x] **Step 3: Verify avatar upload still works locally**
 
 Run the backend: `cd backend && npm run dev`
 Test: Use the app UI or curl to upload an avatar. Verify it appears at `/uploads/avatars/...`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/src/controllers/user.controller.ts
@@ -845,7 +849,7 @@ git commit -m "refactor: use StorageService for avatar uploads, remove Azure hos
 
 **Context:** Workspace file upload (line ~1583) and delete (line ~1633) in `workspace.routes.ts` use multer disk storage and `fs.unlinkSync`. Same pattern as avatars — switch to memory storage + StorageService.
 
-- [ ] **Step 1: Switch workspace multer to memory storage**
+- [x] **Step 1: Switch workspace multer to memory storage**
 
 In `backend/src/routes/workspace.routes.ts`, replace the multer config (lines 54-76):
 
@@ -861,7 +865,7 @@ const upload = multer({
 });
 ```
 
-- [ ] **Step 2: Update upload handler to use StorageService**
+- [x] **Step 2: Update upload handler to use StorageService**
 
 In the upload route handler (line ~1583), replace file URL construction:
 
@@ -889,7 +893,7 @@ const file = await prisma.workspaceFile.create({
 });
 ```
 
-- [ ] **Step 3: Update delete handler to use StorageService**
+- [x] **Step 3: Update delete handler to use StorageService**
 
 In the DELETE handler (line ~1633), replace filesystem deletion:
 
@@ -904,11 +908,11 @@ const key = file.url.replace(/^\/uploads\//, '').replace(/^https?:\/\/[^/]+\//, 
 await storage.delete(key);
 ```
 
-- [ ] **Step 4: Verify workspace file upload/delete still works locally**
+- [x] **Step 4: Verify workspace file upload/delete still works locally**
 
 Run backend, upload a file to a workspace, then delete it. Verify both operations succeed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/routes/workspace.routes.ts
@@ -924,7 +928,7 @@ git commit -m "refactor: use StorageService for workspace file uploads and delet
 
 **Context:** When using R2, files are served from a CDN URL (e.g., `https://cdn.inchronicle.com/...`). The Express static middleware for `/uploads` is only needed for local storage.
 
-- [ ] **Step 1: Wrap /uploads static serving in local-only guard**
+- [x] **Step 1: Wrap /uploads static serving in local-only guard**
 
 In `backend/src/app.ts`, wrap the `/uploads` static middleware (lines ~200-234):
 
@@ -938,11 +942,11 @@ if (!process.env.STORAGE_PROVIDER || process.env.STORAGE_PROVIDER === 'local') {
 }
 ```
 
-- [ ] **Step 2: Verify /uploads still serves files locally**
+- [x] **Step 2: Verify /uploads still serves files locally**
 
 Run backend, verify an existing avatar URL still loads.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/src/app.ts
@@ -952,6 +956,8 @@ git commit -m "refactor: conditionally serve /uploads static files only for loca
 ---
 
 ## Phase 2: Migration Prep (Parallel Environments)
+
+> **Status: IN PROGRESS** — Fly.io deployed, Neon connected, Pages Functions done, Azure refs cleaned. Remaining: R2 bucket, CF Pages, OAuth URIs.
 
 > **Dependency:** Phase 1 complete (storage abstraction deployed to Azure, verified working).
 > **Goal:** Stand up Fly.io + Cloudflare Pages + Neon in parallel with Azure. Verify everything works before touching DNS.
@@ -965,7 +971,7 @@ git commit -m "refactor: conditionally serve /uploads static files only for loca
 
 **Context:** Neon uses PgBouncer for connection pooling. Prisma migrations need a direct (non-pooled) connection because PgBouncer doesn't support advisory locks or DDL. Adding `directUrl` is backward-compatible — if `DIRECT_DATABASE_URL` is not set, Prisma falls back to `DATABASE_URL`.
 
-- [ ] **Step 1: Add directUrl to schema.prisma**
+- [x] **Step 1: Add directUrl to schema.prisma**
 
 In `backend/prisma/schema.prisma`, update the datasource block:
 
@@ -977,15 +983,15 @@ datasource db {
 }
 ```
 
-- [ ] **Step 2: Regenerate Prisma client**
+- [x] **Step 2: Regenerate Prisma client**
 
 Run: `cd backend && npx prisma generate`
 
-- [ ] **Step 3: Verify existing setup still works (no DIRECT_DATABASE_URL set)**
+- [x] **Step 3: Verify existing setup still works (no DIRECT_DATABASE_URL set)**
 
 Run: `cd backend && npm run dev` — backend should start and connect to local PG as before.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/prisma/schema.prisma
@@ -998,7 +1004,7 @@ git commit -m "feat: add Prisma directUrl for Neon PgBouncer compatibility"
 
 **Files:** None (external service setup + data migration)
 
-- [ ] **Step 1: Create Neon project (Launch plan, $19/mo)**
+- [x] **Step 1: Create Neon project (Launch plan, $19/mo)**
 
 Go to https://console.neon.tech → Create project:
 - Name: `inchronicle`
@@ -1010,7 +1016,7 @@ Note BOTH connection strings from the dashboard:
 - **Pooled** (has `-pooler` in hostname): `postgresql://user:pass@ep-xxx-pooler.us-east-2.aws.neon.tech/inchronicle?sslmode=require`
 - **Direct** (no `-pooler`): `postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/inchronicle?sslmode=require`
 
-- [ ] **Step 2: Check Azure DB size + extensions**
+- [x] **Step 2: Check Azure DB size + extensions**
 
 ```bash
 psql "$AZURE_DATABASE_URL" -c "SELECT pg_size_pretty(pg_database_size('inchronicle'));"
@@ -1019,7 +1025,7 @@ psql "$AZURE_DATABASE_URL" -c "SELECT extname, extversion FROM pg_extension ORDE
 
 Expected: No custom extensions (confirmed by codebase search). Size should be well under 10 GiB.
 
-- [ ] **Step 3: Run Prisma migrations against Neon (use DIRECT connection)**
+- [x] **Step 3: Run Prisma migrations against Neon (use DIRECT connection)**
 
 ```bash
 cd backend
@@ -1030,7 +1036,7 @@ DATABASE_URL="postgresql://user:pass@ep-xxx-pooler.us-east-2.aws.neon.tech/inchr
 
 Expected: All migrations apply successfully. Prisma uses `directUrl` for migrations automatically.
 
-- [ ] **Step 4: Export data from Azure PostgreSQL**
+- [x] **Step 4: Export data from Azure PostgreSQL**
 
 ```bash
 pg_dump "postgresql://psadmin:PASSWORD@ps-postgres-server.postgres.database.azure.com:5432/inchronicle?sslmode=require" \
@@ -1040,7 +1046,7 @@ pg_dump "postgresql://psadmin:PASSWORD@ps-postgres-server.postgres.database.azur
 
 Using `-Fc` (custom format) for selective restore. Check size: `ls -lh backup.dump`
 
-- [ ] **Step 5: Import data into Neon (use DIRECT connection)**
+- [x] **Step 5: Import data into Neon (use DIRECT connection)**
 
 ```bash
 pg_restore --data-only --no-owner --no-acl \
@@ -1050,7 +1056,7 @@ pg_restore --data-only --no-owner --no-acl \
 
 Sequences auto-reset correctly via `setval()` calls in the dump.
 
-- [ ] **Step 6: Verify row counts match**
+- [x] **Step 6: Verify row counts match**
 
 ```bash
 psql "$NEON_DIRECT_URL" -c "
@@ -1062,7 +1068,7 @@ psql "$NEON_DIRECT_URL" -c "
 
 Compare with same query on Azure.
 
-- [ ] **Step 7: Note — encrypted OAuth tokens**
+- [x] **Step 7: Note — encrypted OAuth tokens**
 
 All OAuth tokens in the `mcp_connections` table are encrypted with `ENCRYPTION_KEY`. As long as the same `ENCRYPTION_KEY` is used in the Fly.io environment, tokens will decrypt correctly. **Do not change or lose this key.**
 
@@ -1073,11 +1079,11 @@ All OAuth tokens in the `mcp_connections` table are encrypted with `ENCRYPTION_K
 **Files:**
 - Create: `backend/fly.toml` (lives in backend dir, not root)
 
-- [ ] **Step 1: Install Fly CLI**
+- [x] **Step 1: Install Fly CLI**
 
 Run: `brew install flyctl` (or `curl -L https://fly.io/install.sh | sh`)
 
-- [ ] **Step 2: Create Fly app**
+- [x] **Step 2: Create Fly app**
 
 ```bash
 cd backend
@@ -1124,7 +1130,7 @@ primary_region = 'iad'
 
 Key: 512MB memory (Node+Prisma+tsx OOMs on 256MB). Cost: ~$3-5/mo.
 
-- [ ] **Step 3: Set secrets**
+- [x] **Step 3: Set secrets**
 
 ```bash
 fly secrets set \
@@ -1151,7 +1157,7 @@ fly secrets set \
 
 Note: Each `fly secrets set` restarts machines. Use `fly secrets import` for bulk: `cat .env.production | fly secrets import -a inchronicle-api`
 
-- [ ] **Step 4: Deploy (remote build — no local Docker needed)**
+- [x] **Step 4: Deploy (remote build — no local Docker needed)**
 
 ```bash
 cd backend
@@ -1160,17 +1166,17 @@ fly deploy --remote-only
 
 Expected: Image builds remotely, deploys with rolling restart, health check passes.
 
-- [ ] **Step 5: Verify health endpoint**
+- [x] **Step 5: Verify health endpoint**
 
 Run: `curl https://inchronicle-backend.fly.dev/health`
 Expected: `{"status":"ok"}`
 
-- [ ] **Step 6: Test API from local frontend**
+- [x] **Step 6: Test API from local frontend**
 
 Run locally: `VITE_API_URL=https://inchronicle-backend.fly.dev/api/v1 npm run dev`
 Log in, verify data loads from Neon via Fly.io backend.
 
-- [ ] **Step 7: Commit fly.toml**
+- [x] **Step 7: Commit fly.toml**
 
 ```bash
 git add fly.toml
@@ -1212,7 +1218,7 @@ Upload an avatar via the Fly.io-hosted backend. Verify the file appears in R2 an
 
 **Context:** Pages Functions use file-based routing (not Express). Use `HTMLRewriter` (streaming HTML parser built into Workers) instead of string `.replace()`. The Workers runtime is NOT Node.js — no `fs`, no `process.env`, no `express`.
 
-- [ ] **Step 1: Create `_routes.json` to protect Function quota**
+- [x] **Step 1: Create `_routes.json` to protect Function quota**
 
 Create `public/_routes.json` (Vite copies `public/` contents into `dist/`):
 
@@ -1229,7 +1235,7 @@ Create `public/_routes.json` (Vite copies `public/` contents into `dist/`):
 
 Without this, every static asset request (JS, CSS, images) burns your free 100k/day Function quota.
 
-- [ ] **Step 2: Create pragma link Function**
+- [x] **Step 2: Create pragma link Function**
 
 Create `functions/p/[shortCode].ts`:
 
@@ -1292,11 +1298,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 };
 ```
 
-- [ ] **Step 3: Create chronicle profile Function**
+- [x] **Step 3: Create chronicle profile Function**
 
 Create `functions/[slug].ts` — same pattern but fetching from `/api/v1/users/chronicle/${slug}` and injecting profile OG tags + `window.__CHRONICLE_DATA__` script. Guard with slug regex: `/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/`
 
-- [ ] **Step 4: Add wrangler for local Function testing**
+- [x] **Step 4: Add wrangler for local Function testing**
 
 ```bash
 npm install -D wrangler @cloudflare/workers-types
@@ -1304,7 +1310,7 @@ npm install -D wrangler @cloudflare/workers-types
 
 Test locally: `npm run build && npx wrangler pages dev dist`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add functions/ public/_routes.json
@@ -1355,7 +1361,7 @@ Create a test branch, push it. Confirm Cloudflare Pages creates a preview URL au
 - Modify: `src/utils/avatar.ts` — remove Azure HTTP→HTTPS check
 - Modify: `vite.config.ts` — remove `.azurewebsites.net` from allowed hosts
 
-- [ ] **Step 1: Clean CORS in backend/src/app.ts**
+- [x] **Step 1: Clean CORS in backend/src/app.ts**
 
 Replace the three hardcoded CORS origin lists (lines ~91-100, ~203-209, ~239-244) with env-driven config:
 
@@ -1378,7 +1384,7 @@ Remove the `azurewebsites.net` regex and all `ps-frontend-1758551070.azurewebsit
 
 Apply the same cleanup to the `/uploads` and `/screenshots` CORS blocks — replace hardcoded Azure origins with the same pattern using `process.env.FRONTEND_URL` and `process.env.CORS_ORIGINS`.
 
-- [ ] **Step 2: Remove Azure host detection in avatar URL**
+- [x] **Step 2: Remove Azure host detection in avatar URL**
 
 In `backend/src/controllers/user.controller.ts`, the old `handleAvatarUpload` with Azure host detection was already replaced in Task 1.4. Verify the old code is gone — search for `azurewebsites.net` in the file, confirm zero matches.
 
@@ -1388,7 +1394,7 @@ In `backend/src/controllers/user.controller.ts`, the old `handleAvatarUpload` wi
 
 **Remaining cleanup deferred to Phase 3 Task 3.1 Step 5** — fix the secret, remove the exclusion, switch to positive validation.
 
-- [ ] **Step 4: Remove Azure checks in frontend utils**
+- [x] **Step 4: Remove Azure checks in frontend utils**
 
 In `src/services/profile-api.service.ts` line 36, remove:
 ```typescript
@@ -1408,7 +1414,7 @@ if (normalized.includes('azurewebsites.net')) {
 
 Both are unnecessary — Fly.io and R2 enforce HTTPS at the infrastructure level.
 
-- [ ] **Step 5: Remove Azure from vite.config.ts allowed hosts**
+- [x] **Step 5: Remove Azure from vite.config.ts allowed hosts**
 
 In `vite.config.ts` line 29:
 ```typescript
@@ -1416,12 +1422,12 @@ Old: allowedHosts: ['localhost', '.azurewebsites.net', 'inchronicle.com', '.inch
 New: allowedHosts: ['localhost', 'inchronicle.com', '.inchronicle.com'],
 ```
 
-- [ ] **Step 6: Verify no Azure references remain in app code**
+- [x] **Step 6: Verify no Azure references remain in app code**
 
 Run: `grep -r "azurewebsites" backend/src/ src/ --include="*.ts" --include="*.tsx" --include="*.mjs"`
 Expected: Zero results (infra scripts and docs may still have references, that's fine).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/src/app.ts src/lib/api.ts src/services/profile-api.service.ts src/utils/avatar.ts vite.config.ts
@@ -1514,7 +1520,7 @@ Then test Microsoft (strictest validation).
 **Files:**
 - Create: `.github/workflows/deploy-fly.yml`
 
-- [ ] **Step 1: Create the workflow**
+- [x] **Step 1: Create the workflow**
 
 Create `.github/workflows/deploy-fly.yml`:
 
@@ -1555,16 +1561,16 @@ jobs:
           echo "Health check passed"
 ```
 
-- [ ] **Step 2: Add FLY_API_TOKEN to GitHub Secrets**
+- [x] **Step 2: Add FLY_API_TOKEN to GitHub Secrets**
 
 Generate: `fly tokens create deploy -x 999999h -a inchronicle-api`
 Add to GitHub → Settings → Secrets → `FLY_API_TOKEN`
 
-- [ ] **Step 3: Test workflow**
+- [x] **Step 3: Test workflow**
 
 Push a trivial backend change to main. Verify the workflow runs and deploys successfully.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .github/workflows/deploy-fly.yml
