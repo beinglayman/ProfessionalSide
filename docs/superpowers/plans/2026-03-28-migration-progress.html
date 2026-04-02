@@ -251,7 +251,7 @@
 
 <h1>InChronicle Cloud Migration</h1>
 <p class="subtitle">Azure → Cloudflare Pages + Fly.io + Neon + R2</p>
-<p class="last-updated">Last updated: <strong id="lastUpdated">2026-03-29</strong> &nbsp;·&nbsp; <a href="2026-03-26-azure-to-cloudflare-flyio-migration.md" style="color: var(--blue); text-decoration: none;">Full Plan</a> &nbsp;·&nbsp; <a href="2026-03-27-migration-research.md" style="color: var(--blue); text-decoration: none;">Research</a> &nbsp;·&nbsp; <a href="2026-03-26-migration-diagram.html" style="color: var(--blue); text-decoration: none;">Diagrams</a></p>
+<p class="last-updated">Last updated: <strong id="lastUpdated">2026-04-02</strong> &nbsp;·&nbsp; <a href="2026-03-26-azure-to-cloudflare-flyio-migration.md" style="color: var(--blue); text-decoration: none;">Full Plan</a> &nbsp;·&nbsp; <a href="2026-03-27-migration-research.md" style="color: var(--blue); text-decoration: none;">Research</a> &nbsp;·&nbsp; <a href="2026-03-26-migration-diagram.html" style="color: var(--blue); text-decoration: none;">Diagrams</a></p>
 
 <!-- Incident banner -->
 <div style="background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem;">
@@ -321,8 +321,9 @@ const TASKS = [
 
   // Phase 2: Migration Prep
   { phase: 2, id: 't2.0', name: 'Add Prisma directUrl for Neon', owner: 'code', status: 'done', meta: 'schema.prisma: directUrl = env("DIRECT_DATABASE_URL")', commit: '66611c9' },
-  { phase: 2, id: 't2.1', name: 'Provision Neon database + migrate data', owner: 'you', status: 'pending', meta: 'console.neon.tech → Launch plan, pg_dump → pg_restore' },
-  { phase: 2, id: 't2.2', name: 'Deploy backend to Fly.io', owner: 'you', status: 'pending', meta: 'fly launch, secrets, fly deploy --remote-only' },
+  { phase: 2, id: 't2.0a', name: 'fly.toml + .dockerignore', owner: 'code', status: 'done', meta: '512MB shared-cpu-1x, health checks, auto-stop. fly.toml excluded from Docker image.', commit: 'b0903ce' },
+  { phase: 2, id: 't2.1', name: 'Provision Neon database', owner: 'both', status: 'done', meta: 'ep-sparkling-resonance-ajf3aqs3, us-east-2, 36 migrations applied via neonctl init + prisma migrate deploy' },
+  { phase: 2, id: 't2.2', name: 'Deploy backend to Fly.io', owner: 'both', status: 'done', meta: 'inchronicle-api.fly.dev, iad region, 32 secrets imported, health OK, DB connected to Neon' },
   { phase: 2, id: 't2.3', name: 'Create Cloudflare R2 bucket', owner: 'you', status: 'pending', meta: 'Dashboard: bucket + API token + custom domain' },
   { phase: 2, id: 't2.4', name: 'Pages Functions (OG tag SSR)', owner: 'code', status: 'done', meta: 'functions/p/[shortCode].ts + functions/[slug].ts + _routes.json + HTMLRewriter', commit: 'b8e5bde' },
   { phase: 2, id: 't2.5', name: 'Connect Cloudflare Pages to repo', owner: 'you', status: 'pending', meta: 'Dashboard: Git connect, build config, env vars' },
@@ -331,6 +332,7 @@ const TASKS = [
   { phase: 2, id: 't2.6c', name: '⚠ INCIDENT FIX: restore api.inchronicle.com guard', owner: 'code', status: 'done', meta: 'GitHub secret VITE_API_URL missing /api/v1 suffix → 404 on all API calls. Guard restored + regression tests.', commit: '3cbbfdd' },
   { phase: 2, id: 't2.7', name: 'Update OAuth redirect URIs', owner: 'you', status: 'pending', meta: 'Microsoft (24hrs early), Google, Atlassian, GitHub dual-app, Razorpay webhook' },
   { phase: 2, id: 't2.8', name: 'Fly.io deploy workflow (GitHub Actions)', owner: 'code', status: 'done', meta: '.github/workflows/deploy-fly.yml (fails gracefully until FLY_API_TOKEN set)', commit: '8e958bf' },
+  { phase: 2, id: 't2.9', name: 'Infrastructure runbooks', owner: 'code', status: 'done', meta: 'infra/: FLY-IO.md, NEON.md, CLOUDFLARE-PAGES.md, CLOUDFLARE-R2.md, DNS-CUTOVER.md, README.md', commit: '4b6380e' },
 
   // Phase 3: Cutover
   { phase: 3, id: 't3.0', name: 'Migrate nameservers to Cloudflare', owner: 'you', status: 'pending', meta: 'Spaceship → Cloudflare NS. Preserve MX + SPF + DMARC. Soak 1 week.' },
