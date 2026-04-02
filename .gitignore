@@ -19,6 +19,9 @@ build
 */build/
 docs/cd6
 
+# Wrangler (Cloudflare CLI)
+.wrangler/
+
 # Environment variables
 .env
 .env.local

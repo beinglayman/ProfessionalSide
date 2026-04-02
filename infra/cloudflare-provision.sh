@@ -28,6 +28,16 @@ if ! command -v "$FLYCTL" &>/dev/null; then
   FLYCTL="$HOME/.fly/bin/flyctl"
 fi
 
+# ─── Prereqs ───
+if ! command -v wrangler &>/dev/null; then
+  echo "✗ wrangler not found. Install: npm i -g wrangler && wrangler login" >&2
+  exit 1
+fi
+if ! wrangler whoami &>/dev/null 2>&1; then
+  echo "✗ wrangler not authenticated. Run: wrangler login" >&2
+  exit 1
+fi
+
 echo "═══════════════════════════════════════════"
 echo " InChronicle Cloudflare Provisioning"
 echo " Environment: ${ENV}"
@@ -74,10 +84,10 @@ echo ""
 echo "── Upload Test ──"
 echo "Testing upload to ${R2_BUCKET}..."
 echo "inchronicle-r2-test-$(date +%s)" > /tmp/ic-r2-test.txt
-if wrangler r2 object put "${R2_BUCKET}/test/health.txt" --file /tmp/ic-r2-test.txt 2>/dev/null; then
-  echo "✓ Upload succeeded"
+if wrangler r2 object put "${R2_BUCKET}/test/health.txt" --file /tmp/ic-r2-test.txt --remote 2>/dev/null; then
+  echo "✓ Upload succeeded (remote)"
   echo "Cleaning up test file..."
-  wrangler r2 object delete "${R2_BUCKET}/test/health.txt" 2>/dev/null && echo "✓ Cleanup done" || echo "⚠ Cleanup failed (non-critical)"
+  wrangler r2 object delete "${R2_BUCKET}/test/health.txt" --remote 2>/dev/null && echo "✓ Cleanup done" || echo "⚠ Cleanup failed (non-critical)"
 else
   echo "✗ Upload failed — check permissions"
 fi
