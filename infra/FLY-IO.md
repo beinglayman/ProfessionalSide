@@ -86,10 +86,10 @@ fly secrets deploy -a inchronicle-api
 | `CORS_ORIGINS` | `https://inchronicle.com,https://www.inchronicle.com` |
 | `BACKEND_URL` | `https://inchronicle-api.fly.dev` (Phase 3: `https://api.inchronicle.com`) |
 | `STORAGE_PROVIDER` | `local` (current) → `r2` (after R2 bucket setup) |
-| `R2_ACCOUNT_ID` | Cloudflare account ID (when R2 is ready) |
-| `R2_ACCESS_KEY_ID` | R2 API token (when R2 is ready) |
-| `R2_SECRET_ACCESS_KEY` | R2 API secret (when R2 is ready) |
-| `R2_BUCKET` | `inchronicle-uploads` |
+| `R2_ACCOUNT_ID` | `da07998400d83f9a3ad8f585d240e247` |
+| `R2_ACCESS_KEY_ID` | R2 API token (from CF dashboard) |
+| `R2_SECRET_ACCESS_KEY` | R2 API secret (from CF dashboard) |
+| `R2_BUCKET` | `ic-uploads-prod` |
 | `R2_PUBLIC_URL` | `https://uploads.inchronicle.com` |
 
 ## Rollback

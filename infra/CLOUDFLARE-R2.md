@@ -4,26 +4,36 @@
 
 | Field | Value |
 |-------|-------|
-| Bucket name | `inchronicle-uploads` |
-| Custom domain | `uploads.inchronicle.com` |
-| S3 endpoint | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| Bucket name | `ic-uploads-prod` |
+| Account ID | `da07998400d83f9a3ad8f585d240e247` |
+| Custom domain | `uploads.inchronicle.com` (after DNS on Cloudflare) |
+| S3 endpoint | `https://da07998400d83f9a3ad8f585d240e247.r2.cloudflarestorage.com` |
 | SDK | `@aws-sdk/client-s3` (S3-compatible) |
+| Provisioned | 2026-04-02 via `infra/cloudflare-provision.sh` |
+| Naming convention | `ic-<purpose>-<env>` (e.g., `ic-uploads-prod`, `ic-uploads-staging`) |
 
 ## Setup (Dashboard)
 
-1. `dash.cloudflare.com` → R2 → Create bucket: `inchronicle-uploads`
-2. API tokens: My Profile → API Tokens → Create (R2 Read & Write)
-3. Custom domain: R2 → bucket → Settings → Custom Domains → `uploads.inchronicle.com`
+Automated via `infra/cloudflare-provision.sh`:
+```bash
+./infra/cloudflare-provision.sh             # prod (default)
+ENV=staging ./infra/cloudflare-provision.sh  # staging
+```
+
+Manual step (API token — Wrangler can't create these):
+1. Go to `dash.cloudflare.com/<ACCOUNT_ID>/r2/api-tokens`
+2. Create token: Object Read & Write, scoped to bucket
+3. Custom domain: R2 → bucket → Settings → Custom Domains → `uploads.inchronicle.com` (after DNS on Cloudflare)
 
 ## Fly.io Secrets
 
 ```bash
 fly secrets set \
   STORAGE_PROVIDER="r2" \
-  R2_ACCOUNT_ID="<your-account-id>" \
-  R2_ACCESS_KEY_ID="<api-token-access-key>" \
-  R2_SECRET_ACCESS_KEY="<api-token-secret>" \
-  R2_BUCKET="inchronicle-uploads" \
+  R2_ACCOUNT_ID="da07998400d83f9a3ad8f585d240e247" \
+  R2_ACCESS_KEY_ID="<from-dashboard>" \
+  R2_SECRET_ACCESS_KEY="<from-dashboard>" \
+  R2_BUCKET="ic-uploads-prod" \
   R2_PUBLIC_URL="https://uploads.inchronicle.com" \
   -a inchronicle-api
 ```
@@ -41,7 +51,7 @@ Custom domain is **read-only** (CDN-cached). Uploads go through S3 API endpoint.
 
 ```typescript
 new PutObjectCommand({
-  Bucket: 'inchronicle-uploads',
+  Bucket: 'ic-uploads-prod',
   Key: key,
   Body: buffer,
   ContentType: contentType,
@@ -65,8 +75,8 @@ az storage file download-batch \
   --account-name psstorage1758551070
 
 # Upload to R2 (using rclone or aws cli with R2 endpoint)
-aws s3 sync ./uploads-backup s3://inchronicle-uploads \
-  --endpoint-url https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+aws s3 sync ./uploads-backup s3://ic-uploads-prod \
+  --endpoint-url https://da07998400d83f9a3ad8f585d240e247.r2.cloudflarestorage.com
 
 # Update avatar URLs in database (Azure Files → R2)
 # Run a migration script to replace old URLs with uploads.inchronicle.com paths

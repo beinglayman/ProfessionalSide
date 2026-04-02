@@ -324,7 +324,7 @@ const TASKS = [
   { phase: 2, id: 't2.0a', name: 'fly.toml + .dockerignore', owner: 'code', status: 'done', meta: '512MB shared-cpu-1x, health checks, auto-stop. fly.toml excluded from Docker image.', commit: 'b0903ce' },
   { phase: 2, id: 't2.1', name: 'Provision Neon database', owner: 'both', status: 'done', meta: 'ep-sparkling-resonance-ajf3aqs3, us-east-2, 36 migrations applied via neonctl init + prisma migrate deploy' },
   { phase: 2, id: 't2.2', name: 'Deploy backend to Fly.io', owner: 'both', status: 'done', meta: 'inchronicle-api.fly.dev, iad region, 32 secrets imported, health OK, DB connected to Neon' },
-  { phase: 2, id: 't2.3', name: 'Create Cloudflare R2 bucket', owner: 'you', status: 'pending', meta: 'Dashboard: bucket + API token + custom domain' },
+  { phase: 2, id: 't2.3', name: 'Create Cloudflare R2 bucket', owner: 'both', status: 'done', meta: 'ic-uploads-prod, provisioned via cloudflare-provision.sh. API token still needed from dashboard.' },
   { phase: 2, id: 't2.4', name: 'Pages Functions (OG tag SSR)', owner: 'code', status: 'done', meta: 'functions/p/[shortCode].ts + functions/[slug].ts + _routes.json + HTMLRewriter', commit: 'b8e5bde' },
   { phase: 2, id: 't2.5', name: 'Connect Cloudflare Pages to repo', owner: 'you', status: 'pending', meta: 'Dashboard: Git connect, build config, env vars' },
   { phase: 2, id: 't2.6a', name: 'Clean Azure refs — backend CORS', owner: 'code', status: 'done', meta: 'Removed hardcoded Azure URLs, env-driven CORS_ORIGINS', commit: 'b5c43d6' },
