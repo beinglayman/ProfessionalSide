@@ -9,7 +9,9 @@
 | Custom domain | `uploads.inchronicle.com` (after DNS on Cloudflare) |
 | S3 endpoint | `https://da07998400d83f9a3ad8f585d240e247.r2.cloudflarestorage.com` |
 | SDK | `@aws-sdk/client-s3` (S3-compatible) |
+| API token name | `ic-uploads-prod-rw` (Object Read & Write, scoped to bucket) |
 | Provisioned | 2026-04-02 via `infra/cloudflare-provision.sh` |
+| Fly.io secrets | Set — `STORAGE_PROVIDER=r2`, all R2 vars configured |
 | Naming convention | `ic-<purpose>-<env>` (e.g., `ic-uploads-prod`, `ic-uploads-staging`) |
 
 ## Setup (Dashboard)
@@ -28,6 +30,7 @@ Manual step (API token — Wrangler can't create these):
 ## Fly.io Secrets
 
 ```bash
+# Already set on 2026-04-02. To update:
 fly secrets set \
   STORAGE_PROVIDER="r2" \
   R2_ACCOUNT_ID="da07998400d83f9a3ad8f585d240e247" \
@@ -37,6 +40,8 @@ fly secrets set \
   R2_PUBLIC_URL="https://uploads.inchronicle.com" \
   -a inchronicle-api
 ```
+
+> Access Key ID and Secret are in Fly.io secrets and `backend/.env` (gitignored). Token name: `ic-uploads-prod-rw`.
 
 ## How It Works
 

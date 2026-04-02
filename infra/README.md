@@ -24,7 +24,7 @@
 | [Cloudflare Pages](CLOUDFLARE-PAGES.md) | Frontend hosting + edge SSR | Free | Setup, Functions, DNS |
 | [Fly.io](FLY-IO.md) | Backend (Express, Docker) | ~$3-5/mo | Deploy, secrets, rollback |
 | [Neon](NEON.md) | PostgreSQL database | $19/mo (Launch) | Provisioning, migration, Prisma |
-| [Cloudflare R2](CLOUDFLARE-R2.md) | File uploads (S3-compatible) | ~$1/mo | Bucket, SDK, pricing |
+| [Cloudflare R2](CLOUDFLARE-R2.md) | File uploads (`ic-uploads-prod`) | ~$1/mo | Bucket, SDK, pricing |
 | [DNS Cutover](DNS-CUTOVER.md) | Migration playbook | — | Step-by-step, OAuth, rollback |
 
 **Total: ~$24/mo** (down from ~$50-65/mo on Azure)

@@ -85,7 +85,7 @@ fly secrets deploy -a inchronicle-api
 | `FRONTEND_URL` | `https://inchronicle.com` |
 | `CORS_ORIGINS` | `https://inchronicle.com,https://www.inchronicle.com` |
 | `BACKEND_URL` | `https://inchronicle-api.fly.dev` (Phase 3: `https://api.inchronicle.com`) |
-| `STORAGE_PROVIDER` | `local` (current) → `r2` (after R2 bucket setup) |
+| `STORAGE_PROVIDER` | `r2` (set 2026-04-02) |
 | `R2_ACCOUNT_ID` | `da07998400d83f9a3ad8f585d240e247` |
 | `R2_ACCESS_KEY_ID` | R2 API token (from CF dashboard) |
 | `R2_SECRET_ACCESS_KEY` | R2 API secret (from CF dashboard) |
