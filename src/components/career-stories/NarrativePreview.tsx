@@ -574,7 +574,7 @@ export function NarrativePreview({
                       Edit story
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onSelect={() => { if (story?.id) window.open(`/s/${story.id}`, '_blank'); }}
+                      onSelect={() => { if (story?.id) window.open(`/stories?storyId=${story.id}&fullscreen=true`, '_blank'); }}
                       disabled={!story?.id}
                       className="flex items-center gap-2"
                     >

@@ -381,7 +381,10 @@ export function CareerStoriesPage() {
           // Auto-hide after 5 seconds
           setTimeout(() => setShowCelebration(false), 5000);
         }
-        setSearchParams({}, { replace: true });
+        // Preserve fullscreen param when clearing other params
+        const keep: Record<string, string> = {};
+        if (searchParams.get('fullscreen')) keep.fullscreen = 'true';
+        setSearchParams(keep, { replace: true });
         return;
       }
     }
@@ -870,12 +873,13 @@ export function CareerStoriesPage() {
 
   // Page tab: 'stories' or 'library' (derived from URL search params)
   const pageTab = searchParams.get('tab') === 'library' ? 'library' : 'stories';
+  const isFullscreen = searchParams.get('fullscreen') === 'true';
 
   // View mode: 'list' shows cards, 'detail' shows full story
   const viewMode = selectedStoryDirect ? 'detail' : 'list';
 
-  // Desktop side panel: open when a story is selected on desktop in stories tab
-  const desktopPanelOpen = isDesktop && !!selectedStoryDirect && pageTab === 'stories';
+  // Desktop side panel: open when a story is selected on desktop in stories tab (or fullscreen)
+  const desktopPanelOpen = (isDesktop && !!selectedStoryDirect && pageTab === 'stories') || (isFullscreen && !!selectedStoryDirect);
 
   // (Stories filter/collapse/grouping state moved to storiesFilter via useListFilters above)
 
@@ -994,10 +998,10 @@ export function CareerStoriesPage() {
 
       {/* Main content area */}
       <div className={cn("h-full", isDesktop && "lg:flex")}>
-        {/* List column */}
+        {/* List column — hidden in fullscreen mode */}
         <div className={cn(
           "h-full overflow-y-auto transition-[width] duration-300 ease-in-out",
-          desktopPanelOpen ? "lg:w-[45%] lg:flex-shrink-0" : "w-full"
+          isFullscreen ? "hidden" : desktopPanelOpen ? "lg:w-[45%] lg:flex-shrink-0" : "w-full"
         )}>
         <div className={cn(
           "mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 space-y-4",
@@ -1437,16 +1441,21 @@ export function CareerStoriesPage() {
         </div>
       </div>
 
-      {/* Desktop side panel — NarrativePreview in compact mode */}
+      {/* Desktop side panel — NarrativePreview (compact unless fullscreen) */}
       <div className={cn(
-        "hidden lg:flex lg:flex-col bg-white border-l border-gray-200 shadow-xl",
+        "lg:flex lg:flex-col bg-white shadow-xl",
         "transition-[width,opacity] duration-300 ease-in-out overflow-hidden",
-        desktopPanelOpen ? "lg:w-[55%] opacity-100" : "lg:w-0 opacity-0 lg:border-l-0"
+        isFullscreen
+          ? "flex w-full opacity-100 border-0"
+          : cn(
+              "hidden border-l border-gray-200",
+              desktopPanelOpen ? "lg:w-[55%] opacity-100" : "lg:w-0 opacity-0 lg:border-l-0"
+            )
       )}>
         {selectedStoryDirect && pageTab === 'stories' && (
           <div className="h-full overflow-y-auto min-w-0" data-walkthrough="narrative-preview">
             <NarrativePreview
-              compact
+              compact={!isFullscreen}
               onBack={handleCloseDetail}
               clusterName={selectedStoryDirect.title}
               activityCount={selectedStoryDirect.activityIds.length}

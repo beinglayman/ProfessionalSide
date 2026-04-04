@@ -83,11 +83,12 @@ const AppRoutes: React.FC = () => {
   }
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isFullscreenStory = location.pathname === '/stories' && new URLSearchParams(location.search).get('fullscreen') === 'true';
 
   // Wrap authenticated routes with WalkthroughProvider (no-op when inactive)
   const content = (
     <div className="min-h-screen bg-gray-50">
-      {!isAuthPage && <Header networkType={networkType} onNetworkTypeChange={setNetworkType} />}
+      {!isAuthPage && !isFullscreenStory && <Header networkType={networkType} onNetworkTypeChange={setNetworkType} />}
       <Routes>
         <Route
           path="/"
