@@ -33,6 +33,7 @@ import {
   Eye,
   EyeOff,
   Link2,
+  Maximize2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -571,6 +572,14 @@ export function NarrativePreview({
                     <DropdownMenuItem onSelect={() => setIsEditing(true)} className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5" />
                       Edit story
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => { if (story?.id) window.open(`/s/${story.id}`, '_blank'); }}
+                      disabled={!story?.id}
+                      className="flex items-center gap-2"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                      Open full screen
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={onRegenerate} disabled={isLoading} className="flex items-center gap-2">

@@ -1874,8 +1874,15 @@ export const getPublishedStoryById = asyncHandler(async (req: Request, res: Resp
   const { storyId } = req.params;
   const viewerId = req.user?.id || null;
 
+  // Owner can view their own stories (published or not)
   const story = await prisma.careerStory.findFirst({
-    where: { id: storyId, isPublished: true },
+    where: {
+      id: storyId,
+      OR: [
+        { isPublished: true },
+        ...(viewerId ? [{ userId: viewerId }] : []),
+      ],
+    },
   });
 
   if (!story) {
@@ -1883,16 +1890,20 @@ export const getPublishedStoryById = asyncHandler(async (req: Request, res: Resp
     return;
   }
 
-  // Enforce visibility
-  if (story.visibility === 'private' && story.userId !== viewerId) {
+  const isOwner = !!(viewerId && story.userId === viewerId);
+
+  // Enforce visibility for non-owners
+  if (!isOwner && story.visibility === 'private') {
     sendError(res, 'Story not found', 404);
     return;
   }
   // TODO: workspace check for 'workspace' visibility
 
-  // Enrich with sources (filtered for public view)
+  // Enrich with sources — owner sees all, public sees filtered
   const enriched = await enrichStoryWithSources(story as any);
-  const publicSources = filterSources(enriched.sources || []);
+  const sources = isOwner
+    ? (enriched.sources || [])
+    : filterSources(enriched.sources || []);
 
   // Fetch author info
   const author = await prisma.user.findUnique({
@@ -1901,7 +1912,8 @@ export const getPublishedStoryById = asyncHandler(async (req: Request, res: Resp
   });
 
   sendSuccess(res, {
-    story: { ...enriched, sources: publicSources },
+    story: { ...enriched, sources },
     author,
+    isOwner,
   });
 });
