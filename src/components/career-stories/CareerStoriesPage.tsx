@@ -868,6 +868,9 @@ export function CareerStoriesPage() {
     }
   }, [savedStories, selectedCluster, selectedStoryDirect, setVisibilityMutation, updateSelectedStory]);
 
+  // Page tab: 'stories' or 'library' (derived from URL search params)
+  const pageTab = searchParams.get('tab') === 'library' ? 'library' : 'stories';
+
   // View mode: 'list' shows cards, 'detail' shows full story
   const viewMode = selectedStoryDirect ? 'detail' : 'list';
 
@@ -906,7 +909,6 @@ export function CareerStoriesPage() {
   // LIBRARY TAB
   // =========================================================================
 
-  const pageTab = searchParams.get('tab') === 'library' ? 'library' : 'stories';
   const selectedItemId = searchParams.get('itemId');
 
   const libraryItems = useMemo(() => {
