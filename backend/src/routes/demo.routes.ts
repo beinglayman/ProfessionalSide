@@ -11,6 +11,7 @@
 import { Router } from 'express';
 import {
   syncDemoData,
+  getDemoActivitiesHandler,
   updateDemoJournalEntryActivities,
   updateDemoClusterActivities,
   regenerateDemoJournalNarrative,
@@ -28,6 +29,12 @@ router.use(authenticate);
  * Called when user clicks Sync button in demo mode.
  */
 router.post('/sync', syncDemoData);
+
+/**
+ * GET /api/v1/demo/activities
+ * Return all demo activities for the authenticated user.
+ */
+router.get('/activities', getDemoActivitiesHandler);
 
 // Note: DELETE /demo/clear removed - use DELETE /journal/entries/bulk/all with X-Demo-Mode header
 

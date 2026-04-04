@@ -789,6 +789,18 @@ export const syncDemoData = asyncHandler(async (req: Request, res: Response): Pr
   }, 'Demo data synced successfully');
 });
 
+/**
+ * GET /api/v1/demo/activities
+ * Return all demo activities for the authenticated user.
+ */
+export const getDemoActivitiesHandler = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+  const activities = await seedService.getDemoActivities(userId);
+  sendSuccess(res, activities);
+});
 
 /**
  * PATCH /api/v1/demo/journal-entries/:id/activities
