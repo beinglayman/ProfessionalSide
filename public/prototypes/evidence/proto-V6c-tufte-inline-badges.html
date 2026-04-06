@@ -346,7 +346,7 @@
     }
     .evidence-hidden .story-column {
       padding-right: 0;
-      max-width: 720px;
+      max-width: none;
     }
     .evidence-hidden .witness-badge,
     .evidence-hidden .badge-empty {
@@ -612,46 +612,6 @@
       </div>
     </div>
 
-    <!-- ===== EVIDENCE TRAIL ===== -->
-    <div class="mt-16 mb-12">
-      <div class="flex items-center gap-2 mb-4">
-        <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        <h2 class="text-[13px] font-semibold text-[#0f172a] tracking-wide uppercase">Evidence Trail</h2>
-        <span class="text-xs text-[#64748b] ml-1">7 sources across 3 tools</span>
-      </div>
-
-      <!-- Source bar chart -->
-      <div class="flex items-end gap-1.5 h-16 mb-4 px-1">
-        <div class="flex flex-col items-center gap-1">
-          <div class="trail-segment w-14 bg-gray-800 rounded-t" style="height: 40px;" title="GitHub: 4 sources"></div>
-          <span class="text-[10px] text-[#64748b]">GitHub</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <div class="trail-segment w-14 bg-blue-500 rounded-t" style="height: 14px;" title="Jira: 1 source"></div>
-          <span class="text-[10px] text-[#64748b]">Jira</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <div class="trail-segment w-14 bg-blue-400 rounded-t" style="height: 14px;" title="Confluence: 1 source"></div>
-          <span class="text-[10px] text-[#64748b]">Confluence</span>
-        </div>
-      </div>
-
-      <!-- Timeline strip -->
-      <div class="relative h-8 bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div class="absolute inset-0 flex items-center px-4">
-          <div class="w-full h-px bg-gray-200 relative">
-            <div class="absolute left-[5%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-800 border-2 border-white shadow-sm" title="Jan 15 — GitHub PR #247"></div>
-            <div class="absolute left-[18%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white shadow-sm" title="Jan 22 — Jira OAUTH-142"></div>
-            <div class="absolute left-[30%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-blue-400 border-2 border-white shadow-sm" title="Jan 28 — Confluence doc"></div>
-            <div class="absolute left-[48%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-800 border-2 border-white shadow-sm" title="Feb 3 — GitHub PR #251"></div>
-            <div class="absolute left-[62%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-800 border-2 border-white shadow-sm" title="Feb 10 — GitHub PR #253"></div>
-            <div class="absolute left-[85%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-800 border-2 border-white shadow-sm" title="Feb 2026 — GitHub Reviews"></div>
-          </div>
-        </div>
-        <div class="absolute left-3 bottom-0.5 text-[9px] text-[#64748b]">Jan 15</div>
-        <div class="absolute right-3 bottom-0.5 text-[9px] text-[#64748b]">Feb 28</div>
-      </div>
-    </div>
 
     <!-- ===== PARTICIPANTS ===== -->
     <div class="mt-8">
