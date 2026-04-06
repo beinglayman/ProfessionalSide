@@ -34,6 +34,7 @@ import {
   EyeOff,
   Link2,
   Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -118,6 +119,7 @@ interface NarrativePreviewProps {
   onNavigateToLibraryItem?: (itemId: string) => void;
   onCreatePragmaLink?: () => void;
   onBack?: () => void;
+  onToggleFullscreen?: () => void;
 }
 
 export function NarrativePreview({
@@ -152,6 +154,7 @@ export function NarrativePreview({
   onNavigateToLibraryItem,
   onCreatePragmaLink,
   onBack,
+  onToggleFullscreen,
 }: NarrativePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -427,10 +430,10 @@ export function NarrativePreview({
                 <button
                   onClick={onBack}
                   className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 mt-0.5 flex-shrink-0"
-                  title="Back to stories (Esc)"
-                  aria-label="Back to stories"
+                  title={isFullscreen ? "Exit full screen (Esc)" : "Back to stories (Esc)"}
+                  aria-label={isFullscreen ? "Exit full screen" : "Back to stories"}
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
                 </button>
               )}
               <h2 className={cn("text-xl font-semibold text-gray-900 leading-snug tracking-tight flex-1 min-w-0 truncate", compact && "text-lg")}>{clusterName}</h2>
@@ -546,14 +549,14 @@ export function NarrativePreview({
                 >
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
-                {story?.id && !isFullscreen && (
+                {story?.id && onToggleFullscreen && (
                   <button
-                    onClick={() => { window.location.href = `/stories?storyId=${story.id}&fullscreen=true`; }}
+                    onClick={onToggleFullscreen}
                     className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center"
-                    title="Full screen"
-                    aria-label="Full screen"
+                    title={isFullscreen ? "Exit full screen" : "Full screen"}
+                    aria-label={isFullscreen ? "Exit full screen" : "Full screen"}
                   >
-                    <Maximize2 className="h-3.5 w-3.5" />
+                    {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                   </button>
                 )}
                 {isEditing && (

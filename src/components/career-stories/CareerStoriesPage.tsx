@@ -7,7 +7,7 @@
  * - Story list, STAR preview, and narrative generation
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { CheckCircle2, X, BookOpen, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -883,10 +883,23 @@ export function CareerStoriesPage() {
 
   // (Stories filter/collapse/grouping state moved to storiesFilter via useListFilters above)
 
-  // Close detail view
+  // Close detail view (or exit fullscreen first)
   const handleCloseDetail = useCallback(() => {
+    if (isFullscreen) {
+      setSearchParams({}, { replace: true });
+      return;
+    }
     setSelectedStoryDirect(null);
-  }, []);
+  }, [isFullscreen, setSearchParams]);
+
+  // Toggle fullscreen mode — preserves scroll and animates via CSS transitions
+  const handleToggleFullscreen = useCallback(() => {
+    if (isFullscreen) {
+      setSearchParams({}, { replace: true });
+    } else if (selectedStoryDirect) {
+      setSearchParams({ fullscreen: 'true' }, { replace: false });
+    }
+  }, [isFullscreen, selectedStoryDirect, setSearchParams]);
 
   // UseAsDropdown handler — navigate to existing derivation if saved, otherwise open generation modal
   const handleUseAsSelect = useCallback((typeKey: UseAsTypeKey, kind: 'single' | 'packet', existingId?: string) => {
@@ -954,6 +967,10 @@ export function CareerStoriesPage() {
           setSearchParams({ tab: 'library' }, { replace: true });
           return;
         }
+        if (isFullscreen) {
+          setSearchParams({}, { replace: true });
+          return;
+        }
         if (selectedStoryDirect) {
           setSelectedStoryDirect(null);
         }
@@ -961,7 +978,7 @@ export function CareerStoriesPage() {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedStoryDirect, selectedLibraryItem, setSearchParams]);
+  }, [selectedStoryDirect, selectedLibraryItem, isFullscreen, setSearchParams]);
 
   const handleDeleteLibraryItem = useCallback((id: string) => {
     // Navigate back first (avoid flash of null state), then delete
@@ -998,10 +1015,14 @@ export function CareerStoriesPage() {
 
       {/* Main content area */}
       <div className={cn("h-full", isDesktop && "lg:flex")}>
-        {/* List column — hidden in fullscreen mode */}
+        {/* List column — collapses to zero width in fullscreen (DOM preserved for scroll state) */}
         <div className={cn(
-          "h-full overflow-y-auto transition-[width] duration-300 ease-in-out",
-          isFullscreen ? "hidden" : desktopPanelOpen ? "lg:w-[45%] lg:flex-shrink-0" : "w-full"
+          "h-full overflow-y-auto transition-[width,opacity] duration-300 ease-in-out",
+          isFullscreen
+            ? "w-0 min-w-0 overflow-hidden opacity-0 flex-shrink-0"
+            : desktopPanelOpen
+              ? "lg:w-[45%] lg:flex-shrink-0 opacity-100"
+              : "w-full opacity-100"
         )}>
         <div className={cn(
           "mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 space-y-4",
@@ -1023,6 +1044,7 @@ export function CareerStoriesPage() {
               {/* Full story preview */}
               <NarrativePreview
                 onBack={handleCloseDetail}
+                onToggleFullscreen={handleToggleFullscreen}
                 clusterName={selectedStoryDirect.title}
                 activityCount={selectedStoryDirect.activityIds.length}
                 dateRange={selectedCluster?.metrics?.dateRange}
@@ -1458,6 +1480,7 @@ export function CareerStoriesPage() {
               compact={!isFullscreen}
               isFullscreen={isFullscreen}
               onBack={handleCloseDetail}
+              onToggleFullscreen={handleToggleFullscreen}
               clusterName={selectedStoryDirect.title}
               activityCount={selectedStoryDirect.activityIds.length}
               dateRange={selectedCluster?.metrics?.dateRange}
