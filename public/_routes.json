@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "include": ["/p/*", "/*"],
+  "include": ["/*"],
   "exclude": [
     "/assets/*",
     "/prototypes/*",
