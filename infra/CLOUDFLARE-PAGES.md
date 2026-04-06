@@ -20,8 +20,9 @@
    - Output directory: `dist`
    - Root directory: `/` (default)
 4. Environment variables:
-   - Production: `VITE_API_URL=https://api.inchronicle.com/api/v1`, `NODE_VERSION=18`
+   - Production: `VITE_API_URL=https://api.inchronicle.com/api/v1`, `NODE_VERSION=20`
    - Preview: same (or staging URL)
+   - **Node 20 required** — Vite 7 + Rollup native binaries need Node >=20. Node 18 causes `Cannot find module @rollup/rollup-linux-x64-gnu`.
 
 ## Pages Functions (Edge SSR)
 
