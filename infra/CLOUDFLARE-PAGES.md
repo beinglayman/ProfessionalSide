@@ -5,7 +5,8 @@
 | Field | Value |
 |-------|-------|
 | Dashboard | `dash.cloudflare.com` → Workers & Pages |
-| Domain | `inchronicle.com` (CNAME → `your-project.pages.dev`) |
+| Domain | `inchronicle.com` (CNAME → `professionalside.pages.dev`) |
+| Preview URL | `professionalside.pages.dev` |
 | Build command | `npm run build` |
 | Output directory | `dist` |
 | Root directory | `/` (default) |
@@ -81,8 +82,8 @@ Automatic. If no `404.html` exists in `dist/`, Pages serves `index.html` for all
 
 | Type | Name | Value | Proxy | TTL |
 |------|------|-------|-------|-----|
-| CNAME | @ | `your-project.pages.dev` | Proxied (orange) | Auto |
-| CNAME | www | `your-project.pages.dev` | Proxied (orange) | Auto |
+| CNAME | @ | `professionalside.pages.dev` | Proxied (orange) | Auto |
+| CNAME | www | `professionalside.pages.dev` | Proxied (orange) | Auto |
 
 www → non-www redirect: Dashboard → Rules → Redirect Rules:
 - When: Hostname equals `www.inchronicle.com`
@@ -91,7 +92,7 @@ www → non-www redirect: Dashboard → Rules → Redirect Rules:
 
 ## PR Preview Deploys
 
-Every PR automatically gets a preview URL: `https://<hash>.your-project.pages.dev`. Free, no config needed.
+Every PR automatically gets a preview URL: `https://<hash>.professionalside.pages.dev`. Free, no config needed.
 
 ## Free Plan Limits
 

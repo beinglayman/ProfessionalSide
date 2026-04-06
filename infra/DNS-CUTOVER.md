@@ -49,8 +49,8 @@ CNAME www      → TTL 60
 
 | Type | Name | Value | Proxy | TTL |
 |------|------|-------|-------|-----|
-| CNAME | @ | `your-project.pages.dev` | Proxied (orange) | Auto |
-| CNAME | www | `your-project.pages.dev` | Proxied (orange) | Auto |
+| CNAME | @ | `professionalside.pages.dev` | Proxied (orange) | Auto |
+| CNAME | www | `professionalside.pages.dev` | Proxied (orange) | Auto |
 | CNAME | api | `inchronicle-api.fly.dev` | DNS only (grey) | 60 |
 | CNAME | uploads | (auto-managed by R2 custom domain) | Proxied | Auto |
 | MX | @ | (unchanged) | N/A | 3600 |
@@ -76,21 +76,41 @@ Change records back to Azure values. Instant for proxied records, ≤60s for DNS
 
 ## OAuth Redirect URIs
 
-All prefixed with `https://api.inchronicle.com/api/v1/mcp/callback/`
+Callback URLs are built from `BACKEND_URL` env var + provider callbackPaths (see `backend/src/services/mcp/oauth-provider-contract.ts`).
+
+### Phase 2 (now): Testing with fly.dev
+
+All prefixed with `https://inchronicle-api.fly.dev/api/v1/mcp/callback/`
+
+| Provider | URIs to add | Multi-URI? | Propagation | Dashboard |
+|----------|------------|-----------|-------------|-----------|
+| **GitHub** | `/github` | **NO — 1 only** | Instant | github.com → Settings → Developer settings → OAuth Apps |
+| **Atlassian** | `/jira`, `/confluence`, `/atlassian` | Yes | Instant | developer.atlassian.com |
+| **Google** | `/google_workspace` | Yes | 5min-few hrs | console.cloud.google.com |
+| **Microsoft** | `/outlook`, `/teams`, `/onedrive`, `/onenote` | Yes | **Up to 24hrs** | portal.azure.com |
+
+### Phase 3 (cutover): Production with api.inchronicle.com
+
+All prefixed with `https://api.inchronicle.com/api/v1/mcp/callback/` — replace fly.dev URIs after DNS cutover.
 
 | Provider | URIs | Multi-URI? | Propagation | Dashboard |
 |----------|------|-----------|-------------|-----------|
 | **GitHub** | `/github` | **NO — 1 only** | Instant | github.com → Settings → Developer settings → OAuth Apps |
 | **Atlassian** | `/jira`, `/confluence`, `/atlassian` | Yes | Instant | developer.atlassian.com |
 | **Google** | `/google_workspace` | Yes | 5min-few hrs | console.cloud.google.com |
-| **Microsoft** | `/outlook`, `/teams`, `/onedrive`, `/onenote`, `/microsoft` | Yes | **Up to 24hrs** | portal.azure.com |
+| **Microsoft** | `/outlook`, `/teams`, `/onedrive`, `/onenote` | Yes | **Up to 24hrs** | portal.azure.com |
 | **Figma** | `/figma` | Yes | Instant | figma.com → Developer settings |
 | **Slack** | `/slack` | Yes | Instant | api.slack.com |
 | **Zoom** | `/zoom` | Yes | Instant | marketplace.zoom.us |
 
 ### GitHub Workaround
 
-GitHub OAuth Apps support only ONE callback URL. Create a second OAuth App with the new URL. Run both during transition. Delete old after 2 weeks. Update `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` on Fly.io.
+GitHub OAuth Apps support only ONE callback URL. Create a **second OAuth App** for the new URL:
+1. https://github.com/settings/applications/new
+2. Homepage URL: `https://inchronicle-api.fly.dev`
+3. Callback URL: `https://inchronicle-api.fly.dev/api/v1/mcp/callback/github`
+4. Set new `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` on Fly.io
+5. Keep old app for Azure. Delete old after cutover.
 
 ### Zoom Gotcha
 
