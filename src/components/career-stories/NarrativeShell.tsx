@@ -82,7 +82,7 @@ export function NarrativeShell({ owner, children, className }: NarrativeShellPro
   const [showEmphasis, setShowEmphasis] = useState(true);
   const [practiceMode, setPracticeMode] = useState(false);
   const [timerActive, setTimerActive] = useState(false);
-  const [showSourceMargin, setShowSourceMargin] = useState(true);
+  const [showSourceMargin, setShowSourceMargin] = useState(false);
 
   // Unified popover state (replaces separate selectionPopover + editPopover)
   const [popover, setPopover] = useState<{

@@ -1456,6 +1456,7 @@ export function CareerStoriesPage() {
           <div className="h-full overflow-y-auto min-w-0" data-walkthrough="narrative-preview">
             <NarrativePreview
               compact={!isFullscreen}
+              isFullscreen={isFullscreen}
               onBack={handleCloseDetail}
               clusterName={selectedStoryDirect.title}
               activityCount={selectedStoryDirect.activityIds.length}

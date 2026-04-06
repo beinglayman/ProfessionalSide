@@ -88,6 +88,7 @@ import { mergeWarningAnnotations } from '../../lib/warning-annotations';
 
 interface NarrativePreviewProps {
   compact?: boolean;
+  isFullscreen?: boolean;
   clusterName: string;
   activityCount: number;
   dateRange?: { earliest: string; latest: string };
@@ -121,6 +122,7 @@ interface NarrativePreviewProps {
 
 export function NarrativePreview({
   compact = false,
+  isFullscreen = false,
   clusterName,
   activityCount,
   dateRange,
@@ -483,21 +485,23 @@ export function NarrativePreview({
                 <>
                   <span className="text-gray-300">&middot;</span>
                   <span className={cn(coverageColor)}>{coverageText}</span>
-                  <button
-                    onClick={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
-                    className={cn(
-                      'hidden lg:inline-flex items-center p-0.5 rounded transition-colors',
-                      shell.showSourceMargin
-                        ? 'text-slate-500 hover:bg-slate-50'
-                        : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
-                    )}
-                    title={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                    aria-label={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                  >
-                    {shell.showSourceMargin
-                      ? <EyeOff className="w-3.5 h-3.5" />
-                      : <Eye className="w-3.5 h-3.5" />}
-                  </button>
+                  {isFullscreen && (
+                    <button
+                      onClick={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
+                      className={cn(
+                        'inline-flex items-center p-0.5 rounded transition-colors',
+                        shell.showSourceMargin
+                          ? 'text-slate-500 hover:bg-slate-50'
+                          : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
+                      )}
+                      title={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                      aria-label={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
+                    >
+                      {shell.showSourceMargin
+                        ? <EyeOff className="w-3.5 h-3.5" />
+                        : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
                 </>
               )}
 
@@ -542,6 +546,16 @@ export function NarrativePreview({
                 >
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
+                {story?.id && !isFullscreen && (
+                  <button
+                    onClick={() => { window.location.href = `/stories?storyId=${story.id}&fullscreen=true`; }}
+                    className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center"
+                    title="Full screen"
+                    aria-label="Full screen"
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {isEditing && (
                   <>
                     <button
@@ -573,15 +587,6 @@ export function NarrativePreview({
                       <FileText className="h-3.5 w-3.5" />
                       Edit story
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => { if (story?.id) window.open(`/stories?storyId=${story.id}&fullscreen=true`, '_blank'); }}
-                      disabled={!story?.id}
-                      className="flex items-center gap-2"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                      Open full screen
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={onRegenerate} disabled={isLoading} className="flex items-center gap-2">
                       <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
                       Regenerate from scratch
