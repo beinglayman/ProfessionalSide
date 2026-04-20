@@ -801,7 +801,7 @@ export default function JournalPage() {
         {/* Two-column layout: Activity Stream + Draft Sidebar */}
         <div className="lg:grid lg:grid-cols-[1fr,340px] lg:gap-6">
           {/* Left: Activity Timeline */}
-          <div data-walkthrough="activity-stream" className={cn('pb-[60px] lg:pb-0', storyGroups.length > 0 && 'lg:pb-0')}>
+          <div data-walkthrough="activity-stream" className={cn('min-w-0 pb-[60px] lg:pb-0', storyGroups.length > 0 && 'lg:pb-0')}>
             <ActivityStream
               groups={filteredGroups ?? activityGroups}
               isLoading={activitiesLoading}
