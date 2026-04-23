@@ -368,7 +368,13 @@ export interface AnalyzeChecklistRow {
 export interface WizardAnalyzeResponse {
   archetype: ArchetypeResult;
   questions: WizardQuestion[];
-  journalEntry: { id: string; title: string };
+  journalEntry: {
+    id: string;
+    title: string;
+    description: string;
+    activityCount: number;
+    dominantRole: string | null;
+  };
   /**
    * Story Checklist rows for the draft (6 base rows for STAR; the wizard
    * appends a 7th 'learning' row client-side when STARL is selected).

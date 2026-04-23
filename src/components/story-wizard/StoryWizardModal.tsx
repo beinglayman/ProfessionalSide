@@ -16,7 +16,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '../ui/dialog';
@@ -42,8 +41,9 @@ import {
   JournalEntryMeta,
 } from '../../types/career-stories';
 import { WizardLoadingState } from './WizardLoadingState';
-import { ArchetypeSelector, ARCHETYPE_CONFIG } from './ArchetypeSelector';
+import { ARCHETYPE_CONFIG } from './ArchetypeSelector';
 import { ChecklistStep, countAskRows } from './ChecklistStep';
+import { ContextPanel } from './ContextPanel';
 
 interface StoryWizardModalProps {
   isOpen: boolean;
@@ -195,268 +195,249 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
       : null
     : null;
 
+  // Checklist cover math for the context panel.
+  const coveredCount = analyzeResult
+    ? analyzeResult.checklist.filter((r) => r.state === 'derived').length
+    : 0;
+  const totalRows = selectedFramework === 'STARL' ? 7 : 6;
+
+  const progressPills: Array<{ key: WizardStep; label: string }> = [
+    { key: 'checklist', label: 'Checklist' },
+    { key: 'questions', label: 'Questions' },
+    { key: 'generate',  label: 'Generate' },
+  ];
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={cn(
-        'max-w-2xl max-h-[85vh] flex flex-col border-2 border-transparent ai-moving-border',
-        // Allow dropdowns to overflow on questions step header; clip on others
-        step === 'questions' ? 'overflow-visible' : 'overflow-hidden'
-      )}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary-500" />
-            Create Story
-          </DialogTitle>
-          <DialogDescription className="text-sm text-gray-500">
-            Turn "{journalEntryTitle || analyzeResult?.journalEntry.title || 'your draft'}" into a polished story
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={cn(
+          'max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden border-2 border-transparent ai-moving-border',
+          'grid grid-cols-[280px_1fr]'
+        )}
+      >
+        {/* Accessibility: keep a title/desc for screen readers even though
+            the visible chrome is the context panel. */}
+        <DialogTitle className="sr-only">Create Story</DialogTitle>
+        <DialogDescription className="sr-only">
+          Turn "{journalEntryTitle || analyzeResult?.journalEntry.title || 'your draft'}" into a polished story
+        </DialogDescription>
 
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2 px-1 py-3">
-          {(['checklist', 'questions', 'generate'] as WizardStep[]).map((s, idx) => (
-            <React.Fragment key={s}>
-              <div
-                className={`flex items-center gap-2 transition-colors duration-200 ${
-                  step === s
-                    ? 'text-primary-600 font-medium'
-                    : idx < stepIndex
-                    ? 'text-green-600'
-                    : 'text-gray-400'
-                }`}
-              >
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300 ${
-                    step === s
-                      ? 'bg-primary-100 text-primary-700 ring-2 ring-primary-500 ring-offset-2'
-                      : idx < stepIndex
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {idx < stepIndex ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    idx + 1
-                  )}
-                </div>
-                <span className="hidden sm:inline text-sm capitalize">{s}</span>
-              </div>
-              {idx < 2 && (
-                <div
-                  className={`flex-1 h-0.5 transition-colors duration-300 ${
-                    idx < stepIndex ? 'bg-green-300' : 'bg-gray-200'
-                  }`}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-
-        {/* Error message */}
-        {error && (
-          <div role="alert" className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm animate-in fade-in duration-200">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span className="flex-1">{error}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                if (step === 'checklist' && !analyzeResult) handleAnalyze();
-                else if (step === 'generate') handleGenerate();
-              }}
-              className="text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2 flex-shrink-0"
-            >
-              Retry
-            </button>
-          </div>
+        {/* Left: persistent context panel (dark) */}
+        {analyzeResult ? (
+          <ContextPanel
+            journalEntry={analyzeResult.journalEntry}
+            detectedArchetype={analyzeResult.archetype.detected}
+            alternatives={analyzeResult.archetype.alternatives}
+            selectedArchetype={selectedArchetype || analyzeResult.archetype.detected}
+            onArchetypeChange={setSelectedArchetype}
+            selectedFramework={selectedFramework}
+            onFrameworkChange={setSelectedFramework}
+            coveredCount={coveredCount}
+            totalRows={totalRows}
+          />
+        ) : (
+          <aside className="bg-[#0f0f10] px-5 py-5 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-purple-400 animate-pulse" />
+          </aside>
         )}
 
-        {/* Content */}
-        <div className={cn(
-          'flex-1',
-          // Questions step: header has dropdown menus that must not clip
-          step === 'questions' ? 'overflow-visible' : 'overflow-y-auto min-h-[300px]'
-        )}>
-          {step === 'checklist' && isLoading && !analyzeResult && (
-            <div className="py-4 animate-in fade-in duration-200">
-              <WizardLoadingState mode="analyze" journalMeta={journalEntryMeta} />
+        {/* Right: step content (header + body + footer) */}
+        <div className="flex flex-col min-w-0 max-h-[85vh]">
+          {/* Header: progress pills */}
+          <div className="flex items-center gap-1.5 px-6 py-4 border-b border-gray-100">
+            {progressPills.map((p, idx) => (
+              <span
+                key={p.key}
+                className={cn(
+                  'text-xs px-2.5 py-1 rounded-full transition-colors',
+                  step === p.key
+                    ? 'bg-gray-900 text-white font-medium'
+                    : idx < stepIndex
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-500'
+                )}
+              >
+                {p.label}
+              </span>
+            ))}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div role="alert" className="mx-6 mt-4 flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm animate-in fade-in duration-200">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span className="flex-1">{error}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  if (step === 'checklist' && !analyzeResult) handleAnalyze();
+                  else if (step === 'generate') handleGenerate();
+                }}
+                className="text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2 flex-shrink-0"
+              >
+                Retry
+              </button>
             </div>
           )}
 
-          {step === 'checklist' && analyzeResult && (
-            <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <ChecklistStep
-                checklist={analyzeResult.checklist}
-                framework={selectedFramework}
-                onJumpToAskRow={() => {
-                  // Ship 3: simple jump — land on the first question. Ship 4
-                  // will wire row-to-question index mapping via intent ids.
-                  setCurrentQuestionIndex(0);
-                  setStep('questions');
-                }}
-              />
-              <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100">
-                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={selectedFramework === 'STARL'}
-                    onChange={(e) => setSelectedFramework(e.target.checked ? 'STARL' : 'STAR')}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
-                  />
-                  Add a Learning section
-                </label>
+          {/* Body (scrolls independently of context panel) */}
+          <div className="flex-1 px-6 py-5 overflow-y-auto min-w-0">
+            {step === 'checklist' && isLoading && !analyzeResult && (
+              <div className="animate-in fade-in duration-200">
+                <WizardLoadingState mode="analyze" journalMeta={journalEntryMeta} />
               </div>
-            </div>
-          )}
+            )}
 
-          {step === 'questions' && analyzeResult && (
-            <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <QuestionsHeader
-                detectedArchetype={analyzeResult.archetype.detected}
-                alternatives={analyzeResult.archetype.alternatives}
-                selectedArchetype={selectedArchetype || analyzeResult.archetype.detected}
-                onArchetypeChange={setSelectedArchetype}
-                selectedFramework={selectedFramework}
-                onFrameworkChange={setSelectedFramework}
-              />
-              <QuestionsStep
-                questions={analyzeResult.questions}
-                answers={answers}
-                onAnswerChange={handleAnswerChange}
-                currentQuestionIndex={currentQuestionIndex}
-              />
-            </div>
-          )}
-
-          {step === 'generate' && isLoading && (
-            <div className="py-4 animate-in fade-in duration-200">
-              <WizardLoadingState mode="generate" journalMeta={journalEntryMeta} />
-            </div>
-          )}
-
-          {step === 'generate' && !isLoading && generateResult && (
-            <div className="space-y-6 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <GenerateStep
-                result={generateResult}
-                askedQuestions={analyzeResult?.questions}
-                answers={answers}
-                onReviseSkipped={(qIndex) => {
-                  setCurrentQuestionIndex(qIndex);
-                  setStep('questions');
-                }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Footer — unified navigation */}
-        {!(step === 'generate' && isLoading) && (
-          <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (step === 'checklist') {
-                  onClose();
-                } else if (step === 'questions') {
-                  if (currentQuestionIndex > 0) {
-                    setCurrentQuestionIndex((i) => i - 1);
-                  } else {
-                    setStep('checklist');
-                  }
-                } else if (step === 'generate' && analyzeResult) {
-                  // Back from generate result → last question (or checklist if no questions)
-                  if (askRowCount > 0 && analyzeResult.questions.length > 0) {
-                    setStep('questions');
-                    setCurrentQuestionIndex(Math.max(0, analyzeResult.questions.length - 1));
-                  } else {
-                    setStep('checklist');
-                  }
-                }
-              }}
-              disabled={isLoading}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              {step === 'checklist' ? 'Cancel' : 'Back'}
-            </Button>
-
-            <div className="flex items-center gap-3">
-              {/* Checklist primary action */}
-              {step === 'checklist' && analyzeResult && askRowCount === 0 && (
-                <Button
-                  onClick={handleGenerate}
-                  className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generate now
-                </Button>
-              )}
-
-              {step === 'checklist' && analyzeResult && askRowCount > 0 && (
-                <Button
-                  onClick={() => {
+            {step === 'checklist' && analyzeResult && (
+              <div className="animate-in fade-in slide-in-from-right-2 duration-200">
+                <ChecklistStep
+                  checklist={analyzeResult.checklist}
+                  framework={selectedFramework}
+                  onJumpToAskRow={() => {
                     setCurrentQuestionIndex(0);
                     setStep('questions');
                   }}
-                  className="bg-primary-500 hover:bg-primary-600 text-white"
-                >
-                  Start questions ({askRowCount})
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              )}
+                />
+              </div>
+            )}
 
-              {/* Skip (questions only) */}
-              {step === 'questions' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!analyzeResult) return;
-                    if (currentQuestionIndex < analyzeResult.questions.length - 1) {
-                      setCurrentQuestionIndex((i) => i + 1);
-                    } else {
-                      handleGenerate();
-                    }
+            {step === 'questions' && analyzeResult && (
+              <div className="animate-in fade-in slide-in-from-right-2 duration-200">
+                <QuestionsStep
+                  questions={analyzeResult.questions}
+                  answers={answers}
+                  onAnswerChange={handleAnswerChange}
+                  currentQuestionIndex={currentQuestionIndex}
+                />
+              </div>
+            )}
+
+            {step === 'generate' && isLoading && (
+              <div className="animate-in fade-in duration-200">
+                <WizardLoadingState mode="generate" journalMeta={journalEntryMeta} />
+              </div>
+            )}
+
+            {step === 'generate' && !isLoading && generateResult && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-200">
+                <GenerateStep
+                  result={generateResult}
+                  askedQuestions={analyzeResult?.questions}
+                  answers={answers}
+                  onReviseSkipped={(qIndex) => {
+                    setCurrentQuestionIndex(qIndex);
+                    setStep('questions');
                   }}
-                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  Skip
-                </button>
-              )}
-
-              {/* Primary action */}
-              {step === 'questions' && !isLastQuestion && (
-                <Button
-                  onClick={() => setCurrentQuestionIndex((i) => i + 1)}
-                  className="bg-primary-500 hover:bg-primary-600 text-white"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              )}
-
-              {step === 'questions' && isLastQuestion && (
-                <Button
-                  onClick={handleGenerate}
-                  className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generate
-                </Button>
-              )}
-
-              {step === 'generate' && !isLoading && (
-                <Button
-                  onClick={onClose}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Done
-                </Button>
-              )}
-            </div>
+                />
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Footer */}
+          {!(step === 'generate' && isLoading) && (
+            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (step === 'checklist') {
+                    onClose();
+                  } else if (step === 'questions') {
+                    if (currentQuestionIndex > 0) {
+                      setCurrentQuestionIndex((i) => i - 1);
+                    } else {
+                      setStep('checklist');
+                    }
+                  } else if (step === 'generate' && analyzeResult) {
+                    if (askRowCount > 0 && analyzeResult.questions.length > 0) {
+                      setStep('questions');
+                      setCurrentQuestionIndex(Math.max(0, analyzeResult.questions.length - 1));
+                    } else {
+                      setStep('checklist');
+                    }
+                  }
+                }}
+                disabled={isLoading}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                {step === 'checklist' ? 'Cancel' : 'Back'}
+              </Button>
+
+              <div className="flex items-center gap-3">
+                {step === 'checklist' && analyzeResult && askRowCount === 0 && (
+                  <Button
+                    onClick={handleGenerate}
+                    className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate now
+                  </Button>
+                )}
+
+                {step === 'checklist' && analyzeResult && askRowCount > 0 && (
+                  <Button
+                    onClick={() => {
+                      setCurrentQuestionIndex(0);
+                      setStep('questions');
+                    }}
+                    className="bg-primary-500 hover:bg-primary-600 text-white"
+                  >
+                    Start questions ({askRowCount})
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
+
+                {step === 'questions' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!analyzeResult) return;
+                      if (currentQuestionIndex < analyzeResult.questions.length - 1) {
+                        setCurrentQuestionIndex((i) => i + 1);
+                      } else {
+                        handleGenerate();
+                      }
+                    }}
+                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Skip
+                  </button>
+                )}
+
+                {step === 'questions' && !isLastQuestion && (
+                  <Button
+                    onClick={() => setCurrentQuestionIndex((i) => i + 1)}
+                    className="bg-primary-500 hover:bg-primary-600 text-white"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
+
+                {step === 'questions' && isLastQuestion && (
+                  <Button
+                    onClick={handleGenerate}
+                    className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate
+                  </Button>
+                )}
+
+                {step === 'generate' && !isLoading && (
+                  <Button
+                    onClick={onClose}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Done
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
 
@@ -474,53 +455,6 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 // ============================================================================
 // Step Components
 // ============================================================================
-
-/**
- * Compact header above the Questions step. Replaces the dedicated Analyze
- * step — archetype has already been classified at draft time, so we just
- * surface a "Change archetype" affordance and the framework picker without
- * taking a whole step to do it.
- */
-interface QuestionsHeaderProps {
-  detectedArchetype: StoryArchetype;
-  alternatives: WizardAnalyzeResponse['archetype']['alternatives'];
-  selectedArchetype: StoryArchetype;
-  onArchetypeChange: (archetype: StoryArchetype) => void;
-  selectedFramework: NarrativeFramework;
-  onFrameworkChange: (framework: NarrativeFramework) => void;
-}
-
-const QuestionsHeader: React.FC<QuestionsHeaderProps> = ({
-  detectedArchetype,
-  alternatives,
-  selectedArchetype,
-  onArchetypeChange,
-  selectedFramework,
-  onFrameworkChange,
-}) => {
-  return (
-    <div className="flex items-center justify-end gap-4 px-1 py-2 border-b border-gray-100">
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-gray-500">Archetype</span>
-        <ArchetypeSelector
-          value={selectedArchetype}
-          onChange={onArchetypeChange}
-          detected={detectedArchetype}
-          alternatives={alternatives}
-        />
-      </div>
-      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={selectedFramework === 'STARL'}
-          onChange={(e) => onFrameworkChange(e.target.checked ? 'STARL' : 'STAR')}
-          className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
-        />
-        Add a Learning section
-      </label>
-    </div>
-  );
-};
 
 interface QuestionsStepProps {
   questions: WizardQuestion[];

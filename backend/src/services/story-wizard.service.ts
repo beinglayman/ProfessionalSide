@@ -103,7 +103,20 @@ export interface AnalyzeChecklistRow {
 export interface AnalyzeResult {
   archetype: ArchetypeResult;
   questions: WizardQuestion[];
-  journalEntry: { id: string; title: string };
+  /**
+   * Summary metadata for the draft — surfaced in the wizard's context panel
+   * so the user never loses sight of what they're working on.
+   */
+  journalEntry: {
+    id: string;
+    title: string;
+    /** 1-2 sentence draft summary. */
+    description: string;
+    /** Total source activities. */
+    activityCount: number;
+    /** Detected user role from draft generation: Led / Contributed / Participated. */
+    dominantRole: string | null;
+  };
   /**
    * Story Checklist state per row. Read from format7Data (populated at draft
    * generation time). Always 6 rows for STAR; the frontend appends a 7th
@@ -540,6 +553,9 @@ export class StoryWizardService {
       askRowIds: checklist.filter((r) => r.state === 'ask').map((r) => r.row),
     });
 
+    const dominantRole = typeof format7.dominantRole === 'string' ? format7.dominantRole : null;
+    const activityCount = Array.isArray(entry.activityIds) ? entry.activityIds.length : 0;
+
     return {
       archetype: {
         detected: detection.primary.archetype,
@@ -551,7 +567,13 @@ export class StoryWizardService {
         })),
       },
       questions,
-      journalEntry: { id: entry.id, title: entry.title || 'Untitled' },
+      journalEntry: {
+        id: entry.id,
+        title: entry.title || 'Untitled',
+        description: entry.description || '',
+        activityCount,
+        dominantRole,
+      },
       checklist,
     };
   }
