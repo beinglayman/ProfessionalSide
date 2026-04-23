@@ -49,21 +49,19 @@ import {
 } from './ai/prompts/career-story.prompt';
 import { getModelSelector } from './ai/model-selector.service';
 
-// Reuse archetype detection and questions from CLI
-import { detectArchetype } from '../cli/story-coach/services/archetype-detector';
-import { ARCHETYPE_QUESTIONS } from '../cli/story-coach/questions';
-import { JournalEntryFile, ArchetypeSignals, ArchetypeDetection } from '../cli/story-coach/types';
+// Archetype now always comes from format7Data (populated at draft generation
+// by generateNarrativeWithLLM). Legacy drafts without a stored archetype
+// default to 'firefighter' — see the fallback in analyzeEntry(). The
+// archetype-detector.ts module remains available to the standalone CLI tool
+// at cli/story-coach but is no longer called from the wizard path.
+import { ArchetypeDetection } from '../cli/story-coach/types';
 
-// Dynamic wizard question generation
-import {
-  buildWizardQuestionMessages,
-  parseWizardQuestionsResponse,
-  enforceQuestionCount,
-  ARCHETYPE_PREFIXES,
-  KnownContext,
-} from './ai/prompts/wizard-questions.prompt';
+// Question intents replace the 48-variant archetype-specific question bank.
+import { QUESTION_INTENTS } from './ai/prompts/question-intents';
+import type { ChecklistRowId } from '../types/journal.types';
+
 import { buildLLMInput } from './career-stories/llm-input.builder';
-import { rankActivities, buildKnownContext } from './career-stories/activity-context.adapter';
+import { rankActivities } from './career-stories/activity-context.adapter';
 
 // Re-export types for convenience
 export { StoryArchetype, ExtractedContext } from './ai/prompts/career-story.prompt';
@@ -79,6 +77,12 @@ export interface WizardQuestion {
   hint?: string;
   options?: Array<{ label: string; value: string }>;
   allowFreeText: boolean;
+  /** Checklist row this question covers (Ship 4+). */
+  checklistRow?: ChecklistRowId;
+  /** "Why we need this" line rendered above the question (Ship 4+). */
+  whyWeNeed?: string;
+  /** "How your answer helps" line rendered above the question (Ship 4+). */
+  howItHelps?: string;
 }
 
 export interface ArchetypeResult {
@@ -88,10 +92,24 @@ export interface ArchetypeResult {
   alternatives: Array<{ archetype: StoryArchetype; confidence: number }>;
 }
 
+/** Story Checklist row classification, surfaced to the wizard's ChecklistStep. */
+export interface AnalyzeChecklistRow {
+  row: 'situation' | 'role' | 'action' | 'result' | 'stakes' | 'hardest' | 'learning';
+  state: 'derived' | 'ask';
+  summary?: string;
+  evidenceActivityIds?: string[];
+}
+
 export interface AnalyzeResult {
   archetype: ArchetypeResult;
   questions: WizardQuestion[];
   journalEntry: { id: string; title: string };
+  /**
+   * Story Checklist state per row. Read from format7Data (populated at draft
+   * generation time). Always 6 rows for STAR; the frontend appends a 7th
+   * 'learning' row client-side when the user selects STARL.
+   */
+  checklist: AnalyzeChecklistRow[];
 }
 
 export interface WizardAnswer {
@@ -215,35 +233,38 @@ export class WizardError extends Error {
 // ============================================================================
 
 /**
- * Transform archetype questions to wizard format with checkbox options.
- * Returns empty array if archetype has no questions defined.
+ * Build the wizard question list from a checklist. Every 'ask' row (except
+ * 'action', which is universally derived and doesn't spawn a question in
+ * the default flow) maps to its canonical intent seed in question-intents.ts.
+ *
+ * Questions come back in canonical checklist order. Activity-derived chips
+ * and per-draft rephrasing are a Ship 4b concern — for now we use the
+ * intent's generic question and fallback chips.
  */
-function transformQuestions(archetype: StoryArchetype): WizardQuestion[] {
-  const questions = ARCHETYPE_QUESTIONS[archetype];
-
-  if (!questions || !Array.isArray(questions)) {
-    console.warn(`[StoryWizard] No questions found for archetype: ${archetype}`);
-    return [];
-  }
-
-  return questions.map((q) => {
-    const wizardQ: WizardQuestion = {
-      id: q.id,
-      question: q.question,
-      phase: q.phase,
-      hint: q.hint,
-      allowFreeText: true,
-    };
-
-    // Add options for specific question types
-    if (q.phase === 'impact' && q.id.includes(QUESTION_PATTERNS.IMPACT_1)) {
-      wizardQ.options = [...QUESTION_OPTIONS.IMPACT_TYPES];
-    } else if (q.phase === 'dig' && q.id.includes(QUESTION_PATTERNS.DIG_1)) {
-      wizardQ.options = [...QUESTION_OPTIONS.DISCOVERY_METHODS];
-    }
-
-    return wizardQ;
-  });
+function buildQuestionsFromChecklist(
+  checklist: AnalyzeChecklistRow[],
+): WizardQuestion[] {
+  return checklist
+    .filter((row) => row.state === 'ask' && row.row !== 'action')
+    .map((row): WizardQuestion => {
+      const intent = QUESTION_INTENTS[row.row as ChecklistRowId];
+      if (!intent) {
+        // Safety net: the row id doesn't match a known intent. Skip silently.
+        return null as unknown as WizardQuestion;
+      }
+      return {
+        id: `${intent.id}-q`,
+        question: intent.genericQuestion,
+        phase: intent.phase,
+        hint: intent.hint,
+        allowFreeText: true,
+        checklistRow: intent.id,
+        whyWeNeed: intent.whyWeNeed,
+        howItHelps: intent.howItHelps,
+        options: intent.fallbackChips.length > 0 ? [...intent.fallbackChips] : undefined,
+      };
+    })
+    .filter((q): q is WizardQuestion => q !== null);
 }
 
 /**
@@ -489,56 +510,34 @@ export class StoryWizardService {
         signals: { hasCrisis: false, hasArchitecture: false, hasStakeholders: false, hasMultiplication: false, hasMystery: false, hasPioneering: false, hasTurnaround: false, hasPrevention: false },
       };
     } else {
-      // Convert to format expected by archetype detector
-      const entryFile: JournalEntryFile = {
-        id: entry.id,
-        title: entry.title || 'Untitled',
-        description: entry.description,
-        fullContent: entry.fullContent,
-        category: entry.category,
-        dominantRole: null,
+      // Legacy drafts (pre-Ship 1) don't carry archetype in format7Data.
+      // Fall back to 'firefighter' as the default — the user can change it
+      // via the Questions-header archetype chip. Ship 4 intentionally does
+      // NOT call the LLM detector here because questions now come from the
+      // checklist, not from archetype-specific templates.
+      console.log(`${this.logPrefix} No stored archetype on legacy draft; defaulting to firefighter`);
+      detection = {
+        primary: { archetype: 'firefighter', confidence: 0.3, reasoning: 'Default fallback (legacy draft)' },
+        alternatives: [],
+        signals: { hasCrisis: false, hasArchitecture: false, hasStakeholders: false, hasMultiplication: false, hasMystery: false, hasPioneering: false, hasTurnaround: false, hasPrevention: false },
       };
-
-      detection = await detectArchetype(entryFile);
     }
 
-    // Fetch + rank activities for knownContext (what the system already knows)
-    const rankedForContext = await this.fetchRankedContexts(
-      entry.activityIds || [],
-      (entry.format7Data as Record<string, any>) || null,
-      userId,
-    );
+    // Read checklistState from format7Data (populated by generateNarrativeWithLLM
+    // at draft time). If missing (legacy draft pre-Ship 3), every row defaults
+    // to 'ask' — the wizard still works, just with more questions.
+    const checklist = this.normalizeChecklistFromFormat7(format7);
 
-    // Extract primitives from activities — prompt layer doesn't know ActivityContext (RH-5)
-    const knownContext: KnownContext | undefined = buildKnownContext(rankedForContext);
-
-    // Try dynamic LLM-generated questions, fall back to static
-    const entryText = [entry.fullContent, entry.description].filter(Boolean).join('\n\n');
-    let questions = await this.generateDynamicQuestions(
-      detection.primary.archetype,
-      detection.primary.reasoning,
-      entry.title || 'Untitled',
-      entryText,
-      detection.signals,
-      knownContext,
-    );
-    const isDynamic = questions !== null;
-    if (!questions) {
-      const allStatic = transformQuestions(detection.primary.archetype);
-      // Static bank has 6 questions per archetype; pick 1 per phase to match dynamic path's 3 (RJ-6)
-      const byPhase = new Map<string, WizardQuestion>();
-      for (const q of allStatic) {
-        if (!byPhase.has(q.phase)) byPhase.set(q.phase, q);
-      }
-      questions = [...byPhase.values()].slice(0, 3);
-    }
+    // Build questions from the checklist's 'ask' rows via the intent seeds.
+    // Replaces the old archetype-driven 48-variant bank + LLM dynamic generation.
+    const questions = buildQuestionsFromChecklist(checklist);
 
     console.log(`${this.logPrefix} analyzeEntry complete`, {
       entryId: entry.id,
       archetype: detection.primary.archetype,
       confidence: detection.primary.confidence,
       questionCount: questions.length,
-      dynamicQuestions: isDynamic,
+      askRowIds: checklist.filter((r) => r.state === 'ask').map((r) => r.row),
     });
 
     return {
@@ -553,7 +552,48 @@ export class StoryWizardService {
       },
       questions,
       journalEntry: { id: entry.id, title: entry.title || 'Untitled' },
+      checklist,
     };
+  }
+
+  /**
+   * Extract a 6-row checklist from format7Data. Returns all rows in canonical
+   * order; unknown/missing entries default to { state: 'ask' } so the caller
+   * can treat legacy drafts uniformly.
+   */
+  private normalizeChecklistFromFormat7(format7: Record<string, unknown>): AnalyzeChecklistRow[] {
+    const BASE_ROWS: Array<AnalyzeChecklistRow['row']> = [
+      'situation', 'role', 'action', 'result', 'stakes', 'hardest',
+    ];
+    const raw = format7.checklistState;
+    const byRow = new Map<AnalyzeChecklistRow['row'], AnalyzeChecklistRow>();
+
+    if (Array.isArray(raw)) {
+      for (const entry of raw) {
+        if (!entry || typeof entry !== 'object') continue;
+        const row = (entry as { row?: unknown }).row;
+        const state = (entry as { state?: unknown }).state;
+        if (typeof row !== 'string' || !(BASE_ROWS as string[]).includes(row)) continue;
+        if (state !== 'derived' && state !== 'ask') continue;
+
+        const normalized: AnalyzeChecklistRow = {
+          row: row as AnalyzeChecklistRow['row'],
+          state,
+        };
+        const summary = (entry as { summary?: unknown }).summary;
+        if (typeof summary === 'string' && summary.trim().length > 0) {
+          normalized.summary = summary.trim();
+        }
+        const evidence = (entry as { evidenceActivityIds?: unknown }).evidenceActivityIds;
+        if (Array.isArray(evidence)) {
+          const ids = evidence.filter((id): id is string => typeof id === 'string');
+          if (ids.length > 0) normalized.evidenceActivityIds = ids;
+        }
+        byRow.set(row as AnalyzeChecklistRow['row'], normalized);
+      }
+    }
+
+    return BASE_ROWS.map((row) => byRow.get(row) ?? { row, state: 'ask' });
   }
 
   /**
@@ -838,72 +878,6 @@ export class StoryWizardService {
       evaluation,
       _sourceDebug,
     };
-  }
-
-  /**
-   * Generate contextual D-I-G questions via LLM.
-   * Returns null on any failure (caller falls back to static questions).
-   */
-  private async generateDynamicQuestions(
-    archetype: StoryArchetype,
-    archetypeReasoning: string,
-    entryTitle: string,
-    entryContent: string,
-    signals: ArchetypeSignals,
-    knownContext?: KnownContext,
-  ): Promise<WizardQuestion[] | null> {
-    const modelSelector = getModelSelector();
-    if (!modelSelector) return null;
-
-    const prefix = ARCHETYPE_PREFIXES[archetype];
-    const messages = buildWizardQuestionMessages({
-      archetype,
-      archetypeReasoning,
-      entryTitle,
-      entryContent,
-      signals,
-      questionIdPrefix: prefix,
-      knownContext,
-    });
-
-    try {
-      const result = await modelSelector.executeTask('analyze', messages, 'quick', {
-        maxTokens: 1200,
-        temperature: 0.4,
-      });
-
-      const parsed = parseWizardQuestionsResponse(result.content, prefix);
-      if (!parsed) {
-        console.warn(`${this.logPrefix} Dynamic question parse failed, falling back to static`);
-        return null;
-      }
-
-      // Enforce exactly 3 questions (RJ-6)
-      const enforced = enforceQuestionCount(parsed, prefix);
-
-      // Convert to WizardQuestion[] and add static checkbox options
-      return enforced.map((q) => {
-        const wizardQ: WizardQuestion = {
-          id: q.id,
-          question: q.question,
-          phase: q.phase,
-          hint: q.hint,
-          allowFreeText: true,
-        };
-
-        // TODO: Generate context-appropriate options via LLM in v2 instead of static options
-        if (q.phase === 'impact' && q.id.includes(QUESTION_PATTERNS.IMPACT_1)) {
-          wizardQ.options = [...QUESTION_OPTIONS.IMPACT_TYPES];
-        } else if (q.phase === 'dig' && q.id.includes(QUESTION_PATTERNS.DIG_1)) {
-          wizardQ.options = [...QUESTION_OPTIONS.DISCOVERY_METHODS];
-        }
-
-        return wizardQ;
-      });
-    } catch (error) {
-      console.warn(`${this.logPrefix} Dynamic question generation failed:`, error);
-      return null;
-    }
   }
 
   private async generateSections(

@@ -33,6 +33,8 @@ import {
   ACTIVITY_EDGE_TYPES,
   DEFAULT_EDGE_MESSAGE,
   MAX_EDGE_MESSAGE_LENGTH,
+  ChecklistRow,
+  ChecklistRowId,
 } from '../types/journal.types';
 import { skillTrackingService } from './skill-tracking.service';
 import { ActivityService } from './activity.service';
@@ -2073,6 +2075,9 @@ export class JournalService {
           ...(typeof generationOutput.archetypeConfidence === 'number'
             ? { archetypeConfidence: generationOutput.archetypeConfidence }
             : {}),
+          ...(generationOutput.checklistState && generationOutput.checklistState.length > 0
+            ? { checklistState: JSON.parse(JSON.stringify(generationOutput.checklistState)) }
+            : {}),
         },
         generatedAt: new Date(),
       },
@@ -2292,6 +2297,7 @@ export class JournalService {
       const archetypeConfidence = rawConfidence !== undefined
         ? Math.min(1, Math.max(0, rawConfidence))
         : undefined;
+      const checklistState = this.validateChecklistState(parsed.checklistState);
 
       return {
         description: parsed.description,
@@ -2306,6 +2312,7 @@ export class JournalService {
         ...(archetype ? { archetype } : {}),
         ...(archetypeAlternatives && archetypeAlternatives.length > 0 ? { archetypeAlternatives } : {}),
         ...(archetypeConfidence !== undefined ? { archetypeConfidence } : {}),
+        checklistState,
       };
     } catch (parseError) {
       console.error('Failed to parse LLM response', {
@@ -2355,6 +2362,47 @@ export class JournalService {
       return value as DraftStoryArchetype;
     }
     return undefined;
+  }
+
+  /**
+   * Validate checklistState from LLM response. Returns a normalized array
+   * with exactly the 6 base rows (situation/role/action/result/stakes/hardest)
+   * in canonical order. Any unknown rows from the LLM are discarded; missing
+   * rows are backfilled with state='ask' so the wizard never crashes on a
+   * partial response.
+   */
+  private validateChecklistState(value: unknown): ChecklistRow[] {
+    const BASE_ROWS: readonly ChecklistRowId[] = [
+      'situation', 'role', 'action', 'result', 'stakes', 'hardest',
+    ];
+    const byRow = new Map<ChecklistRowId, ChecklistRow>();
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (!entry || typeof entry !== 'object') continue;
+        const row = (entry as { row?: unknown }).row;
+        const state = (entry as { state?: unknown }).state;
+        if (typeof row !== 'string' || !(BASE_ROWS as readonly string[]).includes(row)) continue;
+        if (state !== 'derived' && state !== 'ask') continue;
+
+        const normalized: ChecklistRow = { row: row as ChecklistRowId, state };
+        if (state === 'derived') {
+          const summary = (entry as { summary?: unknown }).summary;
+          const evidence = (entry as { evidenceActivityIds?: unknown }).evidenceActivityIds;
+          if (typeof summary === 'string' && summary.trim().length > 0) {
+            normalized.summary = summary.trim();
+          }
+          if (Array.isArray(evidence)) {
+            const ids = evidence.filter((id): id is string => typeof id === 'string');
+            if (ids.length > 0) normalized.evidenceActivityIds = ids;
+          }
+        }
+        byRow.set(row as ChecklistRowId, normalized);
+      }
+    }
+
+    // Backfill any missing rows as 'ask' in canonical order.
+    return BASE_ROWS.map((row) => byRow.get(row) ?? { row, state: 'ask' as const });
   }
 
   /**

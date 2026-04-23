@@ -348,6 +348,41 @@ export type DraftStoryArchetype =
   | 'preventer';
 
 /**
+ * Checklist row identifiers for the Story Checklist step.
+ * Fixed shape: 5 rows for STAR, 6 for STARL (learning is STARL-only).
+ * Each row maps 1:1 to a question intent seed when asked (Ship 4).
+ */
+export type ChecklistRowId =
+  | 'situation'   // What happened and when
+  | 'role'        // What you did (role/task)
+  | 'action'      // The specific actions (derivable from activity edges)
+  | 'result'      // Measurable result
+  | 'stakes'      // Why it mattered
+  | 'hardest'     // The hardest or least obvious part
+  | 'learning';   // What you took away (STARL only)
+
+/** Per-row classification in a draft's checklistState. */
+export interface ChecklistRow {
+  /** Which row this is (determines label and ordering in the UI). */
+  row: ChecklistRowId;
+  /**
+   * 'derived' = Activities cover this; row renders ✓ with evidence.
+   * 'ask' = user input needed; row renders ✗ and spawns a question.
+   */
+  state: 'derived' | 'ask';
+  /**
+   * For 'derived' rows: 1-sentence summary the LLM extracted from Activities
+   * (e.g. "Led a bug-fix for the payments-api P1 outage on Apr 22").
+   */
+  summary?: string;
+  /**
+   * For 'derived' rows: activity IDs that support this row. Lets the UI
+   * render "click to see evidence" drill-downs without another round trip.
+   */
+  evidenceActivityIds?: string[];
+}
+
+/**
  * Full structured output from LLM for draft story generation
  */
 export interface DraftStoryGenerationOutput {
@@ -389,6 +424,13 @@ export interface DraftStoryGenerationOutput {
 
   /** Confidence in the primary archetype, 0–1. */
   archetypeConfidence?: number;
+
+  /**
+   * Story Checklist state — one entry per STAR(L) row, classifying whether
+   * Activities cover it ('derived') or user input is needed ('ask').
+   * Consumed by the wizard's ChecklistStep.
+   */
+  checklistState?: ChecklistRow[];
 }
 
 // =============================================================================

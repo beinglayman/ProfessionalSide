@@ -333,6 +333,13 @@ export interface WizardQuestion {
   hint?: string;
   options?: Array<{ label: string; value: string }>;
   allowFreeText: boolean;
+  /** Checklist row this question covers (Ship 4+). Enables row-to-question jumps. */
+  checklistRow?:
+    | 'situation' | 'role' | 'action' | 'result' | 'stakes' | 'hardest' | 'learning';
+  /** Explainer line 1, rendered above the question. "Your Activities show X, but not Y." */
+  whyWeNeed?: string;
+  /** Explainer line 2, rendered above the question. "Becomes the story's hook / …" */
+  howItHelps?: string;
 }
 
 export interface ArchetypeResult {
@@ -342,10 +349,32 @@ export interface ArchetypeResult {
   alternatives: Array<{ archetype: StoryArchetype; confidence: number }>;
 }
 
+export type ChecklistRowId =
+  | 'situation'
+  | 'role'
+  | 'action'
+  | 'result'
+  | 'stakes'
+  | 'hardest'
+  | 'learning';
+
+export interface AnalyzeChecklistRow {
+  row: ChecklistRowId;
+  state: 'derived' | 'ask';
+  summary?: string;
+  evidenceActivityIds?: string[];
+}
+
 export interface WizardAnalyzeResponse {
   archetype: ArchetypeResult;
   questions: WizardQuestion[];
   journalEntry: { id: string; title: string };
+  /**
+   * Story Checklist rows for the draft (6 base rows for STAR; the wizard
+   * appends a 7th 'learning' row client-side when STARL is selected).
+   * Populated at draft generation time — see backend generateNarrativeWithLLM.
+   */
+  checklist: AnalyzeChecklistRow[];
 }
 
 export interface WizardAnswer {

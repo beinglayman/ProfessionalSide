@@ -1,11 +1,15 @@
 /**
  * Story Wizard Modal
  *
- * 2-step wizard for promoting journal entries to career stories:
- * 1. Questions: D-I-G questions with checkboxes + free text
- *    (archetype is read from the draft — classified at generation time, no
- *    dedicated Analyze step; user can override via a compact header chip)
- * 2. Generate: Story + evaluation score
+ * 3-step wizard for promoting journal entries to career stories:
+ * 1. Checklist: Fixed-shape "what a strong STAR story needs" with per-draft
+ *    ✓ (derived from Activities) / ✗ (question needed) state.
+ * 2. Questions: Only asked for ✗ rows; skipped entirely if everything is ✓.
+ * 3. Generate: Story + evaluation score.
+ *
+ * Archetype is classified at draft generation time — no dedicated Analyze
+ * step. User can override archetype and toggle Learning section via a
+ * compact header above Questions.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -39,6 +43,7 @@ import {
 } from '../../types/career-stories';
 import { WizardLoadingState } from './WizardLoadingState';
 import { ArchetypeSelector, ARCHETYPE_CONFIG } from './ArchetypeSelector';
+import { ChecklistStep, countAskRows } from './ChecklistStep';
 
 interface StoryWizardModalProps {
   isOpen: boolean;
@@ -51,7 +56,7 @@ interface StoryWizardModalProps {
   onStoryCreated?: (storyId: string) => void | Promise<void>;
 }
 
-type WizardStep = 'questions' | 'generate';
+type WizardStep = 'checklist' | 'questions' | 'generate';
 
 export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   isOpen,
@@ -62,7 +67,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   onStoryCreated,
 }) => {
   // State
-  const [step, setStep] = useState<WizardStep>('questions');
+  const [step, setStep] = useState<WizardStep>('checklist');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,7 +99,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       mountedRef.current = false;
-      setStep('questions');
+      setStep('checklist');
       setAnalyzeResult(null);
       setSelectedArchetype(null);
       setSelectedFramework('STAR');
@@ -107,9 +112,8 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     }
   }, [isOpen]);
 
-  // Auto-load on open: archetype + questions come from the draft (read via
-  // wizardAnalyze for now; Ship 3 replaces this with a draft-read endpoint
-  // and a Checklist step).
+  // Auto-load on open: archetype + questions + checklistState come from the
+  // draft via wizardAnalyze. Wizard opens on the Checklist step.
   useEffect(() => {
     if (isOpen && !analyzeResult) {
       handleAnalyze();
@@ -169,13 +173,22 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
   };
 
-  const stepIndex = (['questions', 'generate'] as WizardStep[]).indexOf(step);
+  const stepIndex = (['checklist', 'questions', 'generate'] as WizardStep[]).indexOf(step);
   const isLastQuestion = analyzeResult
     ? currentQuestionIndex === analyzeResult.questions.length - 1
     : false;
 
+  // Number of ✗ rows in the checklist for this draft + framework combination.
+  // Drives the primary button label on the Checklist step: "Generate now" when
+  // everything is derived, otherwise "Start questions (N)".
+  const askRowCount = analyzeResult
+    ? countAskRows(analyzeResult.checklist, selectedFramework)
+    : 0;
+
   const wizardCommentary = walkthroughPausedRef.current
-    ? step === 'questions'
+    ? step === 'checklist'
+      ? { title: 'What Your Story Needs', description: 'We already know most of your story from your Activities. Rows marked \u2713 are done \u2014 we\u2019ll just ask about the gaps.' }
+      : step === 'questions'
       ? { title: 'Add What Only You Know', description: 'These are things only you would know. Your answers fill in context AI can\u2019t find in your data \u2014 they make this story yours.' }
       : step === 'generate'
       ? { title: 'Generating Your Story', description: 'Sit tight \u2014 we\u2019re weaving your work data and answers into a narrative. This usually takes about 10 seconds.' }
@@ -187,7 +200,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={cn(
         'max-w-2xl max-h-[85vh] flex flex-col border-2 border-transparent ai-moving-border',
-        // Allow dropdowns to overflow on questions step header; clip on generate
+        // Allow dropdowns to overflow on questions step header; clip on others
         step === 'questions' ? 'overflow-visible' : 'overflow-hidden'
       )}>
         <DialogHeader>
@@ -202,7 +215,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
         {/* Progress indicator */}
         <div className="flex items-center gap-2 px-1 py-3">
-          {(['questions', 'generate'] as WizardStep[]).map((s, idx) => (
+          {(['checklist', 'questions', 'generate'] as WizardStep[]).map((s, idx) => (
             <React.Fragment key={s}>
               <div
                 className={`flex items-center gap-2 transition-colors duration-200 ${
@@ -230,7 +243,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
                 </div>
                 <span className="hidden sm:inline text-sm capitalize">{s}</span>
               </div>
-              {idx < 1 && (
+              {idx < 2 && (
                 <div
                   className={`flex-1 h-0.5 transition-colors duration-300 ${
                     idx < stepIndex ? 'bg-green-300' : 'bg-gray-200'
@@ -250,7 +263,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
               type="button"
               onClick={() => {
                 setError(null);
-                if (step === 'questions' && !analyzeResult) handleAnalyze();
+                if (step === 'checklist' && !analyzeResult) handleAnalyze();
                 else if (step === 'generate') handleGenerate();
               }}
               className="text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2 flex-shrink-0"
@@ -266,9 +279,35 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
           // Questions step: header has dropdown menus that must not clip
           step === 'questions' ? 'overflow-visible' : 'overflow-y-auto min-h-[300px]'
         )}>
-          {step === 'questions' && isLoading && !analyzeResult && (
+          {step === 'checklist' && isLoading && !analyzeResult && (
             <div className="py-4 animate-in fade-in duration-200">
               <WizardLoadingState mode="analyze" journalMeta={journalEntryMeta} />
+            </div>
+          )}
+
+          {step === 'checklist' && analyzeResult && (
+            <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
+              <ChecklistStep
+                checklist={analyzeResult.checklist}
+                framework={selectedFramework}
+                onJumpToAskRow={() => {
+                  // Ship 3: simple jump — land on the first question. Ship 4
+                  // will wire row-to-question index mapping via intent ids.
+                  setCurrentQuestionIndex(0);
+                  setStep('questions');
+                }}
+              />
+              <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100">
+                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedFramework === 'STARL'}
+                    onChange={(e) => setSelectedFramework(e.target.checked ? 'STARL' : 'STAR')}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
+                  />
+                  Add a Learning section
+                </label>
+              </div>
             </div>
           )}
 
@@ -299,7 +338,15 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
           {step === 'generate' && !isLoading && generateResult && (
             <div className="space-y-6 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <GenerateStep result={generateResult} />
+              <GenerateStep
+                result={generateResult}
+                askedQuestions={analyzeResult?.questions}
+                answers={answers}
+                onReviseSkipped={(qIndex) => {
+                  setCurrentQuestionIndex(qIndex);
+                  setStep('questions');
+                }}
+              />
             </div>
           )}
         </div>
@@ -310,25 +357,55 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
             <Button
               variant="ghost"
               onClick={() => {
-                if (step === 'questions') {
+                if (step === 'checklist') {
+                  onClose();
+                } else if (step === 'questions') {
                   if (currentQuestionIndex > 0) {
                     setCurrentQuestionIndex((i) => i - 1);
                   } else {
-                    onClose();
+                    setStep('checklist');
                   }
                 } else if (step === 'generate' && analyzeResult) {
-                  // Back from generate result → last question
-                  setStep('questions');
-                  setCurrentQuestionIndex(analyzeResult.questions.length - 1);
+                  // Back from generate result → last question (or checklist if no questions)
+                  if (askRowCount > 0 && analyzeResult.questions.length > 0) {
+                    setStep('questions');
+                    setCurrentQuestionIndex(Math.max(0, analyzeResult.questions.length - 1));
+                  } else {
+                    setStep('checklist');
+                  }
                 }
               }}
               disabled={isLoading}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              {step === 'questions' && currentQuestionIndex === 0 ? 'Cancel' : 'Back'}
+              {step === 'checklist' ? 'Cancel' : 'Back'}
             </Button>
 
             <div className="flex items-center gap-3">
+              {/* Checklist primary action */}
+              {step === 'checklist' && analyzeResult && askRowCount === 0 && (
+                <Button
+                  onClick={handleGenerate}
+                  className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate now
+                </Button>
+              )}
+
+              {step === 'checklist' && analyzeResult && askRowCount > 0 && (
+                <Button
+                  onClick={() => {
+                    setCurrentQuestionIndex(0);
+                    setStep('questions');
+                  }}
+                  className="bg-primary-500 hover:bg-primary-600 text-white"
+                >
+                  Start questions ({askRowCount})
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+
               {/* Skip (questions only) */}
               {step === 'questions' && (
                 <button
@@ -482,6 +559,24 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
         />
       </div>
 
+      {/* "Why we're asking" explainer — Ship 4 */}
+      {(currentQuestion.whyWeNeed || currentQuestion.howItHelps) && (
+        <div className="rounded-lg bg-primary-50/40 border border-primary-100 px-3 py-2 space-y-0.5">
+          {currentQuestion.whyWeNeed && (
+            <p className="text-[11px] text-gray-700">
+              <span className="font-semibold text-primary-700">Why we need this: </span>
+              {currentQuestion.whyWeNeed}
+            </p>
+          )}
+          {currentQuestion.howItHelps && (
+            <p className="text-[11px] text-gray-700">
+              <span className="font-semibold text-primary-700">How your answer helps: </span>
+              {currentQuestion.howItHelps}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Question card */}
       <div
         key={currentQuestion.id}
@@ -577,12 +672,35 @@ const QuestionsStep: React.FC<QuestionsStepProps> = ({
 
 interface GenerateStepProps {
   result: WizardGenerateResponse;
+  /** The questions that were shown to the user (from analyzeResult). */
+  askedQuestions?: WizardQuestion[];
+  /** The user's answers keyed by question id. */
+  answers?: Record<string, WizardAnswer>;
+  /** Click handler on a skipped question — jumps the wizard back to it. */
+  onReviseSkipped?: (questionIndex: number) => void;
 }
 
-const GenerateStep: React.FC<GenerateStepProps> = ({ result }) => {
+const GenerateStep: React.FC<GenerateStepProps> = ({
+  result,
+  askedQuestions = [],
+  answers = {},
+  onReviseSkipped,
+}) => {
   const { story, evaluation } = result;
   const archetypeConfig = ARCHETYPE_CONFIG[story.archetype];
   const ArchetypeIcon = archetypeConfig.icon;
+
+  // Skipped = questions shown but with no selected chips and no free text.
+  // Ship 4: surface these to the user with a one-click path back to fill them.
+  const skipped = askedQuestions
+    .map((q, idx) => ({ q, idx }))
+    .filter(({ q }) => {
+      const answer = answers[q.id];
+      if (!answer) return true;
+      const hasSelected = Array.isArray(answer.selected) && answer.selected.length > 0;
+      const hasFreeText = typeof answer.freeText === 'string' && answer.freeText.trim().length > 0;
+      return !hasSelected && !hasFreeText;
+    });
 
   const scoreColor =
     evaluation.score >= 8
@@ -651,6 +769,31 @@ const GenerateStep: React.FC<GenerateStepProps> = ({ result }) => {
               <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
                 <span className="text-primary-500 mt-0.5">•</span>
                 {suggestion}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Skipped-question panel (Ship 4) */}
+      {skipped.length > 0 && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 space-y-2 animate-in fade-in duration-300"
+          style={{ animationDelay: '450ms' }}
+        >
+          <p className="text-xs font-medium text-amber-900">
+            You skipped {skipped.length} {skipped.length === 1 ? 'question' : 'questions'}. Adding them usually makes the story noticeably stronger.
+          </p>
+          <ul className="space-y-1">
+            {skipped.map(({ q, idx }) => (
+              <li key={q.id}>
+                <button
+                  type="button"
+                  onClick={() => onReviseSkipped?.(idx)}
+                  className="text-left text-xs text-amber-900 hover:text-amber-700 underline underline-offset-2 decoration-amber-300 hover:decoration-amber-500 transition-colors"
+                >
+                  {q.question}
+                </button>
               </li>
             ))}
           </ul>

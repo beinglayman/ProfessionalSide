@@ -56,5 +56,13 @@
   ],
   "archetype": "architect",
   "archetypeAlternatives": ["multiplier"],
-  "archetypeConfidence": 0.82
+  "archetypeConfidence": 0.82,
+  "checklistState": [
+    { "row": "situation", "state": "derived", "summary": "Replaced legacy session auth with OAuth2 on the API gateway", "evidenceActivityIds": ["abc123", "def456"] },
+    { "row": "role",      "state": "derived", "summary": "Primary author and reviewer across all phases", "evidenceActivityIds": ["ghi789", "jkl012"] },
+    { "row": "action",    "state": "derived", "summary": "Designed flow, implemented OAuth2 + Redis storage, added rate limiting, shipped with migration", "evidenceActivityIds": ["ghi789", "jkl012"] },
+    { "row": "result",    "state": "derived", "summary": "40% API latency reduction, zero-downtime migration, 95% test coverage", "evidenceActivityIds": ["mno345"] },
+    { "row": "stakes",    "state": "ask" },
+    { "row": "hardest",   "state": "ask" }
+  ]
 }

@@ -45,7 +45,15 @@ Return a JSON object with these EXACT fields:
   ],
   "archetype": "firefighter|architect|diplomat|multiplier|detective|pioneer|turnaround|preventer",
   "archetypeAlternatives": ["second-best archetype", "third-best archetype"],
-  "archetypeConfidence": 0.85
+  "archetypeConfidence": 0.85,
+  "checklistState": [
+    { "row": "situation", "state": "derived", "summary": "Led a P1 outage of payments-api on Apr 22", "evidenceActivityIds": ["jira-1", "slack-2"] },
+    { "row": "role",      "state": "derived", "summary": "Primary author on the rollback PR and assignee on the Jira incident", "evidenceActivityIds": ["gh-3", "jira-1"] },
+    { "row": "action",    "state": "derived", "summary": "Shipped rollback, then a permanent guard; reviewed all three follow-up PRs", "evidenceActivityIds": ["gh-3", "gh-4"] },
+    { "row": "result",    "state": "ask" },
+    { "row": "stakes",    "state": "ask" },
+    { "row": "hardest",   "state": "ask" }
+  ]
 }
 
 ## Field Guidelines
@@ -67,6 +75,7 @@ Return a JSON object with these EXACT fields:
 - **archetype**: The shape of the hero moment. See the system prompt for the 8 options and their signals.
 - **archetypeAlternatives**: 0–2 other archetypes that could also fit, in descending order of fit. Omit if the primary is a strong match.
 - **archetypeConfidence**: 0.0–1.0. Use <0.6 when the story genuinely could fit more than one archetype; ≥0.8 when one clearly dominates.
+- **checklistState**: One entry per STAR(L) row. Classify each as 'derived' (Activities cover it) or 'ask' (user input needed). See the system prompt for per-row rules. ALWAYS include all 6 rows in this order: situation, role, action, result, stakes, hardest. Do NOT include `learning` in the base schema — the wizard adds it client-side when STARL is selected. For 'derived' rows, include `summary` (one sentence) and `evidenceActivityIds`. For 'ask' rows, omit both.
 
 ## Example Output
 {{exampleJson}}
