@@ -367,65 +367,62 @@ export function getRatingLabel(confidence: number): string {
   return confidence >= 0.75 ? 'Strong' : confidence >= 0.5 ? 'Fair' : confidence >= 0.3 ? 'Weak' : 'Missing';
 }
 
-/** Narrative framework metadata for UI display */
+/**
+ * Narrative framework metadata for UI display.
+ *
+ * We keep entries for all 8 frameworks so that legacy stories stored in
+ * CAR/PAR/SAR/SOAR/SHARE/CARL still render correctly. Only STAR and STARL
+ * are selectable for new story creation — see SELECTABLE_FRAMEWORKS below.
+ */
 export const NARRATIVE_FRAMEWORKS = {
   STAR: {
     label: 'STAR',
     description: 'Situation, Task, Action, Result',
     sections: ['situation', 'task', 'action', 'result'],
-    group: 'popular',
   },
   STARL: {
     label: 'STARL',
     description: 'STAR + Learning',
     sections: ['situation', 'task', 'action', 'result', 'learning'],
-    group: 'popular',
   },
   CAR: {
     label: 'CAR',
     description: 'Challenge, Action, Result (Concise)',
     sections: ['challenge', 'action', 'result'],
-    group: 'concise',
   },
   PAR: {
     label: 'PAR',
     description: 'Problem, Action, Result',
     sections: ['problem', 'action', 'result'],
-    group: 'concise',
   },
   SAR: {
     label: 'SAR',
     description: 'Situation, Action, Result (Simplified)',
     sections: ['situation', 'action', 'result'],
-    group: 'concise',
   },
   SOAR: {
     label: 'SOAR',
     description: 'Situation, Obstacles, Actions, Results',
     sections: ['situation', 'obstacles', 'actions', 'results'],
-    group: 'detailed',
   },
   SHARE: {
     label: 'SHARE',
     description: 'Situation, Hindrances, Actions, Results, Evaluation',
     sections: ['situation', 'hindrances', 'actions', 'results', 'evaluation'],
-    group: 'detailed',
   },
   CARL: {
     label: 'CARL',
     description: 'Context, Action, Result, Learning',
     sections: ['context', 'action', 'result', 'learning'],
-    group: 'detailed',
   },
 } as const;
 
-export type FrameworkGroup = 'popular' | 'concise' | 'detailed';
-
-export const FRAMEWORK_GROUPS: Record<FrameworkGroup, { label: string; frameworks: (keyof typeof NARRATIVE_FRAMEWORKS)[] }> = {
-  popular: { label: 'Popular', frameworks: ['STAR', 'STARL'] },
-  concise: { label: 'Concise', frameworks: ['CAR', 'PAR', 'SAR'] },
-  detailed: { label: 'Detailed', frameworks: ['SOAR', 'SHARE', 'CARL'] },
-};
+/**
+ * Frameworks surfaced to the user for NEW story creation and format switching.
+ * Pruned from 7 → 2 per the Q2 Proof-Layer simplification design.
+ * Legacy stories in dropped frameworks continue to render via NARRATIVE_FRAMEWORKS.
+ */
+export const SELECTABLE_FRAMEWORKS: (keyof typeof NARRATIVE_FRAMEWORKS)[] = ['STAR', 'STARL'];
 
 // =============================================================================
 // ARCHETYPE METADATA

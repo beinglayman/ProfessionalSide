@@ -463,7 +463,9 @@ export class StoryWizardService {
       );
     }
 
-    // Reuse archetype from format7Data if draft story already detected one
+    // Reuse archetype from format7Data if draft story already detected one.
+    // New drafts also carry archetypeAlternatives and archetypeConfidence from
+    // the same LLM pass (see JournalService.generateNarrativeWithLLM).
     const format7 = (entry.format7Data as Record<string, unknown>) || {};
     const VALID_ARCHETYPES: Set<string> = new Set([
       'firefighter', 'architect', 'diplomat', 'multiplier',
@@ -472,9 +474,18 @@ export class StoryWizardService {
     let detection: ArchetypeDetection;
     if (format7.archetype && typeof format7.archetype === 'string' && VALID_ARCHETYPES.has(format7.archetype)) {
       console.log(`${this.logPrefix} Reusing stored archetype: ${format7.archetype}`);
+      const storedAlternatives = Array.isArray(format7.archetypeAlternatives)
+        ? (format7.archetypeAlternatives as unknown[])
+            .filter((a): a is string => typeof a === 'string' && VALID_ARCHETYPES.has(a))
+            .slice(0, 2)
+            .map((a) => ({ archetype: a as any, confidence: 0.5, reasoning: 'From draft story generation' }))
+        : [];
+      const storedConfidence = typeof format7.archetypeConfidence === 'number'
+        ? Math.min(1, Math.max(0, format7.archetypeConfidence))
+        : 0.8;
       detection = {
-        primary: { archetype: format7.archetype as any, confidence: 0.8, reasoning: 'Reused from draft story generation' },
-        alternatives: [],
+        primary: { archetype: format7.archetype as any, confidence: storedConfidence, reasoning: 'Reused from draft story generation' },
+        alternatives: storedAlternatives,
         signals: { hasCrisis: false, hasArchitecture: false, hasStakeholders: false, hasMultiplication: false, hasMystery: false, hasPioneering: false, hasTurnaround: false, hasPrevention: false },
       };
     } else {

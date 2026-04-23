@@ -26,6 +26,7 @@ import {
 } from './ai/prompts/journal-narrative.prompt';
 import {
   DraftStoryGenerationOutput,
+  DraftStoryArchetype,
   DraftStoryCategory,
   DraftStoryPhase,
   ActivityStoryEdge,
@@ -35,8 +36,6 @@ import {
 } from '../types/journal.types';
 import { skillTrackingService } from './skill-tracking.service';
 import { ActivityService } from './activity.service';
-import { detectArchetype } from '../cli/story-coach/services/archetype-detector';
-import { JournalEntryFile } from '../cli/story-coach/types';
 import { StoryArchetype } from './ai/prompts/career-story.prompt';
 
 // =============================================================================
@@ -1993,30 +1992,9 @@ export class JournalService {
 
     let usedFallback = false;
 
-    // Detect archetype for narrative shaping (reuse stored if available)
-    let archetype: StoryArchetype | undefined;
-    const existingFormat7 = (entry.format7Data as Record<string, unknown>) || {};
-    if (existingFormat7.archetype && typeof existingFormat7.archetype === 'string') {
-      archetype = existingFormat7.archetype as StoryArchetype;
-      console.log(`📝 Reusing stored archetype: ${archetype}`);
-    } else if (selector) {
-      try {
-        const entryFile: JournalEntryFile = {
-          id: entry.id,
-          title: entry.title || 'Untitled',
-          description: entry.description,
-          fullContent: entry.fullContent,
-          category: entry.category,
-          dominantRole: null,
-        };
-        const detection = await detectArchetype(entryFile);
-        archetype = detection.primary.archetype;
-        console.log(`📝 Detected archetype: ${archetype} (confidence: ${detection.primary.confidence})`);
-      } catch (error) {
-        console.warn('Archetype detection failed, proceeding without', { error: (error as Error).message });
-      }
-    }
-
+    // Archetype is now emitted by the narrative LLM in the same pass (see
+    // generateNarrativeWithLLM → DraftStoryGenerationOutput.archetype). No
+    // separate detectArchetype() call.
     if (selector) {
       try {
         generationOutput = await this.generateNarrativeWithLLM(
@@ -2025,13 +2003,22 @@ export class JournalService {
           activities,
           groupingContext,
           options?.style,
-          userEmail,
-          archetype
+          userEmail
         );
       } catch (error) {
         console.warn('LLM narrative generation failed, using fallback', { error: (error as Error).message });
       }
     }
+
+    // For the persistence step below, prefer the freshly classified archetype
+    // but fall back to whatever was already stored (e.g. from a previous run
+    // where the LLM skipped the field).
+    const existingFormat7 = (entry.format7Data as Record<string, unknown>) || {};
+    const priorArchetype = typeof existingFormat7.archetype === 'string'
+      ? (existingFormat7.archetype as StoryArchetype)
+      : undefined;
+    const archetype: StoryArchetype | undefined =
+      (generationOutput?.archetype as StoryArchetype | undefined) ?? priorArchetype;
 
     // Use fallback if LLM generation failed or not available
     if (!generationOutput) {
@@ -2080,6 +2067,12 @@ export class JournalService {
           dominantRole: generationOutput.dominantRole,
           activityEdges: JSON.parse(JSON.stringify(generationOutput.activityEdges || [])),
           ...(archetype ? { archetype } : {}),
+          ...(generationOutput.archetypeAlternatives && generationOutput.archetypeAlternatives.length > 0
+            ? { archetypeAlternatives: generationOutput.archetypeAlternatives }
+            : {}),
+          ...(typeof generationOutput.archetypeConfidence === 'number'
+            ? { archetypeConfidence: generationOutput.archetypeConfidence }
+            : {}),
         },
         generatedAt: new Date(),
       },
@@ -2232,8 +2225,7 @@ export class JournalService {
     activities: EnhancedActivity[],
     groupingContext: GroupingContext,
     style?: string,
-    userEmail?: string,
-    archetype?: StoryArchetype
+    userEmail?: string
   ): Promise<DraftStoryGenerationOutput> {
     // Cap activities sent to LLM to prevent prompt overflow on smaller models.
     // With 50-60 activities, the prompt can exceed what gpt-4o-mini handles reliably.
@@ -2250,14 +2242,14 @@ export class JournalService {
     // Format activities with rawData context
     const activitiesText = formatEnhancedActivitiesForPrompt(llmActivities, groupingContext);
 
-    // Build enhanced messages
+    // Build enhanced messages. Archetype is emitted by the LLM as part of the
+    // same pass (see DraftStoryGenerationOutput.archetype), not injected here.
     const messages = buildEnhancedNarrativeMessages({
       title,
       activitiesText,
       isCluster: groupingContext.type === 'cluster',
       clusterRef: groupingContext.clusterRef,
       userEmail,
-      archetype,
     });
 
     const result = await selector.executeTask('generate', messages, 'high', {
@@ -2288,6 +2280,19 @@ export class JournalService {
         .filter(id => !coveredIds.has(id))
         .map(id => ({ activityId: id, type: 'supporting' as const, message: DEFAULT_EDGE_MESSAGE }));
 
+      const archetype = this.validateArchetype(parsed.archetype);
+      const archetypeAlternatives = Array.isArray(parsed.archetypeAlternatives)
+        ? (parsed.archetypeAlternatives
+            .map((a: unknown) => this.validateArchetype(a))
+            .filter((a: DraftStoryArchetype | undefined): a is DraftStoryArchetype => Boolean(a))
+            .filter((a: DraftStoryArchetype) => a !== archetype)
+            .slice(0, 2))
+        : undefined;
+      const rawConfidence = typeof parsed.archetypeConfidence === 'number' ? parsed.archetypeConfidence : undefined;
+      const archetypeConfidence = rawConfidence !== undefined
+        ? Math.min(1, Math.max(0, rawConfidence))
+        : undefined;
+
       return {
         description: parsed.description,
         category: this.validateCategory(parsed.category) || 'achievement',
@@ -2298,6 +2303,9 @@ export class JournalService {
         phases: this.validatePhases(parsed.phases, activities),
         dominantRole: this.validateRole(parsed.dominantRole) || 'Participated',
         activityEdges: [...llmEdges, ...backfilledEdges],
+        ...(archetype ? { archetype } : {}),
+        ...(archetypeAlternatives && archetypeAlternatives.length > 0 ? { archetypeAlternatives } : {}),
+        ...(archetypeConfidence !== undefined ? { archetypeConfidence } : {}),
       };
     } catch (parseError) {
       console.error('Failed to parse LLM response', {
@@ -2331,6 +2339,22 @@ export class JournalService {
       return role as 'Led' | 'Contributed' | 'Participated';
     }
     return null;
+  }
+
+  /**
+   * Validate archetype from LLM response against the 8 known archetypes.
+   * Returns undefined when the LLM returns an unknown value — the wizard's
+   * legacy fallback path will still work, we just don't persist a bad value.
+   */
+  private validateArchetype(value: unknown): DraftStoryArchetype | undefined {
+    const valid: readonly DraftStoryArchetype[] = [
+      'firefighter', 'architect', 'diplomat', 'multiplier',
+      'detective', 'pioneer', 'turnaround', 'preventer',
+    ];
+    if (typeof value === 'string' && (valid as readonly string[]).includes(value)) {
+      return value as DraftStoryArchetype;
+    }
+    return undefined;
   }
 
   /**

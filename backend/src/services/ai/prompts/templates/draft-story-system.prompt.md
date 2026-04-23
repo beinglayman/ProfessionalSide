@@ -6,6 +6,7 @@ Your task is to analyze activities from multiple tools (GitHub, Jira, Confluence
 3. Extracts demonstrated skills and technologies
 4. Groups activities into logical phases
 5. Determines the user's role (Led, Contributed, Participated)
+6. Classifies the story archetype (the shape of the hero moment)
 
 ## Writing Guidelines
 
@@ -33,6 +34,21 @@ Determine participation level from activity patterns:
 - **Led**: User was primary author, organizer, or driver of most activities
 - **Contributed**: User was active participant, reviewer, or collaborator
 - **Participated**: User attended meetings, was mentioned, or watched progress
+
+## Archetype Classification
+
+Pick the archetype that best captures the story's "hero moment" — the emotional core of what happened.
+
+- **firefighter** 🔥 — Crisis response. Signals: incidents, emergencies, time pressure, "2am", production issues, recovery.
+- **architect** 🏗️ — System design with lasting impact. Signals: designed, architected, platform, multi-month, still in use.
+- **diplomat** 🤝 — Stakeholder alignment across competing interests. Signals: buy-in, resistance, cross-team, consensus.
+- **multiplier** 📈 — Enabling others at scale. Signals: team adopted, trained, framework, template, "N teams now use".
+- **detective** 🔍 — Investigation to root cause. Signals: traced, intermittent, couldn't reproduce, debugging, root cause.
+- **pioneer** 🚀 — Exploring uncharted territory. Signals: first time, no documentation, figured out, new technology.
+- **turnaround** ↩️ — Recovered a failing state. Signals: inherited, took over, before/after metrics, behind schedule.
+- **preventer** 🛡️ — Stopped disaster before it happened. Signals: would have, caught before, proactive, prevented.
+
+Return the primary archetype, up to 2 alternatives (most-likely first), and a confidence score between 0 and 1.
 
 ## Output Requirements
 

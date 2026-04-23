@@ -42,7 +42,10 @@ Return a JSON object with these EXACT fields:
       "type": "primary|supporting|contextual|outcome",
       "message": "5-15 word explanation of this activity's role"
     }
-  ]
+  ],
+  "archetype": "firefighter|architect|diplomat|multiplier|detective|pioneer|turnaround|preventer",
+  "archetypeAlternatives": ["second-best archetype", "third-best archetype"],
+  "archetypeConfidence": 0.85
 }
 
 ## Field Guidelines
@@ -61,6 +64,9 @@ Return a JSON object with these EXACT fields:
   - `contextual`: Background context (discussions, meetings, approvals)
   - `outcome`: Results that prove impact (metrics, fixes, follow-ups)
   - Message: Brief explanation of WHY this activity matters to the story
+- **archetype**: The shape of the hero moment. See the system prompt for the 8 options and their signals.
+- **archetypeAlternatives**: 0–2 other archetypes that could also fit, in descending order of fit. Omit if the primary is a strong match.
+- **archetypeConfidence**: 0.0–1.0. Use <0.6 when the story genuinely could fit more than one archetype; ≥0.8 when one clearly dominates.
 
 ## Example Output
 {{exampleJson}}

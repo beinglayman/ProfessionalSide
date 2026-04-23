@@ -53,5 +53,8 @@
       "type": "outcome",
       "message": "Performance validation showing 40% latency reduction"
     }
-  ]
+  ],
+  "archetype": "architect",
+  "archetypeAlternatives": ["multiplier"],
+  "archetypeConfidence": 0.82
 }

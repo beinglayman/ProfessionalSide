@@ -333,6 +333,21 @@ export interface ActivityStoryEdge {
 }
 
 /**
+ * Story archetype. Duplicated as a string union here to keep this types
+ * file free of cross-layer imports; the runtime validator enforces the
+ * same 8-element set as StoryArchetype in career-story.prompt.ts.
+ */
+export type DraftStoryArchetype =
+  | 'firefighter'
+  | 'architect'
+  | 'diplomat'
+  | 'multiplier'
+  | 'detective'
+  | 'pioneer'
+  | 'turnaround'
+  | 'preventer';
+
+/**
  * Full structured output from LLM for draft story generation
  */
 export interface DraftStoryGenerationOutput {
@@ -362,6 +377,18 @@ export interface DraftStoryGenerationOutput {
 
   /** Activity relationship edges with type and explanation */
   activityEdges: ActivityStoryEdge[];
+
+  /**
+   * Primary archetype classification (internal; never shown on Timeline).
+   * Emitted by the same LLM pass that generates the narrative — no separate call.
+   */
+  archetype?: DraftStoryArchetype;
+
+  /** Up to 2 alternative archetypes, most-likely first. */
+  archetypeAlternatives?: DraftStoryArchetype[];
+
+  /** Confidence in the primary archetype, 0–1. */
+  archetypeConfidence?: number;
 }
 
 // =============================================================================

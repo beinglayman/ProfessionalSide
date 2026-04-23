@@ -1,10 +1,11 @@
 /**
  * Story Wizard Modal
  *
- * 3-step wizard for promoting journal entries to career stories:
- * 1. Analyze: Detect archetype, show confidence
- * 2. Questions: D-I-G questions with checkboxes + free text
- * 3. Generate: Story + evaluation score
+ * 2-step wizard for promoting journal entries to career stories:
+ * 1. Questions: D-I-G questions with checkboxes + free text
+ *    (archetype is read from the draft — classified at generation time, no
+ *    dedicated Analyze step; user can override via a compact header chip)
+ * 2. Generate: Story + evaluation score
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -38,7 +39,6 @@ import {
 } from '../../types/career-stories';
 import { WizardLoadingState } from './WizardLoadingState';
 import { ArchetypeSelector, ARCHETYPE_CONFIG } from './ArchetypeSelector';
-import { FrameworkSelector } from '../career-stories/FrameworkSelector';
 
 interface StoryWizardModalProps {
   isOpen: boolean;
@@ -51,7 +51,7 @@ interface StoryWizardModalProps {
   onStoryCreated?: (storyId: string) => void | Promise<void>;
 }
 
-type WizardStep = 'analyze' | 'questions' | 'generate';
+type WizardStep = 'questions' | 'generate';
 
 export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   isOpen,
@@ -62,7 +62,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   onStoryCreated,
 }) => {
   // State
-  const [step, setStep] = useState<WizardStep>('analyze');
+  const [step, setStep] = useState<WizardStep>('questions');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,7 +94,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       mountedRef.current = false;
-      setStep('analyze');
+      setStep('questions');
       setAnalyzeResult(null);
       setSelectedArchetype(null);
       setSelectedFramework('STAR');
@@ -107,9 +107,11 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     }
   }, [isOpen]);
 
-  // Auto-analyze on open
+  // Auto-load on open: archetype + questions come from the draft (read via
+  // wizardAnalyze for now; Ship 3 replaces this with a draft-read endpoint
+  // and a Checklist step).
   useEffect(() => {
-    if (isOpen && step === 'analyze' && !analyzeResult) {
+    if (isOpen && !analyzeResult) {
       handleAnalyze();
     }
   }, [isOpen]);
@@ -135,7 +137,8 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
   };
 
   const handleGenerate = async () => {
-    if (!selectedArchetype) return;
+    const archetype = selectedArchetype || analyzeResult?.archetype.detected;
+    if (!archetype) return;
 
     setStep('generate'); // Show loading immediately
     setIsLoading(true);
@@ -144,7 +147,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
       const response = await CareerStoriesService.wizardGenerate({
         journalEntryId,
         answers,
-        archetype: selectedArchetype,
+        archetype,
         framework: selectedFramework,
       });
       if (!mountedRef.current) return;
@@ -166,15 +169,13 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
   };
 
-  const stepIndex = ['analyze', 'questions', 'generate'].indexOf(step);
+  const stepIndex = (['questions', 'generate'] as WizardStep[]).indexOf(step);
   const isLastQuestion = analyzeResult
     ? currentQuestionIndex === analyzeResult.questions.length - 1
     : false;
 
   const wizardCommentary = walkthroughPausedRef.current
-    ? step === 'analyze'
-      ? { title: 'Shape Your Story', description: 'Pick an archetype that matches your role in this story \u2014 it shapes how the narration reads. Choose a format to structure it.' }
-      : step === 'questions'
+    ? step === 'questions'
       ? { title: 'Add What Only You Know', description: 'These are things only you would know. Your answers fill in context AI can\u2019t find in your data \u2014 they make this story yours.' }
       : step === 'generate'
       ? { title: 'Generating Your Story', description: 'Sit tight \u2014 we\u2019re weaving your work data and answers into a narrative. This usually takes about 10 seconds.' }
@@ -186,8 +187,8 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={cn(
         'max-w-2xl max-h-[85vh] flex flex-col border-2 border-transparent ai-moving-border',
-        // Allow dropdowns to overflow on analyze step; clip on other steps
-        step === 'analyze' ? 'overflow-visible' : 'overflow-hidden'
+        // Allow dropdowns to overflow on questions step header; clip on generate
+        step === 'questions' ? 'overflow-visible' : 'overflow-hidden'
       )}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -201,7 +202,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
         {/* Progress indicator */}
         <div className="flex items-center gap-2 px-1 py-3">
-          {(['analyze', 'questions', 'generate'] as WizardStep[]).map((s, idx) => (
+          {(['questions', 'generate'] as WizardStep[]).map((s, idx) => (
             <React.Fragment key={s}>
               <div
                 className={`flex items-center gap-2 transition-colors duration-200 ${
@@ -229,7 +230,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
                 </div>
                 <span className="hidden sm:inline text-sm capitalize">{s}</span>
               </div>
-              {idx < 2 && (
+              {idx < 1 && (
                 <div
                   className={`flex-1 h-0.5 transition-colors duration-300 ${
                     idx < stepIndex ? 'bg-green-300' : 'bg-gray-200'
@@ -249,7 +250,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
               type="button"
               onClick={() => {
                 setError(null);
-                if (step === 'analyze') handleAnalyze();
+                if (step === 'questions' && !analyzeResult) handleAnalyze();
                 else if (step === 'generate') handleGenerate();
               }}
               className="text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2 flex-shrink-0"
@@ -262,25 +263,25 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
         {/* Content */}
         <div className={cn(
           'flex-1',
-          // Analyze step: no scroll so dropdown menus aren't clipped
-          step === 'analyze' ? 'overflow-visible' : 'overflow-y-auto min-h-[300px]'
+          // Questions step: header has dropdown menus that must not clip
+          step === 'questions' ? 'overflow-visible' : 'overflow-y-auto min-h-[300px]'
         )}>
-          {step === 'analyze' && (
-            <div className="space-y-6 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <AnalyzeStep
-                isLoading={isLoading}
-                result={analyzeResult}
-                selectedArchetype={selectedArchetype}
-                onArchetypeChange={setSelectedArchetype}
-                selectedFramework={selectedFramework}
-                onFrameworkChange={setSelectedFramework}
-                journalMeta={journalEntryMeta}
-              />
+          {step === 'questions' && isLoading && !analyzeResult && (
+            <div className="py-4 animate-in fade-in duration-200">
+              <WizardLoadingState mode="analyze" journalMeta={journalEntryMeta} />
             </div>
           )}
 
           {step === 'questions' && analyzeResult && (
-            <div className="space-y-6 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
+            <div className="space-y-4 py-4 animate-in fade-in slide-in-from-right-2 duration-200">
+              <QuestionsHeader
+                detectedArchetype={analyzeResult.archetype.detected}
+                alternatives={analyzeResult.archetype.alternatives}
+                selectedArchetype={selectedArchetype || analyzeResult.archetype.detected}
+                onArchetypeChange={setSelectedArchetype}
+                selectedFramework={selectedFramework}
+                onFrameworkChange={setSelectedFramework}
+              />
               <QuestionsStep
                 questions={analyzeResult.questions}
                 answers={answers}
@@ -309,13 +310,11 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
             <Button
               variant="ghost"
               onClick={() => {
-                if (step === 'analyze') {
-                  onClose();
-                } else if (step === 'questions') {
+                if (step === 'questions') {
                   if (currentQuestionIndex > 0) {
                     setCurrentQuestionIndex((i) => i - 1);
                   } else {
-                    setStep('analyze');
+                    onClose();
                   }
                 } else if (step === 'generate' && analyzeResult) {
                   // Back from generate result → last question
@@ -326,7 +325,7 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
               disabled={isLoading}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              {step === 'analyze' ? 'Cancel' : 'Back'}
+              {step === 'questions' && currentQuestionIndex === 0 ? 'Cancel' : 'Back'}
             </Button>
 
             <div className="flex items-center gap-3">
@@ -349,17 +348,6 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
               )}
 
               {/* Primary action */}
-              {step === 'analyze' && (
-                <Button
-                  onClick={() => setStep('questions')}
-                  disabled={isLoading || !analyzeResult}
-                  className="bg-primary-500 hover:bg-primary-600 text-white"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              )}
-
               {step === 'questions' && !isLastQuestion && (
                 <Button
                   onClick={() => setCurrentQuestionIndex((i) => i + 1)}
@@ -410,74 +398,49 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 // Step Components
 // ============================================================================
 
-interface AnalyzeStepProps {
-  isLoading: boolean;
-  result: WizardAnalyzeResponse | null;
-  selectedArchetype: StoryArchetype | null;
+/**
+ * Compact header above the Questions step. Replaces the dedicated Analyze
+ * step — archetype has already been classified at draft time, so we just
+ * surface a "Change archetype" affordance and the framework picker without
+ * taking a whole step to do it.
+ */
+interface QuestionsHeaderProps {
+  detectedArchetype: StoryArchetype;
+  alternatives: WizardAnalyzeResponse['archetype']['alternatives'];
+  selectedArchetype: StoryArchetype;
   onArchetypeChange: (archetype: StoryArchetype) => void;
   selectedFramework: NarrativeFramework;
   onFrameworkChange: (framework: NarrativeFramework) => void;
-  journalMeta?: JournalEntryMeta;
 }
 
-const AnalyzeStep: React.FC<AnalyzeStepProps> = ({
-  isLoading,
-  result,
+const QuestionsHeader: React.FC<QuestionsHeaderProps> = ({
+  detectedArchetype,
+  alternatives,
   selectedArchetype,
   onArchetypeChange,
   selectedFramework,
   onFrameworkChange,
-  journalMeta,
 }) => {
-  if (isLoading) {
-    return <WizardLoadingState mode="analyze" journalMeta={journalMeta} />;
-  }
-
-  if (!result) return null;
-
-  const config = ARCHETYPE_CONFIG[result.archetype.detected] ?? ARCHETYPE_CONFIG.firefighter;
-  const Icon = config.icon;
-
   return (
-    <div className="space-y-6">
-      {/* Detected Archetype */}
-      <div className="p-4 bg-gradient-to-r from-primary-50 to-purple-50 rounded-xl border border-primary-100">
-        <div className="flex items-start gap-4">
-          <div className={`p-3 rounded-xl bg-white shadow-sm ${config.color} animate-in zoom-in duration-300`}>
-            <Icon className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-gray-900">{config.label}</span>
-              <span className="text-xs px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full">
-                {Math.round(result.archetype.confidence * 100)}% match
-              </span>
-            </div>
-            <p className="text-sm text-gray-600">{result.archetype.reasoning}</p>
-          </div>
-        </div>
-
-        {/* Selectors — integrated inside the card */}
-        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-primary-100/50">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500">Archetype</span>
-            <ArchetypeSelector
-              value={selectedArchetype || result.archetype.detected}
-              onChange={onArchetypeChange}
-              detected={result.archetype.detected}
-              alternatives={result.archetype.alternatives}
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500">Format</span>
-            <FrameworkSelector
-              value={selectedFramework}
-              onChange={onFrameworkChange}
-              align="left"
-            />
-          </div>
-        </div>
+    <div className="flex items-center justify-end gap-4 px-1 py-2 border-b border-gray-100">
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-gray-500">Archetype</span>
+        <ArchetypeSelector
+          value={selectedArchetype}
+          onChange={onArchetypeChange}
+          detected={detectedArchetype}
+          alternatives={alternatives}
+        />
       </div>
+      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={selectedFramework === 'STARL'}
+          onChange={(e) => onFrameworkChange(e.target.checked ? 'STARL' : 'STAR')}
+          className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
+        />
+        Add a Learning section
+      </label>
     </div>
   );
 };

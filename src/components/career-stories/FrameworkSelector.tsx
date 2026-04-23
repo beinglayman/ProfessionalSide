@@ -1,17 +1,17 @@
 /**
  * FrameworkSelector Component
  *
- * Cascading dropdown selector for narrative frameworks (STAR, CAR, SOAR, etc.).
- * Default view shows Popular frameworks (compact). "Show all" reveals
- * the full 3-column grouped layout (Popular / Concise / Detailed).
- * Mirrors the ArchetypeSelector cascading pattern.
+ * Dropdown selector for narrative framework. Surfaces only the two selectable
+ * frameworks (STAR, STARL) per the Q2 simplification — legacy stories in
+ * dropped frameworks (CAR/PAR/SAR/SOAR/SHARE/CARL) still display their current
+ * framework as the trigger label, but those options are no longer pickable.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { NarrativeFramework } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup } from './constants';
+import { NARRATIVE_FRAMEWORKS, SELECTABLE_FRAMEWORKS } from './constants';
 import { useDropdown } from '../../hooks/useDropdown';
 
 interface FrameworkSelectorProps {
@@ -22,22 +22,13 @@ interface FrameworkSelectorProps {
   align?: 'left' | 'right';
 }
 
-const GROUP_DESCRIPTIONS: Record<string, string> = {
-  popular: 'Most common',
-  concise: 'Quick & focused',
-  detailed: 'Full context',
-};
-
 export const FrameworkSelector: React.FC<FrameworkSelectorProps> = ({
   value,
   onChange,
   disabled = false,
   align = 'right',
 }) => {
-  const [showAll, setShowAll] = useState(false);
-  const { isOpen, toggle, close, containerRef } = useDropdown({
-    onClose: () => setShowAll(false),
-  });
+  const { isOpen, toggle, close, containerRef } = useDropdown();
 
   const handleSelect = (framework: NarrativeFramework) => {
     onChange(framework);
@@ -106,50 +97,12 @@ export const FrameworkSelector: React.FC<FrameworkSelectorProps> = ({
           role="listbox"
           aria-label="Select narrative format"
           className={cn(
-            'absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50',
+            'absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50 min-w-[180px]',
             align === 'left' ? 'left-0' : 'right-0'
           )}
         >
-          {showAll ? (
-            /* Grouped 3-column view */
-            <div className="flex gap-4">
-              {(Object.keys(FRAMEWORK_GROUPS) as FrameworkGroup[]).map((groupKey) => {
-                const group = FRAMEWORK_GROUPS[groupKey];
-                return (
-                  <div key={groupKey} className="min-w-[120px]">
-                    <div className="pb-1.5 mb-1.5 border-b border-gray-100">
-                      <div className="text-[10px] font-semibold text-gray-900 uppercase tracking-wide">
-                        {group.label}
-                      </div>
-                      <div className="text-[9px] text-gray-400">
-                        {GROUP_DESCRIPTIONS[groupKey]}
-                      </div>
-                    </div>
-                    <div className="space-y-0.5">
-                      {group.frameworks.map((fw) => renderOption(fw))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* Default view: Popular frameworks only */
-            <div className="min-w-[160px]">
-              <div className="space-y-0.5">
-                {FRAMEWORK_GROUPS.popular.frameworks.map((fw) => renderOption(fw))}
-              </div>
-            </div>
-          )}
-
-          {/* Toggle button */}
-          <div className="mt-1.5 pt-1.5 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={() => setShowAll(!showAll)}
-              className="w-full text-[10px] text-gray-500 hover:text-gray-700 py-0.5 transition-colors"
-            >
-              {showAll ? 'Show popular' : 'Show all frameworks'}
-            </button>
+          <div className="space-y-0.5">
+            {SELECTABLE_FRAMEWORKS.map((fw) => renderOption(fw))}
           </div>
         </div>
       )}

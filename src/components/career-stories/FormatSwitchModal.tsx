@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStory, NarrativeFramework, WritingStyle, StoryArchetype } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, WRITING_STYLES, USER_PROMPT_MAX_LENGTH, ARCHETYPE_METADATA, ARCHETYPE_GROUPS, ArchetypeGroup } from './constants';
+import { NARRATIVE_FRAMEWORKS, WRITING_STYLES, USER_PROMPT_MAX_LENGTH, ARCHETYPE_METADATA, ARCHETYPE_GROUPS, ArchetypeGroup } from './constants';
 import { FrameworkSelector } from './FrameworkSelector';
 import { Button } from '../ui/button';
 import {

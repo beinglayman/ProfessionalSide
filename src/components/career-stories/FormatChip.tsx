@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { NarrativeFramework, WritingStyle } from '../../types/career-stories';
-import { NARRATIVE_FRAMEWORKS, FRAMEWORK_GROUPS, FrameworkGroup, WRITING_STYLES } from './constants';
+import { NARRATIVE_FRAMEWORKS, SELECTABLE_FRAMEWORKS, WRITING_STYLES } from './constants';
 import { useDropdown } from '../../hooks/useDropdown';
 
 interface FormatChipProps {
@@ -20,12 +20,6 @@ interface FormatChipProps {
   onFormatChange: (framework: NarrativeFramework, style: WritingStyle) => void;
   disabled?: boolean;
 }
-
-const GROUP_DESCRIPTIONS: Record<string, string> = {
-  popular: 'Most common',
-  concise: 'Quick & focused',
-  detailed: 'Full context',
-};
 
 export function FormatChip({
   currentFramework,
@@ -113,58 +107,41 @@ export function FormatChip({
             style={{ top: dropdownPos.top, left: dropdownPos.left }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {/* Framework columns */}
-            <div className="flex gap-4">
-              {(Object.keys(FRAMEWORK_GROUPS) as FrameworkGroup[]).map((groupKey) => {
-                const group = FRAMEWORK_GROUPS[groupKey];
+            {/* Framework options (STAR + STARL only per Q2 simplification) */}
+            <div className="min-w-[180px] space-y-0.5">
+              {SELECTABLE_FRAMEWORKS.map((framework) => {
+                const meta = NARRATIVE_FRAMEWORKS[framework];
+                const isSelected = framework === currentFramework;
                 return (
-                  <div key={groupKey} className="min-w-[120px]">
-                    <div className="pb-1.5 mb-1.5 border-b border-gray-100">
-                      <div className="text-[10px] font-semibold text-gray-900 uppercase tracking-wide">
-                        {group.label}
+                  <button
+                    key={framework}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(framework)}
+                    className={cn(
+                      'w-full flex items-start gap-1.5 px-1.5 py-1.5 rounded text-left transition-colors',
+                      'hover:bg-gray-100',
+                      isSelected && 'bg-primary-50'
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={cn(
+                            'text-xs font-semibold',
+                            isSelected ? 'text-primary-700' : 'text-gray-800'
+                          )}
+                        >
+                          {framework}
+                        </span>
+                        {isSelected && <Check className="h-3 w-3 text-primary-600" />}
                       </div>
-                      <div className="text-[9px] text-gray-400">
-                        {GROUP_DESCRIPTIONS[groupKey]}
+                      <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+                        {meta.description}
                       </div>
                     </div>
-                    <div className="space-y-0.5">
-                      {group.frameworks.map((framework) => {
-                        const meta = NARRATIVE_FRAMEWORKS[framework];
-                        const isSelected = framework === currentFramework;
-                        return (
-                          <button
-                            key={framework}
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            onClick={() => handleSelect(framework)}
-                            className={cn(
-                              'w-full flex items-start gap-1.5 px-1.5 py-1.5 rounded text-left transition-colors',
-                              'hover:bg-gray-100',
-                              isSelected && 'bg-primary-50'
-                            )}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className={cn(
-                                    'text-xs font-semibold',
-                                    isSelected ? 'text-primary-700' : 'text-gray-800'
-                                  )}
-                                >
-                                  {framework}
-                                </span>
-                                {isSelected && <Check className="h-3 w-3 text-primary-600" />}
-                              </div>
-                              <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
-                                {meta.description}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
