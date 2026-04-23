@@ -2053,10 +2053,15 @@ export class JournalService {
     const nonTopicTags = existingTags.filter(t => !t.startsWith('topic:'));
     const mergedTags = [...new Set([...nonTopicTags, ...topicTags])];
 
-    // 6. Update the entry with rich output (merge format7Data inline)
+    // 6. Update the entry with rich output (merge format7Data inline).
+    // Promote the narrative's `# Heading` to JournalEntry.title so the Timeline
+    // card shows the plain-English title the LLM produced instead of the raw
+    // cluster-ref keyword soup it inherited at draft-creation time.
+    const regeneratedTitle = this.extractTitleFromMarkdown(generationOutput.fullContent);
     const updated = await prisma.journalEntry.update({
       where: { id: entryId },
       data: {
+        ...(regeneratedTitle ? { title: regeneratedTitle } : {}),
         description: generationOutput.description,
         fullContent: generationOutput.fullContent,
         category: generationOutput.category,
@@ -2204,6 +2209,12 @@ export class JournalService {
 
   /**
    * Generate a draft title based on grouping method.
+   *
+   * For cluster-grouped drafts, returns the cluster name as-is. The narrative
+   * LLM will later replace this with a plain-English `# Title` at regeneration
+   * time (see extractTitleFromMarkdown + regenerateNarrative). Dropping the
+   * former ": Cross-Tool Collaboration" suffix — it was filler that pushed
+   * the real signal off-screen in the Timeline card.
    */
   private generateDraftTitle(
     groupingMethod: string,
@@ -2212,7 +2223,7 @@ export class JournalService {
     timeRangeEnd: Date
   ): string {
     if (groupingMethod === 'cluster' && clusterRef) {
-      return `${clusterRef}: Cross-Tool Collaboration`;
+      return clusterRef;
     }
 
     const startStr = timeRangeStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -2344,6 +2355,32 @@ export class JournalService {
     const validRoles = ['Led', 'Contributed', 'Participated'];
     if (typeof role === 'string' && validRoles.includes(role)) {
       return role as 'Led' | 'Contributed' | 'Participated';
+    }
+    return null;
+  }
+
+  /**
+   * Extract the first `# Heading` line from a markdown narrative.
+   *
+   * The narrative prompt (draft-story-system.prompt.md) requires fullContent
+   * to lead with a plain-English, 3–10 word, colon-free title. We surface
+   * that heading as the journal entry's title so the card stops showing
+   * the raw cluster-ref keyword soup (e.g. "Deployment and Feature Development
+   * Tasks: Fix: Work"). Returns null when no usable heading is present —
+   * caller keeps the existing title in that case.
+   */
+  private extractTitleFromMarkdown(markdown: string | undefined): string | null {
+    if (!markdown) return null;
+    const lines = markdown.split('\n');
+    for (const raw of lines) {
+      const match = raw.match(/^#\s+(.+?)\s*$/);
+      if (match) {
+        const title = match[1].trim();
+        // Reject obviously bad titles (keyword soup the prompt was told to avoid).
+        if (title.length >= 3 && title.length <= 200 && !/^\s*$/.test(title)) {
+          return title;
+        }
+      }
     }
     return null;
   }
