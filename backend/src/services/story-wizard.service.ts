@@ -593,7 +593,83 @@ export class StoryWizardService {
       }
     }
 
+    // Fallback for legacy drafts (pre-Ship 3) that don't carry checklistState.
+    // Rather than default every row to 'ask' (which makes the wizard ask 6
+    // questions for a draft where Activities clearly cover most rows), infer
+    // 'derived' from the other format7Data fields that *are* present:
+    // phases → situation, dominantRole → role, primary activityEdges → action,
+    // impactHighlights → result. 'stakes' and 'hardest' are user-only per
+    // design and stay 'ask'.
+    if (byRow.size === 0) {
+      for (const inferred of this.inferChecklistFromFormat7(format7)) {
+        byRow.set(inferred.row, inferred);
+      }
+    }
+
     return BASE_ROWS.map((row) => byRow.get(row) ?? { row, state: 'ask' });
+  }
+
+  /**
+   * Heuristic backfill for drafts missing checklistState. Mirrors the
+   * per-row derivability rules the draft-generation prompt uses, but works
+   * without an extra LLM call — consults the format7Data fields we already
+   * populated at draft-generation time.
+   */
+  private inferChecklistFromFormat7(format7: Record<string, unknown>): AnalyzeChecklistRow[] {
+    const out: AnalyzeChecklistRow[] = [];
+
+    // situation: phases were generated, so we know when/what happened
+    const phases = format7.phases;
+    if (Array.isArray(phases) && phases.length > 0) {
+      out.push({
+        row: 'situation',
+        state: 'derived',
+        summary: 'Context and timeline captured from your activities',
+      });
+    }
+
+    // role: dominantRole is set and not the ambiguous 'Participated' default
+    const dominantRole = format7.dominantRole;
+    if (typeof dominantRole === 'string' && (dominantRole === 'Led' || dominantRole === 'Contributed')) {
+      out.push({
+        row: 'role',
+        state: 'derived',
+        summary: `Role: ${dominantRole}`,
+      });
+    }
+
+    // action: at least one activity classified as 'primary' in the edges
+    const edges = format7.activityEdges;
+    if (Array.isArray(edges)) {
+      const primaryIds: string[] = [];
+      for (const edge of edges) {
+        if (edge && typeof edge === 'object'
+            && (edge as { type?: unknown }).type === 'primary'
+            && typeof (edge as { activityId?: unknown }).activityId === 'string') {
+          primaryIds.push((edge as { activityId: string }).activityId);
+        }
+      }
+      if (primaryIds.length > 0) {
+        out.push({
+          row: 'action',
+          state: 'derived',
+          summary: `${primaryIds.length} primary action${primaryIds.length === 1 ? '' : 's'} across your activities`,
+          evidenceActivityIds: primaryIds,
+        });
+      }
+    }
+
+    // result: at least one concrete impact highlight
+    const impacts = format7.impactHighlights;
+    if (Array.isArray(impacts)) {
+      const first = impacts.find((i): i is string => typeof i === 'string' && i.trim().length > 0);
+      if (first) {
+        out.push({ row: 'result', state: 'derived', summary: first });
+      }
+    }
+
+    // stakes and hardest are user-only per design — always 'ask'.
+    return out;
   }
 
   /**
