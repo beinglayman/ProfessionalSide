@@ -56,3 +56,15 @@ export function useDisputeValidation(storyId?: string | null) {
     },
   });
 }
+
+export function useSuggestEdit(storyId?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ validationId, suggestedText }: { validationId: string; suggestedText: string }) =>
+      CareerStoriesService.suggestEdit(validationId, suggestedText),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-validations'] });
+      if (storyId) qc.invalidateQueries({ queryKey: ['validator-story-view', storyId] });
+    },
+  });
+}

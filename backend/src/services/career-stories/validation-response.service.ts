@@ -246,3 +246,287 @@ export function approveValidation(validationId: string, userId: string) {
 export function disputeValidation(validationId: string, userId: string, note: string) {
   return respondToValidation({ validationId, userId, action: 'DISPUTED', note });
 }
+
+// ========================================================================
+// Edit-suggestion workflow (Ship 3.3)
+// ========================================================================
+
+/**
+ * Validator proposes rewritten text for a section. Upserts the
+ * StoryEditSuggestion sidecar (validator can revise their suggestion
+ * before the author responds) and flips the parent validation to
+ * EDIT_SUGGESTED. One notification to the author.
+ *
+ * Guards:
+ *   - Caller must be the assigned validator.
+ *   - The validation must be PENDING or already EDIT_SUGGESTED (so
+ *     they can revise their own suggestion). Cannot overwrite an
+ *     APPROVED or DISPUTED response without re-opening first (comes
+ *     in 3.4).
+ *   - Suggested text is required, 1 <= len <= 5000 chars.
+ */
+export async function suggestEdit(
+  validationId: string,
+  userId: string,
+  suggestedText: string,
+) {
+  const trimmed = (suggestedText || '').trim();
+  if (trimmed.length === 0) {
+    throw new InviteError('Suggested text cannot be empty', 'SUGGESTION_EMPTY', 400);
+  }
+  if (trimmed.length > 5000) {
+    throw new InviteError('Suggested text must be 5000 characters or fewer', 'SUGGESTION_TOO_LONG', 400);
+  }
+
+  const existing = await prisma.storyValidation.findUnique({
+    where: { id: validationId },
+    select: {
+      id: true, validatorId: true, authorId: true, storyId: true, sectionKey: true, status: true,
+      story: { select: { title: true } },
+      validator: { select: { name: true } },
+    },
+  });
+  if (!existing) {
+    throw new InviteError('Validation request not found', 'VALIDATION_NOT_FOUND', 404);
+  }
+  if (existing.validatorId !== userId) {
+    throw new InviteError('Only the assigned validator can suggest edits', 'NOT_VALIDATOR', 403);
+  }
+  if (existing.status !== 'PENDING' && existing.status !== 'EDIT_SUGGESTED') {
+    throw new InviteError(
+      `This validation is already ${existing.status.toLowerCase()}. Re-opening isn't supported yet.`,
+      'ALREADY_RESPONDED',
+      409,
+    );
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const validation = await tx.storyValidation.update({
+      where: { id: validationId },
+      data: {
+        status: 'EDIT_SUGGESTED',
+        note: null,
+        respondedAt: new Date(),
+      },
+      select: { id: true, status: true, respondedAt: true, sectionKey: true },
+    });
+
+    // Upsert the sidecar so a validator can revise their suggestion.
+    const suggestion = await tx.storyEditSuggestion.upsert({
+      where: { validationId },
+      update: {
+        suggestedText: trimmed,
+        authorVerdict: null,
+        respondedAt: null,
+      },
+      create: {
+        validationId,
+        suggestedText: trimmed,
+      },
+      select: { id: true, suggestedText: true, createdAt: true },
+    });
+
+    return { validation, suggestion };
+  });
+
+  // Notify author.
+  await prisma.notification.create({
+    data: {
+      type: 'STORY_EDIT_SUGGESTED',
+      title: `${existing.validator?.name || 'A validator'} suggested an edit`,
+      message: `${existing.story?.title || 'Your story'}: a rewrite of "${existing.sectionKey}" is waiting for your review.`,
+      recipientId: existing.authorId,
+      senderId: userId,
+      relatedEntityType: 'CAREER_STORY',
+      relatedEntityId: existing.storyId,
+      data: {
+        storyId: existing.storyId,
+        sectionKey: existing.sectionKey,
+        validationId: existing.id,
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  return result;
+}
+
+interface VerdictArgs {
+  validationId: string;
+  userId: string;
+  verdict: 'accepted' | 'rejected';
+}
+
+/**
+ * Author responds to a validator's edit suggestion.
+ *
+ * Accept: replaces the section text in story.sections JSON, marks the
+ *   validation as APPROVED (the validator already endorsed the new
+ *   text by suggesting it), marks the sidecar as accepted. Notifies
+ *   validator (STORY_EDIT_ACCEPTED).
+ *
+ * Reject: resets the validation to PENDING so the validator can
+ *   approve/dispute/re-suggest again. Marks the sidecar as rejected
+ *   (keeping the rejected text for history). Notifies validator
+ *   (STORY_EDIT_REJECTED).
+ *
+ * Only the story's author can act on a suggestion.
+ */
+async function applyEditVerdict({ validationId, userId, verdict }: VerdictArgs) {
+  const existing = await prisma.storyValidation.findUnique({
+    where: { id: validationId },
+    select: {
+      id: true, validatorId: true, authorId: true, storyId: true, sectionKey: true, status: true,
+      story: { select: { title: true, sections: true } },
+      author: { select: { name: true } },
+      editSuggestion: { select: { id: true, suggestedText: true, authorVerdict: true } },
+    },
+  });
+  if (!existing) {
+    throw new InviteError('Validation request not found', 'VALIDATION_NOT_FOUND', 404);
+  }
+  if (existing.authorId !== userId) {
+    throw new InviteError('Only the story author can respond to a suggested edit', 'NOT_AUTHOR', 403);
+  }
+  if (existing.status !== 'EDIT_SUGGESTED' || !existing.editSuggestion) {
+    throw new InviteError('No edit suggestion awaiting your response on this row', 'NO_SUGGESTION', 409);
+  }
+  if (existing.editSuggestion.authorVerdict) {
+    throw new InviteError('You have already responded to this suggestion', 'ALREADY_RESPONDED', 409);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Update the sidecar.
+    await tx.storyEditSuggestion.update({
+      where: { id: existing.editSuggestion!.id },
+      data: { authorVerdict: verdict, respondedAt: new Date() },
+    });
+
+    if (verdict === 'accepted') {
+      // Replace the section's summary text in the story.sections JSON.
+      const sections = (existing.story?.sections as Record<string, { summary?: string; evidence?: unknown }> | null) || {};
+      const section = sections[existing.sectionKey] || {};
+      const nextSections = {
+        ...sections,
+        [existing.sectionKey]: {
+          ...section,
+          summary: existing.editSuggestion!.suggestedText,
+        },
+      };
+      await tx.careerStory.update({
+        where: { id: existing.storyId },
+        data: { sections: nextSections as Prisma.InputJsonValue },
+      });
+      await tx.storyValidation.update({
+        where: { id: validationId },
+        data: { status: 'APPROVED', respondedAt: new Date() },
+      });
+    } else {
+      // Reject: reset validation to PENDING so the validator can try again.
+      await tx.storyValidation.update({
+        where: { id: validationId },
+        data: { status: 'PENDING', respondedAt: null, note: null },
+      });
+    }
+  });
+
+  const notifType = verdict === 'accepted' ? 'STORY_EDIT_ACCEPTED' : 'STORY_EDIT_REJECTED';
+  const verbPast = verdict === 'accepted' ? 'accepted' : 'declined';
+  await prisma.notification.create({
+    data: {
+      type: notifType,
+      title: `${existing.author?.name || 'The author'} ${verbPast} your edit`,
+      message: `${existing.story?.title || 'A story'}: your suggestion for "${existing.sectionKey}" was ${verbPast}.`,
+      recipientId: existing.validatorId,
+      senderId: userId,
+      relatedEntityType: 'CAREER_STORY',
+      relatedEntityId: existing.storyId,
+      data: {
+        storyId: existing.storyId,
+        sectionKey: existing.sectionKey,
+        validationId: existing.id,
+        verdict,
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  return { verdict };
+}
+
+export function acceptEditSuggestion(validationId: string, userId: string) {
+  return applyEditVerdict({ validationId, userId, verdict: 'accepted' });
+}
+
+export function rejectEditSuggestion(validationId: string, userId: string) {
+  return applyEditVerdict({ validationId, userId, verdict: 'rejected' });
+}
+
+// ========================================================================
+// Author-side read: suggestions awaiting my response on a story
+// ========================================================================
+
+export interface PendingEditSuggestion {
+  validationId: string;
+  storyId: string;
+  sectionKey: string;
+  validatorId: string;
+  validatorName: string;
+  validatorAvatar: string | null;
+  suggestedText: string;
+  /** The current section text in the story, for diff display. */
+  currentSectionText: string;
+  suggestedAt: string;
+}
+
+/**
+ * Author view: list edit suggestions on a story that are waiting for
+ * their Accept/Reject response. Used to render the suggestion cards
+ * inline on the Participants row.
+ */
+export async function listPendingEditSuggestionsForStory(
+  storyId: string,
+  authorUserId: string,
+): Promise<PendingEditSuggestion[]> {
+  const story = await prisma.careerStory.findUnique({
+    where: { id: storyId },
+    select: { id: true, userId: true, sections: true },
+  });
+  if (!story) {
+    throw new InviteError('Story not found', 'STORY_NOT_FOUND', 404);
+  }
+  if (story.userId !== authorUserId) {
+    throw new InviteError('Only the story author can view edit suggestions', 'NOT_AUTHOR', 403);
+  }
+
+  const rows = await prisma.storyValidation.findMany({
+    where: {
+      storyId,
+      status: 'EDIT_SUGGESTED',
+      editSuggestion: { authorVerdict: null },
+    },
+    select: {
+      id: true,
+      storyId: true,
+      sectionKey: true,
+      validatorId: true,
+      validator: { select: { name: true, avatar: true } },
+      editSuggestion: { select: { suggestedText: true, createdAt: true } },
+    },
+    orderBy: { respondedAt: 'desc' },
+  });
+
+  const sections = (story.sections as Record<string, { summary?: string } | undefined>) || {};
+
+  return rows
+    .filter((r) => r.editSuggestion)
+    .map((r) => ({
+      validationId: r.id,
+      storyId: r.storyId,
+      sectionKey: r.sectionKey,
+      validatorId: r.validatorId,
+      validatorName: r.validator?.name || 'Unknown',
+      validatorAvatar: r.validator?.avatar || null,
+      suggestedText: r.editSuggestion!.suggestedText,
+      currentSectionText: sections[r.sectionKey]?.summary || '',
+      suggestedAt: r.editSuggestion!.createdAt.toISOString(),
+    }));
+}

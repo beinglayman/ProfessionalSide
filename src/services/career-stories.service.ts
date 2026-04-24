@@ -52,6 +52,7 @@ import {
   InviteValidatorResult,
   MyValidationRow,
   ValidatorStoryView,
+  PendingEditSuggestion,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -450,6 +451,41 @@ export class CareerStoriesService {
     const response = await api.post<ApiResponse<unknown>>(
       `/career-stories/validations/${validationId}/dispute`,
       { note },
+    );
+    return response.data;
+  }
+
+  /** Validator proposes rewritten text for a section. Ship 3.3. */
+  static async suggestEdit(validationId: string, suggestedText: string): Promise<ApiResponse<unknown>> {
+    const response = await api.post<ApiResponse<unknown>>(
+      `/career-stories/validations/${validationId}/suggest-edit`,
+      { suggestedText },
+    );
+    return response.data;
+  }
+
+  /** Author accepts a validator's edit suggestion (section text is replaced). */
+  static async acceptEditSuggestion(validationId: string): Promise<ApiResponse<unknown>> {
+    const response = await api.post<ApiResponse<unknown>>(
+      `/career-stories/validations/${validationId}/suggestion/accept`,
+      {},
+    );
+    return response.data;
+  }
+
+  /** Author rejects a validator's edit suggestion; validation resets to PENDING. */
+  static async rejectEditSuggestion(validationId: string): Promise<ApiResponse<unknown>> {
+    const response = await api.post<ApiResponse<unknown>>(
+      `/career-stories/validations/${validationId}/suggestion/reject`,
+      {},
+    );
+    return response.data;
+  }
+
+  /** Author view: pending edit suggestions on a story awaiting accept/reject. */
+  static async listPendingEditSuggestions(storyId: string): Promise<ApiResponse<{ suggestions: PendingEditSuggestion[] }>> {
+    const response = await api.get<ApiResponse<{ suggestions: PendingEditSuggestion[] }>>(
+      `/career-stories/stories/${storyId}/edit-suggestions`,
     );
     return response.data;
   }

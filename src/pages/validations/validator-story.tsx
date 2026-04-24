@@ -11,10 +11,11 @@
 
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Check, X, Loader2, CheckCircle2, AlertTriangle, Clock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2, CheckCircle2, AlertTriangle, Clock, ShieldCheck, PencilLine } from 'lucide-react';
 import {
   useApproveValidation,
   useDisputeValidation,
+  useSuggestEdit,
   useValidatorStoryView,
 } from '../../hooks/useMyValidations';
 import { NARRATIVE_FRAMEWORKS } from '../../components/career-stories/constants';
@@ -32,21 +33,26 @@ const STATUS_META: Record<StoryValidationStatus, { label: string; color: string;
 interface SectionActionBarProps {
   section: ValidatorStorySection;
   storyId: string;
+  /** Current section prose - used to pre-fill the "Suggest edit" textarea. */
+  currentText: string;
 }
 
-function SectionActionBar({ section, storyId }: SectionActionBarProps) {
-  const [mode, setMode] = useState<'idle' | 'dispute'>('idle');
+function SectionActionBar({ section, storyId, currentText }: SectionActionBarProps) {
+  const [mode, setMode] = useState<'idle' | 'dispute' | 'edit'>('idle');
   const [note, setNote] = useState('');
+  const [draft, setDraft] = useState(currentText);
 
   const approve = useApproveValidation(storyId);
   const dispute = useDisputeValidation(storyId);
+  const suggest = useSuggestEdit(storyId);
 
   const meta = STATUS_META[section.status];
   const Icon = meta.icon;
   const isPending = section.status === 'PENDING';
+  const isEditSuggested = section.status === 'EDIT_SUGGESTED';
 
-  if (!isPending) {
-    // Already responded: show a chip + any saved note.
+  // Responded states (APPROVED / DISPUTED / EDIT_SUGGESTED / INVALIDATED).
+  if (!isPending && mode === 'idle') {
     return (
       <div className={cn('mt-4 rounded-md border px-3 py-2 flex items-start gap-2 text-xs', meta.color)}>
         <Icon className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -54,6 +60,9 @@ function SectionActionBar({ section, storyId }: SectionActionBarProps) {
           <span className="font-medium">{meta.label}</span>
           {section.note && (
             <p className="mt-0.5 text-[11px] italic opacity-90">&ldquo;{section.note}&rdquo;</p>
+          )}
+          {isEditSuggested && (
+            <p className="mt-0.5 text-[11px] opacity-80">Waiting on the author to accept or reject.</p>
           )}
         </div>
       </div>
@@ -114,6 +123,61 @@ function SectionActionBar({ section, storyId }: SectionActionBarProps) {
     );
   }
 
+  if (mode === 'edit') {
+    return (
+      <div className="mt-4 rounded-md border border-primary-200 bg-primary-50/40 px-3 py-2.5">
+        <div className="text-xs font-medium text-primary-800 mb-1.5">Propose a rewrite</div>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={6}
+          maxLength={5000}
+          placeholder="Edit this section as you'd like it to read..."
+          className="w-full text-sm border border-primary-200 rounded bg-white px-2 py-1.5 focus:ring-1 focus:ring-primary-400 focus:outline-none resize-y font-serif leading-relaxed"
+        />
+        {suggest.isError && (
+          <p className="mt-1 text-[11px] text-red-700">
+            {(suggest.error as Error | undefined)?.message || 'Could not send. Try again.'}
+          </p>
+        )}
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[10px] text-primary-500">{draft.length} / 5000</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setMode('idle'); setDraft(currentText); suggest.reset(); }}
+              disabled={suggest.isPending}
+              className="inline-flex items-center gap-1 text-[11px] text-gray-600 hover:text-gray-800 px-2 py-1 rounded"
+            >
+              <X className="h-3 w-3" /> Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const trimmed = draft.trim();
+                if (trimmed.length === 0) return;
+                suggest.mutate(
+                  { validationId: section.validationId, suggestedText: trimmed },
+                  { onSuccess: () => setMode('idle') },
+                );
+              }}
+              disabled={suggest.isPending || draft.trim().length === 0 || draft.trim() === currentText.trim()}
+              className={cn(
+                'inline-flex items-center gap-1 text-[11px] font-medium rounded px-2 py-1',
+                suggest.isPending || draft.trim().length === 0 || draft.trim() === currentText.trim()
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-primary-600 text-white hover:bg-primary-700',
+              )}
+            >
+              {suggest.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <PencilLine className="h-3 w-3" />}
+              Send suggestion
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2.5">
       <div className="flex items-center gap-2">
@@ -122,9 +186,7 @@ function SectionActionBar({ section, storyId }: SectionActionBarProps) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() =>
-              approve.mutate(section.validationId)
-            }
+            onClick={() => approve.mutate(section.validationId)}
             disabled={approve.isPending}
             className={cn(
               'inline-flex items-center gap-1 text-[11px] font-medium rounded px-2.5 py-1',
@@ -135,6 +197,15 @@ function SectionActionBar({ section, storyId }: SectionActionBarProps) {
           >
             {approve.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
             Approve
+          </button>
+          <button
+            type="button"
+            onClick={() => { setDraft(currentText); setMode('edit'); }}
+            disabled={approve.isPending}
+            className="inline-flex items-center gap-1 text-[11px] font-medium rounded px-2.5 py-1 border border-primary-200 text-primary-700 bg-white hover:bg-primary-50"
+          >
+            <PencilLine className="h-3 w-3" />
+            Suggest edit
           </button>
           <button
             type="button"
@@ -265,7 +336,11 @@ export default function ValidatorStoryPage() {
                   <p className="text-sm text-gray-400 italic">No content</p>
                 )}
                 {myRow && (
-                  <SectionActionBar section={myRow} storyId={story.id} />
+                  <SectionActionBar
+                    section={myRow}
+                    storyId={story.id}
+                    currentText={section.summary || ''}
+                  />
                 )}
               </section>
             );

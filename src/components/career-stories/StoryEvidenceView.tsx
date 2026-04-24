@@ -21,6 +21,7 @@ import React from 'react';
 import { ExternalLink, ShieldCheck, AlertTriangle, StickyNote, FileText, UserPlus } from 'lucide-react';
 import { ToolIcon } from './ToolIcon';
 import { ParticipantsRow } from './ParticipantsRow';
+import { EditSuggestionsPanel } from './EditSuggestionsPanel';
 import type { CareerStory, StorySource, ToolType } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
 
@@ -196,6 +197,9 @@ export const StoryEvidenceView: React.FC<StoryEvidenceViewProps> = ({
           );
         })}
       </div>
+
+      {/* Author-only: edit suggestions awaiting accept/reject (Ship 3.3). */}
+      {story.id && <EditSuggestionsPanel storyId={story.id} isOwner={isOwner} />}
 
       {/* Participants row. Ship 3.1b wires the "Invite to validate" picker -
           author clicks, section checkboxes open inline (auto-checked where

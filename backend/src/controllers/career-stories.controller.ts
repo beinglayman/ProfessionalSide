@@ -54,6 +54,10 @@ import {
   getStoryForValidator,
   approveValidation,
   disputeValidation,
+  suggestEdit,
+  acceptEditSuggestion,
+  rejectEditSuggestion,
+  listPendingEditSuggestionsForStory,
 } from '../services/career-stories/validation-response.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
@@ -1243,6 +1247,91 @@ export const disputeValidationController = asyncHandler(
     try {
       const updated = await disputeValidation(id, userId, note);
       sendSuccess(res, updated);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/validations/:id/suggest-edit
+ * Body: { suggestedText: string } (1..5000 chars)
+ * Validator proposes rewritten text for the section.
+ */
+export const suggestEditController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+
+    const suggestedText = typeof req.body?.suggestedText === 'string' ? req.body.suggestedText : '';
+    if (!suggestedText || suggestedText.trim().length === 0) {
+      return void sendError(res, 'suggestedText is required', 400);
+    }
+
+    try {
+      const out = await suggestEdit(id, userId, suggestedText);
+      sendSuccess(res, out);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/validations/:id/suggestion/accept
+ * Author accepts the edit; section text is replaced in-place and the
+ * parent validation flips to APPROVED.
+ */
+export const acceptEditSuggestionController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+    try {
+      const out = await acceptEditSuggestion(id, userId);
+      sendSuccess(res, out);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/validations/:id/suggestion/reject
+ * Author rejects the edit; validation returns to PENDING.
+ */
+export const rejectEditSuggestionController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+    try {
+      const out = await rejectEditSuggestion(id, userId);
+      sendSuccess(res, out);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * GET /api/v1/career-stories/stories/:id/edit-suggestions
+ * Author view: edit suggestions on a story that are awaiting their
+ * Accept/Reject response. Feeds the Participants row suggestion cards.
+ */
+export const listEditSuggestionsController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+    try {
+      const suggestions = await listPendingEditSuggestionsForStory(id, userId);
+      sendSuccess(res, { suggestions });
     } catch (e) {
       if (e instanceof InviteError) return void sendError(res, e.message, e.status);
       throw e;

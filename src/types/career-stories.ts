@@ -636,6 +636,20 @@ export interface ValidatorStorySection {
   respondedAt: string | null;
 }
 
+/** A pending edit suggestion on the author's story, awaiting their accept/reject. */
+export interface PendingEditSuggestion {
+  validationId: string;
+  storyId: string;
+  sectionKey: string;
+  validatorId: string;
+  validatorName: string;
+  validatorAvatar: string | null;
+  suggestedText: string;
+  /** Current section text in the story, for diff display. */
+  currentSectionText: string;
+  suggestedAt: string;
+}
+
 /** Response from GET /stories/:id/validator-view - what the validator sees. */
 export interface ValidatorStoryView {
   story: {

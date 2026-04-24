@@ -51,6 +51,10 @@ import {
   getValidatorStoryViewController,
   approveValidationController,
   disputeValidationController,
+  suggestEditController,
+  acceptEditSuggestionController,
+  rejectEditSuggestionController,
+  listEditSuggestionsController,
   publishStory,
   unpublishStory,
   setStoryVisibility,
@@ -152,6 +156,10 @@ router.get('/stories/:id/validator-view', getValidatorStoryViewController);
 router.get('/me/validations', listMyValidationsController);
 router.post('/validations/:id/approve', approveValidationController);
 router.post('/validations/:id/dispute', disputeValidationController);
+router.post('/validations/:id/suggest-edit', suggestEditController);
+router.post('/validations/:id/suggestion/accept', acceptEditSuggestionController);
+router.post('/validations/:id/suggestion/reject', rejectEditSuggestionController);
+router.get('/stories/:id/edit-suggestions', listEditSuggestionsController);
 router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);
