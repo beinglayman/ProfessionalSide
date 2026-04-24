@@ -43,6 +43,8 @@ import { EvidencePrototypesPage } from './pages/prototypes/evidence-prototypes';
 const PublishedStoryPage = React.lazy(() => import('./pages/stories/published-story'));
 const ChroniclePage = React.lazy(() => import('./pages/chronicle'));
 const PragmaLinkPage = React.lazy(() => import('./pages/pragma/view'));
+const ValidatorInboxPage = React.lazy(() => import('./pages/validations/inbox'));
+const ValidatorStoryPage = React.lazy(() => import('./pages/validations/validator-story'));
 
 export type NetworkType = 'organization' | 'global';
 
@@ -293,6 +295,27 @@ const AppRoutes: React.FC = () => {
             <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>}>
               <PublishedStoryPage />
             </React.Suspense>
+          }
+        />
+        {/* Peer validation inbox + per-story reviewer view (Ship 3.2). */}
+        <Route
+          path="/me/validations"
+          element={
+            <ProtectedRoute>
+              <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>}>
+                <ValidatorInboxPage />
+              </React.Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/validate/:storyId"
+          element={
+            <ProtectedRoute>
+              <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>}>
+                <ValidatorStoryPage />
+              </React.Suspense>
+            </ProtectedRoute>
           }
         />
         {/* Legacy redirects */}

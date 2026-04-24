@@ -47,6 +47,10 @@ import {
   getStoryParticipants,
   listStoryValidationsController,
   inviteValidatorController,
+  listMyValidationsController,
+  getValidatorStoryViewController,
+  approveValidationController,
+  disputeValidationController,
   publishStory,
   unpublishStory,
   setStoryVisibility,
@@ -144,6 +148,10 @@ router.post('/stories/:id/regenerate', regenerateStory);
 router.get('/stories/:id/participants', getStoryParticipants);
 router.get('/stories/:id/validations', listStoryValidationsController);
 router.post('/stories/:id/validations', inviteValidatorController);
+router.get('/stories/:id/validator-view', getValidatorStoryViewController);
+router.get('/me/validations', listMyValidationsController);
+router.post('/validations/:id/approve', approveValidationController);
+router.post('/validations/:id/dispute', disputeValidationController);
 router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);

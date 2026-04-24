@@ -613,6 +613,50 @@ export interface InviteValidatorResult {
   validationIds: string[];
 }
 
+/** Row shown in the validator's /me/validations inbox. */
+export interface MyValidationRow {
+  id: string;
+  storyId: string;
+  storyTitle: string;
+  authorName: string;
+  authorAvatar: string | null;
+  sectionKey: string;
+  status: StoryValidationStatus;
+  note: string | null;
+  requestedAt: string;
+  respondedAt: string | null;
+}
+
+/** One of the caller's validation rows on a specific story. */
+export interface ValidatorStorySection {
+  validationId: string;
+  sectionKey: string;
+  status: StoryValidationStatus;
+  note: string | null;
+  respondedAt: string | null;
+}
+
+/** Response from GET /stories/:id/validator-view - what the validator sees. */
+export interface ValidatorStoryView {
+  story: {
+    id: string;
+    title: string;
+    framework: string;
+    archetype: string | null;
+    sections: Record<string, CareerStorySection>;
+    generatedAt: string | null;
+    publishedAt: string | null;
+  };
+  author: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    title: string | null;
+    company: string | null;
+  };
+  mySections: ValidatorStorySection[];
+}
+
 export interface SourceCoverage {
   total: number;
   sourced: number;

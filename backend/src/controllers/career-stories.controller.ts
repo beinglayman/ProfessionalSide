@@ -49,6 +49,12 @@ import {
   listStoryValidations,
   InviteError,
 } from '../services/career-stories/validation-invite.service';
+import {
+  listMyValidations,
+  getStoryForValidator,
+  approveValidation,
+  disputeValidation,
+} from '../services/career-stories/validation-response.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 import { WalletService } from '../services/wallet.service';
@@ -1161,6 +1167,89 @@ export const listStoryValidationsController = asyncHandler(
  *     groundingActivityIds?: string[]
  *   }
  */
+/**
+ * GET /api/v1/career-stories/me/validations
+ * Inbox feed for a validator - pending + recently-responded rows.
+ */
+export const listMyValidationsController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+
+    const rows = await listMyValidations(userId);
+    sendSuccess(res, { validations: rows });
+  },
+);
+
+/**
+ * GET /api/v1/career-stories/stories/:id/validator-view
+ * Validator-scoped read of a story. Access: caller must have >= 1
+ * StoryValidation row on the story (else 403).
+ */
+export const getValidatorStoryViewController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+
+    try {
+      const view = await getStoryForValidator(id, userId);
+      sendSuccess(res, view);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/validations/:id/approve
+ * Validator approves a single (story, section) row.
+ */
+export const approveValidationController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+
+    try {
+      const updated = await approveValidation(id, userId);
+      sendSuccess(res, updated);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/validations/:id/dispute
+ * Body: { note: string }  (required, <= 500 chars)
+ */
+export const disputeValidationController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+
+    const note = typeof req.body?.note === 'string' ? req.body.note : '';
+    if (!note || note.trim().length === 0) {
+      return void sendError(res, 'A short reason is required to dispute a claim', 400);
+    }
+    if (note.length > 500) {
+      return void sendError(res, 'Reason must be 500 characters or fewer', 400);
+    }
+
+    try {
+      const updated = await disputeValidation(id, userId, note);
+      sendSuccess(res, updated);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
 export const inviteValidatorController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const userId = req.user?.id;

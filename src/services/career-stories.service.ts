@@ -50,6 +50,8 @@ import {
   StoryValidationSummary,
   InviteValidatorRequest,
   InviteValidatorResult,
+  MyValidationRow,
+  ValidatorStoryView,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -408,6 +410,46 @@ export class CareerStoriesService {
     const response = await api.post<ApiResponse<InviteValidatorResult>>(
       `/career-stories/stories/${id}/validations`,
       payload,
+    );
+    return response.data;
+  }
+
+  // ========================================================================
+  // Ship 3.2 - Validator-side APIs
+  // ========================================================================
+
+  /**
+   * Inbox feed for the current user's pending + recent validations.
+   */
+  static async listMyValidations(): Promise<ApiResponse<{ validations: MyValidationRow[] }>> {
+    const response = await api.get<ApiResponse<{ validations: MyValidationRow[] }>>(
+      '/career-stories/me/validations',
+    );
+    return response.data;
+  }
+
+  /** Validator-scoped story read; 403 if the caller has no rows. */
+  static async getStoryForValidator(id: string): Promise<ApiResponse<ValidatorStoryView>> {
+    const response = await api.get<ApiResponse<ValidatorStoryView>>(
+      `/career-stories/stories/${id}/validator-view`,
+    );
+    return response.data;
+  }
+
+  /** Approve a single validation row. */
+  static async approveValidation(validationId: string): Promise<ApiResponse<unknown>> {
+    const response = await api.post<ApiResponse<unknown>>(
+      `/career-stories/validations/${validationId}/approve`,
+      {},
+    );
+    return response.data;
+  }
+
+  /** Dispute a single validation row with a required reason. */
+  static async disputeValidation(validationId: string, note: string): Promise<ApiResponse<unknown>> {
+    const response = await api.post<ApiResponse<unknown>>(
+      `/career-stories/validations/${validationId}/dispute`,
+      { note },
     );
     return response.data;
   }
