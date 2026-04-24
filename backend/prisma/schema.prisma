@@ -77,6 +77,8 @@ model User {
   // Career Story peer validation (Ship 3.1b)
   storyValidationsAsValidator StoryValidation[] @relation("StoryValidationValidator")
   storyValidationsAsAuthor    StoryValidation[] @relation("StoryValidationAuthor")
+  externalValidationInvitesSent ExternalValidationInvite[] @relation("ExternalValidationInviter")
+  externalValidationInvitesClaimed ExternalValidationInvite[] @relation("ExternalValidationClaimer")
 
   // Task relationships
   assignedTasks  GoalTask[] @relation("TaskAssignee")
@@ -1500,6 +1502,7 @@ model CareerStory {
 
   // Peer validation (Ship 3.1b)
   validations           StoryValidation[]
+  externalValidationInvites ExternalValidationInvite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1806,4 +1809,43 @@ model StoryEditSuggestion {
   validation StoryValidation @relation(fields: [validationId], references: [id], onDelete: Cascade)
 
   @@map("story_edit_suggestions")
+}
+
+/// Ship 4.2 - external validation invite for a participant who is NOT yet
+/// an InChronicle user. Author creates one of these with the participant's
+/// email; we send a magic-link email. When the recipient signs up via the
+/// link, `claim()` creates real StoryValidation rows against their fresh
+/// user id and stamps `claimedAt` so the invite is single-use.
+///
+/// `email` is lowercased at write-time. The unique index on (storyId, email,
+/// status='pending') is enforced in application code since Postgres partial
+/// unique constraints complicate Prisma's migration story; deduping is done
+/// by looking up pending rows before creating new ones.
+model ExternalValidationInvite {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  email       String
+  storyId     String
+  inviterId   String
+  /// Sections the author wants this person to validate when they sign up.
+  sectionKeys String[] @default([])
+  /// Optional personal note from the author.
+  message     String?
+  /// 'pending' | 'claimed' | 'revoked' | 'expired'. String (not enum) so
+  /// we can add states without a migration.
+  status      String   @default("pending")
+  expiresAt   DateTime
+  claimedAt   DateTime?
+  claimedByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  story        CareerStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  inviter      User        @relation("ExternalValidationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  claimedByUser User?      @relation("ExternalValidationClaimer", fields: [claimedByUserId], references: [id])
+
+  @@index([storyId, email])
+  @@index([email, status])
+  @@index([inviterId])
+  @@map("external_validation_invites")
 }

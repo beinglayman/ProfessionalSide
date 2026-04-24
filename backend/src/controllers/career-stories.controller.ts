@@ -60,6 +60,11 @@ import {
   listPendingEditSuggestionsForStory,
 } from '../services/career-stories/validation-response.service';
 import { getStoryValidationStats } from '../services/career-stories/validation-stats.service';
+import {
+  createExternalInvite,
+  getExternalInviteByToken,
+  claimExternalInvite,
+} from '../services/career-stories/external-invite.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 import { WalletService } from '../services/wallet.service';
@@ -1333,6 +1338,87 @@ export const listEditSuggestionsController = asyncHandler(
     try {
       const suggestions = await listPendingEditSuggestionsForStory(id, userId);
       sendSuccess(res, { suggestions });
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/stories/:id/external-invites
+ * Author invites a participant (by email) who isn't yet on InChronicle to
+ * validate specific sections. Ship 4.2.
+ *
+ * Body: { email: string, sectionKeys: string[], message?: string }
+ *
+ * Returns either:
+ *   - { kind: 'external', invite: ExternalInviteInfo, magicLinkPath: string }
+ *   - { kind: 'existing_user', userId, created, skipped } if email already
+ *     belongs to a user (we short-circuited to the regular invite flow).
+ */
+export const createExternalInviteController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+
+    const { email, sectionKeys, message } = req.body ?? {};
+    if (!email || typeof email !== 'string') {
+      return void sendError(res, 'email is required', 400);
+    }
+    if (!Array.isArray(sectionKeys) || sectionKeys.length === 0) {
+      return void sendError(res, 'sectionKeys must be a non-empty array', 400);
+    }
+
+    try {
+      const result = await createExternalInvite({
+        storyId: id,
+        authorUserId: userId,
+        email,
+        sectionKeys,
+        message: typeof message === 'string' ? message : undefined,
+      });
+      sendSuccess(res, result);
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * GET /api/v1/career-stories/external-invites/:token
+ * Public: returns invite context so the landing page can render who
+ * invited you and for what story. Does not reveal any other user data.
+ * Ship 4.2.
+ */
+export const getExternalInviteByTokenController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const { token } = req.params;
+    try {
+      const invite = await getExternalInviteByToken(token);
+      sendSuccess(res, { invite });
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/external-invites/:token/claim
+ * Authenticated: called after signup to materialize the real
+ * StoryValidation rows for the invited user. Ship 4.2.
+ */
+export const claimExternalInviteController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { token } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+    try {
+      const result = await claimExternalInvite(token, userId);
+      sendSuccess(res, result);
     } catch (e) {
       if (e instanceof InviteError) return void sendError(res, e.message, e.status);
       throw e;

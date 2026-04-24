@@ -56,6 +56,9 @@ import {
   rejectEditSuggestionController,
   listEditSuggestionsController,
   getStoryValidationStatsController,
+  createExternalInviteController,
+  getExternalInviteByTokenController,
+  claimExternalInviteController,
   publishStory,
   unpublishStory,
   setStoryVisibility,
@@ -96,6 +99,11 @@ const router = Router();
 
 // Public: story permalink (before authenticate middleware)
 router.get('/published/:storyId', optionalAuth, getPublishedStoryById);
+
+// Public: external validation invite landing - resolves :token to invite
+// context so the not-yet-logged-in user can see who invited them and why
+// before signing up. Ship 4.2.
+router.get('/external-invites/:token', getExternalInviteByTokenController);
 
 // All remaining career-stories routes require authentication
 router.use(authenticate);
@@ -162,6 +170,10 @@ router.post('/validations/:id/suggestion/accept', acceptEditSuggestionController
 router.post('/validations/:id/suggestion/reject', rejectEditSuggestionController);
 router.get('/stories/:id/edit-suggestions', listEditSuggestionsController);
 router.get('/stories/:id/validation-stats', getStoryValidationStatsController);
+// Ship 4.2 - external invites. The public read route is registered
+// above the auth middleware; these two require auth.
+router.post('/stories/:id/external-invites', createExternalInviteController);
+router.post('/external-invites/:token/claim', claimExternalInviteController);
 router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);
