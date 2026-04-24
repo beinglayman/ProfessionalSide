@@ -13,6 +13,7 @@ import { PrivacyPolicyPage } from './pages/privacy';
 import { TermsOfServicePage } from './pages/terms';
 import { LoginPage } from './pages/auth/login';
 import { RegisterPage } from './pages/auth/register';
+import { ExternalInviteLandingPage } from './pages/validations/invite-landing';
 import { OnboardingPage } from './pages/onboarding';
 import JournalListPage  from './pages/journal/list';
 import { ActivityFeedPage } from './pages/activity/feed';
@@ -86,7 +87,10 @@ const AppRoutes: React.FC = () => {
     );
   }
 
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isAuthPage =
+    location.pathname === '/login' ||
+    location.pathname === '/register' ||
+    location.pathname.startsWith('/invite/validate/');
 
   // Wrap authenticated routes with WalkthroughProvider (no-op when inactive)
   const content = (
@@ -115,6 +119,8 @@ const AppRoutes: React.FC = () => {
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
           }
         />
+        {/* Ship 4.2 - public landing for external validation invites. */}
+        <Route path="/invite/validate/:token" element={<ExternalInviteLandingPage />} />
         <Route 
           path="/onboarding" 
           element={

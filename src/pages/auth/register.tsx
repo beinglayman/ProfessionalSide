@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthLayout } from '../../components/layouts/AuthLayout';
+import { CareerStoriesService } from '../../services/career-stories.service';
 
 export function RegisterPage() {
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('inviteToken');
+  const prefilledEmail = searchParams.get('email');
+
   const [formData, setFormData] = useState({
-    email: '',
+    email: prefilledEmail || '',
     password: '',
     confirmPassword: '',
   });
@@ -46,6 +51,24 @@ export function RegisterPage() {
       };
 
       await register(registerData);
+
+      // Ship 4.2 - if the user arrived from an external validation invite
+      // link, materialize their StoryValidation rows and drop them directly
+      // on the validator view. Failures here are soft (we still navigate
+      // them into the app) so a flaky claim doesn't block onboarding.
+      if (inviteToken) {
+        try {
+          const res = await CareerStoriesService.claimExternalInvite(inviteToken);
+          const storyId = res.data?.storyId;
+          if (storyId) {
+            navigate(`/validate/${storyId}`, { replace: true });
+            return;
+          }
+        } catch (claimErr) {
+          console.warn('Invite claim failed post-signup:', claimErr);
+        }
+      }
+
       navigate('/onboarding');
     } catch (error: any) {
       console.error('Registration error:', error);

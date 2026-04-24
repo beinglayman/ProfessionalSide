@@ -54,6 +54,9 @@ import {
   ValidatorStoryView,
   PendingEditSuggestion,
   StoryValidationStats,
+  ExternalValidationInvite,
+  CreateExternalInviteRequest,
+  CreateExternalInviteResponse,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -495,6 +498,43 @@ export class CareerStoriesService {
   static async getStoryValidationStats(storyId: string): Promise<ApiResponse<{ stats: StoryValidationStats }>> {
     const response = await api.get<ApiResponse<{ stats: StoryValidationStats }>>(
       `/career-stories/stories/${storyId}/validation-stats`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Ship 4.2 - create an external invite for a non-InChronicle participant.
+   * If the email already belongs to a user, the backend short-circuits to
+   * the regular inviteValidator flow; the response's `kind` discriminates.
+   */
+  static async createExternalInvite(
+    storyId: string,
+    payload: CreateExternalInviteRequest,
+  ): Promise<ApiResponse<CreateExternalInviteResponse>> {
+    const response = await api.post<ApiResponse<CreateExternalInviteResponse>>(
+      `/career-stories/stories/${storyId}/external-invites`,
+      payload,
+    );
+    return response.data;
+  }
+
+  /** Public: resolve an invite token to invite context (pre-signup landing). */
+  static async getExternalInviteByToken(
+    token: string,
+  ): Promise<ApiResponse<{ invite: ExternalValidationInvite }>> {
+    const response = await api.get<ApiResponse<{ invite: ExternalValidationInvite }>>(
+      `/career-stories/external-invites/${token}`,
+    );
+    return response.data;
+  }
+
+  /** Authenticated: consume an invite after signup, materializing real validations. */
+  static async claimExternalInvite(
+    token: string,
+  ): Promise<ApiResponse<{ storyId: string; created: number; skipped: number }>> {
+    const response = await api.post<ApiResponse<{ storyId: string; created: number; skipped: number }>>(
+      `/career-stories/external-invites/${token}/claim`,
+      {},
     );
     return response.data;
   }

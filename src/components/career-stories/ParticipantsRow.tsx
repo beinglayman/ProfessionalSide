@@ -22,8 +22,11 @@
 import React, { useMemo, useState } from 'react';
 import { UserPlus, Users, Mail, UserCircle2, Check, X, Loader2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useStoryParticipants } from '../../hooks/useStoryParticipants';
 import { useStoryValidations, useInviteValidator } from '../../hooks/useStoryValidations';
+import { CareerStoriesService } from '../../services/career-stories.service';
+import type { CreateExternalInviteResponse } from '../../types/career-stories';
 import type {
   StoryParticipant,
   ParticipantRole,
@@ -136,6 +139,21 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
   const hasExistingInvites = existingForUser.length > 0;
 
   const invite = useInviteValidator(storyId);
+  const qc = useQueryClient();
+  const externalInvite = useMutation({
+    mutationFn: ({ email, sections }: { email: string; sections: string[] }) =>
+      CareerStoriesService.createExternalInvite(storyId, {
+        email,
+        sectionKeys: sections,
+      }),
+    onSuccess: () => {
+      // If the email was actually an existing user, we materialized real
+      // validations and need the Participants + validations data to refresh.
+      qc.invalidateQueries({ queryKey: ['story-validations', storyId] });
+      qc.invalidateQueries({ queryKey: ['story-participants', storyId] });
+    },
+  });
+  const [externalResult, setExternalResult] = useState<CreateExternalInviteResponse | null>(null);
 
   // Picker state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -148,6 +166,7 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
   const openPicker = () => {
     // Reset selection to the auto-suggestion each time we open.
     setSelected(new Set(suggested));
+    setExternalResult(null);
     setPickerOpen(true);
   };
 
@@ -169,6 +188,21 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
         groundingActivityIds: p.activities.map((a) => a.activityId),
       },
       { onSuccess: () => setPickerOpen(false) },
+    );
+  };
+
+  const sendExternalInvite = () => {
+    if (!p.email || selected.size === 0) return;
+    externalInvite.mutate(
+      { email: p.email, sections: [...selected] },
+      {
+        onSuccess: (res) => {
+          const payload = res.data;
+          if (payload) {
+            setExternalResult(payload);
+          }
+        },
+      },
     );
   };
 
@@ -233,6 +267,12 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
           <div className="text-[11px] font-medium text-gray-700 mb-1.5">
             Which sections should {p.displayName.split(' ')[0] || 'they'} approve?
           </div>
+          {!p.isResolved && p.email && !externalResult && (
+            <p className="text-[10px] text-gray-500 mb-1.5 italic">
+              They'll receive an email at <span className="font-medium not-italic">{p.email}</span> and
+              sign up to validate.
+            </p>
+          )}
           <div className="space-y-1 mb-2.5">
             {(sectionKeys ?? []).map((key) => {
               const isSelected = selected.has(key);
@@ -261,30 +301,67 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
               {(invite.error as Error | undefined)?.message || 'Failed to send invite. Try again.'}
             </p>
           )}
+          {externalInvite.isError && (
+            <p className="text-[11px] text-red-600 mb-1.5">
+              {(externalInvite.error as Error | undefined)?.message || 'Failed to send invite. Try again.'}
+            </p>
+          )}
+          {externalResult && externalResult.kind === 'external' && (
+            <div className="rounded-md bg-primary-50/60 border border-primary-100 px-2.5 py-2 mb-1.5 space-y-1">
+              <p className="text-[11px] text-primary-800 font-medium">
+                Invite sent to {externalResult.invite.email}.
+              </p>
+              <p className="text-[10px] text-gray-500 break-all">
+                Magic link: <span className="font-mono">{externalResult.magicLinkPath}</span>
+              </p>
+            </div>
+          )}
+          {externalResult && externalResult.kind === 'existing_user' && (
+            <div className="rounded-md bg-emerald-50/60 border border-emerald-200 px-2.5 py-2 mb-1.5">
+              <p className="text-[11px] text-emerald-800 font-medium">
+                Already an InChronicle user - invite sent in-app ({externalResult.created} new,{' '}
+                {externalResult.skipped} already pending).
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-end gap-1.5">
             <button
               type="button"
               onClick={() => setPickerOpen(false)}
-              disabled={invite.isPending}
+              disabled={invite.isPending || externalInvite.isPending}
               className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 px-2 py-1 rounded"
             >
               <X className="h-3 w-3" />
-              Cancel
+              {externalResult ? 'Close' : 'Cancel'}
             </button>
-            <button
-              type="button"
-              onClick={sendInvite}
-              disabled={invite.isPending || selected.size === 0}
-              className={cn(
-                'inline-flex items-center gap-1 text-[11px] font-medium rounded px-2 py-1',
-                invite.isPending || selected.size === 0
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-primary-600 text-white hover:bg-primary-700',
-              )}
-            >
-              {invite.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-              Invite ({selected.size})
-            </button>
+            {!externalResult && (
+              <button
+                type="button"
+                onClick={p.isResolved ? sendInvite : sendExternalInvite}
+                disabled={
+                  invite.isPending ||
+                  externalInvite.isPending ||
+                  selected.size === 0 ||
+                  (!p.isResolved && !p.email)
+                }
+                className={cn(
+                  'inline-flex items-center gap-1 text-[11px] font-medium rounded px-2 py-1',
+                  invite.isPending ||
+                    externalInvite.isPending ||
+                    selected.size === 0 ||
+                    (!p.isResolved && !p.email)
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-primary-600 text-white hover:bg-primary-700',
+                )}
+              >
+                {invite.isPending || externalInvite.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+                Invite ({selected.size})
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -304,15 +381,25 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
               <UserPlus className="h-3 w-3" />
               {hasExistingInvites ? 'Invite for more' : 'Invite to validate'}
             </button>
+          ) : isOwner && !p.isResolved && p.email ? (
+            <button
+              type="button"
+              onClick={openPicker}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-700 hover:text-primary-800"
+              title={`Send a magic-link invite to ${p.email}`}
+            >
+              <Mail className="h-3 w-3" />
+              Invite by email
+            </button>
           ) : isOwner && !p.isResolved ? (
             <button
               type="button"
               disabled
               className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 cursor-not-allowed"
-              title="Invite to InChronicle - available in Ship 3.4"
+              title="No email captured for this participant"
             >
               <Mail className="h-3 w-3" />
-              Invite to InChronicle
+              No email on file
             </button>
           ) : null}
         </div>

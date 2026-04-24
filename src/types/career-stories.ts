@@ -636,6 +636,38 @@ export interface ValidatorStorySection {
   respondedAt: string | null;
 }
 
+/** Ship 4.2 - external validation invite for a not-yet-signed-up participant. */
+export interface ExternalValidationInvite {
+  token: string;
+  email: string;
+  storyId: string;
+  storyTitle: string;
+  inviterName: string;
+  sectionKeys: string[];
+  message: string | null;
+  expiresAt: string;
+  status: 'pending' | 'claimed' | 'revoked' | 'expired';
+}
+
+export interface CreateExternalInviteRequest {
+  email: string;
+  sectionKeys: string[];
+  message?: string;
+}
+
+export type CreateExternalInviteResponse =
+  | {
+      kind: 'external';
+      invite: ExternalValidationInvite;
+      magicLinkPath: string;
+    }
+  | {
+      kind: 'existing_user';
+      userId: string;
+      created: number;
+      skipped: number;
+    };
+
 /** Ship 4.4 - rolled-up numbers for a story's validation state. Author-only. */
 export interface StoryValidationStats {
   storyId: string;
