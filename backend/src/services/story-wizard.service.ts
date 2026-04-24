@@ -58,6 +58,10 @@ import { ArchetypeDetection } from '../cli/story-coach/types';
 
 // Question intents replace the 48-variant archetype-specific question bank.
 import { QUESTION_INTENTS } from './ai/prompts/question-intents';
+import {
+  buildRephraseMessages,
+  parseRephraseResponse,
+} from './ai/prompts/wizard-rephrase.prompt';
 import type { ChecklistRowId } from '../types/journal.types';
 
 import { buildLLMInput } from './career-stories/llm-input.builder';
@@ -278,6 +282,84 @@ function buildQuestionsFromChecklist(
       };
     })
     .filter((q): q is WizardQuestion => q !== null);
+}
+
+/**
+ * Ship 4b - per-draft rephrasing + activity-derived chips. Calls the LLM
+ * once with all 'ask' questions as a batch, then replaces each question's
+ * text and options with the draft-grounded version. Any intent that fails
+ * to come back (or fails a sanity check in parseRephraseResponse) keeps
+ * its generic intent-seed version - the caller isn't required to succeed
+ * to deliver a working wizard.
+ *
+ * Softly best-effort: any LLM / parsing failure returns the input
+ * questions unchanged. No user-visible error.
+ */
+async function rephraseQuestionsWithLLM(
+  questions: WizardQuestion[],
+  ctx: {
+    entryTitle: string;
+    entryDescription: string;
+    dominantRole?: string | null;
+    topics?: string[];
+    skills?: string[];
+    archetype?: string | null;
+  },
+  logPrefix: string,
+): Promise<WizardQuestion[]> {
+  if (questions.length === 0) return questions;
+
+  const modelSelector = getModelSelector();
+  if (!modelSelector) {
+    console.log(`${logPrefix} Rephraser skipped: no model selector`);
+    return questions;
+  }
+
+  // Only rephrase questions that have a checklistRow (the Ship 4 intent seeds).
+  // Drop any legacy question that wouldn't map cleanly.
+  const intents = questions
+    .filter((q) => !!q.checklistRow)
+    .map((q) => ({
+      id: q.checklistRow as ChecklistRowId,
+      genericQuestion: q.question,
+    }));
+  if (intents.length === 0) return questions;
+
+  const messages = buildRephraseMessages({
+    entryTitle: ctx.entryTitle,
+    entryDescription: ctx.entryDescription,
+    dominantRole: ctx.dominantRole,
+    topics: ctx.topics,
+    skills: ctx.skills,
+    archetype: ctx.archetype,
+    intents,
+  });
+
+  try {
+    const result = await modelSelector.executeTask('generate', messages, 'quick', {
+      temperature: 0.4,
+      maxTokens: 800,
+    });
+    const rephrased = parseRephraseResponse(result.content);
+    if (rephrased.size === 0) {
+      console.log(`${logPrefix} Rephraser returned no usable questions; keeping generic`);
+      return questions;
+    }
+
+    return questions.map((q) => {
+      if (!q.checklistRow) return q;
+      const hit = rephrased.get(q.checklistRow);
+      if (!hit) return q;
+      return {
+        ...q,
+        question: hit.question,
+        options: hit.chips.length > 0 ? hit.chips : q.options,
+      };
+    });
+  } catch (err) {
+    console.warn(`${logPrefix} Rephraser failed (non-fatal):`, (err as Error).message);
+    return questions;
+  }
 }
 
 /**
@@ -543,7 +625,30 @@ export class StoryWizardService {
 
     // Build questions from the checklist's 'ask' rows via the intent seeds.
     // Replaces the old archetype-driven 48-variant bank + LLM dynamic generation.
-    const questions = buildQuestionsFromChecklist(checklist);
+    const genericQuestions = buildQuestionsFromChecklist(checklist);
+
+    const dominantRole = typeof format7.dominantRole === 'string' ? format7.dominantRole : null;
+    const topicsFromDraft = Array.isArray(format7.topics)
+      ? (format7.topics as unknown[]).filter((t): t is string => typeof t === 'string')
+      : [];
+    const skillsFromDraft = Array.isArray(format7.skills)
+      ? (format7.skills as unknown[]).filter((s): s is string => typeof s === 'string')
+      : [];
+
+    // Ship 4b - rephrase each generic question against this specific draft
+    // and swap in activity-derived chips. Soft-fails to generic on any error.
+    const questions = await rephraseQuestionsWithLLM(
+      genericQuestions,
+      {
+        entryTitle: entry.title || 'Untitled',
+        entryDescription: entry.description || '',
+        dominantRole,
+        topics: topicsFromDraft,
+        skills: skillsFromDraft,
+        archetype: detection.primary.archetype,
+      },
+      this.logPrefix,
+    );
 
     console.log(`${this.logPrefix} analyzeEntry complete`, {
       entryId: entry.id,
@@ -551,9 +656,9 @@ export class StoryWizardService {
       confidence: detection.primary.confidence,
       questionCount: questions.length,
       askRowIds: checklist.filter((r) => r.state === 'ask').map((r) => r.row),
+      rephrasedCount: questions.filter((q, i) => q.question !== genericQuestions[i]?.question).length,
     });
 
-    const dominantRole = typeof format7.dominantRole === 'string' ? format7.dominantRole : null;
     const activityCount = Array.isArray(entry.activityIds) ? entry.activityIds.length : 0;
 
     return {
