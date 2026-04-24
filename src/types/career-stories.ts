@@ -636,6 +636,23 @@ export interface ValidatorStorySection {
   respondedAt: string | null;
 }
 
+/** Ship 4.4 - rolled-up numbers for a story's validation state. Author-only. */
+export interface StoryValidationStats {
+  storyId: string;
+  sectionsTotal: number;
+  sectionsCoSigned: number;
+  validatorsInvited: number;
+  validatorsResponded: number;
+  avgResponseHours: number | null;
+  breakdown: {
+    pending: number;
+    approved: number;
+    disputed: number;
+    editSuggested: number;
+    invalidated: number;
+  };
+}
+
 /** A pending edit suggestion on the author's story, awaiting their accept/reject. */
 export interface PendingEditSuggestion {
   validationId: string;

@@ -59,6 +59,7 @@ import {
   rejectEditSuggestion,
   listPendingEditSuggestionsForStory,
 } from '../services/career-stories/validation-response.service';
+import { getStoryValidationStats } from '../services/career-stories/validation-stats.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 import { WalletService } from '../services/wallet.service';
@@ -1332,6 +1333,26 @@ export const listEditSuggestionsController = asyncHandler(
     try {
       const suggestions = await listPendingEditSuggestionsForStory(id, userId);
       sendSuccess(res, { suggestions });
+    } catch (e) {
+      if (e instanceof InviteError) return void sendError(res, e.message, e.status);
+      throw e;
+    }
+  },
+);
+
+/**
+ * GET /api/v1/career-stories/stories/:id/validation-stats
+ * Author-only. Returns rolled-up numbers for the story's validation state.
+ * Ship 4.4.
+ */
+export const getStoryValidationStatsController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    if (!userId) return void sendError(res, 'User not authenticated', 401);
+    try {
+      const stats = await getStoryValidationStats(id, userId);
+      sendSuccess(res, { stats });
     } catch (e) {
       if (e instanceof InviteError) return void sendError(res, e.message, e.status);
       throw e;

@@ -22,6 +22,7 @@ import { ExternalLink, ShieldCheck, AlertTriangle, StickyNote, FileText, UserPlu
 import { ToolIcon } from './ToolIcon';
 import { ParticipantsRow } from './ParticipantsRow';
 import { EditSuggestionsPanel } from './EditSuggestionsPanel';
+import { ValidationStatsStrip } from './ValidationStatsStrip';
 import type { CareerStory, StorySource, ToolType } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
 
@@ -127,6 +128,9 @@ export const StoryEvidenceView: React.FC<StoryEvidenceViewProps> = ({
           <span className="italic">Peer validation coming soon</span>
         </div>
       </div>
+
+      {/* Ship 4.4: author-only validation stats strip. */}
+      {story.id && <ValidationStatsStrip storyId={story.id} isOwner={isOwner} />}
 
       {/* Tufte two-column layout */}
       <div className="grid grid-cols-[60fr_5fr_35fr] gap-0">

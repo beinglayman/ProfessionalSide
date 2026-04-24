@@ -10,6 +10,7 @@ import type {
   InviteValidatorRequest,
   StoryValidationSummary,
   PendingEditSuggestion,
+  StoryValidationStats,
 } from '../types/career-stories';
 
 export function useStoryValidations(storyId: string | null | undefined, enabled = true) {
@@ -35,6 +36,23 @@ export function useInviteValidator(storyId: string) {
       // without a full page reload.
       qc.invalidateQueries({ queryKey: ['story-validations', storyId] });
     },
+  });
+}
+
+/**
+ * Ship 4.4 - author-only validation analytics for a story.
+ * Returns null-shaped stats when disabled so callers can render a stable UI.
+ */
+export function useStoryValidationStats(storyId: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['validation-stats', storyId],
+    queryFn: async () => {
+      if (!storyId) return { stats: null as StoryValidationStats | null };
+      const res = await CareerStoriesService.getStoryValidationStats(storyId);
+      return res.data ?? { stats: null as StoryValidationStats | null };
+    },
+    enabled: Boolean(storyId) && enabled,
+    staleTime: 30 * 1000,
   });
 }
 

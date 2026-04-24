@@ -55,6 +55,7 @@ import {
   acceptEditSuggestionController,
   rejectEditSuggestionController,
   listEditSuggestionsController,
+  getStoryValidationStatsController,
   publishStory,
   unpublishStory,
   setStoryVisibility,
@@ -160,6 +161,7 @@ router.post('/validations/:id/suggest-edit', suggestEditController);
 router.post('/validations/:id/suggestion/accept', acceptEditSuggestionController);
 router.post('/validations/:id/suggestion/reject', rejectEditSuggestionController);
 router.get('/stories/:id/edit-suggestions', listEditSuggestionsController);
+router.get('/stories/:id/validation-stats', getStoryValidationStatsController);
 router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);

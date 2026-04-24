@@ -53,6 +53,7 @@ import {
   MyValidationRow,
   ValidatorStoryView,
   PendingEditSuggestion,
+  StoryValidationStats,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -486,6 +487,14 @@ export class CareerStoriesService {
   static async listPendingEditSuggestions(storyId: string): Promise<ApiResponse<{ suggestions: PendingEditSuggestion[] }>> {
     const response = await api.get<ApiResponse<{ suggestions: PendingEditSuggestion[] }>>(
       `/career-stories/stories/${storyId}/edit-suggestions`,
+    );
+    return response.data;
+  }
+
+  /** Ship 4.4 - author-facing validation analytics for one story. */
+  static async getStoryValidationStats(storyId: string): Promise<ApiResponse<{ stats: StoryValidationStats }>> {
+    const response = await api.get<ApiResponse<{ stats: StoryValidationStats }>>(
+      `/career-stories/stories/${storyId}/validation-stats`,
     );
     return response.data;
   }
