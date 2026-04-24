@@ -1,7 +1,7 @@
 // Production-ready profile API service
 import { OnboardingData } from './onboarding.service';
 
-import { API_BASE_URL } from '../lib/api';
+import { API_BASE_URL, STATIC_BASE_URL } from '../lib/api';
 
 export interface ProfileData {
   id: string;
@@ -35,11 +35,13 @@ class ProfileApiService {
       return avatarUrl;
     }
     
-    // If URL is relative, make it absolute with API base URL
+    // If URL is relative to the backend's static handler (/uploads/*),
+    // resolve against the backend origin (not /api/v1). See STATIC_BASE_URL
+    // in lib/api.ts for the rationale.
     if (avatarUrl.startsWith('/uploads/')) {
-      return `${API_BASE_URL}${avatarUrl}`;
+      return `${STATIC_BASE_URL}${avatarUrl}`;
     }
-    
+
     return avatarUrl;
   }
 

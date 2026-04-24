@@ -18,6 +18,16 @@ const AZURE_BACKEND_URL = 'https://ps-backend-1758551070.azurewebsites.net/api/v
 export const API_BASE_URL = isValidUrl ? envApiUrl :
   (import.meta.env.DEV ? 'http://localhost:3002/api/v1' : AZURE_BACKEND_URL);
 
+/**
+ * Origin for static assets (uploaded avatars, workspace files, etc.) that are
+ * served directly by the backend outside the /api/v1 router. Stored relative
+ * URLs like "/uploads/avatars/xyz.png" need this origin prepended — they are
+ * NOT nested under /api/v1, so naively prepending API_BASE_URL produces
+ * "/api/v1/uploads/avatars/..." which the backend's static handler doesn't
+ * match (returning 401 from the API's auth middleware).
+ */
+export const STATIC_BASE_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
 // Extend axios config to include trace ID
 declare module 'axios' {
   export interface InternalAxiosRequestConfig {
