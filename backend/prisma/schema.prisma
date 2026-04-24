@@ -1773,6 +1773,9 @@ model StoryValidation {
   groundingActivityIds String[] @default([])
   requestedAt DateTime  @default(now())
   respondedAt DateTime?
+  /// Last time a reminder notification was sent for this pending row.
+  /// Used by the reminder cron to enforce a cooldown window. Null = never reminded.
+  lastReminderAt DateTime?
 
   story          CareerStory          @relation(fields: [storyId], references: [id], onDelete: Cascade)
   validator      User                 @relation("StoryValidationValidator", fields: [validatorId], references: [id])
@@ -1783,6 +1786,7 @@ model StoryValidation {
   @@index([validatorId, status])
   @@index([storyId])
   @@index([authorId])
+  @@index([status, requestedAt])
   @@map("story_validations")
 }
 

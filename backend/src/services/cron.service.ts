@@ -4,6 +4,7 @@ import { NotificationQueueService } from './notification-queue.service';
 import { ExportService } from './export.service';
 import { journalAutoGeneratorService } from './journal-auto-generator.service';
 import { skillTrackingService } from './skill-tracking.service';
+import { sendValidationReminders } from './career-stories/validation-reminder.service';
 
 const prisma = new PrismaClient();
 
@@ -89,6 +90,21 @@ export class CronService {
       }
     });
 
+    // Ship 4.1: Validation reminders - daily at 2:00 PM UTC. Nudges
+    // validators who still have PENDING sections older than 3 days; each
+    // (validator, story) pair is only reminded once per 7 days.
+    this.scheduleJob('validation-reminder', '0 14 * * *', async () => {
+      console.log('Sending validation reminders...');
+      try {
+        const result = await sendValidationReminders({ olderThanDays: 3, cooldownDays: 7 });
+        console.log(
+          `Validation reminders completed: ${result.notificationsSent} sent across ${result.groupsFound} groups (${result.rowsStamped} rows stamped)`,
+        );
+      } catch (error) {
+        console.error('Error sending validation reminders:', error);
+      }
+    });
+
     // GDPR: Nullify pragma link view IPs older than 30 days — daily at 3:00 AM
     this.scheduleJob('pragma-gdpr-ip-cleanup', '0 3 * * *', async () => {
       console.log('Nullifying old pragma link view IPs (GDPR)...');
@@ -160,7 +176,8 @@ export class CronService {
         'health-check': '*/5 * * * *',
         'journal-auto-generation': '*/30 * * * *',
         'skill-snapshots': '0 1 1 * *',
-        'pragma-gdpr-ip-cleanup': '0 3 * * *'
+        'pragma-gdpr-ip-cleanup': '0 3 * * *',
+        'validation-reminder': '0 14 * * *'
       };
 
       status.push({
@@ -198,6 +215,9 @@ export class CronService {
           await prisma.$executeRawUnsafe(
             `UPDATE pragma_link_views SET ip = NULL WHERE viewed_at < NOW() - INTERVAL '30 days' AND ip IS NOT NULL`
           );
+          return true;
+        case 'validation-reminder':
+          await sendValidationReminders({ olderThanDays: 3, cooldownDays: 7 });
           return true;
         default:
           console.error(`Unknown job: ${jobName}`);
