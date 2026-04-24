@@ -35,11 +35,6 @@ interface ContextPanelProps {
   totalRows: number;
 }
 
-/** Short badge form of the draft id: JE-XXXXXX (uppercase tail). */
-function shortId(id: string): string {
-  return `JE-${id.slice(-6).toUpperCase()}`;
-}
-
 export const ContextPanel: React.FC<ContextPanelProps> = ({
   journalEntry,
   detectedArchetype,
@@ -70,7 +65,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
       {/* Eyebrow */}
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-200">
         <Sparkles className="h-3 w-3" />
-        <span>Draft &middot; {shortId(journalEntry.id)}</span>
+        <span>Your draft</span>
       </div>
 
       {/* Title + description */}

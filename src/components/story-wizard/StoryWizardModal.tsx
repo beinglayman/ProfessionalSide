@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
+  Check,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { CareerStoriesService } from '../../services/career-stories.service';
@@ -244,23 +245,49 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
 
         {/* Right: step content (header + body + footer) */}
         <div className="flex flex-col min-w-0 max-h-[85vh]">
-          {/* Header: progress pills */}
-          <div className="flex items-center gap-1.5 px-6 py-4 border-b border-gray-100">
-            {progressPills.map((p, idx) => (
-              <span
-                key={p.key}
-                className={cn(
-                  'text-xs px-2.5 py-1 rounded-full transition-colors',
-                  step === p.key
-                    ? 'bg-gray-900 text-white font-medium'
-                    : idx < stepIndex
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
-                )}
-              >
-                {p.label}
-              </span>
-            ))}
+          {/* Header: numbered stepper showing Checklist -> Questions -> Generate */}
+          <div className="flex items-center px-6 py-4 border-b border-gray-100 pr-12">
+            {progressPills.map((p, idx) => {
+              const isActive = step === p.key;
+              const isDone = idx < stepIndex;
+              const isLast = idx === progressPills.length - 1;
+              return (
+                <React.Fragment key={p.key}>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div
+                      className={cn(
+                        'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300',
+                        isDone
+                          ? 'bg-green-500 text-white'
+                          : isActive
+                          ? 'bg-primary-500 text-white ring-4 ring-primary-100'
+                          : 'bg-gray-100 text-gray-400'
+                      )}
+                    >
+                      {isDone ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : idx + 1}
+                    </div>
+                    <span
+                      className={cn(
+                        'text-sm font-medium whitespace-nowrap',
+                        isActive ? 'text-gray-900' : isDone ? 'text-gray-700' : 'text-gray-400'
+                      )}
+                    >
+                      {p.label}
+                    </span>
+                  </div>
+                  {!isLast && (
+                    <div className="flex-1 mx-3 flex items-center min-w-[20px]">
+                      <div
+                        className={cn(
+                          'w-full h-[2px] rounded-full transition-colors duration-500',
+                          isDone ? 'bg-green-400' : 'bg-gray-200'
+                        )}
+                      />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
 
           {/* Error */}
