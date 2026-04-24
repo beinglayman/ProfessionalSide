@@ -21,6 +21,10 @@ import {
   PublishResult,
   Visibility,
 } from './story-publishing.service';
+import {
+  detectChangedSectionKeys,
+  invalidateValidationsForChangedSections,
+} from './validation-response.service';
 import { narrativeGenerationService } from './star-generation.service';
 import { ActivityWithRefs } from './pipeline/cluster-hydrator';
 import { getModelSelector } from '../ai/model-selector.service';
@@ -1158,6 +1162,23 @@ export class CareerStoryService {
       },
     });
 
+    // Ship 3.4: if the author edited section text, invalidate prior peer
+    // approvals on those specific sections. A validator's green check was
+    // for the old text; if the text has changed, their approval has to
+    // follow - it reverts to INVALIDATED and the validator gets a
+    // re-review notification. Fire-and-forget (swallow errors; don't
+    // fail the update on a notification glitch).
+    if (sections) {
+      try {
+        const changed = detectChangedSectionKeys(story.sections, sections as unknown as Prisma.JsonValue);
+        if (changed.length > 0) {
+          await invalidateValidationsForChangedSections(storyId, changed);
+        }
+      } catch (err) {
+        console.warn('[updateStory] edit-invalidation failed (non-fatal):', err);
+      }
+    }
+
     // If sections were rebuilt, re-populate activity sources from new evidence
     if (sections) {
       await prisma.storySource.deleteMany({
@@ -1291,6 +1312,17 @@ export class CareerStoryService {
         ...(category ? { category } : {}),
       },
     });
+
+    // Ship 3.4: regeneration rewrites every section - invalidate all
+    // prior peer approvals, not just some. Non-fatal; swallow errors.
+    try {
+      const changed = detectChangedSectionKeys(story.sections, sections as unknown as Prisma.JsonValue);
+      if (changed.length > 0) {
+        await invalidateValidationsForChangedSections(storyId, changed);
+      }
+    } catch (err) {
+      console.warn('[regenerate] edit-invalidation failed (non-fatal):', err);
+    }
 
     // Re-populate activity sources from new sections.
     // Delete old activity sources and create fresh ones from the new evidence mapping.

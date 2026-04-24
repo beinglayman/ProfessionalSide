@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,6 +17,9 @@ import {
   Info,
   UserPlus,
   FileText,
+  ShieldCheck,
+  ShieldAlert,
+  PencilLine,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -45,6 +49,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete, onActionComple
   const [showActions, setShowActions] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const getIcon = () => {
     switch (notification.type) {
@@ -68,10 +73,62 @@ function NotificationItem({ notification, onMarkAsRead, onDelete, onActionComple
         return <X className="h-4 w-4 text-red-500" />;
       case 'ACHIEVEMENT':
         return <Award className="h-4 w-4 text-yellow-500" />;
+      // Ship 3.x - peer validation notifications
+      case 'STORY_VALIDATION_REQUESTED':
+        return <ShieldCheck className="h-4 w-4 text-primary-600" />;
+      case 'STORY_VALIDATION_APPROVED':
+      case 'STORY_EDIT_ACCEPTED':
+        return <ShieldCheck className="h-4 w-4 text-emerald-600" />;
+      case 'STORY_VALIDATION_DISPUTED':
+        return <ShieldAlert className="h-4 w-4 text-red-600" />;
+      case 'STORY_EDIT_SUGGESTED':
+        return <PencilLine className="h-4 w-4 text-primary-600" />;
+      case 'STORY_EDIT_REJECTED':
+        return <X className="h-4 w-4 text-amber-600" />;
+      case 'STORY_VALIDATION_INVALIDATED':
+      case 'STORY_VALIDATION_REMINDER':
+        return <ShieldAlert className="h-4 w-4 text-amber-600" />;
       case 'SYSTEM':
       default:
         return <Info className="h-4 w-4 text-gray-500" />;
     }
+  };
+
+  /**
+   * Route to the right place based on notification type. Ship 3.4.
+   *
+   *   STORY_VALIDATION_REQUESTED       -> /validate/:storyId  (validator review)
+   *   STORY_VALIDATION_INVALIDATED     -> /validate/:storyId  (re-review)
+   *   STORY_EDIT_ACCEPTED/REJECTED     -> /validate/:storyId  (validator sees the outcome)
+   *   STORY_VALIDATION_APPROVED        -> /stories/:storyId   (author sees response)
+   *   STORY_VALIDATION_DISPUTED        -> /stories/:storyId
+   *   STORY_EDIT_SUGGESTED             -> /stories/:storyId   (author reviews suggestion)
+   */
+  const destinationForNotification = (): string | null => {
+    const storyId = (notification.data as { storyId?: string } | undefined)?.storyId;
+    if (!storyId) return null;
+    switch (notification.type) {
+      case 'STORY_VALIDATION_REQUESTED':
+      case 'STORY_VALIDATION_INVALIDATED':
+      case 'STORY_VALIDATION_REMINDER':
+      case 'STORY_EDIT_ACCEPTED':
+      case 'STORY_EDIT_REJECTED':
+        return `/validate/${storyId}`;
+      case 'STORY_VALIDATION_APPROVED':
+      case 'STORY_VALIDATION_DISPUTED':
+      case 'STORY_EDIT_SUGGESTED':
+        return `/stories/${storyId}`;
+      default:
+        return null;
+    }
+  };
+
+  const handleItemClick = () => {
+    const dest = destinationForNotification();
+    if (!dest) return;
+    // Fire-and-forget the mark-read so the badge clears; don't block navigation on it.
+    if (!notification.isRead) onMarkAsRead(notification.id);
+    navigate(dest);
   };
 
   const handleMarkAsRead = (e: React.MouseEvent) => {
@@ -213,6 +270,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete, onActionComple
       )}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
+      onClick={handleItemClick}
     >
       <div className="flex items-start space-x-3">
         {/* Notification Icon */}

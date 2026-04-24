@@ -461,6 +461,116 @@ export function rejectEditSuggestion(validationId: string, userId: string) {
 }
 
 // ========================================================================
+// Edit-invalidation (Ship 3.4)
+// ========================================================================
+
+/**
+ * Compare the previous sections JSON with the new one and return the keys
+ * whose `summary` text changed. Used to decide which validation rows to
+ * invalidate after an author edit / regenerate.
+ */
+export function detectChangedSectionKeys(
+  prevSections: Prisma.JsonValue | null | undefined,
+  nextSections: Prisma.JsonValue | null | undefined,
+): string[] {
+  const prev = (prevSections as Record<string, { summary?: string } | undefined> | null) || {};
+  const next = (nextSections as Record<string, { summary?: string } | undefined> | null) || {};
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  const changed: string[] = [];
+  for (const k of keys) {
+    const prevText = prev[k]?.summary ?? '';
+    const nextText = next[k]?.summary ?? '';
+    if (prevText.trim() !== nextText.trim()) changed.push(k);
+  }
+  return changed;
+}
+
+/**
+ * Flip APPROVED / EDIT_SUGGESTED validations on the given sections back
+ * to INVALIDATED, and notify each affected validator that their prior
+ * approval no longer applies because the text they signed off on has
+ * changed.
+ *
+ * Safe to call with `sectionKeys = []` (no-op) or on a story that has
+ * no validations (no-op).
+ *
+ * Designed to run after a successful author edit / regenerate, in the
+ * same request lifecycle so a single user action produces at most one
+ * batch of notifications per affected validator.
+ */
+export async function invalidateValidationsForChangedSections(
+  storyId: string,
+  sectionKeys: string[],
+  /** Set of validationIds to skip - e.g. the one we just transitioned
+   *  via accept-edit-suggestion, which already went APPROVED by design. */
+  skipValidationIds: string[] = [],
+): Promise<{ invalidated: number }> {
+  if (sectionKeys.length === 0) return { invalidated: 0 };
+
+  const rows = await prisma.storyValidation.findMany({
+    where: {
+      storyId,
+      sectionKey: { in: sectionKeys },
+      status: { in: ['APPROVED', 'EDIT_SUGGESTED'] },
+      id: skipValidationIds.length > 0 ? { notIn: skipValidationIds } : undefined,
+    },
+    select: {
+      id: true,
+      sectionKey: true,
+      validatorId: true,
+      authorId: true,
+      story: { select: { title: true } },
+      author: { select: { name: true } },
+    },
+  });
+  if (rows.length === 0) return { invalidated: 0 };
+
+  await prisma.$transaction([
+    prisma.storyValidation.updateMany({
+      where: { id: { in: rows.map((r) => r.id) } },
+      data: { status: 'INVALIDATED', respondedAt: null },
+    }),
+    // One grouped notification per validator (even if they had multiple
+    // sections invalidated) - count sections in the message.
+    ...Array.from(
+      rows.reduce<Map<string, { validatorId: string; sectionKeys: string[]; authorName: string; storyTitle: string; authorId: string }>>((acc, r) => {
+        const existing = acc.get(r.validatorId);
+        if (existing) {
+          existing.sectionKeys.push(r.sectionKey);
+        } else {
+          acc.set(r.validatorId, {
+            validatorId: r.validatorId,
+            sectionKeys: [r.sectionKey],
+            authorName: r.author?.name || 'The author',
+            storyTitle: r.story?.title || 'a story',
+            authorId: r.authorId,
+          });
+        }
+        return acc;
+      }, new Map()).values(),
+    ).map((g) =>
+      prisma.notification.create({
+        data: {
+          type: 'STORY_VALIDATION_INVALIDATED',
+          title: `${g.authorName} edited a section you approved`,
+          message: `${g.storyTitle}: ${g.sectionKeys.length} section${g.sectionKeys.length === 1 ? '' : 's'} need your re-review.`,
+          recipientId: g.validatorId,
+          senderId: g.authorId,
+          relatedEntityType: 'CAREER_STORY',
+          relatedEntityId: storyId,
+          data: {
+            storyId,
+            sectionKeys: g.sectionKeys,
+          } as Prisma.InputJsonValue,
+        },
+      }),
+    ),
+  ]);
+
+  return { invalidated: rows.length };
+}
+
+// ========================================================================
 // Author-side read: suggestions awaiting my response on a story
 // ========================================================================
 
