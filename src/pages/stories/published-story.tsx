@@ -5,38 +5,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { NARRATIVE_FRAMEWORKS, ARCHETYPE_METADATA, BRAG_DOC_CATEGORIES } from '../../components/career-stories/constants';
 import { ToolIcon } from '../../components/career-stories/ToolIcon';
 import { StoryEvidenceView } from '../../components/career-stories/StoryEvidenceView';
+import { EvidenceToggle } from '../../components/career-stories/EvidenceToggle';
 import { useEvidenceToggle } from '../../hooks/useEvidenceToggle';
 import type { StorySource, ToolType } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
-
-/**
- * Evidence on/off toggle. Visible only in the full-screen story view.
- * Design ref: docs/prototypes/evidence/proto-V6c-tufte-inline-badges.html
- */
-function EvidenceToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-all',
-        on
-          ? 'border-primary-200 bg-primary-50 text-primary-700'
-          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900',
-      )}
-      aria-pressed={on}
-      aria-label="Toggle evidence view"
-    >
-      <span
-        className={cn(
-          'h-2 w-2 rounded-full transition-colors',
-          on ? 'bg-primary-600' : 'bg-gray-300',
-        )}
-      />
-      <span>Evidence {on ? 'on' : 'off'}</span>
-    </button>
-  );
-}
 
 function SourceItem({ source, isOwner }: { source: StorySource; isOwner?: boolean }) {
   const isExcluded = !!source.excludedAt;

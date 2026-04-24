@@ -30,8 +30,6 @@ import {
   Type,
   MoreHorizontal,
   AlertTriangle,
-  Eye,
-  EyeOff,
   Link2,
   Maximize2,
   Minimize2,
@@ -80,6 +78,7 @@ import { DeliveryHelpModal } from './DeliveryHelpModal';
 import { MarginColumn } from './MarginColumn';
 import { SourceMargin } from './SourceMargin';
 import { NarrativeShell } from './NarrativeShell';
+import { EvidenceToggle } from './EvidenceToggle';
 import { groupSourcesBySection } from './derivation-helpers';
 import { mergeWarningAnnotations } from '../../lib/warning-annotations';
 
@@ -489,21 +488,12 @@ export function NarrativePreview({
                   <span className="text-gray-300">&middot;</span>
                   <span className={cn(coverageColor)}>{coverageText}</span>
                   {isFullscreen && (
-                    <button
-                      onClick={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
-                      className={cn(
-                        'inline-flex items-center p-0.5 rounded transition-colors',
-                        shell.showSourceMargin
-                          ? 'text-slate-500 hover:bg-slate-50'
-                          : 'text-gray-300 hover:text-slate-500 hover:bg-gray-100'
-                      )}
-                      title={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                      aria-label={shell.showSourceMargin ? 'Hide sources' : 'Show sources in margin'}
-                    >
-                      {shell.showSourceMargin
-                        ? <EyeOff className="w-3.5 h-3.5" />
-                        : <Eye className="w-3.5 h-3.5" />}
-                    </button>
+                    <EvidenceToggle
+                      on={shell.showSourceMargin}
+                      onToggle={() => shell.setShowSourceMargin(!shell.showSourceMargin)}
+                      size="sm"
+                      className="ml-1"
+                    />
                   )}
                 </>
               )}

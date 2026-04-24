@@ -450,41 +450,52 @@ describe('NarrativePreview', () => {
       },
     ];
 
-    it('renders EyeOff toggle button when sources visible by default', () => {
+    it('renders Evidence toggle in fullscreen when coverage exists, defaulting to off', () => {
       renderWithProviders(
         <NarrativePreview
           {...defaultProps}
+          isFullscreen={true}
           sources={createSources()}
           sourceCoverage={{ sourced: 2, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
         />
       );
 
-      expect(screen.getByLabelText('Hide sources')).toBeInTheDocument();
+      const toggle = screen.getByLabelText('Toggle evidence view');
+      expect(toggle).toBeInTheDocument();
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      expect(toggle).toHaveTextContent(/Evidence off/i);
     });
 
-    it('toggles aria-label between hide and show on click', async () => {
+    it('toggles aria-pressed between off and on when clicked', async () => {
       const user = userEvent.setup();
 
       renderWithProviders(
         <NarrativePreview
           {...defaultProps}
+          isFullscreen={true}
           sources={createSources()}
           sourceCoverage={{ sourced: 2, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
         />
       );
 
-      const toggle = screen.getByLabelText('Hide sources');
+      const toggle = screen.getByLabelText('Toggle evidence view');
       await user.click(toggle);
 
-      expect(screen.getByLabelText('Show sources in margin')).toBeInTheDocument();
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(toggle).toHaveTextContent(/Evidence on/i);
     });
 
-    it('does not render Eye toggle when no coverage data', () => {
+    it('does not render Evidence toggle outside fullscreen', () => {
       renderWithProviders(
-        <NarrativePreview {...defaultProps} />
+        <NarrativePreview
+          {...defaultProps}
+          isFullscreen={false}
+          sources={createSources()}
+          sourceCoverage={{ sourced: 2, total: 4, gaps: [], vagueMetrics: [], ungroundedClaims: [] }}
+        />
       );
 
-      expect(screen.queryByLabelText('Hide sources')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Toggle evidence view')).not.toBeInTheDocument();
     });
 
     it('renders source count per section', () => {
