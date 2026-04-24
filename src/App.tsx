@@ -46,6 +46,8 @@ const PragmaLinkPage = React.lazy(() => import('./pages/pragma/view'));
 const ValidatorInboxPage = React.lazy(() => import('./pages/validations/inbox'));
 const ValidatorStoryPage = React.lazy(() => import('./pages/validations/validator-story'));
 
+import { DemoModeBanner } from './components/demo/DemoModeBanner';
+
 export type NetworkType = 'organization' | 'global';
 
 // Protected Route component
@@ -375,6 +377,7 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <Router>
+              <DemoModeBanner />
               <AppRoutes />
             </Router>
           </ToastProvider>
