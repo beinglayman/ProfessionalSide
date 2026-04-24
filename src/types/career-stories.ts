@@ -536,6 +536,47 @@ export interface StorySource {
   updatedAt: string;
 }
 
+/**
+ * A human surfaced from a story's source activities. Feeds the Participants
+ * row in the fullscreen story view and (Ship 3.1b) the "invite validator"
+ * flow. Mirrors the backend ResolvedParticipant shape.
+ */
+export type ParticipantRole =
+  | 'author'
+  | 'reviewer'
+  | 'assignee'
+  | 'reporter'
+  | 'attendee'
+  | 'organizer'
+  | 'commenter'
+  | 'editor'
+  | 'contributor'
+  | 'mention'
+  | 'recipient';
+
+export interface StoryParticipantActivity {
+  activityId: string;
+  source: string;
+  role: ParticipantRole;
+}
+
+export interface StoryParticipantUser {
+  id: string;
+  name: string;
+  avatar: string | null;
+  title: string | null;
+  company: string | null;
+}
+
+export interface StoryParticipant {
+  key: string;
+  displayName: string;
+  email: string | null;
+  activities: StoryParticipantActivity[];
+  isResolved: boolean;
+  user: StoryParticipantUser | null;
+}
+
 export interface SourceCoverage {
   total: number;
   sourced: number;

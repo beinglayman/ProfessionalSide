@@ -46,6 +46,7 @@ import {
   DerivePacketRequest,
   DerivePacketResponse,
   StoryDerivation,
+  StoryParticipant,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -365,6 +366,18 @@ export class CareerStoriesService {
    */
   static async deleteStory(id: string): Promise<ApiResponse<null>> {
     const response = await api.delete<ApiResponse<null>>(`/career-stories/stories/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Resolve participants for a story - the humans surfaced from the story's
+   * source activities, with InChronicle user records attached where email
+   * matches exist. Feeds the Participants row in the fullscreen story view.
+   */
+  static async getStoryParticipants(id: string): Promise<ApiResponse<{ participants: StoryParticipant[] }>> {
+    const response = await api.get<ApiResponse<{ participants: StoryParticipant[] }>>(
+      `/career-stories/stories/${id}/participants`,
+    );
     return response.data;
   }
 

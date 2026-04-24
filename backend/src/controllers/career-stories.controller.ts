@@ -43,6 +43,7 @@ import {
 } from './career-stories.schemas';
 import { storySourceService } from '../services/career-stories/story-source.service';
 import { storyAnnotationService } from '../services/career-stories/story-annotation.service';
+import { resolveStoryParticipants } from '../services/career-stories/participant-resolver.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 import { WalletService } from '../services/wallet.service';
@@ -1082,6 +1083,41 @@ export const deleteStory = asyncHandler(async (req: Request, res: Response): Pro
   }
 
   sendSuccess(res, { deleted: true }, 'Story deleted');
+});
+
+/**
+ * GET /api/v1/career-stories/stories/:id/participants
+ * Resolve the real humans who appear in the story's source activities.
+ *
+ * Feeds the Participants row in the fullscreen story view and (Ship 3.1b)
+ * the "who to invite as a validator" picker in the publish flow.
+ *
+ * Access: authenticated user must be the author OR be able to view the
+ * story per its visibility. For 3.1a we gate tightly to author-only; we
+ * can relax once the validator-mode view lands.
+ */
+export const getStoryParticipants = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params;
+
+  if (!userId) {
+    return void sendError(res, 'User not authenticated', 401);
+  }
+
+  const story = await prisma.careerStory.findUnique({
+    where: { id },
+    select: { id: true, userId: true },
+  });
+  if (!story) {
+    return void sendError(res, 'Story not found', 404);
+  }
+  if (story.userId !== userId) {
+    // Non-owner access relaxation will ship with the validator-mode view.
+    return void sendError(res, 'Only the story author can view participants', 403);
+  }
+
+  const participants = await resolveStoryParticipants(id, { authorUserId: userId });
+  sendSuccess(res, { participants });
 });
 
 /**

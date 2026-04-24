@@ -44,6 +44,7 @@ import {
   updateStory,
   deleteStory,
   regenerateStory,
+  getStoryParticipants,
   publishStory,
   unpublishStory,
   setStoryVisibility,
@@ -138,6 +139,7 @@ router.put('/stories/:id', updateStory);
 router.patch('/stories/:id', updateStory);  // Support both PUT and PATCH
 router.delete('/stories/:id', deleteStory);
 router.post('/stories/:id/regenerate', regenerateStory);
+router.get('/stories/:id/participants', getStoryParticipants);
 router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);

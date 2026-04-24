@@ -20,6 +20,7 @@
 import React from 'react';
 import { ExternalLink, ShieldCheck, AlertTriangle, StickyNote, FileText, UserPlus } from 'lucide-react';
 import { ToolIcon } from './ToolIcon';
+import { ParticipantsRow } from './ParticipantsRow';
 import type { CareerStory, StorySource, ToolType } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
 
@@ -195,6 +196,14 @@ export const StoryEvidenceView: React.FC<StoryEvidenceViewProps> = ({
           );
         })}
       </div>
+
+      {/* Participants row - Phase 3.1a. Read-only for now; Invite CTAs are
+          placeholders that light up in Ship 3.1b (validator invites) and
+          Ship 3.4 (external invites). Only renders for the author; non-owner
+          access will be relaxed in Ship 3.2. */}
+      {story.id && (
+        <ParticipantsRow storyId={story.id} isOwner={isOwner} />
+      )}
     </div>
   );
 };
