@@ -24,6 +24,7 @@ import {
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { API_BASE_URL } from '../../lib/api';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -297,8 +298,9 @@ function NotificationItem({ notification, onMarkAsRead, onDelete, onActionComple
                 {notification.sender && (
                   <div className="flex items-center space-x-1">
                     <img
-                      src={notification.sender.avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=20&h=20&fit=crop'}
+                      src={getAvatarUrl(notification.sender.avatar)}
                       alt={notification.sender.name}
+                      onError={handleAvatarError}
                       className="h-4 w-4 rounded-full"
                     />
                     <span className="text-xs text-gray-500">

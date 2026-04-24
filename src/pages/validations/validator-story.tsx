@@ -18,6 +18,7 @@ import {
   useSuggestEdit,
   useValidatorStoryView,
 } from '../../hooks/useMyValidations';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import { NARRATIVE_FRAMEWORKS } from '../../components/career-stories/constants';
 import type { ValidatorStorySection, StoryValidationStatus } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
@@ -292,7 +293,12 @@ export default function ValidatorStoryPage() {
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-3">
             {author.avatar ? (
-              <img src={author.avatar} alt={author.name} className="h-9 w-9 rounded-full object-cover" />
+              <img
+                src={getAvatarUrl(author.avatar)}
+                alt={author.name}
+                onError={handleAvatarError}
+                className="h-9 w-9 rounded-full object-cover"
+              />
             ) : (
               <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">
                 {author.name.charAt(0)}

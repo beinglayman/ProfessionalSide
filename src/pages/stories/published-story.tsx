@@ -9,6 +9,7 @@ import { EvidenceToggle } from '../../components/career-stories/EvidenceToggle';
 import { useEvidenceToggle } from '../../hooks/useEvidenceToggle';
 import type { StorySource, ToolType } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 
 function SourceItem({ source, isOwner }: { source: StorySource; isOwner?: boolean }) {
   const isExcluded = !!source.excludedAt;
@@ -282,7 +283,12 @@ export default function PublishedStoryPage() {
         {author && (
           <div className="flex items-center gap-3 mb-6">
             {author.avatar ? (
-              <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full" />
+              <img
+                src={getAvatarUrl(author.avatar)}
+                alt={author.name}
+                onError={handleAvatarError}
+                className="h-10 w-10 rounded-full"
+              />
             ) : (
               <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
                 {author.name?.charAt(0) ?? '?'}

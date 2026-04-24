@@ -26,6 +26,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useStoryParticipants } from '../../hooks/useStoryParticipants';
 import { useStoryValidations, useInviteValidator } from '../../hooks/useStoryValidations';
 import { CareerStoriesService } from '../../services/career-stories.service';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import type { CreateExternalInviteResponse } from '../../types/career-stories';
 import type {
   StoryParticipant,
@@ -217,7 +218,12 @@ function ParticipantCard({ p, isOwner, sectionKeys, sourcesBySection, storyId, e
       {/* Header: avatar + name + role */}
       <div className="flex items-center gap-2.5 mb-2.5">
         {p.isResolved && p.user?.avatar ? (
-          <img src={p.user.avatar} alt={p.displayName} className="h-9 w-9 rounded-full object-cover" />
+          <img
+            src={getAvatarUrl(p.user.avatar)}
+            alt={p.displayName}
+            onError={handleAvatarError}
+            className="h-9 w-9 rounded-full object-cover"
+          />
         ) : p.isResolved ? (
           <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">
             {initials(p.displayName)}

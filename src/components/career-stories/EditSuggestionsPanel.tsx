@@ -17,6 +17,7 @@
 import React from 'react';
 import { Check, X, Loader2, PencilLine, MessageSquareText } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import {
   usePendingEditSuggestions,
   useAcceptEditSuggestion,
@@ -66,7 +67,12 @@ function SuggestionCard(props: SuggestionCardProps) {
     <div className="rounded-lg border border-primary-100 bg-white p-4">
       <div className="flex items-center gap-2.5 mb-3">
         {props.validatorAvatar ? (
-          <img src={props.validatorAvatar} alt={props.validatorName} className="h-8 w-8 rounded-full object-cover" />
+          <img
+            src={getAvatarUrl(props.validatorAvatar)}
+            alt={props.validatorName}
+            onError={handleAvatarError}
+            className="h-8 w-8 rounded-full object-cover"
+          />
         ) : (
           <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold">
             {initials(props.validatorName)}
