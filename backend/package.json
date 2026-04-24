@@ -17,6 +17,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio --port 5556",
     "db:seed": "tsx prisma/seed.ts",
+    "seed:validation-e2e": "tsx scripts/seed-validation-e2e.ts",
     "db:seed-reference": "tsx prisma/seed-reference-data.ts",
     "db:seed-complete": "npm run db:seed-reference && node import-skill-benchmarks.js",
     "db:add-design-skills": "node scripts/add-design-skills.js",

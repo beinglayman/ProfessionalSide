@@ -325,7 +325,7 @@ export default function ValidatorStoryPage() {
             const label = key.charAt(0).toUpperCase() + key.slice(1);
             const myRow = mySectionByKey.get(key);
             return (
-              <section key={key}>
+              <section key={key} data-section-key={key}>
                 <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-3">
                   {label}
                   {!myRow && (
