@@ -4,8 +4,39 @@ import { usePublishedStory } from '../../hooks/usePublicProfile';
 import { useAuth } from '../../contexts/AuthContext';
 import { NARRATIVE_FRAMEWORKS, ARCHETYPE_METADATA, BRAG_DOC_CATEGORIES } from '../../components/career-stories/constants';
 import { ToolIcon } from '../../components/career-stories/ToolIcon';
+import { StoryEvidenceView } from '../../components/career-stories/StoryEvidenceView';
+import { useEvidenceToggle } from '../../hooks/useEvidenceToggle';
 import type { StorySource, ToolType } from '../../types/career-stories';
 import { cn } from '../../lib/utils';
+
+/**
+ * Evidence on/off toggle. Visible only in the full-screen story view.
+ * Design ref: docs/prototypes/evidence/proto-V6c-tufte-inline-badges.html
+ */
+function EvidenceToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-all',
+        on
+          ? 'border-primary-200 bg-primary-50 text-primary-700'
+          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900',
+      )}
+      aria-pressed={on}
+      aria-label="Toggle evidence view"
+    >
+      <span
+        className={cn(
+          'h-2 w-2 rounded-full transition-colors',
+          on ? 'bg-primary-600' : 'bg-gray-300',
+        )}
+      />
+      <span>Evidence {on ? 'on' : 'off'}</span>
+    </button>
+  );
+}
 
 function SourceItem({ source, isOwner }: { source: StorySource; isOwner?: boolean }) {
   const isExcluded = !!source.excludedAt;
@@ -53,6 +84,7 @@ export default function PublishedStoryPage() {
   const { storyId } = useParams<{ storyId: string }>();
   const { data, isLoading, isError } = usePublishedStory(storyId!);
   const { user } = useAuth();
+  const [evidenceOn, , toggleEvidence] = useEvidenceToggle();
 
   if (isLoading) {
     return (
@@ -95,7 +127,10 @@ export default function PublishedStoryPage() {
       <div className="min-h-screen bg-white">
         {/* Sticky action bar — hidden when printing */}
         <header className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-gray-100 print:hidden">
-          <div className="max-w-[720px] mx-auto px-6 py-3 flex items-center justify-between">
+          <div className={cn(
+            'mx-auto px-6 py-3 flex items-center justify-between transition-[max-width] duration-300',
+            evidenceOn ? 'max-w-[1280px]' : 'max-w-[720px]',
+          )}>
             <Link
               to="/stories"
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
@@ -109,6 +144,7 @@ export default function PublishedStoryPage() {
                   Draft
                 </span>
               )}
+              <EvidenceToggle on={evidenceOn} onToggle={toggleEvidence} />
               <button
                 onClick={() => window.print()}
                 className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
@@ -121,7 +157,10 @@ export default function PublishedStoryPage() {
         </header>
 
         {/* Content column */}
-        <main className="max-w-[720px] mx-auto px-6 sm:px-8 py-12 sm:py-16 print:max-w-full print:px-8 print:py-4">
+        <main className={cn(
+          'mx-auto px-6 sm:px-8 py-12 sm:py-16 print:max-w-full print:px-8 print:py-4 transition-[max-width] duration-300',
+          evidenceOn ? 'max-w-[1280px]' : 'max-w-[720px]',
+        )}>
           {/* Title */}
           <h1 className="font-serif text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight">
             {story.title}
@@ -161,64 +200,73 @@ export default function PublishedStoryPage() {
           {/* Divider */}
           <div className="border-t border-gray-200 my-8" />
 
-          {/* Sections */}
-          <div className="space-y-10">
-            {sectionKeys.map((key: string) => {
-              const section = story.sections[key];
-              if (!section) return null;
-              const sectionLabel = key.charAt(0).toUpperCase() + key.slice(1);
-              const sectionSources = sourcesBySection.get(key) ?? [];
-              const vagueMetrics = coverage?.vagueMetrics?.filter(v => v.sectionKey === key) ?? [];
-              const ungrounded = coverage?.ungroundedClaims?.filter(v => v.sectionKey === key) ?? [];
+          {/* Sections - Evidence view (Tufte two-column) or clean reading view */}
+          {evidenceOn ? (
+            <StoryEvidenceView
+              story={story}
+              sectionKeys={sectionKeys}
+              sourcesBySection={sourcesBySection}
+              isOwner
+            />
+          ) : (
+            <div className="space-y-10">
+              {sectionKeys.map((key: string) => {
+                const section = story.sections[key];
+                if (!section) return null;
+                const sectionLabel = key.charAt(0).toUpperCase() + key.slice(1);
+                const sectionSources = sourcesBySection.get(key) ?? [];
+                const vagueMetrics = coverage?.vagueMetrics?.filter(v => v.sectionKey === key) ?? [];
+                const ungrounded = coverage?.ungroundedClaims?.filter(v => v.sectionKey === key) ?? [];
 
-              return (
-                <div key={key}>
-                  <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-3">
-                    {sectionLabel}
-                  </h2>
-                  {section.summary ? (
-                    <p className="font-serif text-lg text-gray-800 leading-relaxed whitespace-pre-wrap">
-                      {section.summary}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-400 italic">No content yet</p>
-                  )}
-
-                  {/* Vague metrics + ungrounded claims (author only) */}
-                  {(vagueMetrics.length > 0 || ungrounded.length > 0) && (
-                    <div className="mt-3 space-y-1.5">
-                      {vagueMetrics.map((v, i) => (
-                        <div key={`vm-${i}`} className="flex items-start gap-1.5 text-xs text-amber-600">
-                          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                          <span>Vague metric: &ldquo;{v.match}&rdquo; — {v.suggestion}</span>
-                        </div>
-                      ))}
-                      {ungrounded.map((v, i) => (
-                        <div key={`ug-${i}`} className="flex items-start gap-1.5 text-xs text-amber-600">
-                          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                          <span>Ungrounded: &ldquo;{v.match}&rdquo; — {v.suggestion}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Sources */}
-                  {sectionSources.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-gray-100">
-                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                        Sources
+                return (
+                  <div key={key}>
+                    <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-3">
+                      {sectionLabel}
+                    </h2>
+                    {section.summary ? (
+                      <p className="font-serif text-lg text-gray-800 leading-relaxed whitespace-pre-wrap">
+                        {section.summary}
                       </p>
-                      <div className="space-y-0.5">
-                        {sectionSources.map((s) => (
-                          <SourceItem key={s.id} source={s} isOwner />
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No content yet</p>
+                    )}
+
+                    {/* Vague metrics + ungrounded claims (author only) */}
+                    {(vagueMetrics.length > 0 || ungrounded.length > 0) && (
+                      <div className="mt-3 space-y-1.5">
+                        {vagueMetrics.map((v, i) => (
+                          <div key={`vm-${i}`} className="flex items-start gap-1.5 text-xs text-amber-600">
+                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                            <span>Vague metric: &ldquo;{v.match}&rdquo; — {v.suggestion}</span>
+                          </div>
+                        ))}
+                        {ungrounded.map((v, i) => (
+                          <div key={`ug-${i}`} className="flex items-start gap-1.5 text-xs text-amber-600">
+                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                            <span>Ungrounded: &ldquo;{v.match}&rdquo; — {v.suggestion}</span>
+                          </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    )}
+
+                    {/* Sources */}
+                    {sectionSources.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                          Sources
+                        </p>
+                        <div className="space-y-0.5">
+                          {sectionSources.map((s) => (
+                            <SourceItem key={s.id} source={s} isOwner />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Footer metadata */}
           <div className="mt-16 pt-6 border-t border-gray-200 text-xs text-gray-400 print:mt-8">
@@ -240,17 +288,23 @@ export default function PublishedStoryPage() {
   // Public view — original layout for non-owners
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Back link */}
-        {author && (
-          <Link
-            to={`/profile/${author.id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            View profile
-          </Link>
-        )}
+      <div className={cn(
+        'mx-auto px-4 py-8 transition-[max-width] duration-300',
+        evidenceOn ? 'max-w-[1280px]' : 'max-w-2xl',
+      )}>
+        {/* Back link + evidence toggle */}
+        <div className="flex items-center justify-between mb-6">
+          {author ? (
+            <Link
+              to={`/profile/${author.id}`}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              View profile
+            </Link>
+          ) : <span />}
+          <EvidenceToggle on={evidenceOn} onToggle={toggleEvidence} />
+        </div>
 
         {/* Author header */}
         {author && (
@@ -301,39 +355,47 @@ export default function PublishedStoryPage() {
         )}
 
         {/* Sections */}
-        <div className="space-y-6">
-          {sectionKeys.map((key: string) => {
-            const section = story.sections[key];
-            if (!section) return null;
-            const sectionLabel = key.charAt(0).toUpperCase() + key.slice(1);
-            const sectionSources = sourcesBySection.get(key) ?? [];
+        {evidenceOn ? (
+          <StoryEvidenceView
+            story={story}
+            sectionKeys={sectionKeys}
+            sourcesBySection={sourcesBySection}
+          />
+        ) : (
+          <div className="space-y-6">
+            {sectionKeys.map((key: string) => {
+              const section = story.sections[key];
+              if (!section) return null;
+              const sectionLabel = key.charAt(0).toUpperCase() + key.slice(1);
+              const sectionSources = sourcesBySection.get(key) ?? [];
 
-            return (
-              <div key={key} className="bg-white rounded-lg border border-gray-200 p-5">
-                <h2 className="text-sm font-semibold text-gray-800 mb-2">{sectionLabel}</h2>
-                {section.summary && (
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {section.summary}
-                  </p>
-                )}
-
-                {/* Sources for this section */}
-                {sectionSources.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                      Sources
+              return (
+                <div key={key} className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h2 className="text-sm font-semibold text-gray-800 mb-2">{sectionLabel}</h2>
+                  {section.summary && (
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      {section.summary}
                     </p>
-                    <div className="space-y-0.5">
-                      {sectionSources.map((s) => (
-                        <SourceItem key={s.id} source={s} />
-                      ))}
+                  )}
+
+                  {/* Sources for this section */}
+                  {sectionSources.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Sources
+                      </p>
+                      <div className="space-y-0.5">
+                        {sectionSources.map((s) => (
+                          <SourceItem key={s.id} source={s} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Published date */}
         {story.publishedAt && (
