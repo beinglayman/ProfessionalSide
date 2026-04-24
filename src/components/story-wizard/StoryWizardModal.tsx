@@ -237,8 +237,8 @@ export const StoryWizardModal: React.FC<StoryWizardModalProps> = ({
             totalRows={totalRows}
           />
         ) : (
-          <aside className="bg-gradient-to-b from-primary-50/60 via-white to-primary-50/20 border-r border-primary-100 px-5 py-5 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary-400 animate-pulse" />
+          <aside className="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 px-5 py-5 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-primary-200 animate-pulse" />
           </aside>
         )}
 

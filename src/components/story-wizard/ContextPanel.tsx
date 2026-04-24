@@ -5,9 +5,9 @@
  * Carries the draft identity, short description, and metadata KVs so the user
  * never loses sight of what they're working on.
  *
- * Styled in the app's existing warm-light register (soft primary tint, quiet
- * dividers, values in the brand color where appropriate) rather than the
- * dark slab of the first iteration.
+ * Uses the app's brand primary (#5D259F) as a rich purple gradient, with
+ * white typography and primary-200 accents. This lets the rail act as a
+ * branded anchor inside the modal without feeling like foreign UI chrome.
  *
  * Design reference: docs/prototypes/story-wizard-overlays.html, prototype 09.
  */
@@ -53,48 +53,49 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
 }) => {
   const [archExpanded, setArchExpanded] = useState(false);
 
+  // Role color mapped to tones that read well on the purple gradient.
   const roleColor =
-    journalEntry.dominantRole === 'Led' ? 'text-emerald-700'
-    : journalEntry.dominantRole === 'Contributed' ? 'text-blue-700'
-    : 'text-gray-600';
+    journalEntry.dominantRole === 'Led' ? 'text-emerald-300'
+    : journalEntry.dominantRole === 'Contributed' ? 'text-sky-300'
+    : 'text-primary-200';
 
   return (
     <aside
       className={cn(
         'flex flex-col gap-4 overflow-y-auto px-5 py-5',
-        'bg-gradient-to-b from-primary-50/60 via-white to-primary-50/20',
-        'border-r border-primary-100'
+        'bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700',
+        'text-white'
       )}
     >
       {/* Eyebrow */}
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-700">
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-200">
         <Sparkles className="h-3 w-3" />
         <span>Draft &middot; {shortId(journalEntry.id)}</span>
       </div>
 
       {/* Title + description */}
       <div>
-        <h3 className="text-[15px] font-bold leading-snug text-gray-900 mb-1">
+        <h3 className="text-[15px] font-bold leading-snug text-white mb-1">
           {journalEntry.title}
         </h3>
         {journalEntry.description && (
-          <p className="text-xs leading-relaxed text-gray-600 m-0">
+          <p className="text-xs leading-relaxed text-primary-100/90 m-0">
             {journalEntry.description}
           </p>
         )}
       </div>
 
       {/* Metadata KVs */}
-      <div className="flex flex-col rounded-lg border border-primary-100 bg-white/70 px-3 py-1">
-        <div className="flex items-center justify-between py-2 text-xs border-b border-primary-100/70">
-          <span className="text-gray-500">archetype</span>
+      <div className="flex flex-col rounded-lg border border-white/15 bg-white/5 backdrop-blur-sm px-3 py-1">
+        <div className="flex items-center justify-between py-2 text-xs border-b border-white/10">
+          <span className="text-primary-200">Archetype</span>
           <button
             type="button"
             onClick={() => setArchExpanded((v) => !v)}
-            className="flex items-center gap-1.5 font-semibold capitalize text-primary-700 hover:text-primary-800 transition-colors"
+            className="flex items-center gap-1.5 font-semibold capitalize text-white hover:text-primary-100 transition-colors"
           >
             {selectedArchetype}
-            <span className="text-[10px] text-gray-400 font-normal">change</span>
+            <span className="text-[10px] text-primary-200 font-normal">change</span>
           </button>
         </div>
         {archExpanded && (
@@ -110,35 +111,35 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
             />
           </div>
         )}
-        <div className="flex items-center justify-between py-2 text-xs border-b border-primary-100/70">
-          <span className="text-gray-500">format</span>
-          <span className="font-semibold text-gray-900">{selectedFramework}</span>
+        <div className="flex items-center justify-between py-2 text-xs border-b border-white/10">
+          <span className="text-primary-200">Format</span>
+          <span className="font-semibold text-white">{selectedFramework}</span>
         </div>
-        <div className="flex items-center justify-between py-2 text-xs border-b border-primary-100/70">
-          <span className="text-gray-500">activities</span>
-          <span className="font-semibold text-gray-900 tabular-nums">{journalEntry.activityCount}</span>
+        <div className="flex items-center justify-between py-2 text-xs border-b border-white/10">
+          <span className="text-primary-200">Activities</span>
+          <span className="font-semibold text-white tabular-nums">{journalEntry.activityCount}</span>
         </div>
         {journalEntry.dominantRole && (
-          <div className="flex items-center justify-between py-2 text-xs border-b border-primary-100/70">
-            <span className="text-gray-500">role</span>
+          <div className="flex items-center justify-between py-2 text-xs border-b border-white/10">
+            <span className="text-primary-200">Role</span>
             <span className={cn('font-semibold', roleColor)}>{journalEntry.dominantRole}</span>
           </div>
         )}
         <div className="flex items-center justify-between py-2 text-xs">
-          <span className="text-gray-500">covered</span>
-          <span className="font-semibold text-gray-900 tabular-nums">
-            {coveredCount} <span className="text-gray-400 font-normal">/ {totalRows}</span>
+          <span className="text-primary-200">Covered</span>
+          <span className="font-semibold text-white tabular-nums">
+            {coveredCount} <span className="text-primary-200 font-normal">/ {totalRows}</span>
           </span>
         </div>
       </div>
 
       {/* Learning-section toggle */}
-      <label className="mt-auto flex items-center gap-2 cursor-pointer select-none rounded-md bg-white/60 border border-primary-100 px-3 py-2 text-xs text-gray-700 hover:bg-white transition-colors">
+      <label className="mt-auto flex items-center gap-2 cursor-pointer select-none rounded-md bg-white/10 hover:bg-white/15 border border-white/15 px-3 py-2 text-xs text-white transition-colors">
         <input
           type="checkbox"
           checked={selectedFramework === 'STARL'}
           onChange={(e) => onFrameworkChange(e.target.checked ? 'STARL' : 'STAR')}
-          className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
+          className="h-3.5 w-3.5 rounded border-white/30 bg-white/10 text-primary-300 focus:ring-primary-300 focus:ring-offset-0 focus:ring-1"
         />
         <span className="font-medium">Add a Learning section</span>
       </label>
