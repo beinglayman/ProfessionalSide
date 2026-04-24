@@ -405,6 +405,13 @@ Manage your notification preferences: {{unsubscribeUrl}}
         {{/each}}
         {{/if}}
 
+        {{#if digestData.validationActivity.count}}
+        <h3>Story validations ({{digestData.validationActivity.count}})</h3>
+        {{#each digestData.validationActivity.events}}
+        <p>• {{actorName}}: {{message}}</p>
+        {{/each}}
+        {{/if}}
+
         <a href="{{actionUrl}}" class="button">View Dashboard</a>
       `
     };

@@ -263,10 +263,49 @@ export class NotificationQueueService {
         take: 5
       });
 
+      // Ship 4.3 - peer validation events rolled up into the digest.
+      // We read from the Notification table so this section reflects
+      // exactly what the in-app bell is showing (no separate query
+      // against StoryValidation needed).
+      const validationNotifications = await prisma.notification.findMany({
+        where: {
+          recipientId: userId,
+          createdAt: { gte: startDate },
+          type: {
+            in: [
+              'STORY_VALIDATION_REQUESTED',
+              'STORY_VALIDATION_APPROVED',
+              'STORY_VALIDATION_DISPUTED',
+              'STORY_VALIDATION_INVALIDATED',
+              'STORY_VALIDATION_REMINDER',
+              'STORY_EDIT_SUGGESTED',
+              'STORY_EDIT_ACCEPTED',
+              'STORY_EDIT_REJECTED',
+            ],
+          },
+        },
+        include: { sender: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      const validationKindFor = (type: string): 'requested' | 'approved' | 'disputed' | 'edit_suggested' | 'edit_accepted' | 'edit_rejected' | 'invalidated' | 'reminder' => {
+        switch (type) {
+          case 'STORY_VALIDATION_APPROVED': return 'approved';
+          case 'STORY_VALIDATION_DISPUTED': return 'disputed';
+          case 'STORY_VALIDATION_INVALIDATED': return 'invalidated';
+          case 'STORY_VALIDATION_REMINDER': return 'reminder';
+          case 'STORY_EDIT_SUGGESTED': return 'edit_suggested';
+          case 'STORY_EDIT_ACCEPTED': return 'edit_accepted';
+          case 'STORY_EDIT_REJECTED': return 'edit_rejected';
+          default: return 'requested';
+        }
+      };
+
       // Check if there's enough activity to send digest
-      const totalActivity = newLikes.length + newComments.length + 
-                           newConnections.length + workspaceActivity.length + 
-                           achievements.length;
+      const totalActivity = newLikes.length + newComments.length +
+                           newConnections.length + workspaceActivity.length +
+                           achievements.length + validationNotifications.length;
 
       if (totalActivity === 0) {
         return null;
@@ -321,6 +360,20 @@ export class NotificationQueueService {
               title: achievement.title,
               achievedAt: achievement.achievedAt.toISOString()
             }))
+          },
+          validationActivity: {
+            count: validationNotifications.length,
+            events: validationNotifications.map(n => {
+              const data = (n.data as { storyId?: string; storyTitle?: string } | null) || {};
+              return {
+                kind: validationKindFor(n.type),
+                storyId: data.storyId || n.relatedEntityId || '',
+                storyTitle: data.storyTitle || 'a story',
+                actorName: n.sender?.name || 'A coworker',
+                message: n.message || '',
+                createdAt: n.createdAt.toISOString(),
+              };
+            }),
           }
         }
       };

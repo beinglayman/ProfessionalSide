@@ -113,6 +113,31 @@ export interface DigestEmailData {
         achievedAt: string;
       }>;
     };
+    /**
+     * Ship 4.3 - peer validation events (story validation requested,
+     * approved, disputed, edit suggested, edit accepted/rejected,
+     * reminder, invalidated). Rolled up from the Notification table so
+     * users on DAILY/WEEKLY digests don't get per-event spam.
+     */
+    validationActivity: {
+      count: number;
+      events: Array<{
+        kind:
+          | 'requested'
+          | 'approved'
+          | 'disputed'
+          | 'edit_suggested'
+          | 'edit_accepted'
+          | 'edit_rejected'
+          | 'invalidated'
+          | 'reminder';
+        storyTitle: string;
+        storyId: string;
+        actorName: string;
+        message: string;
+        createdAt: string;
+      }>;
+    };
   };
 }
 
