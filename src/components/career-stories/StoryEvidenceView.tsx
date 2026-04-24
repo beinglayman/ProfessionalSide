@@ -197,12 +197,18 @@ export const StoryEvidenceView: React.FC<StoryEvidenceViewProps> = ({
         })}
       </div>
 
-      {/* Participants row - Phase 3.1a. Read-only for now; Invite CTAs are
-          placeholders that light up in Ship 3.1b (validator invites) and
-          Ship 3.4 (external invites). Only renders for the author; non-owner
-          access will be relaxed in Ship 3.2. */}
+      {/* Participants row. Ship 3.1b wires the "Invite to validate" picker -
+          author clicks, section checkboxes open inline (auto-checked where
+          the validator's activities ground the section), confirm posts +
+          fires an in-app notification. Only renders for the author; Ship 3.2
+          will relax for validators. */}
       {story.id && (
-        <ParticipantsRow storyId={story.id} isOwner={isOwner} />
+        <ParticipantsRow
+          storyId={story.id}
+          isOwner={isOwner}
+          sectionKeys={sectionKeys}
+          sourcesBySection={sourcesBySection}
+        />
       )}
     </div>
   );

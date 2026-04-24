@@ -47,6 +47,9 @@ import {
   DerivePacketResponse,
   StoryDerivation,
   StoryParticipant,
+  StoryValidationSummary,
+  InviteValidatorRequest,
+  InviteValidatorResult,
 } from '../types/career-stories';
 
 // =============================================================================
@@ -377,6 +380,34 @@ export class CareerStoriesService {
   static async getStoryParticipants(id: string): Promise<ApiResponse<{ participants: StoryParticipant[] }>> {
     const response = await api.get<ApiResponse<{ participants: StoryParticipant[] }>>(
       `/career-stories/stories/${id}/participants`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Author view: list all validation requests that exist for a story.
+   * Ship 3.1b.
+   */
+  static async listStoryValidations(id: string): Promise<ApiResponse<{ validations: StoryValidationSummary[] }>> {
+    const response = await api.get<ApiResponse<{ validations: StoryValidationSummary[] }>>(
+      `/career-stories/stories/${id}/validations`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Author action: invite a validator to approve specific sections of a
+   * story. Idempotent per (story, section, validator) - re-sending the
+   * same invite is a no-op (skipped count goes up, no duplicate
+   * notifications).
+   */
+  static async inviteValidator(
+    id: string,
+    payload: InviteValidatorRequest,
+  ): Promise<ApiResponse<InviteValidatorResult>> {
+    const response = await api.post<ApiResponse<InviteValidatorResult>>(
+      `/career-stories/stories/${id}/validations`,
+      payload,
     );
     return response.data;
   }

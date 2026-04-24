@@ -74,6 +74,10 @@ model User {
   receivedNotifications   Notification[]           @relation("NotificationRecipient")
   notificationPreferences NotificationPreferences?
 
+  // Career Story peer validation (Ship 3.1b)
+  storyValidationsAsValidator StoryValidation[] @relation("StoryValidationValidator")
+  storyValidationsAsAuthor    StoryValidation[] @relation("StoryValidationAuthor")
+
   // Task relationships
   assignedTasks  GoalTask[] @relation("TaskAssignee")
   reviewingTasks GoalTask[] @relation("TaskReviewer")
@@ -872,6 +876,14 @@ enum NotificationType {
   CONNECTION_DECLINED
   ACHIEVEMENT
   SYSTEM
+  STORY_VALIDATION_REQUESTED
+  STORY_VALIDATION_APPROVED
+  STORY_VALIDATION_DISPUTED
+  STORY_EDIT_SUGGESTED
+  STORY_EDIT_ACCEPTED
+  STORY_EDIT_REJECTED
+  STORY_VALIDATION_INVALIDATED
+  STORY_VALIDATION_REMINDER
 }
 
 enum DigestFrequency {
@@ -885,6 +897,7 @@ enum EntityType {
   WORKSPACE
   USER
   COMMENT
+  CAREER_STORY
 }
 
 // ============================================================================
@@ -1485,6 +1498,9 @@ model CareerStory {
   // Pragma Links (shareable permalinks)
   pragmaLinks           PragmaLink[]
 
+  // Peer validation (Ship 3.1b)
+  validations           StoryValidation[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1723,3 +1739,67 @@ model DemoToolActivity {
 // The only source-level table remaining:
 // - DemoToolActivity (raw activity data from integrations)
 // =============================================================================
+
+// =============================================================================
+// CAREER STORY PEER VALIDATION (Ship 3.1b)
+// =============================================================================
+// See docs/2026-04-24-evidence-layer-and-validation-design.md.
+
+enum StoryValidationStatus {
+  PENDING
+  APPROVED
+  EDIT_SUGGESTED
+  DISPUTED
+  INVALIDATED
+}
+
+/// One row per (story, section, validator) tuple. Author invites a coworker
+/// to validate specific sections of a published story; the coworker responds
+/// with approve / dispute / suggest edit. An `EDIT_SUGGESTED` row has an
+/// accompanying StoryEditSuggestion.
+///
+/// `groundingActivityIds` captures why this validator was asked about this
+/// section (which activities they participated in that the section rests on).
+model StoryValidation {
+  id          String                @id @default(cuid())
+  storyId     String
+  sectionKey  String
+  validatorId String
+  authorId    String
+  status      StoryValidationStatus @default(PENDING)
+  /// Dispute reason, or short note accompanying the decision.
+  note        String?
+  /// Activity IDs that put this validator on this section (for UX breadcrumbs).
+  groundingActivityIds String[] @default([])
+  requestedAt DateTime  @default(now())
+  respondedAt DateTime?
+
+  story          CareerStory          @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  validator      User                 @relation("StoryValidationValidator", fields: [validatorId], references: [id])
+  author         User                 @relation("StoryValidationAuthor", fields: [authorId], references: [id])
+  editSuggestion StoryEditSuggestion?
+
+  @@unique([storyId, sectionKey, validatorId])
+  @@index([validatorId, status])
+  @@index([storyId])
+  @@index([authorId])
+  @@map("story_validations")
+}
+
+/// Sidecar for StoryValidation rows with `status = EDIT_SUGGESTED`. Validator
+/// proposes rewritten text for the section; author then Accepts (applies +
+/// resets validation to pending for re-approval) or Rejects (validation
+/// reverts to pending, validator is notified).
+model StoryEditSuggestion {
+  id            String    @id @default(cuid())
+  validationId  String    @unique
+  suggestedText String
+  /// 'accepted' | 'rejected' | null (not yet responded to).
+  authorVerdict String?
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  validation StoryValidation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+
+  @@map("story_edit_suggestions")
+}

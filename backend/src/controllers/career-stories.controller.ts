@@ -44,6 +44,11 @@ import {
 import { storySourceService } from '../services/career-stories/story-source.service';
 import { storyAnnotationService } from '../services/career-stories/story-annotation.service';
 import { resolveStoryParticipants } from '../services/career-stories/participant-resolver.service';
+import {
+  inviteValidator,
+  listStoryValidations,
+  InviteError,
+} from '../services/career-stories/validation-invite.service';
 import { deriveStory as deriveStoryService } from '../services/career-stories/derivation.service';
 import { derivePacket as derivePacketService } from '../services/career-stories/derivation-multi.service';
 import { WalletService } from '../services/wallet.service';
@@ -1119,6 +1124,87 @@ export const getStoryParticipants = asyncHandler(async (req: Request, res: Respo
   const participants = await resolveStoryParticipants(id, { authorUserId: userId });
   sendSuccess(res, { participants });
 });
+
+/**
+ * GET /api/v1/career-stories/stories/:id/validations
+ * Author view: list all outstanding + resolved validation rows.
+ */
+export const listStoryValidationsController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    if (!userId) {
+      return void sendError(res, 'User not authenticated', 401);
+    }
+
+    try {
+      const rows = await listStoryValidations(id, userId);
+      sendSuccess(res, { validations: rows });
+    } catch (e) {
+      if (e instanceof InviteError) {
+        return void sendError(res, e.message, e.status);
+      }
+      throw e;
+    }
+  },
+);
+
+/**
+ * POST /api/v1/career-stories/stories/:id/validations
+ * Author invites a validator to approve one or more sections.
+ *
+ * Body:
+ *   {
+ *     validatorUserId: string,
+ *     sectionKeys: string[],
+ *     groundingActivityIds?: string[]
+ *   }
+ */
+export const inviteValidatorController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    if (!userId) {
+      return void sendError(res, 'User not authenticated', 401);
+    }
+
+    const { validatorUserId, sectionKeys, groundingActivityIds } = req.body ?? {};
+
+    if (typeof validatorUserId !== 'string' || !validatorUserId) {
+      return void sendError(res, 'validatorUserId is required', 400);
+    }
+    if (!Array.isArray(sectionKeys) || sectionKeys.length === 0) {
+      return void sendError(res, 'sectionKeys must be a non-empty array of strings', 400);
+    }
+    if (!sectionKeys.every((s) => typeof s === 'string' && s.length > 0)) {
+      return void sendError(res, 'sectionKeys must be non-empty strings', 400);
+    }
+    if (
+      groundingActivityIds !== undefined &&
+      (!Array.isArray(groundingActivityIds) || !groundingActivityIds.every((a) => typeof a === 'string'))
+    ) {
+      return void sendError(res, 'groundingActivityIds must be an array of strings', 400);
+    }
+
+    try {
+      const result = await inviteValidator({
+        storyId: id,
+        authorUserId: userId,
+        validatorUserId,
+        sectionKeys,
+        groundingActivityIds: groundingActivityIds ?? [],
+      });
+      sendSuccess(res, result);
+    } catch (e) {
+      if (e instanceof InviteError) {
+        return void sendError(res, e.message, e.status);
+      }
+      throw e;
+    }
+  },
+);
 
 /**
  * POST /api/v1/career-stories/stories/:id/regenerate

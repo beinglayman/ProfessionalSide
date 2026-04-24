@@ -45,6 +45,8 @@ import {
   deleteStory,
   regenerateStory,
   getStoryParticipants,
+  listStoryValidationsController,
+  inviteValidatorController,
   publishStory,
   unpublishStory,
   setStoryVisibility,
@@ -140,6 +142,8 @@ router.patch('/stories/:id', updateStory);  // Support both PUT and PATCH
 router.delete('/stories/:id', deleteStory);
 router.post('/stories/:id/regenerate', regenerateStory);
 router.get('/stories/:id/participants', getStoryParticipants);
+router.get('/stories/:id/validations', listStoryValidationsController);
+router.post('/stories/:id/validations', inviteValidatorController);
 router.post('/stories/:id/publish', publishStory);
 router.post('/stories/:id/unpublish', unpublishStory);
 router.put('/stories/:id/visibility', setStoryVisibility);

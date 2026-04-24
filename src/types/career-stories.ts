@@ -577,6 +577,42 @@ export interface StoryParticipant {
   user: StoryParticipantUser | null;
 }
 
+export type StoryValidationStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'EDIT_SUGGESTED'
+  | 'DISPUTED'
+  | 'INVALIDATED';
+
+/**
+ * Author-side view of a validation request. One row per (story, section,
+ * validator) tuple - a single validator invited to N sections appears as
+ * N rows grouped by validatorId in the UI.
+ */
+export interface StoryValidationSummary {
+  id: string;
+  storyId: string;
+  sectionKey: string;
+  validatorId: string;
+  validatorName: string;
+  validatorAvatar: string | null;
+  status: StoryValidationStatus;
+  requestedAt: string;
+  respondedAt: string | null;
+}
+
+export interface InviteValidatorRequest {
+  validatorUserId: string;
+  sectionKeys: string[];
+  groundingActivityIds?: string[];
+}
+
+export interface InviteValidatorResult {
+  created: number;
+  skipped: number;
+  validationIds: string[];
+}
+
 export interface SourceCoverage {
   total: number;
   sourced: number;
